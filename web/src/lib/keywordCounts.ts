@@ -22,14 +22,16 @@
  * (`countsConversations`) and read by both sides — the read that answers the
  * number and the write that moves it — so they cannot be counted differently.
  */
+import { SEEN_KEYWORD, STARRED_KEYWORD } from "@gilbert/shared/labels";
 import { anyCarries, type CarriesKeywords } from "@/lib/rowScope";
 import { type Label, settings } from "@/store/settings";
 
-/** The keyword a starred message carries. One definition, both tiers' readers. */
-export const STARRED_KEYWORD = "$flagged";
-
-/** The keyword that marks a message read. */
-export const SEEN_KEYWORD = "$seen";
+/*
+ * The two system keywords this module counts are defined once, in the shared
+ * label vocabulary the server reads too — a run's own lookup reads `$flagged`
+ * from there (ADR 0020) — and re-exported here so a web import keeps its home.
+ */
+export { SEEN_KEYWORD, STARRED_KEYWORD };
 
 /** One keyword's numbers. */
 export interface KeywordCounts {

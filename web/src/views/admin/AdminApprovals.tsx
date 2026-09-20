@@ -21,6 +21,7 @@ import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import {
   AGENT_OUTCOME_LABELS,
   automationText,
+  lookupText,
   outcomeText,
 } from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
@@ -207,6 +208,7 @@ function CrossGroupAudit() {
                   <th>{t("When")}</th>
                   <th>{t("Outcome")}</th>
                   <th>{t("Automation")}</th>
+                  <th>{t("Read")}</th>
                   <th>{t("By")}</th>
                   <th>{t("Detail")}</th>
                 </tr>
@@ -220,6 +222,7 @@ function CrossGroupAudit() {
                     <td>{formatListDate(entry.at)}</td>
                     <td>{outcomeText(entry.outcome)}</td>
                     <td>{entry.ruleName}</td>
+                    <td>{(entry.lookups ?? []).map(lookupText).join(", ") || "—"}</td>
                     <td>{entry.by ?? "—"}</td>
                     <td>{entry.detail ?? ""}</td>
                   </tr>

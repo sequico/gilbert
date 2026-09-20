@@ -174,7 +174,14 @@ export class AgentStore {
   ) {}
 
   private path(...segments: string[]): string {
-    return [AGENT_DIR, ...segments].join("/");
+    const joined = segments.join("/");
+    // A segment that already names its directory under `agent/` is not
+    // prefixed again: the notebook, the policy and the two prose documents
+    // carry `agent/` themselves, and the layout in `documents.ts` names them
+    // `agent/notebook.json` and so on.
+    return joined === AGENT_DIR || joined.startsWith(`${AGENT_DIR}/`)
+      ? joined
+      : [AGENT_DIR, joined].join("/");
   }
 
   /** The FileNode state of the account: the token a conditional write takes. */

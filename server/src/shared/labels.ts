@@ -35,6 +35,20 @@ export interface LabelCatalogEntry {
   color: string;
 }
 
+/**
+ * The keyword a starred message carries.
+ *
+ * A star is not a document of its own: it is this JMAP keyword on the message,
+ * in the account that holds the mail — which is why a group's starred messages
+ * are readable by anyone the account's mail is, the installation's agent
+ * included. One definition, both tiers' readers and the agent's own lookup
+ * (ADR 0020).
+ */
+export const STARRED_KEYWORD = "$flagged";
+
+/** The keyword that marks a message read. */
+export const SEEN_KEYWORD = "$seen";
+
 /** The parsed `labels.json`. */
 export interface LabelCatalog {
   labels: LabelCatalogEntry[];

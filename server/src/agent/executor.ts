@@ -14,13 +14,16 @@
  * would be a state nobody can see.
  */
 import { randomUUID } from "node:crypto";
+import { readGroupLabels } from "../account.js";
 import {
   type Ctx,
   destroyAppNode,
   FILENODE_CAP,
+  fileChildren,
   filesAccountId,
   findAppFolder,
   findFolderPath,
+  findVisibleFolder,
   listAppDir,
   readVisibleFileBytes,
 } from "../appFolder.js";
@@ -33,7 +36,7 @@ import {
   mentionsName,
   participantsOf,
 } from "../shared/chat.js";
-import { AGENT_LABEL } from "../shared/labels.js";
+import { AGENT_LABEL, SEEN_KEYWORD } from "../shared/labels.js";
 import {
   type ActionOpts,
   type ActionResult,
@@ -80,6 +83,9 @@ import {
   AGENT_DIR,
   AGENT_DOCUMENT_BYTES_MAX,
   AGENT_INSTRUCTION_FILE,
+  AGENT_LOOKUP_MESSAGES_MAX,
+  AGENT_LOOKUP_ROUNDS,
+  AGENT_LOOKUP_TEXT_MAX,
   AGENT_PAGES_CEILING,
   AGENT_PREAMBLE_FILE,
   AGENT_RULES_FILE,
@@ -91,11 +97,13 @@ import {
   type AgentEffect,
   type AgentEmailView,
   type AgentJob,
+  type AgentLookup,
   type AgentProposal,
   type AgentProvider,
   type AgentRule,
   type AgentScheduleEntry,
   type AgentTriggerRecord,
+  actionParamsText,
   agentActionSpec,
   automationLabel,
   CHAT_CONTEXT_DEFAULT,
@@ -106,6 +114,7 @@ import {
   hopOf,
   leaseExpired,
   leavesTheProcess,
+  lookupLabel,
   monthOf,
   newDecision,
   newJob,
@@ -195,7 +204,6 @@ interface RunPlan {
   actions: AgentAction[];
   confidence: number;
   summary: string;
-  rationale?: string;
   /**
    * What the deciding call cost, for the group's own meter (ADR 0003).
    *
@@ -911,7 +919,7 @@ export class Executor {
        * The gate: the group's own policy decides how cautious its runs are, and
        * it is read here — after the plan and before anything runs — so a policy
        * a member changed while a run was deciding applies to that run rather
-       * than to the next one. A document nobody has written reads as the cautious
+       * than to the next one. A document nobody has written reads as the
        * default (`policyOf`), which is the one reading nobody had to choose.
        */
       const policy = policyOf((await store.readPolicy())?.doc ?? null);
@@ -975,7 +983,16 @@ export class Executor {
     return next;
   }
 
-  /** What the run should do: the model decides, inside the rule's own grant. */
+  /**
+   * What the run should do: the model decides, inside the rule's own grant.
+   *
+   * The deciding call may answer with a lookup instead of actions, up to
+   * `AGENT_LOOKUP_ROUNDS` times (ADR 0020): the run reads what it asked for in
+   * the group's own account, appends it to the run's context and asks again.
+   * Nothing about the loop loosens the rest — the capability allowlist and the
+   * review gate still see the one answer that decides, and a lookup is a read
+   * that changes nothing.
+   */
   private async planFor(
     store: AgentStore,
     accountId: string,
@@ -1000,38 +1017,282 @@ export class Executor {
       store.readProse(AGENT_INSTRUCTION_FILE),
       store.readNotebook(),
     ]);
-    const answer = await decideActions(
-      this.usableProvider(configDoc),
-      rule,
-      context,
-      // What the model is offered, and what its answer is checked against: the
-      // rule's grant plus the answer "change nothing", which every automation
-      // has. One function, so the prompt and the check cannot disagree about it.
-      effectiveCapabilities(rule),
-      {
-        preamble: proseFor(preambleDoc?.doc ?? null),
-        standing: proseFor(instructionDoc?.doc ?? null),
-        notebook: notebookFor(notebookDoc?.doc ?? null),
-      },
-      // The call's own shape: the installation's ceiling on an answer, how many
-      // pages it may hand over, and the agent's own decision about paying for a
-      // chain of thought. The page bound is stated in the prompt from this same
-      // number, so what the model is told and what the run hands over cannot
-      // disagree.
-      {
-        maxOutputTokens: configDoc?.maxOutputTokens,
-        maxPages: pages,
-        thinking: config.agent.thinking,
-      },
-    );
-    await this.guardLabels(accountId, answer.actions);
-    return {
-      actions: answer.actions,
-      confidence: answer.confidence,
-      summary: answer.summary,
-      ...(answer.usage ? { usage: answer.usage } : {}),
-      ...(answer.rationale ? { rationale: answer.rationale } : {}),
+    const provider = this.usableProvider(configDoc);
+    // What the model is offered, and what its answer is checked against: the
+    // rule's grant plus the answer "change nothing", which every automation
+    // has. One function, so the prompt and the check cannot disagree about it.
+    const allowed = effectiveCapabilities(rule);
+    const prose = {
+      preamble: proseFor(preambleDoc?.doc ?? null),
+      standing: proseFor(instructionDoc?.doc ?? null),
+      notebook: notebookFor(notebookDoc?.doc ?? null),
     };
+    // The call's own shape: the installation's ceiling on an answer, how many
+    // pages it may hand over, and the agent's own decision about paying for a
+    // chain of thought. The page bound is stated in the prompt from this same
+    // number, so what the model is told and what the run hands over cannot
+    // disagree.
+    const call = {
+      maxOutputTokens: configDoc?.maxOutputTokens,
+      maxPages: pages,
+      thinking: config.agent.thinking,
+    };
+    // The volatile tail grows by what the run reads and the stable head never
+    // moves, so widening a run cannot cost the provider a cache miss on the
+    // head it already served (ADR 0003, ADR 0020).
+    let text = context.text;
+    let usage: AgentUsage | undefined;
+    const lookups: AgentLookup[] = [];
+    for (let round = 0; round <= AGENT_LOOKUP_ROUNDS; round++) {
+      const answer = await decideActions(
+        provider,
+        rule,
+        { ...context, text },
+        allowed,
+        prose,
+        { ...call, lookupsLeft: AGENT_LOOKUP_ROUNDS - round },
+      );
+      usage = addUsage(usage, answer.usage);
+      if (answer.kind === "lookup") {
+        lookups.push(answer.lookup);
+        text = `${text}\n\n${await this.lookupSlice(accountId, answer.lookup)}`;
+        continue;
+      }
+      await this.guardLabels(accountId, answer.actions);
+      if (lookups.length) await this.recordLookups(store, job, lookups);
+      return {
+        actions: answer.actions,
+        confidence: answer.confidence,
+        summary: answer.summary,
+        ...(usage ? { usage } : {}),
+      };
+    }
+    // The last call has no lookups left, so a lookup answer is refused inside
+    // `decideActions`; reaching here is a bug in that bound, and it is loud.
+    throw new Error(
+      `"${automationLabel(rule)}" spent its lookups without deciding anything`,
+    );
+  }
+
+  /**
+   * What a run asked to read, read (ADR 0020).
+   *
+   * One dispatcher over the closed catalogue. What lists hands over names and
+   * ids and what reads hands over one item's text, bounded: a run pays for the
+   * index once and for content only where it needs it, and the group's whole
+   * state — its mail, folders, labels, Files and chat — is reachable without a
+   * mailbox ever being attached wholesale (ADR 0006 decision three).
+   */
+  private async lookupSlice(accountId: string, lookup: AgentLookup): Promise<string> {
+    switch (lookup.kind) {
+      case "mail":
+        return this.mailLookup(accountId, lookup);
+      case "message":
+        return this.messageLookup(accountId, lookup);
+      case "mailboxes":
+        return this.mailboxesLookup(accountId, lookup);
+      case "labels":
+        return this.labelsLookup(accountId, lookup);
+      case "files":
+        return this.filesLookup(accountId, lookup);
+      case "file":
+        return this.fileLookup(accountId, lookup);
+      case "chat":
+        return this.chatLookup(accountId, lookup);
+    }
+  }
+
+  /**
+   * The newest mail a run asked about: headers and ids, never bodies.
+   *
+   * The listing is the index the run then reads from — a `message` lookup by
+   * the id one of these lines carries — which is what keeps a broad question
+   * ("what is unread in the inbox") from paying for every message's text.
+   */
+  private async mailLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "mail" }>,
+  ): Promise<string> {
+    const filter: Record<string, unknown> = {};
+    if (lookup.mailbox) {
+      const mailboxId = await findMailboxByName(
+        this.deps.client,
+        accountId,
+        lookup.mailbox,
+      );
+      if (!mailboxId)
+        return `${lookupHeading(lookup)}: this account has no folder called “${lookup.mailbox}”`;
+      filter.inMailbox = mailboxId;
+    }
+    if (lookup.keyword) filter.hasKeyword = lookup.keyword;
+    if (lookup.unread) filter.notKeyword = SEEN_KEYWORD;
+    if (lookup.from) filter.from = lookup.from;
+    if (lookup.text) filter.text = lookup.text;
+    const limit = Math.min(
+      lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
+      AGENT_LOOKUP_MESSAGES_MAX,
+    );
+    const result = await this.deps.client.chain(
+      [
+        [
+          "Email/query",
+          {
+            accountId,
+            filter,
+            sort: [{ property: "receivedAt", isAscending: false }],
+            limit,
+            calculateTotal: true,
+          },
+          "q",
+        ],
+        [
+          "Email/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+            properties: ["id", "from", "subject", "receivedAt", "keywords"],
+          },
+          "g",
+        ],
+      ],
+      [JMAP_MAIL],
+    );
+    const raw = result.raw("q");
+    const list =
+      raw && raw[0] === "Email/query" ? (raw[1] as Record<string, unknown>) : {};
+    const found = result.list<AgentEmailView>("g");
+    const total = typeof list.total === "number" ? list.total : found.length;
+    return renderItemList(lookup, total, found.map(mailListLine));
+  }
+
+  /** One message's own text, by the id a mail lookup listed. */
+  private async messageLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "message" }>,
+  ): Promise<string> {
+    const view = await fetchEmailView(this.deps.client, accountId, lookup.id, {
+      body: true,
+    });
+    if (!view)
+      return `${lookupHeading(lookup)}: there is no such message in this account`;
+    return renderItem(lookup, renderEmail("", { ...view, body: boundedText(view.body) }));
+  }
+
+  /** The account's own folders, so a run can name one. */
+  private async mailboxesLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "mailboxes" }>,
+  ): Promise<string> {
+    const res = await this.deps.client.call<{ list?: Array<Record<string, unknown>> }>(
+      "Mailbox/get",
+      { accountId, ids: null, properties: ["id", "name", "role"] },
+      [JMAP_MAIL],
+    );
+    const rows = (res.list ?? []).map(
+      (mailbox) =>
+        `- ${String(mailbox.name ?? "(unnamed)")}${
+          mailbox.role ? ` (${String(mailbox.role)})` : ""
+        }`,
+    );
+    return renderItemList(lookup, rows.length, rows);
+  }
+
+  /** The group's own label catalog: the keywords its mail is filed under. */
+  private async labelsLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "labels" }>,
+  ): Promise<string> {
+    const read = await readGroupLabels(this.deps.ctx, accountId);
+    if (read.state === "absent")
+      return `${lookupHeading(lookup)}: this group has no label catalog yet`;
+    if (read.state === "unreadable")
+      return `${lookupHeading(lookup)}: this group's label catalog could not be read`;
+    const rows = read.labels.map((label) => `- ${label.keyword}: ${label.name}`);
+    return renderItemList(lookup, rows.length, rows);
+  }
+
+  /** The group's visible Files: what is in the top level, or in one folder. */
+  private async filesLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "files" }>,
+  ): Promise<string> {
+    const folder = (lookup.folder ?? "").trim();
+    const folderId = await findVisibleFolder(this.deps.ctx, accountId, folder);
+    if (folderId === undefined)
+      return `${lookupHeading(lookup)}: this group has no folder called “${folder}”`;
+    const nodes = await fileChildren(
+      this.deps.ctx,
+      accountId,
+      folderId,
+      undefined,
+      AGENT_LOOKUP_MESSAGES_MAX,
+    );
+    const rows = nodes.map((node) => {
+      const kind = node.nodeType === "directory" ? "folder" : "file";
+      const size = typeof node.size === "number" ? `, ${node.size} bytes` : "";
+      return `- ${String(node.name ?? "(unnamed)")} (${kind}${size})`;
+    });
+    return renderItemList(lookup, rows.length, rows);
+  }
+
+  /** One file of the group's visible Files, as the text this build reads. */
+  private async fileLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "file" }>,
+  ): Promise<string> {
+    const found = await readVisibleFileBytes(this.deps.ctx, accountId, lookup.path);
+    if (!found)
+      return `${lookupHeading(lookup)}: this group's Files do not hold “${lookup.path}”`;
+    const kind = documentKindOf(
+      found.name,
+      typeof found.file.type === "string" ? found.file.type : undefined,
+    );
+    if (!kind) return renderItem(lookup, "(a kind of file this build does not read)");
+    // No pages are rasterised for a lookup: reading a page as an image is an
+    // action a run pays for (`document.read`), not something a listing does.
+    const content = await documentContent(found.bytes, kind, 0);
+    return renderItem(lookup, boundedText(content.read.text));
+  }
+
+  /** The group's chat, optionally narrowed to what a sender said or what it says. */
+  private async chatLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "chat" }>,
+  ): Promise<string> {
+    const messages = await this.readChatOf(accountId);
+    const text = lookup.text?.toLowerCase();
+    const from = lookup.from?.toLowerCase();
+    const matching = messages.filter(
+      (message) =>
+        (!from || message.from.toLowerCase() === from) &&
+        (!text || message.text.toLowerCase().includes(text)),
+    );
+    const limit = Math.min(
+      lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
+      AGENT_LOOKUP_MESSAGES_MAX,
+    );
+    const rows = matching
+      .slice(-limit)
+      .map((message) => `- ${renderChatMessage(message)}`);
+    return renderItemList(lookup, matching.length, rows);
+  }
+
+  /** The lookups a run made, onto the job, so its record says what it read. */
+  private async recordLookups(
+    store: AgentStore,
+    job: AgentJob,
+    lookups: ReadonlyArray<AgentLookup>,
+  ): Promise<void> {
+    try {
+      await this.writeJobIfCurrent(store, job.id, (latest) => ({
+        ...latest,
+        lookups: [...(latest.lookups ?? []), ...lookups],
+      }));
+    } catch (err) {
+      // The run's record is a courtesy to whoever reads it afterwards; losing
+      // it must not lose the work the run is about to do.
+      this.deps.log(`could not record what ${job.id} looked up: ${errorMessage(err)}`);
+    }
   }
 
   /** The `G-` catalog guard: refuse the run before it has any effect at all. */
@@ -2888,19 +3149,17 @@ export const RETRY_BACKOFF_MAX_MS = 5 * 60_000;
 
 /** The plan a run has to execute, as the job stores it. */
 function proposalOf(plan: RunPlan): AgentProposal {
-  const proposal: AgentProposal = {
+  return {
     summary: plan.summary,
     actions: plan.actions,
     confidence: plan.confidence,
     draft: null,
   };
-  if (plan.rationale) proposal.rationale = plan.rationale;
-  return proposal;
 }
 
 /** The plan a job already carries, so a retry resumes it rather than redeciding. */
 function planOf(proposal: AgentProposal): RunPlan {
-  const plan: RunPlan = {
+  return {
     actions: proposal.actions,
     confidence: proposal.confidence,
     summary: proposal.summary,
@@ -2909,8 +3168,6 @@ function planOf(proposal: AgentProposal): RunPlan {
     // meter rather than a row of nulls that reads as a run nobody priced.
     resumed: true,
   };
-  if (proposal.rationale) plan.rationale = proposal.rationale;
-  return plan;
 }
 
 /**
@@ -2964,6 +3221,20 @@ function describeActionsInWords(results: ReadonlyArray<ActionResult>): string {
   return words.join(", ") || "nothing";
 }
 
+/**
+ * One action as a person reads it: the catalogue's label, then its parameters.
+ *
+ * The label alone says "Write in the chat" and hides the words; a member asked
+ * to approve a run has to see what it would post. The parameter rendering is
+ * `actionParamsText`, the same one the member's panel uses, so the two cannot
+ * describe one action differently.
+ */
+function describeAction(action: AgentAction): string {
+  const label = agentActionSpec(action.do)?.label ?? action.do;
+  const params = actionParamsText(action);
+  return params ? `${label} (${params})` : label;
+}
+
 function describeTrigger(trigger: AgentTriggerRecord): string {
   if (trigger.on === "manual")
     return `message ${trigger.emailId ?? "(gone)"}, asked for by a person`;
@@ -2991,6 +3262,81 @@ export function renderFolderSlice(
   return `FOLDER "${name}" (the ${views.length} most recent):\n\n${lines.join("\n")}`;
 }
 
+/** What a lookup reads as in the run's own context. */
+function lookupHeading(lookup: AgentLookup): string {
+  return `LOOKED UP — ${lookupLabel(lookup)}`;
+}
+
+/**
+ * What a listing hands the run (ADR 0020).
+ *
+ * Names, ids and headers, never bodies: the listing is the index a run reads
+ * from, and both bounds are stated in the heading — how many of how many — so
+ * what the model cannot see, it knows it cannot see.
+ */
+export function renderItemList(
+  lookup: AgentLookup,
+  total: number,
+  rows: ReadonlyArray<string>,
+): string {
+  const title = lookupHeading(lookup);
+  if (!rows.length) return `${title}: nothing`;
+  const header =
+    total > rows.length
+      ? `${title} (the first ${rows.length} of ${total}):`
+      : `${title} (${rows.length}):`;
+  return `${header}\n\n${rows.join("\n")}`;
+}
+
+/** What one read item hands the run: its own text, bounded and labelled. */
+export function renderItem(lookup: AgentLookup, text: string): string {
+  return `${lookupHeading(lookup)}:\n\n${text}`;
+}
+
+/** One message as a listing line: the id a `message` lookup names it by. */
+function mailListLine(view: AgentEmailView): string {
+  const from = (view.from ?? []).map((a) => a.email ?? a.name ?? "").join(", ");
+  const labels = Object.keys(view.keywords ?? {}).filter(
+    (keyword) => keyword !== SEEN_KEYWORD && keyword !== "$draft",
+  );
+  return `- ${view.id ?? "?"}  ${view.receivedAt ?? "unknown"}  ${from}  ${
+    view.subject ?? "(no subject)"
+  }${labels.length ? `  [${labels.join(" ")}]` : ""}`;
+}
+
+/** One item's text, cut at the read ceiling and said so. */
+function boundedText(text: string | null | undefined): string {
+  const value = (text ?? "").trim();
+  if (!value) return "(no text)";
+  return value.length > AGENT_LOOKUP_TEXT_MAX
+    ? `${value.slice(0, AGENT_LOOKUP_TEXT_MAX)}\n…(longer than one read carries)`
+    : value;
+}
+
+/**
+ * Two calls' costs added up, for a run that made more than one.
+ *
+ * A count the provider did not report keeps the sum honest: a field one call
+ * left unknown is unknown for the run, never zero, so the meter says a run's
+ * price is a floor rather than inventing a number for it (ADR 0003).
+ */
+function addUsage(
+  total: AgentUsage | undefined,
+  next: AgentUsage | undefined,
+): AgentUsage | undefined {
+  if (!next) return total;
+  if (!total) return next;
+  return {
+    inputHitTokens: addCount(total.inputHitTokens, next.inputHitTokens),
+    inputMissTokens: addCount(total.inputMissTokens, next.inputMissTokens),
+    outputTokens: addCount(total.outputTokens, next.outputTokens),
+  };
+}
+
+function addCount(a: number | null, b: number | null): number | null {
+  return a === null || b === null ? null : a + b;
+}
+
 function renderEmail(heading: string, view: AgentEmailView): string {
   const from = (view.from ?? [])
     .map((address) => address.email ?? address.name ?? "")
@@ -3011,15 +3357,23 @@ function renderChatMessage(message: ChatMessage): string {
   return `${message.from} (${message.created}): ${message.text}`;
 }
 
-/** The proposal a member reads in the chat, and answers. */
-function proposalText(rule: AgentRule, job: AgentJob): string {
+/**
+ * The proposal a member reads in the chat, and answers.
+ *
+ * What it says is what the run would **do**: the one-sentence summary, then
+ * each action with the parameters it carries — the words it would post, the
+ * label it would apply, the folder it would file into. The model's reasoning is
+ * not here and is nowhere a person reads it: a chain of thought is not what an
+ * approval is for, and the deciding call is not asked for one (ADR 0003).
+ */
+export function proposalText(rule: AgentRule, job: AgentJob): string {
   const proposal = job.proposal;
   if (!proposal) return `"${automationLabel(rule)}" has something to ask.`;
   const lines = [`"${automationLabel(rule)}" suggests: ${proposal.summary}`];
-  if (proposal.rationale) lines.push(proposal.rationale);
-  lines.push(
-    `What it would do: ${proposal.actions.map((action) => action.do).join(", ")}.`,
-  );
+  const actions = proposal.actions.map(describeAction);
+  if (actions.length === 1) lines.push(`What it would do: ${actions[0]}.`);
+  else if (actions.length > 1)
+    lines.push(`What it would do:\n${actions.map((line) => `- ${line}`).join("\n")}`);
   if (proposal.draft)
     lines.push(
       "The message it prepared is in the group's Drafts, marked G-awaiting; sending it there counts as approval.",

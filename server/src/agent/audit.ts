@@ -129,7 +129,12 @@ export function auditEntry(
   detail?: string,
   cost?: RunCost,
 ): AgentAuditEntry {
-  return build(subjectOf(job), rule, outcome, actions, detail, cost);
+  const entry = build(subjectOf(job), rule, outcome, actions, detail, cost);
+  // What the run looked up rides its own job, so every line written from that
+  // job carries it — and the trail answers "what did it read" after the job
+  // document has been pruned (ADR 0020).
+  if (job.lookups?.length) entry.lookups = job.lookups;
+  return entry;
 }
 
 /**

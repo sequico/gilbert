@@ -118,10 +118,12 @@ are the ones nobody is holding, and the next process adopts them.
 
 Claims carry an epoch, incremented on takeover and never on a pass over a claim
 that is already one's own, and a run checks `claimStillMine` immediately before
-any action that leaves the process — sending, posting, filing, drafting, or
-reshaping a document into a new file. That fenced set is one explicit list,
+any action that leaves the process — sending, posting, filing, drafting,
+reshaping a document into a new file, or writing the group's memory. That
+fenced set is one explicit list,
 `FENCED_ACTIONS` (`mail.send`, `chat.post`, `mail.draft`, `file.write`,
-`mail.extract`, `document.split`, `document.merge`, `document.extract`), read
+`notebook.write`, `mail.extract`, `document.split`, `document.merge`,
+`document.extract`), read
 by both the fence and the retry decision, so an action cannot be fenced in one
 and repeatable in the other. An agent that finds its claim taken from it stops
 rather than writing results the successor will write again.

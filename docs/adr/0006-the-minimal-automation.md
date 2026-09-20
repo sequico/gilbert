@@ -2,13 +2,16 @@
 
 Status: Accepted
 
-Implementation: Partly built. Decisions one, two and four are built: the rule
+Implementation: Built. Decisions one, two and four: the rule
 shape the editor writes (`server/src/agent/documents.ts` — `AgentRule`,
 `AGENT_TRIGGERS`, `rulesProblem`, `areaActions`), the three areas with the two
 entries that stand beside them (`AGENT_AREAS`, `standaloneActions`,
 `agentRuleJsonSchema`'s `x-areas`) and the group's policy document
-(`AgentGroupPolicyDoc`, `policyOf`, `AgentReviewMode`). Decision three is
-decided here and not built: the two speeds of context.
+(`AgentGroupPolicyDoc`, `policyOf`, `AgentReviewMode`). Decision three, the two
+speeds of context: the distilled head is the notebook, which a run may now write
+(`notebook.write`, `server/src/agent/actions.ts`), and the narrow tail is the
+named lookup a run asks for and gets (`AgentLookup`, `server/src/agent/llm.ts`,
+`server/src/agent/executor.ts`, ADR 0020).
 
 The surface this is about is **Admin → Group Agents → Automations** — the
 editor that writes a group's automations. ADR 0003 gives an automation one
@@ -26,10 +29,7 @@ paying full price for what it does not — so "does this need to be this
 complicated" has a written answer instead of being re-litigated at every
 reading of the Automations tab.
 
-**What is built, and what is only decided.** Decisions one, two and four are
-built, and the files are named in each of them. Decision three is **not
-implemented** — this record is the design it is built against, and a reader
-should take its tense as the design's, never the tree's.
+**What is built.** All four decisions, and the files are named in each of them.
 
 ## Decision one — one automation per trigger, not per case
 
@@ -174,12 +174,11 @@ The decision is therefore **two speeds of memory, not one list that grows**:
   at cache-hit prices instead of the correspondence at full price.
 - **The volatile tail stays narrow and named, never broad and implicit.** A run
   reads the item its trigger is about, the chat window `conversationContext`
-  already bounds, and — when a request names one — the one file or message it
-  names, fetched by a targeted search rather than attached wholesale. This is
-  the same shape `folderRequest`/`folderSlice` already give a chat run that
-  asks for a named folder, generalized to a named email or document rather
-  than invented fresh: the tail grows by one matched item, not by every item
-  that might be relevant.
+  already bounds, and — when a request names one — the messages it names. The
+  chat's own `folderRequest`/`folderSlice` is one way in; the other is the run
+  asking, through the closed lookup catalogue ADR 0020 decides (`AgentLookup`,
+  the bounded loop in `planFor`), so the tail grows by one named read rather
+  than by every item that might be relevant.
 
 **Rejected — attaching received and sent mail as standing context.** Beyond the
 caching cost above, a run's context is also the one place untrusted content
@@ -190,21 +189,19 @@ about, for a benefit — "it might come up" — the targeted lookup above alread
 covers for the cases that actually do. Breadth of memory is bought with the
 notebook's distillation, not with the size of what is attached raw.
 
-**What building this costs, named.** Neither half of decision three exists
-yet, and the first half needs something this installation does not have: **no
-capability in `AGENT_ACTION_SPECS` writes a group's own documents.** The
-notebook is `agent/notebook.json` in the group account's hidden `gilbert` app
-folder, and the one action that writes text — `file.write` — reaches the
-visible Files and refuses that folder as a destination
-(`writeBytesIntoVisibleFolder`, `server/src/agent/actions.ts`). ADR 0003's own
-rule is that a behaviour is an action in the library, so the follow-up includes
-**adding one** (a `notebook.write`, gated and fenced the way `file.write` is);
-the second half is the narrower change: an extension of `contextFor`'s named
-lookup to an email or a document, beside the folder lookup that exists. Nothing
-in this record changes `contextFor` or `llm.ts`; what it settles is where new
-context is allowed to go, so the implementation does not have to re-derive it
-from the caching mechanics each time: distilled and infrequent in the head, or
-named and narrow in the tail — never raw and wholesale in either.
+**What building this cost, named.** Both halves are built. The head needed a
+capability that writes the group's own documents — no entry of the catalogue
+did, and the one that writes text (`file.write`) reaches the visible Files and
+refuses the hidden app folder as a destination. The catalogue carries
+`notebook.write` now: it writes a fact into `agent/notebook.json` in the group
+account's hidden `gilbert` app folder, gated and fenced the way `file.write` is
+(`server/src/agent/actions.ts`, `buildAction`). The tail is ADR 0020's bounded
+lookup: the deciding call may answer with a kind and its parameter instead of
+actions, the run reads the group's own mail and asks again. What this record
+settles is where new context is allowed to go, so the implementation does not
+have to re-derive it from the caching mechanics each time: distilled and
+infrequent in the head, or named and narrow in the tail — never raw and
+wholesale in either.
 
 ## What stays mandatory, and why it is not the same complexity
 
@@ -226,8 +223,9 @@ named and narrow in the tail — never raw and wholesale in either.
   purpose (`consentRequired`, `irreversible`), so the policy decides only how
   cautious the *rest* of a run is, never whether sending mail asks first. One
   decision per group, made once, is the whole of what this costs an
-  administrator; a group that has written none runs on the cautious reading,
-  with every run stopping for a person.
+  administrator; a group that has written none runs on the confident reading —
+  an in-group action the model is sure of goes ahead, an unsure one stops for a
+  person — with those floors holding whatever it says.
 - **The prose**, in three places rather than one: the installation's own rules,
   the group's standing instruction, and the automation's own instruction. ADR
   0019 is where the three levels are decided; what this record adds is that none

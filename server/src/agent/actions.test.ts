@@ -18,8 +18,13 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { readAppFileAt, readVisibleFileAt, writeAppFileAt, writeBytesIntoVisibleFolder } =
-  await import("../appFolder.js");
+const {
+  readAppFileAt,
+  readAppJsonAt,
+  readVisibleFileAt,
+  writeAppFileAt,
+  writeBytesIntoVisibleFolder,
+} = await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
 const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
   "./actions.js"
@@ -342,6 +347,78 @@ test("a file is written where people look, and never over one already there", as
     (await readVisibleFileAt(ctx, GROUP, "notes/summary.txt"))?.text,
     "done",
     "the file a member can see is the one the first run wrote",
+  );
+});
+
+test("a run remembers a fact, corrects it, and lets it go", async () => {
+  /*
+   * The notebook is the group's memory and a run may write it (ADR 0006
+   * decision three): the action adds a fact, corrects one by its id, and
+   * removes one by writing it with no text. Every later run of the group reads
+   * what is left, which is why a write to it is fenced like a file write.
+   */
+  const [added] = await runActions(
+    ctx,
+    GROUP,
+    [
+      {
+        do: "notebook.write",
+        with: { text: "Invoices from Ada are filed under the client." },
+      },
+    ],
+    { from: AGENT },
+  );
+  assert.equal(added?.result?.facts, 1);
+  const doc = (await readAppJsonAt(ctx, GROUP, "agent/notebook.json")) as {
+    facts?: Array<{ id: string; text: string }>;
+  } | null;
+  const id = String(doc?.facts?.[0]?.id ?? "");
+  assert.ok(id, "the fact the run wrote is in the group's notebook");
+
+  const [corrected] = await runActions(
+    ctx,
+    GROUP,
+    [
+      {
+        do: "notebook.write",
+        with: { id, text: "Invoices from Ada are filed under the client's name." },
+      },
+    ],
+    { from: AGENT },
+  );
+  assert.equal(corrected?.result?.facts, 1, "a correction replaces rather than adds");
+  const after = (await readAppJsonAt(ctx, GROUP, "agent/notebook.json")) as {
+    facts?: Array<{ id: string; text: string }>;
+  } | null;
+  assert.equal(
+    after?.facts?.[0]?.text,
+    "Invoices from Ada are filed under the client's name.",
+  );
+
+  await runActions(ctx, GROUP, [{ do: "notebook.write", with: { id, text: "" } }], {
+    from: AGENT,
+  });
+  const emptied = (await readAppJsonAt(ctx, GROUP, "agent/notebook.json")) as {
+    facts?: unknown[];
+  } | null;
+  assert.deepEqual(emptied?.facts, [], "an empty text removes the fact it names");
+
+  // A run that names a fact the notebook does not hold is refused in words
+  // rather than silently adding a second one beside it, and one that names
+  // neither a fact nor a text has nothing to write.
+  await assert.rejects(
+    () =>
+      runActions(
+        ctx,
+        GROUP,
+        [{ do: "notebook.write", with: { id: "not-a-fact", text: "x" } }],
+        { from: AGENT },
+      ),
+    /does not hold/,
+  );
+  await assert.rejects(
+    () => runActions(ctx, GROUP, [{ do: "notebook.write", with: {} }], { from: AGENT }),
+    /needs text to add a fact/,
   );
 });
 

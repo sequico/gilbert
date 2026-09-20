@@ -1,7 +1,7 @@
+import { AGENT_SCHEDULE_PRESETS, ruleProblems } from "@gilbert/agent/documents";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AGENT_SCHEDULE_PRESETS, ruleProblems } from "@gilbert/agent/documents";
 import { useAgents } from "@/store/agents";
 import { RuleEditor } from "../RuleEditor";
 import { type AgentRuleDraft, RuleForm } from "../RuleForm";

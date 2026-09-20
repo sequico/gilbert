@@ -269,6 +269,8 @@ test("a validated answer is the summary a member reads", async () => {
   answerWith({
     summary: "It would label the message.",
     confidence: 0.4,
+    // A provider that volunteers its chain of thought anyway: the answer a
+    // member reads is the run's output, and a rationale is not part of it.
     rationale: "the subject says invoice",
     actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
   });
@@ -278,12 +280,99 @@ test("a validated answer is the summary a member reads", async () => {
   ]);
   assert.equal(answer.summary, "It would label the message.");
   assert.equal(answer.confidence, 0.4);
+  assert.equal(
+    "rationale" in answer,
+    false,
+    "the deciding call is asked for its output, never for how it got there",
+  );
   assert.deepEqual(answer.actions, [
     { do: "keyword.add", with: { keyword: "G-processed" } },
   ]);
   const messages = seen?.body.messages as Array<{ role: string; content: string }>;
   assert.match(messages[0]?.content ?? "", /keyword\.add/);
   assert.match(messages[0]?.content ?? "", /parameters: keyword/);
+  // And the prompt does not ask for one: a shape the call never requests is a
+  // shape a model has no reason to volunteer.
+  assert.doesNotMatch(messages[0]?.content ?? "", /rationale/);
+});
+
+test("a call may answer with a lookup instead of a decision", async () => {
+  // The named, narrow half of ADR 0006 decision three, built as a thing the
+  // model asks for rather than a pattern the run guesses (ADR 0020): the answer
+  // is the lookup, and the prompt offers the catalogue it may name. The
+  // catalogue is the group's whole state, not one label's.
+  answerWith({ lookup: { kind: "mail", unread: true } });
+  const answer = await decideActions(
+    provider,
+    decisionRule,
+    { text: "hi" },
+    ["keyword.add", "noop"],
+    {},
+    { lookupsLeft: 1 },
+  );
+  assert.deepEqual(answer, {
+    kind: "lookup",
+    lookup: { kind: "mail", unread: true },
+  });
+  const messages = seen?.body.messages as Array<{ role: string; content: string }>;
+  const system = messages[0]?.content ?? "";
+  const user = messages[1]?.content ?? "";
+  // The system message is the cacheable prefix: the catalogue is there whether
+  // or not a lookup is left, and the budget travels in the tail.
+  assert.match(system, /"kind": "mail"/);
+  assert.match(system, /"kind": "mailboxes"/);
+  assert.match(system, /"kind": "files"/);
+  assert.match(system, /"kind": "labels"/);
+  assert.match(system, /"kind": "chat"/);
+  assert.doesNotMatch(system, /lookups? left/);
+  assert.match(user, /1 lookup left/);
+  // And the capabilities are still the only thing it may do.
+  assert.match(system, /keyword\.add/);
+});
+
+test("a lookup the run cannot honour is refused, never half-read", async () => {
+  // A lookup with none left is the bound doing its work; an unknown kind or a
+  // missing parameter is a malformed answer, refused the way an unknown action
+  // is. Neither ever reaches a read.
+  answerWith({ lookup: { kind: "mail" } });
+  await assert.rejects(
+    () =>
+      decideActions(
+        provider,
+        decisionRule,
+        { text: "hi" },
+        ["keyword.add", "noop"],
+        {},
+        { lookupsLeft: 0 },
+      ),
+    /no lookups left/,
+  );
+  answerWith({ lookup: { kind: "everything" } });
+  await assert.rejects(
+    () =>
+      decideActions(
+        provider,
+        decisionRule,
+        { text: "hi" },
+        ["keyword.add", "noop"],
+        {},
+        { lookupsLeft: 1 },
+      ),
+    /lookup this build does not have/,
+  );
+  answerWith({ lookup: { kind: "message", id: "" } });
+  await assert.rejects(
+    () =>
+      decideActions(
+        provider,
+        decisionRule,
+        { text: "hi" },
+        ["keyword.add", "noop"],
+        {},
+        { lookupsLeft: 1 },
+      ),
+    /lookup this build does not have/,
+  );
 });
 
 test("refuses a capability the rule does not allow", async () => {

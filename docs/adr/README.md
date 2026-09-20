@@ -69,14 +69,16 @@ is, not what a user sees.
   one, granted to every automation by `effectiveCapabilities`. How cautious a
   group's runs are is the **group's own policy document** rather than a field on
   every automation — two choices, no number, with the floors in code — and a
-  group that has written none runs with every run stopping for a person. New
+  group that has written none runs on the confident reading: an in-group action
+  the model is sure of goes ahead, an unsure one stops for a person. New
   context belongs in one of two speeds — distilled into the group's notebook by
   an infrequent process, staying in the prompt's cached head, or fetched
   narrowly and by name into the volatile tail — never attached wholesale
   (a full mailbox, an unbounded document set), which would defeat the
   provider's own prompt caching and widen the untrusted-content surface at
-  once. The one-automation-per-trigger rule, the areas and the policy are what
-  the code does; the two speeds of context are decided here and not built.
+  once. The one-automation-per-trigger rule, the areas, the policy and the two
+  speeds of context — the notebook a run may write, and the named lookup it may
+  ask for (ADR 0020) — are what the code does.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
@@ -184,3 +186,13 @@ is, not what a user sees.
   the automation's capability allowlist, checked on every answer. The two
   documents are one type and one pair of readers, and the remarks that used to
   sit beside each of them — prose read by no model — are gone with them.
+- **0020 — A run may look something up.** The deciding call may answer with a
+  lookup from a closed catalogue — the group's mail by folder, label, sender,
+  text or unread state, one message, its folders, its labels, its visible Files
+  and one file, and its chat — instead of actions; the run performs the read in
+  the group's own account, appends bounded results to the volatile tail and
+  asks again, at most `AGENT_LOOKUP_ROUNDS` times. A listing is an index and a
+  read is bounded, the system message is byte-identical across the calls so the
+  provider's cache holds, nothing the model writes is a query, a lookup writes
+  no state, and the allowlist and the review gate are untouched: it is the
+  named, narrow half of ADR 0006 decision three.

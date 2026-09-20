@@ -1316,7 +1316,7 @@ export async function saveAgentProse(
 /**
  * A group's policy, as a surface reads it.
  *
- * A group that has written none answers with the cautious default and
+ * A group that has written none answers with the default and
  * `present: false`, so a form can say what it is running on rather than showing
  * a reading nobody chose (ADR 0006).
  */

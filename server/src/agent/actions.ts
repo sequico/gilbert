@@ -13,6 +13,7 @@
  * (resolution 10: a pending draft is one a human has to see).
  */
 
+import { randomUUID } from "node:crypto";
 import { readGroupLabels } from "../account.js";
 import {
   type Ctx,
@@ -47,13 +48,17 @@ import {
   AGENT_ATTENTION_FOLDER,
   AGENT_DOCUMENT_BYTES_MAX,
   AGENT_MAX_PAGES_DEFAULT,
+  AGENT_NOTEBOOK_FACT_MAX,
+  AGENT_NOTEBOOK_FACTS_MAX,
   AGENT_SPLIT_PAGES_MAX,
   type AgentAction,
   type AgentActionName,
   type AgentDraftRef,
   type AgentEmailView,
+  type AgentNotebookFact,
   missingActionParams,
 } from "./documents.js";
+import { AgentStore } from "./store.js";
 
 export interface ActionOpts {
   /** The message the run works on: `keyword.*`, `mail.move`, `mail.extract`. */
@@ -706,6 +711,47 @@ async function runOne(
         ok: true,
         result: { path: `${folder}/${name}`, nodeId },
       };
+    }
+    case "notebook.write": {
+      /*
+       * The group's memory, written by a run (ADR 0006 decision three).
+       *
+       * The notebook is one document of facts, and a run adds one, corrects one
+       * by its id, or removes one by writing it with no text. Which one it does
+       * is the action's own parameters, and the bounds are the document's — a
+       * fact longer than `AGENT_NOTEBOOK_FACT_MAX`, or a notebook past
+       * `AGENT_NOTEBOOK_FACTS_MAX`, is refused in words here rather than written
+       * as a document that no reader will accept.
+       */
+      const store = new AgentStore(ctx, accountId);
+      const text = textOf(action.with?.text).trim();
+      const id = textOf(action.with?.id).trim();
+      const found = await store.readNotebook();
+      const facts: AgentNotebookFact[] = [...(found?.doc.facts ?? [])];
+      const at = id ? facts.findIndex((fact) => fact.id === id) : -1;
+      if (id && at === -1)
+        throw new Error(
+          `notebook.write names a fact this group's notebook does not hold: ${id}`,
+        );
+      if (text.length > AGENT_NOTEBOOK_FACT_MAX)
+        throw new Error(
+          `notebook.write writes a fact of ${text.length} characters; a fact is at most ${AGENT_NOTEBOOK_FACT_MAX}`,
+        );
+      if (at === -1 && !text)
+        throw new Error(
+          "notebook.write needs text to add a fact, or an id to correct or remove one",
+        );
+      if (at === -1 && facts.length >= AGENT_NOTEBOOK_FACTS_MAX)
+        throw new Error(
+          `notebook.write would hold more than ${AGENT_NOTEBOOK_FACTS_MAX} facts`,
+        );
+      const by = opts.from ?? "";
+      const now = (opts.now ?? new Date()).toISOString();
+      if (at !== -1 && !text) facts.splice(at, 1);
+      else if (at !== -1) facts[at] = { ...facts[at]!, text, addedAt: now, addedBy: by };
+      else facts.push({ id: randomUUID(), text, addedAt: now, addedBy: by });
+      await store.writeNotebook(facts, by, found ? { ifInState: found.state } : {});
+      return { action: action.do, ok: true, result: { facts: facts.length } };
     }
     case "document.read": {
       const source = await documentSourceOf(ctx, accountId, action, opts);

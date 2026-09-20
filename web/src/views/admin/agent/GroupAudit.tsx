@@ -17,7 +17,7 @@ import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
-import { automationText, outcomeText } from "@/views/agent/agentText";
+import { automationText, lookupText, outcomeText } from "@/views/agent/agentText";
 
 /** How many of the most recent entries this table shows before pointing at the export. */
 const MAX_ROWS = 200;
@@ -117,6 +117,7 @@ export function GroupAudit({ group, known }: { group: string; known: boolean }) 
                     <th>{t("When")}</th>
                     <th>{t("Outcome")}</th>
                     <th>{t("Automation")}</th>
+                    <th>{t("Read")}</th>
                     <th>{t("By")}</th>
                     <th>{t("Detail")}</th>
                   </tr>
@@ -127,6 +128,7 @@ export function GroupAudit({ group, known }: { group: string; known: boolean }) 
                       <td>{formatListDate(entry.at)}</td>
                       <td>{outcomeText(entry.outcome)}</td>
                       <td>{nameOf(entry.ruleId) || entry.ruleId}</td>
+                      <td>{(entry.lookups ?? []).map(lookupText).join(", ") || "—"}</td>
                       <td>{entry.by ?? "—"}</td>
                       <td>{entry.detail ?? ""}</td>
                     </tr>

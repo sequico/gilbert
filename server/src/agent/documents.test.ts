@@ -11,6 +11,8 @@ import {
   AGENT_AREAS,
   AGENT_AUDIT_OUTCOMES,
   AGENT_AUTOMATION_LABELS,
+  AGENT_LOOKUP_KINDS,
+  AGENT_LOOKUP_MESSAGES_MAX,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_REVIEW_THRESHOLD,
   AGENT_SCHEDULE_MINUTES_DEFAULT,
@@ -20,6 +22,7 @@ import {
   type AgentGroupPolicyDoc,
   type AgentNotebookDoc,
   type AgentRule,
+  actionParamsText,
   agentRuleJsonSchema,
   areaActions,
   automationLabel,
@@ -36,15 +39,18 @@ import {
   isAgentAction,
   isAgentGroupPolicyDoc,
   isAgentJob,
+  isAgentLookup,
   isAgentNotebookDoc,
   isAgentRule,
   isAgentRulesDoc,
   isAgentTriggerRecord,
   leavesTheProcess,
+  lookupLabel,
   meterOver,
   missingActionParams,
   monthOf,
   monthsSince,
+  newDecision,
   newJob,
   nextRunAfter,
   notebookFor,
@@ -95,7 +101,7 @@ test("an automation carries no review policy: that is the group's own document",
   assert.equal(isAgentRule({ ...rule(), review: { mode: "never" } }), true);
 });
 
-test("a group's policy is a document of its own, and its default is caution", () => {
+test("a group's policy is a document of its own, and its default is the confident reading", () => {
   assert.equal(
     isAgentGroupPolicyDoc({
       v: 1,
@@ -112,9 +118,10 @@ test("a group's policy is a document of its own, and its default is caution", ()
     false,
   );
   assert.equal(isAgentGroupPolicyDoc({ v: 1, review: "never" }), false);
-  // A group that has written none runs on the cautious reading: every run
-  // stops for a person, and nothing has raised the external-send floor.
-  assert.deepEqual(policyOf(null), { review: "always", allowExternal: false });
+  // A group that has written none runs on the confident reading: an in-group
+  // action the model is sure of goes ahead, an unsure one stops for a person,
+  // and nothing has raised the external-send floor.
+  assert.deepEqual(policyOf(null), { review: "threshold", allowExternal: false });
   assert.deepEqual(policyOf(policy({ review: "never", allowExternal: true })), {
     review: "never",
     allowExternal: true,
@@ -176,8 +183,9 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
       "mail.draft",
       "mail.extract",
       "mail.send",
+      "notebook.write",
     ],
-    "the set names sending, posting, drafting, filing, and the page work that writes a file",
+    "the set names sending, posting, drafting, filing, the page work that writes a file, and the memory a run writes",
   );
   for (const name of FENCED_ACTIONS) {
     assert.equal(
@@ -364,6 +372,7 @@ test("an area grants a group of actions and never a flagged one", () => {
     "document.read",
     "document.split",
     "file.write",
+    "notebook.write",
   ]);
   /*
    * The exclusion is a rule about the catalogue, not a list of today's names:
@@ -817,5 +826,78 @@ test("a job's trigger carries its lineage, and a trigger with no count is hop on
     changeIdOf({ on: "manual", emailId: "m1", at }),
     at,
     "and a person's ask by the instant it was made",
+  );
+});
+
+test("a decision reads as the summary the run decided on, and nothing else", () => {
+  // What a member answers is the output: the decision carries the summary and
+  // the actions, and the deciding call is asked for nothing else (ADR 0003).
+  const job: AgentJob = {
+    ...newJob({
+      id: "j1",
+      accountId: "a1",
+      rule: { id: "r1", version: 1 },
+      trigger: { on: "chat", chatId: "c1", at: "2026-09-10T09:00:00Z" },
+    }),
+    proposal: {
+      summary: "It would greet the group.",
+      actions: [{ do: "chat.post", with: { text: "Hello all!" } }],
+      confidence: 0.9,
+    },
+  };
+  const decision = newDecision(job, "c1");
+  assert.equal(decision.summary, "It would greet the group.");
+  assert.deepEqual(decision.actions, [{ do: "chat.post", with: { text: "Hello all!" } }]);
+});
+
+test("an action's parameters read the same wherever it is shown", () => {
+  // The approval prompt and the member's panel render one action through one
+  // function, so "what would it do" cannot be one list to the approver and
+  // another to the person who reads the run afterwards.
+  assert.equal(
+    actionParamsText({ with: { text: "Hello all!", folder: "Clients" } }),
+    "text: Hello all!, folder: Clients",
+  );
+  assert.equal(actionParamsText({}), "");
+});
+
+test("a lookup is one of the group's own reads, and nothing else", () => {
+  /*
+   * ADR 0020: the model names a kind from a closed catalogue and the server
+   * validates it. The catalogue is the group's whole state — its mail, its
+   * folders, its labels, its Files and its chat — so a butler is not limited to
+   * one label, and it never writes a query.
+   */
+  assert.deepEqual([...AGENT_LOOKUP_KINDS].sort(), [
+    "chat",
+    "file",
+    "files",
+    "labels",
+    "mail",
+    "mailboxes",
+    "message",
+  ]);
+  assert.equal(isAgentLookup({ kind: "mail", unread: true, limit: 5 }), true);
+  assert.equal(isAgentLookup({ kind: "mail", mailbox: "Inbox" }), true);
+  assert.equal(
+    isAgentLookup({ kind: "mail", limit: AGENT_LOOKUP_MESSAGES_MAX + 1 }),
+    false,
+    "a listing past the ceiling is refused rather than clamped silently",
+  );
+  assert.equal(isAgentLookup({ kind: "mail", limit: 0 }), false);
+  assert.equal(isAgentLookup({ kind: "message", id: "M1" }), true);
+  assert.equal(isAgentLookup({ kind: "message", id: "" }), false);
+  assert.equal(isAgentLookup({ kind: "file", path: "Clients/report.pdf" }), true);
+  assert.equal(isAgentLookup({ kind: "file", path: "" }), false);
+  assert.equal(isAgentLookup({ kind: "files", folder: "Clients" }), true);
+  assert.equal(isAgentLookup({ kind: "mailboxes" }), true);
+  assert.equal(isAgentLookup({ kind: "labels" }), true);
+  assert.equal(isAgentLookup({ kind: "chat", text: "invoice" }), true);
+  assert.equal(isAgentLookup({ kind: "everything" }), false);
+  assert.equal(isAgentLookup("mail"), false);
+  // One renderer, so the trail and the prompt name a read the same way.
+  assert.equal(
+    lookupLabel({ kind: "mail", mailbox: "Inbox", unread: true }),
+    "the mail in “Inbox”, unread",
   );
 });

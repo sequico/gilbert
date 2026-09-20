@@ -13,13 +13,16 @@ import {
   type AgentAction,
   type AgentAuditOutcome,
   type AgentJobState,
+  type AgentLookup,
   type AgentMeter,
   type AgentReviewMode,
   type AgentRule,
   type AgentTrigger,
   type AgentTriggerOn,
+  actionParamsText,
   agentActionSpec,
   automationLabel,
+  lookupLabel,
   scheduleMinutesOf,
 } from "@gilbert/agent/documents";
 import type {
@@ -294,20 +297,29 @@ export function proseStampText(
   });
 }
 
-/** One action as a sentence: the catalogue's label plus its parameters. */
+/**
+ * One action as a sentence: the catalogue's label plus its parameters.
+ *
+ * The parameter half is `actionParamsText`, the renderer the server's approval
+ * prompt uses too, so "what would it do" reads the same to the person who
+ * approves a run and to the member who reads it afterwards (ADR 0003).
+ */
 export function actionText(action: AgentAction): string {
   const spec = agentActionSpec(action.do);
   const label = spec ? t(spec.label) : action.do;
-  const entries = Object.entries(action.with ?? {});
-  if (!entries.length) return label;
-  const params = entries.map(([key, value]) => `${key}: ${paramText(value)}`).join(", ");
-  return `${label} (${params})`;
+  const params = actionParamsText(action);
+  return params ? `${label} (${params})` : label;
 }
 
-function paramText(value: unknown): string {
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? t("yes") : t("no");
-  return JSON.stringify(value) ?? "";
+/**
+ * What a run looked up, as a reader sees it (ADR 0020).
+ *
+ * The one renderer of a lookup's name, shared with the server's own trail, so
+ * "what did this run read" reads the same in the chat a run wrote to and in the
+ * audit an administrator opens.
+ */
+export function lookupText(lookup: AgentLookup): string {
+  return t(lookupLabel(lookup));
 }
 
 /**

@@ -113,6 +113,7 @@ export type AgentActionName =
   | "mail.send"
   | "chat.post"
   | "file.write"
+  | "notebook.write"
   | "document.read"
   | "document.split"
   | "document.merge"
@@ -254,6 +255,18 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
       { key: "folder", required: true, kind: "folder" },
       { key: "name", required: true, kind: "text" },
       { key: "text", required: true, kind: "text" },
+    ],
+    unrepeatable: true,
+  },
+  {
+    name: "notebook.write",
+    area: "files",
+    label: "Remember a fact",
+    description:
+      "Write a fact into the group's notebook — the memory every later run of this group is given. With an `id` it replaces that fact's text, or removes the fact when the text is empty; without one it adds a new fact, and then the text is required.",
+    params: [
+      { key: "text", required: false, kind: "text" },
+      { key: "id", required: false, kind: "text" },
     ],
     unrepeatable: true,
   },
@@ -406,7 +419,9 @@ export function effectiveCapabilities(
  * effects in the group's own state, and a run whose claim a successor took must
  * not produce a second one. The document family's page work is here for the
  * same reason a file write is: what it produces is a file the group can see,
- * and a second pass leaves a second copy beside it.
+ * and a second pass leaves a second copy beside it. A notebook write is here
+ * because what it writes is read by every later run of the group: a second pass
+ * that adds the same fact again is a memory a person has to clean up.
  *
  * The set is the authority for `leavesTheProcess`, which is what the executor's
  * fence and the retry decision both ask: one list, so an action cannot be
@@ -417,6 +432,7 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "chat.post",
   "mail.draft",
   "file.write",
+  "notebook.write",
   "mail.extract",
   "document.split",
   "document.merge",
@@ -452,6 +468,29 @@ export function missingActionParams(action: AgentAction): string[] {
 function present(v: unknown): boolean {
   if (v === undefined || v === null) return false;
   return typeof v !== "string" || v.trim().length > 0;
+}
+
+/**
+ * One action's parameters, as the `key: value` list both tiers render.
+ *
+ * The catalogue says which parameters an action takes; this says how they read
+ * when a person is shown the action itself — the approval prompt a member
+ * answers in the group's chat, and the member's panel. One renderer, so "what
+ * would it do" cannot be one list of parameters to a member and another to the
+ * person approving the same run. A value the catalogue does not describe (a
+ * parameter named by hand in an old document) is shown as it was written
+ * rather than dropped.
+ */
+export function actionParamsText(action: Pick<AgentAction, "with">): string {
+  return Object.entries(action.with ?? {})
+    .map(([key, value]) => `${key}: ${paramValueText(value)}`)
+    .join(", ");
+}
+
+function paramValueText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return JSON.stringify(value) ?? "";
 }
 
 /**
@@ -791,15 +830,21 @@ export const AGENT_REVIEW_MODES: ReadonlyArray<AgentReviewMode> = [
 export const AGENT_REVIEW_THRESHOLD = 0.7;
 
 /**
- * A group that has written no policy: the cautious reading, and the only
- * honest one. Nothing has said a run of this group may go ahead unattended, so
- * every run stops for a person; nothing has raised the external-send floor
- * either. A group's policy is authored where its automations are, and this is
- * what a group that has never opened that form answers with.
+ * A group that has written no policy: a run goes ahead when the model is
+ * confident, and stops for a person when it is not.
+ *
+ * Nothing has said how cautious this group wants to be, so the reading is the
+ * one a butler needs to be useful at all: an in-group, reversible action that
+ * the model is sure of happens, and one it is unsure of becomes a question.
+ * "Sure" is `AGENT_REVIEW_THRESHOLD` and never a number an author invents, and
+ * the floors hold whatever this says — an action that leaves the group or
+ * cannot be undone still asks a person. A group's policy is authored where its
+ * automations are, and this is what a group that has never opened that form
+ * answers with.
  */
 export const EMPTY_GROUP_POLICY: Omit<AgentGroupPolicyDoc, "updatedAt" | "updatedBy"> = {
   v: 1,
-  review: "always",
+  review: "threshold",
   allowExternal: false,
 };
 
@@ -816,7 +861,7 @@ export function isAgentGroupPolicyDoc(x: unknown): x is AgentGroupPolicyDoc {
 }
 
 /**
- * The policy a run is held to, as a document or as the cautious default.
+ * The policy a run is held to, as a document or as the default.
  *
  * One reader for the two shapes a caller has — the document or nothing — so the
  * executor and the member's panel cannot read "no policy" two different ways.
@@ -854,6 +899,177 @@ export function reviewOutcome(
   if (policy.review === "always") return "pause";
   if (policy.review === "never") return "execute";
   return confidence >= AGENT_REVIEW_THRESHOLD ? "execute" : "pause";
+}
+
+/* ------------------------------------------------------------------ */
+/* What a run may look up                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How many times one run may look something up before it has to decide.
+ *
+ * A run's context is what it was handed; a butler's is what it goes and reads.
+ * The deciding call may answer with a lookup instead of actions, the run
+ * performs it and asks again — and this is how many times, so a model that
+ * would rather keep reading than answer is stopped by the run rather than
+ * trusted (ADR 0020). The count is of lookups, not of calls: one more call is
+ * made with the last lookup's result, and its prompt says the budget is spent.
+ */
+export const AGENT_LOOKUP_ROUNDS = 2;
+
+/**
+ * The most messages one lookup lists.
+ *
+ * A listing carries headers and an id, never a body: a run that wants what a
+ * message says names it back in a `message` lookup. That is what keeps a
+ * butler's reading cheap — the index is paid for once and the content only for
+ * the one item the run actually needs (ADR 0006 decision three, ADR 0020).
+ */
+export const AGENT_LOOKUP_MESSAGES_MAX = 20;
+
+/**
+ * The most characters of one read item's own text.
+ *
+ * One message or one file at this ceiling, not a mailbox and not a folder: the
+ * narrow, named tail ADR 0006 decision three describes, and a document longer
+ * than it arrives as the beginning of itself.
+ */
+export const AGENT_LOOKUP_TEXT_MAX = 2000;
+
+/** The longest name, keyword, address or path a lookup may carry. */
+export const AGENT_LOOKUP_PARAM_MAX = 200;
+
+/**
+ * Something a run asked to read, from the closed catalogue in `AGENT_LOOKUP_KINDS`.
+ *
+ * The model chooses a kind and its parameters and nothing else: it never writes
+ * a query, a filter or a JMAP method. The catalogue is the group's own state as
+ * its members see it — its mail (by folder, label, sender, text or unread), one
+ * message of it, its folders, its labels, its visible Files and one file of
+ * them, and its chat — because the context a butler needs is the group's, not
+ * one label's. Every shape is a read of the group's own account, and none of
+ * them writes anything (ADR 0020).
+ */
+export type AgentLookup =
+  | {
+      kind: "mail";
+      mailbox?: string;
+      keyword?: string;
+      from?: string;
+      text?: string;
+      unread?: boolean;
+      limit?: number;
+    }
+  | { kind: "message"; id: string }
+  | { kind: "mailboxes" }
+  | { kind: "labels" }
+  | { kind: "files"; folder?: string }
+  | { kind: "file"; path: string }
+  | { kind: "chat"; text?: string; from?: string; limit?: number };
+
+export type AgentLookupKind = AgentLookup["kind"];
+
+export const AGENT_LOOKUP_KINDS: ReadonlyArray<AgentLookupKind> = [
+  "mail",
+  "message",
+  "mailboxes",
+  "labels",
+  "files",
+  "file",
+  "chat",
+];
+
+function lookupParam(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text || text.length > AGENT_LOOKUP_PARAM_MAX) return null;
+  return text;
+}
+
+/** An optional string parameter: absent is fine, present must be a name. */
+function optionalParam(x: Record<string, unknown>, key: string): boolean {
+  return x[key] === undefined || lookupParam(x[key]) !== null;
+}
+
+/** An optional count: absent is fine, present must be within the listing bound. */
+function optionalLimit(x: Record<string, unknown>): boolean {
+  const value = x.limit;
+  if (value === undefined) return true;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= AGENT_LOOKUP_MESSAGES_MAX
+  );
+}
+
+export function isAgentLookup(x: unknown): x is AgentLookup {
+  if (!isRecord(x)) return false;
+  switch (x.kind) {
+    case "mail":
+      return (
+        optionalParam(x, "mailbox") &&
+        optionalParam(x, "keyword") &&
+        optionalParam(x, "from") &&
+        optionalParam(x, "text") &&
+        (x.unread === undefined || typeof x.unread === "boolean") &&
+        optionalLimit(x)
+      );
+    case "message":
+      return lookupParam(x.id) !== null;
+    case "mailboxes":
+    case "labels":
+      return true;
+    case "files":
+      return optionalParam(x, "folder");
+    case "file":
+      return lookupParam(x.path) !== null;
+    case "chat":
+      return optionalParam(x, "text") && optionalParam(x, "from") && optionalLimit(x);
+    default:
+      return false;
+  }
+}
+
+/**
+ * What a lookup is called, in the trail and in a run's own context.
+ *
+ * One renderer for the server's prompt, the audit table and the admin surface,
+ * so "what did this run read" reads the same wherever it is asked. English
+ * source text, translated where it is shown, like the action labels.
+ */
+export function lookupLabel(lookup: AgentLookup): string {
+  switch (lookup.kind) {
+    case "mail": {
+      const filters: string[] = [];
+      if (lookup.mailbox) filters.push(`in “${lookup.mailbox}”`);
+      if (lookup.keyword) filters.push(`labelled “${lookup.keyword}”`);
+      if (lookup.from) filters.push(`from ${lookup.from}`);
+      if (lookup.text) filters.push(`matching “${lookup.text}”`);
+      if (lookup.unread) filters.push("unread");
+      return filters.length ? `the mail ${filters.join(", ")}` : "the group's mail";
+    }
+    case "message":
+      return `the message ${lookup.id}`;
+    case "mailboxes":
+      return "the group's folders";
+    case "labels":
+      return "the group's labels";
+    case "files":
+      return lookup.folder
+        ? `the group's Files in “${lookup.folder}”`
+        : "the group's Files";
+    case "file":
+      return `the file “${lookup.path}”`;
+    case "chat": {
+      const filters: string[] = [];
+      if (lookup.from) filters.push(`from ${lookup.from}`);
+      if (lookup.text) filters.push(`matching “${lookup.text}”`);
+      return filters.length
+        ? `the group's chat ${filters.join(", ")}`
+        : "the group's chat";
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -895,7 +1111,6 @@ export interface AgentProposal {
   summary: string;
   actions: AgentAction[];
   confidence: number;
-  rationale?: string;
   /** The draft an approval sends, when the run prepared one. */
   draft?: AgentDraftRef | null;
 }
@@ -1005,6 +1220,15 @@ export interface AgentJob {
    * the job that woke the run the change starts (ADR 0003).
    */
   effects?: AgentEffect[];
+  /**
+   * What this run looked up before it decided, in the order it asked.
+   *
+   * A read the run performed on its own initiative (ADR 0020), kept so "what
+   * did this run read" is a question about a document rather than about a log.
+   * Absent on a run that had everything it needed, and on every job written
+   * before a run could look anything up.
+   */
+  lookups?: AgentLookup[];
   /** When the next attempt may start: the backoff between retries. */
   nextAttemptAt?: string;
   decisionId?: string;
@@ -1072,7 +1296,6 @@ export function isAgentProposal(x: unknown): x is AgentProposal {
   if (typeof p.summary !== "string") return false;
   if (!isActionList(p.actions)) return false;
   if (typeof p.confidence !== "number") return false;
-  if (p.rationale !== undefined && typeof p.rationale !== "string") return false;
   if (p.draft !== undefined && p.draft !== null) {
     const d = p.draft as Record<string, unknown>;
     if (typeof d.mailboxId !== "string" || typeof d.emailId !== "string") return false;
@@ -1100,6 +1323,11 @@ export function isAgentJob(x: unknown): x is AgentJob {
   if (
     j.effects !== undefined &&
     (!Array.isArray(j.effects) || j.effects.some((effect) => !isAgentEffect(effect)))
+  )
+    return false;
+  if (
+    j.lookups !== undefined &&
+    (!Array.isArray(j.lookups) || !j.lookups.every(isAgentLookup))
   )
     return false;
   if (j.nextAttemptAt !== undefined && typeof j.nextAttemptAt !== "string") return false;
@@ -1215,7 +1443,6 @@ export function newDecision(job: AgentJob, chatId?: string): AgentDecision {
     createdAt: at,
     updatedAt: at,
   };
-  if (p.rationale) doc.summary = `${p.summary}\n${p.rationale}`;
   if (chatId) doc.chatId = chatId;
   if (p.draft) doc.draft = p.draft;
   return doc;
@@ -1591,6 +1818,14 @@ export interface AgentAuditEntry {
   /** Whether the run paid for the model's chain of thought. */
   reasoned?: boolean;
   /**
+   * What the run looked up before it decided, in the order it asked (ADR 0020).
+   *
+   * Absent on a run that had everything it needed, and on every entry written
+   * before a run could look anything up. This is where "what did it read" is
+   * answered after the job document has been pruned.
+   */
+  lookups?: AgentLookup[];
+  /**
    * A pass that resumes a plan already decided and already counted: it spent
    * nothing of its own, so it is neither a run nor an uncounted one.
    */
@@ -1776,6 +2011,11 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
     if (a.agent !== undefined && typeof a.agent !== "string") return false;
     if (a.reasoned !== undefined && typeof a.reasoned !== "boolean") return false;
     if (a.usage !== undefined && !isAgentUsage(a.usage)) return false;
+    if (
+      a.lookups !== undefined &&
+      (!Array.isArray(a.lookups) || !a.lookups.every(isAgentLookup))
+    )
+      return false;
     return isActionList(a.actions);
   });
 }

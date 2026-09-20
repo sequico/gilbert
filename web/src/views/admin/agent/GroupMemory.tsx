@@ -16,7 +16,7 @@
 
 import type { AgentNotebookFact } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchGroupNotebook, saveAgentNotebook } from "@/lib/agents";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
@@ -39,15 +39,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
   const [problem, setProblem] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
 
-  // A group's memory belongs to that group, so switching drops the draft
-  // rather than carrying one group's facts into another's document.
-  useEffect(() => {
-    setFacts(null);
-    setChanged(false);
-    setProblem(null);
-  }, [group]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!group) return;
     setBusy(true);
     setProblem(null);
@@ -64,7 +56,18 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
     } finally {
       setBusy(false);
     }
-  };
+  }, [group]);
+
+  // A group's memory belongs to that group, so switching drops the draft
+  // rather than carrying one group's facts into another's document — and the
+  // group that is picked and known reads its memory on the spot, because a
+  // document a person has to ask for twice is a document nobody reads.
+  useEffect(() => {
+    setFacts(null);
+    setChanged(false);
+    setProblem(null);
+    if (group && known) void load();
+  }, [group, known, load]);
 
   const write = async () => {
     if (!group || !facts) return;

@@ -21,16 +21,20 @@ import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_LOOKUP_KINDS,
   AGENT_MAX_PAGES_DEFAULT,
   type AgentAction,
   type AgentActionName,
   type AgentConfigDoc,
+  type AgentLookup,
+  type AgentLookupKind,
   type AgentProvider,
   type AgentTrigger,
   agentActionSpec,
   automationLabel,
   baseUrlProblem,
   isAgentAction,
+  isAgentLookup,
   MODEL_MAX_OUTPUT_DEFAULT,
   missingActionParams,
 } from "./documents.js";
@@ -310,12 +314,6 @@ function confidenceOf(answer: Record<string, unknown>, provider: AgentProvider):
   return Math.min(Math.max(value, 0), 1);
 }
 
-function rationaleOf(answer: Record<string, unknown>): { rationale?: string } {
-  return typeof answer.rationale === "string" && answer.rationale.trim()
-    ? { rationale: answer.rationale.trim() }
-    : {};
-}
-
 /**
  * The installation's own rules, as everything the model reads, first.
  *
@@ -378,9 +376,9 @@ export function notebookBlock(notebook?: string): string {
   ].join("\n");
 }
 
-function dataPrompt(context: ModelContext): string {
+function dataPrompt(context: ModelContext, note?: string): string {
   const by = context.by ? `\nAsked by: ${context.by}` : "";
-  return `${by}\n--- DATA ---\n${context.text}`;
+  return `${by}\n--- DATA ---\n${context.text}${note ? `\n\n${note}` : ""}`;
 }
 
 /** The installation's model; without one no automation can run at all. */
@@ -424,17 +422,22 @@ export function standingBlock(standing?: string): string {
   ].join("\n");
 }
 
-export interface DecisionAnswer {
-  actions: AgentAction[];
-  confidence: number;
-  rationale?: string;
-  summary: string;
-  /**
-   * What this call cost, as the provider reported it: absent when it reported
-   * nothing, so the meter can say `uncounted` rather than nothing (ADR 0003).
-   */
-  usage?: AgentUsage;
-}
+/**
+ * What one deciding call answered: a decision, or something to read first.
+ *
+ * A call that asks for a lookup has not decided anything, so it carries no
+ * actions and no confidence — the run performs the read and asks again, and the
+ * answer that decides is the one that ends the loop (ADR 0020).
+ */
+export type DecisionAnswer =
+  | {
+      kind: "actions";
+      actions: AgentAction[];
+      confidence: number;
+      summary: string;
+      usage?: AgentUsage;
+    }
+  | { kind: "lookup"; lookup: AgentLookup; usage?: AgentUsage };
 
 /**
  * How many pages this call may be handed as images, in the prompt's own words.
@@ -452,12 +455,41 @@ function pageBudget(maxPages: number): string {
 }
 
 /**
+ * The lookups a run may ask for, as the prompt offers them.
+ *
+ * The lines are built from `AGENT_LOOKUP_KINDS`, and the example table is a
+ * `Record` of that union, so a kind added to the catalogue without its example
+ * does not compile and the prompt cannot offer a lookup the server would
+ * refuse (ADR 0020).
+ */
+function lookupLines(): string[] {
+  const examples: Record<AgentLookupKind, string> = {
+    mail: '{"kind": "mail", "unread": true} — the newest mail, optionally in a "mailbox", with a "keyword" label, "from" an address, "text" it matches, "unread", and a "limit"',
+    message:
+      '{"kind": "message", "id": "M123"} — one message\'s own text, by the id a mail lookup listed',
+    mailboxes: '{"kind": "mailboxes"} — the account\'s folders',
+    labels: '{"kind": "labels"} — the group\'s labels',
+    files:
+      '{"kind": "files", "folder": "Clients"} — the group\'s Files, at the top level or in a folder',
+    file: '{"kind": "file", "path": "Clients/report.pdf"} — one file\'s own text',
+    chat: '{"kind": "chat", "text": "invoice"} — the group\'s chat, optionally "from" an address or "text" it matches',
+  };
+  return AGENT_LOOKUP_KINDS.map((kind) => `- ${examples[kind]}`);
+}
+
+/**
  * T2: the model decides which of the **allowed** capabilities to run.
  *
  * Every answer is validated: the capability must be one the rule lists, the
  * parameters must be the ones the catalogue defines for it, the required ones
  * must be present. Anything else throws, so an answer can never widen the
  * permissions a human wrote into the rule document.
+ *
+ * An answer may instead ask for one lookup, when the run still has one to
+ * spend: what comes back is read in the group's own account by the caller, and
+ * the model is asked again with it. `lookupsLeft` is what makes the loop
+ * finite, and the prompt states it rather than leaving the model to discover it
+ * (ADR 0020).
  */
 export async function decideActions(
   provider: AgentProvider,
@@ -478,6 +510,8 @@ export async function decideActions(
     thinking?: boolean;
     /** How many pages this call may be handed as images (ADR 0003). */
     maxPages?: number;
+    /** How many lookups this run may still ask for (ADR 0020). */
+    lookupsLeft?: number;
   } = {},
 ): Promise<DecisionAnswer> {
   const label = automationLabel(rule);
@@ -485,16 +519,29 @@ export async function decideActions(
     throw new Error(
       `the automation "${label}" allows no capability, so there is nothing to decide`,
     );
+  const lookupsLeft = options.lookupsLeft ?? 0;
+  // The system message is the prompt's cacheable prefix, so it is the same on
+  // every call of a run: the lookup catalogue is offered whether or not one is
+  // left, and the budget travels in the volatile tail with the data. A head
+  // that said "1 lookup left" would make every call after the first a cache
+  // miss on the whole preamble (ADR 0003, ADR 0020).
   const system = [
     DATA_NOT_INSTRUCTIONS,
     `You decide what the automation "${label}" does about the item you are given.`,
-    'Answer with one JSON object: {"summary": string, "confidence": number, "rationale": string, "actions": [{"do": string, "with": object}]}.',
-    '"summary" is one sentence a member of the group reads in its chat.',
+    'Answer with one JSON object: {"summary": string, "confidence": number, "actions": [{"do": string, "with": object}]}.',
+    // The answer is the run's output and nothing else: what a member reads is
+    // the summary and the actions, so the call is never asked to write down how
+    // it reached them. A chain of thought is not a thing anybody approves, and
+    // asking for one is what put it in the group's chat (ADR 0003).
+    '"summary" is one sentence saying what the run will do, as a member of the group reads it.',
     '"confidence" is a number from 0 to 1.',
     '"do" must be one of these capabilities and nothing else:',
     ...capabilityLines(allowed),
     'Parameters a capability does not take are refused; leave "with" out when the capability takes none.',
     pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
+    'You may read the group\'s own state before deciding: answer {"lookup": {"kind": ...}} instead of actions, and you are asked again with what came back. The kinds, and their parameters:',
+    ...lookupLines(),
+    "A lookup is a read of this group's own account and changes nothing; it is not one of the capabilities above.",
     // The stable head ends here and the prose an agent carries begins, in the
     // order `proseHead` declares: the installation, the group's facts, the
     // group's rules, then the rule's own — and nothing volatile before the tail.
@@ -503,9 +550,15 @@ export async function decideActions(
   ]
     .filter(Boolean)
     .join("\n");
+  // The volatile tail states the budget, so a run that has spent it is told so
+  // where the changing part already is (ADR 0020).
+  const budget =
+    lookupsLeft > 0
+      ? `You may look something up before deciding: ${lookupsLeft} ${lookupsLeft === 1 ? "lookup" : "lookups"} left.`
+      : "You have no lookups left: answer with your actions.";
   const { answer: parsed, usage } = await callModel(provider, {
     system,
-    user: dataPrompt(context),
+    user: dataPrompt(context, budget),
     ...(context.images?.length ? { images: context.images } : {}),
     ...(options.maxOutputTokens === undefined
       ? {}
@@ -513,6 +566,18 @@ export async function decideActions(
     ...(options.thinking === undefined ? {} : { thinking: options.thinking }),
   });
   const answer = asRecord(parsed, provider);
+  if (answer.lookup !== undefined) {
+    if (lookupsLeft <= 0)
+      throw new Error(
+        `${provider.provider} asked to look something up with no lookups left`,
+      );
+    if (!isAgentLookup(answer.lookup))
+      throw new Error(
+        `${provider.provider} asked for a lookup this build does not have: ` +
+          `${firstLine(JSON.stringify(answer.lookup) ?? "")}`,
+      );
+    return { kind: "lookup", lookup: answer.lookup, ...(usage ? { usage } : {}) };
+  }
   const summary = typeof answer.summary === "string" ? answer.summary.trim() : "";
   if (!summary)
     throw new Error(
@@ -523,9 +588,9 @@ export async function decideActions(
     throw new Error(`${provider.provider} answered without a list of actions`);
   const actions = raw.map((entry) => validateAction(entry, allowed, provider));
   return {
+    kind: "actions",
     actions,
     confidence: confidenceOf(answer, provider),
-    ...rationaleOf(answer),
     summary,
     ...(usage ? { usage } : {}),
   };

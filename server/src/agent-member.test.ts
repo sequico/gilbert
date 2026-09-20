@@ -111,7 +111,7 @@ test("a member who is not an administrator reads the group's agent view", async 
   // The prose an agent carries is on this path whatever the session's
   // privileges are: an empty text is the answer for a group that has none, not
   // an absent field. A group that has written neither an instruction nor a
-  // policy answers with the cautious reading of both, and says which of the two
+  // policy answers with the default reading of both, and says which of the two
   // it has actually written.
   assert.deepEqual(view.instruction, {
     text: "",
@@ -120,7 +120,7 @@ test("a member who is not an administrator reads the group's agent view", async 
     max: AGENT_INSTRUCTION_MAX,
   });
   assert.deepEqual(view.policy, {
-    review: "always",
+    review: "threshold",
     allowExternal: false,
     present: false,
     updatedAt: null,

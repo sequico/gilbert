@@ -314,14 +314,20 @@ export interface AppFileRef {
   file: FileNodeLike | null;
 }
 
-/** Find a file by name inside a folder; `folderId` is empty when it is missing. */
+/**
+ * Find a file by name inside a folder; `folderId` is null for the top level.
+ *
+ * The caller has already decided that the folder is where it means: this does
+ * not fail closed on a null id, because the visible tree's top level *is* null
+ * and a file a person put there is as real as one in a folder. A caller whose
+ * null means "a segment was missing" returns before it gets here.
+ */
 async function findInFolder(
   ctx: Ctx,
   accountId: string,
   folderId: string | null,
   name: string,
 ): Promise<FileNodeLike | null> {
-  if (!folderId) return null;
   const files = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
   return (
     files.find(
@@ -344,6 +350,9 @@ export async function findAppFileAt(
   const name = segments.pop();
   if (!name) throw new AppFolderError("a document path needs a file name");
   const folderId = await findFolderPath(ctx, accountId, segments.join("/"));
+  // A hidden path is always inside the app folder, so a null here is a segment
+  // that is not there — not the top level, which is what null means in Files.
+  if (folderId === null) return { folderId: null, file: null };
   return { folderId, file: await findInFolder(ctx, accountId, folderId, name) };
 }
 
@@ -760,6 +769,30 @@ export async function readVisibleFileBytes(
 }
 
 /**
+ * The node a visible folder path names: its id, `null` for the top level, or
+ * `undefined` when a segment is not there.
+ *
+ * The one walk of the visible tree's folders, so "which folder is this" means
+ * one thing to the reader that lists a folder and to the reader that finds a
+ * file in it. The three answers are three because the top level is a real
+ * place: `null` is the root of Files, and only `undefined` is a miss.
+ */
+export async function findVisibleFolder(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<string | null | undefined> {
+  let folderId: string | null = null;
+  for (const segment of visibleSegments(path)) {
+    const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+    const found = children.find((n) => n.nodeType === "directory" && n.name === segment);
+    if (!found?.id) return undefined;
+    folderId = String(found.id);
+  }
+  return folderId;
+}
+
+/**
  * The node a visible path names, without reading its bytes.
  *
  * The one walk of the visible tree: the reader above and the writer that has to
@@ -774,13 +807,8 @@ export async function findVisibleFile(
   const segments = visibleSegments(path);
   const name = segments.pop();
   if (!name) throw new AppFolderError("a document path needs a file name");
-  let folderId: string | null = null;
-  for (const segment of segments) {
-    const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-    const found = children.find((n) => n.nodeType === "directory" && n.name === segment);
-    if (!found?.id) return null;
-    folderId = String(found.id);
-  }
+  const folderId = await findVisibleFolder(ctx, accountId, segments.join("/"));
+  if (folderId === undefined) return null;
   const file = await findInFolder(ctx, accountId, folderId, name);
   return file ? { file, name } : null;
 }

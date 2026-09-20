@@ -920,10 +920,10 @@ test("a member reads the group's standing instruction, and nobody else reads it"
     updatedBy: null,
     max: AGENT_INSTRUCTION_MAX,
   });
-  // And the group's policy reads as the cautious default, saying that nobody
-  // has written one: a member judges the agent by both (ADR 0006).
+  // And the group's policy reads as the default, saying that nobody has
+  // written one: a member judges the agent by both (ADR 0006).
   assert.deepEqual((none.body as { policy: unknown }).policy, {
-    review: "always",
+    review: "threshold",
     allowExternal: false,
     present: false,
     updatedAt: null,

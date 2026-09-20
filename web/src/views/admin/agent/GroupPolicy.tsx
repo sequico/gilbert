@@ -111,7 +111,7 @@ export function GroupPolicy({ group }: { group: string }) {
           {!present && (
             <p className="hint" style={{ marginBottom: 12 }}>
               {t(
-                "This group has not written a policy, so its runs stop for a person before anything happens.",
+                "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.",
               )}
             </p>
           )}

@@ -199,8 +199,9 @@ the model is confident" is the behaviour an author picks, and what that means is
 one constant rather than a decimal every author invented. Neither choice can
 lower a floor that is in code — an action that cannot be undone asks whatever is
 chosen, and one that reaches outside the group asks unless the group has said
-otherwise — and a group that has written no policy runs on the cautious reading,
-with every run stopping for a person.
+otherwise — and a group that has written no policy runs on the confident
+reading: an in-group action the model is sure of goes ahead, an unsure one stops
+for a person.
 - **One bootstrap secret, and the deployment holds it.** The agent
 authenticates as the agent with the account's own password
 (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`). Nothing derives it, nothing
@@ -304,8 +305,23 @@ document in the group's own account, so it survives a container, a deploy and a
 replacement agent; the administration shows it as a list and lets an
 administrator add, correct and remove one fact at a time; and it sits in the
 prompt's stable head, so carrying it into every call costs a cache hit rather
-than a miss. It steers and it never widens: what an automation may do is its
-own capability allowlist.
+than a miss. A run writes it too: **`notebook.write`** adds a fact, corrects one
+by its id, or removes one by writing it with no text, gated and fenced the way
+`file.write` is — so the agent distils what it learned into the cheap head
+instead of re-reading the correspondence. It steers and it never widens: what
+an automation may do is its own capability allowlist.
+- **A run can look the group's state up.** The deciding call may answer with a
+  lookup instead of actions, and the agent reads it in the group's own account
+  before deciding (ADR 0020). The catalogue is the whole group, not one label:
+  its **mail** by folder, label, sender, text or unread state, one **message**
+  by the id a listing named, its **folders**, its **labels**, its visible
+  **Files** and one **file** by the path a listing named, and its **chat**.
+  Listings hand over names, ids and headers and reads hand over one item's text,
+  each capped — the index is cheap and the content is bought only where it is
+  needed — and the prompt's system message is byte-identical on every call, so
+  the provider's cached prefix survives the whole run. The lookups a run made
+  ride its job and its audit line, so "what did it read" is answered from a
+  document.
 - **A reading beside the prose.** Beside the instruction field, **Ask the model
 to read it** sends the draft and what it is about, the installation's rules, the
 group's instruction

@@ -78,10 +78,7 @@ const SCHEDULE_LABELS: Record<number, string> = {
  * outright, and which therefore turned the next render of this form into a
  * blank page (the draft is validated while it is drawn).
  */
-function triggerFor(
-  on: AgentTriggerOn,
-  everyMinutes: number | undefined,
-): AgentTrigger {
+function triggerFor(on: AgentTriggerOn, everyMinutes: number | undefined): AgentTrigger {
   return on === "schedule"
     ? { on, everyMinutes: everyMinutes ?? AGENT_SCHEDULE_PRESETS[0] }
     : { on };

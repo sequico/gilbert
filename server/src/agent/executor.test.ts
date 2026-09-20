@@ -48,7 +48,9 @@ const { fetchEmailRecord, findMailboxByName, mailboxIdByRole } = await import(
   "./actions.js"
 );
 const { postMessage, readChat } = await import("./chat.js");
-const { automationLabel, newDecision, newJob } = await import("./documents.js");
+const { automationLabel, newDecision, newJob, AGENT_LOOKUP_ROUNDS } = await import(
+  "./documents.js"
+);
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
 const { claimAccount, saveClaimStates } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
@@ -88,6 +90,21 @@ function answerFor(label: string, value: unknown): void {
   answers.set(label, value);
 }
 
+/**
+ * A sequence of answers one automation gives, consumed one call at a time.
+ *
+ * A run that looks something up is asked more than once (ADR 0020), so a test
+ * about it states what the model answers the first time and what it answers
+ * with the lookup's result in front of it. The last answer is repeated if the
+ * run asks again, so a run that ignores the result and keeps looking is bounded
+ * by the run rather than by the stub.
+ */
+const sequences = new Map<string, unknown[]>();
+
+function answerSequence(label: string, values: unknown[]): void {
+  sequences.set(label, [...values]);
+}
+
 /*
  * Two things a test changes and the next one must not inherit.
  *
@@ -107,6 +124,8 @@ let policyMoved = false;
 
 beforeEach(async () => {
   answers.clear();
+  sequences.clear();
+  asked.length = 0;
   if (policyMoved) await setPolicy({ review: "never" });
   policyMoved = false;
 });
@@ -129,7 +148,11 @@ const modelStub = createServer(async (req: IncomingMessage, res) => {
   const named = /automation "([^"]+)"/.exec(system)?.[1] ?? "";
   asked.push(named);
   calls.push({ system, messages });
-  const answer = answers.get(named) ?? DEFAULT_ANSWER;
+  const sequence = sequences.get(named);
+  const answer =
+    sequence && sequence.length > 1
+      ? sequence.shift()
+      : (sequence?.[0] ?? answers.get(named) ?? DEFAULT_ANSWER);
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
     JSON.stringify({
@@ -1106,6 +1129,130 @@ test("a folder slice is one header line per message, never a body", async () => 
     "the slice names the mail; a run that needs it reads that message",
   );
   assert.equal(renderFolderSlice("Archive", []), 'FOLDER "Archive": no messages');
+});
+
+test("an approval shows what the run would do, never why", async () => {
+  /*
+   * What a member answers in the group's chat (ADR 0003). The output is the
+   * action and its parameters — the words it would post — and the model's
+   * reasoning is not a thing the deciding call is asked for, so it is nowhere
+   * in it.
+   */
+  const { proposalText } = await import("./executor.js");
+  const rule = {
+    v: 1,
+    id: "r1",
+    version: 1,
+    enabled: true,
+    trigger: { on: "chat" },
+    instruction: "greet the group",
+    capabilities: ["chat.post"],
+  } as AgentRule;
+  const job = {
+    ...newJob({
+      id: "j1",
+      accountId: GROUP,
+      rule: { id: "r1", version: 1 },
+      trigger: { on: "chat", chatId: "c1", at: "2026-09-10T09:00:00Z" },
+    }),
+    proposal: {
+      summary: "It would greet the group.",
+      actions: [{ do: "chat.post", with: { text: "Hello all!" } }],
+      confidence: 0.9,
+    },
+  } as AgentJob;
+  const text = proposalText(rule, job);
+  assert.match(text, /Hello all!/, "the words it would post are what is approved");
+  assert.match(text, /Write in the chat/);
+});
+
+test("a run may look something up, and reads what it asked for", async () => {
+  /*
+   * ADR 0020. The deciding call answers with a lookup instead of actions, the
+   * run reads the group's own mail and asks again: the answer that decides is
+   * the second one, and the model that asked sees the messages it asked about
+   * in front of it.
+   */
+  const starred = await createMessage("Starred invoice 42", "the invoice is unpaid");
+  await client.call(
+    "Email/set",
+    { accountId: GROUP, update: { [starred]: { "keywords/$flagged": true } } },
+    [JMAP_MAIL],
+  );
+  const heard = await createMessage("please label this one");
+  const looker = rule({ id: "looker", capabilities: ["keyword.add"] });
+  await store.writeRules([looker]);
+  // The index first, then the one item it listed: a listing is cheap and a
+  // read is bounded, so a broad question does not pay for every body.
+  answerSequence("Mail automation", [
+    { lookup: { kind: "mail", keyword: "$flagged" } },
+    { lookup: { kind: "message", id: starred } },
+    {
+      summary: "Labelled it after reading the starred mail.",
+      confidence: 1,
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "lookup-job",
+    accountId: GROUP,
+    rule: { id: "looker", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, looker, claim);
+
+  // The listing named the message and the read handed over its text: the last
+  // call carries the body the run went and got.
+  const followUp = calls[calls.length - 1];
+  const user = JSON.stringify(followUp?.messages ?? []);
+  assert.match(user, /Starred invoice 42/);
+  assert.match(user, /the invoice is unpaid/);
+  // And the answer that decided still ran.
+  const after = await client.call<{
+    list?: Array<{ keywords?: Record<string, boolean> }>;
+  }>("Email/get", { accountId: GROUP, ids: [heard], properties: ["keywords"] }, [
+    JMAP_MAIL,
+  ]);
+  assert.equal(after.list?.[0]?.keywords?.["G-processed"], true);
+  // The job records what it read, so that is a question about a document.
+  const written = await store.readJob("lookup-job");
+  assert.deepEqual(written?.doc.lookups, [
+    { kind: "mail", keyword: "$flagged" },
+    { kind: "message", id: starred },
+  ]);
+});
+
+test("a run that would rather keep looking than decide is stopped by the bound", async () => {
+  // The loop is finite because the run says so, not because the model stops: a
+  // model that answers with a lookup every time meets the last call, which
+  // carries none, and the refusal is the run's own (ADR 0020). It fails the way
+  // any malformed answer does — retryable, because the next pass may decide.
+  const heard = await createMessage("a message to decide about");
+  const looker = rule({ id: "greedy", capabilities: ["keyword.add"] });
+  await store.writeRules([looker]);
+  answerSequence("Mail automation", [{ lookup: { kind: "mail" } }]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "greedy-job",
+    accountId: GROUP,
+    rule: { id: "greedy", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, looker, claim);
+
+  const written = await store.readJob("greedy-job");
+  assert.notEqual(written?.doc.state, "done", "nothing was decided");
+  assert.match(String(written?.doc.error), /no lookups left/);
+  assert.equal(
+    asked.filter((label) => label === "Mail automation").length,
+    AGENT_LOOKUP_ROUNDS + 1,
+    "the run asks once per lookup and once with the budget spent",
+  );
 });
 
 /*
