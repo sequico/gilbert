@@ -268,7 +268,7 @@ function ProviderEditor({
     <form className="card agent-provider" onSubmit={(e) => void submit(e)}>
       <div className="card-head">
         <BrainCircuit size={18} className="agent-provider-icon" aria-hidden="true" />
-        <h3>{t("The installation0027s model")}</h3>
+        <h3>{t("The installation's model")}</h3>
         {view?.hasKey ? (
           <span className="agent-state ok">{t("A key is stored")}</span>
         ) : (
