@@ -187,8 +187,6 @@ test("only a person saying so widens the run's context", async () => {
   assert.equal(widenRequested("@gilbert summarise all the messages"), true);
 });
 
-
-
 test("the message being answered is always in the context, or the run is refused", () => {
   const at = (n: number) => new Date(Date.UTC(2026, 0, 1, 12, n)).toISOString();
   const chain = Array.from({ length: 80 }, (_, i) => ({

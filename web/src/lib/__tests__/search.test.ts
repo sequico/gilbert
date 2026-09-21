@@ -1,6 +1,6 @@
+import { buildFilter, parseQuery } from "@gilbert/shared/search";
 import { describe, expect, it } from "vitest";
 import type { Mailbox } from "@/jmap/types";
-import { buildFilter, parseQuery } from "@gilbert/shared/search";
 
 const mb = (id: string, name: string, role: Mailbox["role"] = null): Mailbox => ({
   id,

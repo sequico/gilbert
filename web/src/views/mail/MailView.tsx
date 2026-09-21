@@ -1,3 +1,4 @@
+import { buildFilter, describeFilter, parseQuery } from "@gilbert/shared/search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
@@ -10,7 +11,6 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
-import { buildFilter, describeFilter, parseQuery } from "@gilbert/shared/search";
 import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
