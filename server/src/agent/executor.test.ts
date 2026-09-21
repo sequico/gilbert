@@ -1111,8 +1111,6 @@ async function submissionCount(): Promise<number> {
   return res.total ?? 0;
 }
 
-
-
 test("an approval shows what the run would do, never why", async () => {
   /*
    * What a member answers in the group's chat (ADR 0003). The output is the

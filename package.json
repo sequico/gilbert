@@ -38,7 +38,7 @@
     "dev:mock:agent": "concurrently -n mock,server,agent,web -c yellow,blue,green,magenta \"MOCK_AGENT_ADDRESS=gilbert@example.com MOCK_AGENT_PASSWORD=gilbert-password npm run mock -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run dev -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run agent -w server\" \"npm run dev -w web\""
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
+    "@biomejs/biome": "^2.5.14",
     "concurrently": "^10.0.5",
     "typescript": "^5.7.3"
   },
