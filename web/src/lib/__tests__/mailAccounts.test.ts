@@ -16,7 +16,7 @@ function account(name: string, isPersonal: boolean) {
   };
 }
 
-describe("mailAccountCandidates — every non-personal mail account is a group mailbox", () => {
+describe("mailAccountCandidates — every non-personal account is a candidate", () => {
   it("lists the own account first, then the group mailboxes", () => {
     const s = sessionOf({
       a1: account("sam@ops.example.com", true),
@@ -41,14 +41,23 @@ describe("mailAccountCandidates — every non-personal mail account is a group m
     expect(ids).toHaveLength(3);
   });
 
-  it("ignores non-personal accounts without mail", () => {
-    const noMail = {
-      name: "grace@example.org",
+  it("asks a non-personal account that advertises nothing, and lets the probe decide", () => {
+    /*
+     * The capability list is the credential's rights on the account, not what
+     * the account was shared for, so it cannot be the thing that decides
+     * whether an account is asked. A member's group mailbox is the case that
+     * fails when it is: the account is in the session, and nothing asks it.
+     */
+    const noCapabilities = {
+      name: "freight@ops.example.com",
       isPersonal: false,
       isReadOnly: false,
       accountCapabilities: {},
     };
-    const s = sessionOf({ a1: account("sam@ops.example.com", true), a2: noMail });
-    expect(mailAccountCandidates(s).map((c) => c.accountId)).toEqual(["a1"]);
+    const s = sessionOf({ a1: account("sam@ops.example.com", true), a2: noCapabilities });
+    expect(mailAccountCandidates(s)).toEqual([
+      { accountId: "a1", name: "sam@ops.example.com", kind: "own" },
+      { accountId: "a2", name: "freight@ops.example.com", kind: "group" },
+    ]);
   });
 });

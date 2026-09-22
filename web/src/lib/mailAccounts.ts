@@ -8,11 +8,12 @@
  *
  * Stalwart advertises the *same* capability set on every account it lists,
  * whatever was actually shared, so capabilities cannot tell a group mailbox
- * from a folder share. Mail is the one thing per-folder sharing cannot reach
- * (mail folder sharing is withdrawn -- the server stores the share and never
- * delivers it), so a non-personal account that answers `Mailbox/get` with a
- * folder tree is a whole-account grant: a group mailbox. The store probes the
- * candidates this module names and keeps only the ones that answer.
+ * from a folder share -- and they are not consulted here. Mail is the one
+ * thing per-folder sharing cannot reach (mail folder sharing is withdrawn --
+ * the server stores the share and never delivers it), so a non-personal
+ * account that answers `Mailbox/get` with a folder tree is a whole-account
+ * grant: a group mailbox. The store probes the candidates this module names
+ * and keeps only the ones that answer.
  */
 import { CAP } from "@/jmap/client";
 import { ownAccountForCapability } from "./accountRouting";
@@ -27,7 +28,6 @@ export interface MailAccountInfo {
 interface MailAccountLike {
   name: string;
   isPersonal: boolean;
-  accountCapabilities?: Record<string, unknown>;
 }
 
 export interface MailSessionLike {
@@ -35,15 +35,20 @@ export interface MailSessionLike {
   primaryAccounts: Record<string, string>;
 }
 
-const advertises = (account: MailAccountLike | undefined, cap: string): boolean =>
-  Boolean(account && cap in (account.accountCapabilities ?? {}));
-
 /**
  * The accounts worth probing for a mailbox tree: the reader's own first, then
- * every non-personal account that advertises mail, in session order. The
- * caller probes each "group" candidate with `Mailbox/get` and keeps the ones
- * that answer with a tree. Since ADR 0001 there is no product-admin group to
- * exclude: a non-personal mail account is a group mailbox, full stop.
+ * every non-personal account the session lists, in session order. The caller
+ * probes each "group" candidate with `Mailbox/get` and keeps the ones that
+ * answer with a tree. Since ADR 0001 there is no product-admin group to
+ * exclude: a non-personal account is a group mailbox candidate, full stop.
+ *
+ * The account's capability list is deliberately **not** read to narrow this:
+ * it is the credential's rights on the account, not what the account was
+ * shared for, and the probe -- not a capability -- is the classifier. An
+ * account the session lists without that capability is dropped before
+ * anything can ask it, and the probe can only classify what it is handed, so
+ * a member's group mailbox would be hidden from every session whose record
+ * for it advertises nothing.
  */
 export function mailAccountCandidates(
   session: MailSessionLike | null,
@@ -57,7 +62,6 @@ export function mailAccountCandidates(
   }
   for (const [accountId, account] of Object.entries(session.accounts)) {
     if (accountId === own || account.isPersonal !== false) continue;
-    if (!advertises(account, CAP.mail)) continue;
     out.push({ accountId, name: account.name, kind: "group" });
   }
   return out;

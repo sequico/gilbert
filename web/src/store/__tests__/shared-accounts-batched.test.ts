@@ -38,6 +38,23 @@ beforeEach(() => {
   inFlight = 0;
   peakInFlight = 0;
   pending = [];
+  /*
+   * The mail store's probe lands before the session does. It asks every
+   * non-personal account once, in the tick the session arrives, and a call it
+   * starts there would be in flight while this file counts -- so this list is
+   * the answer it would have got: those accounts answer with no mailboxes, and
+   * the files test's point is that `init` starts nothing of its own. The
+   * contacts case beside it reads the same non-empty list to know the probe is
+   * not still on its way, which is what keeps this file off a six-second
+   * timer.
+   */
+  useMail.setState({
+    mailAccounts: [
+      { accountId: "shareA", name: "a@example.org", kind: "group" },
+      { accountId: "shareB", name: "b@example.org", kind: "group" },
+      { accountId: "shareC", name: "c@example.org", kind: "group" },
+    ],
+  });
   useSession.setState({
     status: "authenticated",
     session: {
@@ -61,16 +78,6 @@ beforeEach(() => {
     return { list: [], state: "s", notFound: [] };
   }) as never);
   vi.spyOn(client, "chain").mockImplementation((async () => new Map()) as never);
-  /*
-   * The contacts store waits for the mail probe before it can tell a group
-   * mailbox from an account that merely shared a folder. It waits only while
-   * that probe may still be running, so landing it here is what keeps this file
-   * off a six-second timer -- and it is the state the reader is in, not a
-   * shortcut.
-   */
-  useMail.setState({
-    mailAccounts: [{ accountId: "own", name: "me@example.org", kind: "own" }],
-  });
 });
 
 afterEach(() => {

@@ -141,6 +141,52 @@ describe("the mail probe", () => {
     ]);
   });
 
+  it("probes an account the session advertises nothing on, and lists it as a group", async () => {
+    /*
+     * The capability list is the credential's rights on the account, not what
+     * the account was shared for, so it cannot decide whether an account is
+     * asked. A member's group mailbox whose record advertises nothing is still
+     * a mailbox: the probe asks it, and its folder tree is the only thing that
+     * makes it a group here.
+     */
+    const MEMBER_SESSION = {
+      accounts: {
+        own: {
+          name: "me@example.org",
+          isPersonal: true,
+          accountCapabilities: { [CAP.mail]: {} },
+        },
+        gg: {
+          name: "team@example.org",
+          isPersonal: false,
+          accountCapabilities: {},
+        },
+      },
+      primaryAccounts: { [CAP.mail]: "own" },
+    } as unknown as JmapSession;
+    vi.spyOn(client, "call").mockImplementation((async (
+      method: string,
+      args: { accountId?: string },
+    ) => {
+      if (method !== "Mailbox/get") return { accountId: args.accountId };
+      return {
+        accountId: args.accountId,
+        state: "1",
+        list: [{ id: "mb1", name: "Inbox" }],
+        notFound: [],
+      };
+    }) as never);
+    useSession.setState({ session: MEMBER_SESSION });
+
+    await useMail.getState().discoverMailAccounts();
+
+    expect(useMail.getState().mailAccounts).toEqual([
+      { accountId: "own", name: "me@example.org", kind: "own" },
+      { accountId: "gg", name: "team@example.org", kind: "group" },
+    ]);
+    expect(Object.keys(useMail.getState().accountTrees)).toEqual(["gg"]);
+  });
+
   it("drops an answer that lands after the session it was asked of is gone", async () => {
     let release!: () => void;
     const held = new Promise<void>((res) => {
