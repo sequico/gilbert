@@ -47,7 +47,7 @@ import { useSettings } from "./settings";
  * Both imports come through here, which is what makes the LDIF import the same
  * as the vCard import from `ContactCard/set` down.
  *
- * [#173]: https://github.com/Coffey-Labs/ihasmail/issues/173
+ * [#173]: https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive/issues/173
  */
 /**
  * The UIDs an address book already holds.

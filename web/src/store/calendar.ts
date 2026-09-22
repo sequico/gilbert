@@ -147,7 +147,7 @@ export function isOccurrence(event: CalendarEvent): boolean {
  * the mock splits a patch by the same two lists, so a client that stopped asking
  * them meets the refusal there instead of on a live instance.
  *
- * [#26]: https://github.com/Coffey-Labs/ihasmail/issues/26
+ * [#26]: https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive/issues/26
  */
 
 /**

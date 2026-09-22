@@ -261,8 +261,8 @@ interval in seconds rather than milliseconds; and a calendar write that asks
 for scheduling messages is refused when the account may not send them. The mock
 reproduces those four as well.
 
-- Still on 0.15? The last release that runs on it is tagged [`stalwart-0.15-support`](https://github.com/Coffey-Labs/ihasmail/releases/tag/stalwart-0.15-support).
-- Upgrading? [stalwart-migrator](https://github.com/Coffey-Labs/stalwart-migrator) does it in place, checkpointing every phase and validating afterwards. The live instance moved 0.15.5 → 0.16.19 with eight seconds of downtime and nothing lost.
+- Still on 0.15? The last release that runs on it is tagged [`stalwart-0.15-support`](https://git.coffeylabs.org/coffey-labs/ihasmail/releases/tag/stalwart-0.15-support).
+- Upgrading? [stalwart-migrator](https://git.coffeylabs.org/coffey-labs/stalwart-migrator) does it in place, checkpointing every phase and validating afterwards. The live instance moved 0.15.5 → 0.16.19 with eight seconds of downtime and nothing lost.
 
 ## Quick start (Docker)
 
@@ -598,7 +598,7 @@ so an imported settings file, a settings file synced from a device that predates
 the policy, and "reset to defaults" cannot get around it. Reset returns to your
 defaults, not to Gilbert's.
 
-[#207]: https://github.com/Coffey-Labs/ihasmail/issues/207
+[#207]: https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive/issues/207
 
 ## Agents, in detail
 
@@ -695,7 +695,7 @@ that surface labelling them rather than a second set of names; the server
 process has no navigation of its own, because it is what serves it.
 
 **The line.** One block and part of another came from
-[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
+[ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail), Coffey Labs' immutable
 webmail for Stalwart. Everything else is Gilbert's, written here. That is the
 whole of the upstream relationship, stated so a reader can tell which is which
 without reading the tree:
@@ -870,7 +870,7 @@ container, waits for healthy, then prunes all but the newest
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
 | 🏛 **[docs/adr](docs/adr/README.md)** | The architecture decisions behind all of it, one file each |
-| ⬆ **[ihasmail](https://github.com/Coffey-Labs/ihasmail) upstream** | The project the mail client derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
+| ⬆ **[ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail) upstream** | The project the mail client derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
 
 ## Contributing
 

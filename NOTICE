@@ -6,7 +6,7 @@ AGPL-3.0-or-later; see LICENSE.
 ## Attribution
 
 Gilbert's mail client is a derivative work of **ihasmail**, by **Coffey Labs**
-(https://github.com/Coffey-Labs/ihasmail), used and modified under the
+(https://git.coffeylabs.org/coffey-labs/ihasmail), used and modified under the
 AGPL-3.0. The work is theirs; the copyright in this derivative — this build,
 its name and its own code — is Sequi Company's.
 

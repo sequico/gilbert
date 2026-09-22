@@ -4,7 +4,7 @@
 The project is **Gilbert** — a distinct application, backronym for
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for
 **E**nterprise **R**esource **T**raceability. Its mail client is based on
-upstream ihasmail (Coffey-Labs), which is download-only (ADR 0002): releases
+upstream ihasmail (Coffey Labs), which is download-only (ADR 0002): releases
 sync in, nothing goes back. Canonical statement: README.md top.
 
 ## Snapshot mode
@@ -28,8 +28,9 @@ is `gilbert`: `APP_NAME` default "Gilbert", packages `gilbert`/`@gilbert/*`,
 app folder, the sieve script name, storage keys, the `[gilbert]` log prefix,
 the `session.gilbert` extension, MIME types, docker/deploy identifiers and
 paths. `ihasmail` appears only where upstream's real name must stay: the URLs
-(ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail), the
-lineage and the AGPL attribution in `LICENSE`/`NOTICE`/`README`/ADR 0002.
+(ihasmail.org, docs.ihasmail.org, git.coffeylabs.org/coffey-labs/ihasmail, and
+its GitHub-era ihasmail-github-archive), the lineage and the AGPL attribution
+in `LICENSE`/`NOTICE`/`README`/ADR 0002.
 An upstream merge delta that introduces `ihasmail` identifiers, strings or
 prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
 without asking — including user-visible names such as a shipped theme or

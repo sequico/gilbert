@@ -1,6 +1,6 @@
 ---
 name: gilbert-upstream-rebrand
-description: Checklist for taking in upstream (Coffey-Labs/ihasmail) merges into the Gilbert repository. Two hazards, one pass: upstream code arrives with ihasmail identifiers, log prefixes, wire strings and prose that violate Gilbert's naming law, and an upstream hunk applied verbatim can silently undo a decision our tree already made. Load after any upstream merge or before reviewing one.
+description: Checklist for taking in upstream (coffey-labs/ihasmail) merges into the Gilbert repository. Two hazards, one pass: upstream code arrives with ihasmail identifiers, log prefixes, wire strings and prose that violate Gilbert's naming law, and an upstream hunk applied verbatim can silently undo a decision our tree already made. Load after any upstream merge or before reviewing one.
 metadata:
   short-description: Rebrand upstream merges, and decide the collisions
 ---
@@ -94,7 +94,8 @@ than inherited. This skill is that checklist.
   that assert on them. `git diff <merge-base>..HEAD --stat` bounds it.
 - `ihasmail` may stay only where upstream's real name must stay: the URLs
   (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
-  github.com/Coffey-Labs/ihasmail), AGPL lineage in
+  git.coffeylabs.org/coffey-labs/ihasmail, the GitHub-era issues and PRs in
+  ihasmail-github-archive), AGPL lineage in
   `README`/`LICENSE`/`NOTICE`/ADR 0002, and upstream-owned legal lines
   ("If you run a modified ihasmail…").
 - Everything else says `gilbert`/`Gilbert`: prose about the product says

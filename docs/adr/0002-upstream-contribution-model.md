@@ -7,12 +7,12 @@ code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
 and a release is fetched by the merge that takes it in.
 
 Gilbert's mail client is based on
-[Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail). Upstream is
+[coffey-labs/ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail). Upstream is
 consumed here and never contributed to: releases arrive, nothing goes back.
 
 ## How it works
 
-A merge that takes a release in adds `https://github.com/Coffey-Labs/ihasmail.git`
+A merge that takes a release in adds `https://git.coffeylabs.org/coffey-labs/ihasmail.git`
 as a remote, fetches its tags into a namespace of their own
 (`refs/upstream/tags/*`, never `refs/tags` — this repository keeps its own
 release tags), and merges the release; the mail core lands with Gilbert's
@@ -29,7 +29,7 @@ can fall out of step with the actual history; the workflow pushes nothing and
 holds no secret.
 
 No upstream-shaped fork is kept, no un-renaming patches exist, and nothing is
-proposed back to Coffey-Labs/ihasmail: work that upstream might once have
+proposed back to coffey-labs/ihasmail: work that upstream might once have
 accepted simply lives here, renamed or not. Attribution stays intact — the
 mail core is a derivative work of ihasmail, `NOTICE` carries Coffey Labs'
 attribution, the copyright in this derivative is Sequi Company's, and upstream
@@ -54,4 +54,5 @@ release taken in by cherry-pick instead would keep being reported as missing
 ## References
 
 - `.github/workflows/upstream-watch.yml` — the fetch, the ancestry check, the issue
-- https://github.com/Coffey-Labs/ihasmail — the remote a merge fetches from
+- https://git.coffeylabs.org/coffey-labs/ihasmail — the remote a merge fetches from
+- https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive — the issues and pull requests from GitHub, whose numbers match GitHub's

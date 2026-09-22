@@ -34,7 +34,7 @@ jobs:
         id: newest
         run: |
           set -euo pipefail
-          git remote add upstream https://github.com/Coffey-Labs/ihasmail.git
+          git remote add upstream https://git.coffeylabs.org/coffey-labs/ihasmail.git
           # Fetched into their own namespace, never refs/tags: this repository
           # carries its own release tags (v2026.9.5-*), and the two mixed
           # together made the newest-upstream-release check pick one of ours.
@@ -88,7 +88,7 @@ jobs:
               echo "@${OWNER} — upstream cut **${TAG}**, and its commit is not an"
               echo "ancestor of \`main\`, so no merge has taken it in yet."
               echo
-              echo "- Release: https://github.com/Coffey-Labs/ihasmail/releases/tag/${TAG}"
+              echo "- Release: https://git.coffeylabs.org/coffey-labs/ihasmail/releases/tag/${TAG}"
               echo "- Take it in as ADR 0002 says: fetch upstream directly into the"
               echo "  merge, and rename the merged delta before it lands (the"
               echo "  \`gilbert-upstream-rebrand\` checklist)."

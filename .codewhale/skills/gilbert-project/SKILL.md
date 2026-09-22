@@ -1,6 +1,6 @@
 ---
 name: gilbert-project
-description: Project law and working conventions for the Gilbert repository (origin sequico/gilbert, mail core based on Coffey-Labs/ihasmail). Covers the Gilbert name and acronym, where ihasmail still legitimately appears (upstream and AGPL attribution only), architecture constraints, toolchain commands, and the change workflow. Load for any task in this repository.
+description: Project law and working conventions for the Gilbert repository (origin sequico/gilbert, mail core based on coffey-labs/ihasmail). Covers the Gilbert name and acronym, where ihasmail still legitimately appears (upstream and AGPL attribution only), architecture constraints, toolchain commands, and the change workflow. Load for any task in this repository.
 metadata:
   short-description: Gilbert repo law & conventions
 ---
@@ -11,7 +11,7 @@ metadata:
 
 - The project is **Gilbert**, a backronym for **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise **R**esource **T**raceability. The canonical statement lives at the top of `README.md`; keep this skill and that file in sync.
 - Gilbert is its own product, of which the mail client is one part. The mail
-  client is based on [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail)
+  client is based on [coffey-labs/ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail)
   — remote `upstream` is no_push, `origin` is `sequico/gilbert`. Upstream is
   download-only (ADR 0002): releases are fetched directly by the merge that
   takes them in (ADR 0002) and the mail core merges them in, and nothing is
@@ -38,7 +38,8 @@ metadata:
   `gilbert-branding`.
 - **`ihasmail` remains only where upstream's real name must stay**: the URLs
   (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
-  github.com/Coffey-Labs/ihasmail — issues, PRs, releases), the lineage and
+  git.coffeylabs.org/coffey-labs/ihasmail, the GitHub-era issues and PRs in
+  ihasmail-github-archive), the lineage and
   AGPL attribution (`LICENSE`/`NOTICE`/`README`/ADR 0002). Never rename those,
   and never present them as Gilbert's own.
 
@@ -137,6 +138,6 @@ the record of what it was (ADR 0003) and in German words like
 - **Upstream is download-only (ADR 0002).** Upstream releases are fetched
   directly by the merge that takes them in (ADR 0002) — there is no mirror
   branch — and the mail core merges them in. Nothing flows back — no PRs to
-  Coffey-Labs/ihasmail, no upstream-shaped
+  coffey-labs/ihasmail, no upstream-shaped
   fork, no un-renaming. The sync direction stays upstream → main.
 - Syncing upstream: upstream's locale catalogs are a key-superset of Gilbert's trimmed ones and more complete — when catalog files conflict, adopt the upstream catalog wholesale rather than merging entries, then run `npm run i18n:check`. Upstream's `CLAUDE.md` and `.github/FUNDING.yml` stay excluded (owner decision); monitor `CLAUDE.md` for agent guidance worth porting into this file or the skills.
