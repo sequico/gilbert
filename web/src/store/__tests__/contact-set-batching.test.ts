@@ -279,7 +279,11 @@ describe("deleting more contacts than the server will take at once", () => {
   it("splits the selection into calls the server will accept", async () => {
     const sets = server({ max: MAX });
     useContacts.setState({ cards: cardsInState(1200) });
-    await useContacts.getState().destroyCards(Object.keys(cardsInState(1200)));
+    await useContacts
+      .getState()
+      .destroyCards(
+        Object.keys(cardsInState(1200)).map((id) => ({ id, accountId: null })),
+      );
     expect(sizes(sets)).toEqual([500, 500, 200]);
     expect(Object.keys(useContacts.getState().cards)).toHaveLength(0);
   });
@@ -288,7 +292,11 @@ describe("deleting more contacts than the server will take at once", () => {
     server({ max: MAX, failOn: 2 });
     useContacts.setState({ cards: cardsInState(1200) });
     await expect(
-      useContacts.getState().destroyCards(Object.keys(cardsInState(1200))),
+      useContacts
+        .getState()
+        .destroyCards(
+          Object.keys(cardsInState(1200)).map((id) => ({ id, accountId: null })),
+        ),
     ).rejects.toThrow(/roof fell in/);
     // The two batches that succeeded are gone; the third is still there rather
     // than vanishing from a list it was never removed from on the server.

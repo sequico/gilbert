@@ -13,6 +13,7 @@ import type {
   SetError,
   SetResponse,
 } from "@/jmap/types";
+import type { CardAddress } from "@/lib/contactAddress";
 import { type ContactMoveRefusal, contactMoveRefusal } from "@/lib/contactMove";
 import {
   contactDisplayName,
@@ -269,7 +270,7 @@ function contactMoveSentence(code: ContactMoveRefusal): string {
  * that stops being found. Re-exported because this store's callers key cards by
  * it.
  */
-import { sharedKey } from "@/lib/sharedKey";
+import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 
 export { sharedKey };
 
@@ -322,7 +323,7 @@ interface ContactsState {
    * second spelling of "which book is this card in" is how one of them comes to
    * name the wrong one.
    */
-  bookNamesOf(card: ContactCard): string[];
+  bookNamesOf(card: ContactCard, heldIn?: Id | null): string[];
   /**
    * Whether the reader may write this card where it lives.
    *
@@ -337,7 +338,7 @@ interface ContactsState {
    * refuse in its own words. Withholding on a guess is the worse failure — it
    * takes the controls off a card that is usually the reader's own.
    */
-  cardWritable(card: ContactCard): boolean;
+  cardWritable(card: ContactCard, heldIn?: Id | null): boolean;
   /** The account holding an address book, null when it is not the reader's own. */
   accountOfBook(bookId: Id): Id | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
@@ -379,7 +380,14 @@ interface ContactsState {
     toBookId: Id,
     edited?: Partial<ContactCard>,
   ): Promise<Id>;
-  updateCard(id: Id, patch: Record<string, unknown>): Promise<void>;
+  /**
+   * Write a patch to one card, named by its account and its id.
+   *
+   * The pair, because an id alone resolves to the reader's own card wherever one
+   * carries it: a group's card whose id the reader also holds would be patched in
+   * the reader's own account instead.
+   */
+  updateCard(card: CardAddress, patch: Record<string, unknown>): Promise<void>;
   /**
    * Delete cards outright, reporting what the server actually destroyed rather
    * than what was asked for. Nothing is thrown for a refusal -- a partial one
@@ -389,7 +397,7 @@ interface ContactsState {
    * A selection may span accounts, so the calls are grouped by the one holding
    * each card and the count is what the server confirmed across them.
    */
-  destroyCards(ids: Id[]): Promise<{ destroyed: number; refused?: SetError }>;
+  destroyCards(cards: CardAddress[]): Promise<{ destroyed: number; refused?: SetError }>;
   /**
    * Empty an address book: everything filed in it, gone.
    *
@@ -733,12 +741,18 @@ export const useContacts = create<ContactsState>((set, get) => ({
   accountOfCard(id) {
     if (get().cards[id]) return null;
     const hit = Object.entries(get().sharedCards).find(([key]) => key.endsWith(`:${id}`));
-    return hit ? hit[0].slice(0, hit[0].length - id.length - 1) : null;
+    return hit ? accountOfSharedKey(hit[0], id) : null;
   },
 
-  bookNamesOf(card) {
+  bookNamesOf(card, heldIn) {
     const st = get();
-    const accountId = st.accountOfCard(card.id);
+    /*
+     * Where the card lives: the caller's answer when it has one, and the id
+     * lookup otherwise. The lookup prefers the reader's own map, so it names the
+     * reader's own book for another account's card carrying the same id -- which
+     * is why a caller that knows the account says so.
+     */
+    const accountId = heldIn === undefined ? st.accountOfCard(card.id) : heldIn;
     const names: string[] = [];
     for (const id of Object.keys(card.addressBookIds ?? {})) {
       /* The reader's own card: their own books are the ones that answer, and an
@@ -757,10 +771,23 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return names;
   },
 
-  cardWritable(card) {
+  cardWritable(card, heldIn) {
     const st = get();
-    if (st.cards[card.id]) return true;
-    const accountId = st.accountOfCard(card.id);
+    /*
+     * The account holding the card: the caller's answer when it has one. The id
+     * lookup is the fallback, and it answers with the reader's own card whenever
+     * one carries this id -- so a group's card whose id the reader also holds
+     * would be judged by the reader's own book, and offered a write it does not
+     * have.
+     */
+    let accountId: Id | null;
+    if (heldIn === undefined) {
+      if (st.cards[card.id]) return true;
+      accountId = st.accountOfCard(card.id);
+    } else {
+      if (!heldIn || heldIn === st.accountId) return true;
+      accountId = heldIn;
+    }
     /* Nothing says this is another account's card, or the books that would
        answer have not answered: offer it, and let the server refuse in its own
        words if it will. */
@@ -1024,7 +1051,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
     if (refusal) throw new Error(contactMoveSentence(refusal));
     if (fromAccountId === toAccountId) {
       // Same account: a patch that adds the target book, mirroring updateCard.
-      await get().updateCard(id, { addressBookIds: { [toBookId]: true } });
+      await get().updateCard(
+        { id, accountId: fromAccountId === own ? null : fromAccountId },
+        { addressBookIds: { [toBookId]: true } },
+      );
       return id;
     }
     const card =
@@ -1066,17 +1096,16 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return newId;
   },
 
-  async updateCard(id, patch) {
-    const own = get().accountId;
-    const accountId = get().cards[id] ? own : (get().accountOfCard(id) ?? own);
+  async updateCard(card, patch) {
+    const accountId = card.accountId ?? get().accountId;
     if (!accountId) return;
     const res = await client.call<SetResponse>("ContactCard/set", {
       accountId,
-      update: { [id]: patch },
+      update: { [card.id]: patch },
     });
-    const err = res.notUpdated?.[id];
+    const err = res.notUpdated?.[card.id];
     if (err) throw new Error(setErrorMessage(err));
-    await get().getCard(id, accountId);
+    await get().getCard(card.id, accountId);
   },
 
   /*
@@ -1096,18 +1125,21 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * what went is remembered per account, which is also what says where each one
    * leaves the cache from.
    */
-  async destroyCards(ids) {
+  async destroyCards(cards) {
     const own = get().accountId;
-    /* An id nobody answers for is the reader's own: `accountOfCard` says null
-       both for their cards and for anything it has not read, and a bare id
-       resolves to their own account everywhere else in this store. */
+    /*
+     * Every card is named by the account it lives in as well as its id. An id
+     * alone is not an address: the reader's own card and a group's can carry the
+     * same one, and a bare id resolves to the reader's own -- so destroying the
+     * group's card would take the reader's own with it.
+     */
     const byAccount = new Map<Id, Id[]>();
-    for (const id of ids) {
-      const accountId = (get().cards[id] ? own : get().accountOfCard(id)) ?? own;
-      if (!accountId) continue;
-      const held = byAccount.get(accountId);
+    for (const { id, accountId } of cards) {
+      const target = accountId ?? own;
+      if (!target) continue;
+      const held = byAccount.get(target);
       if (held) held.push(id);
-      else byAccount.set(accountId, [id]);
+      else byAccount.set(target, [id]);
     }
     const gone: Id[] = [];
     const goneByAccount = new Map<Id, Id[]>();

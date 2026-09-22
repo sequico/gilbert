@@ -1657,7 +1657,11 @@ JMAP Contacts and JSContact.
   list of everything is the reader's own cards **and** the cards of every group
   they belong to, with **the group named on the row** that came from one, small
   and at its end. A colleague's shared book is not a group's and stays out: that
-  one is added deliberately and has a section of its own in the sidebar.
+  one is added deliberately and has a section of its own in the sidebar. **A row
+  is opened by its account and its id** — ids are minted per account, so the
+  reader's own card and a group's can carry the same one, and the account is what
+  tells them apart: it travels in the row's address, in the tick on it, and in
+  the book a card's Edit and Delete are offered for.
 - **Select and delete in bulk** — tick rows in the list, shift-click for a run,
   and delete the lot; or **Empty address book** from the book's own menu, which
   is the operation a migration asks for when an import needs doing again. A card

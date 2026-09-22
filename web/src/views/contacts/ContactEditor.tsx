@@ -7,6 +7,7 @@ import type {
   JSContactEmail,
   JSContactPhone,
 } from "@/jmap/types";
+import type { CardAddress } from "@/lib/contactAddress";
 import {
   buildName,
   cardsByUid,
@@ -34,7 +35,8 @@ interface Props {
   /** The account a brand-new card defaults into (the book being viewed). */
   defaultAccountId: string | null;
   onClose: () => void;
-  onSaved: (id: string) => void;
+  /** The card as saved, as the address it can be opened at. */
+  onSaved: (saved: CardAddress) => void;
 }
 
 const EMAIL_CTX = ["private", "work", "other"];
@@ -386,7 +388,10 @@ export function ContactEditor({
           bookAccount,
         );
         toast.success(t("Contact created"));
-        onSaved(id);
+        onSaved({
+          id,
+          accountId: bookAccount === own ? null : bookAccount,
+        });
       } else {
         const cardAccount = sourceAccountId ?? contacts.accountId ?? "";
         if (cardAccount === bookAccount) {
@@ -395,9 +400,18 @@ export function ContactEditor({
           const curBook = Object.keys(card.addressBookIds ?? {})[0];
           if (curBook !== bookId) patch.addressBookIds = { [bookId]: true };
           if (!photo && !removePhoto) delete patch.media;
-          await contacts.updateCard(card.id!, patch);
+          await contacts.updateCard(
+            {
+              id: card.id!,
+              accountId: cardAccount === own ? null : cardAccount,
+            },
+            patch,
+          );
           toast.success(t("Contact saved"));
-          onSaved(card.id!);
+          onSaved({
+            id: card.id!,
+            accountId: cardAccount === own ? null : cardAccount,
+          });
         } else {
           // A different account holds the target book: the card moves there
           // (create the copy in that account, destroy this one). The id
@@ -413,7 +427,10 @@ export function ContactEditor({
             obj as Partial<ContactCard>,
           );
           toast.success(t("Contact moved"));
-          onSaved(newId);
+          onSaved({
+            id: newId,
+            accountId: bookAccount === own ? null : bookAccount,
+          });
         }
       }
     } catch (err) {

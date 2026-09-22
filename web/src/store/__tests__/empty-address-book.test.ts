@@ -216,7 +216,10 @@ describe("deleting a selection of contacts", () => {
   it("answers with what the server destroyed rather than what was asked", async () => {
     server({ notDestroyed: { c2: { type: "forbidden" } } });
     stateWith(card("c1", "book1"), card("c2", "book1"));
-    const r = await useContacts.getState().destroyCards(["c1", "c2"]);
+    const r = await useContacts.getState().destroyCards([
+      { id: "c1", accountId: null },
+      { id: "c2", accountId: null },
+    ]);
     expect(r.destroyed).toBe(1);
     expect(r.refused).toMatchObject({ type: "forbidden" });
   });
@@ -226,7 +229,9 @@ describe("deleting a selection of contacts", () => {
     // somebody looking for contacts that are already gone.
     server({ notDestroyed: { c1: { type: "forbidden" } } });
     stateWith(card("c1", "book1"));
-    await expect(useContacts.getState().destroyCards(["c1"])).resolves.toMatchObject({
+    await expect(
+      useContacts.getState().destroyCards([{ id: "c1", accountId: null }]),
+    ).resolves.toMatchObject({
       destroyed: 0,
     });
   });
@@ -234,7 +239,10 @@ describe("deleting a selection of contacts", () => {
   it("takes off the local list only what actually went", async () => {
     server({ notDestroyed: { c2: { type: "forbidden" } } });
     stateWith(card("c1", "book1"), card("c2", "book1"));
-    await useContacts.getState().destroyCards(["c1", "c2"]);
+    await useContacts.getState().destroyCards([
+      { id: "c1", accountId: null },
+      { id: "c2", accountId: null },
+    ]);
     expect(Object.keys(useContacts.getState().cards)).toEqual(["c2"]);
   });
 });

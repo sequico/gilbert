@@ -19,10 +19,17 @@ import {
   X,
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
 import { avatarColor } from "@/lib/address";
+import {
+  type CardAddress,
+  cardAddressFrom,
+  cardAt,
+  cardKey,
+  cardPath,
+} from "@/lib/contactAddress";
 import {
   contactCompany,
   contactDisplayName,
@@ -60,6 +67,7 @@ const CONTACT_MIN = 360;
 
 export function ContactsView({ id }: { id?: string }) {
   const [, navigate] = useLocation();
+  const search = useSearch();
   const contacts = useContacts();
   const narrow = useIsNarrow();
   const listWidth = useSettings((s) => s.settings.contactsListWidth);
@@ -82,14 +90,30 @@ export function ContactsView({ id }: { id?: string }) {
      is the app's own sidebar rather than anything this view owns. */
   const sel = contacts.selection;
   const bookId = sel.bookId;
+  /*
+   * The card the route names, and the account it lives in. An id is only unique
+   * inside the account that minted it, so a reader's own card and a group's can
+   * share one -- and a bare id resolves to the reader's own, which is how a
+   * group's card became unreachable from a list that held both.
+   */
+  const address = cardAddressFrom(id, search, contacts.accountId);
   const [editing, setEditing] = useState<Partial<ContactCard> | null>(null);
+  /* Which account the card being edited lives in -- half of its address, and
+     what tells a save where to write. Null while the card is a new one. */
+  const [editingAccount, setEditingAccount] = useState<string | null>(null);
   /*
    * The row a right-click menu belongs to, and the card it is about to be moved
    * from. Kept apart from the ticked selection: a move is one card's, and the
    * menu is opened on the row the pointer is over.
    */
-  const [menuCard, setMenuCard] = useState<ContactCard | null>(null);
-  const [moving, setMoving] = useState<ContactCard | null>(null);
+  const [menuCard, setMenuCard] = useState<{
+    card: ContactCard;
+    accountId: string | null;
+  } | null>(null);
+  const [moving, setMoving] = useState<{
+    card: ContactCard;
+    accountId: string | null;
+  } | null>(null);
   const menu = useMenu();
   /*
    * Whether this reader may move a card between accounts at all (ADR 0018).
@@ -125,7 +149,10 @@ export function ContactsView({ id }: { id?: string }) {
   }, [bookId, sel.accountId]);
 
   useEffect(() => {
-    const onNew = () => setEditing({});
+    const onNew = () => {
+      setEditing({});
+      setEditingAccount(null);
+    };
     /*
      * Both carry the book they were asked for, so each action names the address
      * book it acts on instead of meaning "whatever the list is showing" -- the
@@ -183,24 +210,51 @@ export function ContactsView({ id }: { id?: string }) {
     [contacts, groupCardAccounts],
   );
 
-  const list = useMemo(() => {
+  /*
+   * The rows, and the account each came from. A card's id is only unique inside
+   * the account that minted it, so the account travels with the card through the
+   * list: it is half of what addresses a row, and without it a bare id names the
+   * reader's own card for two different contacts.
+   */
+  const listed = useMemo(() => {
+    const pairs: Array<{ card: ContactCard; accountId: string | null }> = [];
     // A shared book lists that account's cards; anything else lists the
     // reader's own. They are never mixed: whose contacts you are looking at is
     // the one thing this view must not be vague about.
     if (sel.accountId) {
-      const prefix = `${sel.accountId}:`;
-      const theirs = Object.entries(contacts.sharedCards)
-        .filter(([key]) => key.startsWith(prefix))
-        .map(([, c]) => c)
-        .filter((c) => bookId === "all" || c.addressBookIds?.[bookId]);
-      return contacts.filterCards(theirs, q);
+      for (const card of contacts.cardsIn(sel.accountId))
+        if (bookId === "all" || card.addressBookIds?.[bookId])
+          pairs.push({ card, accountId: sel.accountId });
+    } else if (bookId !== "all") {
+      /* One book of the reader's own: a book is one account's, and a group's
+         book is read under the group's own section. */
+      for (const card of Object.values(contacts.cards))
+        if (card.addressBookIds?.[bookId]) pairs.push({ card, accountId: null });
+    } else {
+      for (const card of Object.values(contacts.cards))
+        pairs.push({ card, accountId: null });
+      for (const g of groupCardAccounts)
+        for (const card of contacts.cardsIn(g.accountId))
+          pairs.push({ card, accountId: g.accountId });
     }
-    /* One book of the reader's own: a book is one account's, and a group's book
-       is read under the group's own section. */
-    if (bookId !== "all")
-      return contacts.search(q).filter((c) => c.addressBookIds?.[bookId]);
-    return contacts.filterCards(allCards, q);
-  }, [contacts, allCards, q, bookId, sel.accountId]);
+    /*
+     * The query is the store's own filter, and the rows are put back by the card
+     * they came from: one rule for what a search matches, and the account that
+     * travelled with the card stays with it.
+     */
+    const kept = new Set(
+      contacts.filterCards(
+        pairs.map((p) => p.card),
+        q,
+      ),
+    );
+    return pairs.filter((p) => kept.has(p.card));
+  }, [contacts, groupCardAccounts, q, bookId, sel.accountId]);
+
+  /* The same rows as cards: the two places that work by id alone -- the tick a
+     shift-click reaches back to, and the export -- read the cards the list is
+     drawing. */
+  const list = useMemo(() => listed.map((i) => i.card), [listed]);
 
   /*
    * The group a row came from, named on the row itself and nowhere else: only
@@ -213,25 +267,23 @@ export function ContactsView({ id }: { id?: string }) {
       ? groupCardAccounts.find((g) => g.accountId === accountId)?.name
       : undefined;
 
-  const openMenuAt = (e: React.MouseEvent, c: ContactCard) => {
+  const openMenuAt = (e: React.MouseEvent, c: ContactCard, accountId: string | null) => {
     e.preventDefault();
-    setMenuCard(c);
+    setMenuCard({ card: c, accountId });
     menu.openAt(e.clientX, e.clientY);
   };
 
-  // `selected` is resolved by id alone, not by the sidebar's current book
-  // selection -- a deep link or a search result can land on a shared card
-  // while `sel.accountId` still reads as the reader's own book. Whether *this*
-  // card is theirs to write is its own question, and the store answers it from
-  // the book that holds it: another account's when it is found among that
-  // account's cards, never when it was only found by falling through to
-  // `sharedCards`.
-  const ownCard = id ? contacts.cards[id] : undefined;
-  const selected =
-    ownCard ??
-    (id
-      ? Object.entries(contacts.sharedCards).find(([key]) => key.endsWith(`:${id}`))?.[1]
-      : undefined);
+  /*
+   * The opened card, resolved by the account **and** id the route names -- not
+   * by id alone, which prefers the reader's own map and leaves another
+   * account's card carrying the same id unreachable. Whether *this* card is
+   * theirs to write is its own question, and the store answers it from the book
+   * that holds it: another account's when the route names one, never by falling
+   * through to the reader's own map.
+   */
+  const opened = cardAt(contacts.cards, contacts.sharedCards, address);
+  const selected = opened?.card;
+  const selectedAccountId = opened?.accountId ?? null;
   /*
    * Whether the controls that write this card are withheld -- which is a
    * question about the book holding it, not about whose account it is in. A
@@ -240,27 +292,37 @@ export function ContactsView({ id }: { id?: string }) {
    * group's contacts exist for. `cardWritable` asks the book, and withholds
    * while the answer is unknown rather than guessing either way.
    */
-  const selectedReadOnly = selected ? !contacts.cardWritable(selected) : false;
+  const selectedReadOnly = selected
+    ? !contacts.cardWritable(selected, selectedAccountId)
+    : false;
   const books = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
   const groups = useMemo(() => {
-    const out: Array<{ letter: string; items: ContactCard[] }> = [];
-    for (const c of list) {
-      const letter = (sortKey(c)[0] ?? "#").toUpperCase();
+    const out: Array<{
+      letter: string;
+      items: Array<{ card: ContactCard; accountId: string | null }>;
+    }> = [];
+    for (const item of listed) {
+      const letter = (sortKey(item.card)[0] ?? "#").toUpperCase();
       const key = /[A-Z]/.test(letter) ? letter : "#";
       const g = out[out.length - 1];
-      if (g && g.letter === key) g.items.push(c);
-      else out.push({ letter: key, items: [c] });
+      if (g && g.letter === key) g.items.push(item);
+      else out.push({ letter: key, items: [item] });
     }
     return out;
-  }, [list]);
+  }, [listed]);
   /* Ticked *and* on screen. A selection outlives a search box being typed
      into, and deleting rows that scrolled out of view is not what the count
-     on the bar promised. */
-  const pickedIds = useMemo(
-    () => list.filter((c) => picked[c.id]).map((c) => c.id),
-    [list, picked],
+     on the bar promised. Held as addresses, because an id is not one: the
+     reader's own card and a group's can carry the same id, and the delete has
+     to name the account it acts on. */
+  const pickedRefs = useMemo(
+    () =>
+      listed
+        .filter((i) => picked[cardKey({ id: i.card.id, accountId: i.accountId })])
+        .map((i) => ({ id: i.card.id, accountId: i.accountId })),
+    [listed, picked],
   );
 
   if (!contacts.available) {
@@ -372,29 +434,32 @@ export function ContactsView({ id }: { id?: string }) {
   };
 
   /* Ticking a box, with shift reaching back to the last one ticked. The range
-     is taken from `list`, so it is the rows as they are grouped and sorted on
-     screen rather than the order the store happens to hold them in. */
-  const tick = (cardId: string, on: boolean, range: boolean) => {
+     is taken from the rows as they are grouped and sorted on screen rather than
+     the order the store happens to hold them in, and both ends are **addresses**:
+     an id alone cannot say which of two rows carrying it was ticked. */
+  const tick = (key: string, on: boolean, range: boolean) => {
+    const keyOf = (i: { card: ContactCard; accountId: string | null }) =>
+      cardKey({ id: i.card.id, accountId: i.accountId });
     /* The anchor is read here and not inside the updater below. React runs an
        updater when it gets round to rendering, by which time the ref has
        already been moved to this row -- so the range would be measured from
        the row that ended it and collapse to that one row. */
     const anchor = range ? lastPicked.current : null;
-    const a = anchor ? list.findIndex((c) => c.id === anchor) : -1;
-    const b = list.findIndex((c) => c.id === cardId);
-    const ids =
+    const a = anchor ? listed.findIndex((i) => keyOf(i) === anchor) : -1;
+    const b = listed.findIndex((i) => keyOf(i) === key);
+    const keys =
       a >= 0 && b >= 0
-        ? list.slice(Math.min(a, b), Math.max(a, b) + 1).map((c) => c.id)
-        : [cardId];
+        ? listed.slice(Math.min(a, b), Math.max(a, b) + 1).map(keyOf)
+        : [key];
     setPicked((prev) => {
       const next = { ...prev };
-      for (const i of ids) {
-        if (on) next[i] = true;
-        else delete next[i];
+      for (const k of keys) {
+        if (on) next[k] = true;
+        else delete next[k];
       }
       return next;
     });
-    lastPicked.current = cardId;
+    lastPicked.current = key;
   };
 
   const clearPicked = () => {
@@ -403,8 +468,17 @@ export function ContactsView({ id }: { id?: string }) {
   };
 
   const deletePicked = async () => {
-    const n = pickedIds.length;
+    const n = pickedRefs.length;
     if (!n) return;
+    /* Whether the card on screen is one of them -- its address, not its id: two
+       rows can share an id, and the one left open is the one that has to go. */
+    const cardWasDeleted = Boolean(
+      address &&
+        pickedRefs.some(
+          (r) =>
+            r.id === address.id && (r.accountId ?? null) === (address.accountId ?? null),
+        ),
+    );
     if (
       !(await confirmDialog({
         title: plural(n, { one: "Delete {n} contact?", other: "Delete {n} contacts?" }),
@@ -418,7 +492,7 @@ export function ContactsView({ id }: { id?: string }) {
       /* What the server confirmed, not what was asked. A refusal that took
          half of them still deleted the other half, and saying "it failed"
          sends you looking for contacts that are already gone. */
-      const { destroyed, refused } = await contacts.destroyCards(pickedIds);
+      const { destroyed, refused } = await contacts.destroyCards(pickedRefs);
       clearPicked();
       if (destroyed)
         toast.success(
@@ -433,7 +507,7 @@ export function ContactsView({ id }: { id?: string }) {
             error: setErrorMessage(refused),
           }),
         );
-      if (destroyed && id && pickedIds.includes(id)) navigate("/contacts");
+      if (destroyed && cardWasDeleted) navigate("/contacts");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -463,13 +537,6 @@ export function ContactsView({ id }: { id?: string }) {
     if (width != null) updateSettings({ contactsListWidth: width });
   };
 
-  const accountOfEditingId = (cid: string, cs: typeof contacts): string | null => {
-    if (cs.cards[cid]) return cs.accountId;
-    for (const key of Object.keys(cs.sharedCards))
-      if (key.endsWith(`:${cid}`)) return key.slice(0, key.length - cid.length - 1);
-    return cs.accountId;
-  };
-
   return (
     <div
       ref={layoutRef}
@@ -477,7 +544,7 @@ export function ContactsView({ id }: { id?: string }) {
       style={{ "--list-size": `${shownListWidth}px` } as CSSProperties}
     >
       <section className="contacts-list">
-        {pickedIds.length ? (
+        {pickedRefs.length ? (
           /* The search box gives way rather than sitting alongside: what the
              bar counts is what the search left on screen, so leaving the box
              where it is invites narrowing the list under your own selection. */
@@ -485,21 +552,28 @@ export function ContactsView({ id }: { id?: string }) {
             <input
               type="checkbox"
               className="contact-check"
-              checked={pickedIds.length === list.length}
+              checked={pickedRefs.length === listed.length}
               ref={(el) => {
                 if (el)
                   el.indeterminate =
-                    pickedIds.length > 0 && pickedIds.length < list.length;
+                    pickedRefs.length > 0 && pickedRefs.length < listed.length;
               }}
               onChange={(e) => {
                 if (e.target.checked) {
-                  setPicked(Object.fromEntries(list.map((c) => [c.id, true as const])));
+                  setPicked(
+                    Object.fromEntries(
+                      listed.map((i) => [
+                        cardKey({ id: i.card.id, accountId: i.accountId }),
+                        true as const,
+                      ]),
+                    ),
+                  );
                 } else clearPicked();
               }}
               aria-label={translate("Select all")}
             />
             <span className="grow">
-              {plural(pickedIds.length, { one: "{n} selected", other: "{n} selected" })}
+              {plural(pickedRefs.length, { one: "{n} selected", other: "{n} selected" })}
             </span>
             <button
               className="icon-btn"
@@ -549,13 +623,16 @@ export function ContactsView({ id }: { id?: string }) {
             <button
               className="icon-btn"
               title={translate("New contact")}
-              onClick={() => setEditing({})}
+              onClick={() => {
+                setEditing({});
+                setEditingAccount(null);
+              }}
             >
               <Plus size={20} />
             </button>
           </div>
         )}
-        <div className={`contacts-scroll ${pickedIds.length ? "has-selection" : ""}`}>
+        <div className={`contacts-scroll ${pickedRefs.length ? "has-selection" : ""}`}>
           {contacts.loading && !contacts.loaded ? (
             <Spinner label={translate("Loading contacts…")} />
           ) : !list.length ? (
@@ -571,7 +648,7 @@ export function ContactsView({ id }: { id?: string }) {
             groups.map((g) => (
               <div key={g.letter}>
                 <div className="contact-letter">{g.letter}</div>
-                {g.items.map((c) => {
+                {g.items.map(({ card: c, accountId: cardAccountId }) => {
                   const name = contactDisplayName(c);
                   const email = contactEmails(c)[0]?.email;
                   /*
@@ -583,16 +660,30 @@ export function ContactsView({ id }: { id?: string }) {
                    */
                   const company = contactCompany(c);
                   const beside = company && company !== name ? company : null;
-                  // A card of a shared book lives in the account it came from.
-                  const cardAccount = contacts.accountOfCard(c.id);
-                  const photoAccount = cardAccount ?? contacts.accountId;
+                  /*
+                   * The account the row is drawn from, which is the one the
+                   * card itself came from -- `cardAccountId` -- and not an id
+                   * looked up in the maps: a card of a group's book and one of
+                   * the reader's own can carry the same id, and the lookup
+                   * answers with the reader's own.
+                   */
+                  const photoAccount = cardAccountId ?? contacts.accountId;
                   const photo = photoAccount ? contactPhoto(c, photoAccount) : null;
-                  const groupName = groupNameOf(cardAccount);
+                  const groupName = groupNameOf(cardAccountId);
+                  /* Two rows of a list can carry one id between them: the
+                     address of a row is the card's account and its id, and the
+                     highlight is that address, not the id alone. */
+                  const isOpen =
+                    address?.id === c.id && (address.accountId ?? null) === cardAccountId;
+                  /* The key this row is ticked under: its address, in one string. */
+                  const rowKey = cardKey({ id: c.id, accountId: cardAccountId });
                   return (
                     <div
-                      key={c.id}
-                      className={`contact-row ${id === c.id ? "active" : ""} ${picked[c.id] ? "picked" : ""}`}
-                      onClick={() => navigate(`/contacts/${c.id}`)}
+                      key={`${cardAccountId ?? "own"}:${c.id}`}
+                      className={`contact-row ${isOpen ? "active" : ""} ${picked[rowKey] ? "picked" : ""}`}
+                      onClick={() =>
+                        navigate(cardPath({ id: c.id, accountId: cardAccountId }))
+                      }
                       /*
                        * The one action that is about where the card lives rather
                        * than what is in it: a right-click offers it, and the move
@@ -600,16 +691,18 @@ export function ContactsView({ id }: { id?: string }) {
                        * that has nowhere to go, so the menu is opened only where
                        * the reader may move one (ADR 0018).
                        */
-                      onContextMenu={mayMove ? (e) => openMenuAt(e, c) : undefined}
+                      onContextMenu={
+                        mayMove ? (e) => openMenuAt(e, c, cardAccountId) : undefined
+                      }
                     >
-                      {contacts.cardWritable(c) && (
+                      {contacts.cardWritable(c, cardAccountId) && (
                         <input
                           type="checkbox"
                           className="contact-check"
-                          checked={Boolean(picked[c.id])}
+                          checked={Boolean(picked[rowKey])}
                           onClick={(ev) => {
                             ev.stopPropagation();
-                            tick(c.id, !picked[c.id], ev.shiftKey);
+                            tick(rowKey, !picked[rowKey], ev.shiftKey);
                           }}
                           onChange={() => {}}
                           aria-label={translate("Select")}
@@ -685,9 +778,13 @@ export function ContactsView({ id }: { id?: string }) {
         {selected ? (
           <ContactDetail
             card={selected}
+            accountId={selectedAccountId}
             readOnly={selectedReadOnly}
             onBack={() => navigate("/contacts")}
-            onEdit={() => setEditing(selected)}
+            onEdit={() => {
+              setEditing(selected);
+              setEditingAccount(selectedAccountId);
+            }}
             narrow={narrow}
             onEmail={(addr) =>
               openCompose({ to: [{ name: contactDisplayName(selected), email: addr }] })
@@ -708,18 +805,16 @@ export function ContactsView({ id }: { id?: string }) {
               ? bookId
               : (books.find((b) => b.isDefault)?.id ?? books[0]?.id ?? null)
           }
-          sourceAccountId={
-            editing.id
-              ? contacts.cards[editing.id]
-                ? contacts.accountId
-                : accountOfEditingId(editing.id, contacts)
-              : null
-          }
+          sourceAccountId={editing.id ? (editingAccount ?? contacts.accountId) : null}
           defaultAccountId={sel.accountId ?? contacts.accountId ?? null}
-          onClose={() => setEditing(null)}
-          onSaved={(cid) => {
+          onClose={() => {
             setEditing(null);
-            navigate(`/contacts/${cid}`);
+            setEditingAccount(null);
+          }}
+          onSaved={(saved) => {
+            setEditing(null);
+            setEditingAccount(null);
+            navigate(cardPath(saved));
           }}
         />
       )}
@@ -744,12 +839,13 @@ export function ContactsView({ id }: { id?: string }) {
       </Popover>
       {moving && (
         <MoveContactDialog
-          card={moving}
+          card={moving.card}
+          accountId={moving.accountId}
           onClose={() => setMoving(null)}
-          onMoved={(newId) => {
+          onMoved={(moved) => {
             setMoving(null);
             clearPicked();
-            navigate(`/contacts/${newId}`);
+            navigate(cardPath(moved));
             toast.success(translate("Contact moved"));
           }}
         />
@@ -775,17 +871,23 @@ export function ContactsView({ id }: { id?: string }) {
  */
 function MoveContactDialog({
   card,
+  accountId,
   onClose,
   onMoved,
 }: {
   card: ContactCard;
+  /** The account holding the card, half of its address -- null for the reader's own. */
+  accountId: string | null;
   onClose: () => void;
-  onMoved: (newId: string) => void;
+  onMoved: (moved: CardAddress) => void;
 }) {
   const contacts = useContacts();
   const mailAccounts = useMail((s) => s.mailAccounts);
   const [busy, setBusy] = useState(false);
-  const fromAccount = contacts.accountOfCard(card.id) ?? contacts.accountId;
+  /* The card's own account, told rather than looked up: a card of another
+     account and one of the reader's own can carry the same id, and an id lookup
+     answers with the reader's own. */
+  const fromAccount = accountId ?? contacts.accountId;
   const ownBooks = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
@@ -807,7 +909,12 @@ function MoveContactDialog({
     setBusy(true);
     try {
       const newId = await contacts.moveCardTo(card.id, fromAccount, accountId, bookId);
-      onMoved(newId);
+      /* The copy lives in the account the reader chose: its address says so, or
+         the new card would be resolved against the reader's own map. */
+      onMoved({
+        id: newId,
+        accountId: accountId === contacts.accountId ? null : accountId,
+      });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -872,6 +979,7 @@ function MoveContactDialog({
 
 function ContactDetail({
   card: c,
+  accountId,
   readOnly,
   onBack,
   onEdit,
@@ -879,6 +987,13 @@ function ContactDetail({
   onEmail,
 }: {
   card: ContactCard;
+  /**
+   * The account holding this card, half of its address -- null for the reader's
+   * own. Told rather than looked up: a card of a group's book and one of the
+   * reader's own can carry the same id, and an id lookup answers with the
+   * reader's own.
+   */
+  accountId: string | null;
   /**
    * A card the store knows is another account's: the reader's own list is in,
    * and this id is not in it. Editing and deleting it are that account's to
@@ -892,18 +1007,18 @@ function ContactDetail({
 }) {
   const contacts = useContacts();
   const [, navigate] = useLocation();
-  const photoAccount = contacts.accountOfCard(c.id) ?? contacts.accountId;
+  const photoAccount = accountId ?? contacts.accountId;
   const photo = photoAccount ? contactPhoto(c, photoAccount) : null;
   const name = contactDisplayName(c);
   const org = Object.values(c.organizations ?? {})[0];
   const title = Object.values(c.titles ?? {})[0];
-  const books = contacts.bookNamesOf(c);
+  const books = contacts.bookNamesOf(c, accountId);
   /*
    * A group's members live where the group does: a uid means nothing outside
    * the account holding the card, so the cards to look through are that
    * account's -- the reader's own books, or the group's (ADR 0004).
    */
-  const groupAccount = contacts.accountOfCard(c.id) ?? contacts.accountId;
+  const groupAccount = accountId ?? contacts.accountId;
   const members =
     c.kind === "group" ? memberCards(contacts.cardsIn(groupAccount), c.members) : [];
   const ctxLabel = (ctx?: Record<string, boolean>, label?: string) =>
@@ -948,7 +1063,9 @@ function ContactDetail({
                 })
               ) {
                 try {
-                  const { destroyed, refused } = await contacts.destroyCards([c.id]);
+                  const { destroyed, refused } = await contacts.destroyCards([
+                    { id: c.id, accountId },
+                  ]);
                   if (!destroyed) {
                     toast.error(
                       refused
@@ -1169,10 +1286,10 @@ function ContactDetail({
               </span>
               <span className="v">
                 <a
-                  href={`/contacts/${m.id}`}
+                  href={cardPath({ id: m.id, accountId })}
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate(`/contacts/${m.id}`);
+                    navigate(cardPath({ id: m.id, accountId }));
                   }}
                 >
                   {contactDisplayName(m)}

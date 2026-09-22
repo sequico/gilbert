@@ -115,7 +115,11 @@ afterEach(() => {
 describe("deleting a selection that spans accounts", () => {
   it("asks each account for the cards it holds", async () => {
     const destroys = stubServer();
-    const { destroyed } = await useContacts.getState().destroyCards(["c1", "g1", "g2"]);
+    const { destroyed } = await useContacts.getState().destroyCards([
+      { id: "c1", accountId: null },
+      { id: "g1", accountId: "grpA" },
+      { id: "g2", accountId: "grpB" },
+    ]);
     expect(destroyed).toBe(3);
     expect(destroys).toHaveLength(3);
     expect(destroys.find((d) => d.accountId === "own")!.ids).toEqual(["c1"]);
@@ -125,11 +129,36 @@ describe("deleting a selection that spans accounts", () => {
 
   it("takes each confirmed card out of the cache it came from", async () => {
     stubServer();
-    await useContacts.getState().destroyCards(["c1", "g1", "g2"]);
+    await useContacts.getState().destroyCards([
+      { id: "c1", accountId: null },
+      { id: "g1", accountId: "grpA" },
+      { id: "g2", accountId: "grpB" },
+    ]);
     const st = useContacts.getState();
     expect(st.cards.c1).toBeUndefined();
     expect(st.sharedCards[sharedKey("grpA", "g1")]).toBeUndefined();
     expect(st.sharedCards[sharedKey("grpB", "g2")]).toBeUndefined();
+  });
+
+  it("destroys the card the address names when two accounts share an id", async () => {
+    /*
+     * Stalwart mints an id inside the account that holds the object, so the
+     * reader's own card and a group's can carry the same one. The account is half
+     * of what names a card: destroying by id alone would take the reader's own
+     * card when the group's was the one ticked.
+     */
+    useContacts.setState((s) => ({
+      sharedCards: { ...s.sharedCards, [sharedKey("grpA", "c1")]: card("c1", "ga1") },
+    }));
+    const destroys = stubServer();
+    const { destroyed } = await useContacts
+      .getState()
+      .destroyCards([{ id: "c1", accountId: "grpA" }]);
+    expect(destroyed).toBe(1);
+    expect(destroys).toEqual([{ accountId: "grpA", ids: ["c1"] }]);
+    const st = useContacts.getState();
+    expect(st.cards.c1).toBeDefined();
+    expect(st.sharedCards[sharedKey("grpA", "c1")]).toBeUndefined();
   });
 
   it("batches within one account rather than across them", async () => {
@@ -147,7 +176,12 @@ describe("deleting a selection that spans accounts", () => {
       sharedCards: { ...s.sharedCards, [sharedKey("grpA", "g3")]: card("g3", "ga1") },
     }));
     const destroys = stubServer();
-    await useContacts.getState().destroyCards(["c1", "g1", "g3", "g2"]);
+    await useContacts.getState().destroyCards([
+      { id: "c1", accountId: null },
+      { id: "g1", accountId: "grpA" },
+      { id: "g3", accountId: "grpA" },
+      { id: "g2", accountId: "grpB" },
+    ]);
     expect(destroys.filter((d) => d.accountId === "grpA")).toHaveLength(2);
     for (const d of destroys) {
       expect(d.ids).toHaveLength(1);

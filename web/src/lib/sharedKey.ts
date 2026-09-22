@@ -12,3 +12,10 @@
  * `settings.addedShares`.
  */
 export const sharedKey = (accountId: string, id: string): string => `${accountId}:${id}`;
+
+/**
+ * The account a shared key names, given the id it holds: the inverse of
+ * `sharedKey`, so the format is read in one place as well as written in one.
+ */
+export const accountOfSharedKey = (key: string, id: string): string =>
+  key.slice(0, key.length - id.length - 1);
