@@ -419,7 +419,10 @@ describe("CSS escapes and comments cannot hide remote content", () => {
       expect(proxied.remoteCount).toBe(1);
       expect(proxied.html).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
       const allowed = sanitizeEmailHtml(src, { allowRemote: true });
-      expect(allowed.html).toContain("url(https://t.example/p.gif)");
+      // Written back quoted, which is what carries a URL holding a `)` or a
+      // space -- the shape the old pattern stopped reading at -- and the
+      // attribute's quotes are HTML-escaped on the way out.
+      expect(allowed.html).toContain("url(&quot;https://t.example/p.gif&quot;)");
     }
   });
 
@@ -541,8 +544,11 @@ describe("a url() is read the way a CSS parser reads it", () => {
   });
 
   it("refuses a URL it would have to decode an escape to judge", () => {
+    // `&#92;&#92;` is two backslashes in the CSS, which `decodeCss` leaves as
+    // one -- and a URL holding a backslash is not loaded rather than decoded
+    // to guess at.
     const r = sanitizeEmailHtml(
-      `<p style="background:url(http://x.example/a\\b.png)">x</p>`,
+      `<p style="background:url(http://x.example/a&#92;&#92;b.png)">x</p>`,
     );
     expect(r.remoteCount).toBe(0);
     expect(r.html).not.toContain("x.example");
