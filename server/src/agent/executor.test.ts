@@ -122,11 +122,25 @@ function answerSequence(label: string, values: unknown[]): void {
  */
 let policyMoved = false;
 
+/**
+ * Put the shared policy document back, with no precondition.
+ *
+ * The restore is not the change anybody is racing: `setPolicy` states what a
+ * test wants from the gate, and this puts back what every other test expects.
+ * It is written unconditionally because the read-then-write form loses to
+ * whatever the previous test left running in this account — a fixture write is
+ * not the compare-and-set ADR 0012 is about, and a suite that flakes on its
+ * own housekeeping reports on the suite rather than on the code.
+ */
+async function restorePolicy(): Promise<void> {
+  await store.writePolicy({ review: "never", allowExternal: false }, "admin@example.com");
+}
+
 beforeEach(async () => {
   answers.clear();
   sequences.clear();
   asked.length = 0;
-  if (policyMoved) await setPolicy({ review: "never" });
+  if (policyMoved) await restorePolicy();
   policyMoved = false;
 });
 
