@@ -283,7 +283,9 @@ async function fetchAccountInfo(
     session.primaryAccounts?.[CAPABILITIES.mail] ??
     Object.keys(session.accounts ?? {})[0];
   if (!accountId) return EMPTY_INFO;
-  const res = await fetch(absoluteUpstream(session.apiUrl), {
+  // Against the server that issued this session: with a domain mapped to its
+  // own Stalwart (#238), the default one has never heard of the account.
+  const res = await fetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
     method: "POST",
     headers: {
       authorization,
@@ -540,7 +542,9 @@ export async function fetchDirectoryPrincipals(
   const post = async (
     methodCalls: unknown[][],
   ): Promise<[string, Record<string, unknown>][]> => {
-    const res = await fetch(absoluteUpstream(session.apiUrl), {
+    // The directory lives on the server that issued this session, not on the
+    // default one (#238).
+    const res = await fetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
       method: "POST",
       headers: {
         authorization,

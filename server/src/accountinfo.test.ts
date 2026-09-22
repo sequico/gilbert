@@ -155,3 +155,42 @@ test("a shared account carrying the capability is enough to recognise the server
     true,
   );
 });
+
+/**
+ * The account's own server answers about the account.
+ *
+ * `apiUrl` is absolute, but it is resolved against the origin of the session
+ * it came with, not against the configured default: with a domain mapped to
+ * its own Stalwart (#238) the default has never heard of the account, so the
+ * locale it answers with — if it answers at all — belongs to somebody else.
+ * The introspection beside it already asks the session's own server.
+ */
+test("the account is asked of the server that issued the session", async () => {
+  const seen: string[] = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    seen.push(String(input instanceof Request ? input.url : input));
+    return new Response(JSON.stringify({ methodResponses: [], edition: "oss" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    await getAccountInfo("session-mapped-domain", "Basic x", {
+      capabilities: baseCaps,
+      accounts: { a1: { accountCapabilities: { [STALWART]: {} } } },
+      primaryAccounts: { [STALWART]: "a1" },
+      apiUrl: "https://mail.mapped.test/jmap/",
+      baseUrl: "https://mail.mapped.test",
+    } as never);
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.ok(seen.length >= 2, "both the locale read and the introspection go out");
+  for (const url of seen) {
+    assert.ok(
+      url.startsWith("https://mail.mapped.test/"),
+      `${url} went to the default server rather than the session's own`,
+    );
+  }
+});
