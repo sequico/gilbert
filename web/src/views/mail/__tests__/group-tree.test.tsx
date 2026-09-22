@@ -10,6 +10,16 @@ import { MailboxTree } from "../MailboxTree";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/* jsdom has no matchMedia, and the sidebar asks it for the layout it is drawing. */
+function setWidth(px: number) {
+  window.matchMedia = ((q: string) => ({
+    matches: /max-width:\s*(\d+)px/.test(q) ? px <= Number(RegExp.$1) : false,
+    media: q,
+    addEventListener() {},
+    removeEventListener() {},
+  })) as unknown as typeof window.matchMedia;
+}
+
 /**
  * A tree that is not the reader's own is drawn whole, and the answer to "whose
  * tree is this" must not wait on the account probe.
@@ -91,6 +101,7 @@ describe("a mailbox tree that is not the reader's own", () => {
     });
 
   beforeEach(() => {
+    setWidth(1280);
     window.history.replaceState({}, "", "/mail/a");
     useSession.setState({ session: SESSION });
     useMail.setState({

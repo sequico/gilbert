@@ -1,9 +1,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Mailbox, MailboxRole } from "@/jmap/types";
+import { CAP } from "@/jmap/client";
+import type { JmapSession, Mailbox, MailboxRole } from "@/jmap/types";
 import { useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { MailboxTree } from "../MailboxTree";
 
@@ -234,6 +236,23 @@ describe("the labels section", () => {
   beforeEach(() => {
     setWidth(1280);
     window.history.replaceState({}, "", "/mail/inbox");
+    /*
+     * Which tree is the reader's own is a question about the session now, so the
+     * session says it: `a1` is theirs and `g1` is a group they are a member of.
+     * Without this the group below reads as a tree of nobody's and every label
+     * it draws is the reader's own.
+     */
+    useSession.setState({
+      session: {
+        accounts: {
+          a1: { name: "me@example.org", isPersonal: true },
+          g1: { name: "team@example.org", isPersonal: false },
+        },
+        primaryAccounts: { [CAP.mail]: "a1" },
+        capabilities: {},
+        state: "s1",
+      } as unknown as JmapSession,
+    });
     useSettings.setState((s) => ({
       settings: {
         ...s.settings,

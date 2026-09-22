@@ -130,6 +130,12 @@ function stubServer(trees: Record<string, Tree>) {
             },
             id,
           ]);
+        } else if (name === "SieveScript/set") {
+          methodResponses.push([
+            name,
+            { accountId, oldState: "1", newState: "2", updated: { s1: null } },
+            id,
+          ]);
         } else {
           methodResponses.push([
             name,
@@ -174,6 +180,17 @@ const sieveWrites = (calls: Array<{ name: string }>) =>
 beforeEach(() => {
   client.session = SESSION;
   useSession.setState({ session: SESSION });
+  /*
+   * Saving rules uploads the new script as a blob first, and that upload is an
+   * XHR rather than a fetch — so it is the one call the stub server cannot
+   * answer, and the one thing here that has to be taken on trust.
+   */
+  vi.spyOn(client, "upload").mockResolvedValue({
+    accountId: "own",
+    blobId: "blob-1",
+    type: "application/sieve",
+    size: 128,
+  } as never);
   useSieve.setState({
     accountId: "own",
     available: true,

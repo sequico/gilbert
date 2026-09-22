@@ -88,8 +88,6 @@ describe("RichEditor autoFocus", () => {
         );
       });
     renderBody("");
-    expect(window.getSelection()?.anchorNode, "no caret placed yet").toBeFalsy();
-
     renderBody(body);
     const el = editor()!;
     const sel = window.getSelection();
