@@ -148,7 +148,7 @@ export function ContactsSidebar() {
     <div
       className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
       onClick={() => contacts.select({ accountId, bookId: book.id })}
-      title={`${book.name} — shared by ${accountName}`}
+      title={t("{name} — shared by {owner}", { name: book.name, owner: accountName })}
       onContextMenu={(e) => openMenuAt(e, { kind: "shared", accountId, book })}
     >
       <BookOpen size={17} />
@@ -193,7 +193,10 @@ export function ContactsSidebar() {
     />
   );
   const availableRow = (accountId: string, accountName: string, book: AddressBook) => (
-    <div className="nav-item" title={`${book.name} — from ${accountName}`}>
+    <div
+      className="nav-item"
+      title={t("{name} — from {owner}", { name: book.name, owner: accountName })}
+    >
       <BookOpen size={17} className="faint" />
       <span className="grow truncate faint">{book.name}</span>
       <button

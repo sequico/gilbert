@@ -18,9 +18,19 @@ import { readFileSync } from "node:fs";
  * hold English and the render site calls `t(s.label)`. What this refuses is a
  * string that is neither -- one no catalogue has a key for, which therefore
  * cannot be translated at all, however many languages ship.
+ *
+ * English assembled around values counts as the same thing: a sentence built
+ * as `Remove ${email}` cannot be a catalogue key as written, so it is reported
+ * too. The values are the placeholders a catalogue entry names, not a reason
+ * to leave the sentence English.
  */
 import ts from "typescript";
-import { catalogFiles, sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
+import {
+  catalogFiles,
+  NOT_PROSE,
+  sourceAst,
+  sourceFiles,
+} from "./lib/i18nSources.mjs";
 
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([
@@ -97,6 +107,28 @@ for (const file of sourceFiles()) {
   };
 
   /*
+   * English assembled around values: `aria-label={`Remove ${email}`}`.
+   *
+   * No key is asked for -- the literal cannot be one as written -- and
+   * `looksLikeUi` reads the opening of a sentence, which `${name}, shared by
+   * ${owner}` does not have. What is left of the template once its values are
+   * taken out is asked the kit's own question instead: `NOT_PROSE` is how this
+   * repository says "punctuation, digits and symbols -- nothing to translate",
+   * so `${name} (${size})` is quiet and `${name} — shared by ${owner}` is not.
+   */
+  const reportTemplate = (x) => {
+    const parts = ts.isNoSubstitutionTemplateLiteral(x)
+      ? [x.text]
+      : [x.head.text, ...x.templateSpans.map((s) => s.literal.text)];
+    const staticText = parts.join("");
+    if (NOT_PROSE.test(staticText)) return;
+    const { line } = src.getLineAndCharacterOfPosition(x.getStart(src));
+    found.push({ file, line: line + 1, text: parts.join("{}") });
+  };
+  const isTemplate = (x) =>
+    ts.isTemplateExpression(x) || ts.isNoSubstitutionTemplateLiteral(x);
+
+  /*
    * Literals that are not text on their way to a reader.
    *
    * Two kinds. One is already inside t("...") -- walking into the call would
@@ -130,14 +162,15 @@ for (const file of sourceFiles()) {
   const visit = (n) => {
     if (
       ts.isPropertyAssignment(n) &&
-      ts.isStringLiteral(n.initializer) &&
-      !wrapped.has(n.initializer) &&
       UI_PROPS.has(n.name.getText(src).replace(/['"]/g, ""))
     ) {
-      report(n.initializer, n.initializer.text);
+      if (ts.isStringLiteral(n.initializer) && !wrapped.has(n.initializer))
+        report(n.initializer, n.initializer.text);
+      if (isTemplate(n.initializer)) reportTemplate(n.initializer);
     }
     if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src))) {
       const walk = (x) => {
+        if (isTemplate(x)) reportTemplate(x);
         if (ts.isStringLiteral(x) && !wrapped.has(x)) report(x, x.text);
         if (!ts.isCallExpression(x)) ts.forEachChild(x, walk);
       };
@@ -152,7 +185,7 @@ for (const file of sourceFiles()) {
       const a0 = n.arguments[0];
       if (a0 && ts.isStringLiteral(a0) && !wrapped.has(a0)) report(a0, a0.text);
       /* A template literal cannot be a catalogue key at all, so it is always a find. */
-      if (a0 && ts.isTemplateExpression(a0)) report(a0, `${a0.head.text}{}`);
+      if (a0 && isTemplate(a0)) reportTemplate(a0);
     }
     ts.forEachChild(n, visit);
   };

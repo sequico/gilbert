@@ -1538,6 +1538,14 @@ export const catalog: Catalog = {
       "只有该群组的管理员才能更改它的指令和自动化规则；每位成员都可以在这里查看。",
     "No standing instruction has been written for this group.":
       "该群组尚未写入常设指令。",
+    "{name} — shared by {owner}": "{name} — 由 {owner} 共享",
+    "{name} — from {owner}": "{name} — 来自 {owner}",
+    "{used} of {total} used": "已用 {used}，共 {total}",
+    "Remove {email}": "移除 {email}",
+    "{label} (date)": "{label}（日期）",
+    "{label} (time)": "{label}（时间）",
+    "Edit {name}": "编辑 {name}",
+    "{own} here, {unread} in subfolders": "{own} 在此，{unread} 在子文件夹中",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

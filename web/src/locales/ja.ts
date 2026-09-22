@@ -1586,6 +1586,14 @@ export const catalog: Catalog = {
       "このグループの指示と自動化を変更できるのはグループの管理者だけです。メンバーはここで読むことができます。",
     "No standing instruction has been written for this group.":
       "このグループには常設の指示がまだ書き込まれていません。",
+    "{name} — shared by {owner}": "{name} — {owner} が共有",
+    "{name} — from {owner}": "{name} — {owner} から",
+    "{used} of {total} used": "{total} 中 {used} を使用中",
+    "Remove {email}": "{email} を削除",
+    "{label} (date)": "{label}（日付）",
+    "{label} (time)": "{label}（時刻）",
+    "Edit {name}": "{name} を編集",
+    "{own} here, {unread} in subfolders": "ここに {own}、サブフォルダに {unread}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

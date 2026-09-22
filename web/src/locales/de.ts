@@ -1636,6 +1636,14 @@ export const catalog: Catalog = {
     // The two tabs Enforce Identities is split into.
     "User identities": "Benutzeridentitäten",
     "Group identities": "Gruppenidentitäten",
+    "{name} — shared by {owner}": "{name} — von {owner} freigegeben",
+    "{name} — from {owner}": "{name} — von {owner}",
+    "{used} of {total} used": "{used} von {total} belegt",
+    "Remove {email}": "{email} entfernen",
+    "{label} (date)": "{label} (Datum)",
+    "{label} (time)": "{label} (Uhrzeit)",
+    "Edit {name}": "{name} bearbeiten",
+    "{own} here, {unread} in subfolders": "{own} hier, {unread} in Unterordnern",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

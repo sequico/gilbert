@@ -882,7 +882,11 @@ function FolderRow({
       {count > 0 && (
         <span
           className="nav-count"
-          title={hiddenUnread ? `${own} here, ${hiddenUnread} in subfolders` : undefined}
+          title={
+            hiddenUnread
+              ? t("{own} here, {unread} in subfolders", { own, unread: hiddenUnread })
+              : undefined
+          }
         >
           {count > 9999 ? "9999+" : count}
         </span>

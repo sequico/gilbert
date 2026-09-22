@@ -40,7 +40,10 @@ metadata:
   inside, as named ReactNode holes. Never split a sentence across two `t()`s.
 - Export/import flows, toasts, `confirmDialog` titles: string literals in
   those positions reach a reader translated **only if wrapped or a catalog
-  key** — this is what `i18n:literals` enforces.
+  key** — this is what `i18n:literals` enforces. English assembled around
+  values counts with them: `aria-label={`Remove ${email}`}` is reported until
+  it is `t("Remove {email}", { email })`, because a template literal can never
+  be a catalog key as written.
 
 ## Conventions that keep the checks quiet
 

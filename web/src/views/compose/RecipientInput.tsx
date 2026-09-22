@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { EmailAddress } from "@/jmap/types";
 import { displayName, isValidEmail, parseAddressList } from "@/lib/address";
-import { plural } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { type Suggestion, useContacts } from "@/store/contacts";
 import { Avatar } from "@/ui/misc";
 import { toast } from "@/ui/toast";
@@ -166,7 +166,7 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
           <button
             type="button"
             className="chip-x"
-            aria-label={`Remove ${a.email}`}
+            aria-label={t("Remove {email}", { email: a.email })}
             onClick={(e) => {
               e.stopPropagation();
               onChange(value.filter((_, j) => j !== i));

@@ -693,7 +693,10 @@ function QuotaBar() {
   return (
     <div
       className="quota"
-      title={`${formatSize(q.used)} of ${formatSize(q.hardLimit)} used`}
+      title={t("{used} of {total} used", {
+        used: formatSize(q.used),
+        total: formatSize(q.hardLimit),
+      })}
     >
       <div className="row" style={{ justifyContent: "space-between" }}>
         <span>

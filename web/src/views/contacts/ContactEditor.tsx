@@ -488,7 +488,11 @@ export function ContactEditor({
     <Dialog
       open
       onClose={onClose}
-      title={isNew ? "New contact" : `Edit ${contactDisplayName(card as ContactCard)}`}
+      title={
+        isNew
+          ? "New contact"
+          : t("Edit {name}", { name: contactDisplayName(card as ContactCard) })
+      }
       size="lg"
       footer={
         <>

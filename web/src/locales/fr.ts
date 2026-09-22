@@ -1602,6 +1602,14 @@ export const catalog: Catalog = {
       "Seul un administrateur de ce groupe modifie son instruction et ses automatisations ; chaque membre les lit ici.",
     "No standing instruction has been written for this group.":
       "Aucune instruction permanente n'a été rédigée pour ce groupe.",
+    "{name} — shared by {owner}": "{name} — partagé par {owner}",
+    "{name} — from {owner}": "{name} — de {owner}",
+    "{used} of {total} used": "{used} utilisés sur {total}",
+    "Remove {email}": "Supprimer {email}",
+    "{label} (date)": "{label} (date)",
+    "{label} (time)": "{label} (heure)",
+    "Edit {name}": "Modifier {name}",
+    "{own} here, {unread} in subfolders": "{own} ici, {unread} dans les sous-dossiers",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

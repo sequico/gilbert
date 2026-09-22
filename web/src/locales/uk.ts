@@ -1574,6 +1574,14 @@ export const catalog: Catalog = {
       "Лише адміністратор цієї групи змінює її інструкцію та автоматизації; кожен учасник читає їх тут.",
     "No standing instruction has been written for this group.":
       "Для цієї групи постійну інструкцію не написано.",
+    "{name} — shared by {owner}": "{name} — надано {owner}",
+    "{name} — from {owner}": "{name} — від {owner}",
+    "{used} of {total} used": "{used} з {total} зайнято",
+    "Remove {email}": "Видалити {email}",
+    "{label} (date)": "{label} (дата)",
+    "{label} (time)": "{label} (час)",
+    "Edit {name}": "Змінити {name}",
+    "{own} here, {unread} in subfolders": "{own} тут, {unread} у підтеках",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

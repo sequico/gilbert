@@ -165,7 +165,7 @@ export function CalendarSidebar() {
     <div
       className={`cal-list-item ${cal.hidden[sharedKey(accountId, c.id)] ? "hidden-cal" : ""}`}
       onClick={() => cal.toggleHidden(sharedKey(accountId, c.id))}
-      title={`${c.name} — shared by ${accountName}`}
+      title={t("{name} — shared by {owner}", { name: c.name, owner: accountName })}
     >
       <span
         className="cal-color"
@@ -202,7 +202,10 @@ export function CalendarSidebar() {
     </div>
   );
   const availableRow = (accountId: Id, accountName: string, c: Calendar) => (
-    <div className="cal-list-item" title={`${c.name} — from ${accountName}`}>
+    <div
+      className="cal-list-item"
+      title={t("{name} — from {owner}", { name: c.name, owner: accountName })}
+    >
       <span
         className="cal-color"
         style={{

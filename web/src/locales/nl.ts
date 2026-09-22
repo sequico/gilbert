@@ -1583,6 +1583,14 @@ export const catalog: Catalog = {
       "Alleen een beheerder van deze groep wijzigt de instructie en de automatiseringen; elk lid leest ze hier.",
     "No standing instruction has been written for this group.":
       "Voor deze groep is nog geen blijvende instructie geschreven.",
+    "{name} — shared by {owner}": "{name} — gedeeld door {owner}",
+    "{name} — from {owner}": "{name} — van {owner}",
+    "{used} of {total} used": "{used} van {total} gebruikt",
+    "Remove {email}": "{email} verwijderen",
+    "{label} (date)": "{label} (datum)",
+    "{label} (time)": "{label} (tijd)",
+    "Edit {name}": "{name} bewerken",
+    "{own} here, {unread} in subfolders": "{own} hier, {unread} in submappen",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -2543,6 +2543,14 @@ export const catalog: Catalog = {
       "Solo un amministratore di questo gruppo ne cambia l'istruzione e le automazioni; ogni membro le legge qui.",
     "No standing instruction has been written for this group.":
       "Per questo gruppo non è stata scritta alcuna istruzione permanente.",
+    "{name} — shared by {owner}": "{name} — condiviso da {owner}",
+    "{name} — from {owner}": "{name} — da {owner}",
+    "{used} of {total} used": "{used} di {total} in uso",
+    "Remove {email}": "Rimuovi {email}",
+    "{label} (date)": "{label} (data)",
+    "{label} (time)": "{label} (ora)",
+    "Edit {name}": "Modifica {name}",
+    "{own} here, {unread} in subfolders": "{own} qui, {unread} nelle sottocartelle",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────
