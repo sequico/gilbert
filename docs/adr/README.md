@@ -208,3 +208,13 @@ is, not what a user sees.
   whose tree is on screen of the **session** rather than of the account probe,
   so a member's tree is whole from the first frame and whatever the probe
   answers later. Whether a member may write that field is owed a live probe.
+- **0022 — Archive puts a conversation back where it was filed.** A reply
+  arrives, joins the thread, and the conversation is back in the Inbox while the
+  rest of it sits in the folder it was filed under — so the archive button
+  returns it there, and only a conversation that was never filed anywhere goes
+  to Archive. The newest filed message decides (that is where it was last put),
+  Inbox/Sent/Drafts/Junk/Trash are not filing places, a message already in the
+  destination is filed away as before, and every read and write is asked of the
+  account the action is aimed at, because a group's copy of a conversation and
+  the reader's own are two threads. The dated entries keep their literal
+  meaning.

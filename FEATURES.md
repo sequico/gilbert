@@ -983,15 +983,28 @@ Archive, delete, spam, star, mark read/unread, move and label all offer **Undo**
 in the toast that follows, and the undo restores the previous state rather than
 guessing at an inverse.
 
-**Archive by date** files into `Archive/<year>` or `Archive/<year>/<month>`,
-creating the folders as needed and reusing them after that — including ones
-made by hand or by another client. The names are numeric and zero-padded
-(`2026`, `2026/09`) rather than month names, because these are real server-side
-mailboxes: every other client sees them, a folder created as "September" by
-someone reading in English stays "September" for the same account read in
-Japanese, and `09` sorts between `08` and `10` where a name does not. The date
-is read in the reader's own timezone, so it agrees with the date shown against
-the message in the list.
+**Archive puts a conversation back where it was filed.** A reply arrives, joins
+the thread, and the conversation is back in the Inbox while the rest of it is
+still in the folder it was filed under — a case folder beneath Archive, or any
+folder the reader made. Archiving it then moves it back there, and only a
+conversation that was never filed anywhere goes to Archive itself. The folder is
+the one holding the newest filed message, so a conversation that was moved from
+one folder to another follows the move; a message already in that folder — the
+reader archiving out of the folder itself — is filed away as it always was. It
+is one account's own business: a copy of the same conversation in another
+account (a group's and the reader's own) is a separate thread there, and is
+archived from that account.
+
+**Archive by date** is the explicit version of the same action, and says what it
+does: the entries that name a date file into `Archive/<year>` or
+`Archive/<year>/<month>`, creating the folders as needed and reusing them after
+that — including ones made by hand or by another client. The names are numeric
+and zero-padded (`2026`, `2026/09`) rather than month names, because these are
+real server-side mailboxes: every other client sees them, a folder created as
+"September" by someone reading in English stays "September" for the same account
+read in Japanese, and `09` sorts between `08` and `10` where a name does not. The
+date is read in the reader's own timezone, so it agrees with the date shown
+against the message in the list.
 
 A selection spanning two months is two destinations, not one, and both are
 written; the menu names the folder where there is a single answer and describes

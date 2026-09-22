@@ -19,11 +19,8 @@ import type {
   Thread,
   VacationResponse,
 } from "@/jmap/types";
-import {
-  type ArchiveGranularity,
-  archivePath,
-  groupByArchivePath,
-} from "@/lib/archiveDate";
+import { type ArchiveGranularity, groupByArchivePath } from "@/lib/archiveDate";
+import { type ConversedMessage, filedFolderOf } from "@/lib/archiveTarget";
 import { withBase } from "@/lib/basePath";
 import { unsubscribedFolders } from "@/lib/groupSubscriptions";
 import { plural, t } from "@/lib/i18n";
@@ -485,6 +482,144 @@ function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
     }
   })();
   subscribing.set(accountId, run);
+}
+
+/**
+ * Every message of these threads, read from the server when the client does not
+ * hold them.
+ *
+ * The ones that matter are exactly the ones the list is not showing: a
+ * conversation that has come back to the Inbox has its older messages in the
+ * folder it was filed under, and those are not in the page on screen. Threads
+ * are the account's own -- two accounts may each hold a copy of one
+ * conversation, and each copy is filed on its own -- so this reads only the
+ * account the action is aimed at, and a copy elsewhere is never consulted.
+ */
+async function threadMessagesFor(
+  accountId: Id,
+  threadIds: Id[],
+  get: () => MailState,
+): Promise<Record<Id, ConversedMessage[]>> {
+  const idsByThread: Record<Id, Id[]> = {};
+  const unheld: Id[] = [];
+  for (const threadId of threadIds) {
+    const held = get().threads[threadId];
+    if (held?.emailIds?.length) idsByThread[threadId] = held.emailIds;
+    else unheld.push(threadId);
+  }
+  if (unheld.length) {
+    const res = await client.call<GetResponse<Thread>>("Thread/get", {
+      accountId,
+      ids: unheld,
+    });
+    for (const thread of res.list) idsByThread[thread.id] = thread.emailIds;
+  }
+  const missing = [
+    ...new Set(
+      Object.values(idsByThread)
+        .flat()
+        .filter((id) => !get().emails[id]),
+    ),
+  ];
+  const read: Record<Id, ConversedMessage> = {};
+  if (missing.length) {
+    const res = await client.call<GetResponse<Email>>("Email/get", {
+      accountId,
+      ids: missing,
+      properties: ["id", "mailboxIds", "receivedAt"],
+    });
+    for (const email of res.list) read[email.id] = email;
+  }
+  const out: Record<Id, ConversedMessage[]> = {};
+  for (const [threadId, ids] of Object.entries(idsByThread))
+    out[threadId] = ids.map((id) => get().emails[id] ?? read[id] ?? {});
+  return out;
+}
+
+/**
+ * Move a selection to one folder or to several, saying so once.
+ *
+ * A selection can split across destinations -- by date, and by the folder each
+ * conversation already lives in -- and a toast per destination would be a queue
+ * of messages about one action, each with an Undo that puts back a third of it.
+ * So every move is silent and the report is one sentence, with one Undo built
+ * from where each message was before any of them moved.
+ *
+ * A failure is not reported here, because it is already reported where it
+ * happens: `move` says what the server refused, and the caller that has to
+ * create folders first says that in its own words.
+ */
+async function moveToDestinations(
+  ids: Id[],
+  targets: Map<Id, Id[]>,
+  set: (fn: (s: MailState) => Partial<MailState>) => void,
+  get: () => MailState,
+  nameOf: (mailboxId: Id) => string,
+): Promise<void> {
+  const accountId = get().accountId;
+  if (!accountId || !ids.length || !targets.size) return;
+  /*
+   * Where everything came from, captured before anything moves, so one Undo can
+   * put back a selection that went to several folders. See the note in `move`:
+   * an Undo for a message we never loaded would write an empty `mailboxIds`, so
+   * it is not offered at all.
+   */
+  const prev: Record<Id, Record<Id, boolean>> = {};
+  let undoable = true;
+  for (const id of ids) {
+    if (!get().emails[id]) undoable = false;
+    prev[id] = get().emails[id]?.mailboxIds ?? {};
+  }
+
+  const names: string[] = [];
+  for (const [target, group] of targets) {
+    await get().move(group, target, { silent: true });
+    names.push(nameOf(target));
+  }
+
+  const where =
+    names.length === 1
+      ? names[0]!
+      : t("{count} folders", { count: String(names.length) });
+  toast.show(
+    ids.length === 1
+      ? t("Conversation moved to {folder}", { folder: where })
+      : t("{count} conversations moved to {folder}", {
+          count: String(ids.length),
+          folder: where,
+        }),
+    {
+      action: !undoable
+        ? undefined
+        : {
+            label: "Undo",
+            onClick: async () => {
+              const undo: Record<Id, Record<string, unknown>> = {};
+              for (const id of ids)
+                undo[id] = restoreMailboxPatch(
+                  prev[id]!,
+                  get().emails[id]?.mailboxIds ?? {},
+                );
+              await setEmails(accountId, undo);
+              set((s) => {
+                const next = { ...s.emails };
+                for (const id of ids) {
+                  const e = next[id];
+                  if (!e) continue;
+                  next[id] = {
+                    ...e,
+                    mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
+                  };
+                }
+                return { emails: next };
+              });
+              void get().refreshList();
+              void get().loadMailboxes();
+            },
+          },
+    },
+  );
+  void get().loadMailboxes();
 }
 
 export const useMail = create<MailState>((set, get) => ({
@@ -1264,12 +1399,42 @@ export const useMail = create<MailState>((set, get) => ({
   },
 
   async archive(ids) {
+    const accountId = get().accountId;
     const archiveId = get().roleId("archive") ?? get().roleId("all");
     if (!archiveId) {
       offerArchiveFolder(() => get().archive(ids));
       return;
     }
-    await get().move(ids, archiveId, { label: "Archive" });
+    if (!accountId || !ids.length) return;
+    const { emails, mailboxes } = get();
+    const threadIds = [
+      ...new Set(
+        ids.map((id) => emails[id]?.threadId).filter((t): t is Id => Boolean(t)),
+      ),
+    ];
+    const byThread = await threadMessagesFor(accountId, threadIds, get);
+    /*
+     * A conversation that has come back to the Inbox goes back to where it was
+     * filed; one that was never filed anywhere goes to Archive. A message
+     * already sitting in that folder -- the reader archiving out of the case
+     * folder itself -- is filed away as it always was, so the action still does
+     * what its name says wherever it is pressed.
+     *
+     * The ids are this account's and so are the threads read above: a copy of
+     * the same conversation in another account is that account's own mail, and
+     * is archived from there.
+     */
+    const targets = new Map<Id, Id[]>();
+    for (const id of ids) {
+      const threadId = emails[id]?.threadId;
+      const filed = threadId ? filedFolderOf(byThread[threadId] ?? [], mailboxes) : null;
+      const already = filed ? Boolean(emails[id]?.mailboxIds?.[filed]) : false;
+      const destination = filed && !already ? filed : archiveId;
+      targets.set(destination, [...(targets.get(destination) ?? []), id]);
+    }
+    await moveToDestinations(ids, targets, set, get, (mailboxId) =>
+      mailboxDisplayName(mailboxes[mailboxId]),
+    );
   },
 
   async archiveByDate(ids, granularity) {
@@ -1286,27 +1451,17 @@ export const useMail = create<MailState>((set, get) => ({
       granularity,
     );
 
-    // Where everything came from, captured before anything moves, so one Undo
-    // can put back a selection that went to several folders.
-    const prev: Record<Id, Record<Id, boolean>> = {};
-    // See the note in move(): an Undo for a message we never loaded would
-    // write an empty mailboxIds, so it is not offered at all.
-    let undoable = true;
-    for (const id of ids) {
-      if (!emails[id]) undoable = false;
-      prev[id] = emails[id]?.mailboxIds ?? {};
-    }
-
-    const moved: string[] = [];
+    /*
+     * The dated entries say what they do and are taken at their word: a reader
+     * who picks *Archive to 2026/09* is asking for that date, not for where the
+     * conversation used to be. The plain Archive button is the one that returns
+     * a conversation to its folder (see `lib/archiveTarget`).
+     */
+    const targets = new Map<Id, Id[]>();
     try {
       for (const group of groups) {
         const target = await ensureFolderPath(get, archiveId, group.segments);
-        // Silent: each group would otherwise raise its own toast with its own
-        // Undo, and undoing one third of a move is not what anybody meant.
-        await get().move(group.ids, target, { silent: true });
-        moved.push(
-          group.segments.length ? `Archive/${archivePath(group.segments)}` : "Archive",
-        );
+        targets.set(target, [...(targets.get(target) ?? []), ...group.ids]);
       }
     } catch (err) {
       toast.error(t("Archive failed: {error}", { error: (err as Error).message }));
@@ -1315,51 +1470,9 @@ export const useMail = create<MailState>((set, get) => ({
       return;
     }
 
-    // One message naming every destination, because a selection that split
-    // across months should say so rather than claiming a single folder.
-    const where =
-      moved.length === 1
-        ? moved[0]!
-        : t("{count} folders", { count: String(moved.length) });
-    toast.show(
-      ids.length === 1
-        ? t("Conversation moved to {folder}", { folder: where })
-        : t("{count} conversations moved to {folder}", {
-            count: String(ids.length),
-            folder: where,
-          }),
-      {
-        action: !undoable
-          ? undefined
-          : {
-              label: "Undo",
-              onClick: async () => {
-                const undo: Record<Id, Record<string, unknown>> = {};
-                for (const id of ids)
-                  undo[id] = restoreMailboxPatch(
-                    prev[id]!,
-                    get().emails[id]?.mailboxIds ?? {},
-                  );
-                await setEmails(accountId, undo);
-                set((st) => {
-                  const next = { ...st.emails };
-                  for (const id of ids) {
-                    const e = next[id];
-                    if (!e) continue;
-                    next[id] = {
-                      ...e,
-                      mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
-                    };
-                  }
-                  return { emails: next };
-                });
-                void get().refreshList();
-                void get().loadMailboxes();
-              },
-            },
-      },
+    await moveToDestinations(ids, targets, set, get, (mailboxId) =>
+      get().mailboxPath(mailboxId),
     );
-    void get().loadMailboxes();
   },
 
   async spam(ids, isSpam) {
