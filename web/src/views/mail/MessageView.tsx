@@ -34,7 +34,7 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
@@ -75,12 +75,11 @@ import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { choiceDialog, Dialog } from "@/ui/dialog";
-import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
+import { LazyFilePreviewDialog, LazyFilterFromMessageDialog } from "../lazyPieces";
 import { AddressList, useAddressMenu } from "./AddressMenu";
-import { FilterFromMessageDialog } from "./FilterFromMessage";
 import { InviteCard } from "./InviteCard";
 import { SaveToFilesDialog } from "./SaveToFilesDialog";
 import { SignatureBanner } from "./SignatureBanner";
@@ -1006,11 +1005,13 @@ export const MessageView = memo(function MessageView({
       )}
       {addrMenu.node}
       {filterOpen && (
-        <FilterFromMessageDialog
-          email={e}
-          mailboxId={Object.keys(e.mailboxIds)[0] ?? null}
-          onClose={() => setFilterOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <LazyFilterFromMessageDialog
+            email={e}
+            mailboxId={Object.keys(e.mailboxIds)[0] ?? null}
+            onClose={() => setFilterOpen(false)}
+          />
+        </Suspense>
       )}
       <Dialog
         open={showSource}
@@ -1733,36 +1734,36 @@ function AttachmentList({
           </button>
         )}
       </div>
-      <FilePreviewDialog
-        file={
-          preview?.blobId
-            ? {
-                name: preview.name ?? translate("file"),
-                type: preview.type,
-                size: preview.size,
-                url: client.downloadUrl(
-                  accountId,
-                  preview.blobId,
-                  preview.name ?? "file",
-                  preview.type,
-                ),
-                inlineUrl: client.downloadUrl(
-                  accountId,
-                  preview.blobId,
-                  preview.name ?? "file",
-                  preview.type,
-                  true,
-                ),
-              }
-            : null
-        }
-        onClose={() => setPreview(null)}
-        caption={
-          <p className="hint" style={{ marginTop: 8 }}>
-            {translate("From: {sender}", { sender: displayName(email.from?.[0]) })}
-          </p>
-        }
-      />
+      {preview?.blobId && (
+        <Suspense fallback={null}>
+          <LazyFilePreviewDialog
+            file={{
+              name: preview.name ?? translate("file"),
+              type: preview.type,
+              size: preview.size,
+              url: client.downloadUrl(
+                accountId,
+                preview.blobId,
+                preview.name ?? "file",
+                preview.type,
+              ),
+              inlineUrl: client.downloadUrl(
+                accountId,
+                preview.blobId,
+                preview.name ?? "file",
+                preview.type,
+                true,
+              ),
+            }}
+            onClose={() => setPreview(null)}
+            caption={
+              <p className="hint" style={{ marginTop: 8 }}>
+                {translate("From: {sender}", { sender: displayName(email.from?.[0]) })}
+              </p>
+            }
+          />
+        </Suspense>
+      )}
       {saveToFiles && (
         <SaveToFilesDialog
           accountId={accountId}

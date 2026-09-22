@@ -11,7 +11,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
@@ -23,7 +23,7 @@ import { useFiles } from "@/store/files";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "../settings/ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 
 /**
  * The shared accounts on offer are kept current: the session is re-read
@@ -407,13 +407,15 @@ export function FilesTree() {
         )}
       </Popover>
       {shareNode && (
-        <ShareDialog
-          kind="FileNode"
-          id={shareNode.id}
-          name={shareNode.name}
-          shareWith={shareNode.shareWith ?? null}
-          onClose={() => setShareNode(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="FileNode"
+            id={shareNode.id}
+            name={shareNode.name}
+            shareWith={shareNode.shareWith ?? null}
+            onClose={() => setShareNode(null)}
+          />
+        </Suspense>
       )}
     </>
   );

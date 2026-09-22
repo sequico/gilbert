@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Folder, Inbox, Pencil, Plus, Share2, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
 import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { formatSize } from "@/lib/format";
@@ -11,7 +11,7 @@ import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "./ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 
 /*
  * Roles a folder can be given here.
@@ -285,13 +285,15 @@ export function FoldersSettings() {
         </tbody>
       </table>
       {share && (
-        <ShareDialog
-          kind="Mailbox"
-          id={share.id}
-          name={share.name}
-          shareWith={share.shareWith ?? null}
-          onClose={() => setShare(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="Mailbox"
+            id={share.id}
+            name={share.name}
+            shareWith={share.shareWith ?? null}
+            onClose={() => setShare(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

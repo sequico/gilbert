@@ -30,6 +30,7 @@ import {
   type DragEvent,
   Fragment,
   type ReactNode,
+  Suspense,
   useEffect,
   useMemo,
   useState,
@@ -58,7 +59,7 @@ import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "../settings/ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 import { MailboxPicker } from "./MailboxPicker";
 
 const ROLE_ICONS: Record<string, ReactNode> = {
@@ -684,13 +685,15 @@ export function MailboxTree() {
         />
       )}
       {shareTarget && (
-        <ShareDialog
-          kind="Mailbox"
-          id={shareTarget.id}
-          name={shareTarget.name}
-          shareWith={shareTarget.shareWith ?? null}
-          onClose={() => setShareTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="Mailbox"
+            id={shareTarget.id}
+            name={shareTarget.name}
+            shareWith={shareTarget.shareWith ?? null}
+            onClose={() => setShareTarget(null)}
+          />
+        </Suspense>
       )}
     </>
   );

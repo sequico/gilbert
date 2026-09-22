@@ -14,7 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
@@ -26,7 +26,7 @@ import { useSettings } from "@/store/settings";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "../settings/ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 
 /**
  * Newly shared books appear without a sign-in: the session is re-read
@@ -572,13 +572,15 @@ export function ContactsSidebar() {
         )}
       </Popover>
       {share && (
-        <ShareDialog
-          kind="AddressBook"
-          id={share.id}
-          name={share.name}
-          shareWith={share.shareWith}
-          onClose={() => setShare(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="AddressBook"
+            id={share.id}
+            name={share.name}
+            shareWith={share.shareWith}
+            onClose={() => setShare(null)}
+          />
+        </Suspense>
       )}
     </>
   );

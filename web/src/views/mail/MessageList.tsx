@@ -38,6 +38,7 @@ import {
   type MouseEvent,
   memo,
   type ReactNode,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -87,7 +88,7 @@ import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
-import { FilterFromMessageDialog } from "./FilterFromMessage";
+import { LazyFilterFromMessageDialog } from "../lazyPieces";
 
 /**
  * The glyph on the strip a swipe reveals. Sized larger than the toolbar's
@@ -1072,11 +1073,13 @@ export function MessageList({
         )}
       </Popover>
       {filterFrom && (
-        <FilterFromMessageDialog
-          email={filterFrom}
-          mailboxId={mailboxId}
-          onClose={() => setFilterFrom(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyFilterFromMessageDialog
+            email={filterFrom}
+            mailboxId={mailboxId}
+            onClose={() => setFilterFrom(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

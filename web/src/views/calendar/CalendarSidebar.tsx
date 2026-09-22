@@ -15,7 +15,7 @@ import {
   UserMinus,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import type { Calendar, Id } from "@/jmap/types";
 import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
@@ -39,7 +39,7 @@ import { dateTimeKey, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "../settings/ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 import { CalendarDialog } from "./CalendarDialog";
 
 export function CalendarSidebar() {
@@ -600,13 +600,15 @@ export function CalendarSidebar() {
         />
       )}
       {share && (
-        <ShareDialog
-          kind="Calendar"
-          id={share.id}
-          name={share.name}
-          shareWith={share.shareWith}
-          onClose={() => setShare(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="Calendar"
+            id={share.id}
+            name={share.name}
+            shareWith={share.shareWith}
+            onClose={() => setShare(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

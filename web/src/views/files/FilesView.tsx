@@ -19,7 +19,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
@@ -39,7 +39,7 @@ import { Empty, Spinner } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
-import { ShareDialog } from "../settings/ShareDialog";
+import { LazyShareDialog } from "../lazyPieces";
 
 export function FilesView({ nodeId }: { nodeId?: string }) {
   const [, navigate] = useLocation();
@@ -990,13 +990,15 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         startInEdit={startInEdit}
       />
       {shareNode && (
-        <ShareDialog
-          kind="FileNode"
-          id={shareNode.id}
-          name={shareNode.name}
-          shareWith={shareNode.shareWith ?? null}
-          onClose={() => setShareNode(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyShareDialog
+            kind="FileNode"
+            id={shareNode.id}
+            name={shareNode.name}
+            shareWith={shareNode.shareWith ?? null}
+            onClose={() => setShareNode(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -18,7 +18,14 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useSearch } from "wouter";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
@@ -54,7 +61,7 @@ import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
 import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
-import { ContactEditor } from "./ContactEditor";
+import { LazyContactEditor } from "../lazyPieces";
 
 /*
  * The contact list's floor, and the room the contact itself keeps whatever the
@@ -798,25 +805,27 @@ export function ContactsView({ id }: { id?: string }) {
         )}
       </section>
       {editing && (
-        <ContactEditor
-          card={editing}
-          defaultBookId={
-            bookId !== "all"
-              ? bookId
-              : (books.find((b) => b.isDefault)?.id ?? books[0]?.id ?? null)
-          }
-          sourceAccountId={editing.id ? (editingAccount ?? contacts.accountId) : null}
-          defaultAccountId={sel.accountId ?? contacts.accountId ?? null}
-          onClose={() => {
-            setEditing(null);
-            setEditingAccount(null);
-          }}
-          onSaved={(saved) => {
-            setEditing(null);
-            setEditingAccount(null);
-            navigate(cardPath(saved));
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazyContactEditor
+            card={editing}
+            defaultBookId={
+              bookId !== "all"
+                ? bookId
+                : (books.find((b) => b.isDefault)?.id ?? books[0]?.id ?? null)
+            }
+            sourceAccountId={editing.id ? (editingAccount ?? contacts.accountId) : null}
+            defaultAccountId={sel.accountId ?? contacts.accountId ?? null}
+            onClose={() => {
+              setEditing(null);
+              setEditingAccount(null);
+            }}
+            onSaved={(saved) => {
+              setEditing(null);
+              setEditingAccount(null);
+              navigate(cardPath(saved));
+            }}
+          />
+        </Suspense>
       )}
       {/* The right-click menu, and the one entry an administrator's session
           has in it: where the card lives. */}
