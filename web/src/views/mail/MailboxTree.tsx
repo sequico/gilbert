@@ -44,7 +44,7 @@ import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
-import { isGroupMailboxAccount } from "@/lib/mailAccounts";
+import { isOwnMailAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
 import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
@@ -52,6 +52,7 @@ import { haptic, useTouchRow } from "@/lib/touch";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
+import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
@@ -165,21 +166,23 @@ interface MailTree {
  * extra mailbox sections below it; `keyOf` keeps one account's expansion keys
  * out of another's, since mailbox ids are only unique within an account.
  *
- * Subscriptions decide the reader's own tree. A shared mailbox account is
- * different: Stalwart hands a freshly added member every folder unsubscribed
- * (per-user state that resets on re-add), which would leave only Inbox on
- * screen — so group trees show the whole accessible tree, and hiding a
- * folder there is not offered per user.
+ * Subscriptions decide the reader's own tree. A tree that is not theirs -- a
+ * group mailbox they reach by membership -- is different: Stalwart hands a
+ * freshly added member every folder unsubscribed (per-user state that resets on
+ * re-add), which would leave only Inbox on screen, so such a tree shows every
+ * folder it holds, and hiding one is not offered there. (`adoptMailboxes` in
+ * the mail store also subscribes those folders for the member, so a client that
+ * does honour subscriptions reaches the group too.)
  */
 function buildMailTree(
   mailboxes: Record<Id, Mailbox>,
   expanded: Record<string, boolean>,
   showHidden: boolean,
-  showUnsubscribed: boolean,
+  wholeTree: boolean,
   keyOf: (id: Id) => string,
 ): MailTree {
   const all = Object.values(mailboxes).filter(
-    (m) => showHidden || showUnsubscribed || m.isSubscribed || m.role === "inbox",
+    (m) => showHidden || wholeTree || m.isSubscribed || m.role === "inbox",
   );
   const byParent = new Map<Id | null, Mailbox[]>();
   for (const m of all) {
@@ -228,7 +231,6 @@ export function MailboxTree() {
   const mailboxes = useMail((s) => s.mailboxes);
   const loaded = useMail((s) => s.mailboxesLoaded);
   const accountId = useMail((s) => s.accountId);
-  const ownAccountId = useMail((s) => s.ownAccountId);
   const mailAccounts = useMail((s) => s.mailAccounts);
   const accountTrees = useMail((s) => s.accountTrees);
   const [location, navigate] = useLocation();
@@ -287,24 +289,31 @@ export function MailboxTree() {
   // collapsed by default. Expansion state is remembered per folder.
   const { open: expanded, setFolder, openKeys } = useOpenFolders("mail");
   const toggle = (key: string) => setFolder(key, !expanded[key]);
+  const session = useSession((s) => s.session);
   /*
-   * Whether the account on screen is a group mailbox rather than the reader's
-   * own: the one classifier, the mail store's probe. The folder rows of the
-   * active account stay fully manageable either way -- the store's folder
-   * writes aim at the active account, which is this one -- but the header
-   * names the account, the "new folder" button and the personal label list
-   * belong to the reader's own mailbox, and the rows of the *other* accounts
-   * below are read-only launchers: opening a folder there switches the active
-   * account to its owner. A group's tree also shows every folder it holds,
-   * because Stalwart hands a freshly added member each folder unsubscribed.
+   * Whether the tree in hand is somebody else's: a group mailbox the reader
+   * reaches by membership, or their own.
+   *
+   * Asked of the session, which answers it before anything has been probed.
+   * The classifier that says "group" answers only once the account probe has
+   * listed the account, so a tree drawn on that answer fails closed for the
+   * whole window a boot sits in -- and failing closed here means a member's
+   * group tree, whose folders the server hands over unsubscribed, drawn down to
+   * Inbox alone. Whose tree it is, is all this has to say: the folder rows of
+   * the active account stay fully manageable either way -- the store's folder
+   * writes aim at the active account, which is this one -- but the header names
+   * the account, the "new folder" button and the personal label list belong to
+   * the reader's own mailbox, the rows of the *other* accounts below are
+   * read-only launchers, and a tree that is not the reader's own shows every
+   * folder it holds (see `buildMailTree`).
    */
-  const inGroup = isGroupMailboxAccount(accountId, mailAccounts);
+  const sharedTree = Boolean(session && accountId && !isOwnMailAccount(session, accountId));
   const { rows, childrenOf, subtreeUnread } = useMemo(
     () =>
-      buildMailTree(mailboxes, expanded, showHidden, inGroup, (id) =>
+      buildMailTree(mailboxes, expanded, showHidden, sharedTree, (id) =>
         folderKey(accountId, id),
       ),
-    [mailboxes, expanded, showHidden, inGroup, accountId],
+    [mailboxes, expanded, showHidden, sharedTree, accountId],
   );
   const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
   /*
@@ -330,13 +339,13 @@ export function MailboxTree() {
         expanded,
         showHidden,
         // The reader's own mailbox, shown as a section under a group they
-        // opened, keeps its per-user subscriptions; other accounts are
-        // shared, so their whole accessible tree is shown.
-        a.info.accountId !== ownAccountId,
+        // opened, keeps its per-user subscriptions; every other account is one
+        // they reach by membership, so its whole accessible tree is shown.
+        !isOwnMailAccount(session, a.info.accountId),
         (id) => folderKey(a.info.accountId, id),
       );
     return out;
-  }, [extraAccounts, expanded, showHidden, ownAccountId]);
+  }, [extraAccounts, expanded, showHidden, session]);
   const openMailbox = async (toAccount: Id, mailboxId: Id) => {
     if (useMail.getState().accountId !== toAccount)
       await useMail.getState().openAccount(toAccount);
@@ -427,14 +436,14 @@ export function MailboxTree() {
               ? t("Drop here for the top level")
               : drill
                 ? mailboxDisplayName(drill)
-                : inGroup && activeAccountName
+                : sharedTree && activeAccountName
                   ? activeAccountName
                   : t("Folders")}
           </span>
           {/* Drilled in, the + makes a subfolder of the folder on screen --
               which is the one place in the app where "new folder here" has an
               unambiguous here. */}
-          {!inGroup && (
+          {!sharedTree && (
             <button
               className="icon-btn"
               title={drill ? t("New subfolder") : t("New folder")}
@@ -554,7 +563,7 @@ export function MailboxTree() {
           <>
             <div className="nav-section">
               <span>{t("Labels")}</span>
-              {!inGroup && (
+              {!sharedTree && (
                 <Link
                   href="/settings/labels"
                   className="icon-btn"
@@ -643,7 +652,7 @@ export function MailboxTree() {
               menu.close();
               setMoveTarget(menuTarget);
             }}
-            inGroup={inGroup}
+            sharedTree={sharedTree}
           />
         )}
       </Popover>
@@ -918,15 +927,18 @@ function MailboxMenu({
   onCreateChild,
   onShare,
   onMove,
-  inGroup,
+  sharedTree,
 }: {
   mailbox: Mailbox;
   onClose: () => void;
   onCreateChild: () => void;
   onShare: () => void;
   onMove: () => void;
-  /** Shared mailbox accounts: hiding a folder is not offered (see buildMailTree). */
-  inGroup: boolean;
+  /**
+   * Shared tree -- somebody else's mailbox, reached by membership: hiding a
+   * folder is not offered there (see `buildMailTree`).
+   */
+  sharedTree: boolean;
 }) {
   const shared = Object.keys(m.shareWith ?? {}).length > 0;
   const [, navigate] = useLocation();
@@ -1042,7 +1054,7 @@ function MailboxMenu({
         onClick={() =>
           void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })
         }
-        disabled={m.role === "inbox" || inGroup}
+        disabled={m.role === "inbox" || sharedTree}
       />
       {/* Sharing a mail folder is withdrawn, not removed: Stalwart accepts and
           stores the share, and it never reaches the other account -- its own
