@@ -1628,7 +1628,7 @@ export const useMail = create<MailState>((set, get) => ({
     // Awaited, not fired and forgotten: the folder operation is not really done
     // until the rules pointing at it agree, and a page that navigates away
     // mid-save would leave the script half-written.
-    if (before.length) await followFolders(before);
+    if (before.length) await followFolders(accountId, before);
   },
 
   async destroyMailbox(id, removeEmails = true) {
@@ -1655,7 +1655,7 @@ export const useMail = create<MailState>((set, get) => ({
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadMailboxes();
-    await followFolders(before);
+    await followFolders(accountId, before);
     /*
      * A refusal from the server still throws, which is the existing contract
      * this method has with its callers; only the rule's own refusal is returned,
@@ -2953,10 +2953,18 @@ function folderRefs(state: MailState, id: Id): FolderRef[] {
  * Deliberately never throws. The folder operation has already succeeded by this
  * point, and failing to tidy the rules must not make it look otherwise.
  */
-async function followFolders(before: FolderRef[]): Promise<void> {
+async function followFolders(accountId: Id, before: FolderRef[]): Promise<void> {
   try {
     const sieve = useSieve.getState();
     if (!sieve.available) return;
+    /*
+     * The rules this keeps are the reader's own, in their own account. A folder
+     * in somebody else's tree -- a group's, where a member may also move one --
+     * cannot be named by any of them: retargeting on such a move would point the
+     * reader's filters at a path that exists only in the group, and a folder
+     * that had gone from a group is not a folder their rules ever filed into.
+     */
+    if (sieve.accountId !== accountId) return;
     if (!sieve.scripts.length) await sieve.load();
     // Only the script the rule editor manages can be rewritten safely; a
     // hand-written one is nobody's business but its author's.
