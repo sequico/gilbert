@@ -1278,7 +1278,7 @@ export const catalog: Catalog = {
     "Compose as new": "Als nieuw bericht opstellen",
     "Compose new message": "Nieuw bericht opstellen",
     Conversation: "Gesprek",
-        "Could not be read": "Kon niet worden gelezen",
+    "Could not be read": "Kon niet worden gelezen",
     "Could not import this file: {error}": "Kon dit bestand niet importeren: {error}",
     "Could not load this file.": "Kon dit bestand niet laden.",
     "Could not read this calendar: {reason}": "Kon deze agenda niet lezen: {reason}",
@@ -1444,7 +1444,7 @@ export const catalog: Catalog = {
     "scored {score}, with no threshold stated":
       "scoorde {score}, zonder vermelde drempel",
     "this view": "deze weergave",
-        "{count} folders": "{count} mappen",
+    "{count} folders": "{count} mappen",
     "{name}’s birthday": "Verjaardag van {name}",
     "{name}’s birthday ({age})": "Verjaardag van {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1587,7 +1587,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label} (tijd)",
     "Edit {name}": "{name} bewerken",
     "{own} here, {unread} in subfolders": "{own} hier, {unread} in submappen",
-    "attachment": "bijlage",
+    attachment: "bijlage",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

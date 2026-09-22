@@ -533,13 +533,17 @@ describe("a url() is read the way a CSS parser reads it", () => {
   it("leaves a url( that is part of a longer name alone, and loads nothing", () => {
     // `foo-url(` is not the `url()` function to any parser, so there is no
     // fetch for this file to refuse -- the declaration is what a browser drops.
-    const r = sanitizeEmailHtml(`<p style="background:foo-url(http://x.example/a.png)">x</p>`);
+    const r = sanitizeEmailHtml(
+      `<p style="background:foo-url(http://x.example/a.png)">x</p>`,
+    );
     expect(r.remoteCount).toBe(0);
     expect(r.html).not.toContain("data-ihm-blocked");
   });
 
   it("refuses a URL it would have to decode an escape to judge", () => {
-    const r = sanitizeEmailHtml(`<p style="background:url(http://x.example/a\\b.png)">x</p>`);
+    const r = sanitizeEmailHtml(
+      `<p style="background:url(http://x.example/a\\b.png)">x</p>`,
+    );
     expect(r.remoteCount).toBe(0);
     expect(r.html).not.toContain("x.example");
     expect(r.html).toMatch(/background:\s*none/);

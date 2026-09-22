@@ -601,35 +601,34 @@ async function moveToDestinations(
       : t("{count} folders", { count: String(names.length) });
   toast.show(movedTo(ids.length, where), {
     action: !undoable
-        ? undefined
-        : {
-            label: "Undo",
-            onClick: async () => {
-              const undo: Record<Id, Record<string, unknown>> = {};
-              for (const id of ids)
-                undo[id] = restoreMailboxPatch(
-                  prev[id]!,
-                  get().emails[id]?.mailboxIds ?? {},
-                );
-              await setEmails(accountId, undo);
-              set((s) => {
-                const next = { ...s.emails };
-                for (const id of ids) {
-                  const e = next[id];
-                  if (!e) continue;
-                  next[id] = {
-                    ...e,
-                    mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
-                  };
-                }
-                return { emails: next };
-              });
-              void get().refreshList();
-              void get().loadMailboxes();
-            },
+      ? undefined
+      : {
+          label: "Undo",
+          onClick: async () => {
+            const undo: Record<Id, Record<string, unknown>> = {};
+            for (const id of ids)
+              undo[id] = restoreMailboxPatch(
+                prev[id]!,
+                get().emails[id]?.mailboxIds ?? {},
+              );
+            await setEmails(accountId, undo);
+            set((s) => {
+              const next = { ...s.emails };
+              for (const id of ids) {
+                const e = next[id];
+                if (!e) continue;
+                next[id] = {
+                  ...e,
+                  mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
+                };
+              }
+              return { emails: next };
+            });
+            void get().refreshList();
+            void get().loadMailboxes();
           },
-    },
-  );
+        },
+  });
   void get().loadMailboxes();
 }
 

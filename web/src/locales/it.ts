@@ -2037,7 +2037,6 @@ export const catalog: Catalog = {
     "Compose new message": "Scrivi un nuovo messaggio",
     Conversation: "Conversazione",
 
-    
     "Could not be read": "Non è stato possibile leggerlo",
 
     "Could not import this file: {error}":
@@ -2327,7 +2326,6 @@ export const catalog: Catalog = {
 
     "this view": "questa vista",
 
-    
     "{count} folders": "{count} cartelle",
 
     "{name}’s birthday": "Compleanno di {name}",
@@ -2547,7 +2545,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label} (ora)",
     "Edit {name}": "Modifica {name}",
     "{own} here, {unread} in subfolders": "{own} qui, {unread} nelle sottocartelle",
-    "attachment": "allegato",
+    attachment: "allegato",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

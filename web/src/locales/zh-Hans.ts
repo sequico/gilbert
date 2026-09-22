@@ -1245,7 +1245,7 @@ export const catalog: Catalog = {
     "Compose as new": "作为新邮件撰写",
     "Compose new message": "撰写新邮件",
     Conversation: "会话",
-        "Could not be read": "无法读取",
+    "Could not be read": "无法读取",
     "Could not import this file: {error}": "无法导入此文件：{error}",
     "Could not load this file.": "无法加载此文件。",
     "Could not read this calendar: {reason}": "无法读取此日历：{reason}",
@@ -1406,7 +1406,7 @@ export const catalog: Catalog = {
       "评分 {score}，阈值为 {threshold}",
     "scored {score}, with no threshold stated": "评分 {score}，未说明阈值",
     "this view": "此视图",
-        "{count} folders": "{count} 个文件夹",
+    "{count} folders": "{count} 个文件夹",
     "{name}’s birthday": "{name} 的生日",
     "{name}’s birthday ({age})": "{name} 的生日（{age}）",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1543,7 +1543,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label}（时间）",
     "Edit {name}": "编辑 {name}",
     "{own} here, {unread} in subfolders": "{own} 在此，{unread} 在子文件夹中",
-    "attachment": "附件",
+    attachment: "附件",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

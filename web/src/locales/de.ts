@@ -1341,7 +1341,7 @@ export const catalog: Catalog = {
     "Click to move the event": "Klicken, um den Termin zu verschieben",
     "Close without saving?": "Ohne Speichern schließen?",
     "Compose as new": "Als neue Nachricht verfassen",
-        "Could not be read": "Konnte nicht gelesen werden",
+    "Could not be read": "Konnte nicht gelesen werden",
     "Could not import this file: {error}":
       "Diese Datei konnte nicht importiert werden: {error}",
     "Could not load this file.": "Diese Datei konnte nicht geladen werden.",
@@ -1495,7 +1495,7 @@ export const catalog: Catalog = {
     "scored {score}, with no threshold stated":
       "erreichte {score}, ohne angegebenen Schwellenwert",
     "this view": "diese Ansicht",
-        "{count} folders": "{count} Ordner",
+    "{count} folders": "{count} Ordner",
     "{name}’s birthday": "Geburtstag von {name}",
     "{name}’s birthday ({age})": "Geburtstag von {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1640,7 +1640,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label} (Uhrzeit)",
     "Edit {name}": "{name} bearbeiten",
     "{own} here, {unread} in subfolders": "{own} hier, {unread} in Unterordnern",
-    "attachment": "Anhang",
+    attachment: "Anhang",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

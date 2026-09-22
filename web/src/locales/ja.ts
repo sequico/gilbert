@@ -1284,7 +1284,7 @@ export const catalog: Catalog = {
     "Compose as new": "新規メールとして作成",
     "Compose new message": "新規メールを作成",
     Conversation: "スレッド",
-        "Could not be read": "読み取れませんでした",
+    "Could not be read": "読み取れませんでした",
     "Could not import this file: {error}":
       "このファイルをインポートできませんでした: {error}",
     "Could not load this file.": "このファイルを読み込めませんでした。",
@@ -1450,7 +1450,7 @@ export const catalog: Catalog = {
       "スコア {score}（しきい値 {threshold}）",
     "scored {score}, with no threshold stated": "スコア {score}（しきい値の記載なし）",
     "this view": "この表示",
-        "{count} folders": "{count} 個のフォルダー",
+    "{count} folders": "{count} 個のフォルダー",
     "{name}’s birthday": "{name} の誕生日",
     "{name}’s birthday ({age})": "{name} の誕生日（{age}）",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1590,7 +1590,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label}（時刻）",
     "Edit {name}": "{name} を編集",
     "{own} here, {unread} in subfolders": "ここに {own}、サブフォルダに {unread}",
-    "attachment": "添付ファイル",
+    attachment: "添付ファイル",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

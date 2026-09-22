@@ -1278,7 +1278,7 @@ export const catalog: Catalog = {
     "Compose as new": "Написать как новое письмо",
     "Compose new message": "Написать новое письмо",
     Conversation: "Цепочка",
-        "Could not be read": "Не удалось прочитать",
+    "Could not be read": "Не удалось прочитать",
     "Could not import this file: {error}": "Не удалось импортировать этот файл: {error}",
     "Could not load this file.": "Не удалось загрузить этот файл.",
     "Could not read this calendar: {reason}":
@@ -1444,7 +1444,7 @@ export const catalog: Catalog = {
       "оценка {score} при пороге {threshold}",
     "scored {score}, with no threshold stated": "оценка {score}, порог не указан",
     "this view": "этот раздел",
-        "{count} folders": "Папок: {count}",
+    "{count} folders": "Папок: {count}",
     "{name}’s birthday": "День рождения: {name}",
     "{name}’s birthday ({age})": "День рождения: {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1585,7 +1585,7 @@ export const catalog: Catalog = {
     "{label} (time)": "{label} (время)",
     "Edit {name}": "Изменить {name}",
     "{own} here, {unread} in subfolders": "{own} здесь, {unread} в подпапках",
-    "attachment": "вложение",
+    attachment: "вложение",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

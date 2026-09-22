@@ -987,7 +987,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
               setStartInEdit(false);
             }}
             onSave={
-              editTarget && canEditNode(files.nodes[editTarget.id]) ? saveEdited : undefined
+              editTarget && canEditNode(files.nodes[editTarget.id])
+                ? saveEdited
+                : undefined
             }
             startInEdit={startInEdit}
           />
