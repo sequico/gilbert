@@ -492,22 +492,33 @@ describe("CSS escapes and comments cannot hide remote content", () => {
 });
 
 /**
- * Where the plain-text rewrite stops short, and what actually covers the gap.
- * The rewrite is best-effort and the residual is deliberate (see the note on
- * decodeCss in lib/html.ts); this pins the residual's shape so a future
- * parser-shaped rewrite cannot widen it unnoticed.
+ * A `url()` is read, not matched.
+ *
+ * A quoted URL may hold the `)` a pattern would stop at, and reading it whole
+ * is what stops a sender hiding a fetch inside a shape the rewrite does not
+ * recognise. What cannot be read at all — an unterminated string — costs the
+ * CSS it came from: a stylesheet passed on half-rewritten is worse than one
+ * dropped, and the app's CSP (`img-src 'self' data: blob:`) refuses the fetch
+ * either way.
  */
-describe("the plain-text url() rewrite is best-effort", () => {
-  it("leaves a quoted url() containing ')' alone, and counts nothing", () => {
-    // CSS_URL_RE's character class excludes the closing paren, so a quoted
-    // URL holding one is neither rewritten, nor proxied, nor counted, and
-    // gets no blocked-image mark. What refuses that fetch is the app's CSP
-    // (`img-src 'self' data: blob:`), not this sanitizer.
+describe("a url() is read the way a CSS parser reads it", () => {
+  it("rewrites a quoted url() whose URL contains a ')'", () => {
     const src = `<p style="background:url('http://x.example/a)b')">x</p>`;
+    const blocked = sanitizeEmailHtml(src);
+    expect(blocked.remoteCount).toBe(1);
+    expect(blocked.html).not.toContain("http://x.example/a)b");
+    expect(blocked.html).toMatch(/background:\s*none/);
+    const proxied = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
+    expect(proxied.html).toContain(
+      `/api/image?url=${encodeURIComponent("http://x.example/a)b")}`,
+    );
+  });
+
+  it("drops the CSS it cannot read rather than passing it on half-rewritten", () => {
+    const src = `<p style="background:url('http://x.example/a)b">x</p>`;
     const r = sanitizeEmailHtml(src);
-    expect(r.remoteCount).toBe(0);
-    expect(r.html).toContain("http://x.example/a)b");
-    expect(r.html).not.toContain("data-ihm-blocked");
+    expect(r.html).not.toContain("background");
+    expect(r.html).not.toContain("http://x.example");
   });
 });
 

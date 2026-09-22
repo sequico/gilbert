@@ -1145,6 +1145,19 @@ const QUOTE_SELECTORS = [
   ".ihm-quote",
 ];
 
+/**
+ * The link a click landed in. An image map's `<area>` is a link too, and the
+ * sanitizer gives it the same `target`/`rel` an `<a>` gets (lib/html.ts), so
+ * the reading pane has to see it here as well: otherwise a `mailto:` in a map
+ * never reaches the composer, and an `http(s)` one never reaches the prompt.
+ */
+const LINK_SELECTOR = "a, area";
+
+/** What to call a link when asking about it: its text, else a map area's alt, else its URL. */
+function linkLabel(link: Element, href: string): string {
+  return link.textContent?.trim() || link.getAttribute("alt") || href;
+}
+
 function HtmlBody({
   html,
   bodyStyle,
@@ -1168,7 +1181,7 @@ function HtmlBody({
   const onClick = useCallback(
     (ev: Event) => {
       const t = ev.target as HTMLElement;
-      const a = t.closest("a");
+      const a = t.closest(LINK_SELECTOR);
       if (a) {
         const href = a.getAttribute("href") ?? "";
         if (href.startsWith("mailto:")) {
@@ -1182,7 +1195,7 @@ function HtmlBody({
         }
         if (onFollowLink && /^https?:/i.test(href)) {
           ev.preventDefault();
-          onFollowLink(href, a.textContent);
+          onFollowLink(href, linkLabel(a, href));
           return;
         }
         a.setAttribute("target", "_blank");
@@ -1337,7 +1350,7 @@ function TextBody({
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     root.innerHTML = `<style>${TEXT_EMAIL_CSS}</style><div class="ihm-text-root">${textToHtml(main)}${quoted ? `<div class="ihm-quoted" ${quoteOpen ? "" : "hidden"}>\n${textToHtml(quoted)}</div>` : ""}</div>`;
     const onClick = (ev: Event) => {
-      const a = (ev.target as HTMLElement).closest("a");
+      const a = (ev.target as HTMLElement).closest(LINK_SELECTOR);
       const href = a?.getAttribute("href") ?? "";
       if (a && href.startsWith("mailto:")) {
         ev.preventDefault();
@@ -1346,7 +1359,7 @@ function TextBody({
       }
       if (a && onFollowLink && /^https?:/i.test(href)) {
         ev.preventDefault();
-        void onFollowLink(href, a.textContent);
+        void onFollowLink(href, linkLabel(a, href));
       }
     };
     root.addEventListener("click", onClick);

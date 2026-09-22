@@ -29,7 +29,8 @@ export interface SanitizeResult {
 }
 
 const REMOTE_URL_RE = /^(https?:)?\/\//i;
-const CSS_URL_RE = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+/** A character that can be part of an identifier: `foo-url(` is not a `url(`. */
+const IDENT_CHAR = /[\w\-\u0080-\uFFFF]/;
 const CSS_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
 const IE_CSS_HOOK_RE = /expression\s*\(|behavior\s*:/i;
 
@@ -68,15 +69,14 @@ function ensureHooks() {
  * emitted -- an escape sequence cannot hide an @import or a `position:fixed`
  * from it any more than it can hide them from the parser.
  *
- * The rewrite itself is best-effort plain text, not a CSS tokenizer, and one
- * shape slips through: `CSS_URL_RE` does not match a quoted url() whose URL
- * contains `)`, so `style="background:url('http://x/a)b')"` is returned
- * unchanged, is not counted in `remoteCount`, and gets no "blocked image"
- * mark. Nothing in this file refuses that fetch; the app's Content Security
- * Policy does (`img-src 'self' data: blob:`, see APP_CSP in
- * server/src/static.ts), by refusing the request the browser would make. That
- * is the residual, and it is deliberate: the alternative is teaching this file
- * to parse CSS.
+ * The rewrite reads each `url(...)` itself rather than matching it with one
+ * pattern, because a quoted URL may hold the `)` a pattern would stop at:
+ * `url('http://x/a)b')` is one URL, not an unterminated one. The scan walks the
+ * quotes and the escapes the way a CSS parser would, and what it cannot read
+ * -- an unterminated string, a `)` that never comes -- is not guessed at: the
+ * CSS it came from is dropped whole rather than passed through half-rewritten.
+ * That is safe because the app's Content Security Policy refuses those fetches
+ * anyway (`img-src 'self' data: blob:`, see APP_CSP in server/src/static.ts).
  *
  * Comments are stripped first, on the raw text: a CSS comment ends at the
  * first literal star-slash and ignores escapes inside it, so that is also
@@ -178,6 +178,69 @@ function dropIeCssHooks(css: string): string {
  */
 const STRING_IMAGE_FN =
   /(?<![\w\\-\u0080-\uFFFF])(-webkit-image-set|image-set|-webkit-cross-fade|cross-fade|image|src)(\s*\()/gi;
+
+/**
+ * Rewrite every `url(...)` in `css` through `rewrite`, or return null when one
+ * of them cannot be read -- the caller drops that CSS rather than guess at it.
+ *
+ * `rewrite` answers with the URL to write back, or null for a URL that must not
+ * survive (a remote image while remote content is off, an unknown scheme). The
+ * value is written back quoted and escaped, so a URL can never end the
+ * declaration it sits in.
+ */
+function rewriteCssUrls(
+  css: string,
+  rewrite: (url: string) => string | null,
+): string | null {
+  const re = /url\(/gi;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(css))) {
+    if (m.index > 0 && IDENT_CHAR.test(css[m.index - 1] ?? "")) continue;
+    let i = m.index + 4;
+    while (i < css.length && /\s/.test(css[i] ?? "")) i++;
+    let value = "";
+    const q = css[i];
+    if (q === '"' || q === "'") {
+      i++;
+      for (;;) {
+        if (i >= css.length || css[i] === "\n") return null;
+        if (css[i] === "\\") {
+          value += css.slice(i, i + 2);
+          i += 2;
+          continue;
+        }
+        if (css[i] === q) {
+          i++;
+          break;
+        }
+        value += css[i++];
+      }
+      while (i < css.length && /\s/.test(css[i] ?? "")) i++;
+      if (css[i] !== ")") return null;
+    } else {
+      const end = css.indexOf(")", i);
+      if (end < 0) return null;
+      value = css.slice(i, end).trim();
+      if (/["'(\s]/.test(value)) return null;
+      i = end;
+    }
+    // A backslash in a URL is an escape this would have to decode to judge; no
+    // image mail really needs one, so it is simply not loaded.
+    const r = value.includes("\\") ? null : rewrite(value);
+    out +=
+      css.slice(last, m.index) +
+      (r === null
+        ? "none"
+        : `url("${r
+            .replace(/[\\"]/g, (c) => (c === '"' ? "\\22 " : "\\5c "))
+            .replace(/[\r\n\f]/g, "")}")`);
+    last = i + 1;
+    re.lastIndex = last;
+  }
+  return out + css.slice(last);
+}
 
 /**
  * Blunt the positioning tricks mail CSS can use to escape its card.
@@ -377,15 +440,15 @@ export function sanitizeEmailHtml(
   });
 
   // CSS url() in style attributes and <style> blocks
-  const rewriteCss = (css: string): string =>
-    css.replace(CSS_URL_RE, (_m, q: string, u: string) => {
+  const rewriteCss = (css: string): string | null =>
+    rewriteCssUrls(css, (u) => {
       const r = rewriteUrl(u);
-      return r.keep ? `url(${q}${r.url}${q})` : "none";
+      return r.keep ? r.url : null;
     });
   // One pipeline for every CSS surface the sanitizer touches: decode what a
   // CSS parser would decode, neutralise the constructs that must not survive,
   // then harden and rewrite on the decoded form.
-  const processCss = (raw: string): string => {
+  const processCss = (raw: string): string | null => {
     const decoded = decodeCss(raw);
     /*
      * Both of these are renamed rather than removed, and the order is why that
@@ -398,13 +461,16 @@ export function sanitizeEmailHtml(
     const blocked = decoded
       .replace(/@import/gi, "@gilbert-blocked-import")
       .replace(STRING_IMAGE_FN, "gilbert-blocked$2");
-    return hardenCss(rewriteCss(dropIeCssHooks(blocked)));
+    const rewritten = rewriteCss(dropIeCssHooks(blocked));
+    return rewritten === null ? null : hardenCss(rewritten);
   };
   clean.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
     const s = el.getAttribute("style");
     if (!s) return;
     const out = processCss(s);
-    if (out !== s) el.setAttribute("style", out);
+    // A stylesheet this file cannot read is not one it passes on half-read.
+    if (out === null) el.removeAttribute("style");
+    else if (out !== s) el.setAttribute("style", out);
   });
   clean.querySelectorAll("style").forEach((st) => {
     /*
@@ -419,6 +485,10 @@ export function sanitizeEmailHtml(
     const css = st.textContent ?? "";
     if (!css) return;
     const out = processCss(css);
+    if (out === null) {
+      st.remove();
+      return;
+    }
     // The decoded text is written back into a raw-text element, and that html
     // is parsed again when it lands in the reader (MessageView sets it via
     // innerHTML). A CSS escape that decoded to `</style` would otherwise end
@@ -426,7 +496,7 @@ export function sanitizeEmailHtml(
     // element intact and means the same character to the CSS parser.
     st.textContent = out.replace(/<\/style/gi, "\\3c /style");
   });
-  if (bodyStyle) bodyStyle = processCss(bodyStyle);
+  if (bodyStyle) bodyStyle = processCss(bodyStyle) ?? "";
 
   return { html: clean.innerHTML, remoteCount, bodyStyle };
 }
