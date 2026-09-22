@@ -87,11 +87,12 @@ test("Mailbox/get on the group returns its own folder tree, not the reader's", a
   assert.equal(res.status, 200);
   const m = responseOf(res.body, "m");
   assert.ok(m, "Mailbox/get should answer");
-  const list = m[1].list as Array<{ id: string; role: string | null; isSubscribed: boolean }>;
-  assert.deepEqual(
-    list.map((x) => x.id).sort(),
-    ["g-cases", "g-inbox", "g-sent"],
-  );
+  const list = m[1].list as Array<{
+    id: string;
+    role: string | null;
+    isSubscribed: boolean;
+  }>;
+  assert.deepEqual(list.map((x) => x.id).sort(), ["g-cases", "g-inbox", "g-sent"]);
   assert.equal(list.find((x) => x.id === "g-inbox")?.role, "inbox");
   /* As a real server hands them to a member: subscription is per-principal
      state, and membership writes none of it. */

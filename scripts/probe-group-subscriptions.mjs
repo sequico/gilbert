@@ -133,9 +133,12 @@ record(
   "yes",
 );
 if (!group) {
-  note("the accounts the session lists", Object.entries(held.accounts ?? {})
-    .map(([id, a]) => `${id} ${a?.name}${a?.isPersonal ? "" : " (shared)"}`)
-    .join(", "));
+  note(
+    "the accounts the session lists",
+    Object.entries(held.accounts ?? {})
+      .map(([id, a]) => `${id} ${a?.name}${a?.isPersonal ? "" : " (shared)"}`)
+      .join(", "),
+  );
   process.exit(report({ where: "the owed note in the gilbert-stalwart skill" }));
 }
 const [accountId] = group;
@@ -156,7 +159,11 @@ note(
     .map((f) => `${f.name}${f.isSubscribed === false ? "" : " (subscribed)"}`)
     .join(", "),
 );
-record("a folder of it is unsubscribed, as a member's are", unsubscribed.length ? "yes" : "no", "yes");
+record(
+  "a folder of it is unsubscribed, as a member's are",
+  unsubscribed.length ? "yes" : "no",
+  "yes",
+);
 
 /* The Inbox is the only folder whose subscription the mock and a real server
    both always report, so it is not a candidate for the write. */
@@ -231,7 +238,10 @@ if (target) {
       ]);
       note("the folder moved and put back", `${target.name} (${target.id})`);
     } else if (movedEntry) {
-      note("the move was refused", refusalOf({ status: moved.status, entry: movedEntry }));
+      note(
+        "the move was refused",
+        refusalOf({ status: moved.status, entry: movedEntry }),
+      );
     }
   }
 }

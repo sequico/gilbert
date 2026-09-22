@@ -22,7 +22,12 @@ import { flushMicrotasks as flush } from "@/test/testkit";
 
 type Tree = Record<string, Record<string, unknown>>;
 
-const box = (id: string, name: string, parentId: string | null, isSubscribed: boolean) => ({
+const box = (
+  id: string,
+  name: string,
+  parentId: string | null,
+  isSubscribed: boolean,
+) => ({
   id,
   name,
   parentId,
@@ -64,7 +69,12 @@ function stubServer(trees: Record<string, Tree>) {
         if (name === "Mailbox/get") {
           methodResponses.push([
             name,
-            { accountId, state: "1", list: Object.values(trees[accountId] ?? {}), notFound: [] },
+            {
+              accountId,
+              state: "1",
+              list: Object.values(trees[accountId] ?? {}),
+              notFound: [],
+            },
             id,
           ]);
         } else if (name === "Mailbox/set") {

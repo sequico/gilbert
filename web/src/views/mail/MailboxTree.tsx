@@ -307,7 +307,9 @@ export function MailboxTree() {
    * read-only launchers, and a tree that is not the reader's own shows every
    * folder it holds (see `buildMailTree`).
    */
-  const sharedTree = Boolean(session && accountId && !isOwnMailAccount(session, accountId));
+  const sharedTree = Boolean(
+    session && accountId && !isOwnMailAccount(session, accountId),
+  );
   const { rows, childrenOf, subtreeUnread } = useMemo(
     () =>
       buildMailTree(mailboxes, expanded, showHidden, sharedTree, (id) =>

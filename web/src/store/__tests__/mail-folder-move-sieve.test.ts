@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
-import { newRule, rulesToSieve } from "@/lib/sieve";
 import type { JmapSession, Mailbox, SieveScript } from "@/jmap/types";
+import { newRule, rulesToSieve } from "@/lib/sieve";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useSieve } from "@/store/sieve";
@@ -108,7 +108,12 @@ function stubServer(trees: Record<string, Tree>) {
         if (name === "Mailbox/get") {
           methodResponses.push([
             name,
-            { accountId, state: "1", list: Object.values(trees[accountId] ?? {}), notFound: [] },
+            {
+              accountId,
+              state: "1",
+              list: Object.values(trees[accountId] ?? {}),
+              notFound: [],
+            },
             id,
           ]);
         } else if (name === "Mailbox/set") {
