@@ -198,3 +198,13 @@ is, not what a user sees.
   holds, the model writes a query and never a JMAP filter, a lookup writes no
   state, and the allowlist and the review gate are untouched: it is the named,
   narrow half of ADR 0006 decision three, with no per-question heuristic.
+- **0021 — A group's folders are subscribed for every member.** A subscription
+  is read state kept for one principal, and membership writes none of it: a
+  member of a working group holds the whole tree unsubscribed, which is
+  invisible inside `gilbertmailer` (a tree that is not the reader's own is drawn
+  whole) and total everywhere else. So the client subscribes the folders its
+  membership is about as it reads the tree — one idempotent write per folder
+  that lacks it, on every read, never on the reader's own mailbox — and asks
+  whose tree is on screen of the **session** rather than of the account probe,
+  so a member's tree is whole from the first frame and whatever the probe
+  answers later. Whether a member may write that field is owed a live probe.

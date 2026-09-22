@@ -1019,7 +1019,18 @@ Real JMAP mailboxes, with the server's roles honoured.
   and are offered neither, because the server refuses to move them anyway.
 - **Subscribe / unsubscribe** — *Show in list* / *Hide from list*. An
   unsubscribed folder still exists and still receives; it is just out of the
-  way. Inbox cannot be hidden.
+  way. Inbox cannot be hidden. **In a group mailbox a member's folders are
+  subscribed for them** (ADR 0021): membership is the grant, the mail server
+  hands a newly added member the whole tree unsubscribed, and the client writes
+  the subscription back for every folder that lacks it as it reads the tree —
+  so the group is readable from any other client too. Hiding one is not offered
+  in a group, where an unsubscribed folder is not something a member said.
+- **A group's tree is drawn whole** (ADR 0021). A tree that is not the reader's
+  own shows every folder it holds, subscribed or not — the active account's
+  tree and the sections below it answering the same question the same way —
+  because the folders of a group arrive unsubscribed. Which tree is whose is
+  asked of the session, so it holds from the first frame rather than once the
+  account probe has answered.
 - **Mark all as read**, optionally including subfolders.
 - **Folder colours**, per mailbox id.
 - **Unread counts** per folder, live.

@@ -25,6 +25,7 @@ import {
   groupByArchivePath,
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
+import { unsubscribedFolders } from "@/lib/groupSubscriptions";
 import { plural, t } from "@/lib/i18n";
 import {
   countedKeywords,
@@ -37,6 +38,7 @@ import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
   isGroupMailboxAccount,
+  isOwnMailAccount,
   type MailAccountInfo,
   mailAccountAddress,
   mailAccountCandidates,
@@ -402,6 +404,89 @@ function offerArchiveFolder(retry: () => Promise<void>): void {
   });
 }
 
+/**
+ * A `Mailbox/get` answer as the map every reader of the tree uses.
+ *
+ * One builder, because three read paths answer this question -- the probe, an
+ * account's tree on its own beat, and the active account's -- and a tree that
+ * was assembled slightly differently in each is a difference nothing notices
+ * until two of them disagree on screen.
+ */
+function mailboxMap(list: Mailbox[]): Record<Id, Mailbox> {
+  const tree: Record<Id, Mailbox> = {};
+  for (const m of list) tree[m.id] = m;
+  return tree;
+}
+
+/**
+ * A `Mailbox/get` answer adopted: the tree, and -- on an account that is not
+ * the reader's own -- the subscriptions membership owes on it.
+ *
+ * Which account is the reader's own is asked of the session, never of the
+ * group classifier: that one answers nothing until the probe has listed the
+ * account, and a folder the reader is owed a subscription to is not something
+ * to decide on an answer that is still on its way.
+ */
+function adoptMailboxes(accountId: Id, list: Mailbox[]): Record<Id, Mailbox> {
+  const tree = mailboxMap(list);
+  if (!isOwnMailAccount(useSession.getState().session, accountId))
+    ensureSubscribed(accountId, tree);
+  return tree;
+}
+
+/** Reconciles in flight, one per account, so overlapping reads share one write. */
+const subscribing = new Map<Id, Promise<void>>();
+
+/**
+ * Accounts whose subscription write was refused, for this session.
+ *
+ * Whether a member may write `isSubscribed` on a folder of their group is not
+ * something this client has verified against a real server -- a subscription
+ * is read state kept for one principal, and Stalwart is of two minds about it
+ * elsewhere (it accepts the write on a calendar shared read-only and refuses
+ * it on an address book). Until the probe owed in the `gilbert-stalwart` skill
+ * answers, a refusal is remembered rather than repeated: a member who may not
+ * would otherwise have a failing request on every read of the tree, and the
+ * tree itself is drawn whole either way.
+ *
+ * ADR-0021 OWED: member-subscription-write
+ */
+const subscriptionsRefused = new Set<Id>();
+
+/**
+ * The folders of a group the member is owed a subscription to, written once.
+ *
+ * Stalwart hands a freshly added member every folder unsubscribed and keeps
+ * doing it for folders created since, so the reader's own record has to be
+ * brought up to what membership means -- otherwise the group is unreadable
+ * from every client that honours subscriptions, which is every client but
+ * this one. Nothing is sent when nothing is missing, and one reconciliation
+ * is in flight per account: this sits on every read of a group's folder list,
+ * which is also what makes it cover a folder that appeared a moment ago.
+ */
+function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
+  if (subscriptionsRefused.has(accountId) || subscribing.has(accountId)) return;
+  const missing = unsubscribedFolders(tree);
+  if (!missing.length) return;
+  const run = (async () => {
+    try {
+      for (const part of chunk(missing, client.maxObjectsInSet)) {
+        const update: Record<Id, { isSubscribed: true }> = {};
+        for (const id of part) update[id] = { isSubscribed: true };
+        await client.call<SetResponse>("Mailbox/set", { accountId, update });
+      }
+    } catch (err) {
+      subscriptionsRefused.add(accountId);
+      console.warn(
+        `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
+      );
+    } finally {
+      subscribing.delete(accountId);
+    }
+  })();
+  subscribing.set(accountId, run);
+}
+
 export const useMail = create<MailState>((set, get) => ({
   accountId: null,
   ownAccountId: null,
@@ -518,9 +603,7 @@ export const useMail = create<MailState>((set, get) => ({
               properties: MAILBOX_PROPS,
             });
             if (!res.list.length) continue;
-            const tree: Record<Id, Mailbox> = {};
-            for (const m of res.list) tree[m.id] = m;
-            trees[c.accountId] = tree;
+            trees[c.accountId] = adoptMailboxes(c.accountId, res.list);
             groups.push(c);
           } catch {
             /*
@@ -581,8 +664,7 @@ export const useMail = create<MailState>((set, get) => ({
         ids: null,
         properties: MAILBOX_PROPS,
       });
-      const tree: Record<Id, Mailbox> = {};
-      for (const m of res.list) tree[m.id] = m;
+      const tree = adoptMailboxes(accountId, res.list);
       set((s) => ({ accountTrees: { ...s.accountTrees, [accountId]: tree } }));
     } catch {
       /* keep the last tree we could read */
@@ -615,8 +697,7 @@ export const useMail = create<MailState>((set, get) => ({
       ids: null,
       properties: MAILBOX_PROPS,
     });
-    const mailboxes: Record<Id, Mailbox> = {};
-    for (const m of res.list) mailboxes[m.id] = m;
+    const mailboxes = adoptMailboxes(accountId, res.list);
     const accountTrees = { ...get().accountTrees, [accountId]: mailboxes };
     // The account may have changed while the request was in flight (a quick
     // second click in the sidebar). The tree cache still wants this account's

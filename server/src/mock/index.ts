@@ -1125,11 +1125,19 @@ const sharedEvents: Obj[] = [];
 /* A group (team) account the demo user is a member of: its own mailbox, and
    -- unlike a person who shared a folder -- the calendars, address books and
    files the team keeps. Only the mailbox is eager (sidebar counts); the other
-   panes discover the rest the way they discover a2's shares. */
+   panes discover the rest the way they discover a2's shares.
+
+   Every folder arrives **unsubscribed**, as a real server hands them to a
+   member: subscription is per-principal state, and being added to the group
+   writes none of it. The client is what subscribes them (`adoptMailboxes` in
+   `web/src/store/mail.ts`), so the mock models the state that write exists for
+   -- and the sidebar, which draws a shared tree whole, has a tree that would
+   otherwise be Inbox alone. */
 const groupMailboxes: Obj[] = [
   mb("g-inbox", "Inbox", "inbox"),
   mb("g-sent", "Sent Items", "sent"),
-];
+  mb("g-cases", "Cases", null, "g-inbox"),
+].map((m) => ({ ...m, isSubscribed: false }));
 const groupEmails: Obj[] = [
   {
     id: "ge1",

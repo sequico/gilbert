@@ -214,16 +214,15 @@ Where the integration lives:
   product — see ROADMAP: it is a one-way door); the Gilbert side adds no
   per-account encryption.
 
-## The two live questions the mock cannot answer (owed 2026-09-13)
+## The live questions the mock cannot answer (owed)
 
 Each has a script in `scripts/` that asks a real instance: run by hand, never by
-`prepush` (they need a live server and an administrator's password). Both read
-`STALWART_URL`, `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` from the
-environment, print what the server actually answered, and exit non-zero when an
-answer is not the one the code depends on. **Neither has been run against a live
-server as of 2026-09-13 — they are owed, and this section is the record of the
-debt.** Run one before trusting a new server version, then replace the owed note
-below with the answer, its version and its date.
+`prepush` (they need a live server and a credential). Each reads its own facts
+from the environment, prints what the server actually answered, and exits
+non-zero when an answer is not the one the code depends on. **None has been run
+against a live server as of 2026-09-22 — they are owed, and this section is the
+record of the debt.** Run one before trusting a new server version, then replace
+the owed note below with the answer, its version and its date.
 
 ### `scripts/probe-directory-paging.mjs` — the directory read's paging
 
@@ -298,9 +297,46 @@ you." (a 404 at the surface). Every other answer is read the other way:
   said. This probe therefore does not settle Stalwart's own app-password rule
   (read in `authentication.rs`, and enforced before the request leaves Gilbert).
 
-Group membership is settled by the registry read above — the two probes here
-settle neither it nor a group account's Files visibility (see `gilbert-groups`),
-nor the directory's `type` vocabulary beyond `individual` and `group`.
+Group membership is settled by the registry read above — these probes settle
+neither it nor a group account's Files visibility (see `gilbert-groups`), nor
+the directory's `type` vocabulary beyond `individual` and `group`.
+
+### `scripts/probe-group-subscriptions.mjs` — a member's own subscription (owed 2026-09-22)
+
+Settles, for `ensureSubscribed` in `web/src/store/mail.ts` and the decision in
+ADR 0021, whether a **member** may write `isSubscribed` on a folder of their
+group. Everything read so far says yes — the field is the reader's own record
+rather than the folder's, and a group's folders grant every member rename and
+delete — but the same tree has read the server refuse that field on an address
+book shared read-only while accepting it on a shared calendar, which is why the
+client depends on nothing here: a refusal is logged once, remembered for the
+session, and the tree is drawn whole either way (a tree that is not the
+reader's own never reads the field). It takes a **member's** credential and the
+group's address from `GILBERT_MEMBER_ADDRESS`, `GILBERT_MEMBER_PASSWORD` and
+`GILBERT_PROBE_GROUP_ADDRESS`, subscribes one folder that lacks the field, reads
+it back, and reports what a refusal wears. `GILBERT_PROBE_MOVE=1` also moves
+that folder into the group's Inbox and back, which is the second question:
+whether a move the client did not make keeps the member's subscription.
+
+What the code does per answer, in the order of how much each costs:
+
+- **`updated`, and the read back reports it subscribed**: the reconcile is
+  ordinary work. Replace the owed markers (the `owed:` comment in ADR 0021 and
+  `ADR-0021 OWED: member-subscription-write` in `web/src/store/mail.ts`) with
+  the answer, its version and its date.
+- **a refusal, in any shape**: what is lost is every client but this one — the
+  sidebar draws a shared tree whole without reading the field. The record's
+  decision then stands only as far as the client that carries it, which is what
+  its *What this rule is not* consequence has to say, and the owed note becomes
+  the server's answer instead.
+- **a method-level error inside a 200**: nothing changes in the code — the
+  client reads the batch, and a failed `Mailbox/set` is an error it catches —
+  but the sentence in the log is composed from the type, so record which type a
+  refusal wears.
+- **a move that drops the subscription**: the reconcile already re-applies it on
+  the next read, so nothing in the product changes; what changes is a dated
+  sentence saying whether a move the client did not make leaves a member
+  unsubscribed until they look.
 
 ## Checking Stalwart's own material
 
