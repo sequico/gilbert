@@ -2,6 +2,7 @@ import { Folder, FolderUp, Inbox } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Id, Mailbox } from "@/jmap/types";
 import { t } from "@/lib/i18n";
+import { treeOrder } from "@/lib/folderOrder";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { useMail } from "@/store/mail";
 import { Dialog } from "@/ui/dialog";
@@ -40,7 +41,11 @@ export function MailboxPicker({
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const list = useMemo(() => {
-    const all = Object.values(mailboxes)
+    // In the sidebar's own order — parents before their children, siblings as
+    // the tree lists them — rather than by display path, so a folder is where
+    // the reader has seen it. What this picker cannot offer is filtered after
+    // the walk, which is what keeps a parent above its children.
+    const all = treeOrder(mailboxes)
       .filter(
         (m) => !exclude?.includes(m.id) && m.myRights[need] && (!allow || allow(m.id)),
       )
@@ -48,14 +53,7 @@ export function MailboxPicker({
         m,
         path: mailboxDisplayPath(m, mailboxes),
         pick: () => onPick(m.id),
-      }))
-      .sort((a, b) =>
-        a.m.role === "inbox"
-          ? -1
-          : b.m.role === "inbox"
-            ? 1
-            : a.path.localeCompare(b.path),
-      );
+      }));
     const rows: { m: Mailbox | null; path: string; pick: () => void }[] = root
       ? [{ m: null, path: root.label, pick: root.onPick }, ...all]
       : all;

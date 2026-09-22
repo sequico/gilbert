@@ -41,6 +41,7 @@ import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, canMoveFolderTo, folderColor, movable } from "@/lib/folderMove";
+import { compareFolders } from "@/lib/folderOrder";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -192,14 +193,7 @@ function buildMailTree(
     const p = m.parentId && mailboxes[m.parentId] ? m.parentId : null;
     byParent.set(p, [...(byParent.get(p) ?? []), m]);
   }
-  const cmp = (a: Mailbox, b: Mailbox) => {
-    if ((a.role === "inbox") !== (b.role === "inbox")) return a.role === "inbox" ? -1 : 1;
-    return a.name.localeCompare(b.name, undefined, {
-      sensitivity: "base",
-      numeric: true,
-    });
-  };
-  for (const list of byParent.values()) list.sort(cmp);
+  for (const list of byParent.values()) list.sort(compareFolders);
   const rows: MailTreeRow[] = [];
   const subtreeUnread = (id: Id): number =>
     (byParent.get(id) ?? []).reduce(
