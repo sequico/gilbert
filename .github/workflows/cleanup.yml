@@ -43,7 +43,7 @@ jobs:
       # handed `packages: write` and its whole job is deletion, so a tag
       # repointed at something else -- by a compromise or a mistake upstream --
       # is a bad day. v1.2.2.
-      - uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f
+      - uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           owner: sequico
           package: gilbert

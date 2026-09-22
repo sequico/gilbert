@@ -250,6 +250,13 @@ deliberately with `--no-verify`. `ci.yml` does not run on push: it is the
 release pre-check, and only Dependabot's pull requests start it, because their
 branches never pass through the local hook.
 
+**A workflow's `uses:` names a full commit SHA**, with the version it is in a
+comment beside it (owner decision 2026-09-23): a tag is a moving target, and
+one that is repointed runs in this repository's release path with its token.
+Dependabot bumps both halves — the SHA and the comment — and a bump that moves
+one without the other is a review finding. The workflows this repository owns
+are ours; upstream's CI is not taken.
+
 **Code scanning runs on every push and pull request** (owner decision
 2026-09-17): GitHub's default setup, configured in the repository's settings
 and by no file here, analysing the tree with the JavaScript/TypeScript
