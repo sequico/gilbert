@@ -23,14 +23,16 @@ import { readFileSync } from "node:fs";
  * as `Remove ${email}` cannot be a catalogue key as written, so it is reported
  * too. The values are the placeholders a catalogue entry names, not a reason
  * to leave the sentence English.
+ *
+ * What is not seen is English that is not the template's own text: a template
+ * behind `??`, `?:` or a helper is not walked into, nor is a literal nested
+ * inside a substitution -- `${name ?? "attachment"}` keeps that word where it
+ * is, and only the file's own name is ever wanted there. Widening this needs
+ * the literal test to stop reading one sentence's opening, which is a change
+ * of its own.
  */
 import ts from "typescript";
-import {
-  catalogFiles,
-  NOT_PROSE,
-  sourceAst,
-  sourceFiles,
-} from "./lib/i18nSources.mjs";
+import { catalogFiles, NOT_PROSE, sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
 
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([
@@ -121,7 +123,7 @@ for (const file of sourceFiles()) {
       ? [x.text]
       : [x.head.text, ...x.templateSpans.map((s) => s.literal.text)];
     const staticText = parts.join("");
-    if (NOT_PROSE.test(staticText)) return;
+    if (NOT_PROSE.test(staticText) || NEVER_TRANSLATED.has(staticText)) return;
     const { line } = src.getLineAndCharacterOfPosition(x.getStart(src));
     found.push({ file, line: line + 1, text: parts.join("{}") });
   };

@@ -1289,8 +1289,7 @@ export const catalog: Catalog = {
     "Compose as new": "Escrever como nova mensagem",
     "Compose new message": "Escrever nova mensagem",
     Conversation: "Conversa",
-    "Conversation moved to {folder}": "Conversa movida para {folder}",
-    "Could not be read": "Não foi possível ler",
+        "Could not be read": "Não foi possível ler",
     "Could not import this file: {error}":
       "Não foi possível importar este arquivo: {error}",
     "Could not load this file.": "Não foi possível carregar este arquivo.",
@@ -1458,8 +1457,7 @@ export const catalog: Catalog = {
       "pontuou {score} para um limite de {threshold}",
     "scored {score}, with no threshold stated": "pontuou {score}, sem limite informado",
     "this view": "esta visualização",
-    "{count} conversations moved to {folder}": "{count} conversas movidas para {folder}",
-    "{count} folders": "{count} pastas",
+        "{count} folders": "{count} pastas",
     "{name}’s birthday": "Aniversário de {name}",
     "{name}’s birthday ({age})": "Aniversário de {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1596,12 +1594,12 @@ export const catalog: Catalog = {
       "Nenhuma instrução permanente foi escrita para este grupo.",
     "{name} — shared by {owner}": "{name} — compartilhado por {owner}",
     "{name} — from {owner}": "{name} — de {owner}",
-    "{used} of {total} used": "{used} de {total} em uso",
     "Remove {email}": "Remover {email}",
     "{label} (date)": "{label} (data)",
     "{label} (time)": "{label} (hora)",
     "Edit {name}": "Editar {name}",
     "{own} here, {unread} in subfolders": "{own} aqui, {unread} em subpastas",
+    "attachment": "anexo",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1767,6 +1765,14 @@ export const catalog: Catalog = {
       one: "{n} contato também estava em outro catálogo de endereços e foi removido apenas deste",
       other:
         "{n} contatos também estavam em outros catálogos de endereços e foram removidos apenas deste",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Conversa movida para {folder}",
+      other: "{n} conversas movidas para {folder}",
+    },
+    "{n} messages deleted forever": {
+      one: "Mensagem excluída definitivamente",
+      other: "{n} mensagens excluídas definitivamente",
     },
   },
 };

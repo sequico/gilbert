@@ -693,7 +693,7 @@ function QuotaBar() {
   return (
     <div
       className="quota"
-      title={t("{used} of {total} used", {
+      title={t("{used} of {total}", {
         used: formatSize(q.used),
         total: formatSize(q.hardLimit),
       })}

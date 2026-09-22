@@ -34,12 +34,12 @@ import { previewKind } from "@/lib/preview";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
-import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
+import type { PreviewFile } from "@/ui/filepreview";
 import { Empty, Spinner } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
-import { LazyShareDialog } from "../lazyPieces";
+import { LazyFilePreviewDialog, LazyShareDialog } from "../lazyPieces";
 
 export function FilesView({ nodeId }: { nodeId?: string }) {
   const [, navigate] = useLocation();
@@ -977,18 +977,22 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           onMerged={() => setSelection(new Set())}
         />
       )}
-      <FilePreviewDialog
-        file={preview}
-        onClose={() => {
-          setPreview(null);
-          setEditTarget(null);
-          setStartInEdit(false);
-        }}
-        onSave={
-          editTarget && canEditNode(files.nodes[editTarget.id]) ? saveEdited : undefined
-        }
-        startInEdit={startInEdit}
-      />
+      {preview && (
+        <Suspense fallback={null}>
+          <LazyFilePreviewDialog
+            file={preview}
+            onClose={() => {
+              setPreview(null);
+              setEditTarget(null);
+              setStartInEdit(false);
+            }}
+            onSave={
+              editTarget && canEditNode(files.nodes[editTarget.id]) ? saveEdited : undefined
+            }
+            startInEdit={startInEdit}
+          />
+        </Suspense>
+      )}
       {shareNode && (
         <Suspense fallback={null}>
           <LazyShareDialog

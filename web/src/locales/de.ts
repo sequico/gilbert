@@ -1341,8 +1341,7 @@ export const catalog: Catalog = {
     "Click to move the event": "Klicken, um den Termin zu verschieben",
     "Close without saving?": "Ohne Speichern schließen?",
     "Compose as new": "Als neue Nachricht verfassen",
-    "Conversation moved to {folder}": "Konversation verschoben nach {folder}",
-    "Could not be read": "Konnte nicht gelesen werden",
+        "Could not be read": "Konnte nicht gelesen werden",
     "Could not import this file: {error}":
       "Diese Datei konnte nicht importiert werden: {error}",
     "Could not load this file.": "Diese Datei konnte nicht geladen werden.",
@@ -1496,9 +1495,7 @@ export const catalog: Catalog = {
     "scored {score}, with no threshold stated":
       "erreichte {score}, ohne angegebenen Schwellenwert",
     "this view": "diese Ansicht",
-    "{count} conversations moved to {folder}":
-      "{count} Konversationen verschoben nach {folder}",
-    "{count} folders": "{count} Ordner",
+        "{count} folders": "{count} Ordner",
     "{name}’s birthday": "Geburtstag von {name}",
     "{name}’s birthday ({age})": "Geburtstag von {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1638,12 +1635,12 @@ export const catalog: Catalog = {
     "Group identities": "Gruppenidentitäten",
     "{name} — shared by {owner}": "{name} — von {owner} freigegeben",
     "{name} — from {owner}": "{name} — von {owner}",
-    "{used} of {total} used": "{used} von {total} belegt",
     "Remove {email}": "{email} entfernen",
     "{label} (date)": "{label} (Datum)",
     "{label} (time)": "{label} (Uhrzeit)",
     "Edit {name}": "{name} bearbeiten",
     "{own} here, {unread} in subfolders": "{own} hier, {unread} in Unterordnern",
+    "attachment": "Anhang",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1814,6 +1811,14 @@ export const catalog: Catalog = {
       one: "{n} Kontakt war auch in einem anderen Adressbuch und wurde nur aus diesem entfernt",
       other:
         "{n} Kontakte waren auch in anderen Adressbüchern und wurden nur aus diesem entfernt",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Konversation verschoben nach {folder}",
+      other: "{n} Konversationen verschoben nach {folder}",
+    },
+    "{n} messages deleted forever": {
+      one: "Nachricht endgültig gelöscht",
+      other: "{n} Nachrichten endgültig gelöscht",
     },
   },
 };

@@ -1,8 +1,8 @@
 import { Folder, FolderUp, Inbox } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Id, Mailbox } from "@/jmap/types";
-import { t } from "@/lib/i18n";
 import { treeOrder } from "@/lib/folderOrder";
+import { t } from "@/lib/i18n";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { useMail } from "@/store/mail";
 import { Dialog } from "@/ui/dialog";
@@ -37,7 +37,6 @@ export function MailboxPicker({
   root?: { label: string; onPick: () => void };
 }) {
   const mailboxes = useMail((s) => s.mailboxes);
-  const mailboxPath = useMail((s) => s.mailboxPath);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const list = useMemo(() => {
@@ -59,7 +58,7 @@ export function MailboxPicker({
       : all;
     const ql = q.trim().toLowerCase();
     return ql ? rows.filter((x) => x.path.toLowerCase().includes(ql)) : rows;
-  }, [mailboxes, mailboxPath, q, exclude, need, allow, root, onPick]);
+  }, [mailboxes, q, exclude, need, allow, root, onPick]);
 
   return (
     <Dialog open onClose={onClose} title={title} size="sm">

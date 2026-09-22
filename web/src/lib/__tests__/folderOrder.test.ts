@@ -40,10 +40,12 @@ describe("the order folders are listed in", () => {
     const boxes = of(
       mb("z", "zeta", null),
       mb("inbox", "Inbox", null, "inbox"),
-      mb("a", "Alpha", null),
-      mb("b", "beta", null),
+      mb("upper", "B", null),
+      mb("lower", "a", null),
     );
-    expect(treeOrder(boxes).map((m) => m.id)).toEqual(["inbox", "a", "b", "z"]);
+    // "a" before "B" is what `sensitivity: "base"` buys: a case-sensitive
+    // comparison puts the capital first, whatever the language's collation.
+    expect(treeOrder(boxes).map((m) => m.id)).toEqual(["inbox", "lower", "upper", "z"]);
   });
 
   it("reads numbers as numbers, so 2 comes before 10", () => {
@@ -68,12 +70,17 @@ describe("the order folders are listed in", () => {
   });
 
   it("treats a parent that is not in the map as the top level", () => {
-    const boxes = of(mb("child", "Child", "missing"));
-    expect(treeOrder(boxes).map((m) => m.parentId)).toEqual([null]);
+    // The mailbox keeps its own `parentId` -- what the walk decides is which
+    // level it is listed at, and a parent the map does not hold is the top.
+    // The orphan is listed beside a real root rather than dropped or nested.
+    const boxes = of(mb("child", "Child", "missing"), mb("zeta", "Zeta", null));
+    expect(treeOrder(boxes).map((m) => m.id)).toEqual(["child", "zeta"]);
   });
 
   it("is the same rule the two lists compare with", () => {
-    expect(compareFolders(mb("i", "Inbox", null, "inbox"), mb("a", "Alpha", null))).toBeLessThan(0);
+    expect(
+      compareFolders(mb("i", "Inbox", null, "inbox"), mb("a", "Alpha", null)),
+    ).toBeLessThan(0);
     expect(compareFolders(mb("x", "X", null), mb("y", "y", null))).toBeLessThan(0);
   });
 });

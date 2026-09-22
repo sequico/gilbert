@@ -2037,8 +2037,7 @@ export const catalog: Catalog = {
     "Compose new message": "Scrivi un nuovo messaggio",
     Conversation: "Conversazione",
 
-    "Conversation moved to {folder}": "Conversazione spostata in {folder}",
-
+    
     "Could not be read": "Non è stato possibile leggerlo",
 
     "Could not import this file: {error}":
@@ -2328,9 +2327,7 @@ export const catalog: Catalog = {
 
     "this view": "questa vista",
 
-    "{count} conversations moved to {folder}":
-      "{count} conversazioni spostate in {folder}",
-
+    
     "{count} folders": "{count} cartelle",
 
     "{name}’s birthday": "Compleanno di {name}",
@@ -2545,12 +2542,12 @@ export const catalog: Catalog = {
       "Per questo gruppo non è stata scritta alcuna istruzione permanente.",
     "{name} — shared by {owner}": "{name} — condiviso da {owner}",
     "{name} — from {owner}": "{name} — da {owner}",
-    "{used} of {total} used": "{used} di {total} in uso",
     "Remove {email}": "Rimuovi {email}",
     "{label} (date)": "{label} (data)",
     "{label} (time)": "{label} (ora)",
     "Edit {name}": "Modifica {name}",
     "{own} here, {unread} in subfolders": "{own} qui, {unread} nelle sottocartelle",
+    "attachment": "allegato",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────
@@ -2718,6 +2715,14 @@ export const catalog: Catalog = {
       one: "{n} contatto era anche in altre rubriche ed è stato rimosso solo da questa",
       other:
         "{n} contatti erano anche in altre rubriche e sono stati rimossi solo da questa",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Conversazione spostata in {folder}",
+      other: "{n} conversazioni spostate in {folder}",
+    },
+    "{n} messages deleted forever": {
+      one: "Messaggio eliminato definitivamente",
+      other: "{n} messaggi eliminati definitivamente",
     },
   },
 };

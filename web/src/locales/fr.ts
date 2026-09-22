@@ -1296,8 +1296,7 @@ export const catalog: Catalog = {
     "Compose as new": "Rédiger comme nouveau message",
     "Compose new message": "Rédiger un nouveau message",
     Conversation: "Conversation",
-    "Conversation moved to {folder}": "Conversation déplacée vers {folder}",
-    "Could not be read": "Impossible à lire",
+        "Could not be read": "Impossible à lire",
     "Could not import this file: {error}": "Impossible d'importer ce fichier : {error}",
     "Could not load this file.": "Impossible de charger ce fichier.",
     "Could not read this calendar: {reason}":
@@ -1463,9 +1462,7 @@ export const catalog: Catalog = {
       "a obtenu {score} pour un seuil de {threshold}",
     "scored {score}, with no threshold stated": "a obtenu {score}, sans seuil indiqué",
     "this view": "cette vue",
-    "{count} conversations moved to {folder}":
-      "{count} conversations déplacées vers {folder}",
-    "{count} folders": "{count} dossiers",
+        "{count} folders": "{count} dossiers",
     "{name}’s birthday": "Anniversaire de {name}",
     "{name}’s birthday ({age})": "Anniversaire de {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1604,12 +1601,12 @@ export const catalog: Catalog = {
       "Aucune instruction permanente n'a été rédigée pour ce groupe.",
     "{name} — shared by {owner}": "{name} — partagé par {owner}",
     "{name} — from {owner}": "{name} — de {owner}",
-    "{used} of {total} used": "{used} utilisés sur {total}",
     "Remove {email}": "Supprimer {email}",
     "{label} (date)": "{label} (date)",
     "{label} (time)": "{label} (heure)",
     "Edit {name}": "Modifier {name}",
     "{own} here, {unread} in subfolders": "{own} ici, {unread} dans les sous-dossiers",
+    "attachment": "pièce jointe",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1777,6 +1774,14 @@ export const catalog: Catalog = {
       one: "{n} contact se trouvait aussi dans un autre carnet d’adresses et n’a été retiré que de celui-ci",
       other:
         "{n} contacts se trouvaient aussi dans d’autres carnets d’adresses et n’ont été retirés que de celui-ci",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Conversation déplacée vers {folder}",
+      other: "{n} conversations déplacées vers {folder}",
+    },
+    "{n} messages deleted forever": {
+      one: "Message supprimé définitivement",
+      other: "{n} messages supprimés définitivement",
     },
   },
 };

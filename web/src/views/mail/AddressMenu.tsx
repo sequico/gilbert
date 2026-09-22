@@ -1,5 +1,5 @@
 import { Copy, Mail, Pencil, UserPlus } from "lucide-react";
-import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
+import { type MouseEvent, type ReactNode, Suspense, useCallback, useState } from "react";
 import type { EmailAddress } from "@/jmap/types";
 import { formatAddress } from "@/lib/address";
 import { contactFromAddress } from "@/lib/contacts";
@@ -8,7 +8,7 @@ import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { type Anchor, MenuItem, MenuSep, Popover } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { ContactEditor } from "../contacts/ContactEditor";
+import { LazyContactEditor } from "../lazyPieces";
 
 /**
  * Right-click on anyone named in a message — sender, recipients, Reply-To — to
@@ -94,14 +94,16 @@ export function useAddressMenu() {
         </Popover>
       )}
       {editing && (
-        <ContactEditor
-          card={editing}
-          defaultBookId={defaultBookId}
-          sourceAccountId={null}
-          defaultAccountId={contacts.accountId ?? null}
-          onClose={() => setEditing(null)}
-          onSaved={() => setEditing(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyContactEditor
+            card={editing}
+            defaultBookId={defaultBookId}
+            sourceAccountId={null}
+            defaultAccountId={contacts.accountId ?? null}
+            onClose={() => setEditing(null)}
+            onSaved={() => setEditing(null)}
+          />
+        </Suspense>
       )}
     </>
   );

@@ -1278,8 +1278,7 @@ export const catalog: Catalog = {
     "Compose as new": "Als nieuw bericht opstellen",
     "Compose new message": "Nieuw bericht opstellen",
     Conversation: "Gesprek",
-    "Conversation moved to {folder}": "Gesprek verplaatst naar {folder}",
-    "Could not be read": "Kon niet worden gelezen",
+        "Could not be read": "Kon niet worden gelezen",
     "Could not import this file: {error}": "Kon dit bestand niet importeren: {error}",
     "Could not load this file.": "Kon dit bestand niet laden.",
     "Could not read this calendar: {reason}": "Kon deze agenda niet lezen: {reason}",
@@ -1445,9 +1444,7 @@ export const catalog: Catalog = {
     "scored {score}, with no threshold stated":
       "scoorde {score}, zonder vermelde drempel",
     "this view": "deze weergave",
-    "{count} conversations moved to {folder}":
-      "{count} gesprekken verplaatst naar {folder}",
-    "{count} folders": "{count} mappen",
+        "{count} folders": "{count} mappen",
     "{name}’s birthday": "Verjaardag van {name}",
     "{name}’s birthday ({age})": "Verjaardag van {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1585,12 +1582,12 @@ export const catalog: Catalog = {
       "Voor deze groep is nog geen blijvende instructie geschreven.",
     "{name} — shared by {owner}": "{name} — gedeeld door {owner}",
     "{name} — from {owner}": "{name} — van {owner}",
-    "{used} of {total} used": "{used} van {total} gebruikt",
     "Remove {email}": "{email} verwijderen",
     "{label} (date)": "{label} (datum)",
     "{label} (time)": "{label} (tijd)",
     "Edit {name}": "{name} bewerken",
     "{own} here, {unread} in subfolders": "{own} hier, {unread} in submappen",
+    "attachment": "bijlage",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1759,6 +1756,14 @@ export const catalog: Catalog = {
       one: "{n} contact stond ook in een ander adresboek en is alleen uit dit adresboek verwijderd",
       other:
         "{n} contacten stonden ook in andere adresboeken en zijn alleen uit dit adresboek verwijderd",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Gesprek verplaatst naar {folder}",
+      other: "{n} gesprekken verplaatst naar {folder}",
+    },
+    "{n} messages deleted forever": {
+      one: "Bericht definitief verwijderd",
+      other: "{n} berichten definitief verwijderd",
     },
   },
 };

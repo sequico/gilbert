@@ -424,6 +424,24 @@ function mailboxMap(list: Mailbox[]): Record<Id, Mailbox> {
  * account, and a folder the reader is owed a subscription to is not something
  * to decide on an answer that is still on its way.
  */
+/**
+ * The sentence a move says: how many conversations went to which folder.
+ *
+ * Two paths build it -- a move that names one destination folder and one that
+ * names several -- so it is built once here, and `plural()` is what lets a
+ * language with more than two forms pick the right one (ru, uk).
+ */
+function movedTo(count: number, where: string): string {
+  return plural(
+    count,
+    {
+      one: "Conversation moved to {folder}",
+      other: "{n} conversations moved to {folder}",
+    },
+    { folder: where },
+  );
+}
+
 function adoptMailboxes(accountId: Id, list: Mailbox[]): Record<Id, Mailbox> {
   const tree = mailboxMap(list);
   if (!isOwnMailAccount(useSession.getState().session, accountId))
@@ -581,15 +599,8 @@ async function moveToDestinations(
     names.length === 1
       ? names[0]!
       : t("{count} folders", { count: String(names.length) });
-  toast.show(
-    ids.length === 1
-      ? t("Conversation moved to {folder}", { folder: where })
-      : t("{count} conversations moved to {folder}", {
-          count: String(ids.length),
-          folder: where,
-        }),
-    {
-      action: !undoable
+  toast.show(movedTo(ids.length, where), {
+    action: !undoable
         ? undefined
         : {
             label: "Undo",
@@ -1233,7 +1244,14 @@ export const useMail = create<MailState>((set, get) => ({
         const name =
           mailboxDisplayName(mailboxes[toMailboxId]) || opts.label || t("folder");
         toast.show(
-          `${ids.length === 1 ? "Conversation" : `${ids.length} conversations`} moved to ${name}`,
+          plural(
+            ids.length,
+            {
+              one: "Conversation moved to {folder}",
+              other: "{n} conversations moved to {folder}",
+            },
+            { folder: name },
+          ),
           {
             action: !undoable
               ? undefined
@@ -1373,7 +1391,10 @@ export const useMail = create<MailState>((set, get) => ({
         void get().refreshList();
       } else
         toast.show(
-          `${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`,
+          plural(ids.length, {
+            one: "Message deleted forever",
+            other: "{n} messages deleted forever",
+          }),
         );
       void get().loadMailboxes();
       /*

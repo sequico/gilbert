@@ -520,6 +520,30 @@ describe("a url() is read the way a CSS parser reads it", () => {
     expect(r.html).not.toContain("background");
     expect(r.html).not.toContain("http://x.example");
   });
+
+  it("reads a url() that a comment split, because a parser does", () => {
+    const r = sanitizeEmailHtml(
+      `<p style="background:url/**/(http://x.example/a.png)">x</p>`,
+    );
+    expect(r.remoteCount).toBe(1);
+    expect(r.html).not.toContain("http://x.example/a.png");
+    expect(r.html).toMatch(/background:\s*none/);
+  });
+
+  it("leaves a url( that is part of a longer name alone, and loads nothing", () => {
+    // `foo-url(` is not the `url()` function to any parser, so there is no
+    // fetch for this file to refuse -- the declaration is what a browser drops.
+    const r = sanitizeEmailHtml(`<p style="background:foo-url(http://x.example/a.png)">x</p>`);
+    expect(r.remoteCount).toBe(0);
+    expect(r.html).not.toContain("data-ihm-blocked");
+  });
+
+  it("refuses a URL it would have to decode an escape to judge", () => {
+    const r = sanitizeEmailHtml(`<p style="background:url(http://x.example/a\\b.png)">x</p>`);
+    expect(r.remoteCount).toBe(0);
+    expect(r.html).not.toContain("x.example");
+    expect(r.html).toMatch(/background:\s*none/);
+  });
 });
 
 describe("the <body> style the sanitizer returns is hardened like any other CSS", () => {

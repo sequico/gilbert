@@ -1,7 +1,6 @@
 import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   Ban,
-  Calendar,
   CalendarPlus,
   CheckCheck,
   ChevronDown,
@@ -11,19 +10,13 @@ import {
   Download,
   ExternalLink,
   Eye,
-  FileArchive,
-  File as FileIcon,
-  FileSpreadsheet,
-  FileText,
   FileUp,
-  Film,
   Filter,
   Forward,
   Image as ImageIcon,
   Mail,
   MailPlus,
   MoreVertical,
-  Music,
   Paperclip,
   Printer,
   Reply,
@@ -32,7 +25,6 @@ import {
   ShieldAlert,
   Star,
   Trash2,
-  UserPlus,
 } from "lucide-react";
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -74,6 +66,7 @@ import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
+import { attachmentIcon } from "@/ui/attachmentIcon";
 import { choiceDialog, Dialog } from "@/ui/dialog";
 import { Avatar } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -1441,23 +1434,6 @@ function SpamSummary({ report }: { report: SpamReport }) {
 
 /* ---------- Attachments ---------- */
 
-export function attachmentIcon(type: string, name?: string | null) {
-  const t = type.toLowerCase();
-  const n = (name ?? "").toLowerCase();
-  if (t.startsWith("image/")) return <ImageIcon size={18} />;
-  if (t.startsWith("video/")) return <Film size={18} />;
-  if (t.startsWith("audio/")) return <Music size={18} />;
-  if (t === "application/pdf") return <FileText size={18} />;
-  if (/zip|tar|gzip|7z|rar|compressed/.test(t) || /\.(zip|tgz|gz|7z|rar)$/.test(n))
-    return <FileArchive size={18} />;
-  if (/spreadsheet|excel|csv/.test(t) || /\.(xlsx?|csv)$/.test(n))
-    return <FileSpreadsheet size={18} />;
-  if (t === "text/calendar") return <Calendar size={18} />;
-  if (t.includes("vcard")) return <UserPlus size={18} />;
-  if (t.startsWith("text/") || /word|document/.test(t)) return <FileText size={18} />;
-  return <FileIcon size={18} />;
-}
-
 /**
  * The files inside a `winmail.dat`, once the reader asks for them.
  *
@@ -1642,7 +1618,7 @@ function AttachmentList({
               className="attachment"
               href={url}
               download={name ?? undefined}
-              title={`${name ?? "attachment"} (${formatSize(a.size)})`}
+              title={`${name ?? translate("attachment")} (${formatSize(a.size)})`}
               onClick={(ev) => {
                 if (viewable(a)) {
                   ev.preventDefault();

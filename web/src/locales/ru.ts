@@ -1278,8 +1278,7 @@ export const catalog: Catalog = {
     "Compose as new": "Написать как новое письмо",
     "Compose new message": "Написать новое письмо",
     Conversation: "Цепочка",
-    "Conversation moved to {folder}": "Цепочка перемещена в {folder}",
-    "Could not be read": "Не удалось прочитать",
+        "Could not be read": "Не удалось прочитать",
     "Could not import this file: {error}": "Не удалось импортировать этот файл: {error}",
     "Could not load this file.": "Не удалось загрузить этот файл.",
     "Could not read this calendar: {reason}":
@@ -1445,8 +1444,7 @@ export const catalog: Catalog = {
       "оценка {score} при пороге {threshold}",
     "scored {score}, with no threshold stated": "оценка {score}, порог не указан",
     "this view": "этот раздел",
-    "{count} conversations moved to {folder}": "Цепочек перемещено в {folder}: {count}",
-    "{count} folders": "Папок: {count}",
+        "{count} folders": "Папок: {count}",
     "{name}’s birthday": "День рождения: {name}",
     "{name}’s birthday ({age})": "День рождения: {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1582,12 +1580,12 @@ export const catalog: Catalog = {
       "Для этой группы постоянная инструкция не написана.",
     "{name} — shared by {owner}": "{name} — предоставлен {owner}",
     "{name} — from {owner}": "{name} — от {owner}",
-    "{used} of {total} used": "{used} из {total} занято",
     "Remove {email}": "Удалить {email}",
     "{label} (date)": "{label} (дата)",
     "{label} (time)": "{label} (время)",
     "Edit {name}": "Изменить {name}",
     "{own} here, {unread} in subfolders": "{own} здесь, {unread} в подпапках",
+    "attachment": "вложение",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1905,6 +1903,18 @@ export const catalog: Catalog = {
       few: "{n} контакта также были в других адресных книгах и удалены только из этой",
       many: "{n} контактов также были в других адресных книгах и удалены только из этой",
       other: "{n} контакта также были в других адресных книгах и удалены только из этой",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Цепочка перемещена в {folder}",
+      few: "{n} беседы перемещены в {folder}",
+      many: "{n} бесед перемещено в {folder}",
+      other: "Цепочек перемещено в {folder}: {n}",
+    },
+    "{n} messages deleted forever": {
+      one: "Сообщение удалено навсегда",
+      few: "{n} сообщения удалены навсегда",
+      many: "{n} сообщений удалено навсегда",
+      other: "{n} сообщения удалено навсегда",
     },
   },
 };

@@ -7,8 +7,10 @@ export function ComposerDock() {
   const drafts = useCompose((s) => s.drafts);
   const activeKey = useCompose((s) => s.activeKey);
   const isMobile = useIsMobile();
-  // The dock mounts with the mail section, so this is the idle moment the
-  // composer chunk is fetched in.
+  // The dock mounts with the shell, and Compose is offered on every screen
+  // (the drawer's button falls back to mail's action where no module owns the
+  // section), so the composer chunk is asked for as soon as the browser is
+  // idle — once, whatever happens afterwards.
   useEffect(() => {
     warmComposer();
   }, []);

@@ -40,7 +40,7 @@ import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { attachmentIcon } from "../mail/MessageView";
+import { attachmentIcon } from "@/ui/attachmentIcon";
 import { FilePicker } from "./FilePicker";
 import { RecipientInput } from "./RecipientInput";
 import { type Field, RecipientPicker } from "./RecipientPicker";

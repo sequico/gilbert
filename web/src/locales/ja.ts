@@ -1284,8 +1284,7 @@ export const catalog: Catalog = {
     "Compose as new": "新規メールとして作成",
     "Compose new message": "新規メールを作成",
     Conversation: "スレッド",
-    "Conversation moved to {folder}": "スレッドを {folder} に移動しました",
-    "Could not be read": "読み取れませんでした",
+        "Could not be read": "読み取れませんでした",
     "Could not import this file: {error}":
       "このファイルをインポートできませんでした: {error}",
     "Could not load this file.": "このファイルを読み込めませんでした。",
@@ -1451,9 +1450,7 @@ export const catalog: Catalog = {
       "スコア {score}（しきい値 {threshold}）",
     "scored {score}, with no threshold stated": "スコア {score}（しきい値の記載なし）",
     "this view": "この表示",
-    "{count} conversations moved to {folder}":
-      "{count} 件のスレッドを {folder} に移動しました",
-    "{count} folders": "{count} 個のフォルダー",
+        "{count} folders": "{count} 個のフォルダー",
     "{name}’s birthday": "{name} の誕生日",
     "{name}’s birthday ({age})": "{name} の誕生日（{age}）",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1588,12 +1585,12 @@ export const catalog: Catalog = {
       "このグループには常設の指示がまだ書き込まれていません。",
     "{name} — shared by {owner}": "{name} — {owner} が共有",
     "{name} — from {owner}": "{name} — {owner} から",
-    "{used} of {total} used": "{total} 中 {used} を使用中",
     "Remove {email}": "{email} を削除",
     "{label} (date)": "{label}（日付）",
     "{label} (time)": "{label}（時刻）",
     "Edit {name}": "{name} を編集",
     "{own} here, {unread} in subfolders": "ここに {own}、サブフォルダに {unread}",
+    "attachment": "添付ファイル",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1695,6 +1692,12 @@ export const catalog: Catalog = {
     },
     "{n} were also in other address books and were only removed from this one": {
       other: "{n} 件は他のアドレス帳にもあるため、このアドレス帳から外しただけです",
+    },
+    "{n} conversations moved to {folder}": {
+      other: "{n} 件のスレッドを {folder} に移動しました",
+    },
+    "{n} messages deleted forever": {
+      other: "{n} 件のメッセージを完全に削除しました",
     },
   },
 };

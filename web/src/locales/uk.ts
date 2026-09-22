@@ -1272,8 +1272,7 @@ export const catalog: Catalog = {
     "Compose as new": "Написати як новий лист",
     "Compose new message": "Написати новий лист",
     Conversation: "Листування",
-    "Conversation moved to {folder}": "Листування переміщено до {folder}",
-    "Could not be read": "Не вдалося прочитати",
+        "Could not be read": "Не вдалося прочитати",
     "Could not import this file: {error}": "Не вдалося імпортувати цей файл: {error}",
     "Could not load this file.": "Не вдалося завантажити цей файл.",
     "Could not read this calendar: {reason}":
@@ -1439,9 +1438,7 @@ export const catalog: Catalog = {
       "оцінка {score} за порога {threshold}",
     "scored {score}, with no threshold stated": "оцінка {score}, поріг не вказано",
     "this view": "цей розділ",
-    "{count} conversations moved to {folder}":
-      "Листувань переміщено до {folder}: {count}",
-    "{count} folders": "Тек: {count}",
+        "{count} folders": "Тек: {count}",
     "{name}’s birthday": "День народження: {name}",
     "{name}’s birthday ({age})": "День народження: {name} ({age})",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1576,12 +1573,12 @@ export const catalog: Catalog = {
       "Для цієї групи постійну інструкцію не написано.",
     "{name} — shared by {owner}": "{name} — надано {owner}",
     "{name} — from {owner}": "{name} — від {owner}",
-    "{used} of {total} used": "{used} з {total} зайнято",
     "Remove {email}": "Видалити {email}",
     "{label} (date)": "{label} (дата)",
     "{label} (time)": "{label} (час)",
     "Edit {name}": "Змінити {name}",
     "{own} here, {unread} in subfolders": "{own} тут, {unread} у підтеках",
+    "attachment": "вкладення",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1897,6 +1894,18 @@ export const catalog: Catalog = {
       few: "{n} контакти також були в інших адресних книгах і вилучені лише з цієї",
       many: "{n} контактів також були в інших адресних книгах і вилучені лише з цієї",
       other: "{n} контакта також були в інших адресних книгах і вилучені лише з цієї",
+    },
+    "{n} conversations moved to {folder}": {
+      one: "Листування переміщено до {folder}",
+      few: "{n} розмови переміщено до {folder}",
+      many: "{n} розмов переміщено до {folder}",
+      other: "Листувань переміщено до {folder}: {n}",
+    },
+    "{n} messages deleted forever": {
+      one: "Повідомлення видалено назавжди",
+      few: "{n} повідомлення видалено назавжди",
+      many: "{n} повідомлень видалено назавжди",
+      other: "{n} повідомлення видалено назавжди",
     },
   },
 };

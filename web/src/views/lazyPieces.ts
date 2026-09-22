@@ -22,17 +22,31 @@ const loadComposer = () =>
 
 export const LazyComposer = lazyView(loadComposer);
 
+let composerWarmed = false;
+
 /**
- * Fetch the composer while the browser is idle, once the mail section is up.
+ * Fetch the composer while the browser is idle, once per document.
  *
  * The composer is the heaviest piece here and the one a reader is most likely
- * to open first, so it is fetched before it is asked for. It stays a separate
- * chunk either way: this moves when it arrives, not whether.
+ * to open first — the drawer's Compose button is on every screen (the shell
+ * falls back to mail's action where no module owns the section) — so it is
+ * fetched before it is asked for. It stays a separate chunk either way: this
+ * moves when it arrives, not whether.
+ *
+ * The once-flag is what keeps a re-mount (StrictMode's double effect, or
+ * signing out and back in) from scheduling a second fetch, and the failure is
+ * logged rather than swallowed: the click loads the chunk anyway, and the
+ * warning is what makes a chunk that cannot be fetched at all visible before
+ * somebody presses Compose.
  */
 export function warmComposer(): void {
-  if (typeof window === "undefined") return;
-  const warm = () => void loadComposer().catch(() => {});
-  if ("requestIdleCallback" in window)
+  if (composerWarmed || typeof window === "undefined") return;
+  composerWarmed = true;
+  const warm = () =>
+    void loadComposer().catch((err) => {
+      console.warn("[gilbert] composer: the chunk did not warm", err);
+    });
+  if (typeof window.requestIdleCallback === "function")
     window.requestIdleCallback(warm, { timeout: 5000 });
   else setTimeout(warm, 2000);
 }

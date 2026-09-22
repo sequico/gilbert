@@ -1030,9 +1030,9 @@ Real JMAP mailboxes, with the server's roles honoured.
 - **Move a folder** by dragging it onto another, or from its menu — *Move to…*
   opens the same searchable picker moving messages uses, with a *Top level* row
   above the folders, which is the only way to move one on a touch screen and the
-  quick way in a long list. It lists folders in the sidebar's own order, each
-  one under its parent, rather than by display path — a folder is where the
-  reader has seen it. The picker offers only legal destinations: the
+  quick way in a long list. It lists folders in the order the sidebar lists
+  them, each one under its parent, rather than by display path — a folder is
+  where the reader has seen it. The picker offers only legal destinations: the
   rights are checked up front (`mayRename` on the folder, `mayCreateChild` on
   the destination) rather than left for the server to refuse one drag. Folders
   with a server role (Inbox, Sent, Drafts, Trash, Junk, Archive) are structural

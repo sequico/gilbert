@@ -1245,8 +1245,7 @@ export const catalog: Catalog = {
     "Compose as new": "作为新邮件撰写",
     "Compose new message": "撰写新邮件",
     Conversation: "会话",
-    "Conversation moved to {folder}": "会话已移动到 {folder}",
-    "Could not be read": "无法读取",
+        "Could not be read": "无法读取",
     "Could not import this file: {error}": "无法导入此文件：{error}",
     "Could not load this file.": "无法加载此文件。",
     "Could not read this calendar: {reason}": "无法读取此日历：{reason}",
@@ -1407,8 +1406,7 @@ export const catalog: Catalog = {
       "评分 {score}，阈值为 {threshold}",
     "scored {score}, with no threshold stated": "评分 {score}，未说明阈值",
     "this view": "此视图",
-    "{count} conversations moved to {folder}": "已将 {count} 个会话移动到 {folder}",
-    "{count} folders": "{count} 个文件夹",
+        "{count} folders": "{count} 个文件夹",
     "{name}’s birthday": "{name} 的生日",
     "{name}’s birthday ({age})": "{name} 的生日（{age}）",
     // ── Third pass ──────────────────────────────────────────────────────
@@ -1540,12 +1538,12 @@ export const catalog: Catalog = {
       "该群组尚未写入常设指令。",
     "{name} — shared by {owner}": "{name} — 由 {owner} 共享",
     "{name} — from {owner}": "{name} — 来自 {owner}",
-    "{used} of {total} used": "已用 {used}，共 {total}",
     "Remove {email}": "移除 {email}",
     "{label} (date)": "{label}（日期）",
     "{label} (time)": "{label}（时间）",
     "Edit {name}": "编辑 {name}",
     "{own} here, {unread} in subfolders": "{own} 在此，{unread} 在子文件夹中",
+    "attachment": "附件",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1634,6 +1632,12 @@ export const catalog: Catalog = {
     },
     "{n} were also in other address books and were only removed from this one": {
       other: "其中 {n} 位也在其他通讯录中，仅从此通讯录移除",
+    },
+    "{n} conversations moved to {folder}": {
+      other: "已将 {n} 个会话移动到 {folder}",
+    },
+    "{n} messages deleted forever": {
+      other: "{n} 件邮件已永久删除",
     },
   },
 };
