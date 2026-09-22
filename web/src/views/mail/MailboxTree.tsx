@@ -167,12 +167,14 @@ interface MailTree {
  * out of another's, since mailbox ids are only unique within an account.
  *
  * Subscriptions decide the reader's own tree. A tree that is not theirs -- a
- * group mailbox they reach by membership -- is different: Stalwart hands a
- * freshly added member every folder unsubscribed (per-user state that resets on
- * re-add), which would leave only Inbox on screen, so such a tree shows every
- * folder it holds, and hiding one is not offered there. (`adoptMailboxes` in
- * the mail store also subscribes those folders for the member, so a client that
- * does honour subscriptions reaches the group too.)
+ * group mailbox they reach by membership -- is different in two ways: Stalwart
+ * hands a freshly added member every folder unsubscribed (per-user state that
+ * resets on re-add), which would leave only Inbox on screen, so such a tree
+ * shows every folder it holds; and it **opens** them, because its shape is not
+ * something the reader chose and its folders are the reason they are looking.
+ * Hiding one is not offered there. (`adoptMailboxes` in the mail store also
+ * subscribes those folders for the member, so a client that does honour
+ * subscriptions reaches the group too.)
  */
 function buildMailTree(
   mailboxes: Record<Id, Mailbox>,
@@ -206,7 +208,8 @@ function buildMailTree(
   const walk = (parent: Id | null, depth: number) => {
     for (const m of byParent.get(parent) ?? []) {
       const kids = byParent.get(m.id) ?? [];
-      const open = Boolean(expanded[keyOf(m.id)]);
+      // Absent means the tree's own default: open when it is not the reader's.
+      const open = expanded[keyOf(m.id)] ?? wholeTree;
       const childUnread = kids.length ? subtreeUnread(m.id) : 0;
       rows.push({
         m,
@@ -288,7 +291,6 @@ export function MailboxTree() {
   // Tree: A–Z at every level (Inbox pinned to the top of the root), subfolders nested and
   // collapsed by default. Expansion state is remembered per folder.
   const { open: expanded, setFolder, openKeys } = useOpenFolders("mail");
-  const toggle = (key: string) => setFolder(key, !expanded[key]);
   const session = useSession((s) => s.session);
   /*
    * Whether the tree in hand is somebody else's: a group mailbox the reader
@@ -517,7 +519,7 @@ export function MailboxTree() {
             open={open}
             hiddenUnread={hiddenUnread}
             childUnread={childUnread}
-            onToggle={() => toggle(folderKey(accountId, m.id))}
+            onToggle={() => setFolder(folderKey(accountId, m.id), !open)}
             onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
             currentId={currentId}
             onMenu={(mb, e) => {
@@ -621,7 +623,7 @@ export function MailboxTree() {
                     open={open}
                     hiddenUnread={hiddenUnread}
                     childUnread={childUnread}
-                    onToggle={() => toggle(folderKey(a.info.accountId, m.id))}
+                    onToggle={() => setFolder(folderKey(a.info.accountId, m.id), !open)}
                     currentId={a.info.accountId === accountId ? currentId : undefined}
                     onMenu={() => {}}
                     readOnly

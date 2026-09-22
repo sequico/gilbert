@@ -823,10 +823,15 @@ has, so their own CSS for it is left alone until they choose otherwise.
   restored next time — on this device only, because they are where you were
   sitting rather than a preference, and each one is checked against what still
   exists before a view moves.
-- **Folder trees open collapsed.** The mailbox tree — the reader's own or a
-  group's — starts shut, and which folders were opened is remembered per reader
-  beside the place they were left in. A folder is remembered by its account as
-  well as its id, so opening one account's folders never opens another's.
+- **The reader's own folder tree opens collapsed; a group's opens its folders.**
+  The mailbox tree starts shut for the reader's own account — it is theirs, and
+  they know its shape — and opens the folders of a group they are a member of,
+  whose shape they did not choose and whose folders are the reason they are
+  looking: a member added a moment ago sees where the group's mail lives without
+  being told to click. A folder opened or closed is remembered as exactly that,
+  per reader, beside the place they were left in; a folder is remembered by its
+  account as well as its id, so opening one account's folders never opens
+  another's.
 - **Reading pane** right of the list, below it, or off (messages open full width).
 - **Density** comfortable, cozy or compact, which changes row height as well as padding.
 - **Font size** small, medium or large.

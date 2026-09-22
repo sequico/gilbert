@@ -66,13 +66,33 @@ const box = (
   myRights: rights,
 });
 
-/* Inbox > MS2 > two cases: a group's folders as the mail server hands them over. */
+/*
+ * The group's tree as the mail server hands it over: Inbox > MS2 > two cases,
+ * and the archived pair under Archive, every folder unsubscribed because this
+ * member was added to the group and a subscription is per-principal state.
+ */
 const GROUP_TREE = {
   a: box("a", "Inbox", null, false, "inbox"),
   l: box("l", "MS2", "a", false),
   t: box("t", "277044606", "l", false),
   u: box("u", "277045275", "l", false),
+  k: box("k", "Archive", null, false, "archive"),
+  w: box("w", "MS2", "k", false),
+  v: box("v", "276428896", "w", false),
+  q: box("q", "276429124", "w", false),
 };
+
+/* The order the sidebar draws them in: roles first, then by name. */
+const GROUP_ROWS = [
+  "Inbox",
+  "MS2",
+  "277044606",
+  "277045275",
+  "Archive",
+  "MS2",
+  "276428896",
+  "276429124",
+];
 
 const SESSION = {
   accounts: {
@@ -95,10 +115,6 @@ describe("a mailbox tree that is not the reader's own", () => {
     Array.from(document.querySelectorAll<HTMLElement>(".nav-item.folder-row")).find(
       (r) => r.querySelector(".nav-label")?.textContent === name,
     );
-  const expand = (name: string) =>
-    act(() => {
-      rowFor(name)!.querySelector<HTMLElement>(".nav-twisty")!.click();
-    });
 
   beforeEach(() => {
     setWidth(1280);
@@ -130,16 +146,34 @@ describe("a mailbox tree that is not the reader's own", () => {
   });
 
   it("shows every folder it holds, though none of them is subscribed", () => {
-    expand("Inbox");
-    expand("MS2");
-    expect(rows()).toEqual(["Inbox", "MS2", "277044606", "277045275"]);
+    expect(rows()).toEqual(GROUP_ROWS);
+  });
+
+  it("opens them by itself, so a member added a moment ago sees where the mail lives", () => {
+    // Nothing was clicked: this is what the tree does when it is drawn, and it
+    // is why a group's shape is not hidden behind a twisty the reader has to
+    // know about.
+    expect(rowFor("MS2")).not.toBeNull();
+    expect(rowFor("277045275")).not.toBeNull();
+  });
+
+  it("keeps a folder the reader closes closed", () => {
+    // The counterpart of the default: absence means "the tree's own default",
+    // so a folder closed here is recorded as closed rather than forgotten.
+    const inbox = rowFor("Inbox")!;
+    expect(inbox.querySelector(".nav-twisty")?.getAttribute("aria-expanded")).toBe(
+      "true",
+    );
+    act(() => {
+      inbox.querySelector<HTMLElement>(".nav-twisty")!.click();
+    });
+    expect(rows()).toEqual(["Inbox", "Archive", "MS2", "276428896", "276429124"]);
   });
 
   it("keeps the same folders out of the reader's own tree, where a subscription is a choice", () => {
     act(() => {
       useMail.setState({ accountId: "own", mailboxes: GROUP_TREE });
     });
-    expand("Inbox");
     // MS2 is unsubscribed, so it is not drawn -- and with it, nothing beneath it.
     expect(rows()).toEqual(["Inbox"]);
   });

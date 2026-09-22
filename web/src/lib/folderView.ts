@@ -10,10 +10,15 @@ import { useSession } from "@/store/session";
 /**
  * Which folders are open in a sidebar tree.
  *
- * **Collapsed is the default, and absence is how it is said.** Nothing in the
- * record means every folder is shut, so an account nobody has opened a folder
- * in -- a group's, or the reader's own on a new device -- starts folded, and a
- * record that grows stale only ever opens what somebody really opened.
+ * **Absence is not "shut" -- it is "whatever this tree does by default",** and
+ * the two trees in the sidebar default differently. The reader's own mailbox
+ * opens shut: it is theirs, they know its shape, and a dozen folders they rarely
+ * use are noise in front of the one they want. A tree that is not theirs -- a
+ * group they are a member of -- opens its folders, because its shape is not
+ * something they chose, its folders are the reason they are looking, and a
+ * member who has just been added has to be able to see where the group's mail
+ * lives without being told to click. A folder the reader opens or closes is
+ * recorded as exactly that, either way, so the one they shut stays shut.
  *
  * The record is the reader's, kept beside the place their trees were left in
  * (`lastPlace.ts`): device-local, one per reader, and read back on the next
@@ -27,10 +32,10 @@ import { useSession } from "@/store/session";
  * next -- which is what a tree that looks expanded after switching to a group
  * mailbox is: somebody else's ids, read as this account's.
  *
- * **Nothing prunes the record.** A folder leaves it when the reader closes that
- * folder, and a sign-out clears the whole thing; a folder deleted elsewhere
+ * **Nothing prunes the record.** A folder leaves it when the reader deletes
+ * that folder, and a sign-out clears the whole thing; a folder deleted elsewhere
  * keeps its entry until one of those happens. What that costs is one line in
- * this browser's storage per folder ever opened, and it buys a tree that does
+ * this browser's storage per folder ever touched, and it buys a tree that does
  * not have to decide what a missing folder meant.
  */
 export function folderKey(accountId: string | null | undefined, id: string): string {
@@ -83,11 +88,13 @@ export function useOpenFolders(kind: TreeKind): OpenFolders {
   return {
     open,
     setFolder: (key, value) => {
-      if (Boolean(open[key]) === value) return;
-      const next = { ...open };
-      if (value) next[key] = true;
-      else delete next[key];
-      write(next);
+      if (open[key] === value) return;
+      /*
+       * Written either way, because absence means "the tree's own default" and
+       * not `false`: a folder this reader closed in a tree that opens its
+       * folders has to be recorded as closed, or it would come back open.
+       */
+      write({ ...open, [key]: value });
     },
     openKeys: (keys) => {
       const unopened = keys.filter((k) => !open[k]);
