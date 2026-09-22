@@ -34,6 +34,9 @@ const AGENT_PASS = "gilbert-password";
 const GROUP_ACCOUNT = "a3";
 const GROUP_INBOX = "g-inbox";
 const GROUP_SENT = "g-sent";
+/* The group's own nested folder, which is what a working group looks like: a
+   case folder under an inbox, unsubscribed for every member. */
+const GROUP_CASES = "g-cases";
 const GROUP_IDENTITY = "gi1";
 
 const AGENT_AUTH = `Basic ${Buffer.from(`${AGENT}:${AGENT_PASS}`).toString("base64")}`;
@@ -133,7 +136,7 @@ test("the group's mailboxes answer the agent with maySubmit", async () => {
   }>;
   assert.deepEqual(
     list.map((m) => m.id).sort(),
-    [GROUP_INBOX, GROUP_SENT],
+    [GROUP_CASES, GROUP_INBOX, GROUP_SENT],
     "the group answers with a real tree -- that is what makes it a mailbox",
   );
   const inbox = list.find((m) => m.id === GROUP_INBOX)!;
