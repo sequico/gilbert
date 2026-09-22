@@ -95,23 +95,6 @@ export interface MemberAssignmentView {
   assignedId: string | null;
 }
 
-/**
- * One group a person's own session holds, and what their account sends as
- * there (ADR 0007).
- */
-export interface PersonGroupIdentities {
-  /** The group's own address — what the server calls the account. */
-  name: string;
-  /** The identities this person's account sends as in that group. */
-  identities: Identity[];
-  /**
-   * False when the person's own session could not read that account. An answer,
-   * not a failure: the surface says which group it could not read rather than
-   * showing it as one with no identities.
-   */
-  readable: boolean;
-}
-
 /** A person's identities, and whether the installation has taken the account over. */
 export interface PersonIdentitiesView {
   address: string;
@@ -132,12 +115,6 @@ export interface PersonIdentitiesView {
   /** The identity that account sends from by default, or null when it has not
    * chosen one and the client falls back to its first. */
   defaultIdentityId: string | null;
-  /**
-   * The groups this person belongs to, and what their own account may send as
-   * in each (ADR 0007). Read as the person, so it is the same list their own
-   * Identities & signatures section shows beneath their own.
-   */
-  groups: PersonGroupIdentities[];
 }
 
 /**

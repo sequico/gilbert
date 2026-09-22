@@ -36,7 +36,6 @@ export type {
   IdentityPatch,
   Impersonation,
   MemberAssignmentView,
-  PersonGroupIdentities,
   PersonIdentitiesView,
 } from "@gilbert/shared/identityViews";
 

@@ -55,7 +55,6 @@ function person(address: string, name: string | null) {
     impersonation: "ok",
     identities: [identity("o1", name ?? "", address)],
     defaultIdentityId: null,
-    groups: [],
   };
 }
 

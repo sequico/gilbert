@@ -13,17 +13,15 @@
  * `mayDelete` is the server's answer about whether an identity may go, and the
  * surface respects it rather than inventing a rule of its own about the last one.
  *
- * Beneath the person's own list is what their account sends as in each group
- * they are a member of (ADR 0007) — the same list their own Identities &
- * signatures section shows, and read-only, because the administration sets it.
- * It is read as the person, so a group their own account could not read is named
- * as one that could not be read, never shown as one with nothing in it.
+ * The tab is the person's own account and no other. What that account sends as
+ * in a group belongs to the group: the **Group identities** tab writes it, and
+ * the person's own Identities & signatures section reads it beside their own
+ * list — so nothing of a group's is shown here as well.
  */
 
 import { Plus, RotateCw, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Identity } from "@/jmap/types";
-import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import {
   deleteUserIdentity,
@@ -36,7 +34,6 @@ import {
   setUserIdentityLock,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
-import { htmlToText } from "@/lib/text";
 import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
 import { ACTIVE_COLOR } from "@/ui/misc";
@@ -47,7 +44,7 @@ import {
   DirectoryPicker,
   useUserDirectory,
 } from "./directory";
-import { IdentityCard, identityLabel } from "./IdentityCard";
+import { IdentityCard } from "./IdentityCard";
 
 export function UserIdentities() {
   const directory = useUserDirectory();
@@ -191,12 +188,6 @@ export function UserIdentities() {
 
   const denied = impersonation === "denied";
   const reachable = view !== null && view.impersonation === "ok";
-  /**
-   * The groups this person is in, whose identities their own account reads.
-   * Every entry renders: a group this account could not read is shown as one
-   * whose identities are unknown, never as one it is not in.
-   */
-  const groupBlocks = view?.groups ?? [];
 
   return (
     <div>
@@ -349,54 +340,6 @@ export function UserIdentities() {
               "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.",
             )}
           </p>
-
-          {groupBlocks.map((group) => (
-            <div key={group.name}>
-              <h2>{group.name}</h2>
-              {!group.readable ? (
-                <p className="hint" style={{ color: "var(--warn)" }}>
-                  {t(
-                    "This account could not be read for this group, so what it sends as there is unknown.",
-                  )}
-                </p>
-              ) : (
-                <>
-                  <p className="hint">
-                    {t(
-                      "Set by the administration: this account reads them here and does not write them.",
-                    )}
-                  </p>
-                  {group.identities.length === 0 ? (
-                    <p className="hint">
-                      {t("The group holds no identity for this account yet.")}
-                    </p>
-                  ) : (
-                    group.identities.map((identity) => (
-                      <div key={identity.id} className="card">
-                        <div className="card-head">
-                          <h3>{identityLabel(identity)}</h3>
-                        </div>
-                        {identity.replyTo?.length ? (
-                          <div className="hint">
-                            {t("Reply-To: {addresses}", {
-                              addresses: formatAddressList(identity.replyTo),
-                            })}
-                          </div>
-                        ) : null}
-                        {(identity.htmlSignature || identity.textSignature) && (
-                          <div className="hint" style={{ marginTop: 4 }}>
-                            {htmlToText(
-                              identity.htmlSignature || identity.textSignature,
-                            ).slice(0, 120)}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </>
-              )}
-            </div>
-          ))}
 
           <h2>{t("Enforce")}</h2>
           <p className="hint">

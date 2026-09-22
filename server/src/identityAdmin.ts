@@ -69,7 +69,6 @@ import type {
   IdentityAddress,
   IdentityPatch,
   MemberAssignmentView,
-  PersonGroupIdentities,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
 import { isRecord } from "./shared/json.js";
@@ -607,39 +606,6 @@ export async function writeDefaultIdentity(
 }
 
 /**
- * The groups a person's own session holds, each with the identities their
- * account sends as there.
- *
- * Read as the person, so the answer is the one their own Identities &
- * signatures section shows. The personal account is not one of them — the list
- * `PersonIdentitiesView.identities` already carries it — and neither is an
- * account holding nothing of its own: a group's account carries at least the
- * identity it sends as, addressed as the account itself, so an account whose
- * read answers nothing of its own is a share rather than a group and is left
- * out. A read that fails is `readable: false` with no identities rather than an
- * error for the whole surface: the account it could not read may well be a
- * group, and the flag is what lets the surface say so.
- */
-async function personGroupIdentities(ctx: Ctx): Promise<PersonGroupIdentities[]> {
-  const groups: PersonGroupIdentities[] = [];
-  for (const [accountId, raw] of Object.entries(ctx.session.accounts ?? {})) {
-    const account = raw as { name?: unknown; isPersonal?: unknown };
-    if (account.isPersonal !== false) continue;
-    const name = typeof account.name === "string" ? account.name : "";
-    try {
-      const identities = await readIdentities(ctx, accountId);
-      // What the account answers about itself: a group sends as its own
-      // address, so an identity carrying that address is the account's own.
-      if (!identities.some((identity) => sameAddress(identity.email, name))) continue;
-      groups.push({ name, identities, readable: true });
-    } catch {
-      groups.push({ name, identities: [], readable: false });
-    }
-  }
-  return groups;
-}
-
-/**
  * Every identity a person holds, read by impersonating them.
  *
  * An app-password session cannot impersonate at all, and that is a state the
@@ -670,9 +636,6 @@ export async function personIdentities(
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
-        // No session, so no account to read a group through: the surface shows
-        // the denied impersonation rather than a list it never asked for.
-        groups: [],
       };
     throw new IdentityAdminError(
       imp.status === 404 ? "account_not_found" : "account_unreachable",
@@ -694,7 +657,6 @@ export async function personIdentities(
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
-    groups: await personGroupIdentities(imp.ctx),
   };
 }
 

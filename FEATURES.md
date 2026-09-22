@@ -700,8 +700,9 @@ and in the client alike. A share is never administered or served as a group.
   it as it opens rather than trusting what the store holds, exactly as the list
   beside it does: a member who has just been assigned an identity finds out
   here, and one who is told they have none has been read rather than shown a
-  stale entry. The administration's User identities tab shows the same
-  structure for the person it has chosen.
+  stale entry. The administration's User identities tab is the person's own
+  account and no other: which group identity is theirs is assigned on the
+  **Group identities** tab.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
