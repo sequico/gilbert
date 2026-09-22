@@ -1390,7 +1390,7 @@ minimisable and maximisable; full-screen on mobile.
 
 Two different mechanisms, deliberately.
 
-**Undo send** holds the message in the browser for 0/5/8/15/30 seconds (8 by
+**Undo send** holds the message in the browser for 0/5/8/15/30 seconds (5 by
 default) and shows a toast with a way back. Nothing has been submitted yet.
 
 **Scheduled send** hands the message to *Stalwart's* queue. JMAP has no

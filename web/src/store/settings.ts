@@ -348,7 +348,7 @@ export const DEFAULT_SETTINGS: Settings = {
   imagePolicy: "always",
   themeMessageBody: false,
   themeStyledMessages: false,
-  undoSendSeconds: 8,
+  undoSendSeconds: 5,
   composeFormat: "html",
   signatureAboveQuote: true,
   includeQuote: true,
