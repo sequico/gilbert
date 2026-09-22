@@ -70,4 +70,32 @@ describe("RichEditor autoFocus", () => {
     expect(document.activeElement, "the editor grabbed focus mid-typing").toBe(subject);
     subject.remove();
   });
+
+  /*
+   * The body of a reply is fetched, so it arrives after the editor does. A caret
+   * placed while the editor is still empty sits in a DOM that is then replaced,
+   * and the browser is the one that decides where it goes — inside the signature
+   * block, in the composer as it is built, where the first line typed is then
+   * drawn in the signature's own colour and the lines after it are not.
+   */
+  it("puts the caret in the body's first line once the body has arrived", () => {
+    const body =
+      '<div><br></div><div class="ihm-signature" data-ihm-sig="1"><br>-- <br>Sam</div>';
+    const renderBody = (html: string) =>
+      act(() => {
+        root.render(
+          <RichEditor html={html} onChange={() => {}} showToolbar={false} autoFocus />,
+        );
+      });
+    renderBody("");
+    expect(window.getSelection()?.anchorNode, "no caret placed yet").toBeFalsy();
+
+    renderBody(body);
+    const el = editor()!;
+    const sel = window.getSelection();
+    expect(sel?.anchorNode, "the caret is not inside the body's first block").toBe(
+      el.firstChild,
+    );
+    expect(sel?.anchorOffset).toBe(0);
+  });
 });

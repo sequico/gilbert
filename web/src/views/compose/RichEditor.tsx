@@ -158,19 +158,38 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   // the prop turning true later would yank the caret out of whatever the user
   // is typing in — typing the first letter of a subject would jump to the body.
   const autoFocusOnMount = useRef(autoFocus);
+  const caretPlaced = useRef(false);
   useEffect(() => {
     if (!autoFocusOnMount.current) return;
+    elRef.current?.focus();
+  }, []);
+
+  /*
+   * The caret, once the body is there, at the start of its first block.
+   *
+   * The body can arrive after the editor does -- a reply's quote is fetched --
+   * and a caret placed at `(editor, 0)` sits *outside* the first block, which
+   * leaves the browser to decide where the character typed next lands. That is
+   * the browser's own normalisation and not a position this client chose, and
+   * the first line of a message is the last line to leave to it: the body opens
+   * with an empty line that is the reader's, and everything below it belongs to
+   * the signature and the quote, which are drawn in another colour. Placing the
+   * caret inside the first block is the position every browser types into the
+   * same way.
+   */
+  useEffect(() => {
+    if (!autoFocusOnMount.current || caretPlaced.current) return;
     const el = elRef.current;
-    if (!el) return;
+    if (!el?.firstChild) return;
+    caretPlaced.current = true;
     el.focus();
-    // caret at start
-    const sel = window.getSelection();
     const range = document.createRange();
-    range.setStart(el, 0);
+    range.setStart(el.firstChild, 0);
     range.collapse(true);
+    const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
-  }, []);
+  }, [html]);
 
   const emit = useCallback(() => {
     const el = elRef.current;
