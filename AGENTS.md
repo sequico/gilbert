@@ -1,5 +1,28 @@
 # Gilbert — working law for this repository
 
+## Repository map
+
+npm workspaces: the root coordinates, the two packages hold the code.
+
+- `web/` — `@gilbert/web`, the React 19 + TypeScript SPA (Vite): `web/src/jmap`
+  (client, push, types), `store/` (zustand, one per feature: session, mail,
+  compose, contacts, calendar, files, sieve, settings, mdn, scheduled, agents,
+  chat, groupLabels), `lib/`, `views/`, `ui/`, `locales/`. Entry:
+  `web/src/main.tsx`.
+- `server/` — `@gilbert/server`, Node + Hono: `server/src/index.ts` serves the
+  SPA and `/api/*`; `server/src/agent/agent.ts` is the agent fleet's entrypoint;
+  `server/src/mock/` is the in-memory fake Stalwart; `server/src/shared/` is the
+  tree both tiers read.
+- **One definition, two readers.** The client imports the server's shared tree
+  as `@gilbert/shared/*` (and `@gilbert/agent/*`), aliased in
+  `web/tsconfig.json` and `web/vite.config.ts`. Never copy a shape or helper
+  into `web/`; import it.
+- `scripts/` — the checks `prepush` runs (`adr-owed`, `adr-cite`, `config:dead`,
+  `i18n-*`), plus `version.mjs` and `codeql.mjs`.
+- `docs/adr/` — one decision per file, indexed by `docs/adr/README.md`.
+  `FEATURES.md` is the feature inventory; `KNOWN-ISSUES.md` and `ROADMAP.md` are
+  the product docs.
+
 ## Identity
 The project is **Gilbert** — a distinct application, backronym for
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for
@@ -105,8 +128,19 @@ the one the deployment pins** (`Dockerfile` and `.github/workflows/ci.yml` say
 line rather than the newest published one: typing against a release nobody
 deploys describes a Node this project does not run. Moving the line is a
 deliberate change of all of it at once (image, CI, engines, types), never a
-Dependabot bump. `npm run dev` · `dev:mock` (demo@example.com /
-demo) · `dev:mock:no-future-release` · `typecheck` · `test` · `build`.
+Dependabot bump.
+
+```bash
+npm run dev:mock        # full stack, mock Stalwart, demo@example.com / demo
+npm run dev:mock:agent  # the same, with an agent process
+npm run dev             # a real Stalwart (STALWART_URL in .env)
+npm run typecheck       # tsc, both packages
+npm test                # vitest (web) + node:test (server)
+npm run build           # web/dist, then server/dist
+```
+
+One test, not the suite: `npm run test -w web -- src/lib/<name>.test.ts`
+(vitest), or from `server/` `npx tsx --test src/<name>.test.ts` (node:test).
 **Lint + format gate: Biome** (`biome.jsonc` — calibrated to this repo's
 actual style, with deliberate, commented rule exceptions; a11y off). Run with
 `npm run lint` / `npm run lint:fix`; it is part of `prepush` and of the CI
@@ -120,6 +154,9 @@ result(s).
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
 non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
 the local gate matches CI.
+**`npm run prepush` is the fast gate**, in order: typecheck, Biome, `adr:owed`,
+`adr:cite`, `config:dead`, `i18n:check`, then `TZ=UTC npm test`;
+`npm run prepush:full` appends `codeql`. The pre-push hook runs it.
 Version from git at build time (`node scripts/version.mjs`).
 
 ## Language
@@ -248,7 +285,7 @@ batched at the end of a long run. Whole-tree rename scans (e.g. for
 `ihasmail`) are never truncated with head/tail — scan per file with bounded
 output instead.
 **Every push is gated by the fast CI** (`npm run prepush`: typecheck + Biome
-lint + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
+lint + the check scripts + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only
 deliberately with `--no-verify`. `ci.yml` does not run on push: it is the
 release pre-check, and only Dependabot's pull requests start it, because their
@@ -322,8 +359,6 @@ it moves, this sentence and `CONTRIBUTING.md` are what state it.
 **Releases are called manually by the user — for now there are none and none are
 automated.** Never tag, publish, or trigger release/publish workflows on your
 own (see `.github/workflows/release.yml`, `publish.yml`).
-SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md are still upstream's process
-and contacts — ask before changing or acting on them.
 **Upstream is download-only (ADR 0002):** upstream releases are fetched
 directly by the merge that takes them in (ADR 0002) — there is no mirror
 branch — and the mail core merges them in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
@@ -336,7 +371,8 @@ process and contacts — ask before changing or acting on them.
 Full law: load `.opencode/skills/gilbert-project/SKILL.md`. Renames: load
 `.opencode/skills/gilbert-branding/SKILL.md`. UI strings & languages: load
 `.opencode/skills/gilbert-i18n/SKILL.md`. Settings & policy: load
-`.opencode/skills/gilbert-settings/SKILL.md`. Stalwart internals, quirks &
+`.opencode/skills/gilbert-settings/SKILL.md`. Group-owned data & features: load
+`.opencode/skills/gilbert-groups/SKILL.md`. Stalwart internals, quirks &
 integration: load `.opencode/skills/gilbert-stalwart/SKILL.md`. Upstream merges:
 load `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`. The skill that governs
 a kind of work is loaded before the first edit of it.
