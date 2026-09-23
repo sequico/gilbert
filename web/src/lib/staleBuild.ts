@@ -1,6 +1,7 @@
 import { type PushState, push } from "@/jmap/push";
 import { withBase } from "./basePath";
 import { APP_VERSION } from "./version";
+import { pollWhileVisible } from "./visiblePoll";
 
 /**
  * Reload the page when the server is serving a build this one did not come
@@ -163,13 +164,8 @@ export function makeConnectionWatcher(): (state: PushState) => void {
 
 export function startBuildWatch(): void {
   push.onConnection(makeConnectionWatcher());
-
-  window.setInterval(() => {
-    // A hidden tab is not being read, and will be checked when it surfaces.
-    if (document.visibilityState === "visible") void reloadIfServerRebuilt();
-  }, POLL_MS);
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void reloadIfServerRebuilt();
-  });
+  // A hidden tab is not being read, and is checked when it surfaces; the poll
+  // and the return-to-tab read are one policy, shared with the other watchers
+  // (`lib/visiblePoll.ts`).
+  pollWhileVisible(() => void reloadIfServerRebuilt(), POLL_MS);
 }

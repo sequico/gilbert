@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import { BASE_PATH, withBase } from "@/lib/basePath";
+import { scheduleServiceWorkerUpdate } from "@/lib/serviceWorkerUpdate";
 import { startBuildWatch } from "@/lib/staleBuild";
 import { CrashBoundary } from "@/ui/CrashBoundary";
 import { App } from "./App";
@@ -16,17 +17,6 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
-/**
- * How often the worker's own script is asked for.
- *
- * The browser re-fetches `sw.js` on navigation and on a schedule of its own
- * that can be a day or more; asking on a timer is what makes a corrected or
- * version-bumped worker land in the same session rather than days later. The
- * request is tiny and the worker's bytes rarely change, so an hour is often
- * enough and cheap.
- */
-const SW_UPDATE_MS = 60 * 60 * 1000;
-
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     /*
@@ -38,14 +28,11 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
      * applications would intercept their navigations too, and its offline
      * fallback would answer them with Gilbert's shell.
      *
-     * `updateViaCache: "none"` keeps the worker's script out of the HTTP cache
-     * so the check below reaches the server, and the timer asks rather than
-     * waiting on the browser's own long schedule. What this lands is a
-     * corrected or re-versioned worker in a tab that has not navigated; the
-     * shell itself is refreshed on each navigation (`refreshShell`), and what
-     * notices an actual deploy is the version check in `staleBuild.ts` -- the
-     * worker's bytes rarely change with a build, so the two are complements,
-     * not the same mechanism.
+     * `updateViaCache: "none"` keeps the worker's script out of the HTTP cache,
+     * so asking for it on a timer (`scheduleServiceWorkerUpdate`) reaches the
+     * server. That lands a corrected or re-versioned worker; what notices an
+     * actual deploy is the version check in `staleBuild.ts`. The timer is
+     * stopped when the page is left, since it has no more work to do.
      */
     navigator.serviceWorker
       .register(withBase("/sw.js"), {
@@ -53,11 +40,8 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
         updateViaCache: "none",
       })
       .then((reg) => {
-        window.setInterval(() => {
-          void reg.update().catch(() => {
-            /* offline, or the server said no: the next tick tries again */
-          });
-        }, SW_UPDATE_MS);
+        const stop = scheduleServiceWorkerUpdate(reg);
+        window.addEventListener("pagehide", stop, { once: true });
       })
       .catch(() => {
         /* ignore */

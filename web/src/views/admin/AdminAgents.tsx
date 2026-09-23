@@ -25,6 +25,7 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
+import { pollWhileVisible } from "@/lib/visiblePoll";
 import { useAgents } from "@/store/agents";
 import { fleetMeterLines, fleetReasonText, rosterText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
@@ -52,19 +53,10 @@ export function AdminAgents() {
      * Membership is given in Stalwart's own administration, so the list has to
      * follow it without being asked: a modest poll while the section is open,
      * and a read on every return to the tab, which is the one signal a
-     * backgrounded client is guaranteed to get.
+     * backgrounded client is guaranteed to get. The policy lives once, in
+     * `lib/visiblePoll.ts`.
      */
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === "visible") void loadStatus();
-    }, STATUS_POLL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void loadStatus();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(poll);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
+    return pollWhileVisible(() => void loadStatus(), STATUS_POLL_MS);
   }, [loadStatus]);
 
   return (
