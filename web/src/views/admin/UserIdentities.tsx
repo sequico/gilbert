@@ -194,7 +194,7 @@ export function UserIdentities() {
       <h1>{t("User identities")}</h1>
       <p className="lead">
         {t(
-          "Set a person's identities — display name, address, Reply-To and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.",
+          "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.",
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
@@ -344,7 +344,7 @@ export function UserIdentities() {
           <h2>{t("Enforce")}</h2>
           <p className="hint">
             {t(
-              "An enforced account is offered no Identity & signatures section at all, and no signature of its own. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.",
+              "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.",
             )}
           </p>
           {locked === "unknown" && (

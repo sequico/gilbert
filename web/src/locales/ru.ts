@@ -605,6 +605,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "Обратный адрес (необязательно)",
     "Reply-To: {addresses}": "Обратный адрес: {addresses}",
     "Replies go to…": "Ответы приходят на…",
+    "Bcc (optional)": "Скрытая копия (необязательно)",
+    "Bcc: {addresses}": "Скрытая копия: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Каждое письмо, написанное или отвеченное с этого профиля, копируется сюда. Адрес попадает в поле «Скрытая копия» черновика: отправитель его видит и может убрать для одного письма.",
     "Set a Reply-To address": "Указать обратный адрес",
     "{email} is now your default identity": "{email} теперь ваш основной профиль",
     Templates: "Шаблоны",
@@ -918,8 +922,8 @@ export const catalog: Catalog = {
       "Новый профиль должен использовать адрес, с которого этой учётной записи разрешено отправлять (псевдонимы настраиваются на сервере).",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Не предлагается при написании письма. Адрес по-прежнему принимает почту, и с него снова можно отправлять, если показать его обратно.",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Каждый профиль — это адрес отправителя со своим именем, обратным адресом и подписью. Основной профиль подставляется при написании письма; укажите обратный адрес, если ответы должны приходить не на адрес отправителя.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Каждый профиль — это адрес отправителя со своим именем, обратным адресом, скрытой копией и подписью. Основной профиль подставляется при написании письма; укажите обратный адрес, если ответы должны приходить не на адрес отправителя, и скрытую копию, если каждое письмо, отправленное с этого адреса, должно копироваться куда-то ещё.",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Эта подпись больше серверного предела в {limit} байт. Gilbert сохранит полную версию в ваших Файлах, а на сервере оставит короткий текстовый вариант — другие почтовые клиенты увидят именно его.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

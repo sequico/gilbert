@@ -601,6 +601,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "Зворотна адреса (необов'язково)",
     "Reply-To: {addresses}": "Зворотна адреса: {addresses}",
     "Replies go to…": "Відповіді надходять на…",
+    "Bcc (optional)": "Прихована копія (необов'язково)",
+    "Bcc: {addresses}": "Прихована копія: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Кожен лист, написаний із цього профілю, і кожна відповідь із нього копіюються сюди. Адреса потрапляє в поле «Прихована копія» чернетки: відправник її бачить і може прибрати для одного листа.",
     "Set a Reply-To address": "Вказати зворотну адресу",
     "{email} is now your default identity": "{email} тепер ваш основний профіль",
     Templates: "Шаблони",
@@ -913,8 +917,8 @@ export const catalog: Catalog = {
       "Новий профіль має використовувати адресу, з якої цьому обліковому запису дозволено надсилати (псевдоніми налаштовуються на сервері).",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Не пропонується під час написання листа. Адреса й далі отримує пошту, і з неї знову можна надсилати, якщо показати її назад.",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Кожен профіль — це адреса відправника зі своїм іменем, зворотною адресою та підписом. Основний профіль підставляється під час написання листа; вкажіть зворотну адресу, якщо відповіді мають надходити не на адресу відправника.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Кожен профіль — це адреса відправника зі своїм іменем, зворотною адресою, прихованою копією та підписом. Основний профіль підставляється під час написання листа; вкажіть зворотну адресу, якщо відповіді мають надходити не на адресу відправника, і приховану копію, якщо кожен лист, надісланий з цієї адреси, має копіюватися кудись іще.",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Цей підпис більший за серверне обмеження в {limit} байт. Gilbert збереже повну версію у ваших Файлах, а на сервері залишить короткий текстовий варіант — інші поштові клієнти побачать саме його.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

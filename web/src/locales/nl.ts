@@ -600,6 +600,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "Antwoordadres (optioneel)",
     "Reply-To: {addresses}": "Antwoordadres: {addresses}",
     "Replies go to…": "Antwoorden gaan naar…",
+    "Bcc (optional)": "Bcc (optioneel)",
+    "Bcc: {addresses}": "Bcc: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Elk bericht dat vanaf deze identiteit wordt opgesteld of beantwoord, wordt hierheen gekopieerd. Het adres staat in het bcc-veld van het concept, waar de afzender het ziet en het voor één bericht kan weghalen.",
     "Set a Reply-To address": "Een antwoordadres instellen",
     "{email} is now your default identity": "{email} is nu uw standaardidentiteit",
     Templates: "Sjablonen",
@@ -914,8 +918,8 @@ export const catalog: Catalog = {
       "Een nieuwe identiteit moet een adres gebruiken waarvandaan dit account mag verzenden (aliassen die op de server zijn ingesteld).",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Wordt niet aangeboden bij het opstellen. Het adres ontvangt nog steeds post, en u kunt er weer vanaf verzenden door het opnieuw te tonen.",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Elke identiteit is een afzenderadres met een eigen naam, antwoordadres en handtekening. De standaardidentiteit is voorgeselecteerd bij het opstellen; stel een antwoordadres in wanneer antwoorden ergens anders heen moeten dan naar het afzenderadres.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Elke identiteit is een afzenderadres met een eigen naam, antwoordadres, bcc en handtekening. De standaardidentiteit is voorgeselecteerd bij het opstellen; stel een antwoordadres in wanneer antwoorden ergens anders heen moeten dan naar het afzenderadres, en een bcc wanneer elk bericht dat vanaf dit adres wordt verzonden ergens anders gekopieerd moet worden.",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Deze handtekening is groter dan de limiet van {limit} bytes van de server. Gilbert bewaart de volledige versie in uw Bestanden en zet een korte tekstversie op de server — andere e-mailprogramma's zien de platte-tekstversie.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

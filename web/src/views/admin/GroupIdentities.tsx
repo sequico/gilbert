@@ -391,7 +391,7 @@ export function GroupIdentities() {
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent.",
+          "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.",
         )}
       </p>
 

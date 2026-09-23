@@ -611,6 +611,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "Antwort an (optional)",
     "Reply-To: {addresses}": "Antwort an: {addresses}",
     "Replies go to…": "Antworten gehen an…",
+    "Bcc (optional)": "Bcc (optional)",
+    "Bcc: {addresses}": "Bcc: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Jede von dieser Identität verfasste oder beantwortete Nachricht wird hierher kopiert. Die Adresse steht im Bcc-Feld des Entwurfs, wo die absendende Person sie sieht und sie für eine einzelne Nachricht entfernen kann.",
     "Set a Reply-To address": "Antwortadresse festlegen",
     "{email} is now your default identity": "{email} ist jetzt Ihre Standardidentität",
     Templates: "Vorlagen",
@@ -864,8 +868,8 @@ export const catalog: Catalog = {
       "Neue Identitäten müssen eine Adresse verwenden, von der dieses Konto senden darf (auf dem Server eingerichtete Aliase).",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Wird beim Verfassen nicht angeboten. Die Adresse empfängt weiterhin Nachrichten, und Sie können wieder von ihr senden, indem Sie sie erneut einblenden.",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Jede Identität ist eine Absenderadresse mit eigenem Namen, eigener Antwortadresse und eigener Signatur. Die Standardidentität ist beim Verfassen vorausgewählt; legen Sie eine Antwortadresse fest, wenn Antworten woanders hingehen sollen als an die Absenderadresse.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Jede Identität ist eine Absenderadresse mit eigenem Namen, eigener Antwortadresse, eigener Bcc-Adresse und eigener Signatur. Die Standardidentität ist beim Verfassen vorausgewählt; legen Sie eine Antwortadresse fest, wenn Antworten woanders hingehen sollen als an die Absenderadresse, und eine Bcc-Adresse, wenn jede von dieser Adresse gesendete Nachricht zusätzlich dorthin kopiert werden soll.",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Diese Signatur überschreitet das Limit des Servers von {limit} Byte. Gilbert behält die vollständige Fassung in Ihren Dateien und speichert eine kurze Textfassung auf dem Server — andere E-Mail-Programme sehen die Nur-Text-Fassung.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

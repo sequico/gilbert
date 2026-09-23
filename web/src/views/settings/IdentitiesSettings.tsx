@@ -82,7 +82,7 @@ export function IdentitiesSettings() {
       <h1>{t("Identities & signatures")}</h1>
       <p className="lead">
         {t(
-          "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.",
+          "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.",
         )}
       </p>
       <h2>{t("Your identities")}</h2>
@@ -188,6 +188,11 @@ export function IdentitiesSettings() {
           {i.replyTo?.length ? (
             <div className="hint">
               {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
+            </div>
+          ) : null}
+          {i.bcc?.length ? (
+            <div className="hint">
+              {t("Bcc: {addresses}", { addresses: formatAddressList(i.bcc) })}
             </div>
           ) : null}
         </div>
@@ -322,6 +327,11 @@ function GroupIdentities({ account }: { account: MailAccountInfo }) {
             {i.replyTo?.length ? (
               <div className="hint">
                 {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
+              </div>
+            ) : null}
+            {i.bcc?.length ? (
+              <div className="hint">
+                {t("Bcc: {addresses}", { addresses: formatAddressList(i.bcc) })}
               </div>
             ) : null}
           </div>

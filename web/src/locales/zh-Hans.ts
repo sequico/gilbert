@@ -592,6 +592,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "回复地址（可选）",
     "Reply-To: {addresses}": "回复地址：{addresses}",
     "Replies go to…": "回复将发往…",
+    "Bcc (optional)": "密送（可选）",
+    "Bcc: {addresses}": "密送：{addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "从此身份撰写或回复的每封邮件都会拄送到这里。该地址会填入草稿的密送栏，写信人能看到它，也可以为单封邮件将其移除。",
     "Set a Reply-To address": "设置回复地址",
     "{email} is now your default identity": "{email} 现在是您的默认发件身份",
     Templates: "模板",
@@ -860,8 +864,8 @@ export const catalog: Catalog = {
       "新建发件身份必须使用此账户获准发信的地址（在服务器上配置的别名）。",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "写邮件时不再提供此身份。它仍会接收邮件，重新显示后也仍可用于发信。",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "每个发件身份都是一个发件地址，拥有各自的名称、回复地址和签名。写邮件时会预先选中默认身份；若希望回复发往发件人地址以外的地方，请设置回复地址。",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "每个发件身份都是一个发件地址，拥有各自的名称、回复地址、密送和签名。写邮件时会预先选中默认身份；若希望回复发往发件人地址以外的地方，请设置回复地址；若希望从此地址发出的每封邮件都拄送到别处，请设置密送。",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "此签名超出了服务器 {limit} 字节的限制。Gilbert 会把完整版本保存在您的「文件」中，并在服务器上存放一段简短的文本备用版——其他邮件客户端看到的将是纯文本版本。",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

@@ -928,6 +928,13 @@ export const catalog: Catalog = {
 
     "Replies go to…": "Le risposte vanno a…",
 
+    "Bcc (optional)": "Ccn (facoltativo)",
+
+    "Bcc: {addresses}": "Ccn: {addresses}",
+
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Ogni messaggio composto o a cui si risponde da questa identità viene copiato qui. L'indirizzo è inserito nel campo Ccn della bozza, dove chi scrive lo vede e può toglierlo per un singolo messaggio.",
+
     "Set a Reply-To address": "Imposta un indirizzo di risposta",
 
     "{email} is now your default identity": "{email} è ora la tua identità predefinita",
@@ -1439,8 +1446,8 @@ export const catalog: Catalog = {
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Non viene proposta durante la composizione. Continua a ricevere posta e puoi comunque inviare da essa ripristinandone la visualizzazione.",
 
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Ogni identità è un indirizzo di invio con nome, Reply-To e firma propri. Quando componi, l'identità predefinita è preselezionata; imposta un Reply-To quando le risposte devono andare da un'altra parte rispetto all'indirizzo del mittente.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Ogni identità è un indirizzo di invio con nome, Reply-To, Ccn e firma propri. Quando componi, l'identità predefinita è preselezionata; imposta un Reply-To quando le risposte devono andare da un'altra parte rispetto all'indirizzo del mittente, e un Ccn quando ogni messaggio inviato da questo indirizzo deve essere copiato altrove.",
 
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Questa firma supera il limite di {limit} byte del server. Gilbert conserverà la versione completa nei tuoi File e salverà sul server un breve testo di riserva: gli altri client vedranno la versione in testo semplice.",

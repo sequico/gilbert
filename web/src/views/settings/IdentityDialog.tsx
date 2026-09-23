@@ -2,14 +2,14 @@
  * The identity form, and the one definition of it.
  *
  * A person's own settings and the administration's identity surfaces edit the
- * same object — display name, address, Reply-To and a rich signature — so they
- * open the same dialog: an identity means the same thing wherever it is written
- * (ADR 0007). What differs is where a signature's **assets** live. Pictures
- * and an over-sized signature's full HTML belong to the account's own Files,
- * which a person writing their own identity has and an administrator writing
- * somebody else's does not. So the caller says where those go, and a caller with
- * none gets an editor that still writes everything the server will take: name,
- * address, Reply-To and a signature within the limit.
+ * same object — display name, address, Reply-To, Bcc and a rich signature — so
+ * they open the same dialog: an identity means the same thing wherever it is
+ * written (ADR 0007). What differs is where a signature's **assets** live.
+ * Pictures and an over-sized signature's full HTML belong to the account's own
+ * Files, which a person writing their own identity has and an administrator
+ * writing somebody else's does not. So the caller says where those go, and a
+ * caller with none gets an editor that still writes everything the server will
+ * take: name, address, Reply-To, Bcc and a signature within the limit.
  */
 
 import { useRef, useState } from "react";
@@ -59,6 +59,7 @@ function draftOf(identity: Partial<Identity>) {
     name: identity.name ?? "",
     email: identity.email ?? "",
     replyTo: formatAddressList(identity.replyTo),
+    bcc: formatAddressList(identity.bcc),
     html:
       identity.htmlSignature ||
       (identity.textSignature ? identity.textSignature.replace(/\n/g, "<br>") : ""),
@@ -82,6 +83,7 @@ export function IdentityDialog({
   const [name, setName] = useState(opened.name);
   const [email, setEmail] = useState(opened.email);
   const [replyTo, setReplyTo] = useState(opened.replyTo);
+  const [bcc, setBcc] = useState(opened.bcc);
   const [html, setHtml] = useState(opened.html);
 
   /*
@@ -94,6 +96,7 @@ export function IdentityDialog({
     name !== opened.name ||
     email !== opened.email ||
     replyTo !== opened.replyTo ||
+    bcc !== opened.bcc ||
     html !== opened.html;
   const saveable = identity.id ? edited : email.trim() !== "";
   const [busy, setBusy] = useState(false);
@@ -157,6 +160,7 @@ export function IdentityDialog({
       const patch: Partial<Identity> = {
         name,
         replyTo: replyTo.trim() ? parseAddressList(replyTo) : null,
+        bcc: bcc.trim() ? parseAddressList(bcc) : null,
         htmlSignature,
         textSignature,
       };
@@ -223,6 +227,20 @@ export function IdentityDialog({
         <span className="hint">
           {t(
             "Replies to mail sent from this identity go here instead of the From address.",
+          )}
+        </span>
+      </div>
+      <div className="field">
+        <label>{t("Bcc (optional)")}</label>
+        <input
+          className="input"
+          value={bcc}
+          onChange={(e) => setBcc(e.target.value)}
+          placeholder={t("archive@example.com")}
+        />
+        <span className="hint">
+          {t(
+            "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.",
           )}
         </span>
       </div>

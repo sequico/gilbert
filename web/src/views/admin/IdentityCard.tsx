@@ -10,11 +10,11 @@ import { htmlToText } from "@/lib/text";
  *
  * `views/admin/UserIdentities.tsx` and `views/admin/GroupIdentities.tsx` list
  * identities of different accounts for different reasons, and the card is the
- * same: who it sends as, its Reply-To, the first line of its signature, and an
- * Edit that opens the form. What differs is what each head offers *beside* Edit
- * — the personal tab makes one the default and deletes one; a group's tab
- * offers neither, because a group's identities come from its roster — so those
- * arrive as slots rather than as behaviour here.
+ * same: who it sends as, its Reply-To, its Bcc, the first line of its signature,
+ * and an Edit that opens the form. What differs is what each head offers
+ * *beside* Edit — the personal tab makes one the default and deletes one; a
+ * group's tab offers neither, because a group's identities come from its roster
+ * — so those arrive as slots rather than as behaviour here.
  */
 export function identityLabel(identity: Identity): string {
   const name = (identity.name || "").trim();
@@ -54,6 +54,11 @@ export function IdentityCard({
       {identity.replyTo?.length ? (
         <div className="hint">
           {t("Reply-To: {addresses}", { addresses: formatAddressList(identity.replyTo) })}
+        </div>
+      ) : null}
+      {identity.bcc?.length ? (
+        <div className="hint">
+          {t("Bcc: {addresses}", { addresses: formatAddressList(identity.bcc) })}
         </div>
       ) : null}
       {(identity.htmlSignature || identity.textSignature) && (

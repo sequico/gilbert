@@ -608,6 +608,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "Responder para (opcional)",
     "Reply-To: {addresses}": "Responder para: {addresses}",
     "Replies go to…": "As respostas vão para…",
+    "Bcc (optional)": "Cco (opcional)",
+    "Bcc: {addresses}": "Cco: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "Toda mensagem escrita ou respondida a partir desta identidade é copiada aqui. O endereço fica no campo Cco do rascunho, onde quem escreve o vê e pode removê-lo para uma única mensagem.",
     "Set a Reply-To address": "Definir um endereço de resposta",
     "{email} is now your default identity": "{email} agora é sua identidade padrão",
     Templates: "Modelos",
@@ -924,8 +928,8 @@ export const catalog: Catalog = {
       "Uma nova identidade precisa usar um endereço a partir do qual esta conta tenha permissão para enviar (aliases configurados no servidor).",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "Não é oferecida ao escrever. O endereço continua recebendo mensagens, e você pode voltar a enviar por ele mostrando-o novamente.",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "Cada identidade é um endereço de envio com nome, endereço de resposta e assinatura próprios. A identidade padrão vem pré-selecionada ao escrever; defina um endereço de resposta quando as respostas devam ir para outro lugar que não o remetente.",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "Cada identidade é um endereço de envio com nome, endereço de resposta, Cco e assinatura próprios. A identidade padrão vem pré-selecionada ao escrever; defina um endereço de resposta quando as respostas devam ir para outro lugar que não o remetente, e um Cco quando toda mensagem enviada deste endereço deva ser copiada em outro lugar.",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "Esta assinatura passa do limite de {limit} bytes do servidor. O Gilbert guardará a versão completa nos seus Arquivos e uma versão curta em texto no servidor — os outros clientes verão a versão em texto simples.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":

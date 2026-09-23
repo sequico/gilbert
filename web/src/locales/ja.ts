@@ -602,6 +602,10 @@ export const catalog: Catalog = {
     "Reply-To (optional)": "返信先（省略可）",
     "Reply-To: {addresses}": "返信先: {addresses}",
     "Replies go to…": "返信の送り先…",
+    "Bcc (optional)": "Bcc（省略可）",
+    "Bcc: {addresses}": "Bcc: {addresses}",
+    "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
+      "この差出人で作成または返信したすべてのメールがここへ写されます。アドレスは下書きの Bcc 欄に入るため、書いている本人が確認でき、1 通だけなら外せます。",
     "Set a Reply-To address": "返信先アドレスを設定",
     "{email} is now your default identity": "{email} を既定の差出人にしました",
     Templates: "テンプレート",
@@ -881,8 +885,8 @@ export const catalog: Catalog = {
       "新しい差出人には、このアカウントが送信を許可されているアドレス（サーバーで設定されたエイリアス）を使う必要があります。",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "作成時には表示されません。メールの受信は続き、再び表示すればこの差出人で送信することもできます。",
-    "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
-      "差出人とは、それぞれ名前・返信先・署名を持つ送信用アドレスのことです。作成時には既定の差出人があらかじめ選ばれます。返信を差出人アドレス以外へ届けたい場合は、返信先を設定してください。",
+    "Each identity is a sender address with its own name, Reply-To, Bcc and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address, and a Bcc when every message sent from this address should be copied somewhere.":
+      "差出人とは、それぞれ名前・返信先・Bcc・署名を持つ送信用アドレスのことです。作成時には既定の差出人があらかじめ選ばれます。返信を差出人アドレス以外へ届けたい場合は返信先を、このアドレスから送るすべてのメールを別の場所へ写したい場合は Bcc を設定してください。",
     "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
       "この署名はサーバーの上限 {limit} バイトを超えています。Gilbert は完全版を「ファイル」に保存し、サーバーには短いテキスト版を置きます。他のメールクライアントにはテキスト版が表示されます。",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
