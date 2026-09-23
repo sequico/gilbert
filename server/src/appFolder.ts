@@ -31,8 +31,8 @@ import {
   appFolderCreate,
   ensureAppFolderId,
   FILE_PROPS,
-  findAppFolderId,
   FOLDER_PROPS,
+  findAppFolderId,
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
