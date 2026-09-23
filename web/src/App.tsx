@@ -344,11 +344,12 @@ function AuthedApp() {
         for (const [a, types] of pending) {
           if (a === useMail.getState().accountId) {
             void useMail.getState().applyChanges(types);
-          } else if (useMail.getState().mailAccounts.some((x) => x.accountId === a)) {
+          } else {
             // A mailbox changed while the reader is elsewhere -- a group box
-            // under their own, or their own while they are inside a group.
-            // Refresh its folder tree so the sidebar's counts stay honest.
-            void useMail.getState().refreshAccountTree(a);
+            // under their own, or their own while they are inside a group. The
+            // store refreshes its tree and announces what it received, or
+            // ignores an account that is not one of the reader's mailboxes.
+            void useMail.getState().applyAccountChanges(a, types);
           }
           /*
            * Shared data lives in an account that is not the reader's own, but

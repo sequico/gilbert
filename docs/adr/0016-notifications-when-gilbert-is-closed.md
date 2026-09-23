@@ -26,10 +26,10 @@ watermark and not the reader's own (`web/public/sw.js`, `web/src/lib/swFacts.ts`
 `web/src/lib/webpush.ts`, pinned by `web/src/lib/__tests__/swChat.test.ts`).
 Built: the payload for the group mailboxes the subscription serves — the
 `emailPush` map names every account with a known Inbox, each with its own filter
-— and the generic wake-up narrowed to the accounts the briefing does not
-describe. Not built: the group-mail half of the open-tab path. What the built
-half rests on is read from Stalwart's source at v0.16.22 and written down below;
-the one thing still owed is seeing a running server do it.
+— the generic wake-up narrowed to the accounts the briefing does not describe,
+and the open-tab path's group-mail half (`notifyGroupMail`). What those rest on
+is read from Stalwart's source at v0.16.22 and written down below; what is still
+owed is seeing a running server do it.
 
 ## Context
 
@@ -340,14 +340,21 @@ boolean that came back would fail here:
   folder, watermark and the reader's address
   (`web/src/lib/__tests__/swFacts.test.ts`).
 
+Built with the map:
+
+- `subscriptionPayload()` builds one `emailPush` entry per target account with a
+  known Inbox, each with its own filter, and none for one without, so dropping an
+  account from the target list fails the test
+  (`web/src/lib/__tests__/webpush.test.ts`).
+- A change in the accounts the subscription covers re-registers the device,
+  because the map and the `types` are fixed at creation (`web/src/App.tsx`).
+- The worker announces a group's mail from the open-tab path, names the group in
+  its notification, and notifies generically only for an account the briefing
+  lists without an Inbox (`web/src/store/__tests__/group-mail-notify.test.ts`,
+  `web/src/lib/__tests__/swChat.test.ts`).
+
 Owed with the steps below:
 
-- `subscriptionPayload()` builds one `emailPush` entry per target account, each
-  with its own filter, so dropping an account from the target list fails the
-  test (`web/src/lib/__tests__/webpush.test.ts`).
-- "This browser is subscribed" is true only when **every** target account holds
-  this device's row, so one group whose registration failed reads as off rather
-  than as push being on (`web/src/lib/__tests__/webpush.test.ts`).
 - `server/src/mock` answers the group-account subscription and a chat `FileNode`
   change as the live server does, with the assumption pinned next to the
   simulation (`server/src/mock/index.ts`, its test).
@@ -428,8 +435,9 @@ implementation marks them where the code owes them (the repository's
    the tag per node, and the suppression rule for a window of ours already on
    that chat. **Built.**
 7. The same kinds from the open-tab path, so a visible Gilbert is not the quiet
-   one. **Partly built** — the chat half is `notifyNewChat`; the group-mail half
-   is not.
+   one: the chat half is `notifyNewChat`, and the group-mail half is
+   `notifyGroupMail`, called by the dispatcher for a non-active account's Email
+   change. **Built.**
 8. Settings and the record: the device-local switches for the new kinds, the
    policy entry and the settings surface, `FEATURES.md` (the notifications
    section and the capability table), `KNOWN-ISSUES.md` for what an operator

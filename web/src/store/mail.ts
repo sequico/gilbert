@@ -343,6 +343,11 @@ export interface MailState {
   setAnchor(id: Id | null): void;
 
   applyChanges(types: Set<string>): Promise<void>;
+  /**
+   * Route one account's push change: the active account's own flow, or a group
+   * mailbox's -- which refreshes its tree and announces the mail it received.
+   */
+  applyAccountChanges(accountId: Id, types: Set<string>): Promise<void>;
   importEml(
     blobId: Id,
     mailboxId: Id,
@@ -2314,6 +2319,19 @@ export const useMail = create<MailState>((set, get) => ({
     if (types.has("Quota")) void get().loadQuota();
   },
 
+  async applyAccountChanges(accountId, types) {
+    if (accountId === get().accountId) return get().applyChanges(types);
+    if (!get().mailAccounts.some((a) => a.accountId === accountId)) return;
+    /*
+     * A mailbox changed while the reader is elsewhere -- a group box under
+     * their own, or their own while they are inside a group. Refresh its folder
+     * tree so the sidebar's counts stay honest, and announce what it received
+     * so a visible Gilbert is not the quiet one (ADR 0016).
+     */
+    void get().refreshAccountTree(accountId);
+    if (types.has("Email")) await notifyGroupMail(accountId, get).catch(() => undefined);
+  },
+
   async importEml(blobId, mailboxId, keywords = {}) {
     const accountId = get().accountId;
     if (!accountId) return null;
@@ -2929,6 +2947,74 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
         },
       });
     }
+  }
+}
+
+/**
+ * Announce the mail a group mailbox received, while a tab is open.
+ *
+ * The closed client is woken by the same delivery (ADR 0016); a reader who
+ * keeps Gilbert open on a group must not go quiet. `notifyNewMail` is the
+ * reader's own account and this is its group sibling: the same two switches and
+ * the same suppression, with a title that names the group as well as the
+ * sender.
+ *
+ * Only what arrived after this page was opened is announced. A group's Inbox
+ * may hold a backlog a tab has never shown, and announcing it on the first
+ * change is the noise the watermark avoids on the closed path; a set of ids
+ * keeps one message from being announced twice.
+ */
+const MAIL_OPENED_AT = Date.now();
+const announcedGroupMail = new Set<Id>();
+
+export async function notifyGroupMail(
+  accountId: Id,
+  get: () => MailState,
+): Promise<void> {
+  const s = settings();
+  if (!s.desktopNotifications && !s.notificationSound) return;
+  const inbox = Object.values(get().accountTrees[accountId] ?? {}).find(
+    (m) => m.role === "inbox",
+  )?.id;
+  if (!inbox) return;
+  const q = await client.call<{ ids?: Id[] }>("Email/query", {
+    accountId,
+    filter: { inMailbox: inbox, notKeyword: "$seen" },
+    sort: [{ property: "receivedAt", isAscending: false }],
+    limit: 3,
+  });
+  const ids = q.ids ?? [];
+  if (!ids.length) return;
+  const got = await client.call<GetResponse<Email>>("Email/get", {
+    accountId,
+    ids,
+    properties: ["id", "threadId", "from", "subject", "preview", "receivedAt"],
+  });
+  const fresh = got.list.filter((e) => {
+    if (announcedGroupMail.has(e.id)) return false;
+    const at = e.receivedAt ? Date.parse(e.receivedAt) : Number.NaN;
+    return Number.isFinite(at) && at >= MAIL_OPENED_AT;
+  });
+  if (!fresh.length) return;
+  for (const e of fresh) announcedGroupMail.add(e.id);
+  if (s.notificationSound) playNewMailSound();
+  if (!s.desktopNotifications) return;
+  const name =
+    get().mailAccounts.find((a) => a.accountId === accountId)?.name ?? accountId;
+  for (const e of fresh) {
+    const from = e.from?.[0];
+    showNotification(`${from?.name || from?.email || "New message"} · ${name}`, {
+      body: `${e.subject || "(no subject)"}\n${e.preview ?? ""}`.trim(),
+      tag: `gilbert-${e.id}`,
+      onClick: () => {
+        window.location.hash = "";
+        // The one navigation that does not go through wouter -- it is
+        // synthesising a popstate so the router picks the address up -- so it
+        // is also the one that has to add the mount prefix itself.
+        window.history.pushState({}, "", withBase(`/mail/${inbox}/${e.threadId}`));
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      },
+    });
   }
 }
 
