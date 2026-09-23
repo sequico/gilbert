@@ -14,7 +14,14 @@ import { readFileSync } from "node:fs";
  * for ever. Nothing warns, because a catalogue is only ever read by key.
  */
 import ts from "typescript";
-import { catalogFiles, sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
+import {
+  CONTEXT_CALL,
+  catalogFiles,
+  PLURAL_CALL,
+  sourceAst,
+  sourceFiles,
+  TRANSLATED_CALLS,
+} from "./lib/i18nSources.mjs";
 
 const wanted = new Set();
 for (const file of sourceFiles()) {
@@ -62,18 +69,13 @@ for (const file of sourceFiles()) {
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
       const fn = n.expression.text,
         a0 = n.arguments[0];
-      if (
-        (fn === "t" || fn === "translate" || fn === "tNode") &&
-        a0 &&
-        ts.isStringLiteral(a0)
-      )
-        wanted.add(a0.text);
+      if (TRANSLATED_CALLS.has(fn) && a0 && ts.isStringLiteral(a0)) wanted.add(a0.text);
       // tc(context, source) keys the catalogue on both, joined by the same
       // control character tc() uses. Without this the contextual entries all
       // looked stale, which is the checker's own false alarm rather than a
       // catalogue problem.
       if (
-        fn === "tc" &&
+        fn === CONTEXT_CALL &&
         a0 &&
         ts.isStringLiteral(a0) &&
         n.arguments[1] &&
@@ -85,7 +87,7 @@ for (const file of sourceFiles()) {
         wanted.add(`${a0.text}\u0004${n.arguments[1].text}`);
       }
       if (
-        fn === "plural" &&
+        fn === PLURAL_CALL &&
         n.arguments[1] &&
         ts.isObjectLiteralExpression(n.arguments[1])
       ) {

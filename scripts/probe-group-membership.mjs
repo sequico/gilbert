@@ -53,12 +53,15 @@
  */
 
 import {
+  answerOf,
   basic,
   note,
   record,
   report,
   requireProbeEnvironment,
   sessionUrlFor,
+  jmap as sharedJmap,
+  session as sharedSession,
 } from "./lib/probeKit.mjs";
 
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
@@ -85,42 +88,13 @@ requireProbeEnvironment(
 const CORE = "urn:ietf:params:jmap:core";
 const PRINCIPALS = "urn:ietf:params:jmap:principals";
 const STALWART = "urn:stalwart:jmap";
-const TIMEOUT = 30_000;
 const SESSION_URL = sessionUrlFor(base);
 
-async function session(authorization) {
-  const res = await fetch(SESSION_URL, {
-    headers: { authorization, accept: "application/json" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
-  if (!res.ok) throw new Error(`the session endpoint answered ${res.status}`);
-  return res.json();
-}
+const session = (authorization) => sharedSession(SESSION_URL, authorization);
 
-/** One JMAP request; the batch is returned whether it carried errors or not. */
-async function jmap(apiUrl, authorization, methodCalls) {
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      authorization,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({ using: [CORE, STALWART, PRINCIPALS], methodCalls }),
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
-  const body = await res.json().catch(() => ({}));
-  return { status: res.status, responses: body.methodResponses ?? [] };
-}
-
-/** The `["name", body, id]` tuple for a call id, error or not. */
-const answerOf = (responses, callId) =>
-  responses.find(([, , id]) => id === callId) ?? [
-    "missingResponse",
-    { type: "missingResponse", description: `no response for ${callId}` },
-    callId,
-  ];
+/** One JMAP request, over the registry the group questions need. */
+const jmap = (apiUrl, authorization, methodCalls) =>
+  sharedJmap(apiUrl, authorization, methodCalls, [CORE, STALWART, PRINCIPALS]);
 
 const typeOf = (entry) => String(entry[1]?.type ?? "");
 

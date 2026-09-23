@@ -78,6 +78,28 @@ export const ATTRS = new Set([
  */
 export const NOT_PROSE = /^[\s·—–\-:;,.()[\]{}/|+×✓~<>#*@0-9]*$/u;
 
+/*
+ * The calls that carry English a reader sees, declared once.
+ *
+ * Four scripts ask "is this a translation wrapper?" and each had spelled the
+ * set for itself — `i18n-literals` even listed `tc`, which the other two did
+ * not, so a `tc(...)` key was invisible to the key generator while a literal
+ * inside `tc(...)` was exempt from the literals report. One home, so the
+ * caller names the wrapper the same way the app does.
+ */
+
+/** A call whose first argument is an English source the catalogue keys on. */
+export const TRANSLATED_CALLS = new Set(["t", "translate", "tNode"]);
+
+/** The contextual wrapper: `tc(context, source)`, keyed on both halves. */
+export const CONTEXT_CALL = "tc";
+
+/** The counted wrapper: `plural(n, forms)`, keyed on `forms.other`. */
+export const PLURAL_CALL = "plural";
+
+/** Every function that takes prose and returns it translated. */
+export const WRAPPERS = new Set([...TRANSLATED_CALLS, CONTEXT_CALL, PLURAL_CALL]);
+
 /**
  * Elements whose text is code rather than prose, however much it looks like
  * prose: `label:name` inside `<code>` is a search operator, and translating it

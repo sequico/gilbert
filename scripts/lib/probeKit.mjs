@@ -99,3 +99,52 @@ export function requireProbeEnvironment(values, message) {
 export function sessionUrlFor(base) {
   return process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
 }
+
+/**
+ * The session object at a URL, with the credential a probe was given.
+ *
+ * Every probe asked this the same way — a GET with the Basic header, the same
+ * accept, the same refusal sentence — and each wrote it out again. Here once.
+ */
+export async function session(url, authorization, timeout = 30_000) {
+  const res = await fetch(url, {
+    headers: { authorization, accept: "application/json" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(timeout),
+  });
+  if (!res.ok) throw new Error(`the session endpoint answered ${res.status}`);
+  return res.json();
+}
+
+/**
+ * One JMAP request; status and batch both come back, refusal or not.
+ *
+ * `using` is the probe's own capability set, which is the only thing that
+ * differs between probes; a probe that needs a refusal as an exception wraps
+ * this itself.
+ */
+export async function jmap(apiUrl, authorization, methodCalls, using, timeout = 30_000) {
+  const res = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      authorization,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({ using, methodCalls }),
+    signal: AbortSignal.timeout(timeout),
+  });
+  const body = await res.json().catch(() => ({}));
+  return { status: res.status, responses: body.methodResponses ?? [] };
+}
+
+/** The `["name", body, id]` tuple for a call id, error or not. */
+export function answerOf(responses, callId) {
+  return (
+    responses.find(([, , id]) => id === callId) ?? [
+      "missingResponse",
+      { type: "missingResponse", description: `no response for ${callId}` },
+      callId,
+    ]
+  );
+}

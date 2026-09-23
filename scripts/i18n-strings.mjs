@@ -9,18 +9,16 @@
  * exists is dead weight, but a call with no key is an untranslated string
  * nobody noticed.
  */
-/*
- * The parser, not the compiler.
- *
- * These scripts read the tree rather than pattern-matching it, so they need a
- * compiler API: `ts.createSourceFile` turns a file into an AST, and the walk
- * below asks that AST what a node is -- something a regular expression cannot
- * answer. `typescript` is a devDependency of this repository and carries that
- * API. It is also what `npm run i18n:check` and CI run, so a break here is
- * loud rather than silent.
- */
+/* The parser, not the compiler: the shared explanation is `sourceAst` in
+   ./lib/i18nSources.mjs. */
 import ts from "typescript";
-import { sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
+import {
+  CONTEXT_CALL,
+  PLURAL_CALL,
+  sourceAst,
+  sourceFiles,
+  TRANSLATED_CALLS,
+} from "./lib/i18nSources.mjs";
 
 const strings = new Set();
 const plurals = new Set();
@@ -31,14 +29,22 @@ for (const file of sourceFiles()) {
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
       const fn = node.expression.text;
       const a0 = node.arguments[0];
+      if (TRANSLATED_CALLS.has(fn) && a0 && ts.isStringLiteral(a0)) strings.add(a0.text);
+      /*
+       * `tc(context, source)` keys the catalogue on both halves joined by the
+       * control character `tc()` uses. Without it the contextual keys were
+       * invisible to the generator, which is a key a translator never sees.
+       */
       if (
-        (fn === "t" || fn === "translate" || fn === "tNode") &&
+        fn === CONTEXT_CALL &&
         a0 &&
-        ts.isStringLiteral(a0)
+        ts.isStringLiteral(a0) &&
+        node.arguments[1] &&
+        ts.isStringLiteral(node.arguments[1])
       )
-        strings.add(a0.text);
+        strings.add(`${a0.text}\u0004${node.arguments[1].text}`);
       if (
-        fn === "plural" &&
+        fn === PLURAL_CALL &&
         node.arguments[1] &&
         ts.isObjectLiteralExpression(node.arguments[1])
       ) {

@@ -44,12 +44,15 @@
  */
 
 import {
+  answerOf,
   basic,
   note,
   record,
   report,
   requireProbeEnvironment,
   sessionUrlFor,
+  jmap as sharedJmap,
+  session as sharedSession,
 } from "./lib/probeKit.mjs";
 
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
@@ -73,41 +76,12 @@ requireProbeEnvironment(
 
 const CORE = "urn:ietf:params:jmap:core";
 const MAIL = "urn:ietf:params:jmap:mail";
-const TIMEOUT = 30_000;
 
-async function session(authorization) {
-  const res = await fetch(sessionUrlFor(base), {
-    headers: { authorization, accept: "application/json" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
-  if (!res.ok) throw new Error(`the session endpoint answered ${res.status}`);
-  return res.json();
-}
+const session = (authorization) => sharedSession(sessionUrlFor(base), authorization);
 
-/** One JMAP request; status and batch both come back, refusal or not. */
-async function jmap(apiUrl, authorization, methodCalls) {
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      authorization,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({ using: [CORE, MAIL], methodCalls }),
-    signal: AbortSignal.timeout(TIMEOUT),
-  });
-  const body = await res.json().catch(() => ({}));
-  return { status: res.status, responses: body.methodResponses ?? [] };
-}
-
-/** The `["name", body, id]` tuple for a call id, error or not. */
-const answerOf = (responses, callId) =>
-  responses.find(([, , id]) => id === callId) ?? [
-    "missingResponse",
-    { type: "missingResponse", description: `no response for ${callId}` },
-    callId,
-  ];
+/** One JMAP request, over the mail the group's folders live in. */
+const jmap = (apiUrl, authorization, methodCalls) =>
+  sharedJmap(apiUrl, authorization, methodCalls, [CORE, MAIL]);
 
 /** Whether a `Mailbox/set` answer applied the one update it was given. */
 const appliedUpdate = (entry, id) =>

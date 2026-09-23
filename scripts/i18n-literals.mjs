@@ -32,7 +32,13 @@ import { readFileSync } from "node:fs";
  * of its own.
  */
 import ts from "typescript";
-import { catalogFiles, NOT_PROSE, sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
+import {
+  catalogFiles,
+  NOT_PROSE,
+  sourceAst,
+  sourceFiles,
+  WRAPPERS,
+} from "./lib/i18nSources.mjs";
 
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([
@@ -51,7 +57,6 @@ const UI_PROPS = new Set([
 ]);
 const UI_ATTRS = new Set(["title", "aria-label", "placeholder", "alt"]);
 const TOASTS = new Set(["error", "success", "info", "show"]);
-const WRAPPERS = ["t", "tc", "tNode", "translate", "plural"];
 const EQUALITY = new Set([
   ts.SyntaxKind.EqualsEqualsEqualsToken,
   ts.SyntaxKind.ExclamationEqualsEqualsToken,
@@ -144,7 +149,7 @@ for (const file of sourceFiles()) {
     if (
       ts.isCallExpression(n) &&
       ts.isIdentifier(n.expression) &&
-      WRAPPERS.includes(n.expression.text)
+      WRAPPERS.has(n.expression.text)
     ) {
       const walk = (x) => {
         if (ts.isStringLiteral(x)) exempt.add(x);
