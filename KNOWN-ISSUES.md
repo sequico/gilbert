@@ -7,10 +7,10 @@ Nothing here is pending. This is not a list of unknowns but of things worth
 knowing — where Stalwart departs from a spec, where a setting has to be turned
 on for a feature to work, and what Gilbert deliberately does not do.
 
-The live instance runs **0.16.21**. Each entry names the server it was exercised
-against, and the date; a behaviour carrying an earlier version was checked
-against that one and has not changed since, which is what the version and the
-date are for.
+Each entry names the server it was exercised against, and the date; a behaviour
+carrying an earlier version was checked against that one and has not changed
+since, which is what the version and the date are for. The newest server the
+entries below name is **0.16.22**, the release this build follows.
 
 **0.16.21** was exercised by hand — mail, calendar and contacts — including
 editing one occurrence of a recurring series through the interface and

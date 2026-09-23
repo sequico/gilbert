@@ -724,9 +724,9 @@ browser  ──(same-origin /api/*)──►  Gilbert server (Node + Hono)  ─�
 
 Capabilities used: `core`, `mail`, `submission`, `vacationresponse`, `sieve`,
 `contacts`(+`parse`), `calendars`(+`parse`), `principals`(+`availability`),
-`quota`, `blob`, `filenode`, EventSource push, plus Stalwart's own
-`urn:stalwart:jmap` (read-only). Features degrade gracefully when one is
-missing.
+`quota`, `blob`, `filenode`, `webpush-vapid` and `emailpush` (Web Push),
+EventSource push, plus Stalwart's own `urn:stalwart:jmap` (read-only). Features
+degrade gracefully when one is missing.
 
 ## Development
 
