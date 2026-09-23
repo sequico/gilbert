@@ -417,9 +417,10 @@ implementation marks them where the code owes them (the repository's
    briefing does not describe as carrying a payload, which is the group case —
    and which also stops the second, nameless notification a delivery to the
    reader's own Inbox produces today.
-4. The briefing: per-account chat folder, the account's name, the watermark and
-   the reader's own address. **Partly built** — the per-account Inbox waits with
-   the group payload.
+4. The briefing: per-account chat folder, the account's name, the watermark, the
+   reader's own address and the account's Inbox id, which the notification's
+   deep link is built from. **Partly built** — the group payload waits with the
+   `emailPush` map above.
 5. `types`: the chat-capable accounts' wake-up gains `FileNode`. **Built.**
 6. Chat: the worker's read of the newest nodes, the sender rule, the watermark,
    the tag per node, and the suppression rule for a window of ours already on

@@ -37,6 +37,15 @@ export interface WorkerChatFact {
 export interface WorkerFacts {
   /** The account the notifications are about. */
   accountId: string;
+  /**
+   * The account's Inbox mailbox id.
+   *
+   * The deep link in a notification is `/mail/<mailbox id>/<thread id>`, so the
+   * worker needs the real Inbox id: a literal `inbox` is not a folder the app
+   * has, and opening one reads as a stale link and redirects to the inbox with
+   * a complaint. Null where the account's tree has not been read yet.
+   */
+  inboxId: string | null;
   /** Where Archive files to; null where the account has no archive folder. */
   archiveId: string | null;
   /** The reader's own address, so a message they wrote is never announced. */
@@ -67,10 +76,12 @@ export async function publishWorkerFacts(
   archiveId: string | null,
   chats: WorkerChatFact[] = [],
   ownAddress = "",
+  inboxId: string | null = null,
 ): Promise<void> {
   if (typeof caches === "undefined" || !accountId) return;
   const facts: WorkerFacts = {
     accountId,
+    inboxId,
     archiveId,
     ownAddress,
     chats,

@@ -44,12 +44,13 @@ afterEach(() => {
 });
 
 describe("the worker's briefing", () => {
-  it("names the account and the archive mailbox", async () => {
+  it("names the account, the archive mailbox and the inbox", async () => {
     const { store } = fakeCaches();
-    await publishWorkerFacts("a1", "mb-archive");
+    await publishWorkerFacts("a1", "mb-archive", [], "", "mb-inbox");
     const facts = written(store);
     expect(facts.accountId).toBe("a1");
     expect(facts.archiveId).toBe("mb-archive");
+    expect(facts.inboxId).toBe("mb-inbox");
   });
 
   it("carries the chats the worker may be woken for, and the reader's address", async () => {

@@ -36,14 +36,17 @@ describe("the push handler's rules", () => {
   });
 
   /*
-   * The buttons and the deep link both hang off the message's own id, so a
-   * payload without one is shown as a notice and carries no action — the
-   * reason `subscriptionPayload` has to ask Stalwart for `id`.
+   * The buttons hang off the message's own id — a payload without one is shown
+   * as a notice and carries no action, the reason `subscriptionPayload` has to
+   * ask Stalwart for `id` — and the deep link carries the Inbox id and the
+   * thread id the route is made of. A literal `inbox`, or the message's own id
+   * in the thread's place, is a folder and a thread the app cannot resolve.
    */
-  it("draws an action and a deep link only for a payload that names an id", () => {
+  it("draws an action only for an id, and a deep link from the Inbox and thread ids", () => {
     expect(worker).toContain("actions: email.id ? actionsFor(facts) : []");
     expect(worker).toMatch(
-      /url: email\.id \? `\$\{BASE\}\/mail\/inbox\/\$\{email\.id\}`/,
+      /\$\{BASE\}\/mail\/\$\{facts\.inboxId\}\/\$\{email\.threadId\}/,
     );
+    expect(worker).not.toMatch(/\$\{BASE\}\/mail\/inbox\//);
   });
 });

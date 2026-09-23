@@ -636,7 +636,18 @@ self.addEventListener("push", (event) => {
           // be drawn.
           actions: email.id ? actionsFor(facts) : [],
           data: {
-            url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail`,
+            /*
+             * The route is `/mail/<mailbox id>/<thread id>`, so the link needs
+             * the account's real Inbox id and the message's thread id -- never
+             * the literal `inbox` or the message's own id, neither of which the
+             * app can resolve (it answers "that folder no longer exists").
+             * Without a known Inbox, open /mail and let it redirect.
+             */
+            url: facts?.inboxId
+              ? email.threadId
+                ? `${BASE}/mail/${facts.inboxId}/${email.threadId}`
+                : `${BASE}/mail/${facts.inboxId}`
+              : `${BASE}/mail`,
             id: email.id || null,
             title,
             accountId: facts?.accountId ?? null,

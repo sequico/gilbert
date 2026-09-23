@@ -442,6 +442,13 @@ function AuthedApp() {
    */
   const archiveId = useMail((s) => s.roleId("archive"));
   /*
+   * The Inbox id, for the notification's deep link: the route is
+   * `/mail/<mailbox id>/<thread id>`, and the worker cannot resolve a folder
+   * name. Null until the account's tree is read, which the briefing carries as
+   * null and the worker falls back on.
+   */
+  const inboxId = useMail((s) => s.roleId("inbox"));
+  /*
    * A stable signature of the chats and their watermarks, so the worker's
    * cache is rewritten only when what it reads actually changes. The
    * conversations object is replaced on every draft keystroke, which is not a
@@ -482,8 +489,9 @@ function AuthedApp() {
       archiveId,
       chats,
       useSession.getState().session?.username ?? "",
+      inboxId,
     );
-  }, [accountId, archiveId, languageVersion, chatSignature]);
+  }, [accountId, archiveId, languageVersion, chatSignature, inboxId]);
 
   /*
    * Ask for the notification permission where the reader will see it.
