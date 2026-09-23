@@ -218,12 +218,11 @@ export function ContactsView({ id }: { id?: string }) {
   );
 
   /*
-   * The rows, and the account each came from. A card's id is only unique inside
-   * the account that minted it, so the account travels with the card through the
-   * list: it is half of what addresses a row, and without it a bare id names the
-   * reader's own card for two different contacts.
+   * The rows of the book being read, before the search box is applied: the
+   * cards whose account and book the choice selects, with the account that
+   * travels with each one.
    */
-  const listed = useMemo(() => {
+  const rowsInBook = useMemo(() => {
     const pairs: Array<{ card: ContactCard; accountId: string | null }> = [];
     // A shared book lists that account's cards; anything else lists the
     // reader's own. They are never mixed: whose contacts you are looking at is
@@ -244,19 +243,87 @@ export function ContactsView({ id }: { id?: string }) {
         for (const card of contacts.cardsIn(g.accountId))
           pairs.push({ card, accountId: g.accountId });
     }
-    /*
-     * The query is the store's own filter, and the rows are put back by the card
-     * they came from: one rule for what a search matches, and the account that
-     * travelled with the card stays with it.
-     */
+    return pairs;
+  }, [contacts, groupCardAccounts, bookId, sel.accountId]);
+
+  /*
+   * The query is the store's own filter, and the rows are put back by the card
+   * they came from: one rule for what a search matches, and the account that
+   * travelled with the card stays with it.
+   */
+  const listed = useMemo(() => {
     const kept = new Set(
       contacts.filterCards(
-        pairs.map((p) => p.card),
+        rowsInBook.map((p) => p.card),
         q,
       ),
     );
-    return pairs.filter((p) => kept.has(p.card));
-  }, [contacts, groupCardAccounts, q, bookId, sel.accountId]);
+    return rowsInBook.filter((p) => kept.has(p.card));
+  }, [contacts, rowsInBook, q]);
+
+  /*
+   * The opened card, resolved by the account **and** id the route names -- not
+   * by id alone, which prefers the reader's own map and leaves another
+   * account's card carrying the same id unreachable. Whether *this* card is
+   * theirs to write is its own question, and the store answers it from the book
+   * that holds it: another account's when the route names one, never by falling
+   * through to the reader's own map.
+   */
+  const found = cardAt(contacts.cards, contacts.sharedCards, address);
+
+  /*
+   * Whether the card the route names is one this book holds.
+   *
+   * A card belongs to the book it was opened from, so a card that is not in the
+   * book on screen is not on screen -- the detail is not drawn and the route
+   * stops naming it. Without that the pane went on showing the card of the book
+   * the reader had left: with two group mailboxes, clicking the second group's
+   * address book kept the first group's contact in front of them, and a group's
+   * books invite it, because every account's default book carries the same id
+   * ("b") and only the account beside the card tells two of them apart.
+   *
+   * Asked of the resolved card and not of the address, so the two cannot come to
+   * different answers: what the route names is resolved once (`cardAt`, which
+   * already answers a bare id from the account that holds it) and then met
+   * against the rows, which are "the cards of this book" by construction. On the
+   * search box alone nothing here moves -- a search narrows what is listed, and
+   * the row that is open is not made to disappear by it.
+   */
+  const cardInBook = Boolean(
+    found &&
+      rowsInBook.some(
+        (i) => i.card.id === found.card.id && (i.accountId ?? null) === found.accountId,
+      ),
+  );
+  const opened = cardInBook ? found : undefined;
+
+  /*
+   * And the route gives up a card the book no longer holds.
+   *
+   * The two answers must not disagree: the list is the book being read, so the
+   * address cannot go on naming a card of another one. `replace`, because
+   * leaving a book is not a step anybody means to go back to.
+   *
+   * Waited for the load that can judge it. A card is judged against the cards
+   * this reader holds, and before they arrive every group's book is empty -- so
+   * acting early would throw away a deep link that is perfectly good. Nothing
+   * is drawn in that window either way (`cardInBook` is false and the pane is
+   * the placeholder), and the effect runs again when the cards land.
+   */
+  useEffect(() => {
+    if (!address) return;
+    const needsShared = Boolean(address.accountId);
+    if (needsShared ? !contacts.sharedLoaded : !contacts.loaded) return;
+    if (cardInBook) return;
+    navigate("/contacts", { replace: true });
+  }, [
+    address?.id,
+    address?.accountId,
+    cardInBook,
+    contacts.loaded,
+    contacts.sharedLoaded,
+    navigate,
+  ]);
 
   /* The same rows as cards: the two places that work by id alone -- the tick a
      shift-click reaches back to, and the export -- read the cards the list is
@@ -280,15 +347,6 @@ export function ContactsView({ id }: { id?: string }) {
     menu.openAt(e.clientX, e.clientY);
   };
 
-  /*
-   * The opened card, resolved by the account **and** id the route names -- not
-   * by id alone, which prefers the reader's own map and leaves another
-   * account's card carrying the same id unreachable. Whether *this* card is
-   * theirs to write is its own question, and the store answers it from the book
-   * that holds it: another account's when the route names one, never by falling
-   * through to the reader's own map.
-   */
-  const opened = cardAt(contacts.cards, contacts.sharedCards, address);
   const selected = opened?.card;
   const selectedAccountId = opened?.accountId ?? null;
   /*

@@ -106,9 +106,12 @@ describe("the book named on a contact's own page", () => {
   });
 
   it("still names the reader's own book for a card in it", async () => {
+    // The reader's own book carries the same id the group's does, and the
+    // reader is reading theirs -- which is what puts the card on screen.
     useContacts.setState({
       cards: { c1: { ...GROUP_CARD, id: "c1" } },
       sharedCards: {},
+      selection: { accountId: null, bookId: SHARED_ID },
     });
     await render("c1");
     expect(hints().join(" | ")).toContain("My address book");

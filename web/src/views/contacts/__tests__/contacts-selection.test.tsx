@@ -180,9 +180,9 @@ describe("editing the contact on screen", () => {
   let root: Root;
 
   const SHARED = card("s1", "Sam Shared");
-  const book = (mayWrite: boolean) =>
+  const book = (mayWrite: boolean, id = "b1") =>
     ({
-      id: "b1",
+      id,
       name: "A book",
       description: null,
       sortOrder: 0,
@@ -244,6 +244,9 @@ describe("editing the contact on screen", () => {
       loading: true,
       cards: {},
       sharedCards: { "a2:s1": SHARED },
+      /* Reading the book that holds it, which is what puts the card on screen
+         at all: a card of a book the reader has left is not drawn. */
+      selection: { accountId: "a2", bookId: "book1" },
     });
     expect(editButton()).not.toBeUndefined();
     expect(deleteButton()).not.toBeNull();
@@ -256,8 +259,11 @@ describe("editing the contact on screen", () => {
       loading: false,
       cards: {},
       sharedCards: { "a2:s1": SHARED },
-      sharedBooks: [{ accountId: "a2", accountName: "A colleague", book: book(false) }],
+      sharedBooks: [
+        { accountId: "a2", accountName: "A colleague", book: book(false, "book1") },
+      ],
       sharedLoaded: true,
+      selection: { accountId: "a2", bookId: "book1" },
     });
     expect(editButton()).toBeUndefined();
     expect(deleteButton()).toBeNull();
