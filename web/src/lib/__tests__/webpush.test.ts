@@ -161,6 +161,24 @@ describe("what gets registered", () => {
     );
   });
 
+  it("asks for FileNode too when the reader has a group to be woken for", () => {
+    /*
+     * A chat message is one JSON node in a group's Files, which `emailpush`
+     * has no vocabulary for -- so `FileNode` is the only type that wakes a
+     * closed client for it. A reader in no group asks for neither, and is not
+     * woken by their own file writes.
+     */
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    expect(
+      (subscriptionPayload(fakeSub, "a1", null, true) as Record<string, unknown>).types,
+    ).toEqual(["EmailDelivery", "FileNode"]);
+    expect(
+      (subscriptionPayload(fakeSub, "a1", null, false) as Record<string, unknown>).types,
+    ).toEqual(["EmailDelivery"]);
+  });
+
   it("asks for the id, so a notification can be tagged and acted on", () => {
     // Stalwart sends only the properties named, and `sw.js` draws its Archive
     // and Mark-read buttons only for a payload that carries an id -- so a list

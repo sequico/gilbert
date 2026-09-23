@@ -355,7 +355,10 @@ async function readFacts() {
  * rather than swallowed. A tap that silently does nothing is the failure worth
  * avoiding here: the reader has already put the phone down.
  */
-async function jmap(methodCalls) {
+async function jmap(
+  methodCalls,
+  using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+) {
   const res = await fetch(`${BASE}/api/jmap`, {
     method: "POST",
     credentials: "same-origin",
@@ -364,10 +367,7 @@ async function jmap(methodCalls) {
       accept: "application/json",
       "x-requested-with": "gilbert",
     },
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-      methodCalls,
-    }),
+    body: JSON.stringify({ using, methodCalls }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
@@ -404,6 +404,122 @@ function actionsFor(facts) {
   if (facts.archiveId) actions.push({ action: "archive", title: facts.strings.archive });
   actions.push({ action: "read", title: facts.strings.markRead });
   return actions;
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat, which rides FileNode state changes                            */
+/* ------------------------------------------------------------------ */
+
+const FILE_NODE_CAP = "urn:ietf:params:jmap:filenode";
+/* How many of a chat's newest nodes one wake-up reads back. */
+const CHAT_READ = 10;
+
+/*
+ * The newest nodes of a chat folder.
+ *
+ * A real JMAP server pages `FileNode/query` by `position` and reports `total`,
+ * so the newest page starts at `total - CHAT_READ`; the mock answers the same
+ * shape. Asking for the total first is what lets a folder longer than the page
+ * be read from its end rather than its start. This is ADR 0016's unverified
+ * half: what a live 0.16 answers here is the probe `chat-wake-read` still
+ * owes.
+ */
+async function newestChatNodes(accountId, folderId) {
+  const using = ["urn:ietf:params:jmap:core", FILE_NODE_CAP];
+  const counted = await jmap(
+    [["FileNode/query", { accountId, filter: { parentId: folderId }, limit: 1 }, "q0"]],
+    using,
+  );
+  const total = Number(counted?.methodResponses?.[0]?.[1]?.total ?? 0);
+  if (!total) return [];
+  const idsBody = await jmap(
+    [
+      [
+        "FileNode/query",
+        {
+          accountId,
+          filter: { parentId: folderId },
+          position: Math.max(0, total - CHAT_READ),
+          limit: CHAT_READ,
+        },
+        "q",
+      ],
+    ],
+    using,
+  );
+  const ids = idsBody?.methodResponses?.[0]?.[1]?.ids;
+  if (!Array.isArray(ids) || !ids.length) return [];
+  const got = await jmap(
+    [
+      [
+        "FileNode/get",
+        { accountId, ids, properties: ["blobId", "nodeType", "created"] },
+        "g",
+      ],
+    ],
+    using,
+  );
+  const list = got?.methodResponses?.[0]?.[1]?.list;
+  return Array.isArray(list) ? list : [];
+}
+
+/* Read one chat document through the same proxy a tab uses. */
+async function readChatDoc(accountId, blobId) {
+  const url = `${BASE}/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(blobId)}/blob.txt?accept=application%2Fjson`;
+  const res = await fetch(url, { credentials: "same-origin" });
+  if (!res.ok) return null;
+  try {
+    return JSON.parse(await res.text());
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * Notify for the chat messages a state change brought, and say whether it did.
+ *
+ * A `FileNode` change is the only wake-up a chat message produces, and it
+ * carries no message -- so the worker reads the chat folder back and announces
+ * what is newer than the watermark the app wrote, from somebody other than the
+ * reader. An account with no chat in the briefing is a wake-up that notifies
+ * nothing, which is most file writes: an upload, an agent document, the
+ * reader's own stored settings.
+ */
+async function chatNotifications(data, facts) {
+  const chats = facts?.chats ?? [];
+  if (!chats.length || !data || data["@type"] !== "StateChange") return false;
+  const changed = data.changed ?? {};
+  let announced = false;
+  for (const [accountId, types] of Object.entries(changed)) {
+    if (!types || !("FileNode" in types)) continue;
+    const chat = chats.find((c) => c.accountId === accountId);
+    if (!chat) continue;
+    let nodes;
+    try {
+      nodes = await newestChatNodes(accountId, chat.folderId);
+    } catch {
+      continue; // a session the read cannot use notifies nothing
+    }
+    for (const node of nodes) {
+      if (!node?.blobId) continue;
+      const doc = await readChatDoc(accountId, node.blobId);
+      const from = typeof doc?.from === "string" ? doc.from : "";
+      const at = typeof doc?.at === "string" ? doc.at : "";
+      const text = typeof doc?.text === "string" ? doc.text : "";
+      if (!from || !at) continue;
+      if (facts.ownAddress && from === facts.ownAddress) continue;
+      if (chat.watermark && at <= chat.watermark) continue;
+      await self.registration.showNotification(chat.name, {
+        body: `${from}: ${text}`.trim(),
+        icon: `${BASE}/img/icon-192.png`,
+        badge: `${BASE}/img/favicon-64.png`,
+        tag: `gilbert-chat-${node.id}`,
+        data: { url: `${BASE}/mail` },
+      });
+      announced = true;
+    }
+  }
+  return announced;
 }
 
 self.addEventListener("push", (event) => {
@@ -476,6 +592,22 @@ self.addEventListener("push", (event) => {
         await self.navigator.setAppBadge().catch(() => {});
 
       if (!emails.length) {
+        /*
+         * A group chat's wake-up is a FileNode state change, which carries no
+         * message and has to be read back (ADR 0016). A FileNode change is
+         * never mail: the reader's own settings write, an upload and an agent
+         * document all wear the same type, so this branch notifies from the
+         * chat read and otherwise says nothing at all -- it must not fall
+         * through to "New mail", which would turn every file write into one.
+         */
+        const fileNodes =
+          data &&
+          data["@type"] === "StateChange" &&
+          Object.values(data.changed ?? {}).some((types) => types && "FileNode" in types);
+        if (fileNodes) {
+          await chatNotifications(data, facts);
+          return;
+        }
         // A delivery from a server that sends a StateChange rather than an
         // EmailPush -- the subscription asks for `EmailDelivery`, so what
         // changed is that mail arrived -- or a payload too large to carry the

@@ -35,6 +35,7 @@ import {
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { withBase } from "./basePath";
+import { groupMailboxAccounts } from "./mailAccounts";
 import { SW_CACHE_NAME } from "./swCache";
 
 let listening = false;
@@ -178,7 +179,13 @@ async function registerThisBrowser(key: string): Promise<void> {
 
   const accountId = useSession.getState().ownAccountFor(CAP.mail);
   const inboxId = useMail.getState().roleId("inbox");
-  const payload = subscriptionPayload(sub, accountId, inboxId);
+  /*
+   * A reader in at least one group is woken for chat too: `FileNode` is what a
+   * chat message changes, and the worker reads it back (ADR 0016). A reader in
+   * no group asks for neither, and is not woken by their own file writes.
+   */
+  const watchChat = groupMailboxAccounts(useMail.getState().mailAccounts).length > 0;
+  const payload = subscriptionPayload(sub, accountId, inboxId, watchChat);
   await releaseThisDevice(sub.endpoint);
   /*
    * One retry, because the release has already happened: the row that was

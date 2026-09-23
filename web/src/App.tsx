@@ -8,7 +8,12 @@ import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { setBaseTitle, setUnreadBadge } from "@/lib/notify";
+import {
+  requestNotificationPermission,
+  setBaseTitle,
+  setUnreadBadge,
+  shouldAskForNotifications,
+} from "@/lib/notify";
 import { refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import {
   armSettingsSync,
@@ -20,7 +25,8 @@ import {
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
-import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
+import { webPushAvailable } from "@/lib/webpush";
+import { enableWebPush, listenForVerification, renewWebPush } from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
 import { useChat } from "@/store/chat";
 import { useContacts } from "@/store/contacts";
@@ -429,10 +435,68 @@ function AuthedApp() {
    * See lib/swFacts.ts.
    */
   const archiveId = useMail((s) => s.roleId("archive"));
+  const chatConversations = useChat((s) => s.conversations);
   const languageVersion = useLanguageVersion();
   useEffect(() => {
-    void publishWorkerFacts(accountId, archiveId);
-  }, [accountId, archiveId, languageVersion]);
+    /*
+     * The chats the worker may be woken for: one entry per group whose folders
+     * are known, carrying the watermark the app has already seen so the worker
+     * never announces an old message. Rewritten whenever the conversations
+     * move -- a new message, a new group -- because it is what the worker will
+     * still be reading a week from now.
+     */
+    const chats = Object.values(chatConversations)
+      .filter((c) => c.folders)
+      .map((c) => ({
+        accountId: c.accountId,
+        name: c.name,
+        folderId: c.folders!.chat,
+        watermark: c.nodes[c.nodes.length - 1]?.at ?? "",
+      }));
+    void publishWorkerFacts(
+      accountId,
+      archiveId,
+      chats,
+      useSession.getState().session?.username ?? "",
+    );
+  }, [accountId, archiveId, languageVersion, chatConversations]);
+
+  /*
+   * Ask for the notification permission where the reader will see it.
+   *
+   * The browser grants this permission only to a gesture, so nothing can turn
+   * notifications on by itself -- but the switches default on and the ask
+   * never happens is how somebody ends up with none and no idea why. This is
+   * the ask, and its button is the gesture the permission needs. The action
+   * also subscribes this browser where the device can do background push, so
+   * "on" means the system notification and not only the in-tab one. It is
+   * shown once the app is ready, and never once the browser has answered.
+   */
+  const notificationsWanted = useSettings((s) => s.settings.desktopNotifications);
+  useEffect(() => {
+    if (!ready || !accountId) return;
+    const permission =
+      typeof Notification === "undefined" || !("Notification" in window)
+        ? "unsupported"
+        : Notification.permission;
+    if (!shouldAskForNotifications(permission, notificationsWanted)) return;
+    toast.show(
+      t(
+        "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.",
+      ),
+      {
+        duration: 0,
+        action: {
+          label: t("Turn on notifications"),
+          onClick: async () => {
+            const p = await requestNotificationPermission();
+            if (p !== "granted") return;
+            if (webPushAvailable()) await enableWebPush().catch(() => undefined);
+          },
+        },
+      },
+    );
+  }, [ready, accountId, notificationsWanted]);
 
   // Nothing worth painting until the account's settings are in force; see the
   // comment on `ready` above. With a cache this was true from the first frame.

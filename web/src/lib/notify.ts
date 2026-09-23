@@ -94,6 +94,22 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 }
 
+/**
+ * Whether the app should ask the reader, given the switch and the browser's answer.
+ *
+ * The switches default on, so a reader who never visits Settings is owed the
+ * ask rather than silence: this is true while a switch wants notifications and
+ * the browser has not been asked yet. An answer already given, in either
+ * direction, is final here -- the browser will not prompt again, and `denied`
+ * is repaired in its own settings, not by a button that cannot work.
+ */
+export function shouldAskForNotifications(
+  permission: NotificationPermission | "unsupported",
+  wanted: boolean,
+): boolean {
+  return wanted && permission === "default";
+}
+
 export function showNotification(
   title: string,
   opts: NotificationOptions & { onClick?: () => void } = {},

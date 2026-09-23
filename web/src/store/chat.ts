@@ -42,9 +42,11 @@ import {
 } from "@/lib/chat";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { playNewMailSound, showNotification } from "@/lib/notify";
 import { agentViewKey, useAgents } from "@/store/agents";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { useSettings } from "@/store/settings";
 import { toast } from "@/ui/toast";
 
 export interface ChatConversation {
@@ -583,6 +585,7 @@ export const useChat = create<ChatState>((set, get) => {
         const stale = markerGone || replyGone || copyStale;
         const known = new Set(nodes.map((n) => n.id));
         const fresh = created.filter((id) => !known.has(id));
+        const arrived: ChatMessage[] = [];
         if (fresh.length) {
           // One get for the batch, then the shared parser keeps only the
           // nodes that actually live in this conversation's chat folder.
@@ -593,7 +596,8 @@ export const useChat = create<ChatState>((set, get) => {
           });
           const onlyHere = got.list.filter((n) => n.parentId === chatFolder);
           for (const m of await parseMessages(accountId, onlyHere))
-            changed = sortedInsert(nodes, m) || changed;
+            if (sortedInsert(nodes, m)) arrived.push(m);
+          changed = changed || arrived.length > 0;
         }
         if (changed || since !== conv.stateToken || stale) {
           set((s) => {
@@ -614,6 +618,7 @@ export const useChat = create<ChatState>((set, get) => {
           });
           if (changed && get().openAccountId === accountId) markAt(accountId);
         }
+        if (arrived.length) notifyNewChat(conv.name, accountId, arrived, get().me());
         // What names a destroyed node is not patched but re-read from the
         // server, which re-derives the marker from what is left.
         if (stale) void get().reload(accountId);
@@ -630,6 +635,40 @@ export const useChat = create<ChatState>((set, get) => {
     },
   };
 });
+
+/**
+ * Tell the reader a chat message arrived, the way mail already does.
+ *
+ * The sound and the system notification are the two switches mail honours, and
+ * both are device-local. `showNotification` already stays silent while a
+ * focused, visible window of this app is on screen, so a reader looking at
+ * Gilbert is not interrupted -- the launcher badge and the transcript are the
+ * in-app signal there. A message the reader wrote is never announced: a phone
+ * that has just sent one is the ordinary case, and its own write wakes it too.
+ * The click asks the launcher to open that conversation, which is the only
+ * surface that has one.
+ */
+export function notifyNewChat(
+  groupName: string,
+  accountId: Id,
+  arrived: ChatMessage[],
+  me: string,
+): void {
+  const fromOthers = arrived.filter((m) => m.from && m.from !== me);
+  if (!fromOthers.length) return;
+  const s = useSettings.getState().settings;
+  if (s.notificationSound) playNewMailSound();
+  if (!s.desktopNotifications) return;
+  for (const m of fromOthers.slice(0, 3)) {
+    showNotification(groupName, {
+      body: `${m.from}: ${m.text}`.trim(),
+      tag: `gilbert-chat-${m.id}`,
+      onClick: () => {
+        window.dispatchEvent(new CustomEvent("gilbert:open-chat", { detail: accountId }));
+      },
+    });
+  }
+}
 
 // Keep the conversation set in step with the session's group mailboxes: a
 // membership change (added later, or leaving) warms or drops conversations,

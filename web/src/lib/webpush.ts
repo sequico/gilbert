@@ -202,6 +202,7 @@ export function subscriptionPayload(
   sub: PushSubscription,
   accountId: Id | null,
   inboxId: Id | null = null,
+  watchChat = false,
 ): Record<string, unknown> {
   const json = sub.toJSON();
   const body: Record<string, unknown> = {
@@ -212,7 +213,7 @@ export function subscriptionPayload(
       auth: json.keys?.auth ?? encodeKey(sub.getKey("auth")),
     },
     /*
-     * New mail, and nothing else.
+     * New mail, and chat where the reader has a group to be woken for.
      *
      * `EmailDelivery` changes only when a message is delivered. `Email`
      * changes on every read, flag and move, from any client, and each of
@@ -222,10 +223,13 @@ export function subscriptionPayload(
      * is sent a delivery as an `EmailPush` alone, so what the filter describes
      * does not arrive twice.
      *
-     * `FileNode` is deliberately not named: a `FileNode` change here would
-     * render as "New mail", and what would make it a chat notification is the
-     * worker's read of what changed -- ADR 0016 carries that work, and the
-     * type goes in with it rather than before it.
+     * `FileNode` is named only when the reader is in at least one group, which
+     * is where chat lives: a `FileNode` change is the only wake-up a chat
+     * message produces, because `emailpush` has no vocabulary for a file. It
+     * wakes the device for every file write in every account the subscription
+     * serves -- an upload, an agent document, the reader's own settings -- and
+     * the worker's read is what turns the chat ones into a notification and
+     * the rest into nothing (ADR 0016). A reader in no group asks for neither.
      *
      * A delivery with no `emailPush` entry describing its account -- a group
      * mailbox, today -- is degraded to a state change instead, and whether that
@@ -234,7 +238,7 @@ export function subscriptionPayload(
      * stops waking this device rather than merely losing its sender, which is
      * why the question is written down rather than assumed.
      */
-    types: ["EmailDelivery"],
+    types: watchChat ? ["EmailDelivery", "FileNode"] : ["EmailDelivery"],
   };
   if (accountId && supportsEmailPush()) {
     body.emailPush = {

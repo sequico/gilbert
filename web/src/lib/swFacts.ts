@@ -22,11 +22,27 @@ import { SW_CACHE_NAME } from "./swCache";
 
 export const FACTS_KEY = "/gilbert-worker-facts";
 
+/** One group chat the worker may be woken for, and what reading it needs. */
+export interface WorkerChatFact {
+  /** The group account the chat lives in (a FileNode change names it). */
+  accountId: string;
+  /** The group's display name, which is the notification's title. */
+  name: string;
+  /** The `gilbert/chat` folder's id. */
+  folderId: string;
+  /** The newest message instant the app has already seen, or "" for none. */
+  watermark: string;
+}
+
 export interface WorkerFacts {
   /** The account the notifications are about. */
   accountId: string;
   /** Where Archive files to; null where the account has no archive folder. */
   archiveId: string | null;
+  /** The reader's own address, so a message they wrote is never announced. */
+  ownAddress: string;
+  /** Every group chat this device may be woken for (ADR 0016). */
+  chats: WorkerChatFact[];
   /** The worker's own user-visible text, in the language this tab is in. */
   strings: {
     newMail: string;
@@ -49,11 +65,15 @@ export interface WorkerFacts {
 export async function publishWorkerFacts(
   accountId: string | null,
   archiveId: string | null,
+  chats: WorkerChatFact[] = [],
+  ownAddress = "",
 ): Promise<void> {
   if (typeof caches === "undefined" || !accountId) return;
   const facts: WorkerFacts = {
     accountId,
     archiveId,
+    ownAddress,
+    chats,
     strings: {
       newMail: t("New mail"),
       newMessage: t("New message"),

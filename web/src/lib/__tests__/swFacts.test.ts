@@ -52,6 +52,35 @@ describe("the worker's briefing", () => {
     expect(facts.archiveId).toBe("mb-archive");
   });
 
+  it("carries the chats the worker may be woken for, and the reader's address", async () => {
+    // The worker reads a chat's folder and watermark straight from here, and
+    // uses the address to avoid announcing the reader's own message.
+    const { store } = fakeCaches();
+    await publishWorkerFacts(
+      "a1",
+      "mb-archive",
+      [
+        {
+          accountId: "g1",
+          name: "Team",
+          folderId: "ch",
+          watermark: "2026-01-01T00:00:00Z",
+        },
+      ],
+      "me@example.org",
+    );
+    const facts = written(store);
+    expect(facts.ownAddress).toBe("me@example.org");
+    expect(facts.chats).toEqual([
+      {
+        accountId: "g1",
+        name: "Team",
+        folderId: "ch",
+        watermark: "2026-01-01T00:00:00Z",
+      },
+    ]);
+  });
+
   it("carries the worker's text in the language the tab is in", async () => {
     // The worker has no catalogue. Everything it will say has to be said here
     // first, or a German reader gets English buttons on their lock screen.

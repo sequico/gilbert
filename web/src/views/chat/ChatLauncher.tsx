@@ -48,6 +48,18 @@ export function ChatLauncher() {
     if (maximized) setOpen(false);
   }, [maximized]);
 
+  // A notification's click asks the panel to open on the conversation it named.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (!id) return;
+      setOpen(true);
+      openConversation(id);
+    };
+    window.addEventListener("gilbert:open-chat", onOpen);
+    return () => window.removeEventListener("gilbert:open-chat", onOpen);
+  }, [openConversation]);
+
   // The popover closes itself on any outside mousedown -- including this
   // launcher's own. That would close the panel on the press and leave the
   // click to reopen it (the state has already flipped by then), so while

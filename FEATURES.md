@@ -2197,8 +2197,11 @@ needed nothing in either half.
   in: connected, reconnecting, or off and polling.
 - **Unread count in the tab title and painted onto the favicon**, so the tab
   tells you before you look.
-- **Desktop notifications** while Gilbert is open and the tab is in the
-  background, with an optional sound.
+- **Desktop notifications** for new mail and new chat messages while Gilbert is
+  open and the tab is in the background, with a sound. Both switches start
+  **on** for a new device; the system permission is the browser's, and is asked
+  for in the gesture that turns a switch on and prompted for when a switch is
+  on and the browser has not answered.
 - **Web Push** for notifications with Gilbert **closed**, where the server
   signs with VAPID (RFC 9749). Nothing in that path touches Gilbert's server —
   Stalwart talks to the browser's push service directly, so there is no relay to
@@ -2213,15 +2216,16 @@ needed nothing in either half.
   while a focused Gilbert window is on screen, since that window is already
   being told by its own event stream. Offered only on a device you said was
   yours.
-- **The subscription is one row per device, and a delivery to a group is one of
-  the things it wakes for.** A push subscription belongs to the principal that
-  registered it and is served for every account that principal is a **member**
-  of — their own and each group mailbox — so a group's mail already wakes a
-  closed Gilbert today, as a notification that names nothing; what is not built
-  is the per-account payload that would name the sender, the subject and the
-  mailbox it landed in, and the chat wake-up beside it. Read from Stalwart's
-  source at v0.16.22 and written down in ADR 0016, which holds what a running
-  server still has to confirm.
+- **The subscription is one row per device, and it wakes for a group's mail and
+  its chat.** A push subscription belongs to the principal that registered it
+  and is served for every account that principal is a **member** of — their own
+  and each group mailbox. A group's mail wakes a closed Gilbert as a
+  notification that names nothing; what is not built is the per-account payload
+  that would name the sender, the subject and the mailbox it landed in. A chat
+  message wakes it through `FileNode`, and the worker reads the newest nodes of
+  the group's chat folder back and announces what is newer than the watermark
+  and not the reader's own (ADR 0016, whose live-server probes stay owed). Read
+  from Stalwart's source at v0.16.22.
 - **A full account is not the end of notifications.** Stalwart allows fifteen
   subscriptions per account, shared with Gilbert's own server-side row, and the
   sixteenth create is refused `overQuota`. The client releases its own rows

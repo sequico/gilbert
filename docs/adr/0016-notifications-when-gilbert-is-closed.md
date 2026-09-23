@@ -7,17 +7,27 @@ permission in its own gesture and nowhere else, `webPushBlocker()` names why a
 browser cannot be offered background notifications — the iOS install case among
 them — and the surface composes the sentence from that code
 (`web/src/lib/webpush.ts`, `web/src/lib/webpushEnable.ts`,
-`web/src/views/settings/NotificationsSettings.tsx`). The noise half is built:
+`web/src/views/settings/NotificationsSettings.tsx`), and a nudge asks when a
+switch is on and the browser has not answered (`shouldAskForNotifications`,
+`web/src/App.tsx`). The noise half is built:
 the subscription names `EmailDelivery` rather than `Email`, so a read or a move
 no longer arrives as mail, the payload asks for `id` and `threadId`, which is
 what lets a notification be tagged and carry its actions, and the worker stays
 quiet while a focused window of this app is on screen — all three pinned by
 `web/src/lib/__tests__/swPushRules.test.ts` and the payload's own assertions.
+The open-tab chat half is built: a message from somebody else notifies from the
+same live change mail does, sound and system notification alike, and the
+reader's own never does (`notifyNewChat`, `web/src/store/chat.ts`, pinned by
+`web/src/store/__tests__/chat-notify.test.ts`). The closed-client chat half is
+built: a group in the briefing puts `FileNode` in the subscription's `types`,
+the reader's chats travel with the folder and the watermark they need, and the
+worker reads the newest nodes back and notifies what is newer than the
+watermark and not the reader's own (`web/public/sw.js`, `web/src/lib/swFacts.ts`,
+`web/src/lib/webpush.ts`, pinned by `web/src/lib/__tests__/swChat.test.ts`).
 Not built: the payload for the group mailboxes the subscription already wakes
-for, the generic wake-up narrowed to the accounts the briefing does not
-describe, and the chat read. What those rest on is read from Stalwart's source
-at v0.16.22 and written down below; the one thing still owed is seeing a
-running server do it.
+for, and the generic wake-up narrowed to the accounts the briefing does not
+describe. What those rest on is read from Stalwart's source at v0.16.22 and
+written down below; the one thing still owed is seeing a running server do it.
 
 ## Context
 
@@ -99,9 +109,11 @@ surface says where it is undone (the browser's own settings for this site)
 rather than offering a button that cannot work. An answer the browser has
 forgotten while the switch stayed on is said out loud, and the gesture that
 repairs it is the switch's own — turning it off and on again asks, which is what
-the sentence says. The section draws no second door of its own, because a
-gesture-shaped button here and an effect there would be the same request under
-two guises, and only one of them is the reader's.
+the sentence says. Beside the switch the app also **nudges** when a switch is on
+and the browser has still not been asked: a toast carrying a button, and the
+button is the gesture (`web/src/App.tsx`). Nothing asks from an effect, a timer
+or a start-up path — the request is still the reader's — and a browser that has
+already answered, either way, is never nudged.
 
 What the switch offers is decided by a reason rather than a boolean:
 `webPushBlocker()` answers the surface with a code it composes a sentence from,
@@ -307,6 +319,18 @@ boolean that came back would fail here:
   answer the browser has forgotten is said out loud and draws no button of its
   own; and the answer the browser then gives is what the reader is told
   (`web/src/views/settings/__tests__/notifications-permission.test.tsx`).
+- `shouldAskForNotifications` asks while a switch is on and the browser has not
+  answered, and never after an answer
+  (`web/src/lib/__tests__/notificationAsk.test.ts`).
+- A chat message from somebody else notifies from the live store change, the
+  reader's own does not, and the two switches gate it
+  (`web/src/store/__tests__/chat-notify.test.ts`).
+- The worker's chat rules — notify for a node from somebody else, not the
+  reader's own, not at or before the watermark, and read the newest page of the
+  folder from its end — held by reading `web/public/sw.js` back
+  (`web/src/lib/__tests__/swChat.test.ts`), and the briefing carrying a chat's
+  folder, watermark and the reader's address
+  (`web/src/lib/__tests__/swFacts.test.ts`).
 
 Owed with the steps below:
 
@@ -316,17 +340,10 @@ Owed with the steps below:
 - "This browser is subscribed" is true only when **every** target account holds
   this device's row, so one group whose registration failed reads as off rather
   than as push being on (`web/src/lib/__tests__/webpush.test.ts`).
-- The worker notifies for a chat node, does not notify for the reader's own,
-  does not notify at or before the watermark, and stays silent when a window of
-  ours has that chat focused — loading `web/public/sw.js` against a stubbed
-  `self`, `caches` and `clients`
-  (`web/src/lib/__tests__/swChat.test.ts`).
 - The document fields the worker reads (`v`, `from`, `at`, `text`) are pinned
   against `server/src/shared/chat.ts`, the one definition of a chat node, so a
   rename there cannot leave the worker reading a field nobody writes
   (`web/src/lib/__tests__/swChat.test.ts`).
-- The briefing carries a chat account's folder, its watermark and the reader's
-  own address (`web/src/lib/__tests__/swFacts.test.ts`).
 - `server/src/mock` answers the group-account subscription and a chat `FileNode`
   change as the live server does, with the assumption pinned next to the
   simulation (`server/src/mock/index.ts`, its test).
@@ -398,14 +415,16 @@ implementation marks them where the code owes them (the repository's
    briefing does not describe as carrying a payload, which is the group case —
    and which also stops the second, nameless notification a delivery to the
    reader's own Inbox produces today.
-4. The briefing: per-account Inbox, archive and chat folder, the account's name,
-   the watermark and the reader's own address.
-5. `types`: the chat-capable accounts' wake-up gains `FileNode`.
+4. The briefing: per-account chat folder, the account's name, the watermark and
+   the reader's own address. **Partly built** — the per-account Inbox waits with
+   the group payload.
+5. `types`: the chat-capable accounts' wake-up gains `FileNode`. **Built.**
 6. Chat: the worker's read of the newest nodes, the sender rule, the watermark,
    the tag per node, and the suppression rule for a window of ours already on
-   that chat.
+   that chat. **Built.**
 7. The same kinds from the open-tab path, so a visible Gilbert is not the quiet
-   one.
+   one. **Partly built** — the chat half is `notifyNewChat`; the group-mail half
+   is not.
 8. Settings and the record: the device-local switches for the new kinds, the
    policy entry and the settings surface, `FEATURES.md` (the notifications
    section and the capability table), `KNOWN-ISSUES.md` for what an operator
