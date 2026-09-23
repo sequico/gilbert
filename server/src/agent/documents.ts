@@ -614,7 +614,10 @@ export function automationLabel(rule: { trigger?: AgentTrigger }): string {
  * *about* (ADR 0006). The document still carries a number, so a rule written
  * before this table or by hand keeps the interval it states.
  */
-export const AGENT_SCHEDULE_PRESETS: ReadonlyArray<number> = [60, 1440, 10080];
+export const AGENT_SCHEDULE_PRESETS = [60, 1440, 10080] as const;
+
+/** One of the cadences the editor offers, as the interval it stands for. */
+export type AgentScheduleMinutes = (typeof AGENT_SCHEDULE_PRESETS)[number];
 
 /** What a scheduled automation runs at when its document states no interval. */
 export const AGENT_SCHEDULE_MINUTES_DEFAULT = 60;

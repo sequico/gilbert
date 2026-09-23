@@ -17,6 +17,7 @@ import {
   type AgentMeter,
   type AgentReviewMode,
   type AgentRule,
+  type AgentScheduleMinutes,
   type AgentTrigger,
   type AgentTriggerOn,
   actionParamsText,
@@ -239,18 +240,19 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
 }
 
 /**
- * A cadence in words, from the same table the editor offers.
+ * A cadence in words.
  *
- * The preset names and the interval they stand for are one fact, so a value the
- * select cannot produce — a document written by hand, or by a build that had
- * other presets — is still said in minutes rather than dropped out of the
- * sentence.
+ * The intervals are `AGENT_SCHEDULE_PRESETS`'s, checked below, so the editor
+ * and this sentence cannot offer different cadences; the words differ on
+ * purpose (a select label is title case, a sentence is not). A value the select
+ * cannot produce — a document written by hand, or by a build that had other
+ * presets — is still said in minutes rather than dropped out of the sentence.
  */
 const SCHEDULE_LABELS: Record<number, string> = {
   60: "every hour",
   1440: "every day",
   10080: "every week",
-};
+} satisfies Record<AgentScheduleMinutes, string>;
 
 export function scheduleText(rule: Pick<AgentRule, "trigger">): string {
   const minutes = scheduleMinutesOf(rule);

@@ -28,6 +28,7 @@ import {
   AGENT_TRIGGERS,
   type AgentActionName,
   type AgentRule,
+  type AgentScheduleMinutes,
   type AgentTrigger,
   type AgentTriggerOn,
   automationLabel,
@@ -67,7 +68,7 @@ const SCHEDULE_LABELS: Record<number, string> = {
   60: "Every hour",
   1440: "Every day",
   10080: "Every week",
-};
+} satisfies Record<AgentScheduleMinutes, string>;
 
 /**
  * The trigger a chosen event carries, with no cadence but the clock's.

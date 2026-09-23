@@ -626,21 +626,31 @@ export class AgentStore {
   }
 
   /**
-   * Append one authoring call to the month's document.
+   * One compare-and-set pass over a month's authoring document.
    *
-   * Simpler than the trail's append on purpose: a count that lost a race is
-   * repaired by asking again, while a run's record is what a group's work is
-   * answered from. Missing is empty, unreadable is loud, and a lost race is
-   * retried the ordinary number of times before it fails in the open.
+   * `appendAuthoring`, `reserveAuthoring` and `updateAuthoringEntry` each
+   * re-read the document, default a missing one to an empty month, refuse one
+   * that is there but unreadable, and retry when the write loses the CAS.
+   * `mutate` is handed the document as it now reads and returns the next one,
+   * or null to abandon the pass (a cap reached, an entry no longer present).
+   * `onUnreadable` is "throw" for a writer that must not overwrite a document
+   * it cannot read, and "abandon" for the one that settles a reservation and
+   * can simply give up. `conflict` completes the sentence thrown past the
+   * last attempt.
    */
-  async appendAuthoring(entry: AgentAuthoringEntry, at = new Date()): Promise<void> {
-    const month = monthOf(at);
+  private async authoringCas(
+    month: string,
+    mutate: (doc: AgentAuthoringDoc) => AgentAuthoringDoc | null,
+    onUnreadable: "throw" | "abandon",
+    conflict: string,
+  ): Promise<boolean> {
     const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
     for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
       if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
       if (raw !== null && !isAgentAuthoringDoc(raw)) {
+        if (onUnreadable === "abandon") return false;
         throw new Error(
           `the authoring document ${path} is there but does not read as one; ` +
             `refusing to write over it`,
@@ -649,17 +659,34 @@ export class AgentStore {
       const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
         ? raw
         : { v: 1, month, entries: [] };
-      doc.entries = [...doc.entries, entry];
+      const next = mutate(doc);
+      if (next === null) return false;
       try {
-        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
-        return;
+        await writeAppFileAt(this.ctx, this.accountId, path, next, { ifInState: state });
+        return true;
       } catch (err) {
         if (!isStateMismatch(err)) throw err;
       }
     }
     throw new Error(
-      `the authoring document ${path} kept changing under the writer; ` +
-        `the call is not counted`,
+      `the authoring document ${path} kept changing under the writer; ${conflict}`,
+    );
+  }
+
+  /**
+   * Append one authoring call to the month's document.
+   *
+   * Simpler than the trail's append on purpose: a count that lost a race is
+   * repaired by asking again, while a run's record is what a group's work is
+   * answered from. Missing is empty, unreadable is loud, and a lost race is
+   * retried the ordinary number of times before it fails in the open.
+   */
+  async appendAuthoring(entry: AgentAuthoringEntry, at = new Date()): Promise<void> {
+    await this.authoringCas(
+      monthOf(at),
+      (doc) => ({ ...doc, entries: [...doc.entries, entry] }),
+      "throw",
+      "the call is not counted",
     );
   }
 
@@ -684,33 +711,20 @@ export class AgentStore {
     entry: { token: string; about: string; group?: string; by?: string },
     at = new Date(),
   ): Promise<boolean> {
-    const month = monthOf(at);
-    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
-    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
-      if (attempt) await sleep(backoffMs(attempt));
-      const state = await this.state();
-      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      if (raw !== null && !isAgentAuthoringDoc(raw)) {
-        throw new Error(
-          `the authoring document ${path} is there but does not read as one; ` +
-            `refusing to write over it`,
-        );
-      }
-      const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
-        ? raw
-        : { v: 1, month, entries: [] };
-      if (doc.entries.length >= max) return false;
-      doc.entries = [...doc.entries, { at: at.toISOString(), pending: true, ...entry }];
-      try {
-        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
-        return true;
-      } catch (err) {
-        if (!isStateMismatch(err)) throw err;
-      }
-    }
-    throw new Error(
-      `the authoring document ${path} kept changing under the writer; ` +
-        `the reservation could not be made`,
+    return this.authoringCas(
+      monthOf(at),
+      (doc) =>
+        doc.entries.length >= max
+          ? null
+          : {
+              ...doc,
+              entries: [
+                ...doc.entries,
+                { at: at.toISOString(), pending: true, ...entry },
+              ],
+            },
+      "throw",
+      "the reservation could not be made",
     );
   }
 
@@ -745,34 +759,23 @@ export class AgentStore {
     at: Date,
     change: (entry: AgentAuthoringEntry) => AgentAuthoringEntry | null,
   ): Promise<void> {
-    const month = monthOf(at);
-    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
-    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
-      if (attempt) await sleep(backoffMs(attempt));
-      const state = await this.state();
-      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      if (!isAgentAuthoringDoc(raw)) return;
-      const idx = raw.entries.findIndex((entry) => entry.token === token);
-      const current = idx < 0 ? undefined : raw.entries[idx];
-      if (!current) return;
-      const replaced = change(current);
-      const doc: AgentAuthoringDoc = {
-        ...raw,
-        entries:
-          replaced === null
-            ? raw.entries.filter((_, i) => i !== idx)
-            : raw.entries.map((entry, i) => (i === idx ? replaced : entry)),
-      };
-      try {
-        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
-        return;
-      } catch (err) {
-        if (!isStateMismatch(err)) throw err;
-      }
-    }
-    throw new Error(
-      `the authoring document ${path} kept changing under the writer; ` +
-        `the reservation for ${token} could not be settled`,
+    await this.authoringCas(
+      monthOf(at),
+      (doc) => {
+        const idx = doc.entries.findIndex((entry) => entry.token === token);
+        const current = idx < 0 ? undefined : doc.entries[idx];
+        if (!current) return null;
+        const replaced = change(current);
+        return {
+          ...doc,
+          entries:
+            replaced === null
+              ? doc.entries.filter((_, i) => i !== idx)
+              : doc.entries.map((entry, i) => (i === idx ? replaced : entry)),
+        };
+      },
+      "abandon",
+      `the reservation for ${token} could not be settled`,
     );
   }
 

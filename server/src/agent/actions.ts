@@ -460,7 +460,13 @@ export async function mailboxIdByRole(
 /* Identities and addresses                                            */
 /* ------------------------------------------------------------------ */
 
-interface Identity {
+/**
+ * The sending projection the agent works with: the account's own identity,
+ * reduced to what a composed message needs. Not `@gilbert/shared/identityViews`'s
+ * `Identity`, which is the full object the settings surfaces read — naming this
+ * one its own way keeps the two from being mistaken for each other.
+ */
+interface SendingIdentity {
   id?: string;
   name: string;
   email: string;
@@ -476,7 +482,7 @@ async function defaultIdentity(
   ctx: Ctx,
   client: JmapClient,
   accountId: string,
-): Promise<Identity> {
+): Promise<SendingIdentity> {
   const res = await client.call<{
     list?: Array<{
       id?: unknown;
@@ -512,7 +518,7 @@ async function defaultIdentity(
   );
   if (!chosen) throw new Error("the account this run works in has no sending identity");
   if (!chosen.email) throw new Error("the account's identity carries no address");
-  const identity: Identity = {
+  const identity: SendingIdentity = {
     name: chosen.name,
     email: chosen.email,
     signature: chosen.textSignature,
