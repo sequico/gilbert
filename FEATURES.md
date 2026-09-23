@@ -1,11 +1,8 @@
 # Features
 
-Gilbert is an enterprise butler that lives in your own mail server: a
-first-class mail suite — mail, calendars, contacts, files — with **agents
-inside it** that work the mail and the files on a group's behalf. This is the
-inventory of everything it does, at the level of detail someone evaluating it
-or working on it actually needs; [README.md](README.md) is the short version of
-the same story.
+What Gilbert is, in one paragraph, is the top of [README.md](README.md); this is
+the inventory of everything it does, at the level of detail someone evaluating
+it or working on it actually needs.
 
 It is ordered the way this project cares about it: **Gilbert's own** first —
 the groups, the chat and above all the agents — and the client the mail core
@@ -2631,21 +2628,11 @@ no analytics. The only network calls the browser makes are same-origin.
 
 ## Immutable, in the exact sense
 
-The server keeps **no writable state of its own**: sessions, settings, the
-installation's own configuration and every document a feature owns live in
-Stalwart, in the accounts they belong to. There is no path to clear and nothing
-to mount, so a deployment is a container and a mail server:
-
-```bash
-docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 ...
-```
-
-`IMMUTABLE=1` is an **assertion the server checks at startup**, not a switch
-that changes behaviour. It probes the filesystem it is installed on and refuses
-to boot when that filesystem turns out to be writable after all — the flag
-without the fact, which is the half-applied deployment this exists to catch.
-Without the flag, the same misconfiguration is silent, and the first thing that
-tries to write is the one that notices.
+Nothing in the container is durable and there is no path to clear: sessions,
+settings, the installation's own configuration and every document a feature
+owns live in Stalwart, in the accounts they belong to. [README.md](README.md)
+states the run itself and what `IMMUTABLE=1` asserts; what is worth adding here
+is what the image must not carry, and how to check it.
 
 Sessions are in that set like everything else (`server/src/sessions.ts`), so a
 redeploy does not sign anybody out and the flag costs nothing to keep on.

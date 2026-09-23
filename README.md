@@ -702,10 +702,10 @@ without reading the tree:
 - **Gilbert's own**: the groups, the chat, the agent fleet, the administration,
   the settings policy, the app folder, and every Stalwart configuration
   surface. None of it exists upstream, and none of it is contributed back
-  (ADR 0002). What this build adds on top of the client: twelve themes, eleven
-  interface languages (beta), signature checking, the file-management work —
-  cancelling an upload, remembering a sort per folder, dropping a folder with
-  its structure — and a container that can run read-only.
+  (ADR 0002). What this build adds on top of the client: the themes and the
+  interface languages the top of this file lists, signature checking, the
+  file-management work — cancelling an upload, remembering a sort per folder,
+  dropping a folder with its structure — and a container that can run read-only.
 
 Where this matters: an upstream release is a delta to the first list only, and
 the merge that takes one in renames it before it lands. Everywhere else there

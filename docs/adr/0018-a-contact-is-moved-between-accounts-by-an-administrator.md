@@ -73,11 +73,11 @@ contacts is unchanged.**
   write, not in a control the reader has already used to choose. The hook is the
   reason a surface re-renders when the flag moves, exactly as `useMayDestroy` is
   for the mail rule.
-- **The rule answers a code, and the sentence is composed where it shows.** The
-  module says `contact_move_admin`; `contactMoveSentence` in the store composes
-  the sentence the reader reads from the catalogue in force, and it says what
-  still works — editing the card, and filing new ones where they are —
-  because the reader's next move is the point.
+- **The rule answers a code**, and the sentence is composed where it shows
+  (ADR 0015). The module says `contact_move_admin`; `contactMoveSentence` in the
+  store composes the sentence the reader reads from the catalogue in force, and
+  it says what still works — editing the card, and filing new ones where they
+  are — because the reader's next move is the point.
 - **The dialog names the accounts, not only the books.** A destination is a book
   **and the account that owns it**: two groups may each keep a "Team", and the
   account is the half that says whose records the card is joining. The groups'
