@@ -101,7 +101,11 @@ any member.
   mailbox probe, so both sides classify an account the same way. An account
   that cannot be probed is not treated as a group, and the probe's own
   failure is logged rather than swallowed — "this is not a group" and "I
-  could not ask" are different answers.
+  could not ask" are different answers. Confirmed live on 0.16.23
+  (2026-09-24): a group mailbox answers the probe with a folder tree while the
+  member's own account is not a candidate (`scripts/probe-group-classifier.mjs`);
+  a share account was not in that session, so the no-mailboxes half was not
+  asked.
 - **Shape.** An array of `Label` (`{ keyword, name, color, … }`), the same
   shape as personal `settings.labels`. The keyword is the stable identity
   that rides on messages; name, colour and nesting are display only, so

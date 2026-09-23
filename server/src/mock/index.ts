@@ -4434,14 +4434,11 @@ const handlers: Record<string, Handler> = {
        * same function with no guard, and a guard applied to every type would
        * refuse a destroy that nothing about the type says is unsafe.
        *
-       * Not verified live: that a real 0.16 refuses a non-empty folder without
-       * the flag is read off the client's own habit of sending it, not off a
-       * server that was asked. The probe is one `FileNode/set` destroy of a
-       * folder holding a file, without the flag, against a live instance -- and
-       * it is owed in KNOWN-ISSUES.md rather than assumed. What rests on it is
-       * one thing and it is the safe direction: if a real server destroys the
-       * folder and its contents anyway, a merge that stopped early takes a
-       * folder the reader gave up anyway.
+       * Confirmed live on 0.16.23 (2026-09-24): a real server refuses a
+       * non-empty folder without the flag, with `nodeHasChildren` and "Cannot
+       * delete non-empty folder.", and the folder and its contents stay. What
+       * rests on it is the safe direction: a merge that stopped early leaves a
+       * folder standing rather than taking a file nobody asked it to.
        */
       (o, a) => {
         if (o.nodeType !== "directory") return undefined;
@@ -4463,10 +4460,7 @@ const handlers: Record<string, Handler> = {
         }
         const holds = family.some((n) => (n.parentId ?? null) === o.id);
         return holds
-          ? new SetError(
-              "forbidden",
-              "The folder is not empty. Destroy it with onDestroyRemoveChildren to remove its contents.",
-            )
+          ? new SetError("nodeHasChildren", "Cannot delete non-empty folder.")
           : undefined;
       },
     )(a);

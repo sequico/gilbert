@@ -115,19 +115,15 @@ Where the integration lives:
   refusal, the id and the case-sensitivity (`server/src/mock/index.ts`,
   `FileNode/set`).
 - A destroy of a **folder that still holds something** is refused unless the
-  call carries `onDestroyRemoveChildren: true`; with the flag the folder goes
-  **with** its descendants, and an emptied folder goes either way. Nothing here
-  has asked a live server to confirm the refusal — it is read off the client's
-  own habit of sending the flag on the Files view's delete
-  (`destroyNodes` in `web/src/store/files.ts`), and it is owed as a probe. What
-  rests on it is the file manager's delete (which sends the flag, and has
-  always sent it) and a **merge**'s last step, which deliberately does not: it
-  destroys a folder it emptied, so a folder it did not empty stops the merge
-  instead of disappearing with whatever landed in it meanwhile (ADR 0014). The
-  safe direction is the one that assumes the refusal; if a real server destroys
-  the contents anyway, a merge stopped early takes a folder the reader gave up
-  anyway. The mock models the refusal, the empty case and the cascade
-  (`server/src/mock/destroy-non-empty-folder.test.ts`).
+  call carries `onDestroyRemoveChildren: true`, with `nodeHasChildren`
+  ("Cannot delete non-empty folder."); with the flag the folder goes **with**
+  its descendants, and an emptied folder goes either way. **Confirmed live on
+  0.16.23 (2026-09-24).** What rests on it is the file manager's delete (which
+  sends the flag, and has always sent it) and a **merge**'s last step, which
+  deliberately does not: it destroys a folder it emptied, so a folder it did not
+  empty stops the merge instead of disappearing with whatever landed in it
+  meanwhile (ADR 0014). The mock models the refusal, the empty case and the
+  cascade (`server/src/mock/destroy-non-empty-folder.test.ts`).
 - Unshared nodes report `shareWith: {}`, not `null` (0.16.19, 2026-08-27) —
   test with `Object.keys(...).length`.
 - Stalwart refuses writing `isSubscribed` on an address book shared

@@ -19,11 +19,11 @@ import { after, test } from "node:test";
  *   - a destroy of a folder that is **empty** is accepted, cascade or not,
  *     which is what lets the merge's last step succeed at all.
  *
- * The refusal is read off the client's own habit of sending the flag rather than
- * off a server that was asked, so it is owed as a live probe in `KNOWN-ISSUES.md`
- * -- and pinned here so that a mock which stopped modelling it fails this file
- * rather than letting the merge look correct against a server that would have
- * accepted anything.
+ * The refusal is confirmed live on 0.16.23 (2026-09-24) — a non-empty folder
+ * without the flag comes back `nodeHasChildren`, "Cannot delete non-empty
+ * folder." — and pinned here so that a mock which stopped modelling it fails
+ * this file rather than letting the merge look correct against a server that
+ * would have accepted anything.
  *
  * Mock port: must not collide with any other test file -- the runner executes
  * files as parallel child processes, each binding its own mock.
@@ -115,7 +115,7 @@ test("a folder that still holds something is refused when the destroy does not c
   const res = await destroy([outer]);
 
   assert.deepEqual(res.destroyed, []);
-  assert.equal(res.notDestroyed?.[outer]?.type, "forbidden");
+  assert.equal(res.notDestroyed?.[outer]?.type, "nodeHasChildren");
   // And it is still there, with what was in it.
   assert.ok((await nodeNames()).includes("cascade-full"));
   assert.ok((await nodeNames()).includes("cascade-inner"));

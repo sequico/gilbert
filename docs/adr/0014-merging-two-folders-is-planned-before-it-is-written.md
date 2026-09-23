@@ -112,11 +112,10 @@ step of it before the first write.**
   records the interruption — no durable state is written about a run in
   progress.
 - **`FileNode/set`'s refusal of a non-empty folder without
-  `onDestroyRemoveChildren` is modelled by the mock and not verified live**, so
-  the merge's last step rests on a server behaviour this repository has read off
-  the client's own habit of sending the flag. It is owed as a probe in
-  `KNOWN-ISSUES.md`, and the safe direction is what the merge gets if the
-  assumption is wrong.
+  `onDestroyRemoveChildren` is confirmed live** — `nodeHasChildren`, "Cannot
+  delete non-empty folder." (0.16.23, 2026-09-24) — so the merge's last step
+  rests on a server behaviour this repository has asked: a folder that did not
+  come out empty stops the merge rather than going with what is inside it.
 
 ## References
 

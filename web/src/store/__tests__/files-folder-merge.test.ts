@@ -95,7 +95,10 @@ function server(seed: Obj[]) {
       if (!held) continue;
       const kids = nodes.filter((n) => n.parentId === id);
       if (kids.length && !args.onDestroyRemoveChildren) {
-        notDestroyed[id] = { type: "forbidden", description: "The folder is not empty." };
+        notDestroyed[id] = {
+          type: "nodeHasChildren",
+          description: "Cannot delete non-empty folder.",
+        };
         continue;
       }
       if (args.onDestroyRemoveChildren)
