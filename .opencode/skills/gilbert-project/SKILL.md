@@ -135,7 +135,9 @@ the record of what it was (ADR 0003) and in German words like
 ## 5. Change workflow
 
 - Read `README.md` and the affected area before editing; smallest coherent diff; report adjacent issues rather than silently expanding scope.
-- No commit and no push unless the user's message in the current turn says "commit" or "push".
+- Commit is automatic: each finished unit lands on its own, with no per-turn
+  request (owner decision 2026-09-24). A push still needs the owner to say it in
+  the current turn.
 - **Releases are manual.** The user calls releases by hand; for now there are none and none are automated. Never tag, create a release, or trigger the upstream release/publish workflows (`.github/workflows/release.yml`, `publish.yml`) on your own.
 - `SECURITY.md`, `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` still describe upstream's process and contacts (Coffey Labs, johnellisATlinuxDOTcom). Before rewriting them or acting on them, ask the user.
 - A deep rename diverges from upstream and complicates every future sync — state that cost before doing one (see `gilbert-branding`).

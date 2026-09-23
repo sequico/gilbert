@@ -174,16 +174,18 @@ at the start of any task here. A skill read afterwards is a skill that did not d
 its job: it is where a convention this file states once is written out in full,
 and the cost of skipping it is a change rewritten against rules that were already
 written down.
-**A unit of work is committed when it is finished (global user rule, active here
-— owner decision 2026-09-18):** within a turn that authorises commits at all (see
-the rule below), each unit lands as it is finished — not at the end of the turn,
-and not once a review has been answered. A unit is one coherent change — a rule
-with its guard and its test, a document with the sentences the change falsified,
-an i18n fix with the catalogs it emptied — and it lands with its own message.
-Work held back until a review or a turn's end becomes a mega-commit whose message
-cannot say what it did and whose parts cannot be read apart. What is **not** part
-of the unit is its check: the gates run once, at the end of the coding (the rule
-below), so a unit commit is the change and its message and nothing else.
+**A unit of work is committed when it is finished — automatically (owner decision
+2026-09-24):** each unit lands as it is finished — not at the end of the turn,
+and not once a review has been answered — and **without the user asking for the
+commit in the turn**: this repository commits per unit on its own, superseding
+the global "no commit unless asked" rule for this tree. A unit is one coherent
+change — a rule with its guard and its test, a document with the sentences the
+change falsified, an i18n fix with the catalogs it emptied — and it lands with
+its own message. Work held back until a review or a turn's end becomes a
+mega-commit whose message cannot say what it did and whose parts cannot be read
+apart. What is **not** part of the unit is its check: only biome/tsc run, at the
+end of the turn (the rule below), so a unit commit is the change and its message
+and nothing else.
 **Single source of truth, no code duplication (global user rule, owner-confirmed
 2026-09-08):** every concept, constant, classifier, schema and helper has one
 canonical definition; everything else imports or derives from it. Before
@@ -309,20 +311,20 @@ analysis of minutes — so `npm run codeql` is that same analysis on demand and
 `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one **fails
 with the install instructions** rather than reporting a clean tree. An alert it
 prints is work to do in the same change, like any other finding a gate prints.
-**Coding first, gates once, at the end of the turn (global user rule, active
-here — owner decision 2026-09-18):** a task that carries a plan of several units
-does **all** of its work first — coding, docs and the claim fixes that go with
-them — landing one commit per finished unit, and runs **no test, no typecheck, no
-lint and no check script between units**. The gates run **once, at the end, on a
-tree whose work has stopped moving**: the checks that would gate a commit, then
-`npm run prepush` (once; the push hook runs it too), and `prepush:full`/`codeql`
-where the turn calls for them — and everything they report is fixed in one pass
-before the turn closes. A dispatched child runs no gate at all. A check run in
-the middle of a plan reports a tree that is still moving and shatters one pass of
-fixes into a queue of interruptions; it is not evidence of anything. What this
-moves is **when** the checks run, never **whether**: a turn does not close on an
-unchecked tree, and what the end-of-turn run finds is fixed in that same turn.
-No commit or push unless the user's message in the current turn says so.
+**Coding first, light gates at the end of the turn (owner decision 2026-09-24):**
+a task that carries a plan of several units does **all** of its work first —
+coding, docs and the claim fixes that go with them — landing one commit per
+finished unit, and runs **no check between units**. At the end of the turn, on a
+tree whose work has stopped moving, exactly two things run automatically:
+**`npm run typecheck` (tsc) and `npm run lint` (Biome)**, and what they report is
+fixed in that same turn. Everything else — the check scripts (`adr:owed`,
+`adr:cite`, `config:dead`, `i18n:check`), `npm test`, `npm run prepush` and
+`npm run prepush:full`/`codeql` — is **not** run automatically: the turn names
+which of them it did not run, and the owner decides when to run them. A
+dispatched child runs no gate at all.
+**Commit is automatic; push is not (owner decision 2026-09-24).** Every finished
+unit is committed on its own, with no per-turn request (the rule above). A push
+still needs the owner to say push in the current turn.
 **The feature inventory stays current.** `FEATURES.md` is the inventory of
 what Gilbert does (its upstream text arrives by merge, renamed); every
 feature Gilbert implements beyond upstream is written there, in the same
