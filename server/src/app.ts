@@ -3112,6 +3112,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         },
         signal: AbortSignal.timeout(Math.max(config.upstreamTimeout, 5 * 60_000)),
       });
+      // A 401 is the credential, not the blob: sign the reader out the same
+      // way `/api/jmap` does, so the browser's own 401 handling for a blob
+      // download is reachable rather than masked as a server error.
+      if (res.status === 401) {
+        sessions.destroy(session.id);
+        forgetUpstreamSession(session.id);
+        deleteCookie(c, config.cookieName, { path: cookiePath() });
+        return c.json({ error: "unauthenticated" }, 401);
+      }
       if (res.status === 416) return c.body(null, 416);
       if (!res.ok) return c.json({ error: "not_found" }, res.status === 404 ? 404 : 502);
       const headers = new Headers();
