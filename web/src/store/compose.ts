@@ -240,6 +240,27 @@ export function signatureBlock(
   return "";
 }
 
+/**
+ * Whether a draft field still holds exactly what the identity it was opened
+ * with put there -- the test for "the reader has not touched this", which is
+ * what decides whether switching identity may replace the field.
+ *
+ * Compared by address with `sameAddress`, because the two sides are a draft
+ * that has been through the composer and a list the server answered, and the
+ * question is about who is reached rather than about how a name was spelled.
+ */
+function stillTheIdentitys(
+  current: EmailAddress[],
+  ident: Identity | undefined,
+  field: "replyTo" | "bcc",
+): boolean {
+  const opened = ident?.[field] ?? [];
+  return (
+    current.length === opened.length &&
+    current.every((x, i) => sameAddress(x.email, opened[i]?.email ?? ""))
+  );
+}
+
 function defaultIdentity(
   identities: Identity[],
   email?: Email | null,
@@ -253,6 +274,32 @@ function defaultIdentity(
     }
   }
   return useMail.getState().defaultIdentity() ?? identities[0];
+}
+
+/**
+ * The identity's Bcc, written into a draft as recipients of its own.
+ *
+ * RFC 8621 leaves `Identity.bcc` for the client to apply, and this is where it
+ * is applied: **once**, when the draft is created, rather than on the way out.
+ * What the composer shows is then the whole truth about who the message
+ * reaches, and the field is the reader's -- somebody who takes the address off
+ * for one message has taken it off, which an addition at send time would
+ * silently undo.
+ *
+ * So it is deliberately not mirrored at send time the way `replyTo` is (see
+ * `buildEmailObject`), and a draft written before the address was set does not
+ * gain it: a copy nobody can see leaving the composer is the one thing this
+ * field must never be.
+ *
+ * `uniqueAddresses` drops what the draft was already addressed with -- a
+ * `mailto:` naming the archive, a resend of a message that was copied there --
+ * so nothing arrives twice, and it drops an address with nothing in it.
+ */
+function identityBcc(
+  ident: Identity | undefined,
+  addressed: EmailAddress[] = [],
+): EmailAddress[] {
+  return uniqueAddresses([...addressed, ...(ident?.bcc ?? [])]);
 }
 
 /**
@@ -295,11 +342,16 @@ export const useCompose = create<ComposeState>((set, get) => ({
     const ident = init.identityId
       ? identities.find((i) => i.id === init.identityId)
       : useMail.getState().defaultIdentity();
+    const bcc = identityBcc(ident, init.bcc ?? []);
     const d = blankDraft({
       identityId: ident?.id ?? null,
       replyTo: ident?.replyTo ?? [],
       showReplyTo: Boolean(ident?.replyTo?.length),
       ...init,
+      // After the caller's own fields: the identity's address is added to
+      // whatever this draft was addressed with, not replaced by it.
+      bcc,
+      showBcc: Boolean(bcc.length) || Boolean(init.showBcc),
     });
     if (!init.html && !init.text && ident) {
       d.signatureHtml = signatureBlock(ident, "html");
@@ -397,6 +449,9 @@ export const useCompose = create<ComposeState>((set, get) => ({
       identityId: ident?.id ?? null,
       to: full.to ?? [],
       cc: full.cc ?? [],
+      // The draft's own recipients, and not the identity's Bcc as well: this
+      // draft was written once, and what it carries is what it was written
+      // with (`identityBcc`).
       bcc: full.bcc ?? [],
       replyTo: full.replyTo ?? ident?.replyTo ?? [],
       showReplyTo: Boolean(full.replyTo?.length || ident?.replyTo?.length),
@@ -496,13 +551,13 @@ export const useCompose = create<ComposeState>((set, get) => ({
       identityId: ident?.id ?? null,
       to: full.to ?? [],
       cc: full.cc ?? [],
-      bcc: full.bcc ?? [],
+      bcc: identityBcc(ident, full.bcc ?? []),
       // The message's own Reply-To if it carried one, which is the setting the
       // report asks to keep; the identity's only when it did not.
       replyTo: full.replyTo ?? ident?.replyTo ?? [],
       showReplyTo: Boolean(full.replyTo?.length || ident?.replyTo?.length),
       showCc: Boolean(full.cc?.length),
-      showBcc: Boolean(full.bcc?.length),
+      showBcc: Boolean(full.bcc?.length || ident?.bcc?.length),
       subject: full.subject ?? "",
       html: html
         ? sanitizeEmailHtml(html, {
@@ -689,6 +744,8 @@ export const useCompose = create<ComposeState>((set, get) => ({
       showCc: cc.length > 0,
       replyTo: ident?.replyTo ?? [],
       showReplyTo: Boolean(ident?.replyTo?.length),
+      bcc: identityBcc(ident),
+      showBcc: Boolean(ident?.bcc?.length),
       subject: replySubject(full.subject, mode === "forward" ? "Fwd" : "Re"),
       html,
       text,
@@ -1107,15 +1164,27 @@ export const useCompose = create<ComposeState>((set, get) => ({
     if (oldSigText && text.includes(oldSigText))
       text = text.replace(oldSigText, signatureBlock(ident, "text"));
     const oldIdent = useMail.getState().identities.find((i) => i.id === d.identityId);
-    const sameList = (a: EmailAddress[], b: EmailAddress[]) =>
-      a.length === b.length && a.every((x, i) => sameAddress(x.email, b[i]?.email));
-    const replyToPatch = sameList(d.replyTo, oldIdent?.replyTo ?? [])
-      ? {
-          replyTo: ident?.replyTo ?? [],
-          showReplyTo: d.showReplyTo || Boolean(ident?.replyTo?.length),
-        }
-      : {};
-    get().update(key, { identityId, html, text, signatureHtml: newSig, ...replyToPatch });
+    /*
+     * The two addresses an identity carries and a draft shows are swapped with
+     * it, and only while the draft still holds what the previous identity put
+     * there: an address the reader added, or one they took off, is theirs and
+     * stays. Same rule for both, so the pair cannot drift apart.
+     */
+    const carried = {
+      ...(stillTheIdentitys(d.replyTo, oldIdent, "replyTo")
+        ? {
+            replyTo: ident?.replyTo ?? [],
+            showReplyTo: d.showReplyTo || Boolean(ident?.replyTo?.length),
+          }
+        : {}),
+      ...(stillTheIdentitys(d.bcc, oldIdent, "bcc")
+        ? {
+            bcc: identityBcc(ident),
+            showBcc: d.showBcc || Boolean(ident?.bcc?.length),
+          }
+        : {}),
+    };
+    get().update(key, { identityId, html, text, signatureHtml: newSig, ...carried });
   },
 
   insertTemplate(key, html, subject) {
@@ -1445,6 +1514,12 @@ export async function buildEmailObject(
   const replyTo = d.replyTo.length ? d.replyTo : (ident.replyTo ?? []);
   if (d.to.length) obj.to = d.to;
   if (d.cc.length) obj.cc = d.cc;
+  /*
+   * The draft's own Bcc and no fallback to the identity's, unlike `replyTo`
+   * below: that address was written into this draft when it was opened, where
+   * the sender could see it (`identityBcc`), and adding it again here would put
+   * back a copy somebody had deliberately taken off.
+   */
   if (d.bcc.length) obj.bcc = d.bcc;
   if (replyTo.length) obj.replyTo = replyTo;
   if (d.inReplyTo?.length) obj.inReplyTo = d.inReplyTo;
