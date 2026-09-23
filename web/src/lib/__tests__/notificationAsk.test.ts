@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { shouldAskForNotifications } from "@/lib/notify";
+import {
+  NOTIFICATION_ASK_COOLDOWN_MS,
+  notificationAskDue,
+  rememberNotificationAsk,
+  shouldAskForNotifications,
+} from "@/lib/notify";
 
 /*
  * Whether the app asks the reader for the notification permission.
@@ -25,5 +30,20 @@ describe("asking for the notification permission", () => {
 
   it("does not ask where the browser has no Notification at all", () => {
     expect(shouldAskForNotifications("unsupported", true)).toBe(false);
+  });
+});
+
+/*
+ * The cooldown is what keeps the ask a nudge rather than a nag: shown once,
+ * quiet for a week, then shown again while the browser still has not answered.
+ */
+describe("the ask's cooldown", () => {
+  it("asks the first time, stays quiet after, and asks again a week later", () => {
+    localStorage.clear();
+    const at = 1_000_000_000_000;
+    expect(notificationAskDue(at)).toBe(true);
+    rememberNotificationAsk(at);
+    expect(notificationAskDue(at + 1_000)).toBe(false);
+    expect(notificationAskDue(at + NOTIFICATION_ASK_COOLDOWN_MS)).toBe(true);
   });
 });

@@ -144,7 +144,7 @@ export async function enableWebPush(): Promise<
  * nobody was open to hear -- and reusing only an existing one would give up
  * there, leaving push off for good with the switch still saying it is on.
  */
-async function registerThisBrowser(key: string): Promise<void> {
+async function registerThisBrowser(key: string, force = false): Promise<void> {
   const reg = await navigator.serviceWorker.ready;
   const sub =
     (await reg.pushManager.getSubscription()) ??
@@ -164,7 +164,7 @@ async function registerThisBrowser(key: string): Promise<void> {
    * extend is still aimed where this browser is listening. Extending a stale one
    * would leave a subscription that is alive and delivering nowhere.
    */
-  if (newest && registeredEndpoint() === sub.endpoint) {
+  if (!force && newest && registeredEndpoint() === sub.endpoint) {
     if (extra.length) await destroySubscriptions(extra.map((s) => s.id));
     // The same predicate the old renewal gate used, so the boundary between
     // "close enough to extend" and "leave it" is defined once and tested once.
@@ -254,6 +254,33 @@ export async function renewWebPush(): Promise<void> {
        visible rather than swallowed: until it succeeds the account has no
        subscription. */
     console.warn("[gilbert] push: renewal did not complete:", err);
+  }
+}
+
+/**
+ * Re-register this browser so a change in what it covers takes effect.
+ *
+ * `types` and the `emailPush` map are fixed when a subscription is created,
+ * and an extension only moves `expires` -- so a reader who joins their first
+ * group keeps a subscription that watches no `FileNode` until the row is
+ * replaced, and one who leaves their last keeps watching. Called when the
+ * probed group mailboxes change. Silent like the renewal: every reason to stop
+ * is a normal state.
+ */
+export async function reregisterWebPush(): Promise<void> {
+  if (!pushEnabledHere() || !webPushAvailable()) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted")
+    return;
+  const key = applicationServerKey();
+  if (!key) return;
+  try {
+    await registerThisBrowser(key, true);
+    listenForVerification();
+  } catch (err) {
+    /* Offline, or the server said no: the next app start renews. The row was
+       released by the forced registration, so until then the account has no
+       subscription -- which is why the failure is loud rather than swallowed. */
+    console.warn("[gilbert] push: re-registration did not complete:", err);
   }
 }
 

@@ -8,7 +8,7 @@ import {
   roomToMake,
   setPushEnabledHere,
 } from "@/lib/webpush";
-import { renewWebPush } from "@/lib/webpushEnable";
+import { renewWebPush, reregisterWebPush } from "@/lib/webpushEnable";
 
 /**
  * What a registration does to the account's subscription pool.
@@ -228,6 +228,26 @@ describe("a registration does not add a row it can reuse", () => {
     await renewWebPush();
 
     // The stale row went and one row stands, on the new endpoint.
+    expect(server.length).toBe(1);
+    expect(server[0]!.id).not.toBe("psA");
+    expect(lastWrite()).toHaveProperty("create");
+  });
+});
+
+describe("a change in what the subscription covers", () => {
+  it("replaces the row even when it is nowhere near expiring", async () => {
+    install(browserSub("https://push.example/mine"));
+    localStorage.setItem("gilbert:pushEndpoint", "https://push.example/mine");
+    server.push({
+      id: "psA",
+      deviceClientId: deviceClientId(),
+      expires: new Date(Date.now() + 6 * DAY).toISOString(),
+    });
+
+    // `renewWebPush` would have left this row alone; the forced pass releases
+    // and creates, because a row's `types` cannot be changed after it exists.
+    await reregisterWebPush();
+
     expect(server.length).toBe(1);
     expect(server[0]!.id).not.toBe("psA");
     expect(lastWrite()).toHaveProperty("create");

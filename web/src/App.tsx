@@ -1,4 +1,4 @@
-import { Fragment, Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import { catchUpAfterReconnect, push } from "@/jmap/push";
@@ -9,6 +9,8 @@ import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
+  notificationAskDue,
+  rememberNotificationAsk,
   requestNotificationPermission,
   setBaseTitle,
   setUnreadBadge,
@@ -26,7 +28,12 @@ import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { webPushAvailable } from "@/lib/webpush";
-import { enableWebPush, listenForVerification, renewWebPush } from "@/lib/webpushEnable";
+import {
+  enableWebPush,
+  listenForVerification,
+  renewWebPush,
+  reregisterWebPush,
+} from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
 import { useChat } from "@/store/chat";
 import { useContacts } from "@/store/contacts";
@@ -498,6 +505,8 @@ function AuthedApp() {
         ? "unsupported"
         : Notification.permission;
     if (!shouldAskForNotifications(permission, notificationsWanted)) return;
+    if (!notificationAskDue()) return;
+    rememberNotificationAsk();
     toast.show(
       t(
         "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.",
@@ -515,6 +524,25 @@ function AuthedApp() {
       },
     );
   }, [ready, accountId, notificationsWanted]);
+
+  /*
+   * A subscription's `types` are fixed when it is created, and an extension
+   * only moves `expires` -- so joining a first group or leaving a last one is
+   * not covered until the row is replaced. Re-register when the group
+   * mailboxes change; the first value seen is the one the start's own
+   * registration already used.
+   */
+  const watchChat = useMail((s) => groupMailboxAccounts(s.mailAccounts).length > 0);
+  const watchChatSeen = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (watchChatSeen.current === null) {
+      watchChatSeen.current = watchChat;
+      return;
+    }
+    if (watchChatSeen.current === watchChat) return;
+    watchChatSeen.current = watchChat;
+    void reregisterWebPush();
+  }, [watchChat]);
 
   // Nothing worth painting until the account's settings are in force; see the
   // comment on `ready` above. With a cache this was true from the first frame.

@@ -110,6 +110,37 @@ export function shouldAskForNotifications(
   return wanted && permission === "default";
 }
 
+/**
+ * How long this device stays quiet after being asked.
+ *
+ * The ask is a nudge, not a nag: a reader who has not answered the browser is
+ * reminded, but a toast on every page load is one people learn to close. Seven
+ * days is long enough that a browser left unanswered is not re-asked in the
+ * same sitting, and short enough that somebody who meant to turn it on is
+ * asked again.
+ */
+export const NOTIFICATION_ASK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const ASK_KEY = "gilbert:notificationsAskedAt";
+
+/** Whether this device is due to be asked again, given when it last was. */
+export function notificationAskDue(now: number = Date.now()): boolean {
+  try {
+    const last = Number(localStorage.getItem(ASK_KEY) ?? 0);
+    return !last || now - last >= NOTIFICATION_ASK_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+/** Record that the ask was shown, so it is not repeated before the cooldown. */
+export function rememberNotificationAsk(now: number = Date.now()): void {
+  try {
+    localStorage.setItem(ASK_KEY, String(now));
+  } catch {
+    /* private mode: not remembered, which only means the ask may repeat */
+  }
+}
+
 export function showNotification(
   title: string,
   opts: NotificationOptions & { onClick?: () => void } = {},

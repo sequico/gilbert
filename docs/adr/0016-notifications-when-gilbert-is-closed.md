@@ -113,7 +113,8 @@ the sentence says. Beside the switch the app also **nudges** when a switch is on
 and the browser has still not been asked: a toast carrying a button, and the
 button is the gesture (`web/src/App.tsx`). Nothing asks from an effect, a timer
 or a start-up path — the request is still the reader's — and a browser that has
-already answered, either way, is never nudged.
+already answered, either way, is never nudged. The nudge is shown at most once a
+week on a device, so it reminds rather than nags (`notificationAskDue`).
 
 What the switch offers is decided by a reason rather than a boolean:
 `webPushBlocker()` answers the surface with a code it composes a sentence from,
@@ -157,10 +158,12 @@ share cannot be named, and an account named in the map is one the subscription
 already receives notifications for, so the map widens what is *described*, never
 what is watched.
 
-The account list is derived at registration time, which is every app start:
-join a group and the next start covers it, leave one and its entry goes with the
-others our own hand releases. A closed client is therefore not "subscribed to
-Gilbert" but subscribed to the accounts the session had at the last start.
+The account list is derived at registration time, and re-derived when the
+probed group mailboxes change: joining a first group or leaving a last one
+re-registers the device, because a subscription's `types` are fixed when it is
+created and an extension only moves `expires` (`reregisterWebPush`). A closed
+client is therefore subscribed to the accounts the session had at the last
+registration.
 
 Two properties of the object are worth writing down because a client is tempted
 to read them the other way. A subscription with **no `types` at all** is
@@ -320,8 +323,11 @@ boolean that came back would fail here:
   own; and the answer the browser then gives is what the reader is told
   (`web/src/views/settings/__tests__/notifications-permission.test.tsx`).
 - `shouldAskForNotifications` asks while a switch is on and the browser has not
-  answered, and never after an answer
-  (`web/src/lib/__tests__/notificationAsk.test.ts`).
+  answered, and never after an answer; the cooldown separates one ask from the
+  next (`web/src/lib/__tests__/notificationAsk.test.ts`).
+- A change in the group mailboxes re-registers the device, replacing the row
+  rather than extending it, because `types` cannot be changed after the fact
+  (`web/src/lib/__tests__/pushRegistration.test.ts`).
 - A chat message from somebody else notifies from the live store change, the
   reader's own does not, and the two switches gate it
   (`web/src/store/__tests__/chat-notify.test.ts`).
