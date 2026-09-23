@@ -10,8 +10,10 @@ import {
   type JmapPushSubscription,
   needsRenewal,
   pushEnabledHere,
+  pushOptedOutHere,
   RENEW_WITHIN_MS,
   setPushEnabledHere,
+  setPushOptedOutHere,
   subscriptionPayload,
   supportsEmailPush,
   unsubscribeThisDevice,
@@ -425,6 +427,22 @@ describe("remembering that push is on here", () => {
     expect(pushEnabledHere()).toBe(true);
     setPushEnabledHere(false);
     expect(pushEnabledHere()).toBe(false);
+  });
+
+  it("remembers a deliberate off, apart from never having turned it on", () => {
+    // What the automatic registration reads: "never turned on" is not a reason
+    // to leave push off, "turned off" is.
+    expect(pushOptedOutHere()).toBe(false);
+    setPushOptedOutHere(true);
+    expect(pushOptedOutHere()).toBe(true);
+    setPushOptedOutHere(false);
+    expect(pushOptedOutHere()).toBe(false);
+  });
+
+  it("reads the opt-out only on a device that is ours", () => {
+    setPushOptedOutHere(true);
+    setDeviceTrusted(false);
+    expect(pushOptedOutHere()).toBe(false);
   });
 
   it("stays off on a device nobody said was theirs", () => {

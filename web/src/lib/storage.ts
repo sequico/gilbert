@@ -35,7 +35,13 @@ const PREFIX = "gilbert:";
  *   the exact failure the renewal exists to prevent. Signing out for real
  *   clears it directly, in `unsubscribeThisDevice`, alongside the subscription.
  */
-const KEEP_ON_SIGN_OUT = ["lastUser", "deviceTrusted", "pushDeviceId", "pushEnabled"];
+const KEEP_ON_SIGN_OUT = [
+  "lastUser",
+  "deviceTrusted",
+  "pushDeviceId",
+  "pushEnabled",
+  "pushOptOut",
+];
 
 /**
  * Keys kept by their suffix instead, because they are namespaced per reader

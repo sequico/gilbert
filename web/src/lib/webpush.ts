@@ -251,8 +251,8 @@ export function subscriptionPayload(
  *
  * Device-local on purpose. A subscription is a browser and an endpoint, not an
  * account: turning it on for a phone says nothing about the desktop, and the
- * account-wide settings file is the wrong place to record it. It is also not in
- * `KEEP_ON_SIGN_OUT`, so signing out forgets it, which matches sign-out already
+ * account-wide settings file is the wrong place to record it. Sign-out forgets
+ * it -- `unsubscribeThisDevice` removes it -- which matches sign-out already
  * destroying the subscription itself.
  */
 const ENABLED_KEY = "gilbert:pushEnabled";
@@ -272,6 +272,35 @@ export function setPushEnabledHere(on: boolean): void {
     else localStorage.removeItem(ENABLED_KEY);
   } catch {
     /* private mode: push will not survive the session there anyway */
+  }
+}
+
+/**
+ * Whether the reader turned background push **off** in this browser.
+ *
+ * The switch's off is a decision, not an absence: without recording it, the
+ * client could not tell "never turned on" from "turned off on purpose", and a
+ * start that subscribes a granted browser by itself would resurrect what
+ * somebody switched off. Kept across a sign-out (storage's `KEEP_ON_SIGN_OUT`),
+ * so the decision outlives the session it was made in.
+ */
+const OPTOUT_KEY = "gilbert:pushOptOut";
+
+export function pushOptedOutHere(): boolean {
+  if (!isDeviceTrusted()) return false;
+  try {
+    return localStorage.getItem(OPTOUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setPushOptedOutHere(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(OPTOUT_KEY, "1");
+    else localStorage.removeItem(OPTOUT_KEY);
+  } catch {
+    /* private mode: nothing is remembered there anyway */
   }
 }
 

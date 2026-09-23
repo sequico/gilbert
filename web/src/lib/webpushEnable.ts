@@ -21,11 +21,13 @@ import {
   needsRenewal,
   PushSetError,
   pushEnabledHere,
+  pushOptedOutHere,
   registeredEndpoint,
   releaseThisDevice,
   rememberEndpoint,
   roomToMake,
   setPushEnabledHere,
+  setPushOptedOutHere,
   subscriptionPayload,
   unsubscribeThisDevice,
   verifySubscription,
@@ -115,6 +117,9 @@ export async function enableWebPush(): Promise<
   try {
     await registerThisBrowser(key);
     setPushEnabledHere(true);
+    // Turning it on is the other half of the switch's off: the opt-out that
+    // stops an automatic registration is cleared here.
+    setPushOptedOutHere(false);
     listenForVerification();
     return { ok: true };
   } catch (err) {
@@ -318,9 +323,51 @@ export async function reregisterWebPush(): Promise<void> {
   }
 }
 
-/** Remove this browser's subscription, at the browser and at the server. */
+/**
+ * Remove this browser's subscription, at the browser and at the server, and
+ * remember that it was asked for.
+ *
+ * The opt-out is what stops the next start subscribing this browser again
+ * (`autoEnableWebPush`): a reader who switched background push off meant it,
+ * and a subscription made behind their back would deliver their mail to a
+ * screen they told us not to.
+ */
 export async function disableWebPush(): Promise<void> {
+  setPushOptedOutHere(true);
   await unsubscribeThisDevice();
+}
+
+/**
+ * Subscribe (or renew) this browser by itself, where the browser already
+ * allows it and the reader has not turned it off.
+ *
+ * A browser grants the notification permission only to a gesture, which is why
+ * the switch exists — but once the permission is `granted` a subscription needs
+ * no gesture at all. Leaving it unregistered is how a device ends up with the
+ * permission granted, background push off, and **no prompt that would ever say
+ * so**: the ask in `App.tsx` fires only while the browser's answer is still
+ * undecided. So every start asks the same three questions — permission
+ * granted, device trusted, not opted out — and makes the subscription here.
+ *
+ * `renewWebPush` is the same call for a browser that already believes it has
+ * push; this one is for the browser that never got that far.
+ */
+export async function autoEnableWebPush(): Promise<void> {
+  if (pushEnabledHere()) return renewWebPush();
+  if (pushOptedOutHere()) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted")
+    return;
+  if (!webPushAvailable()) return;
+  try {
+    const res = await enableWebPush();
+    if (!res.ok)
+      console.warn(
+        `[gilbert] push: automatic registration did not complete: ${res.code}` +
+          (res.detail ? ` (${res.detail})` : ""),
+      );
+  } catch (err) {
+    console.warn("[gilbert] push: automatic registration failed:", err);
+  }
 }
 
 /**

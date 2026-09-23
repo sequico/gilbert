@@ -27,8 +27,8 @@ import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import {
+  autoEnableWebPush,
   listenForVerification,
-  renewWebPush,
   reregisterWebPush,
   turnOnNotificationsHere,
 } from "@/lib/webpushEnable";
@@ -292,10 +292,14 @@ function AuthedApp() {
      * mailbox tree has landed. A subscription made too early silently carries
      * no filter, and Stalwart then pushes every unread message -- junk
      * included -- for the whole life of the subscription.
+     *
+     * `autoEnableWebPush` renews a browser that already has push, and makes
+     * the subscription for one whose permission is granted but whose switch was
+     * never turned on -- the state that used to get no prompt at all.
      */
     void mail
       .loadMailboxes()
-      .then(() => renewWebPush())
+      .then(() => autoEnableWebPush())
       .catch(() => {});
     void mail.loadIdentities();
     void mail.loadQuota();
