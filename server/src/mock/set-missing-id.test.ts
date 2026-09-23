@@ -51,7 +51,11 @@ after(() => {
 
 test("an update naming an id the account does not hold reports notFound", async () => {
   const responses = await jmap([
-    ["FileNode/set", { accountId: ACCOUNT, update: { "missing-node": { name: "x" } } }, "u"],
+    [
+      "FileNode/set",
+      { accountId: ACCOUNT, update: { "missing-node": { name: "x" } } },
+      "u",
+    ],
   ]);
   const body = responseOf(responses, "u")[1] as {
     updated: Record<string, unknown>;
