@@ -573,12 +573,6 @@ function sentAtOf(opts: ActionOpts): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * Run the actions in order and return what each one produced.
- *
- * The first failure throws: a job records one outcome, and half a proposal
- * applied in silence is exactly the failure mode "failure is loud" rules out.
- */
-/**
  * A refusal: the run must not continue as it is, so a retry changes nothing.
  *
  * The executor's fence throws it, and `runActions` propagates it unchanged —
@@ -611,6 +605,12 @@ export interface ActionHooks {
   beforeAction?: (action: AgentAction) => Promise<void>;
 }
 
+/**
+ * Run the actions in order and return what each one produced.
+ *
+ * The first failure throws: a job records one outcome, and half a proposal
+ * applied in silence is exactly the failure mode "failure is loud" rules out.
+ */
 export async function runActions(
   ctx: Ctx,
   accountId: string,

@@ -489,10 +489,10 @@ automation could not finish. The audit is one document per month per group,
 kept twelve months and pruned a month at a time. The months live in the
 group's own hidden `gilbert` folder, not in the Files a member browses: a
 member reads them through the group's agent panel, an administrator reads the
-same trail as a table in the group's own Audit tab in Group Agents (or merged
-across every granted group in Approvals' own Audit tab), and takes the copy
-before the oldest month goes — that same tab hands over every retained month
-as JSON.
+same trail as a table in the group's own Activity section in Group Agents (or
+merged across every granted group in Approvals' own Audit tab), and takes the
+copy before the oldest month goes — that same section hands over every retained
+month as JSON.
 - **A refusal reads in the reader's language.** The admin surface answers a
 refusal as a code and its parameters — never as a sentence — and the client
 composes the sentence from the catalogue the reader's language loaded: a
@@ -2340,6 +2340,20 @@ needed nothing in either half.
   own dark navy rather than the lockup: the wordmark inside a 192px square is a
   texture, and the tagline is dropped below 180px, where it is a smear rather
   than a word.
+- **Install from the app's own banner and menu.** On a phone a dismissible
+  banner sits under the top bar and the account menu carries the same command,
+  because the browser's own prompt is easy to miss and cannot be reached from
+  the menu. The command is **Install mobile app** while there is something to
+  install -- it shows the browser's prompt (`beforeinstallprompt`, captured at
+  start-up so the tap that wants it can show it) or, where the browser has no
+  prompt, Safari's Share-sheet steps or a browser that keeps install in its own
+  menu -- and **Mobile app** once installed. An installed app is never offered
+  the install again: the banner asks whether to use the app that is already
+  there and stops asking once dismissed. The dialog keeps the app current
+  (**Update now**, enabled only when the server is serving another build, with
+  the worker's script asked for first) and turns notifications on for the
+  device, through the same permission and subscription path Settings uses
+  (`lib/installApp`, `lib/staleBuild`, `lib/webpushEnable`).
 - **Manifest shortcuts** for Compose, Calendar and Contacts.
 - **One window, not one per launch.** A `mailto:` link, a shortcut or a
   notification opened while Gilbert is already running arrives in the copy

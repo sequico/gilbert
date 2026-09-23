@@ -36,9 +36,9 @@ export interface ArmTimersOpts {
   clearTimeoutFn?: (timer: ReturnType<typeof setTimeout>) => void;
   /**
    * What a due handler that threw synchronously is reported to. A throw from
-   * `onDue` — the guard refusing, a log that failed — must not escape a timer
-   * callback and take the process down, and must not leave the entry un-armed
-   * and silent either.
+   * `onDue` must not escape a timer callback and take the process down; the
+   * entry is then left to the pass's own catch-up rather than re-armed against
+   * an instant that has already arrived.
    */
   onError?: (err: unknown) => void;
 }
@@ -224,13 +224,16 @@ export function armTimers(
       if (stopped) return;
       if (now() >= due) {
         // One entry's handler must not be able to kill the worker: a throw that
-        // escaped here would be an uncaught exception in a timer callback, and
-        // the timer has already removed itself, so the entry would vanish too.
+        // escaped here would be an uncaught exception in a timer callback. It is
+        // reported and the entry is **not** re-armed: the instant has already
+        // arrived, so re-arming would fire again at the shortest wait for as long
+        // as the handler keeps throwing — a spin wearing a scheduler's clothes.
+        // The entry stays due in the document, and the pass's own catch-up
+        // (`runDueSchedules`) is what picks it up again.
         try {
           onDue(entry);
         } catch (err) {
           opts.onError?.(err);
-          arm(entry);
         }
       } else arm(entry);
     }, delay);

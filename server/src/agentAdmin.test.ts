@@ -584,7 +584,11 @@ test("an administrator reads and saves a group's rules", async () => {
 
   const empty = await call(`/api/admin/groups/${TEAM}/agent/rules`);
   assert.equal(empty.status, 200);
-  assert.deepEqual(empty.body, { rules: [], rulesUnreadable: false });
+  assert.deepEqual(empty.body, {
+    rules: [],
+    rulesUnreadable: false,
+    rulesRecreated: false,
+  });
 
   const saved = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",

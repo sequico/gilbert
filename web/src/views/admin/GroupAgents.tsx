@@ -17,13 +17,12 @@
  * - **Memory** — the notebook its calls are given;
  * - **Activity** — the audit trail and the agents serving this group.
  *
- * `agent/rules.json` stays a document of its own rather than a field of the
- * group's configuration: it is up to four independent rules (email, file,
+ * `agent/rules.json` is a document of its own rather than a field of the
+ * group's configuration: it holds up to four independent rules (email, file,
  * chat, schedule), each pinned by `ruleId`/`ruleVersion` on the jobs and the
- * audit that reference it, and each readable by the group's own members. What
- * the presentation had wrong was making it a *peer* of the instruction and the
- * policy; it is a section of the agent's behaviour, and that is where it now
- * sits.
+ * audit that reference it, and each readable by the group's own members. It is
+ * a section of the agent's behaviour, not a peer of the instruction and the
+ * policy, and **Automations** is where it is shown.
  *
  * **Which groups there are** is not a setting here: the Master's membership is
  * decided in Stalwart's own administration, and Master's own section is the
@@ -93,9 +92,13 @@ export function GroupAgents() {
   // screen rather than only to the group. The router is not asked to re-render:
   // nothing below reads the search back.
   useEffect(() => {
-    const params = new URLSearchParams();
+    // Merged into whatever is already there rather than rebuilt: another
+    // parameter on this route is not this component's to drop.
+    const params = new URLSearchParams(window.location.search);
     if (group) params.set("group", group);
+    else params.delete("group");
     if (part !== "behaviour") params.set("tab", part);
+    else params.delete("tab");
     const query = params.toString();
     window.history.replaceState(
       null,
@@ -182,13 +185,15 @@ export function GroupAgents() {
               ))}
             </select>
           </div>
-          {known && status?.address && (
-            // The header names the subject: one agent, working here. Master says
-            // whether the installation is operational at all; this says under
-            // which address the group is being served.
+          {known && (view?.agentAddress || status?.address) && (
+            // The header names the subject: one agent, working here. The group
+            // surface carries the address the group is served under; the fleet
+            // status is the fallback while that read is still in flight.
             <p className="hint" style={{ margin: 0 }}>
               <Bot size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-              {t("Working in this group as {address}.", { address: status.address })}
+              {t("Working in this group as {address}.", {
+                address: view?.agentAddress || status?.address || "",
+              })}
             </p>
           )}
           {known && (
@@ -216,7 +221,9 @@ export function GroupAgents() {
             type="button"
             role="tab"
             aria-selected={part === entry.id}
-            aria-controls="agent-tabpanel"
+            // One shared panel, so only the selected tab names it: a reference
+            // from an inactive tab would point at a panel that is not its own.
+            aria-controls={part === entry.id ? "agent-tabpanel" : undefined}
             tabIndex={part === entry.id ? 0 : -1}
             className={part === entry.id ? "active" : ""}
             onClick={() => setPart(entry.id)}

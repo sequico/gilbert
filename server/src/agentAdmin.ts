@@ -691,14 +691,22 @@ async function rulesForView(
     warnUnreadable(store, err);
     if (!opts.recreate)
       return { rules: [], rulesUnreadable: true, rulesRecreated: false };
-    const state = await store.state();
+    // The write is conditional on the state the bad document was **read** at
+    // (`err.state`), not a state read now: a valid document written between the
+    // failed read and this write must lose the compare-and-set rather than be
+    // clobbered by the heal.
     try {
-      await store.writeRules([], { ifInState: state });
+      await store.writeRules([], err.state ? { ifInState: err.state } : {});
     } catch (writeErr) {
-      if (!isStateMismatch(writeErr)) throw writeErr;
-      // Somebody wrote in the window between the read and this write: read
-      // again. A document that now reads is theirs and is kept as it is; one
-      // that still does not is left for the next read to heal.
+      // A heal that did not land — a lost compare-and-set, a server that
+      // refused — is not a reason to take the group's whole surface down: the
+      // document is reported unreadable and the next read tries again. A
+      // document written in the window is read here and kept as it is.
+      if (!isStateMismatch(writeErr))
+        console.warn(
+          `[gilbert] ${store.accountId}: could not replace the unreadable automation document: ` +
+            (writeErr as Error).message,
+        );
       try {
         return {
           rules: (await store.readRules())?.doc ?? [],

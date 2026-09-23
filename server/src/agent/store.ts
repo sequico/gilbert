@@ -107,6 +107,15 @@ export class UnreadableDocumentError extends Error {
      */
     message = `the document ${path} is there but does not read as ${what}; ` +
       `refusing to report it as absent`,
+    /**
+     * The account's FileNode state the checked read observed, when the throw
+     * came from `readDocChecked`. A caller that replaces the unreadable
+     * document passes this as `ifInState`, so the write is conditional on the
+     * exact state the bad document was read at rather than a state re-read
+     * afterwards — a valid document written in the window then loses the
+     * compare-and-set instead of being clobbered.
+     */
+    readonly state?: string,
   ) {
     super(message);
     this.name = "UnreadableDocumentError";
@@ -253,7 +262,7 @@ export class AgentStore {
     const state = await this.state();
     const raw = await readAppJsonAt(this.ctx, this.accountId, path);
     if (raw === null) return null;
-    if (!valid(raw)) throw new UnreadableDocumentError(path, what);
+    if (!valid(raw)) throw new UnreadableDocumentError(path, what, undefined, state);
     return { doc: raw, state };
   }
 

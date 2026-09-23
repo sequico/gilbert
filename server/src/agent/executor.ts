@@ -1349,11 +1349,11 @@ export class Executor {
     if (!kind) return renderItem(lookup, "(a kind of file this build does not read)");
     // No page is rasterised for a lookup: reading a page as an image is an
     // action a run pays for (`document.read`), not something a listing does.
-    // The page bound is the installation's own, the one the wake path uses, so
-    // the text is read within a bound and no image is rendered — passing zero
-    // here once bounded the text layer too and reported every PDF and workbook
-    // as reading "(no text)".
-    const content = await documentContent(found.bytes, kind, config.agent.maxPages, {
+    // The page bound is the run's own capped bound (`maxPages`), so the text is
+    // read within the same limit and no image is rendered — passing zero here
+    // once bounded the text layer too and reported every PDF and workbook as
+    // reading "(no text)".
+    const content = await documentContent(found.bytes, kind, await this.maxPages(), {
       vision: false,
     });
     return renderItem(lookup, boundedText(content.read.text));
