@@ -28,6 +28,29 @@ export const APP_FOLDER_NAME = "gilbert";
 export const APP_DOCUMENT_TYPE = "application/json";
 
 /**
+ * The FileNode properties a folder lookup asks for.
+ *
+ * Both tiers read these nodes — the server to find and write a document, the
+ * client to find one and hide it — and a property named on one side and not
+ * the other is a lookup that silently sees a different node.
+ */
+export const FOLDER_PROPS: string[] = ["id", "name", "nodeType", "parentId"];
+
+/**
+ * The whole of a file node. The client asks for `state` beside these, which is
+ * a fact about a conditional write rather than about the node.
+ */
+export const FILE_PROPS: string[] = [
+  "id",
+  "name",
+  "parentId",
+  "blobId",
+  "size",
+  "type",
+  "nodeType",
+];
+
+/**
  * The least a node has to say to be judged against the rule below.
  *
  * Loose on purpose: the server reads its nodes off the wire (`FileNodeLike`,

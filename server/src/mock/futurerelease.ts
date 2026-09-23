@@ -8,7 +8,7 @@
  * the rules can be tested without binding a port.
  */
 
-export type Obj = Record<string, unknown>;
+import type { Obj } from "./types.js";
 
 /** Neither parameter given. */
 export const NO_HOLD = null;

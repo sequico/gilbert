@@ -47,7 +47,7 @@ const SWEEP_MS = 30_000;
  * open, and the fan-out tabs already attached kept a healthy-looking SSE
  * stream whose upstream subscription was expiring unrenewed.
  */
-const RETRY_BACKOFF_MS = 5 * 60_000;
+const SUBSCRIBE_RETRY_MS = 5 * 60_000;
 /**
  * How long we ask Stalwart to keep a subscription.
  *
@@ -534,7 +534,7 @@ function fail(entry: AccountPush, why: string): void {
   // flight; nothing wants the account any more, so the failure is moot.
   if (byKey.get(entry.key) === entry)
     console.warn(
-      `[gilbert] push: ${why} for ${entry.username}; retry in ${Math.round(RETRY_BACKOFF_MS / 60_000)} min`,
+      `[gilbert] push: ${why} for ${entry.username}; retry in ${Math.round(SUBSCRIBE_RETRY_MS / 60_000)} min`,
     );
 }
 
@@ -621,7 +621,7 @@ export function runSweep(): void {
     } else if (
       entry.state === "failed" &&
       (entry.tabs.size > 0 || entry.relays.size > 0) &&
-      now - entry.since >= RETRY_BACKOFF_MS
+      now - entry.since >= SUBSCRIBE_RETRY_MS
     ) {
       // Someone still wants this account (a fan-out tab or a relay): try the
       // subscription again. A failed entry nobody wants is removed below.

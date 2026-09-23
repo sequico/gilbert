@@ -17,6 +17,7 @@ import { type Ctx, filesAccountId, readAppJsonAt, writeAppFileAt } from "../appF
 import { config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
 import { sleep } from "../shared/async.js";
+import { basicAuth } from "../shared/basicAuth.js";
 import {
   fetchUpstreamSession,
   UpstreamError,
@@ -124,10 +125,10 @@ export async function candidateAccounts(ctx: Ctx): Promise<string[]> {
   return [...reach.groups.values()];
 }
 
-/** The Authorization header a plain principal authenticates with. */
-export function basicAuth(address: string, password: string): string {
-  return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
-}
+/* The Authorization header a plain principal authenticates with is
+   `shared/basicAuth.ts`'s one implementation, re-exported here because this
+   module's callers (and its tests) name it through the worker. */
+export { basicAuth };
 
 /**
  * The accounts the session listed and no longer does, with the names they had.

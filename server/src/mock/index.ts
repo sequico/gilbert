@@ -20,6 +20,7 @@ import {
   syntheticId,
 } from "./recurrence.js";
 import { type SIGNED_MESSAGES, signedMessage } from "./signedMessages.js";
+import type { Obj } from "./types.js";
 
 const PORT = Number(process.env.MOCK_PORT ?? 8788);
 /**
@@ -239,7 +240,6 @@ export const agentAccount = {
 };
 const MASKED = "[********]";
 
-type Obj = Record<string, unknown>;
 /**
  * The session state: what the session resource and the `sessionState` of a
  * response report. State that belongs to a data type lives in `typeStates`

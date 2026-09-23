@@ -22,13 +22,11 @@ import {
   OCCURRENCE_REJECTED,
 } from "../shared/calendarOccurrence.js";
 import { localDateTime } from "../shared/localDateTime.js";
-
-export type Obj = Record<string, unknown>;
+import { WEEKDAY_KEYS } from "../shared/weekdays.js";
+import type { Obj } from "./types.js";
 
 /** How far the expander will walk before giving up on a rule. */
 const MAX_ITERATIONS = 750;
-
-const DAYS = ["su", "mo", "tu", "we", "th", "fr", "sa"];
 
 /**
  * The id an occurrence is addressed by: its `recurrenceId`, not its position.
@@ -148,7 +146,7 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
     if (until && cursor > until) break;
     if (rule.count != null && emitted >= rule.count) break;
 
-    const matches = !byDay || byDay.has(DAYS[cursor.getDay()]!);
+    const matches = !byDay || byDay.has(WEEKDAY_KEYS[(cursor.getDay() + 6) % 7]!);
     if (matches) {
       emitted++;
       const keepGoing = emit(index, new Date(cursor));

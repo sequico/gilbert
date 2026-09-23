@@ -30,7 +30,9 @@ import {
   APP_FOLDER_NAME,
   appFolderCreate,
   ensureAppFolderId,
+  FILE_PROPS,
   findAppFolderId,
+  FOLDER_PROPS,
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
@@ -43,10 +45,6 @@ const utf8 = new TextEncoder();
 
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
 export const FILENODE_CAP = CAPABILITIES.filenode;
-
-/** Properties needed to find a node by name and parent. */
-const FOLDER_PROPS = ["id", "name", "nodeType", "parentId"];
-const FILE_PROPS = ["id", "name", "parentId", "blobId", "size", "type", "nodeType"];
 
 /** An error with a message meant for the person using the app. */
 export class AppFolderError extends Error {
