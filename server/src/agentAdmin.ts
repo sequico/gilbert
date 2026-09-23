@@ -50,6 +50,7 @@ import {
   type AgentProvider,
   type AgentReviewMode,
   type AgentRule,
+  type AgentScheduleEntry,
   type AgentTriggerOn,
   type AgentWorkerRecord,
   automationLabel,
@@ -78,7 +79,7 @@ import {
   providerFor,
   readProse,
 } from "./agent/llm.js";
-import { AgentStore } from "./agent/store.js";
+import { type AgentDoc, AgentStore, UnreadableDocumentError } from "./agent/store.js";
 // The shapes this API answers with have one definition, shared with the client
 // that reads them (SSOT): `server/src/agent/views.ts`. Declaring them here as
 // well is what let a field exist on one side and not the other.
@@ -91,6 +92,7 @@ import type {
   AgentProseView,
   AgentProvidersView,
   AgentReadingView,
+  AgentRulesRead,
   AgentStatus,
   AgentStatusGroup,
   AgentStatusMeter,
@@ -616,10 +618,21 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
  */
 export function emptyGroupDocuments(): Pick<
   AgentGroupDocuments,
-  "rules" | "jobs" | "decisions" | "audit" | "meter" | "schedule"
+  | "rules"
+  | "rulesUnreadable"
+  | "rulesRecreated"
+  | "jobs"
+  | "decisions"
+  | "audit"
+  | "meter"
+  | "schedule"
 > {
   return {
     rules: [],
+    // A group nobody could read has no automation document to be unreadable
+    // in: the refusal beside this answer says why the documents are empty.
+    rulesUnreadable: false,
+    rulesRecreated: false,
     jobs: [],
     decisions: [],
     audit: [],
@@ -630,12 +643,97 @@ export function emptyGroupDocuments(): Pick<
   };
 }
 
-/** The group's rules as the rules editor reads them. */
+/** The group's rules as the rules editor reads them, with the unreadable flag. */
 export async function readRules(
   access: GroupAccess,
   accountId: string,
-): Promise<AgentRule[]> {
-  return (await new AgentStore(access.ctx, accountId).readRules())?.doc ?? [];
+): Promise<AgentRulesRead> {
+  return rulesForView(new AgentStore(access.ctx, accountId), { recreate: true });
+}
+
+/** One line for a document a view had to tolerate, so the log has one voice. */
+function warnUnreadable(store: AgentStore, err: UnreadableDocumentError): void {
+  console.warn(`[gilbert] ${store.accountId}: ${err.message}`);
+}
+
+/**
+ * A group's rules, with "no automation", "a document that does not read" and
+ * "a document this read replaced" told apart — for the surfaces that render any
+ * of them.
+ *
+ * `store.readRules` raises for a document that is there but does not validate
+ * (an older format, a hand edit), because the executor must never mistake it
+ * for a group with no automation. The administration is the opposite case, and
+ * the one door that can heal it: with `recreate` set (the admin door) the
+ * unreadable document is replaced with a fresh, empty one in the current
+ * format, conditionally on the state just read, and the answer says so once.
+ * The member door passes `recreate: false` — a member reads, and the pen stays
+ * in the administration. Any other failure still travels, and the executor is
+ * not touched by this: it keeps refusing the document loudly.
+ *
+ * Recreating on a read is a deliberate exception to "a read never writes": the
+ * document is one this build cannot use in any case, the write is conditional
+ * so a valid document that appears in the window is never clobbered, and it
+ * happens only while the document is unreadable — never on a clock.
+ */
+async function rulesForView(
+  store: AgentStore,
+  opts: { recreate: boolean },
+): Promise<AgentRulesRead> {
+  try {
+    return {
+      rules: (await store.readRules())?.doc ?? [],
+      rulesUnreadable: false,
+      rulesRecreated: false,
+    };
+  } catch (err) {
+    if (!(err instanceof UnreadableDocumentError)) throw err;
+    warnUnreadable(store, err);
+    if (!opts.recreate)
+      return { rules: [], rulesUnreadable: true, rulesRecreated: false };
+    const state = await store.state();
+    try {
+      await store.writeRules([], { ifInState: state });
+    } catch (writeErr) {
+      if (!isStateMismatch(writeErr)) throw writeErr;
+      // Somebody wrote in the window between the read and this write: read
+      // again. A document that now reads is theirs and is kept as it is; one
+      // that still does not is left for the next read to heal.
+      try {
+        return {
+          rules: (await store.readRules())?.doc ?? [],
+          rulesUnreadable: false,
+          rulesRecreated: false,
+        };
+      } catch (againErr) {
+        if (!(againErr instanceof UnreadableDocumentError)) throw againErr;
+        return { rules: [], rulesUnreadable: true, rulesRecreated: false };
+      }
+    }
+    console.warn(
+      `[gilbert] ${store.accountId}: replaced an unreadable automation document with a fresh one`,
+    );
+    return { rules: [], rulesUnreadable: false, rulesRecreated: true };
+  }
+}
+
+/**
+ * A group's schedule for a read-only surface.
+ *
+ * `store.readSchedule` raises for a document that is there and does not read
+ * (the armer must never treat it as absent and re-plan over it), but a surface
+ * that renders the group has to stay up: this answers with the empty list and
+ * lets the flagless panel say there is nothing scheduled. The executor is not
+ * touched: it keeps refusing the document loudly.
+ */
+async function scheduleForView(store: AgentStore): Promise<AgentScheduleEntry[]> {
+  try {
+    return (await store.readSchedule())?.doc ?? [];
+  } catch (err) {
+    if (!(err instanceof UnreadableDocumentError)) throw err;
+    warnUnreadable(store, err);
+    return [];
+  }
 }
 
 /**
@@ -652,16 +750,18 @@ export async function groupAgentView(
   accountId: string,
 ): Promise<AgentGroupDocuments> {
   const store = new AgentStore(access.ctx, accountId);
-  const [rules, jobs, decisions, schedule] = await Promise.all([
-    store.readRules(),
+  const [rulesRead, jobs, decisions, schedule] = await Promise.all([
+    rulesForView(store, { recreate: true }),
     store.listJobs(),
     store.listDecisions(),
-    store.readSchedule(),
+    scheduleForView(store),
   ]);
   // One read of the window for both the panel and the meter.
   const window = await auditWindow(store);
   return {
-    rules: rules?.doc ?? [],
+    rules: rulesRead.rules,
+    rulesUnreadable: rulesRead.rulesUnreadable,
+    rulesRecreated: rulesRead.rulesRecreated,
     jobs: jobs
       .map((j) => j.doc)
       .filter((j) => AGENT_JOB_OPEN_STATES.includes(j.state))
@@ -672,7 +772,7 @@ export async function groupAgentView(
       .slice(0, VIEW_LIMIT),
     audit: window.slice(-VIEW_LIMIT),
     meter: meterOver(window),
-    schedule: schedule?.doc ?? [],
+    schedule,
     granted: true,
   };
 }
@@ -791,7 +891,26 @@ export async function saveRules(
 
   const store = new AgentStore(access.ctx, accountId);
   for (let attempt = 0; ; attempt++) {
-    const found = await store.readRules();
+    /*
+     * A document that is there but does not read (an older format, a hand edit)
+     * is **replaced** by what this save writes rather than blocking every save
+     * for ever: the editor authors the whole list, so this is the one door
+     * through which a group whose automations an older build wrote is brought
+     * back to the current shape. The executor still refuses such a document
+     * loudly (`readRules`); only the authoring write is allowed past it, and
+     * only because it hands over a complete, valid list.
+     */
+    let found: AgentDoc<AgentRule[]> | null;
+    try {
+      found = await store.readRules();
+    } catch (err) {
+      if (!(err instanceof UnreadableDocumentError)) throw err;
+      console.warn(
+        `[gilbert] ${accountId}: replacing an automation document that did not read` +
+          ` (${(err as Error).message})`,
+      );
+      found = null;
+    }
     const existing = new Map((found?.doc ?? []).map((r) => [r.id, r]));
     const at = new Date().toISOString();
     const next = checked.map((rule) => {
@@ -1702,7 +1821,9 @@ export async function memberAgentView(
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
   const [rules, jobs, audit, instruction, policy, chat] = await Promise.all([
-    store.readRules(),
+    // The member door reads; the pen that heals an unreadable document is the
+    // administration's, so it never rewrites the group's configuration.
+    rulesForView(store, { recreate: false }),
     store.listJobs(),
     readRecentAudit(store),
     // The same two documents the admin surface writes, read here with the
@@ -1717,7 +1838,7 @@ export async function memberAgentView(
     // the member's own session, where the grant list is not.
     readChat(access.ctx, access.accountId, new JmapClient(access.ctx)),
   ]);
-  const rulesDoc = rules?.doc ?? [];
+  const rulesDoc = rules.rules;
   const open = jobs
     .map((j) => j.doc)
     .filter((j) => AGENT_JOB_OPEN_STATES.includes(j.state))
@@ -1734,6 +1855,9 @@ export async function memberAgentView(
       audit.length > 0 ||
       !!instruction.text,
     agentAddress: agentAddress(),
+    rulesUnreadable: rules.rulesUnreadable,
+    // Always false here: this door reads.
+    rulesRecreated: false,
     rules: rulesDoc.map((r) => ({
       id: r.id,
       enabled: r.enabled,

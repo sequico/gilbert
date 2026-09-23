@@ -37,7 +37,7 @@ import {
 import { useState } from "react";
 import { type AgentGrantCatalog, grantIsReadable, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
-import { AGENT_TRIGGER_LABELS } from "@/views/agent/agentText";
+import { AGENT_TRIGGER_LABELS, actionLabel } from "@/views/agent/agentText";
 import { AskReading } from "./AskReading";
 
 /** A rule as the form holds it: the document itself, with nothing undecided. */
@@ -295,22 +295,37 @@ export function RuleForm({
       ) : (
         <>
           {grant.areas.map((entry) => (
-            <label className="agent-check" key={entry.area}>
-              <input
-                type="checkbox"
-                checked={areaState(entry.actions) === "all"}
-                ref={(node) => {
-                  // A partially granted area is neither ticked nor empty: a rule
-                  // written by hand may hold one action of an area, and showing
-                  // that as granted would claim more than the document says.
-                  if (node) node.indeterminate = areaState(entry.actions) === "some";
-                }}
-                onChange={() =>
-                  toggleActions(entry.actions, areaState(entry.actions) !== "all")
-                }
-              />
-              <span>{t(entry.label)}</span>
-            </label>
+            <div className="agent-grant-area" key={entry.area}>
+              <label className="agent-check">
+                <input
+                  type="checkbox"
+                  checked={areaState(entry.actions) === "all"}
+                  ref={(node) => {
+                    // A partially granted area is neither ticked nor empty: a rule
+                    // written by hand may hold one action of an area, and showing
+                    // that as granted would claim more than the document says.
+                    if (node) node.indeterminate = areaState(entry.actions) === "some";
+                  }}
+                  onChange={() =>
+                    toggleActions(entry.actions, areaState(entry.actions) !== "all")
+                  }
+                />
+                <span>{t(entry.label)}</span>
+              </label>
+              {/*
+               * What ticking the area actually grants, named. The catalogue is
+               * the server's, so this list cannot promise an action the executor
+               * does not have — and a person ticking "Mail" sees the verbs
+               * behind it instead of having to trust a word.
+               */}
+              {entry.actions.length > 0 && (
+                <ul className="agent-grant-actions">
+                  {entry.actions.map((name) => (
+                    <li key={name}>{actionLabel(name)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           ))}
           {/*
            * Whatever the areas do not grant: sending, which every area excludes

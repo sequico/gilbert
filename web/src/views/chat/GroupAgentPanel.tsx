@@ -113,7 +113,17 @@ export function GroupAgentPanel({
           <h4>{t("Who its runs stop for")}</h4>
           <p className="hint">{reviewText(view.policy)}</p>
           <h4>{t("What it follows")}</h4>
-          {view.rules.length === 0 ? (
+          {view.rulesUnreadable ? (
+            // The member reads the same document the administrator does, so a
+            // document an older version wrote is named here too — and the one
+            // place that can heal it is the administration, which is where the
+            // panel sends them.
+            <p className="hint">
+              {t(
+                "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.",
+              )}
+            </p>
+          ) : view.rules.length === 0 ? (
             <p className="hint">{t("No automation is set up for this group.")}</p>
           ) : (
             view.rules.map((rule) => <RuleFacts key={rule.id} rule={rule} />)

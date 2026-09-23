@@ -96,7 +96,7 @@ export function GroupPolicy({ group }: { group: string }) {
 
   return (
     <section>
-      <h2>{t("Review")}</h2>
+      <h2>{t("Who its runs stop for")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.",

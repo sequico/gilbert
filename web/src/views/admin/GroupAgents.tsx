@@ -1,12 +1,29 @@
 /**
- * What the agents do in each group (ADR 0003, restructured by ADR 0003).
+ * The agent, as one group sees it (ADR 0003).
  *
- * One group at a time, behind a single picker that drives every tab below it:
- * the automations the group's agent runs (Automations), its standing
- * instruction and its notebook of facts (Standing instruction, Memory — moved
- * here from Master, beside the rule documents they belong with), what it has
- * done (Audit trail), and the agents themselves (Agents — the process list,
- * where it becomes visible that one is not reporting).
+ * The installation runs **one** agent, and this page is that agent *in a
+ * single group*: how it behaves there, what it follows, what it remembers and
+ * what it has done. The group is picked once, in the header, and the header
+ * also names the agent and says what it is doing here, so the page reads as
+ * one subject before any section is opened.
+ *
+ * Its four sections are the group's agent at four reaches, in the order a
+ * person asks about them:
+ *
+ * - **Behaviour** — the standing instruction every call carries, and the
+ *   policy its runs stop for (ADR 0019, ADR 0006);
+ * - **Automations** — one rule per trigger, each with its own instruction and
+ *   its own allowlist (ADR 0006);
+ * - **Memory** — the notebook its calls are given;
+ * - **Activity** — the audit trail and the agents serving this group.
+ *
+ * `agent/rules.json` stays a document of its own rather than a field of the
+ * group's configuration: it is up to four independent rules (email, file,
+ * chat, schedule), each pinned by `ruleId`/`ruleVersion` on the jobs and the
+ * audit that reference it, and each readable by the group's own members. What
+ * the presentation had wrong was making it a *peer* of the instruction and the
+ * policy; it is a section of the agent's behaviour, and that is where it now
+ * sits.
  *
  * **Which groups there are** is not a setting here: the Master's membership is
  * decided in Stalwart's own administration, and Master's own section is the
@@ -19,8 +36,8 @@
  * about one group and a question about all of them are two different pages,
  * and a page that tried to answer both was harder to read than either.
  */
-import { CheckCircle2, Tags } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Bot, CheckCircle2, Tags } from "lucide-react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import { useSearch } from "wouter";
 import { type AgentStatus, type AgentStatusGroup, addAgentLabels } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
@@ -35,14 +52,13 @@ import { RuleEditor } from "./agent/RuleEditor";
 
 // Short tab labels on purpose: each panel's own heading says the full name
 // ("Standing instruction", "Audit trail") — the tab strip is a nav, not the
-// second place to read the sentence.
+// second place to read the sentence. Behaviour and Activity each hold two
+// documents that belong together; Automations and Memory are one each.
 const GROUP_PARTS = [
+  { id: "behaviour", label: "Behaviour" },
   { id: "automations", label: "Automations" },
-  { id: "instruction", label: "Instruction" },
-  { id: "review", label: "Review" },
   { id: "memory", label: "Memory" },
-  { id: "audit", label: "Audit" },
-  { id: "fleet", label: "Agents" },
+  { id: "activity", label: "Activity" },
 ] as const;
 
 type GroupPart = (typeof GROUP_PARTS)[number]["id"];
@@ -53,19 +69,40 @@ export function GroupAgents() {
   const loadGroup = useAgents((s) => s.loadGroup);
   const groupViews = useAgents((s) => s.groupViews);
   const approvals = useAgents((s) => s.approvals);
-  const [part, setPart] = useState<GroupPart>("automations");
 
   /*
-   * The group every tab below answers about. Master's Groups list can deep-link
-   * here with `?group=name` (ADR 0003) — read once, on mount, as the starting
-   * pick; after that the picker below is the one source of truth.
+   * The group and the tab below are in the URL, read once on mount: Master's
+   * Groups list deep-links here with `?group=name` (ADR 0003), and keeping the
+   * tab there too means a refresh, a bookmark or a back button reopens the
+   * same group at the same section instead of dropping the reader back on the
+   * first one. After mount the picker and the tablist are the sources of truth.
    */
   const search = useSearch();
-  const [group, setGroup] = useState(
-    () => new URLSearchParams(search).get("group") ?? "",
+  const initial = new URLSearchParams(search);
+  const initialTab = initial.get("tab");
+  const [part, setPart] = useState<GroupPart>(() =>
+    GROUP_PARTS.some((entry) => entry.id === initialTab)
+      ? (initialTab as GroupPart)
+      : "behaviour",
   );
+  const [group, setGroup] = useState(() => initial.get("group") ?? "");
   const groups = agentGroups(status).map((entry) => entry.name);
   const known = group !== "" && groups.includes(group);
+
+  // Keep the address bar in step, so the URL is always a link to what is on
+  // screen rather than only to the group. The router is not asked to re-render:
+  // nothing below reads the search back.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (group) params.set("group", group);
+    if (part !== "behaviour") params.set("tab", part);
+    const query = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }, [group, part]);
 
   useEffect(() => {
     void loadStatus();
@@ -92,12 +129,31 @@ export function GroupAgents() {
     w.groups.includes(group),
   ).length;
 
+  /*
+   * Arrow-key movement across the tab strip, the way the tab ARIA pattern asks
+   * for: the strip is one stop in the tab order and the arrows move between the
+   * tabs, instead of every tab being its own stop.
+   */
+  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const at = GROUP_PARTS.findIndex((entry) => entry.id === part);
+    const next = GROUP_PARTS[(at + step + GROUP_PARTS.length) % GROUP_PARTS.length];
+    if (!next) return;
+    setPart(next.id);
+    document.getElementById(`agent-tab-${next.id}`)?.focus();
+  };
+
   return (
     <div>
-      <h1>{t("Group Agents")}</h1>
+      <h1>
+        <Bot size={22} style={{ verticalAlign: "-3px", marginRight: 8 }} />
+        {t("The agent in this group")}
+      </h1>
       <p className="lead">
         {t(
-          "What the agent does inside the group it has been granted, one group at a time: its automations, its standing instruction, who its runs stop for, its memory, what it has done, and the agents carrying it out. The rules that hold everywhere live in Master; what is waiting across every group lives in Approvals.",
+          "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.",
         )}
       </p>
       {groups.length === 0 ? (
@@ -107,8 +163,11 @@ export function GroupAgents() {
           )}
         </p>
       ) : (
-        <>
-          <div className="field" style={{ maxWidth: 380, marginBottom: 12 }}>
+        // One bar for the group's own facts: which group, what it is doing at a
+        // glance, and the one setup step its reserved labels need. The sections
+        // below it are the documents, so nothing about the group is a section.
+        <div className="card agent-group-bar">
+          <div className="field" style={{ maxWidth: 380, margin: 0 }}>
             <label htmlFor="agent-fleet-group">{t("Group")}</label>
             <select
               id="agent-fleet-group"
@@ -123,40 +182,77 @@ export function GroupAgents() {
               ))}
             </select>
           </div>
+          {known && status?.address && (
+            // The header names the subject: one agent, working here. Master says
+            // whether the installation is operational at all; this says under
+            // which address the group is being served.
+            <p className="hint" style={{ margin: 0 }}>
+              <Bot size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+              {t("Working in this group as {address}.", { address: status.address })}
+            </p>
+          )}
           {known && (
             <GroupGlance
               rulesEnabled={rulesEnabled}
               rulesTotal={rulesTotal}
+              rulesUnreadable={view?.granted === true && view.rulesUnreadable === true}
               pending={pendingHere}
               serving={servingHere}
             />
           )}
           {known && <LabelSetup group={group} />}
-        </>
+        </div>
       )}
       <div
-        className="segmented"
-        role="group"
+        className="segmented agent-tabs"
+        role="tablist"
         aria-label={t("Group agent sections")}
-        style={{ marginBottom: 16 }}
+        onKeyDown={onTabKey}
       >
         {GROUP_PARTS.map((entry) => (
           <button
             key={entry.id}
+            id={`agent-tab-${entry.id}`}
+            type="button"
+            role="tab"
+            aria-selected={part === entry.id}
+            aria-controls="agent-tabpanel"
+            tabIndex={part === entry.id ? 0 : -1}
             className={part === entry.id ? "active" : ""}
-            aria-pressed={part === entry.id}
             onClick={() => setPart(entry.id)}
           >
             {t(entry.label)}
           </button>
         ))}
       </div>
-      {part === "automations" && <RuleEditor groups={groups} group={group} />}
-      {part === "instruction" && <GroupInstruction group={group} />}
-      {part === "review" && <GroupPolicy group={group} />}
-      {part === "memory" && <GroupMemory group={group} known={known} />}
-      {part === "audit" && <GroupAudit group={group} known={known} />}
-      {part === "fleet" && <Fleet status={status} group={group} />}
+      <div
+        role="tabpanel"
+        id="agent-tabpanel"
+        aria-labelledby={`agent-tab-${part}`}
+        tabIndex={-1}
+      >
+        {part === "behaviour" && (
+          <>
+            {/* The two documents a run is held to before any automation is:
+                what the agent is told (the standing instruction) and who its
+                runs stop for (the policy). One section, because they answer
+                one question — how the agent behaves here. */}
+            <GroupInstruction group={group} />
+            <GroupPolicy group={group} />
+          </>
+        )}
+        {part === "automations" && <RuleEditor groups={groups} group={group} />}
+        {part === "memory" && <GroupMemory group={group} known={known} />}
+        {part === "activity" && (
+          <>
+            {/* What it has done, and who is doing it: the trail and the agents
+                serving this group, read together because the second explains
+                the gaps in the first. */}
+            <GroupAudit group={group} known={known} />
+            <Fleet status={status} group={group} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -184,21 +280,26 @@ function agentGroups(status: AgentStatus | null): AgentStatusGroup[] {
 function GroupGlance({
   rulesEnabled,
   rulesTotal,
+  rulesUnreadable,
   pending,
   serving,
 }: {
   rulesEnabled: number;
   rulesTotal: number;
+  /** The document is there but does not read, so the counts mean nothing. */
+  rulesUnreadable: boolean;
   pending: number;
   serving: number;
 }) {
   return (
-    <div className="row" style={{ gap: 20, flexWrap: "wrap", marginBottom: 16 }}>
+    <div className="agent-glance">
       <span className="hint">
-        {t("{enabled} of {total} automations enabled", {
-          enabled: rulesEnabled,
-          total: rulesTotal,
-        })}
+        {rulesUnreadable
+          ? t("The automations document cannot be read.")
+          : t("{enabled} of {total} automations enabled", {
+              enabled: rulesEnabled,
+              total: rulesTotal,
+            })}
       </span>
       <span className="hint">
         {pending > 0
@@ -244,7 +345,7 @@ function LabelSetup({ group }: { group: string }) {
   };
 
   return (
-    <div className="row" style={{ gap: 8, alignItems: "baseline", marginBottom: 16 }}>
+    <div className="agent-label-setup">
       <p className="hint" style={{ margin: 0 }}>
         <Tags size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
         {t(
@@ -302,7 +403,7 @@ function Fleet({ status, group }: { status: AgentStatus | null; group: string })
         );
   return (
     <section>
-      <h2>{t("Agents")}</h2>
+      <h2>{t("Agents serving this group")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.",

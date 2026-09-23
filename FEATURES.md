@@ -216,11 +216,18 @@ group Stalwart no longer lists the agent for stops being served within it
 - **Three admin surfaces, not one trying to answer everything (ADR 0003).**
   **Master** is the installation, configured once: identity, the one model and
   its bounds, the rules that hold in every group, and the plain list of granted
-  groups. **Group Agents** is one
-  group's own workspace behind a single picker: its automations, its standing
-  instruction, who its runs stop for, its memory, its audit trail and the agents
-  serving it — including a control that makes sure its reserved label catalogue
-  exists.
+  groups. **Group Agents** is the agent *in one group*, behind a single picker
+  and read as one subject before any section is opened: its header names the
+  agent serving the group and how much of it is armed, and its four sections are
+  **Behaviour** (the standing instruction every call carries and the policy its
+  runs stop for), **Automations** (one rule per trigger), **Memory** (the
+  notebook its calls are given) and **Activity** (the audit trail and the agents
+  serving the group), beside a control that makes sure the group's reserved
+  label catalogue exists. The automations document is a section of the agent's
+  behaviour rather than a peer of its configuration documents: it is up to four
+  independent rules — email, file, chat, schedule — each with its own
+  instruction and allowlist, each pinned by `ruleId`/`ruleVersion` on the jobs
+  and audit that reference it, and each readable by the group's own members.
   **Approvals** is cross-group oversight: what is waiting for a person and
   what the fleet has done, across every granted group at once, read-only by
   construction — an operator still answers a paused run in the group's own
@@ -232,6 +239,20 @@ group Stalwart no longer lists the agent for stops being served within it
   carry — because that is the one fact that decides whether the chat's `@`
   offers a group's members or the people who have already written (ADR 0005),
   and it is an operator's grant to give.
+- **An automation document this build cannot read is replaced automatically.** A
+  group whose `agent/rules.json` is valid JSON but not the shape this build
+  reads — a document an older version wrote, or a hand edit — is not shown as a
+  group with no automation and does not take its surface down: the
+  administration's read of the group (and `/admin/groups/:name/agent/rules`)
+  replaces it with a fresh, empty one in the current format, conditionally on
+  the state just read so a valid document written in the window is never
+  clobbered, and says so once on the read that did it. The member door reports
+  the state and never writes: the pen that heals is the administration's. The
+  authoring save overwrites such a document too, rather than being blocked by it
+  forever. What does **not** change is the executor's reading — it still refuses
+  to run a document it cannot read and records that refusal — because for a run
+  "no automation" and "an automation nobody can read" are opposite answers,
+  never the same silence.
 - **An automation is three choices and a paragraph.** The admin surface authors
 one document per automation, and what an administrator decides is: **when** it
 reacts (one of four triggers), **what it does** (prose, the whole of what a run

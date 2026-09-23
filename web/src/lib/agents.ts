@@ -33,6 +33,7 @@ import type {
   AgentProseView,
   AgentProvidersView,
   AgentReadingView,
+  AgentRulesRead,
   AgentStatus,
   GroupMembersView,
   GroupNotebookView,
@@ -57,6 +58,7 @@ export type {
   AgentProseView,
   AgentProvidersView,
   AgentProviderView,
+  AgentRulesRead,
   AgentStatus,
   AgentStatusGroup,
   AgentStatusWorker,
@@ -115,11 +117,10 @@ export function fetchAgentGroup(name: string): Promise<AgentGroupSurface> {
 }
 
 /** `GET /api/admin/groups/:name/agent/rules` — the rules editor's document. */
-export async function fetchAgentRules(name: string): Promise<AgentRule[]> {
-  const res = await apiFetch<{ rules: AgentRule[] }>(
+export function fetchAgentRules(name: string): Promise<AgentRulesRead> {
+  return apiFetch<AgentRulesRead>(
     `/api/admin/groups/${encodeURIComponent(name)}/agent/rules`,
   );
-  return res.rules;
 }
 
 /** `POST /api/admin/groups/:name/agent/rules` — the saved rules, as stamped. */

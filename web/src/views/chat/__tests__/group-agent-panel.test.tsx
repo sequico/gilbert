@@ -27,6 +27,8 @@ function memberView(overrides: Partial<MemberAgentView> = {}): MemberAgentView {
     group: GROUP,
     granted: true,
     agentAddress: "gilbert@example.org",
+    rulesUnreadable: false,
+    rulesRecreated: false,
     rules: [
       {
         id: "r1",

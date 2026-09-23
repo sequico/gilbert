@@ -34,7 +34,7 @@ import { useEffect, useState } from "react";
 import { runAgentRule } from "@/lib/agents";
 import { formatListDate, uid } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -56,6 +56,7 @@ export function RuleEditor({
 }) {
   const groupViews = useAgents((s) => s.groupViews);
   const busyReads = useAgents((s) => s.busy);
+  const readProblems = useAgents((s) => s.problems);
   const loadGroup = useAgents((s) => s.loadGroup);
   const grant = useAgents((s) => s.grant);
   const loadGrant = useAgents((s) => s.loadGrant);
@@ -77,6 +78,10 @@ export function RuleEditor({
 
   const view = group ? groupViews[agentViewKey(group)] : undefined;
   const known = group !== "" && groups.includes(group);
+  // Why the group's read failed, when it did: the store keeps it under the
+  // group's own line, and showing it is the difference between "nobody could
+  // read this group" and "this document is in a shape this build cannot use".
+  const readProblem = group ? (readProblems[groupOperation(group)] ?? null) : null;
   const rules = view?.granted ? view.rules : [];
   /** The runs of this group that are still open, by the rule that asked for them. */
   const openJobs: readonly AgentJob[] = view?.jobs ?? [];
@@ -263,11 +268,15 @@ export function RuleEditor({
 
       {group && known && (
         <>
-          {!view && (
+          {!view && loading && <p className="hint">{t("Loading…")}</p>}
+          {!view && !loading && readProblem && (
+            <div className="error-box" style={{ marginBottom: 12 }}>
+              {readProblem}
+            </div>
+          )}
+          {!view && !loading && !readProblem && (
             <p className="hint">
-              {loading
-                ? t("Loading…")
-                : t("This group's automation document could not be read.")}
+              {t("This group's automation document could not be read.")}
             </p>
           )}
           {view && !view.granted && (
@@ -275,8 +284,38 @@ export function RuleEditor({
               {view.need && groupAccessSentence(view.need)}
             </div>
           )}
-          {view?.granted && draft ? (
-            <>
+          {view?.granted && view.rulesRecreated === true && (
+            /*
+             * The server found a document an older version wrote and replaced
+             * it with a fresh, empty one. The flag is true only on the read that
+             * did it, so this notice is shown once rather than every visit.
+             */
+            <div className="warn-box" style={{ marginBottom: 12 }}>
+              {t(
+                "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.",
+              )}
+            </div>
+          )}
+          {view?.granted && view.rulesUnreadable === true && (
+            /*
+             * There and unreadable, and the replacement did not land (a lost
+             * compare-and-set, a refused write): the state is shown rather than
+             * the group being called empty, and the next read tries again.
+             */
+            <div className="warn-box" style={{ marginBottom: 12 }}>
+              {t(
+                "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.",
+              )}
+            </div>
+          )}
+          {view?.granted && view.rulesUnreadable === true ? null : view?.granted &&
+            draft ? (
+            <div className="card agent-editor">
+              <div className="card-head">
+                {/* The automation's name is derived from its trigger, never
+                    authored, so the editor's title is the document's own. */}
+                <h3>{automationText(draft)}</h3>
+              </div>
               <RuleForm
                 rule={draft}
                 group={group}
@@ -314,68 +353,58 @@ export function RuleEditor({
                   {t("Cannot be saved yet: {reason}", { reason: draftProblem })}
                 </p>
               )}
-            </>
+            </div>
           ) : view?.granted ? (
             <>
-              {rules.length === 0 ? (
-                <p className="hint">{t("No automation in this group yet.")}</p>
-              ) : (
-                rules.map((rule) => (
-                  <RuleItem
-                    key={rule.id}
-                    rule={rule}
-                    busy={busy}
-                    run={
-                      asking === rule.id ? "asking" : asked === rule.id ? "asked" : "idle"
-                    }
-                    openJob={openJobs.find((job) => job.ruleId === rule.id)}
-                    nextDue={schedule.find((s) => s.ruleId === rule.id)?.at}
-                    onRun={() => void ask(rule)}
-                    onEdit={() => {
-                      setProblem(null);
-                      setDraft(rule);
-                      setBaseline(rule);
-                    }}
-                    onDelete={() => void remove(rule)}
-                  />
-                ))
-              )}
-              {/*
-               * A new automation starts on a trigger nothing holds: the four
-               * are the whole of what an automation can stand on, and offering
-               * one that is taken would be offering a save the server refuses.
-               */}
-              <button
-                className="btn"
-                disabled={busy || freeTriggers.length === 0}
-                title={
-                  freeTriggers.length === 0
-                    ? t("Every trigger already has an automation in this group.")
-                    : undefined
-                }
-                onClick={() => {
-                  setProblem(null);
-                  /*
-                   * A new automation gets its id here rather than in the form:
-                   * the form edits a document, and an id is what the group's
-                   * document list names it by.
-                   *
-                   * `uid` and not `crypto.randomUUID`: the latter exists only in
-                   * a secure context, and the administration is reachable over
-                   * plain http too (by server IP, which is the whole point of it
-                   * being reachable at all when DNS does not answer). There, the
-                   * call throws inside the click handler, React tears the panel
-                   * down and the button appears to do nothing at all — a dead
-                   * button with no message. `uid` is the client's own minting
-                   * (a prefix, some randomness and the clock), which is what this
-                   * name is: minted by the client and shown to nobody.
-                   */
-                  setDraft(blankRule(uid("rule-"), freeTriggers[0]));
-                  setBaseline(null);
-                }}
-              >
-                <Plus size={16} /> {t("New automation")}
-              </button>
+              {/* The list's own toolbar: the count first, the one action a
+                  person takes from here next to it, so a group with many
+                  automations does not bury the button under them. */}
+              <div className="agent-list-toolbar">
+                <p className="hint" style={{ margin: 0 }}>
+                  {rules.length === 0
+                    ? t("No automation in this group yet.")
+                    : plural(rules.length, {
+                        one: "{n} automation",
+                        other: "{n} automations",
+                      })}
+                </p>
+                {/*
+                 * A new automation starts on a trigger nothing holds: the four
+                 * are the whole of what an automation can stand on, and offering
+                 * one that is taken would be offering a save the server refuses.
+                 */}
+                <button
+                  className="btn btn-sm btn-primary"
+                  disabled={busy || freeTriggers.length === 0}
+                  title={
+                    freeTriggers.length === 0
+                      ? t("Every trigger already has an automation in this group.")
+                      : undefined
+                  }
+                  onClick={() => {
+                    setProblem(null);
+                    /*
+                     * A new automation gets its id here rather than in the form:
+                     * the form edits a document, and an id is what the group's
+                     * document list names it by.
+                     *
+                     * `uid` and not `crypto.randomUUID`: the latter exists only in
+                     * a secure context, and the administration is reachable over
+                     * plain http too (by server IP, which is the whole point of it
+                     * being reachable at all when DNS does not answer). There, the
+                     * call throws inside the click handler, React tears the panel
+                     * down and the button appears to do nothing at all — a dead
+                     * button with no message. `uid` is the client's own minting
+                     * (a prefix, some randomness and the clock), which is what this
+                     * name is: minted by the client and shown to nobody.
+                     */
+                    setDraft(blankRule(uid("rule-"), freeTriggers[0]));
+                    setBaseline(null);
+                  }}
+                >
+                  <Plus size={16} /> {t("New automation")}
+                </button>
+              </div>
               {freeTriggers.length === 0 && (
                 <p className="hint" style={{ marginTop: 8 }}>
                   {t(
@@ -383,6 +412,25 @@ export function RuleEditor({
                   )}
                 </p>
               )}
+              {rules.map((rule) => (
+                <RuleItem
+                  key={rule.id}
+                  rule={rule}
+                  busy={busy}
+                  run={
+                    asking === rule.id ? "asking" : asked === rule.id ? "asked" : "idle"
+                  }
+                  openJob={openJobs.find((job) => job.ruleId === rule.id)}
+                  nextDue={schedule.find((s) => s.ruleId === rule.id)?.at}
+                  onRun={() => void ask(rule)}
+                  onEdit={() => {
+                    setProblem(null);
+                    setDraft(rule);
+                    setBaseline(rule);
+                  }}
+                  onDelete={() => void remove(rule)}
+                />
+              ))}
             </>
           ) : null}
         </>

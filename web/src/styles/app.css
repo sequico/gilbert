@@ -2799,6 +2799,31 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .agent-rule-item .card-head { flex-wrap: wrap; gap: 8px; }
 .agent-rule-item .card-head h3 { flex: 0 1 auto; }
 
+/* The Group Agents workspace: one bar holding the group's own facts (which
+   group, its counts, its one setup step) above a proper tablist, so the group
+   is not a section and the sections below are only the group's documents. */
+.agent-group-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px; padding: 12px 14px; margin-bottom: 16px; }
+.agent-group-bar .field { margin: 0; }
+.agent-glance { display: flex; flex-wrap: wrap; gap: 2px 18px; }
+.agent-label-setup { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.agent-tabs { margin-bottom: 16px; max-width: 100%; overflow-x: auto; }
+.agent-tabs button { height: 34px; }
+
+/* The automation list's own toolbar: the count and the one action above the
+   cards rather than buried after them. */
+.agent-list-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; }
+
+/* The editor card: the form and its save/cancel in one frame, titled by the
+   automation's own derived name. */
+.agent-editor { padding: 14px; }
+.agent-editor .card-head { margin-bottom: 8px; }
+
+/* A granted area with the actions it expands to named beneath it, so a tick
+   is legible without opening the server's catalogue. */
+.agent-grant-area { margin: 8px 0; }
+.agent-grant-actions { list-style: none; margin: 0 0 0 24px; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.agent-grant-actions li { font-size: .82em; color: var(--fg-muted); }
+
 /* What arrived from the operating system's share sheet, shown before it is opened. */
 .share-summary { margin: 0 0 8px; padding-left: 1ex; border-left: 2px solid var(--border-strong); color: var(--fg-muted); overflow-wrap: anywhere; }
 .share-summary-files { margin: 0 0 8px; padding-left: 1.2em; color: var(--fg-muted); overflow-wrap: anywhere; }

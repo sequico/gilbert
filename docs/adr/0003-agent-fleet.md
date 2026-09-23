@@ -330,16 +330,26 @@ The agents admin area is three sections.
   single provider/model configuration, the rules that hold in every group (ADR
   0019), and the plain list of groups the
   agent's own session reports. Membership is shown here, never written.
-- **Group Agents** — a per-group workspace behind one group picker, as tabs:
-  **Automations** (the editor, showing a scheduled automation's next due
-  time), **Standing instruction**, **Review** (who its runs stop for, and
-  whether they may reach outside the group without a person), **Memory** (the
-  notebook),
-  **Audit** (a window on that group's own monthly audit, newest first, with
-  the full month exportable as JSON), and **Agents** (who is serving that
-  group, read from the process that hosts the agent, and which grants it has
-  lost). A
-  control here also defines the group's label catalog.
+- **Group Agents** — the agent *in one group*, behind one group picker and
+  read as one subject before any section is opened: its header names the agent
+  serving the group and how much of it is armed, and its four sections are
+  **Behaviour** (the **Standing instruction** every call carries and the
+  **Review** policy — who its runs stop for, and whether they may reach outside
+  the group without a person), **Automations** (the editor, one rule per
+  trigger, showing a scheduled automation's next due time), **Memory** (the
+  notebook) and **Activity** (a window on that group's own monthly audit,
+  newest first, with the full month exportable as JSON, and **Agents** — who is
+  serving that group, read from the process that hosts the agent, and which
+  grants it has lost). A control here also defines the group's label catalog.
+  The automations document is a section of the agent's behaviour rather than a
+  peer of its configuration documents: it holds up to four independent rules,
+  each pinned by `ruleId`/`ruleVersion` on the jobs and audit that reference it
+  and each readable by the group's own members. A rules document that is there
+  but does not read — an older format, a hand edit — is replaced on the
+  administration's read with a fresh, empty one in the current format,
+  conditionally on the state just read and said once on the read that did it, so
+  the group heals without a person acting; the member door reports it and never
+  writes, and the executor still refuses to run such a document.
 - **Approvals** — cross-group oversight, read-only by construction: a
   **Pending** tab shows every group's paused decisions at once, and an
   **Audit** tab merges every granted group's trail, filterable by group and

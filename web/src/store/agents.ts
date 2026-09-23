@@ -230,7 +230,20 @@ export const useAgents = create<AgentsState>((set, get) => ({
       set((s) => {
         const view = s.groupViews[key];
         if (!view) return {};
-        return { groupViews: { ...s.groupViews, [key]: { ...view, rules: saved } } };
+        // A save hands the server a complete list, so a document that did not
+        // read a moment ago is a document that now does: clearing the flags is
+        // what turns the editor's notice back into the list.
+        return {
+          groupViews: {
+            ...s.groupViews,
+            [key]: {
+              ...view,
+              rules: saved,
+              rulesUnreadable: false,
+              rulesRecreated: false,
+            },
+          },
+        };
       });
     } catch (err) {
       // Loud to both: the editor reports what the server refused, and a save

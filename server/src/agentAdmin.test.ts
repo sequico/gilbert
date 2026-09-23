@@ -58,7 +58,7 @@ const { AGENT_CHAIN_HOPS_CEILING, AGENT_PAGES_CEILING } = await import(
 );
 const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
-const { filesAccountId, writeAppFile } = await import("./appFolder.js");
+const { filesAccountId, writeAppFile, writeAppFileAt } = await import("./appFolder.js");
 const { AgentStore } = await import("./agent/store.js");
 const { monthOf } = await import("./agent/documents.js");
 
@@ -584,7 +584,7 @@ test("an administrator reads and saves a group's rules", async () => {
 
   const empty = await call(`/api/admin/groups/${TEAM}/agent/rules`);
   assert.equal(empty.status, 200);
-  assert.deepEqual(empty.body, { rules: [] });
+  assert.deepEqual(empty.body, { rules: [], rulesUnreadable: false });
 
   const saved = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
@@ -627,6 +627,91 @@ test("an administrator reads and saves a group's rules", async () => {
     "the rule persisted in the group's own files",
   );
   assert.deepEqual(view.schedule, []);
+});
+
+test("an automation document an older version wrote is replaced automatically", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const accounts = (agentCtx.session.accounts ?? {}) as Record<string, { name?: string }>;
+  const account = Object.entries(accounts).find(([, a]) => a.name === TEAM)?.[0];
+  assert.ok(account, "the agent's session holds the group's account");
+
+  /*
+   * A document in the retired tier-era format: valid JSON, but not a rule this
+   * build reads (its `instruction` is absent). Written raw, which is what an
+   * upgrade leaves in a group's account.
+   */
+  await writeAppFileAt(agentCtx, account, "agent/rules.json", {
+    v: 1,
+    rules: [
+      {
+        v: 1,
+        id: "legacy",
+        version: 1,
+        name: "Legacy",
+        enabled: true,
+        area: "mail",
+        trigger: { on: "email" },
+        tier: "T0",
+        review: { mode: "always" },
+        actions: [],
+        capabilities: ["keyword.add"],
+      },
+    ],
+  });
+
+  // The administration's read replaces it in place — a document an older
+  // version wrote is one this build cannot use — and the rest of the surface
+  // stays up instead of the whole group going dark behind a 500.
+  const read = await call(`/api/admin/groups/${TEAM}/agent`);
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  const view = read.body as {
+    rulesUnreadable: boolean;
+    rulesRecreated: boolean;
+    rules: unknown[];
+    jobs: unknown[];
+  };
+  assert.equal(view.rulesRecreated, true, "the read replaced the old document");
+  assert.equal(view.rulesUnreadable, false, "and the fresh one reads");
+  assert.deepEqual(view.rules, [], "the fresh document is empty");
+  assert.ok(Array.isArray(view.jobs), "the rest of the surface is still there");
+
+  // A second read finds a document that reads: the one-time notice is over.
+  const again = (await call(`/api/admin/groups/${TEAM}/agent`)).body as {
+    rulesUnreadable: boolean;
+    rulesRecreated: boolean;
+    rules: unknown[];
+  };
+  assert.equal(again.rulesRecreated, false, "the notice is shown once");
+  assert.equal(again.rulesUnreadable, false);
+  assert.deepEqual(again.rules, []);
+
+  // And an automation can be authored into the fresh document.
+  const saved = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [rule()] }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal((saved.body as { rules: Array<{ id: string }> }).rules[0]?.id, "r1");
+
+  // The `/rules` route heals the same way, for a client that reads it alone.
+  await writeAppFileAt(agentCtx, account, "agent/rules.json", {
+    v: 1,
+    rules: [{ v: 1, id: "legacy" }],
+  });
+  const rulesRead = (await call(`/api/admin/groups/${TEAM}/agent/rules`)).body as {
+    rulesRecreated: boolean;
+    rules: unknown[];
+  };
+  assert.equal(rulesRead.rulesRecreated, true);
+  assert.deepEqual(rulesRead.rules, []);
 });
 
 test("a rule that could never run is refused with its code and its parameters", async () => {

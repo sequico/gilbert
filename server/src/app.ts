@@ -2164,7 +2164,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
       if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-      return c.json({ rules: await readRules(access, access.accountId) });
+      return c.json(await readRules(access, access.accountId));
     } catch (err) {
       return agentFailure(c, err);
     }
