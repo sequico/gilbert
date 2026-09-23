@@ -264,13 +264,18 @@ export async function readDocument(
   maxPages: number,
 ): Promise<DocumentRead> {
   if (kind === "docx") {
+    // A `.docx` has no page bound of its own — it is one body of text until
+    // something lays it out — so the character ceiling is what bounds it, and
+    // a reading that reached the ceiling says so rather than presenting its
+    // beginning as the whole of the document.
+    const cut = cutAtCeiling(await docxText(bytes));
     return {
       kind,
       pages: 1,
-      text: await docxText(bytes),
+      text: cut.text,
       pixelPages: [],
       looked: 1,
-      truncated: false,
+      truncated: cut.truncated,
     };
   }
   if (kind === "text") {
@@ -285,9 +290,12 @@ export async function readDocument(
     };
   }
   if (kind === "image") {
-    // One page, carrying no text layer at all — the same fact a scanned PDF
-    // page states about itself, and stated the same way, so `documentContent`
-    // hands it to the call exactly as it would that page.
+    // The name said "image"; the bytes must agree. An image carries no text
+    // layer by definition — what a person sees is pixels, and the model reads
+    // them — but a file whose own bytes are none of the four formats is refused
+    // here, the same way `documentContent` refuses it, so `document.read` (which
+    // calls this directly) cannot hand a mislabelled file on as a picture.
+    imageMime(bytes);
     return {
       kind,
       pages: 1,

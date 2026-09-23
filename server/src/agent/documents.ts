@@ -1626,7 +1626,14 @@ export function isAgentScheduleDoc(x: unknown): x is AgentScheduleDoc {
   if (d.v !== 1 || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
     const s = e as Record<string, unknown>;
-    return typeof s?.ruleId === "string" && typeof s?.at === "string";
+    // The instant must be readable as one: an entry whose `at` is a string the
+    // clock cannot parse never fires and is never reported as missed, so the
+    // document is refused as unreadable rather than silently losing the run.
+    return (
+      typeof s?.ruleId === "string" &&
+      typeof s?.at === "string" &&
+      Number.isFinite(Date.parse(s.at))
+    );
   });
 }
 

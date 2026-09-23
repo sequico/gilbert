@@ -83,7 +83,7 @@ function subjectOfDecision(decision: AgentDecision): AuditSubject {
  * beside the work that spent it, in the same monthly document, pruned by the
  * same retention — and every reading is a reading of that one record (ADR 0003). A run that reported nothing carries no counts rather than zeros.
  */
-export type RunCost = Pick<AgentAuditEntry, "agent" | "reasoned" | "usage">;
+export type RunCost = Pick<AgentAuditEntry, "agent" | "reasoned" | "usage" | "resumed">;
 
 function build(
   subject: AuditSubject,
@@ -117,6 +117,9 @@ function build(
   if (cost?.agent) entry.agent = cost.agent;
   if (cost?.reasoned !== undefined) entry.reasoned = cost.reasoned;
   if (cost?.usage) entry.usage = cost.usage;
+  // A resumed plan was counted where it was decided: `meterOf` skips the usage
+  // of an entry carrying this, so dropping it here would bill the run twice.
+  if (cost?.resumed) entry.resumed = cost.resumed;
   return entry;
 }
 

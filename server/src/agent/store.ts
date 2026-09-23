@@ -99,11 +99,16 @@ export class UnreadableDocumentError extends Error {
   constructor(
     readonly path: string,
     what: string,
+    /**
+     * What this particular reader or writer says about it. The default is a
+     * reader's "refusing to report it as absent"; a writer that must not
+     * overwrite the document says that instead, and an audit reader says
+     * "empty month" — one class, and the sentence the caller reads is its own.
+     */
+    message = `the document ${path} is there but does not read as ${what}; ` +
+      `refusing to report it as absent`,
   ) {
-    super(
-      `the document ${path} is there but does not read as ${what}; ` +
-        `refusing to report it as absent`,
-    );
+    super(message);
     this.name = "UnreadableDocumentError";
   }
 }
@@ -417,10 +422,20 @@ export class AgentStore {
 
   /* ---------------- schedule (group account) ---------------- */
 
+  /**
+   * The schedule, raising when the document is there and does not read.
+   *
+   * Tolerant here would be dangerous: a schedule read as absent makes the
+   * armer plan afresh from an empty list, so a peer's still-due entry is
+   * re-planned forward with nothing recorded as missed, and the unreadable
+   * document is then overwritten without even a compare-and-set (its state is
+   * not read). Unreadable is loud, the same line the rules and the claim hold.
+   */
   async readSchedule(): Promise<AgentDoc<AgentScheduleEntry[]> | null> {
-    const found = await this.readDoc<AgentScheduleDoc>(
+    const found = await this.readDocChecked<AgentScheduleDoc>(
       this.path(AGENT_SCHEDULE_FILE),
       isAgentScheduleDoc,
+      "a schedule document",
     );
     return found ? { doc: found.doc.entries, state: found.state } : null;
   }
@@ -591,7 +606,9 @@ export class AgentStore {
     const raw = await readAppJsonAt(this.ctx, this.accountId, path);
     if (raw === null) return null;
     if (!isAgentAuditDoc(raw)) {
-      throw new Error(
+      throw new UnreadableDocumentError(
+        path,
+        "an audit",
         `the audit document ${path} is there but does not read as an audit; ` +
           `refusing to report it as an empty month`,
       );
@@ -617,7 +634,9 @@ export class AgentStore {
     const raw = await readAppJsonAt(this.ctx, this.accountId, path);
     if (raw === null) return null;
     if (!isAgentAuthoringDoc(raw)) {
-      throw new Error(
+      throw new UnreadableDocumentError(
+        path,
+        "an authoring document",
         `the authoring document ${path} is there but does not read as one; ` +
           `refusing to report it as an empty month`,
       );
@@ -651,7 +670,9 @@ export class AgentStore {
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
       if (raw !== null && !isAgentAuthoringDoc(raw)) {
         if (onUnreadable === "abandon") return false;
-        throw new Error(
+        throw new UnreadableDocumentError(
+          path,
+          "an authoring document",
           `the authoring document ${path} is there but does not read as one; ` +
             `refusing to write over it`,
         );
@@ -827,7 +848,9 @@ export class AgentStore {
       // single entry — the one failure the audit cannot have. Missing is empty;
       // unreadable is loud, and a person decides what to do with it.
       if (raw !== null && !isAgentAuditDoc(raw)) {
-        throw new Error(
+        throw new UnreadableDocumentError(
+          path,
+          "an audit",
           `the audit document ${path} is there but does not read as an audit; ` +
             `refusing to write over it`,
         );

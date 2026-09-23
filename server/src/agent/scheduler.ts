@@ -34,6 +34,13 @@ export interface ArmTimersOpts {
    */
   setTimeoutFn?: (fn: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearTimeoutFn?: (timer: ReturnType<typeof setTimeout>) => void;
+  /**
+   * What a due handler that threw synchronously is reported to. A throw from
+   * `onDue` — the guard refusing, a log that failed — must not escape a timer
+   * callback and take the process down, and must not leave the entry un-armed
+   * and silent either.
+   */
+  onError?: (err: unknown) => void;
 }
 
 /** What to call when an entry is due. */
@@ -215,8 +222,17 @@ export function armTimers(
     const timer = setTimeoutFn(() => {
       timers.delete(timer);
       if (stopped) return;
-      if (now() >= due) onDue(entry);
-      else arm(entry);
+      if (now() >= due) {
+        // One entry's handler must not be able to kill the worker: a throw that
+        // escaped here would be an uncaught exception in a timer callback, and
+        // the timer has already removed itself, so the entry would vanish too.
+        try {
+          onDue(entry);
+        } catch (err) {
+          opts.onError?.(err);
+          arm(entry);
+        }
+      } else arm(entry);
     }, delay);
     timers.add(timer);
   };

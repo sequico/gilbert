@@ -49,6 +49,7 @@ import {
   fetchEmailRecord,
   fetchEmailView,
   mailboxIdByRole,
+  RefusedError,
   runActions,
   undefinedAgentLabels,
 } from "./actions.js";
@@ -217,13 +218,6 @@ interface RunPlan {
   /** Set on a plan a job already carried, so the meter counts the run once. */
   resumed?: true;
 }
-
-/**
- * A refusal: the rule cannot run as it is written, so retrying it changes
- * nothing. A transient failure (an unreachable provider, a refused key) is not
- * one of these and keeps its bounded retries.
- */
-class RefusedError extends Error {}
 
 /**
  * How many times a decision's settle is retried after losing a compare-and-set.
@@ -407,8 +401,12 @@ export class Executor {
        * group's chat is not a place to repeat it every poll.
        */
       const doubled = rulesProblem(rules);
-      if (doubled && !this.reportedUnreadable.has(doubled)) {
-        this.reportedUnreadable.add(doubled);
+      // The key names the account as well as the cause: two groups whose
+      // document fails the same way must each hear about it once, and a set
+      // keyed on the sentence alone would let the second go unreported.
+      const doubledKey = doubled ? `${accountId}\u0000${doubled}` : "";
+      if (doubled && !this.reportedUnreadable.has(doubledKey)) {
+        this.reportedUnreadable.add(doubledKey);
         this.deps.log(`${accountId}: ${where}: ${doubled}`);
         await this.tellChat(accountId, `I am not running as written: ${doubled}`);
       }
@@ -422,8 +420,9 @@ export class Executor {
       this.deps.log(
         `${accountId}: ${where} cannot read the group's automation: ${detail}`,
       );
-      if (this.reportedUnreadable.has(detail)) return null;
-      this.reportedUnreadable.add(detail);
+      const detailKey = `${accountId}\u0000${detail}`;
+      if (this.reportedUnreadable.has(detailKey)) return null;
+      this.reportedUnreadable.add(detailKey);
       await recordAudit(store, unreadableDocumentAuditEntry(AGENT_RULES_FILE, detail));
       await this.tellChat(
         accountId,
@@ -1348,9 +1347,15 @@ export class Executor {
       typeof found.file.type === "string" ? found.file.type : undefined,
     );
     if (!kind) return renderItem(lookup, "(a kind of file this build does not read)");
-    // No pages are rasterised for a lookup: reading a page as an image is an
+    // No page is rasterised for a lookup: reading a page as an image is an
     // action a run pays for (`document.read`), not something a listing does.
-    const content = await documentContent(found.bytes, kind, 0);
+    // The page bound is the installation's own, the one the wake path uses, so
+    // the text is read within a bound and no image is rendered — passing zero
+    // here once bounded the text layer too and reported every PDF and workbook
+    // as reading "(no text)".
+    const content = await documentContent(found.bytes, kind, config.agent.maxPages, {
+      vision: false,
+    });
     return renderItem(lookup, boundedText(content.read.text));
   }
 
@@ -1471,7 +1476,7 @@ export class Executor {
     // What already landed is a prefix of this plan — the actions run in order
     // and stop at the first failure — so the remainder is what is left to do.
     const applied = job.applied ?? [];
-    const todo = plan.actions.slice(applied.length);
+    const todo = remainingActions(plan.actions, applied);
     if (!todo.length) {
       // Everything the plan asked for had already run: the failure was in the
       // bookkeeping, not in the work, and closing the job is its honest ending.
@@ -2108,6 +2113,22 @@ export class Executor {
       await this.tellChat(accountId, `Rejected by ${by}: ${decided.summary}`);
       return;
     }
+    /*
+     * The job the approval names must still be the run a person paused. A
+     * decision outlives its job, and a job another path already closed
+     * (`done`, `failed`) is not this approval's to run: executing it would run
+     * a plan nothing waits on and could repeat an effect. The answer is
+     * consumed and recorded, and nothing is run.
+     */
+    if (job && job.state !== "awaiting_approval" && job.state !== "running") {
+      const message = `the job is ${job.state}, so the approval is recorded and nothing is run`;
+      await recordAudit(
+        store,
+        auditEntry(job, auditRule, "failed", approvedActions(decided), message),
+      );
+      await this.tellChat(accountId, `Approved by ${by}, but nothing ran: ${message}`);
+      return;
+    }
     // The pin reaches a run resumed from an approval too (ADR 0003): an
     // answer is about the plan a person read, and the rule it came from has
     // moved on since. The run is refused rather than started, and the person
@@ -2275,7 +2296,9 @@ export class Executor {
         );
         const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
         if (inDrafts) break;
-        const inTrash = record ? await this.inTrash(accountId, record) : false;
+        const inTrash = record
+          ? await this.inMailboxRole(accountId, record, "trash")
+          : false;
         if (!record || inTrash) {
           // `false` is the document having moved: read it again and settle what
           // is actually there, rather than leaving it pending over a write that
@@ -2286,6 +2309,13 @@ export class Executor {
           }
           continue;
         }
+        // Positive evidence of submission, not merely absence from Drafts: a
+        // draft a person moved to another folder — Archive, a label, Spam — is
+        // neither sent nor discarded, and settling it as sent would run the
+        // rest of the plan and have the trail record a send that never
+        // happened. It is left pending, so a person can still answer in the
+        // chat.
+        if (!(await this.inMailboxRole(accountId, record, "sent"))) break;
         if (await this.settleSentDraft(store, accountId, found, "draft")) {
           closed.push(decision.id);
         }
@@ -2295,10 +2325,17 @@ export class Executor {
     return closed;
   }
 
-  /** Whether an email record sits in the account's Trash mailbox, if it has one. */
-  private async inTrash(accountId: string, record: EmailRecord): Promise<boolean> {
-    const trashId = await mailboxIdByRole(this.deps.client, accountId, "trash");
-    return trashId ? record.mailboxIds?.[trashId] === true : false;
+  /**
+   * Whether an email record sits in the account's mailbox of one role, if it
+   * has one. One reader for Trash and Sent, which differ only in the role.
+   */
+  private async inMailboxRole(
+    accountId: string,
+    record: EmailRecord,
+    role: string,
+  ): Promise<boolean> {
+    const id = await mailboxIdByRole(this.deps.client, accountId, role);
+    return id ? record.mailboxIds?.[id] === true : false;
   }
 
   /**
@@ -2584,7 +2621,15 @@ export class Executor {
               this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
             );
         },
-        { maxDelayMs: opts.maxDelayMs, ...opts.timers },
+        {
+          maxDelayMs: opts.maxDelayMs,
+          ...opts.timers,
+          // A fire whose handler threw synchronously is reported here rather
+          // than escaping a timer callback: one entry must not take the worker
+          // down or vanish un-armed.
+          onError: (err: unknown) =>
+            this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
+        },
       );
     };
     await arm();
@@ -2876,6 +2921,20 @@ export class Executor {
    */
   async runPending(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
+    /*
+     * The fence is the worker's claim on the unit, so nothing here — not the
+     * spent-approval sweep, not one job — may touch an account this worker does
+     * not hold. It is asked once, before anything writes: `recoverSpentApprovals`
+     * writes job state and audit rows, and a worker that does not hold the
+     * account has no business doing that.
+     */
+    const claim = (await store.readClaim())?.doc;
+    if (claim?.worker !== this.deps.workerId) {
+      this.deps.log(
+        `${accountId}: the account's automation is held by another worker, so the pending sweep leaves it`,
+      );
+      return 0;
+    }
     const rules = await this.rulesOrReport(store, accountId, "the pending sweep");
     if (!rules) return 0;
     const spent = await this.recoverSpentApprovals(store, rules);
@@ -2897,6 +2956,25 @@ export class Executor {
           await this.expire(store, job, rule);
           continue;
         }
+        /*
+         * A crashed run whose remaining plan would leave the process is not
+         * resumed. The window `applied` cannot see is between an action landing
+         * and its checkpoint: a send, a post, a file may have happened and the
+         * document does not say. Re-running the remainder risks a silent second
+         * effect, so it is recorded for a person instead — the direction a send
+         * must fail in.
+         */
+        if (this.remainingLeavesProcess(job)) {
+          await this.failLoudly(
+            store,
+            job,
+            rule,
+            "this run was interrupted around an action that leaves the process, " +
+              "so the rest of its plan is not run again on a guess: a person decides",
+            { deadLetter: true },
+          );
+          continue;
+        }
       } else if (job.state !== "pending") {
         continue;
       }
@@ -2912,17 +2990,8 @@ export class Executor {
       // One job's failure is that job's: `runJob` reports its own and the sweep
       // goes on, so a job that cannot be recorded — a rule document nobody can
       // read, a store that refused a write — does not hold back the ones behind
-      // it in the list.
-      // The fence is the worker's claim on the unit, so a job is run only by a
-      // worker that holds one: a sweep that ran work it does not own would be
-      // the very double execution the fence exists to stop.
-      const claim = (await store.readClaim())?.doc;
-      if (claim?.worker !== this.deps.workerId) {
-        this.deps.log(
-          `${accountId}: the account's automation is held by another worker, so job ${job.id} is left to its holder`,
-        );
-        continue;
-      }
+      // it in the list. The claim was asked once at the top, before anything
+      // wrote: every job reached here belongs to a worker that holds the account.
       try {
         await this.runJob(accountId, job, rule, claim);
         ran += 1;
@@ -2949,6 +3018,22 @@ export class Executor {
       lease.heartbeatAt,
       this.deps.now().getTime(),
       config.agent.leaseMs,
+    );
+  }
+
+  /**
+   * Whether the rest of a crashed run's plan would leave the process.
+   *
+   * A `running` job an abandoned worker left behind is resumed from the prefix
+   * its `applied` ledger recorded. The gap that ledger cannot close is between
+   * an action landing and its checkpoint — a send, a post or a file may have
+   * happened and the document does not say — so the remainder is only safe to
+   * run when none of it leaves the process. One function, read by `runPending`,
+   * so "what may a recovery redo" has a single answer (`leavesTheProcess`).
+   */
+  private remainingLeavesProcess(job: AgentJob): boolean {
+    return remainingActions(job.proposal?.actions ?? [], job.applied).some(
+      leavesTheProcess,
     );
   }
 
@@ -3234,6 +3319,20 @@ function proposalOf(plan: RunPlan): AgentProposal {
     confidence: plan.confidence,
     draft: null,
   };
+}
+
+/**
+ * What is left of a plan whose prefix already landed.
+ *
+ * `applied` is a ledger of action names in order, so the remainder is the tail
+ * of the plan from its length. One function, read by the execute path and by
+ * the recovery guard, so "what a retry may redo" cannot be spelled two ways.
+ */
+function remainingActions(
+  actions: ReadonlyArray<AgentAction>,
+  applied: ReadonlyArray<string> = [],
+): AgentAction[] {
+  return actions.slice(applied.length);
 }
 
 /** The plan a job already carries, so a retry resumes it rather than redeciding. */

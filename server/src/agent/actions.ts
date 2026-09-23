@@ -579,6 +579,17 @@ function sentAtOf(opts: ActionOpts): string {
  * applied in silence is exactly the failure mode "failure is loud" rules out.
  */
 /**
+ * A refusal: the run must not continue as it is, so a retry changes nothing.
+ *
+ * The executor's fence throws it, and `runActions` propagates it unchanged —
+ * wrapping it in a plain `Error` would turn "nothing more is run" into a
+ * bounded retry of the very effect the fence stopped. It lives in this module
+ * because this is where it is caught and rethrown; the executor imports it
+ * rather than the other way round, so there is no import cycle.
+ */
+export class RefusedError extends Error {}
+
+/**
  * What the caller wants to know while the actions run, and when to stop.
  *
  * Separate from `ActionOpts` on purpose: those are what the actions read, these
@@ -619,6 +630,11 @@ export async function runActions(
       results.push(result);
       await hooks.onApplied?.(action, result);
     } catch (err) {
+      // The fence's own refusal is not an action failure: it means the unit was
+      // taken over (or the job document moved), and the caller dead-letters the
+      // job on this type (`runJob`). Wrapping it would erase the reason and let
+      // a retry run the effect the fence just stopped.
+      if (err instanceof RefusedError) throw err;
       throw new Error(
         `"${action.do}" failed: ${err instanceof Error ? err.message : String(err)}`,
       );
