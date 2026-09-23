@@ -2308,7 +2308,10 @@ needed nothing in either half.
 
 - **Installable PWA** with a service worker: the app shell is cached for
   installability and fast loads, API requests never are, and navigations are
-  network-first with the shell as fallback. The manifest carries Gilbert's own
+  network-first with the shell as fallback. The worker's own script is asked for
+  hourly with the HTTP cache bypassed, so a corrected or re-versioned worker
+  lands in a tab that never navigates; an actual deploy is noticed by the
+  version check and reloads the page. The manifest carries Gilbert's own
   icons — a 192 and a 512 for `any`, and a third declared `maskable` for the
   launchers that crop one to their own shape — and its splash colours are the
   default theme's background, so an installed app opens in the colours it is

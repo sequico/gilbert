@@ -40,10 +40,12 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
      *
      * `updateViaCache: "none"` keeps the worker's script out of the HTTP cache
      * so the check below reaches the server, and the timer asks rather than
-     * waiting on the browser's own long schedule. This keeps the shell and its
-     * cached assets current; what notices an actual deploy is the version
-     * check in `staleBuild.ts` -- the worker's bytes rarely change with a
-     * build, so the two are complements, not the same mechanism.
+     * waiting on the browser's own long schedule. What this lands is a
+     * corrected or re-versioned worker in a tab that has not navigated; the
+     * shell itself is refreshed on each navigation (`refreshShell`), and what
+     * notices an actual deploy is the version check in `staleBuild.ts` -- the
+     * worker's bytes rarely change with a build, so the two are complements,
+     * not the same mechanism.
      */
     navigator.serviceWorker
       .register(withBase("/sw.js"), {
