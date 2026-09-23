@@ -545,23 +545,35 @@ function AuthedApp() {
   }, [ready, accountId, notificationsWanted]);
 
   /*
-   * A subscription's `types` are fixed when it is created, and an extension
-   * only moves `expires` -- so joining a first group or leaving a last one is
-   * not covered until the row is replaced. Re-register when the group
-   * mailboxes change; the first value seen is the one the start's own
-   * registration already used.
+   * A subscription is built once and extended only in `expires`: its `types`
+   * and its `emailPush` map are fixed at creation. So the accounts it covers --
+   * and whether it watches `FileNode` at all, which a reader joining a first
+   * group or leaving a last one changes -- are what a re-registration has to
+   * follow, not the chat switch alone. The signature is the accounts and their
+   * Inbox ids; the first value seen is the one the start's own registration
+   * already used.
    */
-  const watchChat = useMail((s) => groupMailboxAccounts(s.mailAccounts).length > 0);
-  const watchChatSeen = useRef<boolean | null>(null);
+  const pushTargetSignature = mailAccounts
+    .map((a) => {
+      const inbox =
+        a.kind === "own"
+          ? inboxId
+          : (Object.values(accountTrees[a.accountId] ?? {}).find(
+              (m) => m.role === "inbox",
+            )?.id ?? "");
+      return `${a.accountId}:${inbox ?? ""}`;
+    })
+    .join("|");
+  const pushTargetSeen = useRef<string | null>(null);
   useEffect(() => {
-    if (watchChatSeen.current === null) {
-      watchChatSeen.current = watchChat;
+    if (pushTargetSeen.current === null) {
+      pushTargetSeen.current = pushTargetSignature;
       return;
     }
-    if (watchChatSeen.current === watchChat) return;
-    watchChatSeen.current = watchChat;
+    if (pushTargetSeen.current === pushTargetSignature) return;
+    pushTargetSeen.current = pushTargetSignature;
     void reregisterWebPush();
-  }, [watchChat]);
+  }, [pushTargetSignature]);
 
   // Nothing worth painting until the account's settings are in force; see the
   // comment on `ready` above. With a cache this was true from the first frame.
