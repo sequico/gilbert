@@ -70,7 +70,7 @@ than inherited. This skill is that checklist.
   option that is not on the table — landing the hunk and leaving the claim
   standing is the defect this rule exists to prevent (repo rule: *a change that
   makes a claim false fixes the claim in the same diff*,
-  `.codewhale/instructions.md`).
+  `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`).
 - **Some collisions are the owner's call — but read them before escalating
   them.** Two deliberate designs that both work, ours and theirs, are not
   something to settle inside a merge: name both, say what each costs, and put the
@@ -88,7 +88,7 @@ than inherited. This skill is that checklist.
   rule is easiest to obey: each hunk is read on its own, against ours.
 - Excluded upstream files (CLAUDE.md, .github/FUNDING.yml, …) stay at
   Gilbert's version, never absorbed: rule and ask-first list live in
-  `.codewhale/instructions.md` (Upstream section) — read it before merging.
+  `.opencode/skills/gilbert-upstream-rebrand/SKILL.md` (Upstream section) — read it before merging.
 - Rename the delta, not the repo. Only files the merge touched need a look:
   new upstream files, files whose upstream hunks added strings, and tests
   that assert on them. `git diff <merge-base>..HEAD --stat` bounds it.
@@ -241,7 +241,7 @@ escalated to the user; do not bulk-replace.
    `FEATURES.md` with the merged delta (features the merge adds, removes or
    changes are reflected) and make sure the Gilbert-added sections survive
    intact. Repo rule: the inventory stays current on every change and every
-   merge (`.codewhale/instructions.md`, "The feature inventory stays
+   merge (`.opencode/skills/gilbert-upstream-rebrand/SKILL.md`, "The feature inventory stays
    current").
 
 ## Verification

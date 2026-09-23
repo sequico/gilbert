@@ -55,7 +55,7 @@ const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
 const CITATION = /\bADR[-\s][*/\s]*(\d{1,4}|§)/g;
 
 /** Where a citation may appear: the code, and the skills that guide it. */
-const ROOTS = ["server/src", "web/src", ".codewhale/skills"];
+const ROOTS = ["server/src", "web/src", ".opencode/skills"];
 
 /**
  * The documents and deployment files a reader meets by name rather than by
@@ -67,7 +67,7 @@ const FILES = [
   "FEATURES.md",
   "ROADMAP.md",
   "KNOWN-ISSUES.md",
-  ".codewhale/instructions.md",
+  "AGENTS.md",
   "docker-compose.yml",
   "Caddyfile.example",
   "nginx.example.conf",
@@ -81,7 +81,7 @@ const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md", ".css"]);
  * The two lines a record must carry, and the words each one may begin with.
  *
  * The vocabulary is the one `docs/adr/README.md` and the ADR section of
- * `.codewhale/instructions.md` define: a decision is `Proposed` until the owner
+ * `AGENTS.md` define: a decision is `Proposed` until the owner
  * accepts it and `Accepted` after, and the tree either carries it (`Built`),
  * carries part of it (`Partly built`), or carries none of it (`Not built`).
  */

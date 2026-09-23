@@ -164,7 +164,6 @@ test("the walk reaches files no list of trees would name: root, workflow, hook",
       !/(?:^|\/)(?:dist|dev-dist|coverage|\.vite)\/.*/.test(path),
       `${path} is build output`,
     );
-    assert.ok(!path.startsWith(".codewhale/state/"), `${path} is an agent record`);
   }
 });
 
@@ -180,7 +179,6 @@ test("a retired name the walk reaches is refused, wherever it is planted", () =>
     // …and the trees the exclusions step over.
     plant(root, "node_modules/a-dep/index.mjs", "// SETTINGS_POLICY_FILE\n");
     plant(root, "web/dist/app.js", "// STALWART_SERVERS_FILE\n");
-    plant(root, ".codewhale/state/session.md", "SETTINGS_ENFORCED\n");
     plant(root, "package-lock.json", '{ "name": "SETTINGS_POLICY_FILE" }\n');
 
     const { files } = collectRepoInput(root);
@@ -195,7 +193,6 @@ test("a retired name the walk reaches is refused, wherever it is planted", () =>
       assert.ok(
         !path.startsWith("node_modules/") &&
           !path.startsWith("web/dist/") &&
-          !path.startsWith(".codewhale/state/") &&
           path !== "package-lock.json",
         `${path} is excluded`,
       );

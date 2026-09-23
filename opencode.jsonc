@@ -1,0 +1,12 @@
+{
+  // OpenCode configuration for this repository.
+  "$schema": "https://opencode.ai/config.json",
+  // Skills are the OpenCode default: directories under `.opencode/skills/` are
+  // discovered automatically, so nothing has to be named here.
+  //
+  // Working directories that are never source: a change under them must not
+  // wake the session, and the built trees are large.
+  "watcher": {
+    "ignore": ["node_modules/**", "**/dist/**", ".worktree/**", "coverage/**"]
+  }
+}

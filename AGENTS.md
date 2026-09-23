@@ -333,10 +333,13 @@ upstream `CLAUDE.md` and `.github/FUNDING.yml` (owner decision 2026-09-06).
 `CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md` are upstream's
 process and contacts — ask before changing or acting on them.
 
-Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
-UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
-skills/gilbert-settings. Stalwart internals, quirks & integration: load
-skills/gilbert-stalwart. Upstream merges: load skills/gilbert-upstream-rebrand.
+Full law: load `.opencode/skills/gilbert-project/SKILL.md`. Renames: load
+`.opencode/skills/gilbert-branding/SKILL.md`. UI strings & languages: load
+`.opencode/skills/gilbert-i18n/SKILL.md`. Settings & policy: load
+`.opencode/skills/gilbert-settings/SKILL.md`. Stalwart internals, quirks &
+integration: load `.opencode/skills/gilbert-stalwart/SKILL.md`. Upstream merges:
+load `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`. The skill that governs
+a kind of work is loaded before the first edit of it.
 
 ## Shell: nothing unbounded in the foreground (global user rule, active here)
 

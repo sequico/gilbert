@@ -79,13 +79,11 @@ const RETIRED_ALLOWED = new Set([
  *   - `dist`, `dev-dist`, `coverage`, `.vite`, `.turbo` — build and test
  *     output: a built tree repeats its sources, and a stale copy would report
  *     the same name a second time;
- *   - `.codewhale/state` — the agent runtime's own records, which quote
- *     whatever a session said, including the names this check refuses;
  *   - `package-lock.json` — npm's file, generated from `package.json`.
  */
 
 /** Repository-relative paths the walk steps over, whether a tree or a file. */
-const EXCLUDED_PATHS = new Set([".codewhale/state", "package-lock.json"]);
+const EXCLUDED_PATHS = new Set(["package-lock.json"]);
 
 /**
  * The modules in `server/src` that may still read the environment, and what

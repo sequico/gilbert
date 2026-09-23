@@ -25,11 +25,3 @@ worktrees/
 .worktrees/
 *.worktree/
 
-# Codewhale runtime scratch: lock files, the agent harness's own journal and
-# state, and pasted attachments. Tracked repo content under .codewhale/
-# (instructions, skills) must never land here.
-.codewhale/harness/
-.codewhale/pastes/
-.codewhale/state/
-.codewhale/workflow-runs.jsonl
-

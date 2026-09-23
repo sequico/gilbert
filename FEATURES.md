@@ -759,7 +759,7 @@ group) is the next layer on the same document shape (ADR 0001).
 
 This section is written for the state of 2026-09-13 and is kept current on
 every change that touches a feature and on every upstream merge (repo rule:
-`.codewhale/instructions.md`, "The feature inventory stays current").
+`AGENTS.md`, "The feature inventory stays current").
 
 ---
 

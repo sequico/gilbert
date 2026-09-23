@@ -48,10 +48,8 @@ export const SKIP_DIRS = new Set([
  * about a directory it may not open.
  *
  * `skipPaths` is for a caller that has to step over a *path* rather than a
- * name: `dead-config-check.mjs` skips `.codewhale/state`, because the agent
- * runtime's own records quote whatever a session said, and
- * `package-lock.json`, which is npm's generated file and not text that check
- * reads.
+ * name: `dead-config-check.mjs` skips `package-lock.json`, which is npm's
+ * generated file and not text that check reads.
  */
 export function walk(dir, { skipPaths = new Set() } = {}) {
   const step = (d, rel) => {
