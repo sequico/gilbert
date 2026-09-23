@@ -2,12 +2,21 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import { BASE_PATH, withBase } from "@/lib/basePath";
+import { watchInstallApp } from "@/lib/installApp";
 import { scheduleServiceWorkerUpdate } from "@/lib/serviceWorkerUpdate";
 import { startBuildWatch } from "@/lib/staleBuild";
 import { CrashBoundary } from "@/ui/CrashBoundary";
 import { App } from "./App";
 
 startBuildWatch();
+
+/*
+ * Capture the browser's install offer before the first paint, not when the
+ * menu that shows it is opened: `beforeinstallprompt` can fire while the app is
+ * still starting, and an event nobody was listening for is gone. The offer is
+ * only shown from a tap, in the account menu and the banner above the app.
+ */
+watchInstallApp();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

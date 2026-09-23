@@ -21,6 +21,7 @@
 import { gilbertDeviceClientId, isBrowserDeviceClientId } from "@gilbert/shared/push";
 import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
+import { isIOS } from "@/lib/installApp";
 import { isDeviceTrusted } from "@/lib/storage";
 
 /**
@@ -75,18 +76,6 @@ export function supportsEmailPush(): boolean {
  * obstacle, so the same answer cannot be worded two ways.
  */
 export type WebPushBlocker = "unsupported-browser" | "needs-install" | "no-server-key";
-
-/**
- * iOS exposes the Push API only to an app added to the Home Screen, and iPadOS
- * 13+ reports itself as a Mac -- which is why the touch points are asked as
- * well as the user agent.
- */
-function isIOS(): boolean {
-  return (
-    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
 
 export function webPushBlocker(): WebPushBlocker | null {
   if (typeof navigator === "undefined" || typeof window === "undefined")

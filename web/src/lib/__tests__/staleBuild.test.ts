@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  applyAppUpdate,
   makeConnectionWatcher,
   reloadIfServerRebuilt,
   startBuildWatch,
+  updateAvailable,
 } from "@/lib/staleBuild";
 import { APP_VERSION } from "@/lib/version";
 
@@ -22,6 +24,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete (navigator as unknown as { serviceWorker?: unknown }).serviceWorker;
   vi.unstubAllGlobals();
 });
 
@@ -66,6 +69,42 @@ describe("reloadIfServerRebuilt", () => {
     expect(await reloadIfServerRebuilt()).toBe(false);
     vi.stubGlobal("fetch", healthReplies({ ok: true }));
     expect(await reloadIfServerRebuilt()).toBe(false);
+    expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("the explicit update command", () => {
+  it("answers whether the server is serving another build", async () => {
+    vi.stubGlobal("fetch", healthReplies({ ok: true, version: `${APP_VERSION}-newer` }));
+    expect(await updateAvailable()).toBe(true);
+    vi.stubGlobal("fetch", healthReplies({ ok: true, version: APP_VERSION }));
+    expect(await updateAvailable()).toBe(false);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    expect(await updateAvailable()).toBe(null);
+  });
+
+  it("asks the worker for its script and reloads when a newer build is served", async () => {
+    const update = vi.fn(async () => {});
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: async () => ({ update }) },
+    });
+    vi.stubGlobal("fetch", healthReplies({ ok: true, version: `${APP_VERSION}-newer` }));
+    expect(await applyAppUpdate()).toBe("reloading");
+    expect(update).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
+    delete (navigator as unknown as { serviceWorker?: unknown }).serviceWorker;
+  });
+
+  it("reports current without reloading when the versions agree", async () => {
+    vi.stubGlobal("fetch", healthReplies({ ok: true, version: APP_VERSION }));
+    expect(await applyAppUpdate()).toBe("current");
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("reports unknown rather than current when the server is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    expect(await applyAppUpdate()).toBe("unknown");
     expect(reload).not.toHaveBeenCalled();
   });
 });

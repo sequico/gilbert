@@ -71,32 +71,8 @@ export function reloadIfServerRebuilt(): Promise<boolean> {
 }
 
 async function check(): Promise<boolean> {
-  let serverVersion: string;
-  /*
-   * A health check that hangs -- the dead connection this module exists to
-   * notice -- must not park `inFlight` for the life of the tab. Every later
-   * check joins the same latch, so one hung fetch would silently disable
-   * the whole watcher: the poll, the visibility return and each navigation
-   * would all wait on a request that never settles. Give up after a few
-   * seconds and let the next ask try again on a fresh connection.
-   */
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
-  try {
-    const res = await fetch(withBase("/api/health"), {
-      credentials: "same-origin",
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    if (!res.ok) return false;
-    const body = (await res.json()) as { version?: unknown };
-    if (typeof body.version !== "string" || !body.version) return false;
-    serverVersion = body.version;
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timer);
-  }
+  const serverVersion = await fetchServerVersion();
+  if (serverVersion === null) return false;
 
   if (serverVersion === APP_VERSION) {
     // Back in step, either because nothing changed or because an earlier
@@ -112,6 +88,76 @@ async function check(): Promise<boolean> {
   remember(serverVersion);
   window.location.reload();
   return true;
+}
+
+/**
+ * The build the server says it is serving, or `null` when it cannot be asked.
+ *
+ * A health check that hangs -- the dead connection this module exists to
+ * notice -- must not park `inFlight` for the life of the tab. Every later
+ * check joins the same latch, so one hung fetch would silently disable
+ * the whole watcher: the poll, the visibility return and each navigation
+ * would all wait on a request that never settles. Give up after a few
+ * seconds and let the next ask try again on a fresh connection.
+ */
+async function fetchServerVersion(): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const res = await fetch(withBase("/api/health"), {
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { version?: unknown };
+    if (typeof body.version !== "string" || !body.version) return null;
+    return body.version;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+/**
+ * Whether the server is serving a build other than this one.
+ *
+ * The question the automatic watchers answer for themselves, exposed so the
+ * app's own "update" command can ask it once, on a reader's tap. `null` means
+ * it could not be told -- offline, or a server that did not answer -- which is
+ * not the same as "up to date".
+ */
+export async function updateAvailable(): Promise<boolean | null> {
+  const serverVersion = await fetchServerVersion();
+  return serverVersion === null ? null : serverVersion !== APP_VERSION;
+}
+
+export type UpdateOutcome = "reloading" | "current" | "unknown";
+
+/**
+ * Take the newest build now, from a reader's tap.
+ *
+ * Asking the worker for its script (`reg.update()`) lands a changed worker,
+ * which is the half a plain reload cannot force; the version check then
+ * decides whether the app itself moved, and only reloads when it did. A reload
+ * that is not needed costs the reader the page for nothing, which is why this
+ * does not reload unconditionally. "unknown" is reported rather than pretended
+ * into "current": a server that could not be reached has not been shown to be
+ * up to date.
+ */
+export async function applyAppUpdate(): Promise<UpdateOutcome> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+  } catch {
+    /* Offline, or no worker: the check below is what decides. */
+  }
+  const differs = await updateAvailable();
+  if (differs === null) return "unknown";
+  if (!differs) return "current";
+  window.location.reload();
+  return "reloading";
 }
 
 /**

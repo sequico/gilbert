@@ -11,7 +11,6 @@ import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
   notificationAskDue,
   rememberNotificationAsk,
-  requestNotificationPermission,
   setBaseTitle,
   setUnreadBadge,
   shouldAskForNotifications,
@@ -27,12 +26,11 @@ import {
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
-import { webPushAvailable } from "@/lib/webpush";
 import {
-  enableWebPush,
   listenForVerification,
   renewWebPush,
   reregisterWebPush,
+  turnOnNotificationsHere,
 } from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
 import { useChat } from "@/store/chat";
@@ -51,6 +49,7 @@ import { ComposerDock } from "@/views/compose/ComposerDock";
 import { ForcedPasswordChange } from "@/views/ForcedPasswordChange";
 import { LoginPage } from "@/views/Login";
 import { MailView } from "@/views/mail/MailView";
+import { webPushFailureSentence } from "@/views/webPushCopy";
 
 const ContactsView = lazyView(() =>
   import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })),
@@ -516,9 +515,8 @@ function AuthedApp() {
         action: {
           label: t("Turn on notifications"),
           onClick: async () => {
-            const p = await requestNotificationPermission();
-            if (p !== "granted") return;
-            if (webPushAvailable()) await enableWebPush().catch(() => undefined);
+            const res = await turnOnNotificationsHere();
+            if (res.failure) toast.error(webPushFailureSentence(res.failure));
           },
         },
       },

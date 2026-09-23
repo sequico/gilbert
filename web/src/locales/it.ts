@@ -24,6 +24,41 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // ── App install and update ─────────────────────────────────────────
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbert è già installato su questo dispositivo. Apri l'app dalla sua icona nella schermata Home.",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "Installa Gilbert come app per una finestra a tutto schermo e le notifiche.",
+    "Add Gilbert to your Home Screen.": "Aggiungi Gilbert alla schermata Home.",
+    Install: "Installa",
+    How: "Come",
+    "Install mobile app": "Installa app mobile",
+    "Mobile app": "App mobile",
+    "Install app": "Installa app",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbert si sta installando. Apri l'app dalla sua icona per completare la configurazione.",
+    "Gilbert is installed on this device.": "Gilbert è installato su questo dispositivo.",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "Installa Gilbert sul telefono per aprirlo dalla sua icona, a tutto schermo, e ricevere notifiche quando è chiuso.",
+    "Safari installs a web app from the Share sheet:":
+      "Safari installa una web app dal foglio di condivisione:",
+    "Tap the Share button.": "Tocca il pulsante Condividi.",
+    "Choose “Add to Home Screen”.": "Scegli “Aggiungi a Home”.",
+    "Open Gilbert from the new icon.": "Apri Gilbert dalla nuova icona.",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "Questo browser tiene l'installazione nel proprio menu: cerca “Installa app” o “Aggiungi a schermata Home”.",
+    "Update now": "Aggiorna ora",
+    "A newer version is on the server.": "C'è una versione più recente sul server.",
+    "You are on the newest version.": "Stai usando la versione più recente.",
+    "Checking for updates…": "Verifica degli aggiornamenti…",
+    "Gilbert is up to date.": "Gilbert è aggiornato.",
+    "Could not check for updates.":
+      "Impossibile verificare la presenza di aggiornamenti.",
+    "This browser cannot show notifications.":
+      "Questo browser non può mostrare notifiche.",
+    "Notifications are on for this device.":
+      "Le notifiche sono attive per questo dispositivo.",
+
     "Mention a member": "Menziona un membro",
     "Go to folder…": "Vai alla cartella…",
 

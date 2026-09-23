@@ -13,10 +13,10 @@ import {
 } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
 import { t, tNode } from "@/lib/i18n";
+import { isInstalledApp } from "@/lib/installApp";
 import { MAX_LEVELS, type SortField, type SortPreset } from "@/lib/listSort";
 import {
   canUnregisterMailtoHandler,
-  isInstalledApp,
   mailtoHandlerRequested,
   mailtoHandlerSupport,
   registerMailtoHandler,

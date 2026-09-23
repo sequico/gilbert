@@ -6,6 +6,7 @@
  * permission prompt, none of which exists under a test runner.
  */
 import { CAP } from "@/jmap/client";
+import { requestNotificationPermission } from "@/lib/notify";
 import { isDeviceTrusted } from "@/lib/storage";
 import {
   applicationServerKey,
@@ -119,6 +120,39 @@ export async function enableWebPush(): Promise<
   } catch (err) {
     return { ok: false, code: "subscribe-failed", detail: (err as Error).message };
   }
+}
+
+/** The outcome of the whole "turn notifications on" gesture. */
+export interface NotificationsTurnOn {
+  permission: NotificationPermission;
+  /** Whether this browser ended up registered for background push. */
+  subscribed: boolean;
+  /** Why background push did not register, when it was attempted and refused. */
+  failure?: { code: WebPushFailure; detail?: string };
+}
+
+/**
+ * Ask for the notification permission and, where this browser can, register it
+ * for background push.
+ *
+ * The sequence behind every control that turns notifications on -- the two
+ * switches in Settings, the nudge in `App.tsx` and the app-install command --
+ * so a change to it cannot reach one of them and miss the others. The
+ * permission is asked first and the subscription only follows a granted one:
+ * a browser cannot be asked, so a call that skipped the answer would register
+ * nothing and report a refusal the reader never made.
+ *
+ * A browser without Web Push still returns `granted`, because in-tab
+ * notifications are real and the caller may want to say so.
+ */
+export async function turnOnNotificationsHere(): Promise<NotificationsTurnOn> {
+  const permission = await requestNotificationPermission();
+  if (permission !== "granted") return { permission, subscribed: false };
+  if (!webPushAvailable()) return { permission, subscribed: false };
+  const res = await enableWebPush();
+  return res.ok
+    ? { permission, subscribed: true }
+    : { permission, subscribed: false, failure: res };
 }
 
 /**

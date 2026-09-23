@@ -6,60 +6,17 @@ import {
   showNotification,
 } from "@/lib/notify";
 import { isEnforced } from "@/lib/settingsPolicy";
-import { supportsEmailPush, type WebPushBlocker, webPushBlocker } from "@/lib/webpush";
+import { supportsEmailPush, webPushBlocker } from "@/lib/webpush";
 import {
   disableWebPush,
-  enableWebPush,
-  type WebPushFailure,
+  turnOnNotificationsHere,
   webPushActive,
 } from "@/lib/webpushEnable";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { Switch } from "@/ui/misc";
 import { toast } from "@/ui/toast";
-
-/*
- * Why this browser and this server cannot do it, in words the reader can act
- * on.
- *
- * The codes come from the libs and the sentences live here, in the catalogue,
- * because they are the reader's language and a library has none. The iOS case
- * is the one worth spelling out: the permission exists, the switch is simply
- * one install away.
- */
-function blockerHint(code: WebPushBlocker): string {
-  switch (code) {
-    case "needs-install":
-      return t(
-        "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.",
-      );
-    case "no-server-key":
-      return t("Your mail server publishes no push key, so it cannot wake this browser.");
-    case "unsupported-browser":
-      return t(
-        "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.",
-      );
-  }
-}
-
-/** One sentence for a refusal, with the diagnostic beside it when there is one. */
-function failureReason(res: { code: WebPushFailure; detail?: string }): string {
-  const sentence = (() => {
-    switch (res.code) {
-      case "permission-denied":
-        return t("Notifications are blocked for this site in your browser's settings.");
-      case "untrusted-device":
-        return t(
-          "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.",
-        );
-      case "subscribe-failed":
-        return t("Could not subscribe to notifications.");
-      default:
-        return blockerHint(res.code);
-    }
-  })();
-  return res.detail ? `${sentence} ${res.detail}` : sentence;
-}
+import { webPushBlockerHint, webPushFailureSentence } from "@/views/webPushCopy";
 
 export function NotificationsSettings() {
   const s = useSettings((st) => st.settings);
@@ -140,12 +97,11 @@ export function NotificationsSettings() {
           setBusy(true);
           try {
             if (v) {
-              const p = await requestNotificationPermission();
-              setPerm(p);
-              if (p !== "granted") return;
-              const res = await enableWebPush();
-              if (!res.ok) {
-                toast.error(failureReason(res));
+              const res = await turnOnNotificationsHere();
+              setPerm(res.permission);
+              if (res.permission !== "granted") return;
+              if (res.failure) {
+                toast.error(webPushFailureSentence(res.failure));
                 return;
               }
               setBackground(true);
@@ -161,7 +117,7 @@ export function NotificationsSettings() {
         label={t("Notify me even when Gilbert is closed")}
         hint={
           blocker
-            ? blockerHint(blocker)
+            ? webPushBlockerHint(blocker)
             : supportsEmailPush()
               ? t(
                   "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.",

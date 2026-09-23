@@ -1,6 +1,7 @@
 import {
   Calendar,
   ChevronsUpDown,
+  Download,
   FolderOpen,
   HelpCircle,
   LogOut,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   Settings,
   Shield,
+  Smartphone,
   Sun,
   Upload,
   Users,
@@ -43,6 +45,7 @@ import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
 import { ChatLauncher } from "./chat/ChatLauncher";
+import { InstallAppDialog, InstallBanner, useInstallState } from "./InstallApp";
 import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
@@ -197,6 +200,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const shownSidebarWidth = liveSidebarWidth ?? sidebarWidth;
   const [drawer, setDrawer] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const appInstall = useInstallState();
+  const appIsInstalled =
+    appInstall.state === "in-app" || appInstall.state === "installed";
   const openCompose = useCompose((s) => s.open);
   const openShare = useCompose((s) => s.openFromShare);
   const pushState = useSession((s) => s.pushState);
@@ -422,6 +429,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               label={t("Settings")}
               onClick={() => navigate("/settings")}
             />
+            {/*
+              The install/update command, on a phone only: a desktop browser
+              installs from its address bar, and the account menu there already
+              carries Settings. The label follows what is true -- offering to
+              install an app that is already installed is the thing this exists
+              to avoid.
+            */}
+            {isMobile && (
+              <MenuItem
+                icon={appIsInstalled ? <Smartphone size={16} /> : <Download size={16} />}
+                label={appIsInstalled ? t("Mobile app") : t("Install mobile app")}
+                onClick={() => setInstallOpen(true)}
+              />
+            )}
             {session?.gilbert?.administrationNeedsOwnDevice && (
               <MenuItem
                 icon={<Shield size={16} />}
@@ -454,6 +475,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Popover>
         </div>
       </header>
+
+      {/*
+        The install nudge, above the app body so it pushes nothing under the
+        top bar. Mobile only, and only while there is something true to say --
+        it hides itself once installed and in the installed app (`InstallBanner`).
+      */}
+      <InstallBanner onOpen={() => setInstallOpen(true)} />
 
       <div
         className={`app-body ${collapsed && !isMobile ? "collapsed" : ""} ${liveSidebarWidth != null ? "resizing" : ""}`}
@@ -633,6 +661,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </>
       )}
       <ShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <InstallAppDialog open={installOpen} onClose={() => setInstallOpen(false)} />
       {goFolder && (
         <MailboxPicker
           title={t("Go to folder…")}

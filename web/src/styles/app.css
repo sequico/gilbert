@@ -1284,7 +1284,7 @@ a.menu-item:hover { color: var(--fg); }
  * floor is the same min-content. The zero floor is the part that lets the top
  * bar shrink instead of setting the width for everything below it.
  */
-.app { height: 100%; display: grid; grid-template-rows: var(--topbar-h) 1fr; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.app { height: 100%; display: grid; grid-template-rows: var(--topbar-h) auto 1fr; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 .topbar { display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--bg); position: relative; z-index: 50; }
 .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2em; letter-spacing: -.01em; color: var(--fg); text-decoration: none; padding-right: 8px; min-width: 0; }
 .topbar .brand img { width: 34px; height: 34px; object-fit: contain; }
@@ -1332,7 +1332,7 @@ a.menu-item:hover { color: var(--fg); }
 @keyframes push-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .push-dot.connecting { animation: none; } }
 
-.app-body { position: relative; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 0; transition: grid-template-columns .2s var(--ease); }
+.app-body { grid-row: 3; position: relative; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 0; transition: grid-template-columns .2s var(--ease); }
 .app-body.collapsed { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
 /* A drag follows the pointer; the ease is for the collapse toggle, and applied
    to every frame of a drag it leaves the edge trailing behind the hand. */
@@ -2827,3 +2827,18 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* What arrived from the operating system's share sheet, shown before it is opened. */
 .share-summary { margin: 0 0 8px; padding-left: 1ex; border-left: 2px solid var(--border-strong); color: var(--fg-muted); overflow-wrap: anywhere; }
 .share-summary-files { margin: 0 0 8px; padding-left: 1.2em; color: var(--fg-muted); overflow-wrap: anywhere; }
+
+/* The install nudge above the app. In the grid's own row (see `.app`), so it
+   pushes the content down rather than covering the top of it. Shown on a phone
+   only, by the component. */
+.install-banner { grid-row: 2; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-elev); border-bottom: 1px solid var(--border); font-size: .9em; }
+.install-banner-icon { flex: 0 0 auto; color: var(--accent); }
+.install-banner-text { flex: 1 1 auto; min-width: 0; }
+.install-banner-close { flex: 0 0 auto; }
+
+/* The install/update/notifications dialog. */
+.install-dialog-status { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--accent); }
+.install-dialog-update { margin: 0 0 12px; }
+.install-dialog-heading { margin: 20px 0 8px; font-size: 1em; }
+.install-steps { margin: 8px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.install-steps li { display: flex; align-items: center; gap: 6px; }

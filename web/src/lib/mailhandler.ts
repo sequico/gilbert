@@ -60,15 +60,3 @@ export function unregisterMailtoHandler(): void {
   nav.unregisterProtocolHandler?.(SCHEME, handlerUrl());
   setMailtoHandlerRequested(false);
 }
-
-/** True when the app is running as an installed PWA. */
-export function isInstalledApp(): boolean {
-  try {
-    return (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true
-    );
-  } catch {
-    return false;
-  }
-}
