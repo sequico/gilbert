@@ -445,13 +445,9 @@ function AuthedApp() {
    * See lib/swFacts.ts.
    */
   const archiveId = useMail((s) => s.roleId("archive"));
-  /*
-   * The Inbox id, for the notification's deep link: the route is
-   * `/mail/<mailbox id>/<thread id>`, and the worker cannot resolve a folder
-   * name. Null until the account's tree is read, which the briefing carries as
-   * null and the worker falls back on.
-   */
   const inboxId = useMail((s) => s.roleId("inbox"));
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const accountTrees = useMail((s) => s.accountTrees);
   /*
    * A stable signature of the chats and their watermarks, so the worker's
    * cache is rewritten only when what it reads actually changes. The
@@ -473,29 +469,42 @@ function AuthedApp() {
   const languageVersion = useLanguageVersion();
   useEffect(() => {
     /*
-     * The chats the worker may be woken for: one entry per group whose folders
-     * are known, carrying the newest instant the app has seen. The watermark
-     * is the maximum `at` over the held nodes rather than the last node's: the
+     * One entry per account the subscription covers (ADR 0016): the reader's
+     * own and every group mailbox, each with the Inbox and archive its
+     * notification needs, its name, and -- where it has a chat -- the chat
+     * folder and the newest instant the app has seen. The watermark is the
+     * maximum `at` over the held nodes rather than the last node's: the
      * transcript is ordered by server `created`, and a sender whose clock is
      * behind would otherwise drag the watermark backwards and have an old
      * message announced again.
      */
-    const chats = Object.values(useChat.getState().conversations)
-      .filter((c) => c.folders)
-      .map((c) => ({
-        accountId: c.accountId,
-        name: c.name,
-        folderId: c.folders!.chat,
-        watermark: c.nodes.reduce((m, n) => (n.at > m ? n.at : m), ""),
-      }));
-    void publishWorkerFacts(
-      accountId,
-      archiveId,
-      chats,
-      useSession.getState().session?.username ?? "",
-      inboxId,
-    );
-  }, [accountId, archiveId, languageVersion, chatSignature, inboxId]);
+    const conversations = Object.values(useChat.getState().conversations);
+    const ownAddress = useSession.getState().session?.username ?? "";
+    const accounts = mailAccounts.map((a) => {
+      if (a.kind === "own")
+        return {
+          accountId: a.accountId,
+          own: true,
+          name: ownAddress,
+          inboxId,
+          archiveId,
+          chatFolderId: null,
+          watermark: "",
+        };
+      const tree = Object.values(accountTrees[a.accountId] ?? {});
+      const conv = conversations.find((c) => c.accountId === a.accountId && c.folders);
+      return {
+        accountId: a.accountId,
+        own: false,
+        name: a.name,
+        inboxId: tree.find((m) => m.role === "inbox")?.id ?? null,
+        archiveId: tree.find((m) => m.role === "archive")?.id ?? null,
+        chatFolderId: conv?.folders?.chat ?? null,
+        watermark: conv ? conv.nodes.reduce((m, n) => (n.at > m ? n.at : m), "") : "",
+      };
+    });
+    void publishWorkerFacts(accounts, ownAddress);
+  }, [mailAccounts, accountTrees, inboxId, archiveId, languageVersion, chatSignature]);
 
   /*
    * Ask for the notification permission where the reader will see it.

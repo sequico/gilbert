@@ -24,10 +24,12 @@ the reader's chats travel with the folder and the watermark they need, and the
 worker reads the newest nodes back and notifies what is newer than the
 watermark and not the reader's own (`web/public/sw.js`, `web/src/lib/swFacts.ts`,
 `web/src/lib/webpush.ts`, pinned by `web/src/lib/__tests__/swChat.test.ts`).
-Not built: the payload for the group mailboxes the subscription already wakes
-for, and the generic wake-up narrowed to the accounts the briefing does not
-describe. What those rest on is read from Stalwart's source at v0.16.22 and
-written down below; the one thing still owed is seeing a running server do it.
+Built: the payload for the group mailboxes the subscription serves — the
+`emailPush` map names every account with a known Inbox, each with its own filter
+— and the generic wake-up narrowed to the accounts the briefing does not
+describe. Not built: the group-mail half of the open-tab path. What the built
+half rests on is read from Stalwart's source at v0.16.22 and written down below;
+the one thing still owed is seeing a running server do it.
 
 ## Context
 
@@ -226,11 +228,11 @@ one that names nothing.
 
 The rule is per account, and the briefing already carries the answer: a
 `StateChange` names the accounts it changed in `changed`, and the worker notifies
-generically **only for an account the briefing does not list as having a rich
-payload**. That is exactly the group case, where the generic notification is the
-whole of what arrives — and where it can now name the mailbox it landed in
-instead of saying "New mail". For the reader's own account, where the payload
-carries the message, the state change is the duplicate and says nothing.
+generically **only for an account the briefing lists without an Inbox** — one
+the `emailPush` map has no entry for, so this state change is the whole of what
+arrives, and the briefing can name the mailbox it landed in. For every described
+account — the reader's own, and each group with a known Inbox — the state change
+is the duplicate of the payload and says nothing.
 
 ### The briefing the worker reads grows with it
 
@@ -412,15 +414,15 @@ implementation marks them where the code owes them (the repository's
    entry and one inbox id per account, each account's filter its own, and the
    registration and release addressed at the reader's own account once rather
    than once per target. Personal mail stays what it is, and the step is not
-   done until it still is.
+   done until it still is. **Built.**
 3. The generic wake-up: `StateChange` notifies only for the accounts the
-   briefing does not describe as carrying a payload, which is the group case —
-   and which also stops the second, nameless notification a delivery to the
-   reader's own Inbox produces today.
+   briefing does not describe as carrying a payload — an account it lists
+   without an Inbox, so with no entry in the map — and names it. A described
+   account's state change is the duplicate of its `EmailPush` and says nothing.
+   **Built.**
 4. The briefing: per-account chat folder, the account's name, the watermark, the
    reader's own address and the account's Inbox id, which the notification's
-   deep link is built from. **Partly built** — the group payload waits with the
-   `emailPush` map above.
+   deep link is built from. **Built.**
 5. `types`: the chat-capable accounts' wake-up gains `FileNode`. **Built.**
 6. Chat: the worker's read of the newest nodes, the sender rule, the watermark,
    the tag per node, and the suppression rule for a window of ours already on

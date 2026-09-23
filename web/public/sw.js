@@ -338,6 +338,11 @@ async function readFacts() {
   }
 }
 
+/** The briefing's entry for one account, or null when it lists none. */
+function accountFact(facts, accountId) {
+  return (facts?.accounts ?? []).find((a) => a.accountId === accountId) ?? null;
+}
+
 /*
  * A JMAP call, made as the reader.
  *
@@ -398,11 +403,11 @@ function textOf(email, strings) {
  * would have to open the app -- and an action that opens the app is what
  * tapping the notification already does.
  */
-function actionsFor(facts) {
-  if (!facts) return [];
+function actionsFor(account, strings) {
+  if (!account || !strings) return [];
   const actions = [];
-  if (facts.archiveId) actions.push({ action: "archive", title: facts.strings.archive });
-  actions.push({ action: "read", title: facts.strings.markRead });
+  if (account.archiveId) actions.push({ action: "archive", title: strings.archive });
+  actions.push({ action: "read", title: strings.markRead });
   return actions;
 }
 
@@ -486,17 +491,17 @@ async function readChatDoc(accountId, blobId) {
  * reader's own stored settings.
  */
 async function chatNotifications(data, facts) {
-  const chats = facts?.chats ?? [];
-  if (!chats.length || !data || data["@type"] !== "StateChange") return false;
+  const accounts = (facts?.accounts ?? []).filter((a) => a.chatFolderId);
+  if (!accounts.length || !data || data["@type"] !== "StateChange") return false;
   const changed = data.changed ?? {};
   let announced = false;
   for (const [accountId, types] of Object.entries(changed)) {
     if (!types || !("FileNode" in types)) continue;
-    const chat = chats.find((c) => c.accountId === accountId);
-    if (!chat) continue;
+    const account = accounts.find((a) => a.accountId === accountId);
+    if (!account) continue;
     let nodes;
     try {
-      nodes = await newestChatNodes(accountId, chat.folderId);
+      nodes = await newestChatNodes(accountId, account.chatFolderId);
     } catch {
       continue; // a session the read cannot use notifies nothing
     }
@@ -508,13 +513,15 @@ async function chatNotifications(data, facts) {
       const text = typeof doc?.text === "string" ? doc.text : "";
       if (!from || !at) continue;
       if (facts.ownAddress && from === facts.ownAddress) continue;
-      if (chat.watermark && at <= chat.watermark) continue;
-      await self.registration.showNotification(chat.name, {
+      if (account.watermark && at <= account.watermark) continue;
+      await self.registration.showNotification(account.name, {
         body: `${from}: ${text}`.trim(),
         icon: `${BASE}/img/icon-192.png`,
         badge: `${BASE}/img/favicon-64.png`,
         tag: `gilbert-chat-${node.id}`,
-        data: { url: `${BASE}/mail` },
+        data: {
+          url: account.inboxId ? `${BASE}/mail/${account.inboxId}` : `${BASE}/mail`,
+        },
       });
       announced = true;
     }
@@ -594,39 +601,57 @@ self.addEventListener("push", (event) => {
       if (!emails.length) {
         const changed =
           data && data["@type"] === "StateChange" ? (data.changed ?? {}) : null;
-        const hasFileNode =
-          changed !== null &&
-          Object.values(changed).some((types) => types && "FileNode" in types);
-        const hasMail =
-          changed !== null &&
-          Object.values(changed).some(
-            (types) => types && ("Email" in types || "EmailDelivery" in types),
-          );
-        if (hasFileNode) await chatNotifications(data, facts);
-        /*
-         * A FileNode change measured on its own is never mail -- the reader's
-         * own settings write, an upload, an agent document -- so it must not
-         * become "New mail". A push that carries a mail change beside the
-         * FileNode one still is, and falls through to the notice below.
-         */
-        if (hasFileNode && !hasMail) return;
-        // A delivery from a server that sends a StateChange rather than an
-        // EmailPush -- the subscription asks for `EmailDelivery`, so what
-        // changed is that mail arrived -- or a payload too large to carry the
-        // message. Say something true rather than inventing a sender.
-        await self.registration.showNotification(strings.newMail, {
-          icon: `${BASE}/img/icon-192.png`,
-          badge: `${BASE}/img/favicon-64.png`,
-          tag: "gilbert-mail",
-          data: { url: `${BASE}/mail` },
-        });
+        if (changed !== null) {
+          if (Object.values(changed).some((types) => types && "FileNode" in types))
+            await chatNotifications(data, facts);
+          /*
+           * Only an account the briefing lists **without** an Inbox is
+           * announced here. The subscription's `emailPush` map describes every
+           * account whose Inbox is known, and its delivery arrives as the
+           * `EmailPush` below; the state change that rides beside it is the
+           * duplicate and says nothing. An account with no Inbox has no entry,
+           * so its delivery arrives only as this state change -- and the
+           * briefing can name it.
+           */
+          const target = Object.entries(changed).find(([id, types]) => {
+            const account = accountFact(facts, id);
+            if (!account || account.inboxId) return false;
+            // A FileNode change is never mail: the reader's own settings write,
+            // an upload, an agent document. Any other type is a delivery.
+            return types && Object.keys(types).some((k) => k !== "FileNode");
+          });
+          if (target) {
+            const account = accountFact(facts, target[0]);
+            await self.registration.showNotification(account.name || strings.newMail, {
+              body: strings.newMail,
+              icon: `${BASE}/img/icon-192.png`,
+              badge: `${BASE}/img/favicon-64.png`,
+              tag: `gilbert-mail-${account.accountId}`,
+              data: { url: `${BASE}/mail` },
+            });
+          }
+        }
         return;
       }
+      /*
+       * One delivery's `EmailPush`: the account it names is the reader's own or
+       * a group mailbox, and its briefing entry carries the Inbox the link is
+       * built from and the archive its button files to.
+       */
+      const deliveryAccountId =
+        typeof data?.accountId === "string"
+          ? data.accountId
+          : (Object.keys(data?.changed ?? {})[0] ?? null);
+      const account = accountFact(facts, deliveryAccountId);
       // One notification per message, collapsing repeats of the same message by
       // tag so a re-push does not stack.
       for (const email of emails.slice(0, 5)) {
         const { title, body, preview } = textOf(email, strings);
-        await self.registration.showNotification(title, {
+        // A group's message is titled with the group as well as the sender, so
+        // a lock screen names both.
+        const heading =
+          account && !account.own && account.name ? `${title} · ${account.name}` : title;
+        await self.registration.showNotification(heading, {
           body: preview ? `${body}\n${preview}` : body,
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,
@@ -634,7 +659,7 @@ self.addEventListener("push", (event) => {
           // Only where there is a message to act on: a payload without an id can
           // be shown but not archived, and a button that cannot work should not
           // be drawn.
-          actions: email.id ? actionsFor(facts) : [],
+          actions: email.id ? actionsFor(account, strings) : [],
           data: {
             /*
              * The route is `/mail/<mailbox id>/<thread id>`, so the link needs
@@ -643,15 +668,15 @@ self.addEventListener("push", (event) => {
              * app can resolve (it answers "that folder no longer exists").
              * Without a known Inbox, open /mail and let it redirect.
              */
-            url: facts?.inboxId
+            url: account?.inboxId
               ? email.threadId
-                ? `${BASE}/mail/${facts.inboxId}/${email.threadId}`
-                : `${BASE}/mail/${facts.inboxId}`
+                ? `${BASE}/mail/${account.inboxId}/${email.threadId}`
+                : `${BASE}/mail/${account.inboxId}`
               : `${BASE}/mail`,
             id: email.id || null,
             title,
-            accountId: facts?.accountId ?? null,
-            archiveId: facts?.archiveId ?? null,
+            accountId: deliveryAccountId,
+            archiveId: account?.archiveId ?? null,
             failed: strings.failed ?? null,
           },
         });

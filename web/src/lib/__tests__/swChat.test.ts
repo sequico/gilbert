@@ -16,7 +16,7 @@ const worker = workerSource();
 describe("the worker's chat rules", () => {
   it("reads a chat only for an account the briefing names", () => {
     expect(worker).toContain('("FileNode" in types)');
-    expect(worker).toContain("chats.find((c) => c.accountId === accountId)");
+    expect(worker).toContain("accounts.find((a) => a.accountId === accountId)");
   });
 
   it("never announces the reader's own message", () => {
@@ -24,7 +24,7 @@ describe("the worker's chat rules", () => {
   });
 
   it("never announces a message at or before the watermark", () => {
-    expect(worker).toContain("chat.watermark && at <= chat.watermark");
+    expect(worker).toContain("account.watermark && at <= account.watermark");
   });
 
   it("tags each chat notification by node, so a re-push collapses", () => {
@@ -38,12 +38,12 @@ describe("the worker's chat rules", () => {
 
   it("never lets a FileNode-only change fall through to a mail notice", () => {
     // The reader's own settings write, an upload and an agent document all
-    // wear FileNode; the generic "New mail" is for a mail delivery that
-    // carried no message. The guard that stops it is the `return`, so that is
-    // what this asserts: dropping it puts "New mail" over every file write.
-    // A push that carries a mail change beside the FileNode one still is mail.
+    // wear FileNode; the generic notice is for a delivery that carried no
+    // message. The guard is the type filter: only an account the briefing lists
+    // without an Inbox is announced, and only a change that is not FileNode
+    // alone.
     expect(worker).toContain("await chatNotifications(data, facts);");
-    expect(worker).toContain("if (hasFileNode && !hasMail) return;");
-    expect(worker).toContain('"EmailDelivery" in types');
+    expect(worker).toContain('Object.keys(types).some((k) => k !== "FileNode")');
+    expect(worker).toContain("if (!account || account.inboxId) return false;");
   });
 });

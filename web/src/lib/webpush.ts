@@ -22,6 +22,7 @@ import { gilbertDeviceClientId, isBrowserDeviceClientId } from "@gilbert/shared/
 import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isIOS } from "@/lib/installApp";
+import type { PushTarget } from "@/lib/mailAccounts";
 import { isDeviceTrusted } from "@/lib/storage";
 
 /**
@@ -175,11 +176,9 @@ export function deviceClientId(): string {
  * **map** with one entry per account, each with its own filter, and the entry
  * for an account the token is not a member of is refused `forbidden`. So the
  * reader's own account is where one row lives and where each group is named
- * inside it, which is what this function does not yet build: it still sends one
- * `emailPush` entry for the reader's own account only, so a group's mail wakes
- * this device only as a generic notification and its chat does not wake it at
- * all. What a running server still has to say is written down where the record
- * keeps its debt.
+ * inside it, which is what this builds: one `emailPush` entry per target
+ * account, the account's Inbox as its filter's `inMailbox`. What a running
+ * server still has to say is written down where the record keeps its debt.
  *
  * ADR-0016 OWED: live-emailpush-map
  * ADR-0016 OWED: group-emailpush-payload
@@ -189,8 +188,7 @@ export function deviceClientId(): string {
  */
 export function subscriptionPayload(
   sub: PushSubscription,
-  accountId: Id | null,
-  inboxId: Id | null = null,
+  targets: ReadonlyArray<PushTarget>,
   watchChat = false,
 ): Record<string, unknown> {
   const json = sub.toJSON();
@@ -229,19 +227,27 @@ export function subscriptionPayload(
      */
     types: watchChat ? ["EmailDelivery", "FileNode"] : ["EmailDelivery"],
   };
-  if (accountId && supportsEmailPush()) {
-    body.emailPush = {
-      [accountId]: {
-        // Only mail that actually lands in the inbox. Filtering here rather
-        // than in the service worker means spam never leaves the server.
-        // Unread mail only, and only in the Inbox when we know which it is.
-        // Filtering here rather than in the service worker means spam and
-        // filed mail never leave the server at all.
-        filter: { ...(inboxId ? { inMailbox: inboxId } : {}), notKeyword: "$seen" },
+  if (supportsEmailPush()) {
+    /*
+     * One entry per account the subscription serves -- the reader's own and
+     * every group mailbox -- each with its own Inbox filter (ADR 0016). The map
+     * is what makes a delivery to a group arrive as an `EmailPush` that names
+     * it, rather than a bare `StateChange`. An account whose Inbox id is not
+     * yet known gets **no** entry: an entry carries that account's own Inbox
+     * filter, and without one the delivery stays a `StateChange`, which the
+     * worker notifies generically and names from the briefing. `sw.js` reads
+     * the same `inboxId` to tell the two apart, so the two must agree.
+     */
+    const emailPush: Record<string, unknown> = {};
+    for (const t of targets) {
+      if (!t.inboxId) continue;
+      emailPush[t.accountId] = {
+        filter: { inMailbox: t.inboxId, notKeyword: "$seen" },
         properties: PAYLOAD_PROPS,
         urgency: "normal",
-      },
-    };
+      };
+    }
+    if (Object.keys(emailPush).length) body.emailPush = emailPush;
   }
   return body;
 }

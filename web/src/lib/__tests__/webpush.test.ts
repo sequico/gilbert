@@ -105,8 +105,14 @@ describe("encoding keys for the server", () => {
 type WebPushPayload = {
   url: string;
   keys: { p256dh: string; auth: string };
-  emailPush: { a1: { properties: string[]; filter: Record<string, unknown> } };
+  emailPush: Record<string, { properties: string[]; filter: Record<string, unknown> }>;
 };
+
+/** One account the subscription covers, with the Inbox its filter names. */
+const target = (accountId: string, inboxId: string | null) => ({
+  accountId,
+  inboxId,
+});
 
 describe("what gets registered", () => {
   const fakeSub = {
@@ -120,14 +126,17 @@ describe("what gets registered", () => {
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
       "urn:ietf:params:jmap:emailpush": {},
     });
-    const body = subscriptionPayload(fakeSub, "a1") as WebPushPayload;
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb-inbox"),
+    ]) as WebPushPayload;
     expect(body.url).toBe("https://push.example/abc");
     expect(body.keys).toEqual({ p256dh: "cGRoLWtleQ", auth: "YXV0aA" });
-    expect(body.emailPush.a1.properties).toContain("subject");
-    expect(body.emailPush.a1.properties).toContain("from");
+    const entry = body.emailPush.a1!;
+    expect(entry.properties).toContain("subject");
+    expect(entry.properties).toContain("from");
     // Order is priority: the server drops from the end when the payload is
     // too large, so the sender must outrank the preview.
-    const props: string[] = body.emailPush.a1.properties;
+    const props: string[] = entry.properties;
     expect(props.indexOf("from")).toBeLessThan(props.indexOf("preview"));
   });
 
@@ -136,15 +145,36 @@ describe("what gets registered", () => {
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
     });
     expect(supportsEmailPush()).toBe(false);
-    expect(subscriptionPayload(fakeSub, "a1")).not.toHaveProperty("emailPush");
+    expect(subscriptionPayload(fakeSub, [target("a1", "mb-inbox")])).not.toHaveProperty(
+      "emailPush",
+    );
   });
 
-  it("omits emailPush when there is no account to scope it to", () => {
+  it("makes one entry per account with a known Inbox, and none for an unknown one", () => {
     client.session = session({
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
       "urn:ietf:params:jmap:emailpush": {},
     });
-    expect(subscriptionPayload(fakeSub, null)).not.toHaveProperty("emailPush");
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb-own"),
+      target("g1", "g-inbox"),
+      target("g2", null),
+    ]) as WebPushPayload;
+    expect(Object.keys(body.emailPush).sort()).toEqual(["a1", "g1"]);
+    expect(body.emailPush.a1!.filter.inMailbox).toBe("mb-own");
+    expect(body.emailPush.g1!.filter.inMailbox).toBe("g-inbox");
+    expect(body.emailPush).not.toHaveProperty("g2");
+  });
+
+  it("omits emailPush when no account has an Inbox", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    expect(subscriptionPayload(fakeSub, [target("a1", null)])).not.toHaveProperty(
+      "emailPush",
+    );
+    expect(subscriptionPayload(fakeSub, [])).not.toHaveProperty("emailPush");
   });
 
   it("subscribes to delivered mail only, so reading or moving says nothing", () => {
@@ -158,9 +188,10 @@ describe("what gets registered", () => {
      * `EmailPush` alone, so subscribing to `EmailDelivery` is what makes the
      * channel mean "mail arrived" and nothing else.
      */
-    expect((subscriptionPayload(fakeSub, "a1") as Record<string, unknown>).types).toEqual(
-      ["EmailDelivery"],
-    );
+    expect(
+      (subscriptionPayload(fakeSub, [target("a1", "mb")]) as Record<string, unknown>)
+        .types,
+    ).toEqual(["EmailDelivery"]);
   });
 
   it("asks for FileNode too when the reader has a group to be woken for", () => {
@@ -174,10 +205,20 @@ describe("what gets registered", () => {
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
     });
     expect(
-      (subscriptionPayload(fakeSub, "a1", null, true) as Record<string, unknown>).types,
+      (
+        subscriptionPayload(fakeSub, [target("a1", "mb")], true) as Record<
+          string,
+          unknown
+        >
+      ).types,
     ).toEqual(["EmailDelivery", "FileNode"]);
     expect(
-      (subscriptionPayload(fakeSub, "a1", null, false) as Record<string, unknown>).types,
+      (
+        subscriptionPayload(fakeSub, [target("a1", "mb")], false) as Record<
+          string,
+          unknown
+        >
+      ).types,
     ).toEqual(["EmailDelivery"]);
   });
 
@@ -189,8 +230,8 @@ describe("what gets registered", () => {
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
       "urn:ietf:params:jmap:emailpush": {},
     });
-    const props = (subscriptionPayload(fakeSub, "a1") as WebPushPayload).emailPush.a1
-      .properties;
+    const props = (subscriptionPayload(fakeSub, [target("a1", "mb")]) as WebPushPayload)
+      .emailPush.a1!.properties;
     expect(props).toContain("id");
     expect(props).toContain("threadId");
   });
@@ -294,29 +335,34 @@ describe("the emailPush filter", () => {
 
   it("never sends a condition with a null or undefined value", () => {
     withEmailPush();
-    for (const inbox of ["mb1", null]) {
-      const body = subscriptionPayload(fakeSub, "a1", inbox) as WebPushPayload;
-      const filter = body.emailPush.a1.filter as Record<string, unknown>;
-      for (const [k, v] of Object.entries(filter)) {
-        expect(v, `${k} was ${String(v)} with inbox=${String(inbox)}`).not.toBeNull();
-        expect(v, k).not.toBeUndefined();
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb1"),
+      target("g1", "g-inbox"),
+    ]) as WebPushPayload;
+    for (const [id, entry] of Object.entries(body.emailPush)) {
+      for (const [k, v] of Object.entries(entry.filter)) {
+        expect(v, `${id}.${k} was ${String(v)}`).not.toBeNull();
+        expect(v, `${id}.${k}`).not.toBeUndefined();
       }
     }
   });
 
   it("uses the real mailbox id when it knows one", () => {
     withEmailPush();
-    const body = subscriptionPayload(fakeSub, "a1", "mbInbox") as WebPushPayload;
-    expect(body.emailPush.a1.filter.inMailbox).toBe("mbInbox");
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mbInbox"),
+    ]) as WebPushPayload;
+    expect(body.emailPush.a1!.filter.inMailbox).toBe("mbInbox");
   });
 
-  it("leaves inMailbox out entirely when it does not, rather than sending null", () => {
+  it("makes no entry for an account whose Inbox is unknown", () => {
+    // An entry carries that account's own Inbox filter; without one the
+    // delivery stays a state change, which the worker names from the briefing
+    // -- rather than an entry that would notify over the whole account.
     withEmailPush();
-    const filter = (subscriptionPayload(fakeSub, "a1", null) as WebPushPayload).emailPush
-      .a1.filter;
-    expect(filter).not.toHaveProperty("inMailbox");
-    // Still narrowed to unread: notifying more widely beats not notifying.
-    expect(filter.notKeyword).toBe("$seen");
+    expect(subscriptionPayload(fakeSub, [target("a1", null)])).not.toHaveProperty(
+      "emailPush",
+    );
   });
 });
 

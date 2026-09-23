@@ -43,9 +43,9 @@ describe("the push handler's rules", () => {
    * in the thread's place, is a folder and a thread the app cannot resolve.
    */
   it("draws an action only for an id, and a deep link from the Inbox and thread ids", () => {
-    expect(worker).toContain("actions: email.id ? actionsFor(facts) : []");
+    expect(worker).toContain("actions: email.id ? actionsFor(account, strings) : []");
     expect(worker).toMatch(
-      /\$\{BASE\}\/mail\/\$\{facts\.inboxId\}\/\$\{email\.threadId\}/,
+      /\$\{BASE\}\/mail\/\$\{account\.inboxId\}\/\$\{email\.threadId\}/,
     );
     expect(worker).not.toMatch(/\$\{BASE\}\/mail\/inbox\//);
   });

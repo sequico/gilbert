@@ -113,6 +113,38 @@ export function isOwnMailAccount(
   return accountId === ownAccountForCapability(session, CAP.mail);
 }
 
+/** One account a background subscription covers, with its Inbox id. */
+export interface PushTarget {
+  accountId: string;
+  /** The account's Inbox id, or null when its tree has not been read yet. */
+  inboxId: string | null;
+}
+
+/** The Inbox of one account's tree, or null when it names none. */
+function inboxOf(
+  tree: Record<string, { id: string; role?: string | null }> | undefined,
+): string | null {
+  return Object.values(tree ?? {}).find((m) => m.role === "inbox")?.id ?? null;
+}
+
+/**
+ * The accounts a background subscription covers, each with its Inbox id: the
+ * reader's own plus every group mailbox, the group's Inbox taken from the tree
+ * the mail probe already read (`accountTrees`, filled by `discoverMailAccounts`).
+ * One list for the `emailPush` map and for the worker's briefing, so what the
+ * subscription describes and what the worker reads cannot disagree.
+ */
+export function pushTargets(
+  accounts: ReadonlyArray<MailAccountInfo>,
+  accountTrees: Record<string, Record<string, { id: string; role?: string | null }>>,
+  ownInboxId: string | null,
+): PushTarget[] {
+  return accounts.map((a) => ({
+    accountId: a.accountId,
+    inboxId: a.kind === "own" ? ownInboxId : inboxOf(accountTrees[a.accountId]),
+  }));
+}
+
 /** Whether an account is one of the group mailboxes, per `MailAccountInfo.kind`. */
 function isGroupAccount(a: MailAccountInfo): boolean {
   return a.kind === "group";

@@ -22,36 +22,36 @@ import { SW_CACHE_NAME } from "./swCache";
 
 export const FACTS_KEY = "/gilbert-worker-facts";
 
-/** One group chat the worker may be woken for, and what reading it needs. */
-export interface WorkerChatFact {
-  /** The group account the chat lives in (a FileNode change names it). */
+/** One account the subscription covers, as the worker needs it. */
+export interface WorkerAccountFact {
+  /** The account the facts are about. */
   accountId: string;
-  /** The group's display name, which is the notification's title. */
+  /** Whether this is the reader's own account rather than a group mailbox. */
+  own: boolean;
+  /** What the session calls it: a group's address, or the reader's own. */
   name: string;
-  /** The `gilbert/chat` folder's id. */
-  folderId: string;
-  /** The newest message instant the app has already seen, or "" for none. */
+  /**
+   * The account's Inbox id, for the notification's deep link.
+   *
+   * The route is `/mail/<mailbox id>/<thread id>`, so the worker needs the real
+   * Inbox id: a literal `inbox` is not a folder the app has, and opening one
+   * reads as a stale link and redirects to the inbox with a complaint. Null
+   * where the account's tree has not been read yet.
+   */
+  inboxId: string | null;
+  /** Where Archive files to in this account; null where it has no archive folder. */
+  archiveId: string | null;
+  /** The account's `gilbert/chat` folder id, when it is a group with a chat. */
+  chatFolderId: string | null;
+  /** The newest chat instant the app has already seen, or "" for none. */
   watermark: string;
 }
 
 export interface WorkerFacts {
-  /** The account the notifications are about. */
-  accountId: string;
-  /**
-   * The account's Inbox mailbox id.
-   *
-   * The deep link in a notification is `/mail/<mailbox id>/<thread id>`, so the
-   * worker needs the real Inbox id: a literal `inbox` is not a folder the app
-   * has, and opening one reads as a stale link and redirects to the inbox with
-   * a complaint. Null where the account's tree has not been read yet.
-   */
-  inboxId: string | null;
-  /** Where Archive files to; null where the account has no archive folder. */
-  archiveId: string | null;
   /** The reader's own address, so a message they wrote is never announced. */
   ownAddress: string;
-  /** Every group chat this device may be woken for (ADR 0016). */
-  chats: WorkerChatFact[];
+  /** One entry per account the subscription covers (ADR 0016). */
+  accounts: WorkerAccountFact[];
   /** The worker's own user-visible text, in the language this tab is in. */
   strings: {
     newMail: string;
@@ -67,24 +67,18 @@ export interface WorkerFacts {
  * Write the briefing.
  *
  * Called again whenever what is in it could have changed — the language, the
- * account, the archive folder — because it is what the worker will still be
+ * accounts, a folder moved — because it is what the worker will still be
  * reading in a week's time. Rewriting it is one cache put; there is nothing to
  * gain by working out whether it differs.
  */
 export async function publishWorkerFacts(
-  accountId: string | null,
-  archiveId: string | null,
-  chats: WorkerChatFact[] = [],
+  accounts: ReadonlyArray<WorkerAccountFact>,
   ownAddress = "",
-  inboxId: string | null = null,
 ): Promise<void> {
-  if (typeof caches === "undefined" || !accountId) return;
+  if (typeof caches === "undefined" || !accounts.length) return;
   const facts: WorkerFacts = {
-    accountId,
-    inboxId,
-    archiveId,
     ownAddress,
-    chats,
+    accounts: accounts.map((a) => ({ ...a })),
     strings: {
       newMail: t("New mail"),
       newMessage: t("New message"),

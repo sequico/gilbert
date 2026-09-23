@@ -5,7 +5,6 @@
  * testable: everything here touches the browser's service worker and
  * permission prompt, none of which exists under a test runner.
  */
-import { CAP } from "@/jmap/client";
 import { requestNotificationPermission } from "@/lib/notify";
 import { isDeviceTrusted } from "@/lib/storage";
 import {
@@ -36,9 +35,8 @@ import {
   webPushBlocker,
 } from "@/lib/webpush";
 import { useMail } from "@/store/mail";
-import { useSession } from "@/store/session";
 import { withBase } from "./basePath";
-import { groupMailboxAccounts } from "./mailAccounts";
+import { groupMailboxAccounts, pushTargets } from "./mailAccounts";
 import { SW_CACHE_NAME } from "./swCache";
 
 let listening = false;
@@ -216,15 +214,16 @@ async function registerThisBrowser(key: string, force = false): Promise<void> {
     }
   }
 
-  const accountId = useSession.getState().ownAccountFor(CAP.mail);
-  const inboxId = useMail.getState().roleId("inbox");
   /*
-   * A reader in at least one group is woken for chat too: `FileNode` is what a
-   * chat message changes, and the worker reads it back (ADR 0016). A reader in
-   * no group asks for neither, and is not woken by their own file writes.
+   * Every account the subscription serves: the reader's own and every group
+   * mailbox, each with the Inbox its filter names (ADR 0016). A reader in at
+   * least one group is also woken for chat: `FileNode` is what a chat message
+   * changes, and the worker reads it back.
    */
-  const watchChat = groupMailboxAccounts(useMail.getState().mailAccounts).length > 0;
-  const payload = subscriptionPayload(sub, accountId, inboxId, watchChat);
+  const mail = useMail.getState();
+  const targets = pushTargets(mail.mailAccounts, mail.accountTrees, mail.roleId("inbox"));
+  const watchChat = groupMailboxAccounts(mail.mailAccounts).length > 0;
+  const payload = subscriptionPayload(sub, targets, watchChat);
   await releaseThisDevice(sub.endpoint);
   /*
    * One retry, because the release has already happened: the row that was

@@ -44,42 +44,35 @@ afterEach(() => {
 });
 
 describe("the worker's briefing", () => {
-  it("names the account, the archive mailbox and the inbox", async () => {
+  const own = {
+    accountId: "a1",
+    own: true,
+    name: "me@example.org",
+    inboxId: "mb-inbox",
+    archiveId: "mb-archive",
+    chatFolderId: null,
+    watermark: "",
+  };
+  const group = {
+    accountId: "g1",
+    own: false,
+    name: "team@example.org",
+    inboxId: "g-inbox",
+    archiveId: "g-archive",
+    chatFolderId: "ch",
+    watermark: "2026-01-01T00:00:00Z",
+  };
+
+  it("names every account with its Inbox, archive and chat folder", async () => {
     const { store } = fakeCaches();
-    await publishWorkerFacts("a1", "mb-archive", [], "", "mb-inbox");
-    const facts = written(store);
-    expect(facts.accountId).toBe("a1");
-    expect(facts.archiveId).toBe("mb-archive");
-    expect(facts.inboxId).toBe("mb-inbox");
+    await publishWorkerFacts([own, group]);
+    expect(written(store).accounts).toEqual([own, group]);
   });
 
-  it("carries the chats the worker may be woken for, and the reader's address", async () => {
-    // The worker reads a chat's folder and watermark straight from here, and
-    // uses the address to avoid announcing the reader's own message.
+  it("carries the reader's address, so a message they wrote is never announced", async () => {
     const { store } = fakeCaches();
-    await publishWorkerFacts(
-      "a1",
-      "mb-archive",
-      [
-        {
-          accountId: "g1",
-          name: "Team",
-          folderId: "ch",
-          watermark: "2026-01-01T00:00:00Z",
-        },
-      ],
-      "me@example.org",
-    );
-    const facts = written(store);
-    expect(facts.ownAddress).toBe("me@example.org");
-    expect(facts.chats).toEqual([
-      {
-        accountId: "g1",
-        name: "Team",
-        folderId: "ch",
-        watermark: "2026-01-01T00:00:00Z",
-      },
-    ]);
+    await publishWorkerFacts([own], "me@example.org");
+    expect(written(store).ownAddress).toBe("me@example.org");
   });
 
   it("carries the worker's text in the language the tab is in", async () => {
@@ -87,7 +80,7 @@ describe("the worker's briefing", () => {
     // first, or a German reader gets English buttons on their lock screen.
     setCatalog("de", de);
     const { store } = fakeCaches();
-    await publishWorkerFacts("a1", "mb-archive");
+    await publishWorkerFacts([own]);
     const facts = written(store);
     expect(facts.strings.archive).toBe("Archivieren");
     expect(facts.strings.markRead).toBe("Als gelesen markieren");
@@ -96,30 +89,30 @@ describe("the worker's briefing", () => {
     expect(facts.strings.failed).not.toBe("");
   });
 
-  it("says so when there is no archive folder, rather than inventing one", async () => {
+  it("says so when an account has no archive folder, rather than inventing one", async () => {
     // The worker draws no Archive button on a null. An account without an
     // archive is not a reason to file mail somewhere else.
     const { store } = fakeCaches();
-    await publishWorkerFacts("a1", null);
-    expect(written(store).archiveId).toBeNull();
+    await publishWorkerFacts([{ ...own, archiveId: null }]);
+    expect(written(store).accounts[0]?.archiveId).toBeNull();
   });
 
-  it("writes nothing before there is an account", async () => {
+  it("writes nothing before there are accounts", async () => {
     const { cache } = fakeCaches();
-    await publishWorkerFacts(null, null);
+    await publishWorkerFacts([]);
     expect(cache.put).not.toHaveBeenCalled();
   });
 
   it("does not throw where the browser has no cache storage", async () => {
     vi.stubGlobal("caches", undefined);
-    await expect(publishWorkerFacts("a1", "mb-archive")).resolves.toBeUndefined();
+    await expect(publishWorkerFacts([own])).resolves.toBeUndefined();
   });
 
   it("carries every string the worker looks up", async () => {
     // The worker reads these by name and shows `undefined` for a missing one,
     // which is the kind of thing that only appears on somebody's lock screen.
     const { store } = fakeCaches();
-    await publishWorkerFacts("a1", "mb-archive");
+    await publishWorkerFacts([own]);
     const facts = written(store);
     for (const k of [
       "newMail",
