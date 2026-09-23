@@ -619,7 +619,7 @@ and in the client alike. A share is never administered or served as a group.
   an identity in Stalwart's own administration — leaving an edit in progress
   exactly where it is.
 - **User identities** (ADR 0007): an administrator sets a person's
-  identities — display name, address, Reply-To and signature — from the
+  identities — display name, address, Reply-To, Bcc and signature — from the
   administration, through the **same form** the person's own settings use, so
   an identity means one thing wherever it is written. The write is an
   **impersonation** of that person from the administrator's own session, the
@@ -706,6 +706,23 @@ and in the client alike. A share is never administered or served as a group.
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
   footer and none is planned (ADR 0007).
+- **An identity's Bcc** (ADR 0007): an identity may carry addresses that every
+  message sent from it is copied to — a filing address, a ticket system, a
+  compliance archive — and it is a field of the identity beside Reply-To, on
+  the person's own form and on both administration tabs. The address is written
+  into the **Bcc field of the draft** when it is opened, so it is visible to the
+  writer and theirs to take off for one message; nothing adds it back at send
+  time. It is applied to what the composer opens — a new message, a reply, a
+  reply all, a message sent again, and a share — and **not** to a draft reopened
+  from Drafts, which is what it was written as. Switching identity swaps the
+  address the way it swaps Reply-To, and only while the field still holds what
+  the previous identity put there, so an address the writer added stays. RFC
+  8621 leaves `Identity.bcc` to the client, which is what this is. Two limits
+  are worth stating: it reaches **only** mail composed in Gilbert, so it is not
+  an archive of everything the account sends — that is a server-side rule, and
+  the system Sieve surface below is where Stalwart's own scripts live; and on an
+  **enforced** account it is an address the person cannot take off, which the
+  Enforce controls say in as many words.
 - **System Sieve** (ADR 0008), under *Stalwart* in the administration: an
   editor for Stalwart's own **trusted, server-wide** Sieve scripts — the
   `x:SieveSystemScript` JMAP registry object, not an account's own filters
@@ -1340,7 +1357,8 @@ minimisable and maximisable; full-screen on mobile.
   people as needed and send them to To, Cc or Bcc. Every address gets its own
   row, so somebody with a work address and a personal one is a choice — and a
   group gets a row of its own, marked with its size, which sends its members.
-- **Cc, Bcc and Reply-To** revealed as needed.
+- **Cc, Bcc and Reply-To** revealed as needed. An identity's own Bcc arrives
+  already in the Bcc field, visible and removable for one message.
 - **Priority**.
 - **Identities**: multiple From addresses, a per-account default that Gilbert
   keeps (JMAP has no such flag), and hiding identities from the picker without
@@ -2002,7 +2020,7 @@ not reach another that already has Gilbert open until it signs in again.
 | **General** | Reading pane, mark-as-read delay, auto-advance, conversation view, snippets, avatars; compose format, quoting, signature placement, spell check; time zone, week start, language & region, date format, time format; `mailto:` handler; export / import / reset |
 | **Privacy & safety** | Remote images and the senders trusted with them, read receipts asked for and answered; the three warnings and the domains they measure against; undo-send window, attachment reminder, confirm-before-delete |
 | **Appearance** | Theme, accent colour, density, font size, sidebar, swipe actions, interface language |
-| **Identities & signatures** | Addresses, names, Reply-To, HTML signatures, the default, which to hide from the picker, and — read-only — the group identities the administration sets |
+| **Identities & signatures** | Addresses, names, Reply-To, a Bcc copied on everything sent from the identity, HTML signatures, the default, which to hide from the picker, and — read-only — the group identities the administration sets |
 | **Filters & rules** | The visual builder and raw Sieve editor |
 | **Out of office** | Vacation response |
 | **Folders** | Create, rename, colour, subscribe |

@@ -8,7 +8,7 @@ own assignment from the group's account (`/identities/assignment` in
 `server/src/app.ts`).
 
 An identity belongs to the account and is written by it: display name,
-address, `replyTo` and a signature (text and HTML, the latter capped by
+address, `replyTo`, `bcc` and a signature (text and HTML, the latter capped by
 Stalwart at 2 KB of UTF-8, with a longer one kept in the account's own Files
 behind a marker). A person edits their own under Settings → Identities &
 signatures, and a message's signature is applied by the same function
@@ -28,6 +28,43 @@ other, and read one list of the same objects.
 The administration gains **Enforce Identities**, under the **Stalwart**
 group of the admin navigation, with two tabs: **User identities** and
 **Group identities**.
+
+## The Bcc an identity carries
+
+**An identity may carry addresses that every message sent from it is copied
+to, and the client writes them into the draft rather than adding them on the
+way out.** RFC 8621 leaves `Identity.bcc` to the client; what this record
+fixes is where the client applies it, because the two possible places differ
+in something a person can observe.
+
+The address is put in the **Bcc field of the draft when the composer opens
+it** — a new message, a reply, a reply all, a message sent again, a share —
+with `showBcc` set so it is on screen. The writer therefore sees the whole of
+who their message reaches, and the field is theirs: taking the address off is
+taking it off, and nothing puts it back at send time. Applying it on the way
+out instead would be a copy that leaves the composer without ever having been
+there, which is the one shape this field must not take. The `replyTo` field
+is handled the other way round — the draft's own value, falling back to the
+identity's at send — and the difference is deliberate: a Reply-To is a claim
+about the identity, so an old draft sent under it is right to gain it; a Bcc
+is a copy of a message, and nobody may be added to one silently.
+
+Nothing is added to a draft **reopened from Drafts**: what is on the server is
+what the writer sent or saved, and adding the address again would be the same
+silent copy arriving by another door. Switching identity **swaps** the address
+the way it swaps Reply-To, and only while the field still holds exactly what
+the previous identity put there — an address the writer added, or a field they
+emptied, is theirs and is left alone.
+
+**Where it reaches, and where it does not.** It is a rule of this client:
+a message composed in Gilbert is copied, and a message written in another
+client is not. An installation that needs a copy of everything an account
+sends has to take it up in the mail server — Stalwart's own Sieve pipeline,
+which the System Sieve surface (ADR 0008) edits — rather than here. On an
+**enforced** account the address is one the person cannot take off, since
+their own identity section is not offered at all; the Enforce controls say so
+where the lock is applied, because a Bcc read as a filing convenience and a
+Bcc that copies every message somebody sends are the same field.
 
 ## User identities
 
@@ -195,6 +232,10 @@ wire.
   to them, and the group itself when none is, in the From line and in the
   signature, with no second address and no per-message override for the
   server to honour. Never another member.
+- A Bcc on an identity is copied onto mail composed in Gilbert only, and is
+  visible and removable per message. It is not an archive of everything the
+  account sends, and on an enforced account it is a copy its owner cannot
+  turn off.
 
 ## References
 
@@ -204,12 +245,17 @@ wire.
 - `web/src/views/settings/IdentitiesSettings.tsx` — the person's own form,
   reused by the admin surface, and the two things it reads when it opens: their
   list, and each group's assignment
+- `web/src/views/settings/IdentityDialog.tsx` — that form itself: the fields of
+  an identity, the Bcc among them, written back whole so a save cannot clear
+  what it did not touch
 - `web/src/lib/identityVisibility.ts` — `ownIdentity`, the one rule for which
   of a person's identities is theirs, and the display name it reads for the
   identity the administration writes
 - `web/src/store/mail.ts` — the per-account identity lists, the assignment a
   group mailbox narrows to and reads again when a surface asks it to, the write
   that spends a read already on its way, and `refreshIdentities`
+- `web/src/store/compose.ts` — `identityBcc`, the one place an identity's Bcc
+  becomes a draft's recipients, and every path that opens a draft
 - `web/src/lib/identities.ts` — `fetchMemberAssignment`, the assignment read as
   the member, and the admin routes, each refreshing those lists once the server
   has accepted the write
