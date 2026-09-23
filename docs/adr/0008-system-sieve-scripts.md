@@ -170,9 +170,10 @@ path compiles the script through `validate_sieve_script(..., true)` in
 `crates/jmap/src/registry/set.rs`; the `x:{Object}/{method}` method-name shape
 is generic (`crates/jmap-proto/src/request/method.rs`); the active-script
 name-collision refusal and per-script compile are read from
-`crates/common/src/config/mailstore/scripts.rs`. Not yet checked live against
-a running 0.16.21 instance — an implementation of this decision owes that
-probe, the way ADR 0003's live checks are recorded.
+`crates/common/src/config/mailstore/scripts.rs`. Confirmed live on 0.16.23
+(2026-09-24): through `x:SieveSystemScript/get` and `/set` as an administrator a
+system script is created, read back with its contents, renamed and patched, and
+destroyed.
 
 ## References
 
