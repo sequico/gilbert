@@ -82,17 +82,20 @@ export class JmapResult {
   }
 
   /**
-   * A `list` from a `/get` or `/query` response; empty when there is none.
+   * A `list` from a `/get` or `/query` response; empty when the response
+   * carries none.
    *
-   * An **error** response is not an empty list. Returning `[]` for one turns
-   * "the server refused this query" into "the account holds nothing", and the
-   * caller — which is usually about to create what it could not find — then
-   * makes a second copy of something that is already there. It throws instead,
-   * which is what the caller already handles for every other failure.
+   * A response that is **absent** and one that **errored** are not empty lists:
+   * returning `[]` for either turns "the server refused this query" — or never
+   * answered it at all — into "the account holds nothing", and the caller,
+   * which is usually about to create what it could not find, then makes a
+   * second copy of something that is already there. Both throw instead, which
+   * is what the caller already handles for every other failure.
    */
   list<T>(callId: string): T[] {
     const found = this.raw(callId);
-    if (!found) return [];
+    if (!found)
+      throw new JmapError("missingResponse", `no response for ${callId}`, callId);
     if (found[0] === "error") {
       const described = found[1] as { description?: unknown; type?: unknown };
       throw new UpstreamError(
@@ -346,8 +349,15 @@ export class JmapClient {
       headers: { authorization: this.authorization },
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
-    if (res.status === 401 || res.status === 403)
-      throw new UpstreamError("Invalid credentials", 401);
+    if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
+    // 403 is a permission, not a password: the same distinction `request` makes.
+    // Reporting it as a 401 would sign the reader out of the browser rather than
+    // tell them the account cannot read this blob.
+    if (res.status === 403)
+      throw new UpstreamError(
+        `the mail server refused this download for this account (403)${await refusalDetail(res)}`,
+        403,
+      );
     if (!res.ok)
       throw new UpstreamError(
         `Stalwart refused the download (${res.status})`,

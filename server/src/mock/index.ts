@@ -2443,6 +2443,7 @@ function genericSet(
     const updated: Obj = {};
     const destroyed: string[] = [];
     const notCreated: Obj = {};
+    const notUpdated: Obj = {};
     const notDestroyed: Obj = {};
     for (const [cid, obj] of Object.entries((a.create as Obj) ?? {})) {
       const id = `${prefix}${randomUUID().slice(0, 6)}`;
@@ -2462,11 +2463,20 @@ function genericSet(
       if (o) {
         applyPatch(o, patch as Obj);
         updated[id] = null;
+      } else {
+        // RFC 8620 §5.3: an update naming an id the account does not hold is a
+        // `notFound`, not a silent success. A mock that ignored it would let a
+        // client that read a stale id look correct against a server that would
+        // have refused.
+        notUpdated[id] = { type: "notFound" };
       }
     }
     for (const id of (a.destroy as string[]) ?? []) {
       const i = list.findIndex((x) => x.id === id);
-      if (i < 0) continue;
+      if (i < 0) {
+        notDestroyed[id] = { type: "notFound" };
+        continue;
+      }
       const refusal = onDestroy?.(list[i]!, a);
       if (refusal) {
         notDestroyed[id] = refusal.toJSON();
@@ -2480,6 +2490,7 @@ function genericSet(
       updated,
       destroyed,
       ...(Object.keys(notCreated).length ? { notCreated } : {}),
+      ...(Object.keys(notUpdated).length ? { notUpdated } : {}),
       ...(Object.keys(notDestroyed).length ? { notDestroyed } : {}),
     });
   };
