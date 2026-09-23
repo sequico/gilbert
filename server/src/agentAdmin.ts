@@ -170,7 +170,9 @@ const VIEW_LIMIT = 50;
  * checked 2026-09-07), so such a session gets a 403 that says so rather than
  * an authorization that would fail upstream. A refused composite is reported
  * as "no such account" — the server does not distinguish "unknown" from "not
- * yours", and inventing a distinction would be a guess.
+ * yours", and inventing a distinction would be a guess. A refused composite
+ * answers 403 (confirmed live on 0.16.23, 2026-09-24, for a group mailbox and
+ * for an unknown address), which `fetchUpstreamSession` reads as a refusal.
  */
 export async function impersonateAs(
   session: LiveSession,

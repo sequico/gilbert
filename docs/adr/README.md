@@ -207,7 +207,8 @@ is, not what a user sees.
   that lacks it, on every read, never on the reader's own mailbox — and asks
   whose tree is on screen of the **session** rather than of the account probe,
   so a member's tree is whole from the first frame and whatever the probe
-  answers later. Whether a member may write that field is owed a live probe.
+  answers later. A member may write that field — confirmed live on 0.16.23
+  (2026-09-24).
 - **0022 — Archive puts a conversation back where it was filed.** A reply
   arrives, joins the thread, and the conversation is back in the Inbox while the
   rest of it sits in the folder it was filed under — so the archive button

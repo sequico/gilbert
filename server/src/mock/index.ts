@@ -2870,9 +2870,10 @@ const handlers: Record<string, Handler> = {
    * Stalwart's directory extension: the client reads the account locale from
    * here, and membership in the one direction the registry has it.
    *
-   * Owed — `scripts/probe-group-membership.mjs` asks all of it against a real
-   * 0.16 server and writes nothing (answered 2026-09-13; re-ask before relying
-   * on it): that `x:Group/get` and `x:Group/query` are `unknownMethod` and a
+   * Asked of a real Stalwart 0.16 server by
+   * `scripts/probe-group-membership.mjs`, which writes nothing (answered
+   * 2026-09-13; re-ask before relying on it): that `x:Group/get` and
+   * `x:Group/query` are `unknownMethod` and a
    * group record carries no member list; that an account record carries
    * `memberGroupIds`; that `x:Account/query` answers a `memberGroupIds` filter
    * with the group's members' ids and refuses `groupId` and `memberOf` with
@@ -3937,12 +3938,10 @@ const handlers: Record<string, Handler> = {
   //
   // It honours `position` and `limit` the way a 0.16 query method does, and
   // answers `total` when `calculateTotal` asks for it (the JMAP query shape
-  // Stalwart implements; assumed 2026-09-13 from the spec and its own query
-  // code, never probed live). The live probe this owes: a directory of more
-  // than one page read with `position`/`limit` and again with
-  // `calculateTotal`, against a real 0.16.21 server, to see whether the total
-  // and the page offsets are the ones assumed here — it is written down as
-  // owed in `src/mock/directory-paging.test.ts`.
+  // Stalwart implements; confirmed live on 0.16.23, 2026-09-24 — the total and
+  // the page offsets are the ones modelled here and a `limit` above the ceiling
+  // is served rather than refused; see `scripts/probe-directory-paging.mjs` and
+  // `src/mock/directory-paging.test.ts`).
   "Principal/query": (a) => {
     // A real 0.16 server wants the filter as a single object and refuses an
     // array with notRequest (verified live 2026-09-07); the mock accepts the
@@ -4587,8 +4586,9 @@ const knownPrincipal = (username: string) =>
  * account through their own session instead (ADR 0005); the mock reproduces
  * the refusal -- with a 401, as `unauthorized` sends -- so no surface can lean
  * on group impersonation. The client reads 401 and 403 alike
- * (`fetchUpstreamSession`), and which one a live server sends is what
- * `scripts/probe-impersonation-refusal.mjs` settles.
+ * (`fetchUpstreamSession`); a live server sends 403 (confirmed live on 0.16.23,
+ * 2026-09-24, for a group mailbox and an unknown address), which the client
+ * reads the same way as the mock's 401.
  */
 const isGroupPrincipal = (username: string): boolean =>
   principals.some((p) => p.type === "group" && p.email === username);
@@ -5095,8 +5095,9 @@ export const server = createServer(async (req, res) => {
     const type = req.headers["content-type"] ?? "application/octet-stream";
     /*
      * An upload stores a blob and writes no node, so this simulation leaves
-     * every state token where it was — which is point (d) of the owed probe in
-     * `checkIfInState`: whether a real 0.16 server agrees. It matters because
+     * every state token where it was — which is point (d), answered by the
+     * probe noted in `checkIfInState` (confirmed live on 0.16.21, 2026-09-11):
+     * whether a real 0.16 server agrees. It matters because
      * the production write path uploads the blob **after** reading the token
      * and before the conditional write (`writeAppFileIn`), so a server that
      * moved the token on upload would refuse every conditional write the agent

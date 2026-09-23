@@ -9,17 +9,15 @@ import { after, before, test } from "node:test";
  *
  * The published installation policy fans out over exactly this read, so the
  * three of them decide whether a publish reaches every account of an
- * installation larger than one page. Assumed from the JMAP query shape and
- * Stalwart's own query code (2026-09-13, crates/jmap/src/principal/query.rs),
- * and never probed live:
- *
- * **The live probe this owes** — a directory of more than one page read with
- * `position`/`limit` and again with `calculateTotal` against a real 0.16.21
- * server, to see whether the offsets, the total and the page cut are the ones
- * assumed here; a `limit` above what the server will serve, to see whether it
- * clamps the page or refuses the call; and a closed `allow_directory_query`,
- * to see whether it answers 400 or 403 and whether the refusal is the whole
- * request or one refused method call. Owed, not discharged.
+ * installation larger than one page. Confirmed live on 0.16.23 (2026-09-24):
+ * `position`/`limit` and `calculateTotal` are honoured, the walk reaches the
+ * end with a `total` that names the population, and a `limit` above the
+ * ceiling is served rather than refused
+ * (`scripts/probe-directory-paging.mjs`). What the probe did not ask is a
+ * credential outside the directory gate — whether a closed
+ * `allow_directory_query` answers 400 or 403 and whether the refusal is the
+ * whole request or one refused method call; the mock keeps modelling the 403
+ * the code already reads.
  *
  * Mock port: must not collide with any other test file -- the runner executes
  * files as parallel child processes, each binding its own mock.

@@ -152,8 +152,9 @@ Where the integration lives:
   groups, aliases, quotas is **Stalwart's own administration** (admin console /
   Management API / CLI) — out of product scope by ADR 0001. The read itself
   pages (`position`/`limit`, `calculateTotal`) and reports whether it reached
-  the end of the directory; whether a real server pages the way the client
-  assumes is asked by `scripts/probe-directory-paging.mjs` (owed).
+  the end of the directory; confirmed live on 0.16.23 (2026-09-24) that a real
+  server pages the way the client assumes (see
+  `scripts/probe-directory-paging.mjs`, below).
 - **Group membership** is readable, from the account side only, over the
   **registry** (`urn:stalwart:jmap`) — not over the standard principals door.
   The capability is advertised **per account** (and in `primaryAccounts`),
@@ -207,41 +208,46 @@ Where the integration lives:
   enforced keys from the user, not from whoever can write the account.
   Re-verify details against current docs/source before relying on them; the
   stalw.art doc pages are hard to scrape (heavy nav markup) — the GitHub
-  source and the support forum are the reliable ground truth. What a *refused*
-  composite answers — 401/403, some other status, or a working session — is
-  asked by `scripts/probe-impersonation-refusal.mjs` (owed).
+  source and the support forum are the reliable ground truth. A *refused*
+  composite answers 401/403 — confirmed live on 0.16.23 (2026-09-24), a group
+  mailbox and an unknown address both refused with 403, which
+  `fetchUpstreamSession` reads as a refusal; `scripts/probe-impersonation-refusal.mjs`
+  asks it.
 - Data at rest is Stalwart's business (encryptionAtRest is refused by the
   product — see ROADMAP: it is a one-way door); the Gilbert side adds no
   per-account encryption.
 
-## The live questions the mock cannot answer (owed)
+## The live questions the mock cannot answer
 
 Each has a script in `scripts/` that asks a real instance: run by hand, never by
 `prepush` (they need a live server and a credential). Each reads its own facts
 from the environment, prints what the server actually answered, and exits
-non-zero when an answer is not the one the code depends on. **None has been run
-against a live server as of 2026-09-22 — they are owed, and this section is the
-record of the debt.** Run one before trusting a new server version, then replace
-the owed note below with the answer, its version and its date.
+non-zero when an answer is not the one the code depends on. Run one before
+trusting a new server version, then replace the note below with the answer, its
+version and its date.
+
+The three below were run against a live 0.16.23 installation on 2026-09-24 and
+their answers are recorded. The questions that remain owed are ADR 0016's, kept
+in that record and asked by `scripts/probe-degraded-statechange.mjs`.
 
 ### `scripts/probe-directory-paging.mjs` — the directory read's paging
 
-Settles, for `fetchDirectoryPrincipals` in `server/src/upstream.ts` (the admin
-Users surface, and the `/admin/policy` fan-out that rests on `complete`): that
-`Principal/query` is accepted with `position`, `limit` and `calculateTotal` at
-the page size `directoryBatch` derives from the session's `maxObjectsInGet`;
-that the read reaches the end of the directory (a reported `total`, or an empty
-page one request later); that `position` is honoured rather than the first page
-served again; that a reported `total` is the population and not the page — walked
-a second time at `limit: 2` and compared id for id, plus the check that the page
-at the point the walk stops is empty; that `Principal/get` answers a page of ids
-with `id`/`type`/`name`/`email` and `individual` is the type a user account
-carries; that a `limit` far above the ceiling is clamped rather than refused; and
-— given a second credential — whether a credential outside the directory gate is
-refused the way the code reads a refusal.
+Confirmed live on 0.16.23 (2026-09-24), for `fetchDirectoryPrincipals` in
+`server/src/upstream.ts` (the admin Users surface, and the `/admin/policy`
+fan-out that rests on `complete`): `Principal/query` is accepted with
+`position`, `limit` and `calculateTotal` at the page size `directoryBatch`
+derives from the session's `maxObjectsInGet`; the walk reaches the end of the
+directory, and a reported `total` is the population and not the page — walked a
+second time at `limit: 2` and compared id for id, with the page at the point the
+walk stops empty; `position` is honoured rather than the first page served
+again; `Principal/get` answers a page of ids as a list and the credential's own
+account is an `individual`; and a `limit` far above the ceiling is served rather
+than refused. The one part not asked is a credential outside the directory gate —
+whether a closed gate answers 400, 403, or one refused method call; the client
+reads either status as a denied read, so nothing depends on which.
 
-If a server answers differently, this is what the code does today, in the order
-of how much the answer costs:
+If a server ever answers differently, these are the fallbacks the read already
+carries, in the order of what each costs:
 
 - **no `total`**: the walk ends on the empty page instead, one request later, and
   `total` is `null`. `complete` still means the walk reached the end; the publish
@@ -266,14 +272,16 @@ of how much the answer costs:
 
 ### `scripts/probe-impersonation-refusal.mjs` — what a refusal looks like
 
-Settles, for `impersonateAs` in `server/src/agentAdmin.ts` (and the acting-check
-in `/admin/users`): that the master's own credential opens a session at all (the
-control without which a refusal means nothing); that the composite
-`{target}%{master}`, built the way `impersonationAuthorization` builds it, is
-refused with **401 or 403** for an address the master may not act as; that a
-composite naming an account the master *may* act as opens a session as the target
-(the control that tells a refusal apart from a composite shape the server does
-not accept); and, given a group address, that a group mailbox is refused.
+Confirmed live on 0.16.23 (2026-09-24), for `impersonateAs` in
+`server/src/agentAdmin.ts` (and the acting-check in `/admin/users`): the master's
+own credential opens a session; the composite `{target}%{master}`, built the way
+`impersonationAuthorization` builds it, is refused with **403** for a group
+mailbox and for an unknown address; and a composite naming the master as its own
+target opens a session, so the composite shape itself is accepted. The control
+that would tell a refusal apart from a master holding no impersonation right — a
+target the master *may* act as — was not asked, so the 403 is read for what the
+code needs: a status `fetchUpstreamSession` turns into a refusal, not a working
+session.
 
 `fetchUpstreamSession` turns 401 and 403 into `UpstreamError(401)`, which
 `impersonateAs` reports as "No such account, or it cannot be administered by
@@ -301,34 +309,32 @@ Group membership is settled by the registry read above — these probes settle
 neither it nor a group account's Files visibility (see `gilbert-groups`), nor
 the directory's `type` vocabulary beyond `individual` and `group`.
 
-### `scripts/probe-group-subscriptions.mjs` — a member's own subscription (owed 2026-09-22)
+### `scripts/probe-group-subscriptions.mjs` — a member's own subscription
 
-Settles, for `ensureSubscribed` in `web/src/store/mail.ts` and the decision in
-ADR 0021, whether a **member** may write `isSubscribed` on a folder of their
-group. Everything read so far says yes — the field is the reader's own record
-rather than the folder's, and a group's folders grant every member rename and
-delete — but the same tree has read the server refuse that field on an address
-book shared read-only while accepting it on a shared calendar, which is why the
-client depends on nothing here: a refusal is logged once, remembered for the
-session, and the tree is drawn whole either way (a tree that is not the
-reader's own never reads the field). It takes a **member's** credential and the
-group's address from `GILBERT_MEMBER_ADDRESS`, `GILBERT_MEMBER_PASSWORD` and
-`GILBERT_PROBE_GROUP_ADDRESS`, subscribes one folder that lacks the field, reads
-it back, and reports what a refusal wears. `GILBERT_PROBE_MOVE=1` also moves
-that folder into the group's Inbox and back, which is the second question:
-whether a move the client did not make keeps the member's subscription.
+Confirmed live on 0.16.23 (2026-09-24), for `ensureSubscribed` in
+`web/src/store/mail.ts` and the decision in ADR 0021: a **member may** write
+`isSubscribed` on a folder of their group. `Mailbox/set` with
+`update: {<folder id>: {isSubscribed: true}}` on a folder of a group the
+credential is a member of answers `updated`, and the folder reads back
+subscribed; no refusal was seen, so what a refusal wears is not recorded. The
+client depends on nothing here: the same tree has read the server refuse that
+field on an address book shared read-only while accepting it on a shared
+calendar, so a refusal is logged once, remembered for the session, and the tree
+is drawn whole either way (a tree that is not the reader's own never reads the
+field). It takes a **member's** credential and the group's address from
+`GILBERT_MEMBER_ADDRESS`, `GILBERT_MEMBER_PASSWORD` and
+`GILBERT_PROBE_GROUP_ADDRESS`, and subscribes one folder that lacks the field.
+Whether a folder **moved** within the group keeps the member's subscription is
+not asked; `GILBERT_PROBE_MOVE=1` asks it.
 
 What the code does per answer, in the order of how much each costs:
 
 - **`updated`, and the read back reports it subscribed**: the reconcile is
-  ordinary work. Replace the owed markers (the `owed:` comment in ADR 0021 and
-  `ADR-0021 OWED: member-subscription-write` in `web/src/store/mail.ts`) with
-  the answer, its version and its date.
+  ordinary work, and this is the answer recorded above.
 - **a refusal, in any shape**: what is lost is every client but this one — the
   sidebar draws a shared tree whole without reading the field. The record's
   decision then stands only as far as the client that carries it, which is what
-  its *What this rule is not* consequence has to say, and the owed note becomes
-  the server's answer instead.
+  its *What this rule is not* consequence has to say.
 - **a method-level error inside a 200**: nothing changes in the code — the
   client reads the batch, and a failed `Mailbox/set` is an error it catches —
   but the sentence in the log is composed from the type, so record which type a
@@ -449,8 +455,8 @@ citizen, and its changes ride the same push rail as Email:
    say in a comment what the mock reproduces and what it does not.
 3. Confirm server-version-sensitive behaviour against a real 0.16.x server or
    the dated comments; note the check (version + date) in the code. Where only a
-   real server can answer, the question is written down as owed (see *The two
-   live questions the mock cannot answer*) and asked by a `scripts/probe-*.mjs`
+   real server can answer, the question is written down as owed (see *The live
+   questions the mock cannot answer*) and asked by a `scripts/probe-*.mjs`
    script — by hand, since the gate has no server to ask.
 4. UI copy names data by its literal name: the folder is `gilbert`, the sieve
    script is `gilbert` — "Gilbert" (capitalised) is only the product's

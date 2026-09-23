@@ -82,14 +82,17 @@ that write does.**
   that covers the folders that were already there, without an event to catch.
   One reconciliation runs per account at a time, and the batch is cut by the
   session's own `maxObjectsInSet`.
-- **A refusal is remembered, not retried.** Whether a **member** may write
-  `isSubscribed` on a folder of their group is not verified: a subscription is
-  read state kept for one principal, and the server is of two minds about that
-  write elsewhere — it accepts it on a calendar shared read-only and refuses it
-  on an address book. A refusal is logged once, remembered for the rest of the
-  session, and the tree is drawn whole either way, so the reader loses nothing
-  either way. The probe that settles it is owed, and named in the
-  `gilbertstalwart` skill.
+- **A refusal is remembered, not retried.** A **member may** write
+  `isSubscribed` on a folder of their group: confirmed live on 0.16.23
+  (2026-09-24), `Mailbox/set` with
+  `update: {<folder id>: {isSubscribed: true}}` on a folder of a group the
+  credential is a member of answers `updated`, and the folder reads back
+  subscribed. The client still depends on nothing here — the same tree has read
+  the server refuse that field on an address book shared read-only while
+  accepting it on a shared calendar — so a refusal is logged once, remembered
+  for the rest of the session, and the tree is drawn whole either way: a server
+  that refused would cost every client but this one, never the reader looking at
+  it.
 - **In a group nothing is hidden per user.** *Hide from list* is not offered on
   a group's folder (the tree does not read the field, so hiding one would do
   nothing to this client), which is also why setting the field for a member
@@ -122,30 +125,12 @@ twice for the same read.
 
 ## What is not verified yet
 
-Whether a **member** may write `isSubscribed` on a folder of their group is
-read rather than confirmed. The folders grant them everything the write could
-need (`myRights` on a group's folder carries rename, delete and share for every
-member), and a subscription is the reader's **own** record rather than the
-folder's, so the write has every reason to be accepted — but the same tree has
-read the server refuse that field on an address book shared read-only while
-accepting it on a shared calendar, which is why nothing here depends on the
-answer: a refusal is remembered for the session, and the tree is drawn whole
-whether the write lands or not. What a running server still has to be asked:
-
-<!-- owed: member-subscription-write -->
-1. that `Mailbox/set` with `update: {<folder id>: {isSubscribed: true}}` on a
-folder of a group the credential is a member of answers `updated`, and that a
-read back reports the folder subscribed — the write the decision above rests
-on;
-2. what a refusal looks like when it is not granted — a method-level error
-inside a 200, an HTTP status, an `invalidProperties` — so that the line the
-client logs says which one it was;
-3. whether a folder **moved** within the group keeps the subscription its member
-held. The reconcile runs on every read, so the product is unaffected either way;
-what this settles is what a dated sentence in `gilbertstalwart` may claim.
-
-Asked by `scripts/probe-group-subscriptions.mjs`, run by hand the way the other
-probes are.
+Whether a folder **moved** within the group keeps the subscription its member
+held is not asked. The reconcile runs on every read, so the product is
+unaffected either way; what the answer settles is what a dated sentence in the
+`gilbertstalwart` skill may say. It is asked by
+`scripts/probe-group-subscriptions.mjs` with `GILBERT_PROBE_MOVE=1`, run by hand
+the way the other probes are.
 
 ## Consequences
 

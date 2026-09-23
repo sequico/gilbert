@@ -448,16 +448,13 @@ const subscribing = new Map<Id, Promise<void>>();
 /**
  * Accounts whose subscription write was refused, for this session.
  *
- * Whether a member may write `isSubscribed` on a folder of their group is not
- * something this client has verified against a real server -- a subscription
- * is read state kept for one principal, and Stalwart is of two minds about it
- * elsewhere (it accepts the write on a calendar shared read-only and refuses
- * it on an address book). Until the probe owed in the `gilbert-stalwart` skill
- * answers, a refusal is remembered rather than repeated: a member who may not
- * would otherwise have a failing request on every read of the tree, and the
- * tree itself is drawn whole either way.
- *
- * ADR-0021 OWED: member-subscription-write
+ * A member may write `isSubscribed` on a folder of their group (ADR 0021,
+ * confirmed live on 0.16.23, 2026-09-24), but Stalwart is of two minds about the
+ * field elsewhere -- it accepts the write on a calendar shared read-only and
+ * refuses it on an address book -- so a refusal is still remembered rather than
+ * repeated: a member on a server that refused would otherwise have a failing
+ * request on every read of the tree, and the tree itself is drawn whole either
+ * way.
  */
 const subscriptionsRefused = new Set<Id>();
 
