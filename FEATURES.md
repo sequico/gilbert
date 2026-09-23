@@ -11,14 +11,13 @@ It is ordered the way this project cares about it: **Gilbert's own** first —
 the groups, the chat and above all the agents — and the client the mail core
 derives from after it.
 
-This is the inventory. Three files sit beside it and answer different
+This is the inventory. Two files sit beside it and answer different
 questions:
 
 | | |
 | --- | --- |
 | [ROADMAP.md](ROADMAP.md) | What Gilbert deliberately does **not** do, and why |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | What was verified live, and where Stalwart departs from a spec |
-| [docs.ihasmail.org](https://docs.ihasmail.org) *(upstream)* | How to install, configure and drive the underlying client — still accurate where Gilbert has not diverged |
 
 Written against the tree at Stalwart **0.16.21**, which is the version the live
 instance runs. Behaviours carrying an older version below were checked against
@@ -801,11 +800,11 @@ wants to retire a chat clears the folders through Files.
 # The upstream client
 
 The mail client, calendar, contacts, files, sharing and Sieve editing come from
-**upstream**, renamed for this build: this project does not re-document
-them, and the reference for installing, configuring or driving them is
-upstream's own documentation — [docs.ihasmail.org](https://docs.ihasmail.org).
-The sections below are kept so this inventory is complete, and they are not the
-part to read to understand what Gilbert is.
+**upstream**, renamed for this build: this project does not re-document them,
+and the reference for installing, configuring or driving them is upstream's own
+documentation, whose address is in [NOTICE](NOTICE). The sections below are
+kept so this inventory is complete, and they are not the part to read to
+understand what Gilbert is.
 
 # Mail
 
@@ -2404,8 +2403,6 @@ Aliases exist and are left out of the in-app list on purpose: `↓`/`↑` for
 `j`/`k`, `Enter` for `o`, `y` for `e`, `Delete` for `#`. Contacts and Files
 define no shortcuts of their own; the global set still applies.
 
-The full reference is at [docs.ihasmail.org/shortcuts](https://docs.ihasmail.org/shortcuts/) *(upstream docs)*.
-
 ---
 
 # Security and privacy
@@ -2732,9 +2729,8 @@ the document's. What `assertServable` (`server/src/config.ts`) refuses, for a
 **production** process, is a configuration that states no served prefix at all,
 and one whose secret is ephemeral because nothing stated one.
 
-Full documentation, including TLS and reverse proxies:
-[Configuring](https://docs.ihasmail.org/configure/). `Caddyfile.example` and
-`nginx.example.conf` are in the repository.
+`Caddyfile.example` and `nginx.example.conf` are in the repository, and are the
+configuration for TLS and a reverse proxy.
 
 ### Serving from a subpath
 
@@ -2789,8 +2785,7 @@ be had is a variable the image states; the logo, icons and palette are
 files. The mark ships in two colorways — `web/public/img/logo.png` navy for a
 light surface, `logo-inverse.png` white for a dark one, and a mark-alone
 `mark.png`/`mark-inverse.png` pair for the places the wordmark does not fit —
-and a deployment that swaps them keeps both in two colors. See
-[Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
+and a deployment that swaps them keeps both in two colors. If you run a
 modified Gilbert, `SOURCE_URL` must point at **your** tree — the AGPL's offer
 is for the source of the version being run, and it is shown on the sign-in page
 and in Settings › About.

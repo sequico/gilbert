@@ -6,19 +6,19 @@ Implementation: Built, and carried by the repository's own shape rather than by
 code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
 and a release is fetched by the merge that takes it in.
 
-Gilbert's mail client is based on
-[coffey-labs/ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail). Upstream is
-consumed here and never contributed to: releases arrive, nothing goes back.
+Gilbert's mail client is based on **ihasmail**, by **Coffey Labs**; `NOTICE`
+carries the attribution and the addresses. Upstream is consumed here and never
+contributed to: releases arrive, nothing goes back.
 
 ## How it works
 
-A merge that takes a release in adds `https://git.coffeylabs.org/coffey-labs/ihasmail.git`
-as a remote, fetches its tags into a namespace of their own
-(`refs/upstream/tags/*`, never `refs/tags` — this repository keeps its own
-release tags), and merges the release; the mail core lands with Gilbert's
-identifiers applied by the rename layer (`gilbert-branding`). There is no
-mirror branch: nothing has to be pushed to keep upstream close, and no
-credential is kept to push it.
+A merge that takes a release in adds upstream's repository as a remote (its
+address, with the attribution, is in `NOTICE`), fetches its tags into a
+namespace of their own (`refs/upstream/tags/*`, never `refs/tags` — this
+repository keeps its own release tags), and merges the release; the mail core
+lands with Gilbert's identifiers applied by the rename layer
+(`gilbert-branding`). There is no mirror branch: nothing has to be pushed to
+keep upstream close, and no credential is kept to push it.
 
 `.github/workflows/upstream-watch.yml` runs the same fetch once a day, takes
 the newest upstream release, and asks one question: is that release's commit
@@ -29,11 +29,11 @@ can fall out of step with the actual history; the workflow pushes nothing and
 holds no secret.
 
 No upstream-shaped fork is kept, no un-renaming patches exist, and nothing is
-proposed back to coffey-labs/ihasmail: work that upstream might once have
-accepted simply lives here, renamed or not. Attribution stays intact — the
-mail core is a derivative work of ihasmail, `NOTICE` carries Coffey Labs'
-attribution, the copyright in this derivative is Sequi Company's, and upstream
-URLs stay linked.
+proposed back upstream: work that upstream might once have accepted simply lives
+here, renamed or not. Attribution stays intact — the mail core is a derivative
+work of ihasmail, `NOTICE` carries Coffey Labs' attribution and the addresses
+of that project's own site, documentation and issue archive, and the copyright
+in this derivative is Sequi Company's.
 
 Two GitHub facts shape the mechanism rather than a preference for it: a
 workflow's own token cannot create or update a file under `.github/workflows`
@@ -54,5 +54,5 @@ release taken in by cherry-pick instead would keep being reported as missing
 ## References
 
 - `.github/workflows/upstream-watch.yml` — the fetch, the ancestry check, the issue
-- https://git.coffeylabs.org/coffey-labs/ihasmail — the remote a merge fetches from
-- https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive — the issues and pull requests from GitHub, whose numbers match GitHub's
+- upstream's repository — the remote a merge fetches from; the address is in `NOTICE`
+- upstream's GitHub-era issue archive — the issues and pull requests from GitHub, whose numbers match GitHub's; the address is in `NOTICE`

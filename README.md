@@ -261,7 +261,6 @@ interval in seconds rather than milliseconds; and a calendar write that asks
 for scheduling messages is refused when the account may not send them. The mock
 reproduces those four as well.
 
-- Still on 0.15? The last release that runs on it is tagged [`stalwart-0.15-support`](https://git.coffeylabs.org/coffey-labs/ihasmail/releases/tag/stalwart-0.15-support).
 - Upgrading? [stalwart-migrator](https://git.coffeylabs.org/coffey-labs/stalwart-migrator) does it in place, checkpointing every phase and validating afterwards. The live instance moved 0.15.5 → 0.16.19 with eight seconds of downtime and nothing lost.
 
 ## Quick start (Docker)
@@ -281,11 +280,9 @@ password**, created in Stalwart's own settings — Stalwart accepts a TOTP code
 only through an OAuth flow and offers no password grant, so no client holding a
 username and password can exchange them plus a code for a token.
 
-Full instructions and TLS — upstream's docs, still the reference for the
-underlying client:
-[Installing](https://docs.ihasmail.org/install/) ·
-[Configuring](https://docs.ihasmail.org/configure/). The variables *this* build
-reads, and what each one is for, are in [`.env.example`](.env.example).
+The variables *this* build reads, and what each one is for, are in
+[`.env.example`](.env.example); `Caddyfile.example` and `nginx.example.conf` in
+this repository are the drop-in configuration for a TLS front.
 
 ### Turning the agents on
 
@@ -510,7 +507,7 @@ are *already here* — the reason a plain default is not enough — while still
 leaving them the last word. Each entry carries its own `version`, which every
 account remembers once it has had it, so the change is applied exactly once per
 person and a reader who turns it back off keeps it off. It is a schema migration
-in shape, and that is deliberately whose idea it was ([#207]).
+in shape, and that is deliberately whose idea it was (upstream's issue #207).
 
 Nothing is configured by default: an installation that sets none of these
 behaves exactly as Gilbert always has.
@@ -597,8 +594,6 @@ Enforcement is applied in the settings store rather than only on the controls,
 so an imported settings file, a settings file synced from a device that predates
 the policy, and "reset to defaults" cannot get around it. Reset returns to your
 defaults, not to Gilbert's.
-
-[#207]: https://git.coffeylabs.org/coffey-labs/ihasmail-github-archive/issues/207
 
 ## Agents, in detail
 
@@ -694,9 +689,9 @@ its own headings — *Gilbert Mailer*, *Gilbert Assistant*, *Stalwart* — which
 that surface labelling them rather than a second set of names; the server
 process has no navigation of its own, because it is what serves it.
 
-**The line.** One block and part of another came from
-[ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail), Coffey Labs' immutable
-webmail for Stalwart. Everything else is Gilbert's, written here. That is the
+**The line.** One block and part of another came from **ihasmail**, Coffey Labs'
+immutable webmail for Stalwart — the attribution, with its address, is in
+[NOTICE](NOTICE). Everything else is Gilbert's, written here. That is the
 whole of the upstream relationship, stated so a reader can tell which is which
 without reading the tree:
 
@@ -757,9 +752,7 @@ npm run prepush:full   # the fast gate, then `codeql`
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
-build. Running it for real is covered in upstream's docs —
-[Installing](https://docs.ihasmail.org/install/) and
-[Configuring](https://docs.ihasmail.org/configure/).
+build. Running it for real is [Quick start (Docker)](#quick-start-docker) above.
 
 ### Code scanning
 
@@ -870,7 +863,6 @@ container, waits for healthy, then prunes all but the newest
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
 | 🏛 **[docs/adr](docs/adr/README.md)** | The architecture decisions behind all of it, one file each |
-| ⬆ **[ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail) upstream** | The project the mail client derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
 
 ## Contributing
 
@@ -889,5 +881,4 @@ anyone as a binary, and that section closes the gap.
 
 That offer has to point at *your* source, not this one. If you run a modified
 Gilbert, set `SOURCE_URL` to your own repository — the sign-in page and
-Settings › About both show it. See
-[Rebranding](https://docs.ihasmail.org/rebranding/).
+Settings › About both show it.
