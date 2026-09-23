@@ -4580,9 +4580,9 @@ const knownPrincipal = (username: string) =>
  * account through their own session instead (ADR 0005); the mock reproduces
  * the refusal -- with a 401, as `unauthorized` sends -- so no surface can lean
  * on group impersonation. The client reads 401 and 403 alike
- * (`fetchUpstreamSession`); a live server sends 403 (confirmed live on 0.16.23,
- * 2026-09-24, for a group mailbox and an unknown address), which the client
- * reads the same way as the mock's 401.
+ * (`fetchUpstreamSession`); a live server refuses an unknown address with 401
+ * and a group mailbox with 403 (confirmed live on 0.16.23, 2026-09-24), both of
+ * which the client reads the same way as the mock's 401.
  */
 const isGroupPrincipal = (username: string): boolean =>
   principals.some((p) => p.type === "group" && p.email === username);

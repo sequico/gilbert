@@ -205,10 +205,11 @@ Where the integration lives:
   Re-verify details against current docs/source before relying on them; the
   stalw.art doc pages are hard to scrape (heavy nav markup) — the GitHub
   source and the support forum are the reliable ground truth. A *refused*
-  composite answers 401/403 — confirmed live on 0.16.23 (2026-09-24), a group
-  mailbox and an unknown address both refused with 403, which
-  `fetchUpstreamSession` reads as a refusal; `scripts/probe-impersonation-refusal.mjs`
-  asks it.
+  composite answers 401/403 — confirmed live on 0.16.23 (2026-09-24), an
+  unknown address refused with 401 and a group mailbox with 403, and a composite
+  naming an account the master may act as opening a session as it — which
+  `fetchUpstreamSession` reads as a refusal;
+  `scripts/probe-impersonation-refusal.mjs` asks it.
 - Data at rest is Stalwart's business (encryptionAtRest is refused by the
   product — see ROADMAP: it is a one-way door); the Gilbert side adds no
   per-account encryption.
@@ -269,15 +270,13 @@ carries, in the order of what each costs:
 ### `scripts/probe-impersonation-refusal.mjs` — what a refusal looks like
 
 Confirmed live on 0.16.23 (2026-09-24), for `impersonateAs` in
-`server/src/agentAdmin.ts` (and the acting-check in `/admin/users`): the master's
-own credential opens a session; the composite `{target}%{master}`, built the way
-`impersonationAuthorization` builds it, is refused with **403** for a group
-mailbox and for an unknown address; and a composite naming the master as its own
-target opens a session, so the composite shape itself is accepted. The control
-that would tell a refusal apart from a master holding no impersonation right — a
-target the master *may* act as — was not asked, so the 403 is read for what the
-code needs: a status `fetchUpstreamSession` turns into a refusal, not a working
-session.
+`server/src/agentAdmin.ts` (and the acting-check in `/admin/users`), with a
+positive control: the master's own credential opens a session; a composite
+naming an account the master **may** act as opens a session as it; and a
+composite is refused with **401** for an unknown address and with **403** for a
+group mailbox. Both refusal statuses are the ones `fetchUpstreamSession` reads
+as a refusal, and the positive case shows that is a refusal and not a master
+holding no impersonation right at all.
 
 `fetchUpstreamSession` turns 401 and 403 into `UpstreamError(401)`, which
 `impersonateAs` reports as "No such account, or it cannot be administered by
