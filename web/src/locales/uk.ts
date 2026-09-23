@@ -562,7 +562,6 @@ export const catalog: Catalog = {
     "Invalid settings file": "Хибний файл налаштувань",
     "Reset to defaults": "Скинути до значень за замовчуванням",
     "Default mail app": "Поштова програма за замовчуванням",
-    Documentation: "Документація",
     Admin: "Admin",
     Administration: "Адміністрування",
     "About Gilbert": "Про Gilbert",

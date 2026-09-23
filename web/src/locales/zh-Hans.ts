@@ -553,7 +553,6 @@ export const catalog: Catalog = {
     "Invalid settings file": "设置文件无效",
     "Reset to defaults": "恢复默认设置",
     "Default mail app": "默认邮件应用",
-    Documentation: "文档",
     Admin: "Admin",
     Administration: "管理",
     "About Gilbert": "关于 Gilbert",

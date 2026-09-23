@@ -573,7 +573,6 @@ export const catalog: Catalog = {
     "Invalid settings file": "Ungültige Einstellungsdatei",
     "Reset to defaults": "Auf Standard zurücksetzen",
     "Default mail app": "Standard-E-Mail-Programm",
-    Documentation: "Dokumentation",
     Admin: "Admin",
     Administration: "Verwaltung",
     "About Gilbert": "Über Gilbert",

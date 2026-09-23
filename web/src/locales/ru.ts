@@ -566,7 +566,6 @@ export const catalog: Catalog = {
     "Invalid settings file": "Неверный файл настроек",
     "Reset to defaults": "Сбросить к значениям по умолчанию",
     "Default mail app": "Почтовая программа по умолчанию",
-    Documentation: "Документация",
     Admin: "Admin",
     Administration: "Администрирование",
     "About Gilbert": "О Gilbert",

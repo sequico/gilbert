@@ -1,5 +1,4 @@
 import {
-  BookOpen,
   Calendar,
   ChevronsUpDown,
   FolderOpen,
@@ -418,12 +417,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <MenuSep />
-            <MenuItem
-              icon={<BookOpen size={16} />}
-              label={t("Documentation")}
-              href="https://docs.ihasmail.org"
-              external
-            />
             <MenuItem
               icon={<Settings size={16} />}
               label={t("Settings")}

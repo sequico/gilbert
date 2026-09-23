@@ -563,7 +563,6 @@ export const catalog: Catalog = {
     "Invalid settings file": "設定ファイルが正しくありません",
     "Reset to defaults": "既定に戻す",
     "Default mail app": "既定のメールアプリ",
-    Documentation: "ドキュメント",
     Admin: "Admin",
     Administration: "管理",
     "About Gilbert": "Gilbert について",

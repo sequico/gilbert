@@ -867,7 +867,6 @@ export const catalog: Catalog = {
     "Reset to defaults": "Ripristina i valori predefiniti",
 
     "Default mail app": "App di posta predefinita",
-    Documentation: "Documentazione",
 
     // ── Administration ──────────────────────────────────────────────────
     Admin: "Admin",
