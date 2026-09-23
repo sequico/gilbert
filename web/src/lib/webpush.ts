@@ -180,7 +180,6 @@ export function deviceClientId(): string {
  * account, the account's Inbox as its filter's `inMailbox`. What a running
  * server still has to say is written down where the record keeps its debt.
  *
- * ADR-0016 OWED: live-emailpush-map
  * ADR-0016 OWED: group-emailpush-payload
  * ADR-0016 OWED: chat-wake-read
  * ADR-0016 OWED: verification-per-device

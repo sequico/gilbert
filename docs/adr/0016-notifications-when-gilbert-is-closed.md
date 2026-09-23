@@ -364,11 +364,11 @@ means every type, and that push URLs are validated for scheme, credentials and
 address class. Those are read facts rather than a running server's testimony,
 and five things still want the server's word before the code is called done:
 
-<!-- owed: live-emailpush-map -->
-1. that a running 0.16 accepts the whole subscription as one row in the reader's
-ow account — `types: ["EmailDelivery", "FileNode"]` beside an `emailPush` map
-naming the reader's account and each group, each with its own filter — and
-answers it `created` rather than refusing a property;
+1. **Confirmed** live on 0.16.23 (2026-09-24): a running server accepts the whole
+subscription as one row in the reader's own account — `types: ["EmailDelivery",
+"FileNode"]` beside an `emailPush` map naming the reader's account and a group,
+each with its own Inbox filter — and answers it `created` rather than refusing a
+property;
 <!-- owed: group-emailpush-payload -->
 2. that a delivery to a group mailbox then arrives with the account named, in
 the shape `sw.js` expects: an `EmailPush` whose `accountId`/`changed` key is the
