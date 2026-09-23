@@ -3,6 +3,7 @@
 /* ------------------------------------------------------------------ */
 
 import type { Invocation, MethodResponses } from "@gilbert/shared/jmap";
+import type { WeekdayKey } from "@gilbert/shared/weekdays";
 
 export type Id = string;
 export type UTCDate = string; // "2024-01-01T10:00:00Z"
@@ -290,6 +291,27 @@ export interface Email {
   "header:X-Spam-Status:asText"?: string | null;
   "header:X-Spam-Result:asText"?: string | null;
 }
+
+/**
+ * The message headers a full read asks for, once.
+ *
+ * The interface above declares every header the app reads; this is the subset a
+ * full `Email/get` must request, because the rest arrive on a message that
+ * carries them anyway. `mail.ts`'s `FULL_PROPS` spreads it rather than spelling
+ * the names a second time, and `satisfies` refuses a name the type does not
+ * have.
+ */
+export const EMAIL_FULL_HEADER_PROPS = [
+  "header:List-Unsubscribe:asText",
+  "header:List-Unsubscribe-Post:asText",
+  "header:List-Id:asText",
+  "header:Disposition-Notification-To:asAddresses",
+  "header:X-Priority:asText",
+  "header:Importance:asText",
+  "header:Auto-Submitted:asText",
+  "header:Precedence:asText",
+  "header:Authentication-Results:asText",
+] as const satisfies ReadonlyArray<keyof Email>;
 
 export interface Thread {
   id: Id;
@@ -671,7 +693,7 @@ export interface JSCalendarAlert {
 
 export interface JSCalendarNDay {
   "@type"?: "NDay";
-  day: "mo" | "tu" | "we" | "th" | "fr" | "sa" | "su";
+  day: WeekdayKey;
   nthOfPeriod?: number;
 }
 

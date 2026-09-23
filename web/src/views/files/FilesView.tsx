@@ -72,6 +72,20 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const draggingIds = files.draggingIds;
   const setDragging = files.setDragging;
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /** Ask for a name and create the folder in the view's own parent, once. */
+  const newFolder = async () => {
+    const n = await promptDialog({
+      title: t("New folder"),
+      placeholder: t("Folder name"),
+    });
+    if (!n?.trim()) return;
+    try {
+      await files.mkdir(parentId, n.trim());
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
   /* Which column this folder is ordered by, remembered per folder on this
      device like the folders the tree has open. */
   const { sort, toggle: toggleSort } = useFilesSort(files.accountId, parentId);
@@ -566,22 +580,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             e.target.value = "";
           }}
         />
-        <button
-          className="btn btn-sm"
-          onClick={async () => {
-            const n = await promptDialog({
-              title: t("New folder"),
-              placeholder: t("Folder name"),
-            });
-            if (n?.trim()) {
-              try {
-                await files.mkdir(parentId, n.trim());
-              } catch (err) {
-                toast.error((err as Error).message);
-              }
-            }
-          }}
-        >
+        <button className="btn btn-sm" onClick={() => void newFolder()}>
           <FolderPlus size={16} /> {t("New folder")}
         </button>
       </div>

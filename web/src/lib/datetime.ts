@@ -17,6 +17,7 @@ import { pad2 } from "@gilbert/shared/localDateTime";
  * other refuses is a stored value one of them cannot read back.
  */
 import { normalizeLocale } from "@gilbert/shared/locale";
+import { WEEKDAY_KEYS, type WeekdayKey } from "@gilbert/shared/weekdays";
 import { LOCALE_TAGS } from "./locales";
 
 export { normalizeLocale };
@@ -590,18 +591,19 @@ export function localeOptions(): LocaleOption[] {
  *
  * Intl has the names already, in every locale, in three widths, and gets the
  * plural and capitalisation conventions right without anybody maintaining a
- * list. 2026-06-01 is a Monday; the rest follow from it.
+ * list. 2026-06-01 is a Monday; the rest follow from it. The seven days
+ * themselves are `@gilbert/shared/weekdays`'s, so a picker, a recurrence rule
+ * and the mock cannot name different sets.
  */
-export type WeekdayKey = "mo" | "tu" | "we" | "th" | "fr" | "sa" | "su";
+export type { WeekdayKey };
 
-const WEEKDAY_ORDER: WeekdayKey[] = ["mo", "tu", "we", "th", "fr", "sa", "su"];
 const WEEKDAY_BASE = Date.UTC(2026, 5, 1); // a Monday
 
 export function weekdayName(
   day: WeekdayKey,
   width: "long" | "short" | "narrow" = "long",
 ): string {
-  const i = WEEKDAY_ORDER.indexOf(day);
+  const i = WEEKDAY_KEYS.indexOf(day);
   if (i < 0) return day;
   return intl({ weekday: width, timeZone: "UTC" }).format(
     new Date(WEEKDAY_BASE + i * 86_400_000),
@@ -612,7 +614,7 @@ export function weekdayName(
 export function weekdayNames(
   width: "long" | "short" | "narrow" = "long",
 ): Array<{ key: WeekdayKey; name: string }> {
-  return WEEKDAY_ORDER.map((key) => ({ key, name: weekdayName(key, width) }));
+  return WEEKDAY_KEYS.map((key) => ({ key, name: weekdayName(key, width) }));
 }
 
 /**

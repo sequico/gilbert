@@ -1,3 +1,4 @@
+import { WEEKDAY_KEYS } from "@gilbert/shared/weekdays";
 import type { JSCalendarNDay, JSCalendarRecurrenceRule } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
 import { zonedDay } from "./dates";
@@ -10,16 +11,11 @@ import { formatList, weekdayName, weekdayNames } from "./datetime";
  * is both Tuesday and Thursday and "S" is both Saturday and Sunday, and a
  * catalogue cannot hold two translations under one key. Intl knows all of them,
  * in the reader's locale, so nothing here is a table of English strings.
+ *
+ * The set itself is `@gilbert/shared/weekdays`'s, re-exported because this
+ * module is the calendar surfaces' one import for it.
  */
-export const WEEKDAY_KEYS: Array<JSCalendarNDay["day"]> = [
-  "mo",
-  "tu",
-  "we",
-  "th",
-  "fr",
-  "sa",
-  "su",
-];
+export { WEEKDAY_KEYS };
 
 export function weekdayOptions(): Array<{
   key: JSCalendarNDay["day"];

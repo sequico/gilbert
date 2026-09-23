@@ -1767,6 +1767,22 @@ export function isRecurring(ev: CalendarEvent): boolean {
  * deliberately not shaped like one: it has no account, cannot be shared, and
  * every write path checks the id before it does anything.
  */
+/**
+ * The rights of a calendar Gilbert only reads — a birthday feed, a
+ * subscription. Both synthetic calendars are read-only, and one object is what
+ * says so: an edit affordance reads these fields, so a copy that drifted would
+ * offer an edit the calendar cannot take.
+ */
+const READ_ONLY_RIGHTS = {
+  mayReadItems: true,
+  mayWriteAll: false,
+  mayWriteOwn: false,
+  mayUpdatePrivate: false,
+  mayRSVP: false,
+  mayAdmin: false,
+  mayDelete: false,
+};
+
 function birthdayCalendar(): Calendar {
   return {
     id: BIRTHDAY_CALENDAR_ID,
@@ -1774,15 +1790,7 @@ function birthdayCalendar(): Calendar {
     color: "#e0a33e",
     isSubscribed: true,
     isVisible: true,
-    myRights: {
-      mayReadItems: true,
-      mayWriteAll: false,
-      mayWriteOwn: false,
-      mayUpdatePrivate: false,
-      mayRSVP: false,
-      mayAdmin: false,
-      mayDelete: false,
-    },
+    myRights: READ_ONLY_RIGHTS,
   } as unknown as Calendar;
 }
 
@@ -1825,15 +1833,7 @@ function subscriptionCalendar(sub: {
     isVisible: true,
     // Read-only, and honestly so: everything that asks before offering an edit
     // reads these rights, so nothing has to know a subscription is special.
-    myRights: {
-      mayReadItems: true,
-      mayWriteAll: false,
-      mayWriteOwn: false,
-      mayUpdatePrivate: false,
-      mayRSVP: false,
-      mayAdmin: false,
-      mayDelete: false,
-    },
+    myRights: READ_ONLY_RIGHTS,
   } as unknown as Calendar;
 }
 

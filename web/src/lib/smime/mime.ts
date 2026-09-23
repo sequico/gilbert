@@ -14,6 +14,8 @@
  * has ever held, for a reason nobody could see by looking at the message.
  */
 
+import { findInTree } from "../tree";
+
 export interface MimePart {
   /** Lowercased header name to raw value, first occurrence winning. */
   headers: Map<string, string>;
@@ -140,12 +142,7 @@ export function findPart(
   part: MimePart,
   want: (p: MimePart) => boolean,
 ): MimePart | undefined {
-  if (want(part)) return part;
-  for (const child of part.parts) {
-    const hit = findPart(child, want);
-    if (hit) return hit;
-  }
-  return undefined;
+  return findInTree(part, (p) => p.parts, want);
 }
 
 /**

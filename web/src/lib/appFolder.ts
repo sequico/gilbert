@@ -28,6 +28,8 @@ import {
   APP_FOLDER_NAME,
   appFolderCreate,
   ensureAppFolderId,
+  FILE_PROPS,
+  FOLDER_PROPS,
   findAppFolderId,
 } from "@gilbert/shared/appFolder";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
@@ -43,7 +45,7 @@ import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { fileCreate } from "@/lib/filenode";
 /** Just enough to find the folder. */
-export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
+export const folderProps = (): string[] => [...FOLDER_PROPS];
 
 /** List one level of the tree: the top level, or the children of a folder. */
 async function children(
@@ -188,16 +190,7 @@ export interface FoundNode extends FileNode {
  * but has nothing to make the write conditional on, cannot write safely
  * however careful it is.
  */
-const fileProps = [
-  "id",
-  "name",
-  "parentId",
-  "blobId",
-  "size",
-  "type",
-  "nodeType",
-  "state",
-];
+const fileProps = [...FILE_PROPS, "state"];
 
 /** Find a file by name inside the app folder, with the state that read saw. */
 export async function findInFolder(

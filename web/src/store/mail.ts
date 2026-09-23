@@ -19,6 +19,7 @@ import type {
   Thread,
   VacationResponse,
 } from "@/jmap/types";
+import { EMAIL_FULL_HEADER_PROPS } from "@/jmap/types";
 import { type ArchiveGranularity, groupByArchivePath } from "@/lib/archiveDate";
 import { type ConversedMessage, filedFolderOf } from "@/lib/archiveTarget";
 import { withBase } from "@/lib/basePath";
@@ -119,15 +120,7 @@ export const FULL_PROPS = [
   "textBody",
   "htmlBody",
   "attachments",
-  "header:List-Unsubscribe:asText",
-  "header:List-Unsubscribe-Post:asText",
-  "header:List-Id:asText",
-  "header:Disposition-Notification-To:asAddresses",
-  "header:X-Priority:asText",
-  "header:Importance:asText",
-  "header:Auto-Submitted:asText",
-  "header:Precedence:asText",
-  "header:Authentication-Results:asText",
+  ...EMAIL_FULL_HEADER_PROPS,
   ...SPAM_HEADER_PROPS,
 ];
 
@@ -602,34 +595,43 @@ async function moveToDestinations(
   toast.show(movedTo(ids.length, where), {
     action: !undoable
       ? undefined
-      : {
-          label: "Undo",
-          onClick: async () => {
-            const undo: Record<Id, Record<string, unknown>> = {};
-            for (const id of ids)
-              undo[id] = restoreMailboxPatch(
-                prev[id]!,
-                get().emails[id]?.mailboxIds ?? {},
-              );
-            await setEmails(accountId, undo);
-            set((s) => {
-              const next = { ...s.emails };
-              for (const id of ids) {
-                const e = next[id];
-                if (!e) continue;
-                next[id] = {
-                  ...e,
-                  mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
-                };
-              }
-              return { emails: next };
-            });
-            void get().refreshList();
-            void get().loadMailboxes();
-          },
-        },
+      : { label: "Undo", onClick: moveUndo(ids, prev, accountId, set, get) },
   });
   void get().loadMailboxes();
+}
+
+/**
+ * The Undo a move offers, once.
+ *
+ * `move` and `moveToDestinations` each end by putting every message back in the
+ * folders it was in and refreshing what the list and the sidebar show; a change
+ * to the Undo has to reach both, so it is one function rather than two copies
+ * that agree today.
+ */
+function moveUndo(
+  ids: Id[],
+  prev: Record<Id, Record<Id, boolean>>,
+  accountId: Id,
+  set: (fn: (s: MailState) => Partial<MailState>) => void,
+  get: () => MailState,
+): () => Promise<void> {
+  return async () => {
+    const undo: Record<Id, Record<string, unknown>> = {};
+    for (const id of ids)
+      undo[id] = restoreMailboxPatch(prev[id]!, get().emails[id]?.mailboxIds ?? {});
+    await setEmails(accountId, undo);
+    set((s) => {
+      const next = { ...s.emails };
+      for (const id of ids) {
+        const e = next[id];
+        if (!e) continue;
+        next[id] = { ...e, mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!) };
+      }
+      return { emails: next };
+    });
+    void get().refreshList();
+    void get().loadMailboxes();
+  };
 }
 
 export const useMail = create<MailState>((set, get) => ({
@@ -1256,29 +1258,7 @@ export const useMail = create<MailState>((set, get) => ({
               ? undefined
               : {
                   label: "Undo",
-                  onClick: async () => {
-                    const undo: Record<Id, Record<string, unknown>> = {};
-                    for (const id of ids)
-                      undo[id] = restoreMailboxPatch(
-                        prev[id]!,
-                        get().emails[id]?.mailboxIds ?? {},
-                      );
-                    await setEmails(accountId, undo);
-                    set((s) => {
-                      const next = { ...s.emails };
-                      for (const id of ids) {
-                        const e = next[id];
-                        if (!e) continue;
-                        next[id] = {
-                          ...e,
-                          mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
-                        };
-                      }
-                      return { emails: next };
-                    });
-                    void get().refreshList();
-                    void get().loadMailboxes();
-                  },
+                  onClick: moveUndo(ids, prev, accountId, set, get),
                 },
           },
         );

@@ -55,6 +55,7 @@ import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
 import { findQuoteStart, htmlToText, textToHtml, withoutBidiControls } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
+import { findInTree } from "@/lib/tree";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
@@ -1114,13 +1115,7 @@ function findPart(
   p: EmailBodyPart | undefined,
   pred: (p: EmailBodyPart) => boolean,
 ): EmailBodyPart | null {
-  if (!p) return null;
-  if (pred(p)) return p;
-  for (const s of p.subParts ?? []) {
-    const r = findPart(s, pred);
-    if (r) return r;
-  }
-  return null;
+  return findInTree(p, (part) => part.subParts ?? undefined, pred) ?? null;
 }
 
 /* ---------- Body renderers ---------- */

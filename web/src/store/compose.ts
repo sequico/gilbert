@@ -303,6 +303,79 @@ function identityBcc(
 }
 
 /**
+ * The body, the attachments and the headers a draft made from a stored message
+ * carries.
+ *
+ * `openDraftEmail` and `composeAsNew` build a draft out of the same message and
+ * need the same seven things from it: the two body parts, the cid map an inline
+ * image resolves through, the attachment list, the rendered body, the format it
+ * decided, and the receipt and priority headers the message asked for. The
+ * identity and the recipients stay with the caller, because the two paths
+ * differ there on purpose. Spelled once here so a change to the extraction
+ * cannot silently change only one of them.
+ */
+function bodyFromEmail(
+  full: Email,
+  accountId: Id,
+): {
+  html: string;
+  text: string;
+  format: "html" | "text";
+  attachments: ComposeAttachment[];
+  requestReceipt: boolean;
+  priority: Priority;
+} {
+  const htmlPart = full.htmlBody?.[0];
+  const textPart = full.textBody?.[0];
+  const html = htmlPart?.partId ? (full.bodyValues?.[htmlPart.partId]?.value ?? "") : "";
+  const text = textPart?.partId ? (full.bodyValues?.[textPart.partId]?.value ?? "") : "";
+  const cidMap: Record<string, string> = {};
+  const attachments: ComposeAttachment[] = [];
+  for (const a of full.attachments ?? []) {
+    const inline =
+      Boolean(a.cid) && (a.disposition === "inline" || a.type.startsWith("image/"));
+    if (inline && a.cid && a.blobId)
+      cidMap[a.cid] = client.downloadUrl(
+        accountId,
+        a.blobId,
+        a.name ?? "image",
+        a.type,
+        true,
+      );
+    attachments.push({
+      id: uid("a"),
+      name: a.name ?? "attachment",
+      type: a.type,
+      size: a.size,
+      blobId: a.blobId,
+      progress: 100,
+      error: null,
+      cid: a.cid ?? undefined,
+      inline,
+    });
+  }
+  return {
+    html: html
+      ? sanitizeEmailHtml(html, {
+          cidMap,
+          allowRemote: quoteAllowsRemote(full.from?.[0]),
+        }).html
+      : textToHtml(text).replace(/\n/g, "<br>"),
+    text: text || (html ? htmlToText(html) : ""),
+    format: html ? "html" : settings().composeFormat,
+    attachments,
+    requestReceipt: Boolean(
+      full["header:Disposition-Notification-To:asAddresses"]?.length,
+    ),
+    priority: /^[12]/.test(full["header:X-Priority:asText"] ?? "")
+      ? "high"
+      : /^[45]/.test(full["header:X-Priority:asText"] ?? "")
+        ? "low"
+        : "normal",
+  };
+}
+
+/**
  * The reply the app's one-tap affordances open: reply all.
  *
  * One definition, because the answer has to be the same wherever the app offers
@@ -410,40 +483,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
       identities.find((i) => full.from?.some((f) => sameAddress(f.email, i.email))) ??
       useMail.getState().defaultIdentity() ??
       identities[0];
-    const htmlPart = full.htmlBody?.[0];
-    const textPart = full.textBody?.[0];
-    const html = htmlPart?.partId
-      ? (full.bodyValues?.[htmlPart.partId]?.value ?? "")
-      : "";
-    const text = textPart?.partId
-      ? (full.bodyValues?.[textPart.partId]?.value ?? "")
-      : "";
-    const accountId = useMail.getState().accountId!;
-    const cidMap: Record<string, string> = {};
-    const attachments: ComposeAttachment[] = [];
-    for (const a of full.attachments ?? []) {
-      const inline =
-        Boolean(a.cid) && (a.disposition === "inline" || a.type.startsWith("image/"));
-      if (inline && a.cid && a.blobId)
-        cidMap[a.cid] = client.downloadUrl(
-          accountId,
-          a.blobId,
-          a.name ?? "image",
-          a.type,
-          true,
-        );
-      attachments.push({
-        id: uid("a"),
-        name: a.name ?? "attachment",
-        type: a.type,
-        size: a.size,
-        blobId: a.blobId,
-        progress: 100,
-        error: null,
-        cid: a.cid ?? undefined,
-        inline,
-      });
-    }
+    const body = bodyFromEmail(full, useMail.getState().accountId!);
     const d = blankDraft({
       draftId: full.id,
       identityId: ident?.id ?? null,
@@ -458,25 +498,9 @@ export const useCompose = create<ComposeState>((set, get) => ({
       showCc: Boolean(full.cc?.length),
       showBcc: Boolean(full.bcc?.length),
       subject: full.subject ?? "",
-      html: html
-        ? sanitizeEmailHtml(html, {
-            cidMap,
-            allowRemote: quoteAllowsRemote(full.from?.[0]),
-          }).html
-        : textToHtml(text).replace(/\n/g, "<br>"),
-      text: text || (html ? htmlToText(html) : ""),
-      format: html ? "html" : settings().composeFormat,
-      attachments,
+      ...body,
       inReplyTo: full.inReplyTo ?? null,
       references: full.references ?? null,
-      requestReceipt: Boolean(
-        full["header:Disposition-Notification-To:asAddresses"]?.length,
-      ),
-      priority: /^[12]/.test(full["header:X-Priority:asText"] ?? "")
-        ? "high"
-        : /^[45]/.test(full["header:X-Priority:asText"] ?? "")
-          ? "low"
-          : "normal",
     });
     set((s) => ({ drafts: [...s.drafts, d], activeKey: d.key }));
     return d.key;
@@ -513,40 +537,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
       identities.find((i) => full.from?.some((f) => sameAddress(f.email, i.email))) ??
       mail.defaultIdentity() ??
       identities[0];
-    const htmlPart = full.htmlBody?.[0];
-    const textPart = full.textBody?.[0];
-    const html = htmlPart?.partId
-      ? (full.bodyValues?.[htmlPart.partId]?.value ?? "")
-      : "";
-    const text = textPart?.partId
-      ? (full.bodyValues?.[textPart.partId]?.value ?? "")
-      : "";
-    const accountId = mail.accountId!;
-    const cidMap: Record<string, string> = {};
-    const attachments: ComposeAttachment[] = [];
-    for (const a of full.attachments ?? []) {
-      const inline =
-        Boolean(a.cid) && (a.disposition === "inline" || a.type.startsWith("image/"));
-      if (inline && a.cid && a.blobId)
-        cidMap[a.cid] = client.downloadUrl(
-          accountId,
-          a.blobId,
-          a.name ?? "image",
-          a.type,
-          true,
-        );
-      attachments.push({
-        id: uid("a"),
-        name: a.name ?? "attachment",
-        type: a.type,
-        size: a.size,
-        blobId: a.blobId,
-        progress: 100,
-        error: null,
-        cid: a.cid ?? undefined,
-        inline,
-      });
-    }
+    const body = bodyFromEmail(full, mail.accountId!);
     const d = blankDraft({
       identityId: ident?.id ?? null,
       to: full.to ?? [],
@@ -559,26 +550,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
       showCc: Boolean(full.cc?.length),
       showBcc: Boolean(full.bcc?.length || ident?.bcc?.length),
       subject: full.subject ?? "",
-      html: html
-        ? sanitizeEmailHtml(html, {
-            cidMap,
-            allowRemote: quoteAllowsRemote(full.from?.[0]),
-          }).html
-        : textToHtml(text).replace(/\n/g, "<br>"),
-      text: text || (html ? htmlToText(html) : ""),
-      format: html ? "html" : settings().composeFormat,
-      attachments,
+      ...body,
       // No signature is added, and `signatureHtml` is left empty on purpose.
       // The body is the sent one, which already ends in whatever signature it
       // was sent with; appending the identity's would give it two.
-      requestReceipt: Boolean(
-        full["header:Disposition-Notification-To:asAddresses"]?.length,
-      ),
-      priority: /^[12]/.test(full["header:X-Priority:asText"] ?? "")
-        ? "high"
-        : /^[45]/.test(full["header:X-Priority:asText"] ?? "")
-          ? "low"
-          : "normal",
     });
     set((st) => ({ drafts: [...st.drafts, d], activeKey: d.key }));
     return d.key;
