@@ -67,9 +67,7 @@ function withIdentities(identities: Identity[]) {
     identities: identities as never,
     defaultIdentity: (() => identities[0]) as never,
     loadIdentities: (async () => identities) as never,
-    getEmails: (async (ids: string[]) => [
-      ids[0] === "m1" ? MINE : HERS,
-    ]) as never,
+    getEmails: (async (ids: string[]) => [ids[0] === "m1" ? MINE : HERS]) as never,
     roleId: ((role: string) => (role === "sent" ? "sent1" : null)) as never,
   });
 }
@@ -103,9 +101,7 @@ describe("an identity's Bcc reaches the draft", () => {
   });
 
   it("is merged with what the draft was already addressed with, once each", () => {
-    const d = draftFor(
-      useCompose.getState().open({ bcc: [OTHER, ARCHIVE] }),
-    );
+    const d = draftFor(useCompose.getState().open({ bcc: [OTHER, ARCHIVE] }));
     expect(d.bcc).toEqual([OTHER, ARCHIVE]);
   });
 
