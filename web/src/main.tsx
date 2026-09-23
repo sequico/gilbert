@@ -16,6 +16,17 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 
+/**
+ * How often the worker's own script is asked for.
+ *
+ * The browser re-fetches `sw.js` on navigation and on a schedule of its own
+ * that can be a day or more; asking on a timer is what makes a corrected or
+ * version-bumped worker land in the same session rather than days later. The
+ * request is tiny and the worker's bytes rarely change, so an hour is often
+ * enough and cheap.
+ */
+const SW_UPDATE_MS = 60 * 60 * 1000;
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     /*
@@ -26,9 +37,26 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
      * at the mount. A worker scoped to `/` on a host shared with other
      * applications would intercept their navigations too, and its offline
      * fallback would answer them with Gilbert's shell.
+     *
+     * `updateViaCache: "none"` keeps the worker's script out of the HTTP cache
+     * so the check below reaches the server, and the timer asks rather than
+     * waiting on the browser's own long schedule. This keeps the shell and its
+     * cached assets current; what notices an actual deploy is the version
+     * check in `staleBuild.ts` -- the worker's bytes rarely change with a
+     * build, so the two are complements, not the same mechanism.
      */
     navigator.serviceWorker
-      .register(withBase("/sw.js"), { scope: `${BASE_PATH}/` })
+      .register(withBase("/sw.js"), {
+        scope: `${BASE_PATH}/`,
+        updateViaCache: "none",
+      })
+      .then((reg) => {
+        window.setInterval(() => {
+          void reg.update().catch(() => {
+            /* offline, or the server said no: the next tick tries again */
+          });
+        }, SW_UPDATE_MS);
+      })
       .catch(() => {
         /* ignore */
       });
