@@ -135,6 +135,18 @@ let markerChain: Promise<void> = Promise.resolve();
 /** Transcript loads in flight, so open() can await the warm pass. */
 const transcriptLoads = new Map<Id, Promise<void>>();
 
+/*
+ * The re-syncs in flight, one per account.
+ *
+ * A live FileNode push, the reconnect catch-up and the two-minute poll can all
+ * call `applyChanges` for the same account off the same unadvanced state. Two
+ * passes would read the same `created` set and announce the same message
+ * twice -- the tag collapses the visual, but the sound would play twice. A
+ * skipped pass loses nothing: the state is only advanced by the pass that
+ * runs, so the next event reads what this one did not.
+ */
+const chatSyncs = new Set<Id>();
+
 export const useChat = create<ChatState>((set, get) => {
   function startLoad(accountId: Id, name: string): Promise<void> {
     const running = transcriptLoads.get(accountId);
@@ -534,6 +546,8 @@ export const useChat = create<ChatState>((set, get) => {
     async applyChanges(accountId) {
       const conv = get().conversations[accountId];
       if (!conv?.loaded || !conv.folders || conv.stateToken === null) return;
+      if (chatSyncs.has(accountId)) return;
+      chatSyncs.add(accountId);
       const chatFolder = conv.folders.chat;
       try {
         let since = conv.stateToken;
@@ -624,6 +638,8 @@ export const useChat = create<ChatState>((set, get) => {
         if (stale) void get().reload(accountId);
       } catch {
         /* the next event or the next open retries; a failed sync loses nothing */
+      } finally {
+        chatSyncs.delete(accountId);
       }
     },
 
@@ -635,6 +651,9 @@ export const useChat = create<ChatState>((set, get) => {
     },
   };
 });
+
+/** How much of a message a system notification carries before it truncates. */
+const CHAT_BODY_MAX = 180;
 
 /**
  * Tell the reader a chat message arrived, the way mail already does.
@@ -654,6 +673,13 @@ export function notifyNewChat(
   arrived: ChatMessage[],
   me: string,
 ): void {
+  /*
+   * Without the reader's own address ownership cannot be told, and announcing
+   * their own message as somebody else's is worse than saying nothing. The
+   * session always has one by the time a change is routed here; this is the
+   * fail-closed side of that race.
+   */
+  if (!me) return;
   const fromOthers = arrived.filter((m) => m.from && m.from !== me);
   if (!fromOthers.length) return;
   const s = useSettings.getState().settings;
@@ -661,7 +687,7 @@ export function notifyNewChat(
   if (!s.desktopNotifications) return;
   for (const m of fromOthers.slice(0, 3)) {
     showNotification(groupName, {
-      body: `${m.from}: ${m.text}`.trim(),
+      body: `${m.from}: ${m.text}`.slice(0, CHAT_BODY_MAX).trim(),
       tag: `gilbert-chat-${m.id}`,
       onClick: () => {
         window.dispatchEvent(new CustomEvent("gilbert:open-chat", { detail: accountId }));

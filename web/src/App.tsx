@@ -435,23 +435,41 @@ function AuthedApp() {
    * See lib/swFacts.ts.
    */
   const archiveId = useMail((s) => s.roleId("archive"));
-  const chatConversations = useChat((s) => s.conversations);
+  /*
+   * A stable signature of the chats and their watermarks, so the worker's
+   * cache is rewritten only when what it reads actually changes. The
+   * conversations object is replaced on every draft keystroke, which is not a
+   * reason to publish anything.
+   */
+  const chatSignature = useChat((s) =>
+    Object.values(s.conversations)
+      .filter((c) => c.folders)
+      .map(
+        (c) =>
+          `${c.accountId}|${c.name}|${c.folders!.chat}|${c.nodes.reduce(
+            (m, n) => (n.at > m ? n.at : m),
+            "",
+          )}`,
+      )
+      .join("\n"),
+  );
   const languageVersion = useLanguageVersion();
   useEffect(() => {
     /*
      * The chats the worker may be woken for: one entry per group whose folders
-     * are known, carrying the watermark the app has already seen so the worker
-     * never announces an old message. Rewritten whenever the conversations
-     * move -- a new message, a new group -- because it is what the worker will
-     * still be reading a week from now.
+     * are known, carrying the newest instant the app has seen. The watermark
+     * is the maximum `at` over the held nodes rather than the last node's: the
+     * transcript is ordered by server `created`, and a sender whose clock is
+     * behind would otherwise drag the watermark backwards and have an old
+     * message announced again.
      */
-    const chats = Object.values(chatConversations)
+    const chats = Object.values(useChat.getState().conversations)
       .filter((c) => c.folders)
       .map((c) => ({
         accountId: c.accountId,
         name: c.name,
         folderId: c.folders!.chat,
-        watermark: c.nodes[c.nodes.length - 1]?.at ?? "",
+        watermark: c.nodes.reduce((m, n) => (n.at > m ? n.at : m), ""),
       }));
     void publishWorkerFacts(
       accountId,
@@ -459,7 +477,7 @@ function AuthedApp() {
       chats,
       useSession.getState().session?.username ?? "",
     );
-  }, [accountId, archiveId, languageVersion, chatConversations]);
+  }, [accountId, archiveId, languageVersion, chatSignature]);
 
   /*
    * Ask for the notification permission where the reader will see it.

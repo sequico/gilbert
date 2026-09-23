@@ -36,11 +36,14 @@ describe("the worker's chat rules", () => {
     expect(worker).toContain("urn:ietf:params:jmap:filenode");
   });
 
-  it("never lets a FileNode change fall through to a mail notice", () => {
+  it("never lets a FileNode-only change fall through to a mail notice", () => {
     // The reader's own settings write, an upload and an agent document all
     // wear FileNode; the generic "New mail" is for a mail delivery that
-    // carried no message, and a file write must not become one.
-    expect(worker).toContain("const fileNodes =");
+    // carried no message. The guard that stops it is the `return`, so that is
+    // what this asserts: dropping it puts "New mail" over every file write.
+    // A push that carries a mail change beside the FileNode one still is mail.
     expect(worker).toContain("await chatNotifications(data, facts);");
+    expect(worker).toContain("if (hasFileNode && !hasMail) return;");
+    expect(worker).toContain('"EmailDelivery" in types');
   });
 });

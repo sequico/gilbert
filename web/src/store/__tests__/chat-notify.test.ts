@@ -3,6 +3,7 @@ import { client } from "@/jmap/client";
 import type { ChangesResponse } from "@/jmap/types";
 import type { ChatMessage } from "@/lib/chat";
 import { type ChatConversation, notifyNewChat, useChat } from "@/store/chat";
+import { useSession } from "@/store/session";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { flushMicrotasks as flush } from "@/test/testkit";
 
@@ -50,12 +51,16 @@ beforeEach(() => {
       notificationSound: false,
     },
   });
+  // `notifyNewChat` fails closed without the reader's own address, and the live
+  // re-sync reads it from the session.
+  useSession.setState({ session: { username: "me@example.org" } as never });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   useChat.setState({ conversations: {}, openAccountId: null });
+  useSession.setState({ session: null });
 });
 
 describe("notifyNewChat", () => {

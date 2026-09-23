@@ -592,22 +592,24 @@ self.addEventListener("push", (event) => {
         await self.navigator.setAppBadge().catch(() => {});
 
       if (!emails.length) {
+        const changed =
+          data && data["@type"] === "StateChange" ? (data.changed ?? {}) : null;
+        const hasFileNode =
+          changed !== null &&
+          Object.values(changed).some((types) => types && "FileNode" in types);
+        const hasMail =
+          changed !== null &&
+          Object.values(changed).some(
+            (types) => types && ("Email" in types || "EmailDelivery" in types),
+          );
+        if (hasFileNode) await chatNotifications(data, facts);
         /*
-         * A group chat's wake-up is a FileNode state change, which carries no
-         * message and has to be read back (ADR 0016). A FileNode change is
-         * never mail: the reader's own settings write, an upload and an agent
-         * document all wear the same type, so this branch notifies from the
-         * chat read and otherwise says nothing at all -- it must not fall
-         * through to "New mail", which would turn every file write into one.
+         * A FileNode change measured on its own is never mail -- the reader's
+         * own settings write, an upload, an agent document -- so it must not
+         * become "New mail". A push that carries a mail change beside the
+         * FileNode one still is, and falls through to the notice below.
          */
-        const fileNodes =
-          data &&
-          data["@type"] === "StateChange" &&
-          Object.values(data.changed ?? {}).some((types) => types && "FileNode" in types);
-        if (fileNodes) {
-          await chatNotifications(data, facts);
-          return;
-        }
+        if (hasFileNode && !hasMail) return;
         // A delivery from a server that sends a StateChange rather than an
         // EmailPush -- the subscription asks for `EmailDelivery`, so what
         // changed is that mail arrived -- or a payload too large to carry the

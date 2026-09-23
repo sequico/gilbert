@@ -52,7 +52,10 @@ export function ChatLauncher() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
-      if (!id) return;
+      // A click for a conversation the session no longer holds -- the reader
+      // left the group while the notification sat on the lock screen -- opens
+      // nothing rather than leaving a dangling open id.
+      if (!id || !(id in useChat.getState().conversations)) return;
       setOpen(true);
       openConversation(id);
     };

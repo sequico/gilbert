@@ -340,10 +340,6 @@ Owed with the steps below:
 - "This browser is subscribed" is true only when **every** target account holds
   this device's row, so one group whose registration failed reads as off rather
   than as push being on (`web/src/lib/__tests__/webpush.test.ts`).
-- The document fields the worker reads (`v`, `from`, `at`, `text`) are pinned
-  against `server/src/shared/chat.ts`, the one definition of a chat node, so a
-  rename there cannot leave the worker reading a field nobody writes
-  (`web/src/lib/__tests__/swChat.test.ts`).
 - `server/src/mock` answers the group-account subscription and a chat `FileNode`
   change as the live server does, with the assumption pinned next to the
   simulation (`server/src/mock/index.ts`, its test).
