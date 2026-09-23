@@ -25,21 +25,24 @@ a migration ("it used to be X, then it became Y"); history lives in git.
   HTML marker `<!--gilbert:sig=…-->`, the crypto sealing context
   `gilbert-session-v1`, and the docker service/volume and deploy script
   (`gilbert`, `gilbert-data`, `GILBERT_*` envs).
-- `ihasmail` appears only where upstream's real name must stay: the URLs
-  (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
+- `ihasmail` appears only where upstream's real name must stay: the AGPL
+  attribution in `LICENSE`/`NOTICE` — `NOTICE` being the only file that carries
+  its addresses (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
   git.coffeylabs.org/coffey-labs/ihasmail, the GitHub-era issues and PRs in
-  ihasmail-github-archive), the lineage and
-  AGPL attribution in `README`/`LICENSE`/`NOTICE`/ADR 0002, the legal lines
-  in upstream-owned docs ("If you run a modified ihasmail, set
-  `SOURCE_URL`…").
+  ihasmail-github-archive) — the lineage prose in `README`/ADR 0002, which
+  names upstream and points at `NOTICE`, and the legal lines in upstream-owned
+  docs ("If you run a modified ihasmail, set `SOURCE_URL`…"). A public doc
+  links to none of them: `README`, `FEATURES.md`, `KNOWN-ISSUES.md`, `ROADMAP.md`
+  and the ADRs cite upstream's issue numbers as plain numbers and send the
+  reader to `NOTICE` for the address.
 
 ## Relationship to upstream
 
 Gilbert is its own product, of which the mail client is one part. The mail
-client is based on [coffey-labs/ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail).
-Upstream is **download-only** (ADR 0002): releases are fetched directly by the
-merge that takes them in (ADR 0002), the mail core merges them in,
-and nothing is contributed back. Upstream's docs (docs.ihasmail.org) are the
+client is based on Coffey Labs' **ihasmail**; `NOTICE` carries the attribution
+and the address. Upstream is **download-only** (ADR 0002): releases are fetched
+directly by the merge that takes them in (ADR 0002), the mail core merges them
+in, and nothing is contributed back. Upstream's own documentation is the
 reference for the licence obligations that survive: Gilbert is AGPL, users are
 owed *this* tree's source, and running it as a service counts as
 distribution — `SOURCE_URL` is the offer and already defaults here.
@@ -48,8 +51,9 @@ distribution — `SOURCE_URL` is the offer and already defaults here.
 
 1. Never write a doc line or comment that narrates a rename or migration —
    describe the current state; history lives in git.
-2. Only the upstream/AGPL mentions above may say `ihasmail`; everywhere else
-   `gilbert` is simply the name.
+2. Only the upstream/AGPL mentions above may say `ihasmail`, and only `NOTICE`
+   carries its addresses; everywhere else `gilbert` is simply the name, and a
+   public doc that needs the address points at `NOTICE`.
 3. An upstream merge delta is renamed without asking: `ihasmail` outside the
    mentions above becomes `gilbert` during the merge, including user-visible
    identifiers such as a shipped theme or palette id.

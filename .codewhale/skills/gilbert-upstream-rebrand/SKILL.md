@@ -92,12 +92,14 @@ than inherited. This skill is that checklist.
 - Rename the delta, not the repo. Only files the merge touched need a look:
   new upstream files, files whose upstream hunks added strings, and tests
   that assert on them. `git diff <merge-base>..HEAD --stat` bounds it.
-- `ihasmail` may stay only where upstream's real name must stay: the URLs
+- `ihasmail` may stay only where upstream's real name must stay: AGPL lineage
+  in `README`/`LICENSE`/`NOTICE`/ADR 0002, and upstream-owned legal lines
+  ("If you run a modified ihasmail…"). Upstream's addresses
   (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
   git.coffeylabs.org/coffey-labs/ihasmail, the GitHub-era issues and PRs in
-  ihasmail-github-archive), AGPL lineage in
-  `README`/`LICENSE`/`NOTICE`/ADR 0002, and upstream-owned legal lines
-  ("If you run a modified ihasmail…").
+  ihasmail-github-archive) live in `NOTICE` and nowhere else: a merged doc hunk
+  that links to one arrives as prose naming upstream, or as a plain issue
+  number, with the reader sent to `NOTICE` for the address.
 - Everything else says `gilbert`/`Gilbert`: prose about the product says
   "Gilbert"; identifiers are lowercase `gilbert`.
 - Snapshot mode: comments describe the merged code as it is, never

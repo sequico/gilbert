@@ -27,10 +27,14 @@ is `gilbert`: `APP_NAME` default "Gilbert", packages `gilbert`/`@gilbert/*`,
 `GILBERT_VERSION`, `X-Requested-With: gilbert`, UI strings and catalogs, the
 app folder, the sieve script name, storage keys, the `[gilbert]` log prefix,
 the `session.gilbert` extension, MIME types, docker/deploy identifiers and
-paths. `ihasmail` appears only where upstream's real name must stay: the URLs
-(ihasmail.org, docs.ihasmail.org, git.coffeylabs.org/coffey-labs/ihasmail, and
-its GitHub-era ihasmail-github-archive), the lineage and the AGPL attribution
-in `LICENSE`/`NOTICE`/`README`/ADR 0002.
+paths. `ihasmail` appears only where upstream's real name must stay: the AGPL
+attribution in `LICENSE`/`NOTICE` — `NOTICE` being the only file that carries
+its addresses (ihasmail.org, docs.ihasmail.org, git.coffeylabs.org/coffey-labs/ihasmail,
+and its GitHub-era ihasmail-github-archive) — and the lineage prose in
+`README`/ADR 0002, which names upstream and points at `NOTICE`. No public doc
+carries a link to upstream: `README`, `FEATURES.md`, `KNOWN-ISSUES.md`,
+`ROADMAP.md` and the ADRs name it plainly, cite an issue number as a plain
+number, and send the reader to `NOTICE` for the address.
 An upstream merge delta that introduces `ihasmail` identifiers, strings or
 prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
 without asking — including user-visible names such as a shipped theme or

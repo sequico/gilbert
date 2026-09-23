@@ -11,8 +11,9 @@ metadata:
 
 - The project is **Gilbert**, a backronym for **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise **R**esource **T**raceability. The canonical statement lives at the top of `README.md`; keep this skill and that file in sync.
 - Gilbert is its own product, of which the mail client is one part. The mail
-  client is based on [coffey-labs/ihasmail](https://git.coffeylabs.org/coffey-labs/ihasmail)
-  — remote `upstream` is no_push, `origin` is `sequico/gilbert`. Upstream is
+  client is based on Coffey Labs' **ihasmail** — the attribution, with its
+  address, is in `NOTICE` — and remote `upstream` is no_push, `origin` is
+  `sequico/gilbert`. Upstream is
   download-only (ADR 0002): releases are fetched directly by the merge that
   takes them in (ADR 0002) and the mail core merges them in, and nothing is
   contributed back.
@@ -36,12 +37,15 @@ metadata:
   key, the app folder, the sieve script name, storage keys, MIME types, the
   `[gilbert]` log prefix and the `session.gilbert` extension. Full list:
   `gilbert-branding`.
-- **`ihasmail` remains only where upstream's real name must stay**: the URLs
-  (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
+- **`ihasmail` remains only where upstream's real name must stay**: the AGPL
+  attribution in `LICENSE`/`NOTICE` — `NOTICE` being the only file that carries
+  its addresses (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
   git.coffeylabs.org/coffey-labs/ihasmail, the GitHub-era issues and PRs in
-  ihasmail-github-archive), the lineage and
-  AGPL attribution (`LICENSE`/`NOTICE`/`README`/ADR 0002). Never rename those,
-  and never present them as Gilbert's own.
+  ihasmail-github-archive) — and the lineage prose in `README`/ADR 0002, which
+  names upstream and points at `NOTICE`. **No public doc links to upstream** —
+  not `README`, `FEATURES.md`, `KNOWN-ISSUES.md`, `ROADMAP.md` or an ADR — and
+  a sentence that carried such a link is rewritten to stand without it. Never
+  rename or unpresent the attribution itself.
 
 ## 3. Architecture law
 
