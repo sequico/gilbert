@@ -25,11 +25,13 @@ import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { refreshSharesInto } from "@/lib/sharedCollections";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
+import { GlobalContactsEditor } from "./GlobalContactsEditor";
 
 /**
  * Newly shared books appear without a sign-in: the session is re-read and this
@@ -63,6 +65,12 @@ export function ContactsSidebar() {
   const contacts = useContacts();
   const settings = useSettings((s) => s.settings);
   const mailAccounts = useMail((s) => s.mailAccounts);
+  const isAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
+  /** The directory the administrator is editing, when the editor is open. */
+  const [editingGlobal, setEditingGlobal] = useState<{
+    accountId: string;
+    bookId: string;
+  } | null>(null);
   /*
    * What the open menu belongs to. One state rather than three, because the
    * rows differ in what they can offer: everything can be exported, only your
@@ -294,6 +302,23 @@ export function ContactsSidebar() {
         <>
           <div className="nav-section">
             <span>{GLOBAL_CONTACTS_BOOK_NAME}</span>
+            {/* Only an administrator writes the directory (ADR 0023), and from
+                inside Contacts: everybody else reads the same book. */}
+            {isAdmin && globalBooks[0] && (
+              <button
+                className="icon-btn sm"
+                title={t("Edit Global contacts")}
+                aria-label={t("Edit Global contacts")}
+                onClick={() =>
+                  setEditingGlobal({
+                    accountId: globalBooks[0]!.accountId,
+                    bookId: globalBooks[0]!.book.id,
+                  })
+                }
+              >
+                <Pencil size={14} />
+              </button>
+            )}
           </div>
           {globalBooks.map(({ accountId, book }) => (
             <div
@@ -602,6 +627,13 @@ export function ContactsSidebar() {
           </>
         )}
       </Popover>
+      {editingGlobal && (
+        <GlobalContactsEditor
+          accountId={editingGlobal.accountId}
+          bookId={editingGlobal.bookId}
+          onClose={() => setEditingGlobal(null)}
+        />
+      )}
       {share && (
         <Suspense fallback={null}>
           <LazyShareDialog

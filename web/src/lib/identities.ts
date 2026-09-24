@@ -133,6 +133,21 @@ export async function saveUserIdentity(
   return res.id;
 }
 
+/**
+ * `POST /api/admin/identities/user/sip` — one identity's SIP credential
+ * (ADR 0023), written into the account's own `sip.json`. `null` clears it.
+ */
+export async function saveUserSipCredential(
+  address: string,
+  email: string,
+  sip: { address: string; password: string } | null,
+): Promise<void> {
+  await apiFetch<{ ok: true }>("/api/admin/identities/user/sip", {
+    method: "POST",
+    body: JSON.stringify({ address, email, sip }),
+  });
+}
+
 /** `POST /api/admin/identities/user/delete` — remove one, as the person. */
 export async function deleteUserIdentity(address: string, id: string): Promise<void> {
   await apiFetch<{ ok: true }>("/api/admin/identities/user/delete", {

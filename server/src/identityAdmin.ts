@@ -73,6 +73,12 @@ import type {
 } from "./shared/identityViews.js";
 import type { SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
+import {
+  parseSipCredentials,
+  SIP_CREDENTIALS_FILE,
+  type SipCredential,
+  withSipCredential,
+} from "./shared/phone.js";
 /*
  * The client's settings document, and the one key of it this tier writes.
  * Both names are contracts — see the module's own header.
@@ -325,7 +331,7 @@ export function identityAddress(value: string, what = "account"): string {
  * the client's settings follow, so the surface and the person are looking at
  * one list.
  */
-function ownIdentityAccount(ctx: Ctx): string {
+export function ownIdentityAccount(ctx: Ctx): string {
   const primary = ctx.session.primaryAccounts?.[JMAP_SUBMISSION];
   if (primary) return primary;
   for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
@@ -355,7 +361,9 @@ function groupAccountId(ctx: Ctx, group: string): string {
 /* ------------------------------------------------------------------ */
 
 /** What a method-level refusal says, when it says anything. */
-function refusalOf(entry: { type?: unknown; description?: unknown } | undefined): string {
+export function refusalOf(
+  entry: { type?: unknown; description?: unknown } | undefined,
+): string {
   if (!entry) return "the mail server refused the change without saying why";
   const description = typeof entry.description === "string" ? entry.description : "";
   const type = typeof entry.type === "string" ? entry.type : "";
@@ -631,6 +639,7 @@ export async function personIdentities(
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
+        sip: {},
       };
     throw new IdentityAdminError(
       imp.status === 404 ? "account_not_found" : "account_unreachable",
@@ -652,7 +661,50 @@ export async function personIdentities(
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
+    sip: parseSipCredentials(
+      await readAppJsonAt(imp.ctx, accountId, SIP_CREDENTIALS_FILE),
+    ),
   };
+}
+
+/**
+ * Set or clear one identity's SIP credential (ADR 0023), as the person.
+ *
+ * The credential lives in `sip.json`, in that account's own app folder, keyed
+ * by identity email — the same impersonating door the default identity and the
+ * lock write through. `null`, or an address that is only blanks, clears the
+ * entry; the phone then has nothing to register for that identity.
+ */
+export async function writePersonSipCredential(
+  admin: LiveSession,
+  address: string,
+  email: string,
+  credential: SipCredential | null,
+): Promise<void> {
+  const target = identityAddress(address);
+  const imp = await impersonateAs(admin, target);
+  if (!imp.ok)
+    throw new IdentityAdminError(
+      imp.status === 403 ? "impersonation_denied" : "account_unreachable",
+      imp.message,
+      imp.status,
+    );
+  const accountId = ownIdentityAccount(imp.ctx);
+  if (!accountId)
+    throw new IdentityAdminError(
+      "no_identity_account",
+      `${target} holds no account this session can write a credential to.`,
+      409,
+    );
+  const current = parseSipCredentials(
+    await readAppJsonAt(imp.ctx, accountId, SIP_CREDENTIALS_FILE),
+  );
+  await writeAppFile(
+    imp.ctx,
+    accountId,
+    SIP_CREDENTIALS_FILE,
+    withSipCredential(current, email, credential),
+  );
 }
 
 /**
@@ -744,7 +796,7 @@ export async function removePersonIdentity(
  * otherwise. The refusal keeps its own code — a credential no server accepts
  * and an account that answers nothing are two different things to go and fix.
  */
-async function agentSession(admin: LiveSession): Promise<Ctx> {
+export async function agentSession(admin: LiveSession): Promise<Ctx> {
   const address = agentAddress();
   if (!address)
     throw new IdentityAdminError(

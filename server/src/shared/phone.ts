@@ -40,6 +40,22 @@ export interface SipCredentialsDocument {
   identities: Record<string, SipCredential>;
 }
 
+/**
+ * What an administrator types for one Global contacts card (ADR 0023).
+ *
+ * A small, deliberate shape rather than a whole JSContact object: the
+ * administration sends these fields and the server builds the card, so a
+ * client cannot write a key the directory does not mean to carry. It is what
+ * the contact editor reads and writes, declared once for both tiers.
+ */
+export interface GlobalContactInput {
+  name: string;
+  emails: string[];
+  phones: string[];
+  organization: string;
+  notes: string;
+}
+
 /** Whether a stored value is a usable credential. */
 export function isSipCredential(value: unknown): value is SipCredential {
   return (
@@ -48,4 +64,43 @@ export function isSipCredential(value: unknown): value is SipCredential {
     typeof (value as SipCredential).address === "string" &&
     typeof (value as SipCredential).password === "string"
   );
+}
+
+/**
+ * Read a credential document into its map, keyed by lower-cased identity email.
+ *
+ * The one parser both tiers use: the account reads its own document to
+ * register, the administration reads the same document to show what an
+ * identity holds. Malformed, absent or shapeless all answer the empty map —
+ * "no credential" is a state, not a fault.
+ */
+export function parseSipCredentials(raw: unknown): Record<string, SipCredential> {
+  if (typeof raw !== "object" || raw === null) return {};
+  const identities = (raw as SipCredentialsDocument).identities;
+  if (typeof identities !== "object" || identities === null) return {};
+  const out: Record<string, SipCredential> = {};
+  for (const [key, value] of Object.entries(identities))
+    if (isSipCredential(value)) out[key.trim().toLowerCase()] = value;
+  return out;
+}
+
+/**
+ * The document after one identity's credential is set or cleared.
+ *
+ * `null`, or an empty address, removes the entry: an identity with no SIP
+ * address is one the phone does not register, which is a state rather than a
+ * credential of blanks. The one place a credential enters or leaves the
+ * document, so the writer cannot spell the shape a second way.
+ */
+export function withSipCredential(
+  current: Record<string, SipCredential>,
+  email: string,
+  credential: SipCredential | null,
+): SipCredentialsDocument {
+  const identities = { ...current };
+  const key = email.trim().toLowerCase();
+  const address = credential?.address?.trim() ?? "";
+  if (credential && address) identities[key] = { address, password: credential.password };
+  else delete identities[key];
+  return { version: SIP_CREDENTIALS_VERSION, identities };
 }

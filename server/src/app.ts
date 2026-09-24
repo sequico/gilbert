@@ -89,6 +89,7 @@ import {
 import { isTrustedProxy, rateLimitKey, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
 import { safeEqual } from "./crypto.js";
+import { destroyGlobalContact, writeGlobalContact } from "./globalContactsAdmin.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
   groupIdentity,
@@ -103,6 +104,7 @@ import {
   storeSignatureHtml,
   writeGroupIdentity,
   writePersonIdentity,
+  writePersonSipCredential,
 } from "./identityAdmin.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
@@ -133,6 +135,7 @@ import {
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
+import type { GlobalContactInput, SipCredential } from "./shared/phone.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
 import { staticHandler } from "./static.js";
@@ -2603,6 +2606,37 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * for exactly that) and a session already open sees it the next time it
    * reads its own.
    */
+  /**
+   * One identity's SIP credential (ADR 0023).
+   *
+   * What the softphone registers with, per identity, written into the
+   * account's own `sip.json` — the same document the account reads. `sip:
+   * null` clears it, which is the identity the phone does not register. The
+   * write is an impersonation of that person, like every other identity write.
+   */
+  api.post("/admin/identities/user/sip", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown; email?: unknown; sip?: unknown }>(c);
+    try {
+      const raw = body?.sip;
+      const credential: SipCredential | null =
+        raw && typeof raw === "object"
+          ? {
+              address: String((raw as { address?: unknown }).address ?? ""),
+              password: String((raw as { password?: unknown }).password ?? ""),
+            }
+          : null;
+      await writePersonSipCredential(
+        c.get("session"),
+        typeof body?.address === "string" ? body.address : "",
+        typeof body?.email === "string" ? body.email : "",
+        credential,
+      );
+      return c.json({ ok: true });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
   api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{ address?: unknown; locked?: unknown }>(c);
     try {
@@ -2663,6 +2697,57 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * names the address, `id` the identity to write, `null` meaning "the one this
    * member already holds, else a new one".
    */
+  /**
+   * The Global contacts directory (ADR 0023), written as the Master.
+   *
+   * The directory is the installation's, owned by the Master and shared
+   * read-only with every account, so the administrator's own session has
+   * nothing to write with and the write is made here — as the installation's
+   * agent credential, or by impersonating the Master — the same door a group's
+   * identity is written through. `id: null` creates; the server builds the card
+   * from the editor's small shape, so a client cannot write a key the directory
+   * does not mean to carry.
+   */
+  const globalContactInput = (raw: unknown): GlobalContactInput => {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    const list = (value: unknown): string[] =>
+      Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+    return {
+      name: typeof r.name === "string" ? r.name : "",
+      emails: list(r.emails),
+      phones: list(r.phones),
+      organization: typeof r.organization === "string" ? r.organization : "",
+      notes: typeof r.notes === "string" ? r.notes : "",
+    };
+  };
+
+  api.post("/admin/global-contacts", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ id?: unknown; card?: unknown }>(c);
+    try {
+      const id = await writeGlobalContact(
+        c.get("session"),
+        typeof body?.id === "string" && body.id ? body.id : null,
+        globalContactInput(body?.card),
+      );
+      return c.json({ ok: true, id });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  api.post("/admin/global-contacts/delete", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ id?: unknown }>(c);
+    try {
+      await destroyGlobalContact(
+        c.get("session"),
+        typeof body?.id === "string" ? body.id : "",
+      );
+      return c.json({ ok: true });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
   api.get("/admin/identities/group", requireSession, requireAdmin, async (c) => {
     try {
       return c.json(await groupIdentity(c.get("session"), c.req.query("name") ?? ""));

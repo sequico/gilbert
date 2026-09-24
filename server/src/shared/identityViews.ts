@@ -22,6 +22,8 @@
  * Type declarations only: no runtime code reaches a bundle through this file.
  */
 
+import type { SipCredential } from "./phone.js";
+
 /** One address on an identity's Reply-To or Bcc line. */
 export interface IdentityAddress {
   /**
@@ -115,6 +117,12 @@ export interface PersonIdentitiesView {
   /** The identity that account sends from by default, or null when it has not
    * chosen one and the client falls back to its first. */
   defaultIdentityId: string | null;
+  /**
+   * Each identity's SIP address and password (ADR 0023), keyed by the
+   * identity's email — the key the account's own `sip.json` carries and the
+   * phone reads, so the administrator sees exactly what will register.
+   */
+  sip: Record<string, SipCredential>;
 }
 
 /**

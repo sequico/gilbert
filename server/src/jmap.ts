@@ -27,6 +27,8 @@ import {
 export const JMAP_CORE = CAPABILITIES.core;
 export const JMAP_MAIL = CAPABILITIES.mail;
 export const JMAP_SUBMISSION = CAPABILITIES.submission;
+export const JMAP_CONTACTS = CAPABILITIES.contacts;
+export const JMAP_PRINCIPALS = CAPABILITIES.principals;
 export const STALWART_CAP = STALWART_REGISTRY;
 
 /*

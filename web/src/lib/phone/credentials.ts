@@ -9,10 +9,9 @@
  * second door to protect.
  */
 import {
-  isSipCredential,
+  parseSipCredentials,
   SIP_CREDENTIALS_FILE,
   type SipCredential,
-  type SipCredentialsDocument,
 } from "@gilbert/shared/phone";
 import type { Id } from "@/jmap/types";
 import { readAppJson } from "@/lib/appFolder";
@@ -25,19 +24,13 @@ export { SIP_CREDENTIALS_FILE };
  *
  * Absent, unreadable or malformed all answer the same way: no credential. The
  * phone then has nothing to register and does not offer itself, which is the
- * honest answer to a document that is not there.
+ * honest answer to a document that is not there. The parse is the shared one,
+ * so what the administration writes and what the phone reads cannot disagree.
  */
 export async function readSipCredentials(
   accountId: Id,
 ): Promise<Record<string, SipCredential>> {
-  const parsed = await readAppJson(accountId, SIP_CREDENTIALS_FILE);
-  if (typeof parsed !== "object" || parsed === null) return {};
-  const identities = (parsed as SipCredentialsDocument).identities;
-  if (typeof identities !== "object" || identities === null) return {};
-  const out: Record<string, SipCredential> = {};
-  for (const [key, value] of Object.entries(identities))
-    if (isSipCredential(value)) out[key.toLowerCase()] = value;
-  return out;
+  return parseSipCredentials(await readAppJson(accountId, SIP_CREDENTIALS_FILE));
 }
 
 /** The credential for one identity email, or null when the account holds none. */
