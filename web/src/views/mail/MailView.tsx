@@ -744,7 +744,7 @@ export function MailView({
                 : { listPaneWidth: 520 },
             )
           }
-          ariaLabel="Resize message list"
+          ariaLabel={translate("Resize message list")}
         />
       )}
       {showReading && (

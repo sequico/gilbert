@@ -210,8 +210,11 @@ export function PasswordForm({
       setCode("");
       toast.success(
         res.revokedSessions
-          ? `Password changed. ${res.revokedSessions} other session(s) signed out.`
-          : "Password changed",
+          ? plural(res.revokedSessions, {
+              one: "Password changed. {n} other session signed out.",
+              other: "Password changed. {n} other sessions signed out.",
+            })
+          : t("Password changed"),
       );
       onChanged();
     } catch (err) {
@@ -278,7 +281,7 @@ export function PasswordForm({
         </div>
       </div>
       <button className="btn btn-primary" disabled={busy || !current || !next}>
-        {busy ? "Changing…" : "Change password"}
+        {busy ? t("Changing…") : t("Change password")}
       </button>
     </form>
   );
@@ -354,7 +357,7 @@ function TwoFactorOff({ reload }: { reload: () => Promise<void> }) {
               disabled={busy || !password || code.length < 6}
               onClick={() => void disable()}
             >
-              {busy ? "Working…" : "Turn off"}
+              {busy ? t("Working…") : t("Turn off")}
             </button>
           </>
         }
@@ -510,7 +513,7 @@ function AppPasswords({
           />
         </div>
         <button className="btn" disabled={busy || !name.trim() || !current}>
-          {busy ? "Creating…" : "Create"}
+          {busy ? t("Creating…") : t("Create")}
         </button>
       </form>
 

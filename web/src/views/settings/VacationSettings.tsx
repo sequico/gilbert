@@ -60,7 +60,7 @@ export function VacationSettings() {
         fromDate: from ? toUTCDate(fromInputDateTime(from)) : null,
         toDate: to ? toUTCDate(fromInputDateTime(to)) : null,
       });
-      toast.success(enabled ? "Auto-reply is on" : "Auto-reply saved");
+      toast.success(enabled ? t("Auto-reply is on") : t("Auto-reply saved"));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {

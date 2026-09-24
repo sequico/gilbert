@@ -1048,7 +1048,7 @@ function MailboxMenu({
       />
       <MenuItem
         icon={m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}
-        label={m.isSubscribed ? "Hide from list" : "Show in list"}
+        label={m.isSubscribed ? t("Hide from list") : t("Show in list")}
         onClick={() =>
           void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })
         }

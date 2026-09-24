@@ -128,7 +128,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
       // A per-occurrence change can be accepted in part. Say which part.
       toast.success(
         droppedMessage(dropped) ??
-          (scope === "occurrence" ? `${msg} for this date` : msg),
+          (scope === "occurrence" ? t("{message} for this date", { message: msg }) : msg),
       );
     } catch (err) {
       toast.error((err as Error).message);
@@ -210,7 +210,9 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
       await runScoped(scope, (s) =>
         cal.destroyEvent(ev, participants > 1, s, inst.accountId),
       );
-      toast.success(scope === "occurrence" ? "Occurrence deleted" : "Event deleted");
+      toast.success(
+        scope === "occurrence" ? t("Occurrence deleted") : t("Event deleted"),
+      );
     } catch (err) {
       toast.error((err as Error).message);
     }

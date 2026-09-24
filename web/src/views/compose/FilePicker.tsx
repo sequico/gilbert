@@ -93,7 +93,9 @@ export function FilePicker({
               close();
             }}
           >
-            {chosen.length > 1 ? `Attach ${chosen.length} files` : "Attach"}
+            {chosen.length > 1
+              ? t("Attach {n} files", { n: chosen.length })
+              : t("Attach")}
           </button>
         </>
       }

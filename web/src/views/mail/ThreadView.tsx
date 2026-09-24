@@ -439,7 +439,7 @@ export function ThreadView({
           />
           <MenuItem
             icon={allExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            label={allExpanded ? "Collapse all" : "Expand all"}
+            label={allExpanded ? t("Collapse all") : t("Expand all")}
             onClick={() => {
               setAllExpanded((v) => !v);
               setExpanded({});

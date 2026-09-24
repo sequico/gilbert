@@ -218,7 +218,7 @@ export function AppearanceSettings() {
         >
           {UI_LANGUAGES.map((l) => (
             <option key={l.tag} value={l.tag}>
-              {l.beta ? `${l.name} (Beta)` : l.name}
+              {l.beta ? translate("{name} (Beta)", { name: l.name }) : l.name}
             </option>
           ))}
         </select>

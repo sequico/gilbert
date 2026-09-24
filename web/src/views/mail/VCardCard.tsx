@@ -48,7 +48,7 @@ export function VCardCard({ part, accountId }: { part: EmailBodyPart; accountId:
     <div className="vcard-card">
       <UserPlus size={20} style={{ color: "var(--accent)" }} />
       <div className="grow">
-        <div style={{ fontWeight: 600 }}>{part.name ?? "Contact card"}</div>
+        <div style={{ fontWeight: 600 }}>{part.name ?? t("Contact card")}</div>
         <div className="hint">{t("vCard attachment")}</div>
       </div>
       <button className="btn btn-sm" disabled={busy || done} onClick={() => void add()}>

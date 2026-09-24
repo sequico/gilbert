@@ -144,8 +144,12 @@ export function LoginPage() {
         </label>
         <p className="hint" style={{ marginBottom: 12 }}>
           {trustDevice
-            ? "Stay signed in, and keep settings and recent addresses on this computer."
-            : "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one."}
+            ? t(
+                "Stay signed in, and keep settings and recent addresses on this computer.",
+              )
+            : t(
+                "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.",
+              )}
         </p>
         <button
           className="btn btn-primary btn-lg btn-block"
@@ -157,7 +161,7 @@ export function LoginPage() {
           ) : (
             <LogIn size={18} />
           )}
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t("Signing in…") : t("Sign in")}
         </button>
         <p className="foot">
           {/*

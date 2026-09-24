@@ -646,7 +646,7 @@ function EventForm({
         }
         toast.success(
           droppedMessage(dropped) ??
-            (oneDate ? "This occurrence updated" : "Event updated"),
+            (oneDate ? translate("This occurrence updated") : translate("Event updated")),
         );
       } else {
         const clean: Record<string, unknown> = {};
@@ -659,7 +659,11 @@ function EventForm({
           invites,
           target.accountId,
         );
-        toast.success(invites ? "Event created and invitations sent" : "Event created");
+        toast.success(
+          invites
+            ? translate("Event created and invitations sent")
+            : translate("Event created"),
+        );
       }
       onClose();
     } catch (err) {
@@ -698,8 +702,13 @@ function EventForm({
         {ev && isRecurring(ev) && (
           <div className="info-box mb-16">
             {oneDate
-              ? `Editing ${formatNumericDate(start)} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.`
-              : "This is a recurring event — changes apply to the whole series."}
+              ? translate(
+                  "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.",
+                  { date: formatNumericDate(start) },
+                )
+              : translate(
+                  "This is a recurring event — changes apply to the whole series.",
+                )}
           </div>
         )}
         <div className="field">
@@ -1246,7 +1255,11 @@ function EventForm({
                     .sort((a, b) => a - b)
                     .map((o) => (
                       <option key={o} value={o}>
-                        {o === 0 ? "At time of event" : `${humanDuration(o * 60)} before`}
+                        {o === 0
+                          ? translate("At time of event")
+                          : translate("{duration} before", {
+                              duration: humanDuration(o * 60),
+                            })}
                       </option>
                     ))}
                 </select>
@@ -1269,7 +1282,7 @@ function EventForm({
           </div>
         </div>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowMore((v) => !v)}>
-          {showMore ? "Fewer options" : "More options"}
+          {showMore ? translate("Fewer options") : translate("More options")}
         </button>
         {showMore && (
           <div className="mt-8">

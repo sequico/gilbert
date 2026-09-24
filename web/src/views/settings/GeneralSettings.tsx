@@ -474,7 +474,7 @@ function MailHandlerSettings() {
       </p>
       <div className="row wrap">
         <button className="btn btn-primary" onClick={ask}>
-          {requested ? "Ask again" : "Make Gilbert the default mail app"}
+          {requested ? t("Ask again") : t("Make Gilbert the default mail app")}
         </button>
         {requested && canUnregisterMailtoHandler() && (
           <button className="btn btn-ghost" onClick={remove}>

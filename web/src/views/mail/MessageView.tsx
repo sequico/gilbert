@@ -741,8 +741,8 @@ export const MessageView = memo(function MessageView({
               icon={<Ban size={16} />}
               label={
                 senderTrusted
-                  ? "Stop trusting sender images"
-                  : "Always show images from sender"
+                  ? translate("Stop trusting sender images")
+                  : translate("Always show images from sender")
               }
               onClick={() =>
                 updateSettings({
@@ -882,7 +882,9 @@ export const MessageView = memo(function MessageView({
                     }
                   }}
                 >
-                  {receiptDone === "sending" ? "Sending…" : "Send receipt"}
+                  {receiptDone === "sending"
+                    ? translate("Sending…")
+                    : translate("Send receipt")}
                 </button>
                 <button onClick={() => setReceiptDone("dismissed")}>
                   {translate("Not this time")}

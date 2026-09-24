@@ -657,7 +657,7 @@ export function ContactEditor({
           </>
         ) : (
           <div className="field">
-            <label>{kind === "group" ? "Group name" : "Organization name"}</label>
+            <label>{kind === "group" ? t("Group name") : t("Organization name")}</label>
             <input
               className="input"
               value={company}

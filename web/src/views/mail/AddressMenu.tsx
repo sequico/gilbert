@@ -48,7 +48,7 @@ export function useAddressMenu() {
           anchor={menu.anchor}
           onClose={close}
           width={230}
-          ariaLabel={`Actions for ${menu.address.email}`}
+          ariaLabel={t("Actions for {email}", { email: menu.address.email })}
         >
           <div className="menu-title truncate">{formatAddress(menu.address)}</div>
           {contacts.available &&

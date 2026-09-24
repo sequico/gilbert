@@ -2,7 +2,7 @@ import { Eye, EyeOff, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { isAlwaysVisible } from "@/lib/identityVisibility";
 import {
   groupMailboxAccounts,
@@ -219,7 +219,11 @@ export function IdentitiesSettings() {
       </p>
       {hidden.length > 0 && (
         <p className="hint">
-          {`${hidden.length} ${hidden.length === 1 ? "identity is" : "identities are"} hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.`}
+          {plural(hidden.length, {
+            one: "{n} identity is hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.",
+            other:
+              "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.",
+          })}
         </p>
       )}
       {groupMailboxAccounts(mailAccounts).map((account) => (

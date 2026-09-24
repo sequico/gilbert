@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { formatTimeRange, humanDuration, parseDuration } from "@/lib/dates";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { describeRule } from "@/lib/recurrence";
 import {
   type EventInstance,
@@ -112,7 +112,9 @@ export function EventPopover({
       await runScoped(scope, (s) =>
         cal.destroyEvent(ev, participants.length > 1, s, inst.accountId),
       );
-      toast.success(scope === "occurrence" ? "Occurrence deleted" : "Event deleted");
+      toast.success(
+        scope === "occurrence" ? t("Occurrence deleted") : t("Event deleted"),
+      );
       onClose();
     } catch (err) {
       toast.error((err as Error).message);
@@ -237,7 +239,12 @@ export function EventPopover({
         <div className="ev-line" style={{ flexDirection: "column", gap: 2 }}>
           <div className="row gap-8">
             <Users size={15} />
-            <span>{`${participants.length} participant${participants.length === 1 ? "" : "s"}`}</span>
+            <span>
+              {plural(participants.length, {
+                one: "{n} participant",
+                other: "{n} participants",
+              })}
+            </span>
             <button
               className="icon-btn xs"
               title={t("Email everyone")}

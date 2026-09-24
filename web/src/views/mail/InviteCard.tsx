@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import type { CalendarEvent, Email, EmailBodyPart } from "@/jmap/types";
 import { formatTimeRange } from "@/lib/dates";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import {
   isAttendee,
   myParticipantKeys,
@@ -75,10 +75,10 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
       setExisting(await cal.getEvent(target.id));
       toast.success(
         status === "accepted"
-          ? "Invitation accepted"
+          ? t("Invitation accepted")
           : status === "declined"
-            ? "Invitation declined"
-            : "Marked as tentative",
+            ? t("Invitation declined")
+            : t("Marked as tentative"),
       );
     } catch (err) {
       toast.error((err as Error).message);
@@ -123,7 +123,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
           <div className="hint" style={{ marginBottom: 2 }}>
             {title}
           </div>
-          <h4>{ev.title || "(untitled event)"}</h4>
+          <h4>{ev.title || t("(untitled event)")}</h4>
           {inst && (
             <div className="small">{`${formatTimeRange(inst.start, inst.end, inst.allDay)}${ev.timeZone ? ` (${ev.timeZone})` : ""}`}</div>
           )}
@@ -140,7 +140,12 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
             </div>
           )}
           {attendees.length > 0 && (
-            <div className="small muted">{`${attendees.length} attendee${attendees.length === 1 ? "" : "s"}`}</div>
+            <div className="small muted">
+              {plural(attendees.length, {
+                one: "{n} attendee",
+                other: "{n} attendees",
+              })}
+            </div>
           )}
           {method === "REPLY" && (
             <div className="small" style={{ marginTop: 4 }}>

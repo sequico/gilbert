@@ -217,7 +217,7 @@ export function RecipientPicker({
             disabled={!chosen.length}
             onClick={() => send("to")}
           >
-            {chosen.length > 1 ? `To — ${chosen.length} people` : "To"}
+            {chosen.length > 1 ? t("To — {n} people", { n: chosen.length }) : t("To")}
           </button>
         </>
       }
@@ -295,7 +295,7 @@ export function RecipientPicker({
           <Spinner label={t("Loading contacts…")} />
         ) : !rows.length ? (
           <p className="hint">
-            {q ? "Nobody matches that." : "No contacts in this address book."}
+            {q ? t("Nobody matches that.") : t("No contacts in this address book.")}
           </p>
         ) : (
           rows.map((r) => (

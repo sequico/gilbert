@@ -535,7 +535,9 @@ export function Composer({ draft }: { draft: Draft }) {
                   background: d.priority === "high" ? "var(--danger)" : "var(--fg-faint)",
                 }}
               >
-                {d.priority === "high" ? "High priority" : "Low priority"}
+                {d.priority === "high"
+                  ? translate("High priority")
+                  : translate("Low priority")}
               </span>
             )}
             {d.requestReceipt && (
@@ -661,7 +663,9 @@ export function Composer({ draft }: { draft: Draft }) {
           >
             <MenuItem
               icon={<Send size={16} />}
-              label={d.sendAt !== null ? "Send now instead" : "Send"}
+              label={
+                d.sendAt !== null ? translate("Send now instead") : translate("Send")
+              }
               kbd={d.sendAt !== null ? undefined : "Ctrl+↵"}
               onClick={() => {
                 if (d.sendAt !== null) patch({ sendAt: null });
@@ -811,7 +815,9 @@ export function Composer({ draft }: { draft: Draft }) {
               <MenuItem
                 icon={<Type size={16} />}
                 label={
-                  d.format === "html" ? "Switch to plain text" : "Switch to rich text"
+                  d.format === "html"
+                    ? translate("Switch to plain text")
+                    : translate("Switch to rich text")
                 }
                 onClick={toggleFormat}
               />

@@ -242,7 +242,7 @@ export function FilesTree() {
   return (
     <>
       <div className="nav-section">
-        <span>{viewingShare ? "Shared folder" : "Files"}</span>
+        <span>{viewingShare ? t("Shared folder") : t("Files")}</span>
       </div>
       <div
         className={`nav-item ${currentId === null ? "active" : ""} ${rootDrop ? "drop-target" : ""}`}
@@ -264,14 +264,14 @@ export function FilesTree() {
         <HardDrive size={17} />
         <span className="grow truncate">
           {viewingShare
-            ? (sharedAccounts.find((a) => a.id === accountId)?.name ?? "Shared files")
-            : "All files"}
+            ? (sharedAccounts.find((a) => a.id === accountId)?.name ?? t("Shared files"))
+            : t("All files")}
         </span>
       </div>
       {childrenOf(null).map((d) => row(d, 1))}
       {treeLoaded && !dirs.length && (
         <p className="hint" style={{ padding: "4px 12px" }}>
-          {viewingShare ? "Nothing shared here." : "No folders yet."}
+          {viewingShare ? t("Nothing shared here.") : t("No folders yet.")}
         </p>
       )}
 
