@@ -35,7 +35,10 @@ export async function openMicrophone(): Promise<
   if (!window.isSecureContext) return { ok: false, reason: "unavailable" };
   if (!navigator.mediaDevices?.getUserMedia) return { ok: false, reason: "unavailable" };
   try {
-    return { ok: true, stream: await navigator.mediaDevices.getUserMedia({ audio: true }) };
+    return {
+      ok: true,
+      stream: await navigator.mediaDevices.getUserMedia({ audio: true }),
+    };
   } catch (err) {
     return { ok: false, reason: reasonFrom(err) };
   }

@@ -14,8 +14,8 @@ import { CAP } from "@/jmap/client";
 import { accountFor, readSipAccounts, type SipCredential } from "@/lib/phone/credential";
 import {
   requestMicrophone as askMicrophone,
-  microphoneState as readMicrophoneState,
   type MicrophoneState,
+  microphoneState as readMicrophoneState,
 } from "@/lib/phone/microphone";
 import { type LineState, Phone } from "@/lib/phone/sip";
 import { useMail } from "./mail";
