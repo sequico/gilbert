@@ -36,7 +36,11 @@ import {
 import { useState } from "react";
 import { type AgentGrantCatalog, grantIsReadable, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
-import { AGENT_TRIGGER_LABELS, actionLabel, scheduleWords } from "@/views/agent/agentText";
+import {
+  AGENT_TRIGGER_LABELS,
+  actionLabel,
+  scheduleWords,
+} from "@/views/agent/agentText";
 import { AskReading } from "./AskReading";
 
 /** A rule as the form holds it: the document itself, with nothing undecided. */
@@ -228,7 +232,10 @@ export function RuleForm({
           >
             {AGENT_SCHEDULE_PRESETS.map((minutes) => (
               <option key={minutes} value={String(minutes)}>
-                {t(scheduleWords(minutes, true) ?? t("Every {minutes} minutes", { minutes }))}
+                {t(
+                  scheduleWords(minutes, true) ??
+                    t("Every {minutes} minutes", { minutes }),
+                )}
               </option>
             ))}
           </select>
