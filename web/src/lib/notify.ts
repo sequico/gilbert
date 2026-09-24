@@ -143,10 +143,20 @@ export function rememberNotificationAsk(now: number = Date.now()): void {
 
 export function showNotification(
   title: string,
-  opts: NotificationOptions & { onClick?: () => void } = {},
+  opts: NotificationOptions & { onClick?: () => void; evenWhenFocused?: boolean } = {},
 ): void {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
-  if (document.visibilityState === "visible" && document.hasFocus()) return;
+  /*
+   * A mail or chat notification over a focused window is the same news twice --
+   * the list has already updated. A calendar reminder is not: the event is not
+   * on screen, so it asks for `evenWhenFocused` and is shown anyway.
+   */
+  if (
+    !opts.evenWhenFocused &&
+    document.visibilityState === "visible" &&
+    document.hasFocus()
+  )
+    return;
   try {
     const n = new Notification(title, {
       icon: withBase("/img/icon-192.png"),

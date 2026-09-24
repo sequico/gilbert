@@ -253,6 +253,30 @@ same store changes (`notifyNewMail` in `web/src/store/mail.ts`, chat's
 reader who keeps Gilbert open on a group does not go quiet at the exact moment
 they are using it.
 
+### A calendar alert notifies where it is set
+
+An event that carries a **reminder** — its own `alerts`, or the calendar's
+default when `useDefaultAlerts` is true — is announced when that reminder's
+instant arrives, and only such an event: one with no alert set is not announced,
+which is what "only the events whose notification is set" means. The instant is
+the event's start less its trigger's offset; a `display` reminder is the action
+the editor writes and the only one honoured.
+
+It reaches the reader on every channel a **running** client has: an in-app
+notice, and the system notification the mail and chat paths already use — on the
+desktop browser, the installed desktop app and the installed phone app alike. A
+reminder is not suppressed by a focused window the way a mail notification is:
+an event is not otherwise on screen, which is the whole reason a reminder
+exists.
+
+**A closed client is not woken for one, and that is the honest limit of this
+record.** Stalwart pushes *changes*, not clocks: a `CalendarEvent` state change
+says an event was written, never that its time has come, so the background
+subscription carries nothing at the alert's instant. Waking a closed device at a
+time would mean Gilbert sending the push itself — the alternative *No sender of
+ours* records and declines — and taking that decision is a change of its own.
+Until it is taken, a reminder is what a running client can do.
+
 ### What is not done here
 
 - **No sender of ours.** gilbertserver sending the notification itself — a
@@ -262,8 +286,10 @@ they are using it.
   secret and a sender in a process whose value here is having neither, and it
   duplicates for `Email` what Stalwart already does natively. It becomes worth
   revisiting when a measurement of wake-up volume says the read is the problem.
-- **No notification for calendars, contacts or files**, and none for an agent's
-  own runs: the group has chat for that.
+- **No notification for contacts or files**, and none for an agent's own runs:
+  the group has chat for that. A calendar **event's own reminder** is announced
+  while a client runs (above); an event with no alert set is not announced at
+  all.
 - **No third-party push service and no native app.** FCM and APNs are reached
   through the browser's own push service, which is the only way Web Push is
   allowed to work.
@@ -447,6 +473,10 @@ implementation marks them where the code owes them (the repository's
 9. The invariant tests above, and the checklist on real devices: an installed
    PWA on iOS 16.4+, and Chrome on Android with a manufacturer's battery saver
    on, which is where a correct implementation still looks broken.
+10. Calendar reminders: an event's alert instant, announced in-app and as a
+    system notification while a client runs — only for an event that carries a
+    reminder. **Built.** A closed client is not woken for one, and the decision
+    above says why.
 
 ## References
 

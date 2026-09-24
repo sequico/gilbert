@@ -25,6 +25,7 @@ import {
   birthdaysInRange,
   isBirthdayEvent,
 } from "@/lib/birthdays";
+import { dueReminders } from "@/lib/calendarReminders";
 import {
   browserTimeZone,
   DAY_MS,
@@ -38,9 +39,54 @@ import {
 import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { showNotification } from "@/lib/notify";
+import { toast } from "@/ui/toast";
 import { useContacts } from "./contacts";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
+
+/**
+ * Arm the calendar reminders (ADR 0016).
+ *
+ * An event that carries a reminder is announced when it falls due, on every
+ * channel a running client has: the system notification, and an in-app notice.
+ * Only an event with a reminder is announced -- the reminder is the opt-in, and
+ * an event without one says nothing. A closed client is not woken for one, and
+ * cannot be: Stalwart pushes changes, not clocks. So this is what a page can do
+ * while it is open.
+ *
+ * It reads the events already loaded for the ranges on screen: a reminder is
+ * announced for an event the client holds, which is the range the reader has
+ * looked at.
+ */
+let remindersCheckedTo = 0;
+let reminderTimer: number | null = null;
+
+function startReminderTimer(get: () => CalendarState): void {
+  if (reminderTimer !== null) return;
+  remindersCheckedTo = Date.now();
+  reminderTimer = window.setInterval(() => {
+    const now = Date.now();
+    const from = remindersCheckedTo;
+    remindersCheckedTo = now;
+    for (const { event } of dueReminders(
+      Object.values(get().events),
+      get().calendars,
+      from,
+      now,
+    )) {
+      const title = event.title || t("(untitled)");
+      showNotification(title, {
+        body: t("Calendar reminder"),
+        tag: `gilbert-reminder-${event.id}`,
+        // A reminder is the one notification a focused window must not swallow:
+        // the event is not on screen, which is the whole reason it exists.
+        evenWhenFocused: true,
+      });
+      toast.show(t("Reminder: {title}", { title }));
+    }
+  }, 30_000);
+}
 
 export interface EventInstance {
   /** Unique key for rendering: `${id}` (synthetic ids already unique per instance). */
@@ -662,6 +708,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       );
     void get().loadSharedCalendars();
     await Promise.all([get().loadCalendars(), identities]);
+    startReminderTimer(get);
   },
 
   /*
