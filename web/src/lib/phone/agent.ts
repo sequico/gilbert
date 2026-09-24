@@ -1,10 +1,16 @@
 /**
  * The SIP.js user agent, wrapped thin (ADR 0023).
  *
- * The engine's own API is kept behind a small surface — a line state, one
- * active session, and the handful of actions the call surface needs — so the
- * store holds state rather than the library's objects, and a change of engine
- * would be this file and nothing else.
+ * The engine's own API is kept behind a small surface — a line state, the calls
+ * on it and which one is active, and the handful of actions the call surface
+ * needs — so the store holds state rather than the library's objects, and a
+ * change of engine would be this file and nothing else.
+ *
+ * More than one call is carried, which is what call waiting is: a second
+ * invitation is answered while the first is held, and the reader switches
+ * between them. SIP.js has no re-INVITE on a received call, so the hold is the
+ * media: the held call's outgoing audio is disabled and the active call's is
+ * the one played — the remote hears silence, and the reader hears one call.
  *
  * Reliability is the point of the configuration here: the transport reconnects
  * with backoff and re-registers, a broken media path is restarted with a
@@ -37,14 +43,18 @@ export interface PhoneAgentOptions {
   iceServers: RTCIceServer[];
 }
 
+/** One call as the surface reads it. */
+export interface PhoneCallView {
+  remote: string;
+  active: boolean;
+}
+
 export interface PhoneAgentHooks {
   onLine(state: PhoneLineState): void;
-  /** An invitation arrived and no call is live: the surface rings. */
+  /** An invitation arrived; a call may already be live (call waiting). */
   onIncoming(from: string): void;
-  /** A call is established; the stream is what is played. */
-  onEstablished(remote: string, stream: MediaStream | null): void;
-  /** The active call is over, for any reason. */
-  onEnded(): void;
+  /** The calls on the line, and the audio of the active one. */
+  onCalls(calls: PhoneCallView[], stream: MediaStream | null): void;
   /** Something failed, in a sentence worth showing. */
   onError(message: string): void;
 }
@@ -65,9 +75,12 @@ export function toSipUri(target: string): string {
 export class PhoneAgent {
   private ua: UserAgent | undefined;
   private registerer: Registerer | undefined;
-  private session: Session | undefined;
-  private invitation: Invitation | undefined;
-  private incomingFrom = "";
+  /** Every live or ringing call, by session, with the remote it is with. */
+  private readonly calls = new Map<Session, string>();
+  private active: Session | undefined;
+  private ringing: Invitation | undefined;
+  private ringingFrom = "";
+  private muted = false;
   private ended = false;
 
   constructor(
@@ -75,12 +88,12 @@ export class PhoneAgent {
     private readonly hooks: PhoneAgentHooks,
   ) {}
 
-  get active(): Session | undefined {
-    return this.session;
+  get activeSession(): Session | undefined {
+    return this.active;
   }
 
   get hasCall(): boolean {
-    return Boolean(this.session);
+    return this.calls.size > 0;
   }
 
   /** Start the transport and register the one line. */
@@ -146,8 +159,9 @@ export class PhoneAgent {
     } catch {
       /* idem */
     }
-    this.session = undefined;
-    this.invitation = undefined;
+    this.calls.clear();
+    this.active = undefined;
+    this.ringing = undefined;
   }
 
   /** Place a call to a contact's number or an address typed by hand. */
@@ -165,12 +179,12 @@ export class PhoneAgent {
     await inviter.invite();
   }
 
-  /** Answer the ringing invitation. */
+  /** Answer the ringing invitation, holding a call that is already live. */
   async answer(): Promise<void> {
-    const invitation = this.invitation;
+    const invitation = this.ringing;
     if (!invitation) return;
-    this.invitation = undefined;
-    this.bind(invitation, this.incomingFrom);
+    this.ringing = undefined;
+    this.bind(invitation, this.ringingFrom);
     await invitation.accept({
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -180,21 +194,21 @@ export class PhoneAgent {
 
   /** Decline a ringing invitation. */
   async decline(): Promise<void> {
-    const invitation = this.invitation;
+    const invitation = this.ringing;
     if (!invitation) return;
-    this.invitation = undefined;
-    this.incomingFrom = "";
+    this.ringing = undefined;
+    this.ringingFrom = "";
     try {
       await invitation.reject();
     } catch {
       /* Gone already. */
     }
-    this.hooks.onEnded();
+    this.reflow();
   }
 
-  /** End the active call, however it is still standing. */
+  /** End the active call; a held one becomes active, or the line goes idle. */
   async hangup(): Promise<void> {
-    const session = this.session;
+    const session = this.active ?? [...this.calls.keys()][0];
     if (!session) return;
     try {
       if (session.state === SessionState.Initial && session instanceof Inviter)
@@ -206,52 +220,74 @@ export class PhoneAgent {
     }
   }
 
-  /** Mute or unmute the microphone. */
-  setMuted(muted: boolean): void {
-    const handler = this.session?.sessionDescriptionHandler as
-      | Web.SessionDescriptionHandler
-      | undefined;
-    for (const track of handler?.localMediaStream?.getAudioTracks() ?? [])
-      track.enabled = !muted;
+  /** Make another call the active one, holding the one that was. */
+  activate(remote: string): void {
+    const entry = [...this.calls.entries()].find(([, name]) => name === remote);
+    if (entry) this.setActive(entry[0]);
   }
 
-  /** Send DTMF tones over the established call. */
+  /** Mute or unmute the active call's microphone. */
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    this.applyMedia();
+  }
+
+  /** Send DTMF tones over the active call. */
   sendDtmf(tones: string): void {
-    const handler = this.session?.sessionDescriptionHandler as
-      | Web.SessionDescriptionHandler
-      | undefined;
-    handler?.sendDtmf(tones);
+    this.handler(this.active)?.sendDtmf(tones);
   }
 
   private receive(invitation: Invitation): void {
-    /*
-     * A second invitation while one is live is answered as busy: the client
-     * holds one line (ADR 0023), and the server's own routing takes what an
-     * unanswered fork means.
-     */
-    if (this.session) {
-      void invitation.reject({ statusCode: 486 }).catch(() => undefined);
-      return;
-    }
-    this.invitation = invitation;
-    this.incomingFrom = invitation.remoteIdentity?.uri?.toString() ?? "";
-    this.hooks.onIncoming(this.incomingFrom);
+    this.ringing = invitation;
+    this.ringingFrom = invitation.remoteIdentity?.uri?.toString() ?? "";
+    this.hooks.onIncoming(this.ringingFrom);
+  }
+
+  private handler(
+    session: Session | undefined,
+  ): Web.SessionDescriptionHandler | undefined {
+    return session?.sessionDescriptionHandler as
+      | Web.SessionDescriptionHandler
+      | undefined;
   }
 
   private bind(session: Session, remote: string): void {
-    this.session = session;
+    this.calls.set(session, remote);
     session.stateChange.addListener((state) => {
       if (state === SessionState.Established) {
-        const handler = session.sessionDescriptionHandler as
-          | Web.SessionDescriptionHandler
-          | undefined;
-        this.watchMedia(handler, session);
-        this.hooks.onEstablished(remote, handler?.remoteMediaStream ?? null);
+        this.watchMedia(this.handler(session), session);
+        this.setActive(session);
       } else if (state === SessionState.Terminated) {
-        if (this.session === session) this.session = undefined;
-        this.hooks.onEnded();
+        this.calls.delete(session);
+        if (this.active === session) this.active = undefined;
+        this.reflow();
       }
     });
+  }
+
+  /** Hold every call but one, make it active, and report the line. */
+  private setActive(session: Session): void {
+    this.active = session;
+    this.applyMedia();
+    this.reflow();
+  }
+
+  /** The media: one call's microphone on, the others' off; one call's audio played. */
+  private applyMedia(): void {
+    for (const [session] of this.calls) {
+      const on = session === this.active && !this.muted;
+      for (const track of this.handler(session)?.localMediaStream?.getAudioTracks() ?? [])
+        track.enabled = on;
+    }
+  }
+
+  private reflow(): void {
+    if (!this.active && this.calls.size) this.active = this.calls.keys().next().value;
+    const calls: PhoneCallView[] = [...this.calls.entries()].map(([session, remote]) => ({
+      remote,
+      active: session === this.active,
+    }));
+    this.hooks.onCalls(calls, this.handler(this.active)?.remoteMediaStream ?? null);
   }
 
   /**
@@ -259,7 +295,9 @@ export class PhoneAgent {
    *
    * A path that has failed is restarted in place with a re-INVITE asking ICE
    * to start over, which is the one thing a client can do when the network
-   * moved under it; the reader touches nothing.
+   * moved under it; the reader touches nothing. Only an outgoing call can send
+   * the re-INVITE — the engine offers no re-INVITE on a received call — so a
+   * received call's path recovers through the transport's own reconnection.
    */
   private watchMedia(
     handler: Web.SessionDescriptionHandler | undefined,
@@ -268,7 +306,7 @@ export class PhoneAgent {
     const pc = handler?.peerConnection;
     if (!pc) return;
     pc.oniceconnectionstatechange = () => {
-      if (this.ended || this.session !== session) return;
+      if (this.ended || !this.calls.has(session)) return;
       if (pc.iceConnectionState !== "failed") return;
       if (session instanceof Inviter) {
         // `offerOptions` is the browser handler's, not the base engine option

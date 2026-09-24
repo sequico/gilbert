@@ -5,10 +5,12 @@ import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { dialTarget } from "@/lib/phone/config";
 import { allDialerCards, type DialerSource, dialerSources } from "@/lib/phone/dialer";
+import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
 import { useSession } from "@/store/session";
+import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
 
@@ -36,6 +38,7 @@ export function PhoneLauncher() {
   const state = usePhone((s) => s.state);
   const incoming = usePhone((s) => s.incoming);
   const call = usePhone((s) => s.call);
+  const held = usePhone((s) => s.held);
   const stream = usePhone((s) => s.stream);
   const muted = usePhone((s) => s.muted);
   const error = usePhone((s) => s.error);
@@ -45,6 +48,8 @@ export function PhoneLauncher() {
 
   const session = useSession((s) => s.session);
   const sipOffered = Boolean(session?.gilbert?.sip?.enabled);
+  // The reader's own notification setting decides whether a call is heard.
+  const notificationSound = useSettings((s) => s.settings.notificationSound);
 
   useEffect(() => {
     if (sipOffered) void start();
@@ -58,6 +63,15 @@ export function PhoneLauncher() {
       void el.play().catch(() => undefined);
     }
   }, [stream]);
+
+  /* The ring: audible only when the reader has not silenced Gilbert. */
+  useEffect(() => {
+    if (incoming && notificationSound) {
+      startRing();
+      return stopRing;
+    }
+    stopRing();
+  }, [incoming, notificationSound]);
 
   /*
    * A full reload tears the media stack down, so a call cannot survive one.
@@ -98,9 +112,9 @@ export function PhoneLauncher() {
 
       {/* An incoming call: the screen on a phone, a dialog on a desktop. */}
       <Dialog
-        open={Boolean(incoming) && !call}
+        open={Boolean(incoming)}
         onClose={() => void usePhone.getState().decline()}
-        title={t("Incoming call")}
+        title={call ? t("Call waiting") : t("Incoming call")}
         size={isMobile ? "lg" : "sm"}
       >
         <p className="lead" style={{ textAlign: "center" }}>
@@ -138,6 +152,8 @@ export function PhoneLauncher() {
           <CallControls
             remote={call.remote}
             muted={muted}
+            held={held}
+            onSwitch={(remote) => usePhone.getState().switchTo(remote)}
             readOnly={state === "standby"}
           />
         ) : (
@@ -152,10 +168,14 @@ export function PhoneLauncher() {
 function CallControls({
   remote,
   muted,
+  held,
+  onSwitch,
   readOnly,
 }: {
   remote: string;
   muted: boolean;
+  held: string[];
+  onSwitch: (remote: string) => void;
   readOnly: boolean;
 }) {
   const [tones, setTones] = useState("");
@@ -209,6 +229,27 @@ function CallControls({
         <p className="hint" style={{ textAlign: "center" }}>
           {tones}
         </p>
+      )}
+      {/* Calls waiting while this one is active (ADR 0023): the reader switches
+          between them rather than losing either. */}
+      {held.length > 0 && (
+        <div>
+          <div className="nav-section">
+            <span>{t("On hold")}</span>
+          </div>
+          {held.map((other) => (
+            <button
+              key={other}
+              className="nav-item"
+              style={{ width: "100%", textAlign: "start" }}
+              onClick={() => onSwitch(other)}
+            >
+              <PhoneCall size={15} />
+              <span className="grow truncate">{other}</span>
+              <span className="hint">{t("Switch")}</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

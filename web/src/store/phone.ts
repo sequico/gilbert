@@ -36,9 +36,11 @@ interface PhoneStore {
   ready: boolean;
   /** The ringing call, before it is answered. */
   incoming: string | null;
-  /** The established call. */
+  /** The active call. */
   call: ActiveCall | null;
-  /** What the call surface plays: the peer's audio. */
+  /** Calls on the line that are not active, held while the reader talks. */
+  held: string[];
+  /** What the call surface plays: the active peer's audio. */
   stream: MediaStream | null;
   muted: boolean;
   error: string | null;
@@ -51,6 +53,8 @@ interface PhoneStore {
   answer(): Promise<void>;
   decline(): Promise<void>;
   hangup(): Promise<void>;
+  /** Make a held call the active one. */
+  switchTo(remote: string): void;
   setMuted(muted: boolean): void;
   sendDtmf(tones: string): void;
 }
@@ -121,6 +125,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   ready: false,
   incoming: null,
   call: null,
+  held: [],
   stream: null,
   muted: false,
   error: null,
@@ -187,7 +192,14 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     agent = null;
     started = false;
     leader = false;
-    set({ state: "off", incoming: null, call: null, stream: null, muted: false });
+    set({
+      state: "off",
+      incoming: null,
+      call: null,
+      held: [],
+      stream: null,
+      muted: false,
+    });
   },
 
   async dial(target) {
@@ -212,6 +224,10 @@ export const usePhone = create<PhoneStore>((set, get) => ({
 
   async hangup() {
     await agent?.hangup().catch(() => undefined);
+  },
+
+  switchTo(remote) {
+    agent?.activate(remote);
   },
 
   setMuted(muted) {
@@ -241,18 +257,15 @@ async function startAgent(
         usePhone.setState({ incoming: from });
         mirror?.postMessage({ kind: "incoming", from });
       },
-      onEstablished: (remote, stream) => {
+      onCalls: (calls, stream) => {
+        const active = calls.find((c) => c.active) ?? calls[0] ?? null;
         usePhone.setState({
           incoming: null,
-          call: { remote, incoming: false },
+          call: active ? { remote: active.remote, incoming: false } : null,
+          held: calls.filter((c) => c !== active).map((c) => c.remote),
           stream,
-          muted: false,
         });
-        mirror?.postMessage({ kind: "established", remote });
-      },
-      onEnded: () => {
-        usePhone.setState({ call: null, incoming: null, stream: null, muted: false });
-        mirror?.postMessage({ kind: "ended" });
+        mirror?.postMessage({ kind: "calls", remote: active?.remote ?? null });
       },
       onError: (message) => usePhone.setState({ error: message }),
     },
@@ -290,14 +303,12 @@ function listenToMirror(): void {
       case "incoming":
         usePhone.setState({ incoming: message.from ?? "" });
         break;
-      case "established":
+      case "calls":
         usePhone.setState({
           incoming: null,
-          call: { remote: message.remote ?? "", incoming: false },
+          call: message.remote ? { remote: message.remote, incoming: false } : null,
+          held: [],
         });
-        break;
-      case "ended":
-        usePhone.setState({ call: null, incoming: null, stream: null });
         break;
       default:
         break;
