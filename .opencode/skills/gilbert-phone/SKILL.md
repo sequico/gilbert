@@ -54,6 +54,16 @@ single seat and the administration are in place. Global contacts is built.
     the entry is drawn. A deployment whose bridge ports are closed shows no
     phone; the administration states the bridge's media range as the one thing
     to open.
+11. **The surface is a panel of three panes**, attached to the handset: the
+    **contacts** on the left — two status rows with a dot and the cause on hover
+    (the browser's path to Gilbert, and the account's registration), the tabs
+    All/Global/My plus one row per group, a search with its own clear control,
+    and every number a contact carries with its type — the **dialer** in the
+    centre, whose title names the **SIP user** (not the login), and the
+    account's **call history** on the right. Everything is the app's own
+    vocabulary (`.tab`, `.nav-section`, `.input`, the theme tokens): no bespoke
+    controls, and the two panes read the same contact sources so a number dialled
+    resolves back to the same person.
 
 ## The directory (ADR 0024) — the invariants
 
@@ -73,10 +83,12 @@ single seat and the administration are in place. Global contacts is built.
   `web/src/lib/phone/sip.ts` (the SIP plugin, the media and the connectivity
   probe), `web/src/lib/phone/credential.ts` (the account, read from the
   person's own Files), `web/src/lib/phone/callLog.ts` (the account's call
-  history, `calls.json` in its app folder), the seat and the state in
+  history, `calls.json` in its app folder), `web/src/lib/phone/mock.ts` (the
+  `dev:mock` stub), the seat and the state in
   `web/src/store/phone.ts`, the surface in
   `web/src/views/phone/PhoneLauncher.tsx` with its panes
-  (`PhoneContactsPanel.tsx`, `CallLogPanel.tsx`); the proxied socket in
+  (`PhoneContactsPanel.tsx`, `CallLogPanel.tsx`, and the shared
+  `usePhoneSources.ts` they both read); the proxied socket in
   `server/src/phone/proxy.ts`, the bridge's address in
   `server/src/phone/bridge.ts`, the document and the media range in
   `server/src/shared/phone.ts`, and the administration in

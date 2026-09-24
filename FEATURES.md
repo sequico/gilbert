@@ -1137,7 +1137,9 @@ for that one, and the dialog says so.
 
 ## Folders
 
-Real JMAP mailboxes, with the server's roles honoured.
+Real JMAP mailboxes, with the server's roles honoured. The sidebar's header
+names the account whose tree is on screen — the reader's own address, or a
+group's name — so which mailbox is open is never a guess.
 
 - Create, rename, create a subfolder, delete (with or without its mail).
 - **Move a folder** by dragging it onto another, or from its menu — *Move to…*
@@ -1563,10 +1565,14 @@ are settings.
 The sidebar keeps the panes apart:
 
 - **My calendars** — yours, each with a colour, each hideable with a click.
-- **One section per group mailbox** (freight@…, the teams you belong to): that
-  group's calendars, and a **+** that creates a calendar **owned by the group**
-  — the create goes to the group's own account, so every member sees it, a
-  member added later included, with no share to maintain.
+- **Group calendars** — one subsection per group mailbox (freight@…, the teams
+  you belong to): that group's calendars, and a **+** that creates a calendar
+  **owned by the group** — the create goes to the group's own account, so every
+  member sees it, a member added later included, with no share to maintain. A
+  group's calendars need no adding — membership is the subscription, so no
+  "available" row is drawn for them — and a group calendar's **colour belongs to
+  the calendar**: every member sees the same one, and only an installation
+  administrator may change it.
 - **Shared with me** — other people's, once added.
 - **Available to add** — shared with you but not yet added, with a plus beside
   each. An unadded calendar draws nothing. This is deliberate: the server
@@ -1574,8 +1580,9 @@ The sidebar keeps the panes apart:
   meant to share it, so being handed one is not evidence that it was offered.
 
 Right-click your own to rename, recolour, share, stop sharing or delete;
-right-click one of someone else's to remove it from your view, which changes
-nothing for anybody else.
+right-click a group calendar to remove it from your view (editing it is the
+administrator's, above); right-click one of someone else's to remove it from
+your view, which changes nothing for anybody else.
 
 - **iCal import** through `CalendarEvent/parse` (a file of any number of
   events), from the calendar's own menu, into that calendar. The events are
@@ -2295,8 +2302,10 @@ needed nothing in either half.
   never holds credentials. State changes arrive per type, and each store
   refreshes only what changed.
 - **Polling behind it** for networks that cut long-lived connections, and
-  reconnection with backoff. The header shows which of the three states it is
-  in: connected, reconnecting, or off and polling.
+  reconnection with backoff, capped short so a drop comes back in seconds. The
+  header shows which of the three states it is in — connected, reconnecting, or
+  off and polling — and the reconnecting dot says on hover whether the server
+  answered at all (it closed the stream) or could not be reached.
 - **Unread count in the tab title and painted onto the favicon**, so the tab
   tells you before you look.
 - **Desktop notifications** for new mail and new chat messages while Gilbert is

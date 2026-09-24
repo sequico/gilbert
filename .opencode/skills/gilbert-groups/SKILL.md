@@ -45,10 +45,15 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 - **Calendars**: the pattern-setter. `store/calendar.ts`
   `createCalendar(data, accountId?)` — omit for your own, pass the group
   account id to create one the group owns (subscribed from the start).
-  `CalendarSidebar` renders one section per group mailbox with "New calendar
-  in {group}"; non-group shared calendars stay in the read-only *Shared with
-  me / Available to add* area. A calendar a group owns is deleted and renamed
-  from that same section, with no treatment of its own.
+  `CalendarSidebar` puts the reader's own under **My calendars** and each group
+  under **Group calendars** — one subsection per group mailbox with "New
+  calendar in {group}", and a group's calendars listed as subscribed (no "+ add"
+  row: membership is the subscription). A group calendar's **colour belongs to
+  the calendar**, so every reader sees the same one, and only an installation
+  administrator may change it — the Edit entry is disabled for a member. A
+  calendar a group owns is deleted and renamed from that same subsection;
+  non-group shared calendars stay in the read-only *Shared with me / Available
+  to add* area.
 - **Address books**: same shape — `store/contacts.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` gives each group its own
   subsection under **Group contacts**.
