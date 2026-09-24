@@ -2873,3 +2873,12 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .install-dialog-heading { margin: 20px 0 8px; font-size: 1em; }
 .install-steps { margin: 8px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
 .install-steps li { display: flex; align-items: center; gap: 6px; }
+
+/* A field whose caption is a span rather than a <label> — the SIP surfaces
+   use one, because a caption that is not a form control's label should not be
+   one. Only the first span is the caption; a hint after the control is not. */
+.field > span:first-child { font-size: .85em; font-weight: 600; color: var(--fg-muted); letter-spacing: .01em; }
+
+/* The phone's dialpad: twelve keys in the 3×4 grid a phone lays them in. */
+.dialpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+.dialpad-key { justify-content: center; }

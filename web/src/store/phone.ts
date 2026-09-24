@@ -13,6 +13,7 @@
 import type { InstallationSip } from "@gilbert/shared/installation";
 import { create } from "zustand";
 import { CAP } from "@/jmap/client";
+import { t } from "@/lib/i18n";
 import { PhoneAgent, type PhoneCallView, type PhoneLineState } from "@/lib/phone/agent";
 import { iceServers, phoneOffered } from "@/lib/phone/config";
 import {
@@ -372,9 +373,18 @@ async function startAgent(
   try {
     await agent.start();
   } catch (err) {
+    /*
+     * The line could not register. The reader gets a sentence naming what to
+     * look at, and the transport's own words go to the console: a raw
+     * "WebSocket closed …" is a fact for whoever configured the server, not a
+     * sentence for whoever wanted to make a call.
+     */
+    console.warn("[gilbert] phone registration failed:", err);
     set({
       state: "unavailable",
-      error: err instanceof Error ? err.message : String(err),
+      error: t(
+        "The line could not register with the SIP server. Check the server address in the installation's SIP Phone settings.",
+      ),
     });
   }
 }

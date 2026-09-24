@@ -308,15 +308,22 @@ function Dialer({ onDial }: { onDial: () => void }) {
     onDial();
   };
 
-  const filtered = query.trim()
-    ? sources.map((source) => ({
-        ...source,
-        cards: contacts.filterCards(source.cards, query).filter((c) => dialTarget(c)),
-      }))
-    : sources.map((source) => ({
-        ...source,
-        cards: source.cards.filter((c) => dialTarget(c)),
-      }));
+  /*
+   * A contact with no number is not offered as a call, and a source with none
+   * is not a section: an empty "No contacts" heading under a group is noise
+   * rather than information.
+   */
+  const filtered = (
+    query.trim()
+      ? sources.map((source) => ({
+          ...source,
+          cards: contacts.filterCards(source.cards, query).filter((c) => dialTarget(c)),
+        }))
+      : sources.map((source) => ({
+          ...source,
+          cards: source.cards.filter((c) => dialTarget(c)),
+        }))
+  ).filter((source) => source.cards.length > 0);
   const all = contacts
     .filterCards(allDialerCards(sources), query)
     .filter((c) => dialTarget(c));
@@ -374,27 +381,21 @@ function Dialer({ onDial }: { onDial: () => void }) {
           <div className="nav-section">
             <span>{source.label}</span>
           </div>
-          {source.cards.length === 0 ? (
-            <p className="hint" style={{ padding: "2px 12px" }}>
-              {t("No contacts")}
-            </p>
-          ) : (
-            source.cards.slice(0, 50).map((card) => {
-              const target = dialTarget(card);
-              return (
-                <button
-                  key={`${source.accountId}:${card.id}`}
-                  className="nav-item"
-                  onClick={() => target && dial(target)}
-                  style={{ width: "100%", textAlign: "start" }}
-                >
-                  <PhoneCall size={15} />
-                  <span className="grow truncate">{contactDisplayName(card)}</span>
-                  {target && <span className="hint truncate">{target}</span>}
-                </button>
-              );
-            })
-          )}
+          {source.cards.slice(0, 50).map((card) => {
+            const target = dialTarget(card);
+            return (
+              <button
+                key={`${source.accountId}:${card.id}`}
+                className="nav-item"
+                onClick={() => target && dial(target)}
+                style={{ width: "100%", textAlign: "start" }}
+              >
+                <PhoneCall size={15} />
+                <span className="grow truncate">{contactDisplayName(card)}</span>
+                {target && <span className="hint truncate">{target}</span>}
+              </button>
+            );
+          })}
         </div>
       ))}
       {query.trim() && (
@@ -407,7 +408,11 @@ function Dialer({ onDial }: { onDial: () => void }) {
           </p>
         </>
       )}
-      {!sources.length && <p className="hint">{t("No contacts")}</p>}
+      {!filtered.length && (
+        <p className="hint" style={{ padding: "2px 12px" }}>
+          {t("No contacts with a number to call.")}
+        </p>
+      )}
     </div>
   );
 }
