@@ -170,9 +170,17 @@ fi
 # the difference between a service that runs and `ExecMainStatus=127`.
 if [ "$BRIDGE_OK" = "1" ]; then
   if command -v apt-get >/dev/null 2>&1; then
+    # A distribution that ran the 64-bit time_t transition renamed libraries by
+    # appending `t64` (Ubuntu 24.04 and on), so the package to install is a fact
+    # about the host: the plain name is tried and its `t64` form beside it. A
+    # name that exists in neither form is skipped, like any other package this
+    # host does not have, and the ldd check below is what refuses a bridge that
+    # is still unresolved.
     for pkg in libglib2.0-0 libjansson4 libssl3 libsrtp2-1 libnice10 \
                libcurl4 libsofia-sip-ua0 libopus0 libogg0; do
-      apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 || true
+      apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 \
+        || apt-get install -y --no-install-recommends "${pkg}t64" >/dev/null 2>&1 \
+        || true
     done
   fi
   # A healthy bridge is the empty answer, not a failure: `grep` exits 1 when
