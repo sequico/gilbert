@@ -157,4 +157,15 @@ describe("phone chrome", () => {
       "padding-bottom: var(--fab-clearance)",
     );
   });
+
+  it("wraps the calendar toolbar so its mode switch stays reachable", () => {
+    /* The date, Today and the two arrows leave the Day/Month/Agenda switch no
+       room on a phone, and the bar does not scroll: Agenda ran off the right
+       edge and could not be pressed at all. The bar wraps instead, and the
+       switch takes a full row with its buttons sharing the width. */
+    expect(declarations(phone, ".cal-toolbar")).toContain("flex-wrap: wrap");
+    expect(declarations(phone, ".cal-toolbar .view-switch")).toContain(
+      "flex: 1 1 100%",
+    );
+  });
 });
