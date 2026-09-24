@@ -1,24 +1,26 @@
 /**
- * Identities and SIP Phone (ADR 0007, ADR 0023): the two surfaces an
- * administrator sets a principal's identity through, as two tabs of one
- * administration section — a person's under User identities, a group's under
- * Group identities — beside the line that says what the phone's bridge needs.
+ * Identities and SIP Phone (ADR 0007, ADR 0023): the surfaces an administrator
+ * sets a principal's identity through — a person's under User identities, a
+ * group's under Group identities — beside the phone's bridge under Bridge
+ * status, which reports what it is doing and what is out of place.
  *
- * Both tabs stay mounted, the one not shown carrying `hidden`, so a tab keeps
- * what it was in the middle of and switching back does not read it again.
+ * Both identity tabs stay mounted, the one not shown carrying `hidden`, so a
+ * tab keeps what it was in the middle of and switching back does not read it
+ * again.
  */
 
-import { BRIDGE_MEDIA_PORTS } from "@gilbert/shared/phone";
 import { useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
 import { GroupIdentities } from "@/views/admin/GroupIdentities";
+import { PhoneStatusPanel } from "@/views/admin/PhoneStatusPanel";
 import { UserIdentities } from "@/views/admin/UserIdentities";
 
 /** The tabs, in the order the section offers them. */
 const TABS = [
   { id: "user", label: "User identities", el: <UserIdentities /> },
   { id: "group", label: "Group identities", el: <GroupIdentities /> },
+  { id: "status", label: "Bridge status", el: <PhoneStatusPanel /> },
 ];
 
 /** The tab one arrow press moves to, wrapping at the ends. */
@@ -37,9 +39,9 @@ export function IdentitiesAndSipPhone() {
   };
 
   /*
-   * Read whether the bridge is running. A host that could not install it shows
-   * no phone, and this is where an administrator finds out why — a status that
-   * cannot be read is not a verdict, so it leaves the ports line below to speak.
+   * Read whether the bridge is running, so a host that could not install it is
+   * said once here and detailed in the Bridge status tab. A status that cannot
+   * be read is not a verdict, so nothing is claimed.
    */
   useEffect(() => {
     let live = true;
@@ -60,22 +62,11 @@ export function IdentitiesAndSipPhone() {
       {status && !status.available && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
-            "The phone is not available on this deployment: {reason}. The host must install the bridge, and the media range below must be open inbound.",
+            "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.",
             { reason: status.reason ?? "" },
           )}
         </div>
       )}
-      {/*
-       * The one thing whoever installs Gilbert must open for the phone: the
-       * bridge's media range. It is the deployment's fact, stated here rather
-       * than configured anywhere (ADR 0023).
-       */}
-      <p className="hint" style={{ marginBottom: 12 }}>
-        {t(
-          "The phone's Janus bridge needs its media UDP range ({ports}) open inbound. The SIP leg to the provider is outbound, so no SIP port is opened.",
-          { ports: BRIDGE_MEDIA_PORTS },
-        )}
-      </p>
       <div className="tabs" role="tablist" aria-label={t("Identities and SIP Phone")}>
         {TABS.map((entry) => (
           <button

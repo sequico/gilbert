@@ -13,7 +13,9 @@
  * without the phone, and `bridgeReachable` is how the administration knows to
  * say so.
  */
+import { readFileSync } from "node:fs";
 import { WebSocket } from "ws";
+import { BRIDGE_MEDIA_PORTS } from "../shared/phone.js";
 
 /** The bridge's WebSocket API, on loopback: it is a second process here. */
 export const BRIDGE_URL = "ws://127.0.0.1:8188";
@@ -21,17 +23,39 @@ export const BRIDGE_URL = "ws://127.0.0.1:8188";
 /** The subprotocol the Janus API requires on that socket. */
 export const JANUS_PROTOCOL = "janus-protocol";
 
+/**
+ * Where the bridge's own version is written beside it, by the image and by the
+ * release tarball. Read best-effort: a bridge that is not installed has none,
+ * which is an answer, not a fault.
+ */
+const VERSION_FILE = "/usr/local/share/janus/VERSION";
+
 /** How long the bridge is given to answer the status probe. */
 const PROBE_TIMEOUT_MS = 1500;
 
-/** Whether the bridge is running, and the reason if it is not. */
+/** What the administration reads about the bridge. */
 export interface BridgeStatus {
+  /** Whether the daemon answers on loopback. */
   available: boolean;
+  /** Why it does not, in a sentence, when it does not. */
   reason: string | null;
+  /** The Janus the deployment installed, or null when there is none. */
+  version: string | null;
+  /** The media range the deployment opens, `BRIDGE_MEDIA_PORTS`. */
+  mediaPorts: string;
+}
+
+function installedVersion(): string | null {
+  try {
+    const value = readFileSync(VERSION_FILE, "utf8").trim();
+    return value || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Probe the bridge on loopback.
+ * Probe the bridge on loopback, and report what the deployment installed.
  *
  * A probe, not a setting: it says whether the daemon answers, which is what
  * lets the administration tell an operator the phone is unavailable and why.
@@ -39,6 +63,8 @@ export interface BridgeStatus {
  * against the bridge before it offers the phone.
  */
 export async function bridgeReachable(): Promise<BridgeStatus> {
+  const version = installedVersion();
+  const mediaPorts = BRIDGE_MEDIA_PORTS;
   const socket = new WebSocket(BRIDGE_URL, JANUS_PROTOCOL);
   const reachable = await new Promise<boolean>((resolve) => {
     const timer = setTimeout(() => {
@@ -56,9 +82,11 @@ export async function bridgeReachable(): Promise<BridgeStatus> {
   });
   socket.close();
   return reachable
-    ? { available: true, reason: null }
+    ? { available: true, reason: null, version, mediaPorts }
     : {
         available: false,
         reason: "the phone's bridge is not running on this host",
+        version,
+        mediaPorts,
       };
 }

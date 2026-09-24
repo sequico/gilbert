@@ -9,6 +9,7 @@
  * The socket is gilbertserver's own (`/api/phone`), not Janus's: the server
  * proxies it, so the page opens one origin, one certificate and one session.
  */
+import { t } from "@/lib/i18n";
 
 /** JSEP, as Janus and the browser exchange it. */
 export interface Jsep {
@@ -70,7 +71,7 @@ export class Janus {
      * wait, as a naive version does, is what makes a dropped socket silent.
      */
     const first = new Promise<void>((resolve, reject) => {
-      const failed = new Error("the phone bridge did not answer");
+      const failed = new Error(t("The phone bridge did not answer."));
       ws.onopen = () => {
         opened = true;
         resolve();
@@ -78,7 +79,7 @@ export class Janus {
       ws.onclose = () => {
         ws.onclose = null;
         this.stopKeepalive();
-        this.rejectPending(new Error("the phone bridge is gone"));
+        this.rejectPending(new Error(t("The phone bridge is gone.")));
         if (opened) {
           if (!this.closed) this.hooks.onClosed();
         } else reject(failed);
@@ -90,12 +91,12 @@ export class Janus {
     ws.onmessage = (event) => this.receive(String(event.data));
     await first;
     const created = (await this.request({ janus: "create" })) as { id?: number };
-    if (!created.id) throw new Error("the phone bridge accepted no session");
+    if (!created.id) throw new Error(t("The phone bridge accepted no session."));
     this.session = created.id;
     const attached = (await this.request({ janus: "attach", plugin })) as {
       id?: number;
     };
-    if (!attached.id) throw new Error("the phone bridge attached no plugin");
+    if (!attached.id) throw new Error(t("The phone bridge attached no plugin."));
     this.handle = attached.id;
     this.keepalive = window.setInterval(() => {
       this.send({ janus: "keepalive", session_id: this.session });
@@ -133,7 +134,7 @@ export class Janus {
     const ws = this.ws;
     this.ws = null;
     ws?.close();
-    this.rejectPending(new Error("the phone bridge is gone"));
+    this.rejectPending(new Error(t("The phone bridge is gone.")));
   }
 
   private next(): string {
@@ -174,7 +175,9 @@ export class Janus {
     if (ok) pending.resolve(message.data ?? {});
     else
       pending.reject(
-        new Error(message.error?.reason ?? "the phone bridge refused the request"),
+        new Error(
+          message.error?.reason ?? t("The phone bridge refused the request."),
+        ),
       );
   }
 

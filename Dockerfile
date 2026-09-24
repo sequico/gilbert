@@ -59,7 +59,8 @@ RUN ./autogen.sh \
  && make -j"$(nproc)" \
  && make install \
  && mkdir -p /usr/local/share/janus /usr/local/lib/janus/loggers /usr/local/lib/janus/events \
- && cp COPYING /usr/local/share/janus/COPYING
+ && cp COPYING /usr/local/share/janus/COPYING \
+ && cp /janus-version /usr/local/share/janus/VERSION
 
 # ---- runtime stage ----
 FROM node:24-bookworm-slim AS runtime

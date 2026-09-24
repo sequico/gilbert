@@ -11,6 +11,7 @@
  */
 import type { SipCredential } from "@gilbert/shared/phone";
 import { withBase } from "@/lib/basePath";
+import { t } from "@/lib/i18n";
 import { Janus, type Jsep } from "./janus";
 
 /** The line as the top-bar entry reads it. */
@@ -66,6 +67,57 @@ function bridgeUrl(): string {
   const url = new URL(withBase("/api/phone"), window.location.origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
+}
+
+/**
+ * Whether this browser can reach the bridge's media at all.
+ *
+ * The one media probe: it negotiates a throwaway WebRTC path with the bridge's
+ * echo test, and only a path that actually comes up is proof the media range is
+ * open. The phone uses it before offering itself, and the administration's
+ * bridge status uses it on demand. Everything it opened is closed on every
+ * path, success or not.
+ */
+export async function probeBridgeMedia(): Promise<boolean> {
+  let pc: RTCPeerConnection | null = null;
+  let timer: number | null = null;
+  const janus = new Janus(bridgeUrl(), {
+    onEvent: (plugin, _data, jsep) => {
+      if (plugin === "janus.plugin.echotest" && jsep && pc)
+        void pc.setRemoteDescription(jsep).catch(() => undefined);
+    },
+    onRemoteCandidate: (candidate) => {
+      void pc?.addIceCandidate(candidate).catch(() => undefined);
+    },
+    onMediaGone: () => undefined,
+    onClosed: () => undefined,
+  });
+  try {
+    await janus.open("janus.plugin.echotest");
+    const connection = new RTCPeerConnection();
+    pc = connection;
+    const reached = new Promise<boolean>((resolve) => {
+      connection.onconnectionstatechange = () => {
+        if (connection.connectionState === "connected") resolve(true);
+        else if (connection.connectionState === "failed") resolve(false);
+      };
+      timer = window.setTimeout(() => resolve(false), PROBE_TIMEOUT_MS);
+    });
+    connection.onicecandidate = (event) => {
+      janus.trickle(event.candidate ? event.candidate.toJSON() : { completed: true });
+    };
+    connection.addTransceiver("audio", { direction: "sendrecv" });
+    const offer = await connection.createOffer();
+    await connection.setLocalDescription(offer);
+    janus.message({ audio: true, video: false }, { type: "offer", sdp: offer.sdp ?? "" });
+    return await reached;
+  } catch {
+    return false;
+  } finally {
+    if (timer !== null) window.clearTimeout(timer);
+    pc?.close();
+    janus.close();
+  }
 }
 
 interface SipData {
@@ -137,8 +189,8 @@ export class Phone {
   /** Place a call to a contact's number or an address typed by hand. */
   async call(target: string): Promise<void> {
     const janus = this.janus;
-    if (!janus) throw new Error("The phone is not connected.");
-    if (this.pc || this.ringing) throw new Error("The line is busy.");
+    if (!janus) throw new Error(t("The phone is not connected."));
+    if (this.pc || this.ringing) throw new Error(t("The line is busy."));
     const pc = await this.newPeer();
     try {
       const offer = await pc.createOffer();
@@ -255,57 +307,12 @@ export class Phone {
     });
   }
 
-  /**
-   * Whether this browser can reach the bridge's media at all.
-   *
-   * The probe negotiates a throwaway WebRTC path with the bridge's echo test,
-   * and only a path that actually comes up is the proof the phone is offered.
-   * Everything it opened is closed on every path, success or not.
-   */
+  /** Whether this browser can reach the bridge's media; throws when it cannot. */
   private async mediaReachable(): Promise<void> {
-    let pc: RTCPeerConnection | null = null;
-    let timer: number | null = null;
-    const janus = new Janus(bridgeUrl(), {
-      onEvent: (plugin, _data, jsep) => {
-        if (plugin === "janus.plugin.echotest" && jsep && pc)
-          void pc.setRemoteDescription(jsep).catch(() => undefined);
-      },
-      onRemoteCandidate: (candidate) => {
-        void pc?.addIceCandidate(candidate).catch(() => undefined);
-      },
-      onMediaGone: () => undefined,
-      onClosed: () => undefined,
-    });
-    try {
-      await janus.open("janus.plugin.echotest");
-      const connection = new RTCPeerConnection();
-      pc = connection;
-      const reached = new Promise<boolean>((resolve) => {
-        connection.onconnectionstatechange = () => {
-          if (connection.connectionState === "connected") resolve(true);
-          else if (connection.connectionState === "failed") resolve(false);
-        };
-        timer = window.setTimeout(() => resolve(false), PROBE_TIMEOUT_MS);
-      });
-      connection.onicecandidate = (event) => {
-        janus.trickle(event.candidate ? event.candidate.toJSON() : { completed: true });
-      };
-      connection.addTransceiver("audio", { direction: "sendrecv" });
-      const offer = await connection.createOffer();
-      await connection.setLocalDescription(offer);
-      janus.message(
-        { audio: true, video: false },
-        { type: "offer", sdp: offer.sdp ?? "" },
+    if (!(await probeBridgeMedia()))
+      throw new Error(
+        t("The phone bridge could not carry media: its media ports are not reachable."),
       );
-      if (!(await reached))
-        throw new Error(
-          "The phone bridge could not carry media: its media ports are not reachable.",
-        );
-    } finally {
-      if (timer !== null) window.clearTimeout(timer);
-      pc?.close();
-      janus.close();
-    }
   }
 
   /** A PeerConnection with a live microphone on it, or a clear failure. */
@@ -317,14 +324,14 @@ export class Phone {
     } catch {
       pc.close();
       throw new Error(
-        "The microphone is not available, so the call cannot carry your voice.",
+        t("The microphone is not available, so the call cannot carry your voice."),
       );
     }
     const track = media.getAudioTracks()[0];
     if (!track) {
       for (const other of media.getTracks()) other.stop();
       pc.close();
-      throw new Error("No microphone is available.");
+      throw new Error(t("No microphone is available."));
     }
     const transceiver = pc.addTransceiver(track, {
       direction: "sendrecv",
@@ -378,7 +385,7 @@ export class Phone {
         return;
       case "registration_failed":
         this.hooks.onLine("unavailable");
-        this.hooks.onError("The line could not register with the SIP server.");
+        this.hooks.onError(t("The line could not register with the SIP server."));
         return;
       case "incomingcall":
         this.remote = result.username ?? result.caller ?? "";
