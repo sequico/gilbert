@@ -10,10 +10,10 @@ import { PhoneContactsPanel } from "../PhoneContactsPanel";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The dialer's contacts pane lists **every** contact (ADR 0023): the ones with a
- * number offer a call, and one with none is still listed and searchable. That is
- * how a group's members — whose cards often carry no phone — stop being silently
- * dropped from the phone, which is the bug this pins.
+ * The dialer's contacts pane offers a contact only when it can be called: one
+ * that carries at least one number. A member with no number is not a row, so a
+ * search that does not match a callable contact finds nothing — which is the
+ * dialer's contract, not Contacts'.
  */
 
 const GROUP = "team";
@@ -30,8 +30,8 @@ const book: SharedBook = {
   } as AddressBook,
 };
 
-/** A group card, with a number only when one is passed. */
-function card(id: string, name: string, number?: string): ContactCard {
+/** A group card, with a number and a company only when passed. */
+function card(id: string, name: string, number?: string, company?: string): ContactCard {
   const phones: ContactCard["phones"] = number ? { p1: { number } } : {};
   return {
     id,
@@ -39,6 +39,7 @@ function card(id: string, name: string, number?: string): ContactCard {
     addressBookIds: { gab: true },
     name: { full: name },
     emails: { e1: { address: `${id}@example.org` } },
+    organizations: company ? { o1: { name: company } } : undefined,
     phones,
   } as ContactCard;
 }
@@ -66,14 +67,19 @@ describe("the dialer's contacts pane", () => {
       cards: {},
       sharedBooks: [book],
       sharedCards: {
-        [`${GROUP}:callable`]: card("callable", "Grace Hopper", "+1 555 0101"),
+        [`${GROUP}:callable`]: card(
+          "callable",
+          "Grace Hopper",
+          "+1 555 0101",
+          "Example Corp",
+        ),
         [`${GROUP}:member`]: card("member", "Marie Curie"),
       },
     });
     useMail.setState({
       mailAccounts: [{ accountId: GROUP, name: "Team", kind: "group" }],
     });
-    usePhone.setState({ ready: true, state: "registered" });
+    usePhone.setState({ ready: true, bridge: true, state: "registered" });
   });
 
   afterEach(() => {
@@ -86,30 +92,54 @@ describe("the dialer's contacts pane", () => {
       sharedCards: {},
     });
     useMail.setState({ mailAccounts: [] });
-    usePhone.setState({ ready: false, state: "off" });
+    usePhone.setState({ ready: false, bridge: false, state: "off" });
   });
 
-  it("lists a member with no number, and dials only where there is one", () => {
+  it("lists only a contact that carries a number", () => {
     act(() => root.render(<PhoneContactsPanel />));
-    expect(host.querySelectorAll(".phone-contact")).toHaveLength(2);
+    expect(host.querySelectorAll(".phone-contact")).toHaveLength(1);
     expect(host.textContent).toContain("Grace Hopper");
-    expect(host.textContent).toContain("Marie Curie");
-    // One call target only: Marie's row carries no number to press.
     expect(host.querySelectorAll(".phone-contact-number")).toHaveLength(1);
+    expect(host.textContent).not.toContain("Marie Curie");
   });
 
-  it("finds a numberless member by name", () => {
+  it("finds a callable contact by name, and a numberless one not at all", () => {
     act(() => root.render(<PhoneContactsPanel />));
     const input = host.querySelector<HTMLInputElement>(".phone-search input");
     expect(input).not.toBeNull();
+    act(() => type(input!, "grace"));
+    expect(host.textContent).toContain("Grace Hopper");
     act(() => type(input!, "marie"));
-    expect(host.querySelectorAll(".phone-contact")).toHaveLength(1);
-    expect(host.textContent).toContain("Marie Curie");
+    expect(host.querySelectorAll(".phone-contact")).toHaveLength(0);
+  });
+
+  it("shows the company under the name, in small", () => {
+    act(() => root.render(<PhoneContactsPanel />));
+    expect(host.querySelector(".phone-contact-company")?.textContent).toBe(
+      "Example Corp",
+    );
   });
 
   it("names the two line states as the phone's own connections", () => {
     act(() => root.render(<PhoneContactsPanel />));
     expect(host.textContent).toContain("Gilbert phone connection");
     expect(host.textContent).toContain("SIP server connection");
+  });
+
+  it("keeps both dots true in real time, red and green", () => {
+    usePhone.setState({ ready: true, bridge: false, state: "connecting" });
+    act(() => root.render(<PhoneContactsPanel />));
+    const dot = (i: number) => host.querySelectorAll(".phone-dot")[i]?.className;
+    // The bridge is down and the line is not registered: both are red.
+    expect(dot(0)).toContain("bad");
+    expect(dot(1)).toContain("bad");
+    // The socket returns and the line registers: both turn green.
+    act(() => usePhone.setState({ bridge: true, state: "registered" }));
+    expect(dot(0)).toContain("ok");
+    expect(dot(1)).toContain("ok");
+    // The line drops again: its dot is red while the bridge stays up.
+    act(() => usePhone.setState({ state: "connecting" }));
+    expect(dot(0)).toContain("ok");
+    expect(dot(1)).toContain("bad");
   });
 });

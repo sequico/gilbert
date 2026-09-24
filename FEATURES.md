@@ -887,12 +887,14 @@ is the reference.
 - **The phone panel** opens attached to the handset in three equal panes: the
   **contacts** on the left, the **dialer** in the centre, the account's **call
   history** on the right. The contacts pane carries two dots with their cause on
-  hover — the browser's path to Gilbert and its own SIP server connection — and
-  tabs (**All**, **Global**, **My**, and one row per group the reader belongs
-  to) that choose which contacts the list offers, a search with its clear
-  control narrowing it live. Every contact is listed; a press dials the numbers
-  one carries, and a contact with no number is listed and searchable but simply
-  not offered as a call. Editing belongs to Contacts, so the list is read-only.
+  hover, each true in real time and either green or red — the browser's path to
+  Gilbert and the account's registration with its SIP server — and tabs
+  (**All**, **Global**, **My**, and one row per group the reader belongs to)
+  that choose which contacts the list offers, a search with its clear control
+  narrowing it live. Only a contact that carries a number is offered,
+  and a press dials it; a contact with no number is not a row, and a row names
+  the person with the company under the name where the card carries one.
+  Editing belongs to Contacts, so the list is read-only.
 - **The call history** is the account's own (`calls.json` in its app folder):
   the calls placed and taken, newest first, each with the direction, the other
   party — or the contact it matches — when it began and the seconds it

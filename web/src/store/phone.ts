@@ -35,6 +35,8 @@ interface PhoneStore {
   state: PhoneState;
   /** Whether the phone is offered at all: an account, and a bridge that works. */
   ready: boolean;
+  /** Whether the bridge socket is up: the browser's path to Gilbert, live. */
+  bridge: boolean;
   /** The ringing call, before it is answered. */
   incoming: string | null;
   /** The SIP user the line registers as, shown as the panel's title. */
@@ -96,6 +98,7 @@ let credentialRetry: number | null = null;
 export const usePhone = create<PhoneStore>((set, get) => ({
   state: "off",
   ready: false,
+  bridge: false,
   incoming: null,
   sipUser: null,
   call: null,
@@ -162,6 +165,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     set({
       state: "off",
       ready: false,
+      bridge: false,
       incoming: null,
       sipUser: null,
       call: null,
@@ -274,6 +278,7 @@ async function begin(set: SetState, gen: number): Promise<void> {
   phone = new Phone(credential, {
     onLine: (state) =>
       set((s) => ({ state, sipReason: state === "registered" ? null : s.sipReason })),
+    onBridge: (up) => set({ bridge: up }),
     onProven: () => set({ ready: true, mediaReason: null }),
     onIncoming: (from) => set({ incoming: from || null }),
     onCall: (call, stream) => set({ call, stream }),

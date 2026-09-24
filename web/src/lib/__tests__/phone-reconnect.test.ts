@@ -66,8 +66,10 @@ class FakePeer {
 const lines: string[] = [];
 const calls: Array<string | null> = [];
 const failures: Array<{ leg: string; reason: string }> = [];
+const bridges: boolean[] = [];
 const hooks: PhoneHooks = {
   onLine: (state) => lines.push(state),
+  onBridge: (up) => bridges.push(up),
   onProven: () => {},
   onIncoming: () => {},
   onCall: (call) => calls.push(call?.remote ?? null),
@@ -86,6 +88,7 @@ beforeEach(() => {
   lines.length = 0;
   calls.length = 0;
   failures.length = 0;
+  bridges.length = 0;
 });
 
 afterEach(() => {
@@ -97,6 +100,8 @@ describe("the phone's socket lifecycle", () => {
   it("retries at once when the network returns, and ends the call when the socket goes", async () => {
     const phone = new Phone(credential, hooks);
     await phone.start();
+    // The socket is up, so the browser's path to Gilbert is: the dot is green.
+    expect(bridges).toContain(true);
     // The probe's socket, then the one the registered line lives on.
     expect(FakeSocket.instances).toHaveLength(2);
 
@@ -106,6 +111,8 @@ describe("the phone's socket lifecycle", () => {
     sip.onclose?.();
     expect(lines).toContain("connecting");
     expect(calls).toContain(null);
+    // And the path to Gilbert is reported down, not left looking green.
+    expect(bridges.at(-1)).toBe(false);
 
     // The network returns: a fresh attempt starts now, without waiting out the
     // reconnect timer the drop scheduled.

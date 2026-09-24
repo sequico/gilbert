@@ -81,6 +81,12 @@ export interface ActiveCall {
 export interface PhoneHooks {
   onLine(state: LineState): void;
   /**
+   * The bridge socket is up (`true`) or gone (`false`). It is the browser's own
+   * path to Gilbert, kept apart from the media proof and the SIP registration so
+   * the surface's first status dot can be true in real time rather than once.
+   */
+  onBridge(up: boolean): void;
+  /**
    * The media path to the bridge is proven, so the phone may be offered. It is
    * what separates "no phone" (no media, per the record) from "a line that is
    * there but not registered" (the red glyph, with its reason readable).
@@ -283,6 +289,7 @@ export class Phone {
   /** Give the line up: hang up, unregister and stop retrying. */
   async stop(): Promise<void> {
     this.ended = true;
+    this.hooks.onBridge(false);
     window.removeEventListener("online", this.onOnline);
     if (this.reconnect !== null) {
       window.clearTimeout(this.reconnect);
@@ -435,6 +442,7 @@ export class Phone {
         // No bridge in the mock: pretend the media path and the registration, so
         // the surface can be seen and driven without a Janus.
         this.mediaProven = true;
+        this.hooks.onBridge(true);
         this.hooks.onProven();
         this.hooks.onLine("registered");
         return;
@@ -461,6 +469,7 @@ export class Phone {
       } catch (err) {
         if (this.janus === janus) this.janus = null;
         janus.close();
+        this.hooks.onBridge(false);
         throw err;
       }
       if (this.ended) {
@@ -468,6 +477,9 @@ export class Phone {
         janus.close();
         return;
       }
+      // The socket is up: the browser's own path to Gilbert exists, whatever
+      // the registration does next.
+      this.hooks.onBridge(true);
       janus.message({
         request: "register",
         username: sipAddress(this.credential),
@@ -553,6 +565,7 @@ export class Phone {
          * than leaving a dead call on screen until the line registers again.
          */
         this.endCall();
+        this.hooks.onBridge(false);
         this.hooks.onLine("connecting");
         this.scheduleReconnect();
       },
