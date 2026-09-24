@@ -10,7 +10,6 @@ import {
   Menu as MenuIcon,
   Moon,
   PenSquare,
-  Phone,
   Plus,
   RefreshCw,
   Settings,
@@ -50,6 +49,7 @@ import { ChatLauncher } from "./chat/ChatLauncher";
 import { InstallAppDialog, InstallBanner, useInstallState } from "./InstallApp";
 import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
+import { PhoneLauncher } from "./phone/PhoneLauncher";
 import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
@@ -344,13 +344,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               beside it and the push dot after them: ADR 0005. Rendered (or not)
               by the launcher itself. */}
           <ChatLauncher />
-          {/*
-            The phone entry. It marks the slot the feature will use and has no
-            behaviour yet: what it opens is decided by its own ADR.
-          */}
-          <button className="icon-btn" aria-label={t("Phone")} title={t("Phone")}>
-            <Phone size={21} />
-          </button>
+          {/* The phone (ADR 0023): its own entry, its own state, and no
+              presence at all where the installation or the account has none. */}
+          <PhoneLauncher />
           <span
             className="push-status hide-mobile"
             role="img"

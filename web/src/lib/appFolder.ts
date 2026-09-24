@@ -314,6 +314,29 @@ export async function writeBlobInFolder(
 }
 
 /**
+ * Read a named JSON document from the account's app folder, or null.
+ *
+ * The reader beside `writeAppJson`, and the one answer to "what is in that
+ * document": absent, unreadable, and not-JSON all come back as null, because a
+ * caller that cannot read a document has none of it. A caller that needs the
+ * FileNode state for a conditional write asks `findInFolderWithState` itself —
+ * the settings writer does — since the state is a second fact this deliberately
+ * does not invent.
+ */
+export async function readAppJson(accountId: Id, name: string): Promise<unknown | null> {
+  const folder = await findAppFolder(accountId);
+  if (!folder) return null;
+  const file = await findInFolder(accountId, folder, name);
+  if (!file?.blobId) return null;
+  try {
+    const text = await client.fetchBlobText(accountId, file.blobId, APP_DOCUMENT_TYPE);
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Upload a JSON document and write it into a named file in the account's app
  * folder, creating the folder when missing — the client-side twin of the
  * server's `writeAppFile`/`writeAppFileAt` (`server/src/appFolder.ts`).

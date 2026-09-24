@@ -1,4 +1,6 @@
+import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import type {
+  AddressBook,
   ContactCard,
   EmailAddress,
   JSContactMedia,
@@ -6,6 +8,15 @@ import type {
 } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
 import { foldLine } from "./contentLines";
+
+/**
+ * Whether an address book is the installation's shared Global contacts
+ * directory (ADR 0023). One predicate, asked by the sidebar and the dialer, so
+ * the two cannot disagree about which book is the directory.
+ */
+export function isGlobalContactsBook(book: Pick<AddressBook, "name">): boolean {
+  return book.name === GLOBAL_CONTACTS_BOOK_NAME;
+}
 
 /** Best display name for a card. */
 export function contactDisplayName(c: ContactCard): string {
