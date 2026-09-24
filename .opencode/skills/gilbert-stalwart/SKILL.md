@@ -81,7 +81,7 @@ Where the integration lives:
   (signatures capped at 2047 bytes of UTF-8 — Rust `len()`, see
   `web/src/lib/signatureHtml.ts`), calendar events, contacts, sieve scripts,
   principal/group structure.
-- **Global contacts** (ADR 0023, `gilbert-phone`): one `AddressBook` +
+- **Global contacts** (ADR 0024, `gilbert-phone`): one `AddressBook` +
   `ContactCard`s in the **Master's** account, shared **read-only with every
   account** and written only by an administrator from inside Contacts — a
   Stalwart object, never a second store. The exact shape of a share naming every

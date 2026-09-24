@@ -3,8 +3,8 @@ import { after, before, test } from "node:test";
 import { postWith } from "./testkit.js";
 
 /**
- * The administrator's two phone surfaces (ADR 0023): an identity's SIP
- * credential, and the Global contacts directory.
+ * The administrator's two surfaces: an identity's SIP credential (ADR 0023)
+ * and the Global contacts directory (ADR 0024).
  *
  * The credential is written into that account's own `sip.json` by impersonation
  * and read back keyed by the identity's email — the key both tiers assume. The

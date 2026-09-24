@@ -870,7 +870,7 @@ credentials (ADR 0023).
   **read-only with every account** and written only by an administrator, from
   inside Contacts. The administrator's write re-applies the share, which is what
   brings an account created later in — the deployment's own share shape is owed
-  the live probe ADR 0023 names. Every reader sees it in `All contacts` and in a
+  the live probe ADR 0024 names. Every reader sees it in `All contacts` and in a
   section of its own; the phone offers its numbers as speed dial.
 - **The installation's settings** are one **SIP Phone** administration page:
   the endpoints in the order they are tried, the STUN and TURN servers media may

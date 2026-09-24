@@ -219,33 +219,30 @@ is, not what a user sees.
   account the action is aimed at, because a group's copy of a conversation and
   the reader's own are two threads. The dated entries keep their literal
   meaning.
-- **0023 — SIP telephony and Global contacts.** The softphone is SIP.js
-  over SIP over WebSocket with WebRTC media, in gilbertmailer, speaking to the
-  deployment's own SIP server; the credentials are an identity's, set per
-  identity in the identity-enforcement surface and enforceable, account data and
-  never device-local. The client registers one line — the default identity's —
-  with a 30-second life renewed while the page is alive, one tab per device, and
-  deregisters explicitly only when the page actually goes, never when it is
-  merely backgrounded, where it stays registered and is rung; the server's
-  registration state then decides what an absent client means: a mailbox, or a
-  fork to the other clients under the same credentials. Reliability is the
-  priority: a bad network or a lost server is answered unattended — reconnect,
-  re-register, ICE restart, codecs renegotiated as the path degrades and
-  recovers — with the configured endpoints tried in order and a WSS gateway as
-  the fallback. Incoming calls take the screen on a phone and a banner on a
-  desktop; a live call collapses into the top bar; the controls are mute and
-  DTMF, hold and transfer being the server's own DTMF sequences; a second call
-  is call-waiting or 486 as the server offers it; a number can also be composed
-  by hand; and the microphone is asked as early as the surface can. The
-  installation's endpoints, STUN/TURN and switch are one SIP Phone
-  administration page. The dialer's list is read-only — search and dial, never
-  an edit — and reads Contacts separated by Global contacts, each group,
-  personal and all, and a call starts either from it or from Contacts, where
-  every write happens. Global contacts is one address book owned by the Master,
-  shared read-only with every account, shown in a section of its own in the
-  Contacts sidebar as well as merged in `All contacts`, and edited only by an
-  administrator from inside Contacts, with no per-member copy. A reload cannot
-  carry a call, so it asks first. The feature is stated in the public documents
-  when it is built — `FEATURES.md` and `README.md` — and not left to the code; a
-  browser that is closed cannot ring or be rung, which is the platform's limit
-  and what the deregistration answers.
+- **0023 — SIP telephony through a Janus bridge.** A browser cannot speak SIP,
+  and a deployment's provider may not offer it over WebSocket, so the phone runs
+  on **Janus** with its SIP plugin — a process of the deployment's own. The
+  browser speaks the Janus API over a WebSocket that gilbertserver proxies on
+  its own origin and authenticates by session, with WebRTC media; it never holds
+  a SIP credential. gilbertserver registers each user's account **server-side**,
+  one registration per user held by the process: an incoming call is forked to
+  every connected desktop client, first answer wins and the rest are cancelled,
+  and with no client connected Gilbert does not answer — the provider's own
+  routing takes it. A second call is refused 486. Audio only, G.711 passed
+  through without transcoding, DTMF over RFC 2833, TLS to the provider, no
+  STUN/TURN. Each person's SIP server, username and password are account data,
+  set in **Identities and SIP Phone** in the identity-enforcement surface; there
+  is no installation-level phone configuration and no SIP Phone page, because
+  how Gilbert reaches Janus is a deployment fact. The surface is **desktop
+  only**: a page rings only while it is alive. The dialer is read-only, reads
+  Contacts separated by Global contacts, each group, personal and all, and a
+  number can be typed by hand. Not built; the tree still carries an earlier
+  client-side SIP-over-WebSocket phone, which this decision replaces.
+
+- **0024 — Global contacts.** One address book in the Master's account, created
+  by the installation rather than by hand, shared read-only with every account
+  and written only by an administrator from inside Contacts through a server
+  route that acts as the Master. It has a section of its own in the Contacts
+  sidebar as well as being merged in `All contacts`, its cards are ordinary
+  cards, and the phone offers them as speed dial. The exact Stalwart shape of a
+  share naming every account at once is owed a live probe.
