@@ -96,6 +96,12 @@ line in the dialer's list or the contact itself in Contacts, and the two send
 the same `Inviter`. It is a client-side action: the contact's address becomes
 the call's target.
 
+**The dialer's list is read-only and searches and dials, nothing else.** No
+contact is created, edited or deleted from it — not by a member and not by an
+administrator — because editing a contact belongs to Contacts, which is where
+the directory's own controls live (ADR 0024). The dialer reads, searches and
+calls; every write is somewhere else.
+
 ### On the phone
 
 The entry, the dialer's list, the ringing surface and the collapsed call are
