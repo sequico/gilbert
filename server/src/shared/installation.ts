@@ -469,7 +469,14 @@ export function parseInstallationDocumentDetailed(
    * fail at connect — refused at boot instead.
    */
   const readUrl = (where: string, value: unknown, schemes: string[]): string | null => {
-    const text = typeof value === "string" ? value.trim() : "";
+    if (typeof value !== "string") {
+      // A value that is there and is not text is a problem, never a silent
+      // drop: an endpoint the operator wrote as a number is one they meant.
+      if (value !== undefined && value !== null)
+        problems.push(`"${where}" must be a URL.`);
+      return null;
+    }
+    const text = value.trim();
     if (!text) return null;
     let parsed: URL;
     try {
@@ -495,10 +502,10 @@ export function parseInstallationDocumentDetailed(
     fallback: string[],
     schemes: string[],
   ): string[] => {
-    if (v === undefined || v === null) return fallback;
+    if (v === undefined || v === null) return [...fallback];
     if (!Array.isArray(v)) {
       problems.push(`"${where}" must be a list of URLs.`);
-      return fallback;
+      return [...fallback];
     }
     const out: string[] = [];
     v.forEach((entry, i) => {
@@ -559,7 +566,9 @@ export function parseInstallationDocumentDetailed(
    */
   const turn: InstallationSipTurn[] = [];
   if (sip.turn === undefined || sip.turn === null) {
-    turn.push(...defaults.sip.turn);
+    // Copies, not the defaults' own objects: a parsed document must not alias
+    // what `installationDefaults()` hands out.
+    turn.push(...defaults.sip.turn.map((server) => ({ ...server })));
   } else if (!Array.isArray(sip.turn)) {
     problems.push(`"sip.turn" must be a list of servers.`);
   } else {

@@ -22,6 +22,9 @@ import { GLOBAL_CONTACTS_BOOK_NAME, type GlobalContactInput } from "./shared/pho
  * administrator's own session nothing to write with.
  */
 
+/** How many principals one page of the enumeration asks for. */
+const PRINCIPAL_PAGE = 500;
+
 /** The Master's session and its own account, or a refusal. */
 async function masterAccount(
   admin: LiveSession,
@@ -101,6 +104,21 @@ export async function globalContactsBookId(ctx: Ctx, accountId: string): Promise
   );
 }
 
+/** The directory book's id, or a 404 — for a caller that must not create it. */
+async function requiredGlobalContactsBook(
+  client: JmapClient,
+  accountId: string,
+): Promise<string> {
+  const found = await findGlobalContactsBook(client, accountId);
+  if (!found)
+    throw new IdentityAdminError(
+      "global_contacts_book",
+      "The Global contacts directory has no address book yet.",
+      404,
+    );
+  return found;
+}
+
 /**
  * Share the directory read-only with every principal the Master can name.
  *
@@ -108,10 +126,11 @@ export async function globalContactsBookId(ctx: Ctx, accountId: string): Promise
  * later; whether Stalwart has such a wildcard share is what the ADR leaves owed
  * a live probe, so this is the best-known shape: every principal read through
  * the standard door, merged into the book's existing share so a principal
- * beyond the enumeration's page keeps its grant. It runs on every write, which
- * is what brings an account created since the last one in. An enumeration that
- * names nobody, and a share the server refuses, both fail loudly: a directory
- * nobody can read is not a directory.
+ * beyond the first page keeps its grant. The walk pages to the end rather than
+ * trusting one page, which is what makes "every principal" true. It runs on
+ * every write, which is what brings an account created since the last one in.
+ * An enumeration that names nobody, and a share the server refuses, both fail
+ * loudly: a directory nobody can read is not a directory.
  */
 async function shareWithEveryone(
   ctx: Ctx,
@@ -119,15 +138,18 @@ async function shareWithEveryone(
   bookId: string,
 ): Promise<void> {
   const client = new JmapClient(ctx);
-  const principals = await client.call<{ list?: Array<{ id?: unknown }> }>(
-    "Principal/query",
-    { accountId, limit: 1000 },
-    [JMAP_PRINCIPALS],
-  );
   const wanted: Record<string, { mayRead: boolean }> = {};
-  for (const principal of principals.list ?? [])
-    if (typeof principal.id === "string" && principal.id !== accountId)
-      wanted[principal.id] = { mayRead: true };
+  for (let position = 0; ; position += PRINCIPAL_PAGE) {
+    const page = await client.call<{ ids?: unknown[]; total?: unknown }>(
+      "Principal/query",
+      { accountId, position, limit: PRINCIPAL_PAGE, calculateTotal: true },
+      [JMAP_PRINCIPALS],
+    );
+    const ids = (page.ids ?? []).filter((id): id is string => typeof id === "string");
+    for (const id of ids) if (id !== accountId) wanted[id] = { mayRead: true };
+    if (ids.length < PRINCIPAL_PAGE) break;
+    if (typeof page.total === "number" && position + ids.length >= page.total) break;
+  }
   if (!Object.keys(wanted).length)
     throw new IdentityAdminError(
       "global_contacts_share",
@@ -135,11 +157,11 @@ async function shareWithEveryone(
       502,
     );
 
-  const current = await client.call<{
-    list?: Array<{ shareWith?: unknown }>;
-  }>("AddressBook/get", { accountId, ids: [bookId], properties: ["id", "shareWith"] }, [
-    JMAP_CONTACTS,
-  ]);
+  const current = await client.call<{ list?: Array<{ shareWith?: unknown }> }>(
+    "AddressBook/get",
+    { accountId, ids: [bookId], properties: ["id", "shareWith"] },
+    [JMAP_CONTACTS],
+  );
   const existing = (current.list?.[0]?.shareWith ?? {}) as Record<string, unknown>;
   const shareWith = { ...existing, ...wanted };
   const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
@@ -169,24 +191,44 @@ function strings(value: unknown): string[] {
 /**
  * The card fields the server writes, from the editor's small shape.
  *
- * An empty list clears the property (`null`, which JMAP removes) rather than
- * leaving what was there: the administrator typed what the card should hold,
- * and a stale address sitting beside the edited ones is the silent surprise.
+ * On create, an empty property is **omitted**: `null` is the `/set` idiom for
+ * removing a value, and whether a server accepts it on a create is not pinned,
+ * so a new card carries only what it has. On update it is sent as `null`, which
+ * is what clears a property the administrator deleted — a stale address beside
+ * the edited ones is the silent surprise.
  */
-function cardFields(input: GlobalContactInput): Record<string, unknown> {
+function cardFields(
+  input: GlobalContactInput,
+  opts: { clear: boolean },
+): Record<string, unknown> {
   const emails = strings(input.emails);
   const phones = strings(input.phones);
   const organization = text(input.organization);
   const notes = text(input.notes);
   const objects = (values: string[], key: (v: string) => Record<string, unknown>) =>
-    values.length ? Object.fromEntries(values.map((v, i) => [`k${i}`, key(v)])) : null;
-  return {
-    name: { full: text(input.name) },
+    values.length
+      ? Object.fromEntries(values.map((v, i) => [`k${i}`, key(v)]))
+      : opts.clear
+        ? null
+        : undefined;
+  const fields: Record<string, unknown> = { name: { full: text(input.name) } };
+  for (const [name, value] of Object.entries({
     emails: objects(emails, (address) => ({ address })),
     phones: objects(phones, (number) => ({ number })),
-    organizations: organization ? { o0: { name: organization } } : null,
-    notes: notes ? { n0: { note: notes } } : null,
-  };
+    organizations: organization ? { o0: { name: organization } } : undefined,
+    notes: notes ? { n0: { note: notes } } : undefined,
+  }))
+    if (value !== undefined) fields[name] = value;
+  return fields;
+}
+
+/** Whether a card the administrator typed says anything at all. */
+export function isEmptyGlobalContact(input: GlobalContactInput): boolean {
+  return (
+    !input.name.trim() &&
+    !input.emails.some((e) => e.trim()) &&
+    !input.phones.some((p) => p.trim())
+  );
 }
 
 /** Create or update one card in the directory, answering its id. */
@@ -201,7 +243,7 @@ export async function writeGlobalContact(
   // the last one is brought in.
   await shareWithEveryone(ctx, accountId, bookId);
   const client = new JmapClient(ctx);
-  const fields = cardFields(input);
+  const fields = cardFields(input, { clear: id !== null });
   try {
     if (id) {
       const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
@@ -272,15 +314,16 @@ export async function writeGlobalContact(
  * The id is checked against the directory book first: the Master's account is
  * read and written by this client alone today, and a route that destroys any id
  * it is handed is one typo away from deleting something that was not the
- * directory's.
+ * directory's. The book is looked up, never created: a delete for a directory
+ * that does not exist is a 404, not a reason to make one.
  */
 export async function destroyGlobalContact(
   admin: LiveSession,
   id: string,
 ): Promise<void> {
   const { ctx, accountId } = await masterAccount(admin);
-  const bookId = await globalContactsBookId(ctx, accountId);
   const client = new JmapClient(ctx);
+  const bookId = await requiredGlobalContactsBook(client, accountId);
   const got = await client.call<{
     list?: Array<{ addressBookIds?: Record<string, unknown> }>;
   }>("ContactCard/get", { accountId, ids: [id], properties: ["id", "addressBookIds"] }, [

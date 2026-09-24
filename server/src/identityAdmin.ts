@@ -711,6 +711,21 @@ export async function writePersonSipCredential(
       `${target} holds no account this session can write a credential to.`,
       409,
     );
+  /*
+   * The key is a contract both tiers assume: the phone looks a credential up by
+   * the identity's email, so a credential set for an address the account does
+   * not send as is one nobody will ever register. Clearing is allowed for an
+   * address the account no longer holds — that is how an orphan is removed.
+   */
+  if (credential) {
+    const identities = await readIdentities(imp.ctx, accountId);
+    if (!identities.some((identity) => identity.email.trim().toLowerCase() === key))
+      throw new IdentityAdminError(
+        "identity_not_found",
+        `${target} holds no identity with the address ${email.trim()}.`,
+        404,
+      );
+  }
   await writeSipDocument(imp.ctx, accountId, (current) =>
     withSipCredential(current, key, credential),
   );

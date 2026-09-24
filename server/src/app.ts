@@ -89,7 +89,11 @@ import {
 import { isTrustedProxy, rateLimitKey, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
 import { safeEqual } from "./crypto.js";
-import { destroyGlobalContact, writeGlobalContact } from "./globalContactsAdmin.js";
+import {
+  destroyGlobalContact,
+  isEmptyGlobalContact,
+  writeGlobalContact,
+} from "./globalContactsAdmin.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
   groupIdentity,
@@ -2736,10 +2740,17 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.post("/admin/global-contacts", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{ id?: unknown; card?: unknown }>(c);
     try {
+      const card = globalContactInput(body?.card);
+      if (isEmptyGlobalContact(card))
+        throw new IdentityAdminError(
+          "invalid_identity",
+          "A Global contacts card needs a name or a way to reach the person.",
+          400,
+        );
       const id = await writeGlobalContact(
         c.get("session"),
         typeof body?.id === "string" && body.id ? body.id : null,
-        globalContactInput(body?.card),
+        card,
       );
       return c.json({ ok: true, id });
     } catch (err) {
@@ -2750,10 +2761,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.post("/admin/global-contacts/delete", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{ id?: unknown }>(c);
     try {
-      await destroyGlobalContact(
-        c.get("session"),
-        typeof body?.id === "string" ? body.id : "",
-      );
+      const id = typeof body?.id === "string" ? body.id.trim() : "";
+      if (!id)
+        throw new IdentityAdminError(
+          "invalid_identity",
+          "Which Global contacts card should be deleted?",
+          400,
+        );
+      await destroyGlobalContact(c.get("session"), id);
       return c.json({ ok: true });
     } catch (err) {
       return identityFailure(c, err);
