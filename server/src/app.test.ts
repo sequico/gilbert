@@ -136,6 +136,24 @@ test("only a PDF blob may be framed, and only by us", async () => {
   assert.equal(securityHeadersFor("text/html", true), "DENY");
 });
 
+test("the microphone is allowed to the app itself, and the rest stays denied", async () => {
+  /*
+   * The phone registers a SIP leg through `getUserMedia`. A document policy of
+   * `microphone=()` does not ask the reader — it fails the call outright, with
+   * no prompt, as a `NotAllowedError`, which the phone could only read as "your
+   * browser is blocking the microphone". This pins the allowance for the app's
+   * own origin, and that the other directives did not travel with it.
+   */
+  const app = createApp();
+  const health = await app.request("/api/health");
+  const policy = health.headers.get("permissions-policy") ?? "";
+  assert.match(policy, /(^|,\s*)microphone=\(self\)(,|$)/);
+  assert.match(policy, /camera=\(\)/);
+  assert.match(policy, /geolocation=\(\)/);
+  assert.match(policy, /payment=\(\)/);
+  assert.match(policy, /usb=\(\)/);
+});
+
 test("a blob whose stored type says nothing keeps the client's own", async () => {
   /*
    * A PDF whose stored type is generic -- an uploader that had no guess, a

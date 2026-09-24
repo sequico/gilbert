@@ -659,9 +659,16 @@ const securityHeaders: MiddlewareHandler = async (c, next) => {
      route is the only one, and only for PDFs -- see the note there. */
   if (!h.has("X-Frame-Options")) h.set("X-Frame-Options", "DENY");
   h.set("Referrer-Policy", "no-referrer");
+  /*
+   * The phone registers a SIP leg through `getUserMedia`, and a policy that
+   * denies the microphone to the app itself does not prompt the reader — it
+   * fails the call outright, as a `NotAllowedError`, which then reads as "your
+   * browser is blocking the microphone". The app is allowed its own
+   * microphone; camera, location, payment and USB stay denied.
+   */
   h.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
   );
   h.set("Cross-Origin-Opener-Policy", "same-origin");
   if (!h.has("Cache-Control")) h.set("Cache-Control", "no-store");

@@ -2574,8 +2574,9 @@ away from a signed-in screen, which is the case that matters.
   Proxied blobs get a far stricter one — `sandbox; default-src 'none';
   style-src 'unsafe-inline'; img-src data:`.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer`, a `Permissions-Policy` denying camera,
-  microphone, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
+  `Referrer-Policy: no-referrer`, a `Permissions-Policy` that allows the
+  **microphone to the app itself** — the phone registers a SIP leg through it —
+  and denies camera, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
   same-origin`, HSTS over HTTPS, and `Cache-Control: no-store` by default.
 - **CSRF**: every API call must carry `X-Requested-With: gilbert`, and any
   request whose `Sec-Fetch-Site` is not same-origin is refused outright.
