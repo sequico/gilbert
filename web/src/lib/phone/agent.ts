@@ -11,12 +11,15 @@
  * between them. SIP.js has no re-INVITE on a received call, so the hold is the
  * media: the held call's outgoing audio is disabled and the active call's is
  * the one played — the remote hears silence, and the reader hears one call.
+ * A call beyond what the line carries, and a ring superseded by a newer one,
+ * are refused 486, the busy half of the decision.
  *
  * Reliability is the point of the configuration here: the transport reconnects
  * with backoff and re-registers, a broken media path is restarted with a
- * re-INVITE, and the registration's life is short enough that a browser killed
- * outright stops being rung within the half-minute. The reader is asked for
- * nothing while any of it happens; the line's colour is the only report.
+ * re-INVITE where the engine allows it, and the registration's life is short
+ * enough that a browser killed outright stops being rung within the
+ * half-minute. The reader is asked for nothing while any of it happens; the
+ * line's colour and, on a real failure, the error sentence are the report.
  */
 import {
   Invitation,
@@ -28,6 +31,7 @@ import {
   UserAgent,
   type Web,
 } from "sip.js";
+import { ringAction, shouldRefuseAsBusy } from "./policy";
 
 /** The line's state: what the top-bar entry's colour says. */
 export type PhoneLineState = "connecting" | "registered" | "unavailable";
@@ -38,13 +42,14 @@ export interface PhoneAgentOptions {
   /** The secret the registrar authenticates it with. */
   password: string;
   /** The SIP-over-WebSocket endpoint in use, `wss://…`. */
-  server: string;
+  endpoint: string;
   /** STUN/TURN, from the installation's own settings. */
   iceServers: RTCIceServer[];
 }
 
-/** One call as the surface reads it. */
+/** One call as the surface reads it. `id` is the session's, and is unique. */
 export interface PhoneCallView {
+  id: string;
   remote: string;
   active: boolean;
 }
@@ -67,15 +72,14 @@ function authUser(address: string): string {
   return address.replace(/^sips?:/i, "").replace(/;.*$/, "");
 }
 
-/** Whether a target the reader typed is a full SIP URI or a bare number/address. */
-export function toSipUri(target: string): string {
-  return /^sips?:/i.test(target) ? target : `sip:${target}`;
+function reason(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export class PhoneAgent {
   private ua: UserAgent | undefined;
   private registerer: Registerer | undefined;
-  /** Every live or ringing call, by session, with the remote it is with. */
+  /** Every live call, by session, with the remote it is with. */
   private readonly calls = new Map<Session, string>();
   private active: Session | undefined;
   private ringing: Invitation | undefined;
@@ -98,14 +102,14 @@ export class PhoneAgent {
 
   /** Start the transport and register the one line. */
   async start(): Promise<void> {
-    const uri = UserAgent.makeURI(toSipUri(this.options.address));
+    const uri = UserAgent.makeURI(this.addressUri());
     if (!uri) throw new Error(`Not a SIP address: ${this.options.address}`);
     this.hooks.onLine("connecting");
     const ua = new UserAgent({
       uri,
       authorizationUsername: authUser(this.options.address),
       authorizationPassword: this.options.password,
-      transportOptions: { server: this.options.server },
+      transportOptions: { server: this.options.endpoint },
       // Reliability, unattended: keep trying to reach the server, and say
       // nothing to the reader while it happens.
       reconnectionAttempts: 30,
@@ -168,7 +172,8 @@ export class PhoneAgent {
   async call(target: string): Promise<void> {
     const ua = this.ua;
     if (!ua) throw new Error("The phone is not connected");
-    const uri = UserAgent.makeURI(toSipUri(target));
+    if (shouldRefuseAsBusy(this.calls.size)) throw new Error("The line is busy.");
+    const uri = UserAgent.makeURI(this.targetUri(target));
     if (!uri) throw new Error(`Not a number to call: ${target}`);
     const inviter = new Inviter(ua, uri, {
       sessionDescriptionHandlerOptions: {
@@ -176,7 +181,12 @@ export class PhoneAgent {
       },
     });
     this.bind(inviter, target);
-    await inviter.invite();
+    try {
+      await inviter.invite();
+    } catch (err) {
+      this.hooks.onError(`The call could not be placed: ${reason(err)}`);
+      throw err;
+    }
   }
 
   /** Answer the ringing invitation, holding a call that is already live. */
@@ -185,11 +195,15 @@ export class PhoneAgent {
     if (!invitation) return;
     this.ringing = undefined;
     this.bind(invitation, this.ringingFrom);
-    await invitation.accept({
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-      },
-    });
+    try {
+      await invitation.accept({
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+        },
+      });
+    } catch (err) {
+      this.hooks.onError(`The call could not be answered: ${reason(err)}`);
+    }
   }
 
   /** Decline a ringing invitation. */
@@ -200,9 +214,10 @@ export class PhoneAgent {
     this.ringingFrom = "";
     try {
       await invitation.reject();
-    } catch {
-      /* Gone already. */
+    } catch (err) {
+      this.hooks.onError(`The call could not be declined: ${reason(err)}`);
     }
+    this.hooks.onIncoming("");
     this.reflow();
   }
 
@@ -215,15 +230,19 @@ export class PhoneAgent {
         await session.cancel();
       else if (session.state === SessionState.Established) await session.bye();
       else if (session instanceof Invitation) await session.reject();
-    } catch {
+    } catch (err) {
       /* The peer may have ended it first. */
+      this.hooks.onError(`The call could not be ended cleanly: ${reason(err)}`);
     }
   }
 
   /** Make another call the active one, holding the one that was. */
-  activate(remote: string): void {
-    const entry = [...this.calls.entries()].find(([, name]) => name === remote);
-    if (entry) this.setActive(entry[0]);
+  activate(id: string): void {
+    for (const session of this.calls.keys())
+      if (session.id === id) {
+        this.setActive(session);
+        return;
+      }
   }
 
   /** Mute or unmute the active call's microphone. */
@@ -238,9 +257,42 @@ export class PhoneAgent {
   }
 
   private receive(invitation: Invitation): void {
+    const from = this.remoteOf(invitation);
+    const action = ringAction(this.calls.size, Boolean(this.ringing));
+    if (action === "refuse-busy") {
+      void invitation.reject({ statusCode: 486 }).catch(() => undefined);
+      this.hooks.onError(`${from || "A call"} could not be taken: the line is busy.`);
+      return;
+    }
+    // One ringing surface: a newer invitation supersedes the ring already
+    // waiting, which is answered busy rather than left dangling.
+    if (action === "supersede" && this.ringing) {
+      const previous = this.ringing;
+      this.ringing = undefined;
+      void previous.reject({ statusCode: 486 }).catch(() => undefined);
+    }
     this.ringing = invitation;
-    this.ringingFrom = invitation.remoteIdentity?.uri?.toString() ?? "";
+    this.ringingFrom = from;
+    /*
+     * The ringing invitation is observed before it is answered: a remote
+     * CANCEL, or the fork timing out, terminates it, and the surface has to
+     * hear that rather than keep ringing for a call nobody offers any more.
+     */
+    const onEnd = (state: SessionState) => {
+      if (state !== SessionState.Terminated) return;
+      invitation.stateChange.removeListener(onEnd);
+      if (this.ringing === invitation) {
+        this.ringing = undefined;
+        this.ringingFrom = "";
+        this.hooks.onIncoming("");
+      }
+    };
+    invitation.stateChange.addListener(onEnd);
     this.hooks.onIncoming(this.ringingFrom);
+  }
+
+  private remoteOf(session: Session): string {
+    return session.remoteIdentity?.uri?.toString() ?? "";
   }
 
   private handler(
@@ -249,6 +301,28 @@ export class PhoneAgent {
     return session?.sessionDescriptionHandler as
       | Web.SessionDescriptionHandler
       | undefined;
+  }
+
+  /** The address of record, with a scheme: `sip:user@domain`. */
+  private addressUri(): string {
+    return /^sips?:/i.test(this.options.address)
+      ? this.options.address
+      : `sip:${this.options.address}`;
+  }
+
+  /**
+   * What to invite. A bare number is completed with the account's own domain:
+   * a registrar routes the domain it serves, and `sip:5551234` is hostless and
+   * generally unroutable.
+   */
+  private targetUri(target: string): string {
+    const value = target.trim();
+    if (/^sips?:/i.test(value)) return value;
+    if (value.includes("@")) return `sip:${value}`;
+    const domain = this.addressUri()
+      .replace(/^sips?:/i, "")
+      .split("@")[1];
+    return domain ? `sip:${value}@${domain}` : `sip:${value}`;
   }
 
   private bind(session: Session, remote: string): void {
@@ -274,7 +348,7 @@ export class PhoneAgent {
 
   /** The media: one call's microphone on, the others' off; one call's audio played. */
   private applyMedia(): void {
-    for (const [session] of this.calls) {
+    for (const session of this.calls.keys()) {
       const on = session === this.active && !this.muted;
       for (const track of this.handler(session)?.localMediaStream?.getAudioTracks() ?? [])
         track.enabled = on;
@@ -284,6 +358,7 @@ export class PhoneAgent {
   private reflow(): void {
     if (!this.active && this.calls.size) this.active = this.calls.keys().next().value;
     const calls: PhoneCallView[] = [...this.calls.entries()].map(([session, remote]) => ({
+      id: session.id,
       remote,
       active: session === this.active,
     }));
@@ -316,7 +391,9 @@ export class PhoneAgent {
         };
         void session
           .invite({ sessionDescriptionHandlerOptions: restart })
-          .catch(() => undefined);
+          .catch((err) =>
+            this.hooks.onError(`The media path could not be restarted: ${reason(err)}`),
+          );
       }
     };
   }

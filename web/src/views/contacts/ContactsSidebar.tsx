@@ -302,23 +302,6 @@ export function ContactsSidebar() {
         <>
           <div className="nav-section">
             <span>{GLOBAL_CONTACTS_BOOK_NAME}</span>
-            {/* Only an administrator writes the directory (ADR 0023), and from
-                inside Contacts: everybody else reads the same book. */}
-            {isAdmin && globalBooks[0] && (
-              <button
-                className="icon-btn sm"
-                title={t("Edit Global contacts")}
-                aria-label={t("Edit Global contacts")}
-                onClick={() =>
-                  setEditingGlobal({
-                    accountId: globalBooks[0]!.accountId,
-                    bookId: globalBooks[0]!.book.id,
-                  })
-                }
-              >
-                <Pencil size={14} />
-              </button>
-            )}
           </div>
           {globalBooks.map(({ accountId, book }) => (
             <div
@@ -329,6 +312,23 @@ export function ContactsSidebar() {
             >
               <Globe size={17} />
               <span className="grow truncate">{book.name}</span>
+              {/* Only an administrator writes the directory (ADR 0023), and
+                  from inside Contacts: everybody else reads the same book.
+                  The control follows each row, so more than one such book is
+                  no special case. */}
+              {isAdmin && (
+                <button
+                  className="icon-btn xs nav-more"
+                  title={t("Edit Global contacts")}
+                  aria-label={t("Edit Global contacts")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingGlobal({ accountId, bookId: book.id });
+                  }}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
             </div>
           ))}
         </>

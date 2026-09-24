@@ -28,20 +28,22 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
  * carries the call.
  *
  * What it cannot do is stated rather than pretended: the entry is absent when
- * the installation offers no phone or this account has no credential, and a
- * standby tab (one that does not hold the line) shows the call without owning
- * its controls.
+ * the installation offers no phone or this account has no credential, the
+ * microphone is asked for when the surface opens, and a tab that does not hold
+ * the line shows the call without owning its controls.
  */
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
   const ready = usePhone((s) => s.ready);
   const state = usePhone((s) => s.state);
+  const leader = usePhone((s) => s.leader);
   const incoming = usePhone((s) => s.incoming);
   const call = usePhone((s) => s.call);
   const held = usePhone((s) => s.held);
   const stream = usePhone((s) => s.stream);
   const muted = usePhone((s) => s.muted);
   const error = usePhone((s) => s.error);
+  const microphone = usePhone((s) => s.microphone);
   const start = usePhone((s) => s.start);
   const [open, setOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -55,23 +57,30 @@ export function PhoneLauncher() {
     if (sipOffered) void start();
   }, [sipOffered, start]);
 
-  /* The peer's audio. The stream arrives once the call is established. */
+  /*
+   * The shell unmounts on sign-out, and that is where a call ends: the
+   * credentials it was placed with go with the session, so the registration is
+   * released and the agent stops rather than lingering until `pagehide`.
+   */
+  useEffect(() => () => void usePhone.getState().stop(), []);
+
+  /* The peer's audio. Cleared when the call ends, so nothing lingers. */
   useEffect(() => {
     const el = audioRef.current;
-    if (el && stream && el.srcObject !== stream) {
-      el.srcObject = stream;
-      void el.play().catch(() => undefined);
-    }
+    if (!el) return;
+    el.srcObject = stream;
+    if (stream) void el.play().catch(() => undefined);
   }, [stream]);
 
-  /* The ring: audible only when the reader has not silenced Gilbert. */
+  /* The ring: only the tab that holds the line rings, and only if not silenced. */
   useEffect(() => {
-    if (incoming && notificationSound) {
+    if (incoming && notificationSound && leader) {
       startRing();
       return stopRing;
     }
     stopRing();
-  }, [incoming, notificationSound]);
+    return undefined;
+  }, [incoming, notificationSound, leader]);
 
   /*
    * A full reload tears the media stack down, so a call cannot survive one.
@@ -88,12 +97,11 @@ export function PhoneLauncher() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [call]);
 
-  const colour =
-    call && state !== "standby"
-      ? "var(--success)"
-      : state === "unavailable" || state === "standby"
-        ? "var(--danger)"
-        : undefined;
+  const colour = call
+    ? "var(--success)"
+    : state === "unavailable"
+      ? "var(--danger)"
+      : undefined;
 
   if (!ready) return null;
 
@@ -104,7 +112,12 @@ export function PhoneLauncher() {
         aria-label={t("Phone")}
         title={t("Phone")}
         style={colour ? { color: colour } : undefined}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          // The permission is asked in its own gesture, as early as the surface
+          // can: a microphone deferred to the first call is a call that fails.
+          void usePhone.getState().requestMicrophone();
+        }}
       >
         {call || incoming ? <PhoneCall size={21} /> : <Phone size={21} />}
       </button>
@@ -121,7 +134,7 @@ export function PhoneLauncher() {
           {incoming || t("Unknown caller")}
         </p>
         <div className="row" style={{ justifyContent: "center", gap: 12 }}>
-          {state !== "standby" && (
+          {leader ? (
             <>
               <button className="btn" onClick={() => void usePhone.getState().answer()}>
                 {t("Answer")}
@@ -133,8 +146,7 @@ export function PhoneLauncher() {
                 {t("Decline")}
               </button>
             </>
-          )}
-          {state === "standby" && (
+          ) : (
             <p className="hint">{t("Answering in another tab.")}</p>
           )}
         </div>
@@ -147,14 +159,21 @@ export function PhoneLauncher() {
         title={call ? t("Call") : t("Phone")}
         size={isMobile ? "lg" : "md"}
       >
+        {microphone === "denied" && (
+          <div className="warn-box">
+            {t(
+              "The microphone is not available, so calls cannot carry your voice. Grant the permission in the browser's site settings and try again.",
+            )}
+          </div>
+        )}
         {error && <div className="error-box">{error}</div>}
         {call ? (
           <CallControls
             remote={call.remote}
             muted={muted}
             held={held}
-            onSwitch={(remote) => usePhone.getState().switchTo(remote)}
-            readOnly={state === "standby"}
+            onSwitch={(id) => usePhone.getState().switchTo(id)}
+            readOnly={!leader}
           />
         ) : (
           <Dialer onDial={() => setOpen(false)} />
@@ -174,8 +193,8 @@ function CallControls({
 }: {
   remote: string;
   muted: boolean;
-  held: string[];
-  onSwitch: (remote: string) => void;
+  held: Array<{ id: string; remote: string }>;
+  onSwitch: (id: string) => void;
   readOnly: boolean;
 }) {
   const [tones, setTones] = useState("");
@@ -239,13 +258,13 @@ function CallControls({
           </div>
           {held.map((other) => (
             <button
-              key={other}
+              key={other.id}
               className="nav-item"
               style={{ width: "100%", textAlign: "start" }}
-              onClick={() => onSwitch(other)}
+              onClick={() => onSwitch(other.id)}
             >
               <PhoneCall size={15} />
-              <span className="grow truncate">{other}</span>
+              <span className="grow truncate">{other.remote}</span>
               <span className="hint">{t("Switch")}</span>
             </button>
           ))}
@@ -292,10 +311,15 @@ function Dialer({ onDial }: { onDial: () => void }) {
   const filtered = query.trim()
     ? sources.map((source) => ({
         ...source,
-        cards: contacts.filterCards(source.cards, query),
+        cards: contacts.filterCards(source.cards, query).filter((c) => dialTarget(c)),
       }))
-    : sources;
-  const all = contacts.filterCards(allDialerCards(sources), query);
+    : sources.map((source) => ({
+        ...source,
+        cards: source.cards.filter((c) => dialTarget(c)),
+      }));
+  const all = contacts
+    .filterCards(allDialerCards(sources), query)
+    .filter((c) => dialTarget(c));
 
   return (
     <div>
@@ -359,13 +383,12 @@ function Dialer({ onDial }: { onDial: () => void }) {
               const target = dialTarget(card);
               return (
                 <button
-                  key={`${source.id}:${card.id}`}
+                  key={`${source.accountId}:${card.id}`}
                   className="nav-item"
-                  disabled={!target}
                   onClick={() => target && dial(target)}
                   style={{ width: "100%", textAlign: "start" }}
                 >
-                  <PhoneCall size={15} className={target ? "" : "faint"} />
+                  <PhoneCall size={15} />
                   <span className="grow truncate">{contactDisplayName(card)}</span>
                   {target && <span className="hint truncate">{target}</span>}
                 </button>

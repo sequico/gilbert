@@ -19,6 +19,12 @@ export interface DialerSource {
   label: string;
   /** Whether this is the installation's own shared directory. */
   global: boolean;
+  /**
+   * The account the source's cards live in. A card id is unique inside its
+   * account and nowhere else, so this is half of a card's identity — and the
+   * reason the "all" list must not de-duplicate on the bare id.
+   */
+  accountId: string;
   cards: ContactCard[];
 }
 
@@ -56,6 +62,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
       id: `global:${book.accountId}:${book.book.id}`,
       label: GLOBAL_CONTACTS_BOOK_NAME,
       global: true,
+      accountId: book.accountId,
       cards: cardsInBook(input.cardsIn(book.accountId), book.book.id),
     });
 
@@ -66,6 +73,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
         id: `group:${group.accountId}`,
         label: group.name,
         global: false,
+        accountId: group.accountId,
         cards,
       });
   }
@@ -75,20 +83,30 @@ export function dialerSources(input: DialerInput): DialerSource[] {
       id: "personal",
       label: input.personalLabel,
       global: false,
+      // The reader's own cards: `own` is the account they live in, and it is
+      // the label the store's own books are keyed under.
+      accountId: "own",
       cards: input.ownCards,
     });
 
   return sources;
 }
 
-/** Every card the dialer can offer, across its sources, without duplicates. */
+/**
+ * Every card the dialer can offer, across its sources, without duplicates.
+ *
+ * A card is de-duplicated by the pair (account, id), not the id alone: ids are
+ * unique only inside an account, so a Global or group card and a personal one
+ * that happen to share an id are two different people.
+ */
 export function allDialerCards(sources: DialerSource[]): ContactCard[] {
   const seen = new Set<string>();
   const cards: ContactCard[] = [];
   for (const source of sources)
     for (const card of source.cards) {
-      if (seen.has(card.id)) continue;
-      seen.add(card.id);
+      const key = `${source.accountId}:${card.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       cards.push(card);
     }
   return cards;

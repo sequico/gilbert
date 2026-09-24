@@ -45,6 +45,11 @@ function readSip(doc: Record<string, unknown>): InstallationSip {
  */
 export function AdminSipPhone() {
   const [doc, setDoc] = useState<Record<string, unknown> | null>(null);
+  /**
+   * The `sip` section as it was stored, so the publish changes the fields this
+   * page shows and leaves any other key it does not know alone.
+   */
+  const [sipRaw, setSipRaw] = useState<Record<string, unknown>>({});
   const [sip, setSip] = useState<InstallationSip>({
     enabled: false,
     endpoints: [],
@@ -69,6 +74,7 @@ export function AdminSipPhone() {
       const parsed = JSON.parse(current.document) as Record<string, unknown>;
       setDoc(parsed);
       setSip(readSip(parsed));
+      setSipRaw((parsed.sip as Record<string, unknown> | undefined) ?? {});
       setLoaded(true);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
@@ -87,7 +93,15 @@ export function AdminSipPhone() {
     try {
       const next = {
         ...doc,
-        sip: { ...sip, turn: sip.turn.filter((row) => row.url.trim()) },
+        // The stored section is the base, so a key this build does not know
+        // survives the publish rather than being dropped by the editor.
+        sip: {
+          ...sipRaw,
+          enabled: sip.enabled,
+          endpoints: sip.endpoints,
+          stun: sip.stun,
+          turn: sip.turn.filter((row) => row.url.trim()),
+        },
       };
       /*
        * The whole document goes back, with only `sip` changed: the route
@@ -98,6 +112,7 @@ export function AdminSipPhone() {
       const stored = JSON.parse(outcome.document) as Record<string, unknown>;
       setDoc(stored);
       setSip(readSip(stored));
+      setSipRaw((stored.sip as Record<string, unknown> | undefined) ?? {});
       setPublished(true);
       toast.success(t("Saved. The change applies at the next boot."));
     } catch (err) {

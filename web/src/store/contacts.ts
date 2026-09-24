@@ -305,6 +305,14 @@ interface ContactsState {
   syncCards(): Promise<void>;
   /** Books and cards from accounts that shared with the reader. */
   loadShared(): Promise<void>;
+  /**
+   * Re-read the shared books after a write, past any load already in flight.
+   *
+   * `loadShared` is single-flight, so a caller that asks while one is running
+   * is handed that run's answer — which may predate the write it just made.
+   * This waits the running load out first, so the answer is the write's.
+   */
+  reloadShared(): Promise<void>;
   select(selection: BookSelection): void;
   /** Add a shared address book to, or remove it from, the reader's own view. */
   setBookSubscribed(accountId: Id, bookId: Id, subscribed: boolean): Promise<void>;
@@ -685,6 +693,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
       if (sharedLoadRun === run) sharedLoadRun = null;
     });
     return run;
+  },
+
+  async reloadShared() {
+    const running = sharedLoadRun;
+    if (running) await running.catch(() => undefined);
+    await get().loadShared();
   },
 
   async setBookSubscribed(accountId, bookId, subscribed) {

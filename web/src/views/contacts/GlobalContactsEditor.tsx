@@ -47,12 +47,23 @@ export function GlobalContactsEditor({
   bookId: string;
   onClose: () => void;
 }) {
-  const cards = useContacts((s) => s.cardsIn(accountId));
-  const loadShared = useContacts((s) => s.loadShared);
-  const mine = useMemo(
-    () => cards.filter((c) => c.addressBookIds?.[bookId]),
-    [cards, bookId],
-  );
+  /*
+   * The store's raw maps are selected, not `cardsIn(accountId)`: that method
+   * builds a fresh array on every call, and a zustand v5 selector returning a
+   * new snapshot re-renders forever. The filtering happens here, memoized.
+   */
+  const ownCards = useContacts((s) => s.cards);
+  const shared = useContacts((s) => s.sharedCards);
+  const reloadShared = useContacts((s) => s.reloadShared);
+  const mine = useMemo(() => {
+    const fromAccount = Object.entries(shared)
+      .filter(([key]) => key.startsWith(`${accountId}:`))
+      .map(([, card]) => card);
+    // The directory lives in another account; the fallback covers a book that
+    // somehow sits in the reader's own.
+    const pool = fromAccount.length ? fromAccount : Object.values(ownCards);
+    return pool.filter((c) => c.addressBookIds?.[bookId]);
+  }, [shared, ownCards, accountId, bookId]);
   const [draft, setDraft] = useState<{
     id: string | null;
     card: GlobalContactInput;
@@ -61,7 +72,9 @@ export function GlobalContactsEditor({
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    await loadShared();
+    // Past any load already in flight, so the saved card is really in the list
+    // the editor draws rather than in a snapshot taken before the write.
+    await reloadShared();
   }
 
   async function save() {
