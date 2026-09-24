@@ -287,7 +287,7 @@ describe("the labels section", () => {
   it("lists the reader's own labels, under their tree and before the group's", () => {
     mount();
     expect(outline()).toEqual([
-      "Folders",
+      "me@example.org",
       "Inbox",
       "Sent",
       "Work",

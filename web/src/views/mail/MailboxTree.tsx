@@ -430,9 +430,7 @@ export function MailboxTree() {
               ? t("Drop here for the top level")
               : drill
                 ? mailboxDisplayName(drill)
-                : sharedTree && activeAccountName
-                  ? activeAccountName
-                  : t("Folders")}
+                : activeAccountName || t("Folders")}
           </span>
           {/* Drilled in, the + makes a subfolder of the folder on screen --
               which is the one place in the app where "new folder here" has an
