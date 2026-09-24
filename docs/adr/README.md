@@ -234,9 +234,10 @@ is, not what a user sees.
   from that list or from Contacts, where every write happens. The shared
   directory is one address book owned by the Master, shared read-only with every
   account and edited only by an administrator from inside Contacts, with no
-  per-member copy. The connection is reliable and unattended: the configured
-  endpoints are tried in order, and a dropped one reconnects and re-registers
-  on its own. The installation's endpoints, STUN/TURN and switch are one SIP
+  per-member copy. Reliability is the priority: a bad network or a lost server
+  is answered unattended — reconnect, re-register, ICE restart, codecs
+  renegotiated as the path degrades and recovers, a call surviving a handover
+  or a short silence — and the configured endpoints are tried in order. The installation's endpoints, STUN/TURN and switch are one SIP
   Phone administration page; each person's credentials are set per identity in
   the identity-enforcement surface. The feature is stated in the public
   documents when it is built — `FEATURES.md` and `README.md` — and not left to

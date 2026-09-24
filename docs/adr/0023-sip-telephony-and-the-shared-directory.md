@@ -54,6 +54,17 @@ the media: the browser speaks to the deployment's SIP server directly.
 
 ### The connection, and how it survives
 
+**Reliability is this surface's priority.** A bad network and a lost server are
+ordinary conditions and not error states, and the client answers them by
+itself: it reconnects the socket, re-registers, restarts ICE when the media
+path breaks and renegotiates the session's codecs as the path degrades and
+recovers — so a call survives a Wi-Fi-to-mobile handover, or a few seconds of
+silence, with the reader touching nothing. What cannot be recovered ends
+cleanly, the entry going back to idle, rather than leaving a dead call on
+screen; the server's registration state is what takes the call that follows.
+The reader learns about trouble only from the entry's colour, and only while it
+lasts.
+
 The client reaches the server over **SIP over WebSocket** (WSS), and the
 connection is **reliable and unattended**: the endpoints are configured in the
 order they are tried, and when the one in use drops the client reconnects with
