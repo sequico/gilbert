@@ -78,9 +78,7 @@ without transcoding**, with **DTMF as RFC 2833** passed through. Codec and
 transport belong to the Gilbert SIP side and are the same for every user; the
 leg to the provider runs over **TLS**. There is **no STUN/TURN**: the bridge is
 on a public IP and is the browser's ICE peer, with a UDP range open on the
-firewall. The browser leg is Gilbert's to shape; a network that blocks direct
-UDP is met, later, with ICE-TCP or a relay on 443 rather than with an STUN/TURN
-an operator configures.
+firewall.
 
 ### Where the credentials are configured
 
@@ -100,11 +98,9 @@ switch.
 
 ### Desktop only
 
-The entry is offered **on desktop only** and hidden on touch devices. This is
-the platform's limit stated plainly: a page rings only while it is alive, and a
-phone suspends it in the background or with the screen locked. Within desktop, a
-tab left in the background still rings — the page is alive — and only closing
-it stops the ring.
+The entry is offered **on desktop only** and hidden on touch devices: a page
+rings only while it is alive (Context), and a phone suspends it. Within desktop,
+a tab left in the background still rings, and only closing it stops the ring.
 
 ### The phone in the top bar
 
@@ -164,6 +160,8 @@ be composed by hand, through a keypad, and it is sent to the provider as
   nothing else durable.
 - **Video, recording and conferencing.** Audio calls only; anything the
   provider does beyond that is the operator's.
+- **An operator-configured STUN/TURN.** The bridge is the ICE peer on a public
+  IP; there is no relay for a deployment to name.
 - **A second contacts store.** The directory the dialer reads is Global contacts
   (ADR 0024), a Stalwart book; the phone keeps nothing of its own.
 
@@ -196,7 +194,6 @@ be composed by hand, through a keypad, and it is sent to the provider as
 - `web/src/views/AppShell.tsx` — the top-bar phone entry
 - Janus WebRTC Server — <https://github.com/meetecho/janus-gateway>
 - Janus SIP plugin — <https://janus.conf.meetecho.com/docs/sip>
-- ADR 0004 — a contact group is not a recipient
 - ADR 0007 — the identity-enforcement surface the credentials are written in
 - ADR 0016 — what reaches a closed client, and why the browser's own push
   cannot answer a call

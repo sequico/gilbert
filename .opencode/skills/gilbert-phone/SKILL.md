@@ -7,118 +7,70 @@ metadata:
 
 # Gilbert — the browser phone, and Global contacts
 
-ADR 0023 is the phone's decision and ADR 0024 the directory's; this file is how
-the tree keeps them. Read both before changing any of it — a sentence here that
+ADR 0023 decides the phone, ADR 0024 the directory; this file is how the tree
+keeps them. **Read both before changing either** — a sentence here that
 disagrees with a record is a bug in one of the two.
 
 ## State
 
-The phone is **not built**: the tree still carries an earlier client-side
-softphone that speaks SIP over WebSocket from the browser, which ADR 0023
-replaces. Global contacts (ADR 0024) is built.
+The phone is **not built**: the tree still carries a client-side
+SIP-over-WebSocket softphone that ADR 0023 replaces. Global contacts is built.
 
-## The bridge (ADR 0023)
+## The phone (ADR 0023) — the invariants
 
-- A browser cannot speak SIP — it opens no UDP, TCP or TLS socket, only
-  WebSocket and WebRTC — and the provider may not offer SIP over WebSocket at
-  all (Zadarma does not). The phone therefore runs on **Janus**, the WebRTC
-  server, with its **SIP plugin**, as a **process of the deployment's own**, a
-  sibling of gilbertserver.
-- The browser **never speaks SIP**: it uses the **Janus API** (JSON over a
-  WebSocket) with WebRTC media. gilbertserver **proxies Janus's WebSocket on its
-  own origin and certificate and authenticates it with the Gilbert session**;
-  the browser holds no SIP credential.
-- Janus terminates ICE and DTLS-SRTP and the SIP plugin relays to the provider
-  over SIP and RTP. **No STUN/TURN**: the bridge is on a public IP and is the
-  browser's ICE peer, with a UDP range open on the firewall.
-- Audio only; **G.711 (PCMU/PCMA)** negotiated end to end and passed through
-  **without transcoding**; **DTMF as RFC 2833**. TLS on the leg to the provider,
-  one shared transport for every user.
+1. It runs on **Janus** with its SIP plugin, a process of the deployment's own,
+   a sibling of gilbertserver.
+2. The browser **never speaks SIP** and **never holds a SIP credential**: it
+   uses the Janus API over a WebSocket that gilbertserver proxies on its own
+   origin and authenticates by session, with WebRTC media.
+3. **Registration is the server's** — one persistent handle per user, held by
+   the process, not by a tab.
+4. An incoming call is **forked to every connected desktop client** (first
+   answer wins, the rest are cancelled); with none connected, the provider's own
+   routing takes it.
+5. One call per user: a second invitation is refused **486** and the provider
+   decides. No client call waiting, hold or transfer.
+6. Audio only; **G.711 passed through** without transcoding; DTMF over
+   **RFC 2833**; TLS to the provider, one shared transport for every user.
+7. **No STUN/TURN**, and **no installation-level phone settings** — no `sip`
+   section, no SIP Phone page. How Gilbert reaches Janus is a deployment fact.
+8. **Desktop only**: a page rings only while it is alive.
+9. Each person's **server, username and password** are account data, set in
+   **Identities and SIP Phone** in the identity-enforcement surface (ADR 0007),
+   kept in the account's `sip.json` (`@gilbert/shared/phone`).
 
-## Registration and calls
+## The directory (ADR 0024) — the invariants
 
-- gilbertserver creates a **persistent Janus SIP handle per user** and keeps the
-  account **registered with the provider** — one registration per user, held by
-  the server, not by a tab. A browser disconnecting does not deregister.
-- An incoming INVITE is **forked to every connected desktop client** of that
-  user: the first answer wins and the rest receive CANCEL. With **no client
-  connected** Gilbert does not answer; the provider's own routing (scenarios,
-  forwarding, voicemail) takes it. Gilbert ships no voicemail.
-- One call per user: the SIP plugin carries one call per handle, so a second
-  invitation is refused **486** and the provider decides. The client implements
-  no call waiting, hold or transfer; where the provider wants DTMF sequences,
-  its documentation is the reference and the keypad is how they are sent.
-- The phone is **desktop only**. A page rings only while it is alive; a phone
-  suspends it in the background or with the screen locked, so the entry is
-  hidden on touch devices and a native app is out of scope.
-
-## The surface
-
-- One top-bar entry: **outline** registered, **green** in a call, **red**
-  unavailable. A press opens the call surface; an incoming call is a banner
-  under the top bar; a live call collapses into the top bar. Controls: mute and
-  a DTMF keypad.
-- The microphone is asked **as early as the surface can**, in its own gesture,
-  by the principle the notification permission already follows (ADR 0016). The
-  reader's notification setting decides whether a call rings.
-- A reload cannot carry a call, so it asks first; signing out ends the call.
-
-## Credentials and configuration
-
-- Each person's **SIP server, username and password** are account data, set by
-  an administrator in the identity-enforcement surface (ADR 0007) — the section
-  named **Identities and SIP Phone** — and kept in the account's own `sip.json`
-  (`@gilbert/shared/phone`). The browser never sees them.
-- **No installation-level phone configuration and no SIP Phone page**: no `sip`
-  section, no endpoints, no STUN/TURN. How Gilbert reaches Janus is a
-  **deployment fact** (environment/container), like `STALWART_URL`.
-- A user with no credentials has no phone and no entry. There is no per-user
-  switch.
-
-## The dialer
-
-Reads Contacts separated the way Contacts draws them: **Global contacts (ADR
-0024), each group, the reader's personal books, all together**. It is
-**read-only** — search and dial, never a write — and a number can be typed by
-hand.
-
-## Global contacts (ADR 0024)
-
-- One address book in the **Master's account** (`gilbert@…`), **created by the
-  installation itself at boot** (`ensureGlobalContacts`) rather than by hand,
-  shared read-only with every account, and written only by an administrator from
-  inside Contacts through a server route that acts as the Master. The book's
-  name is the marker (`@gilbert/shared/phone`).
-- It has a section of its own in the Contacts sidebar as well as being merged in
-  `All contacts`; its cards are ordinary cards; the phone offers them as speed
-  dial. The exact Stalwart shape of a share naming every account at once is owed
-  a live probe.
+1. One address book in the **Master's account**, **created by the installation
+   at boot** (`ensureGlobalContacts`), not by hand.
+2. Shared **read-only with every account**; written only by an administrator
+   from inside Contacts, through a server route that acts as the Master.
+3. A **section of its own** in the Contacts sidebar, merged in `All contacts`;
+   the book's name is the marker (`@gilbert/shared/phone`).
+4. The dialer reads it **read-only**, separated from groups and personal books;
+   a number can be typed by hand.
 
 ## The map
 
 - **Not built**: the Janus process, the gilbertserver proxy and registration,
-  the browser client on the Janus API. The tree's current
-  `web/src/lib/phone/`, `web/src/store/phone.ts`,
-  `web/src/views/phone/PhoneLauncher.tsx` and
-  `web/src/views/admin/AdminSipPhone.tsx` are the earlier SIP-over-WebSocket
-  client this record replaces.
+  the browser client on the Janus API. The tree's `web/src/lib/phone/`,
+  `web/src/store/phone.ts`, `web/src/views/phone/PhoneLauncher.tsx` and
+  `web/src/views/admin/AdminSipPhone.tsx` are the client ADR 0023 replaces.
 - **Built**: Global contacts — `server/src/globalContactsAdmin.ts` (the write,
-  the share, and the boot-time `ensureGlobalContacts`), `server/src/index.ts`
-  (its call), `server/src/shared/phone.ts`,
+  the share, the boot-time `ensureGlobalContacts`), `server/src/index.ts` (its
+  call), `server/src/shared/phone.ts`,
   `web/src/views/contacts/GlobalContactsEditor.tsx`,
   `web/src/views/contacts/ContactsSidebar.tsx`, `web/src/lib/contacts.ts`.
 
 ## Rules
 
-1. Read ADR 0023 and ADR 0024 before changing the phone or the directory; when a
-   decision moves, rewrite the record **in place** and this file with it.
-2. Never let the browser hold a SIP credential, and never add
-   installation-level telephony settings or an STUN/TURN an operator configures.
-3. **If something is needed, make it happen** — the directory is created by the
-   installation, not by a button, and there are no per-user setup steps.
-4. Desktop only: the phone is not offered on touch devices.
-5. The mock cannot prove a bridge; a real Janus and a provider are what the owed
-   probe asks.
+1. A decision moves by rewriting its record **in place**, and this file with it.
+2. No SIP credential in the browser, no installation telephony settings, no
+   STUN/TURN an operator configures.
+3. **If something is needed, make it happen** — no buttons, no per-user steps.
+4. Desktop only.
+5. The mock cannot prove a bridge; a real Janus and a provider are the owed
+   probe ADR 0023 names.
 
 Companion skills: Stalwart objects load `gilbert-stalwart`; group books load
 `gilbert-groups`; strings load `gilbert-i18n`.

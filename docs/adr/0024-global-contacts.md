@@ -35,9 +35,7 @@ disagree about which book is the directory.
   including one created later. A reader sees it in `All contacts` beside their
   own book and the group books their membership subscribes, with no per-member
   patch and nothing to add by hand. The administration re-applies the share on
-  every write, which is what brings an account created since the last one in;
-  the exact Stalwart shape of a share that names every account at once is owed
-  a live probe.
+  every write, which is what brings an account created since the last one in.
 - **It has a section of its own, named Global contacts**, in the Contacts
   sidebar beside the reader's books and each group's, so it can be opened and
   browsed alone; merged into `All contacts` it is the same book.
@@ -66,12 +64,10 @@ disagree about which book is the directory.
 
 ## Consequences
 
-- One edit of Global contacts changes what every reader sees: there is nothing
-  to republish and no copy to keep in step, and a reader added later sees it
-  without any patch because the share is universal rather than one written per
-  member. The exact Stalwart shape of a share that names every account at once
-  is to be confirmed against a live server; what the decision requires is that
-  it is one rule.
+- One edit of Global contacts changes what every reader sees, with nothing to
+  republish and no copy to keep in step. The exact Stalwart shape of a share
+  that names every account at once is owed a live probe; what the decision
+  requires is that it is one rule.
 - Reading Global contacts costs the client nothing new: it arrives with the
   shared books `loadShared` already loads, and `All contacts` already merges
   them.
@@ -89,6 +85,5 @@ disagree about which book is the directory.
 - ADR 0001 — the administration door and impersonation
 - ADR 0004 — a contact group is not a recipient
 - ADR 0007 — the identity-enforcement surface, beside which the write lives
-- ADR 0018 — a contact is moved between accounts by an administrator
 - ADR 0021 — a group's folders are subscribed for every member
 - ADR 0023 — the phone that offers the directory as speed dial
