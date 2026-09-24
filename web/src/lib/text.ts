@@ -17,7 +17,8 @@ export function escapeHtml(s: string): string {
 }
 
 const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"'()]+[^\s<>"'().,;:!?])/gi;
-const EMAIL_RE = /\b([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})\b/gi;
+/** Finds an address inside a body of text; `isValidEmail` in `@/lib/address` is the anchored check. */
+const EMAIL_SCAN_RE = /\b([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})\b/gi;
 
 /** Convert plain text into safe HTML with links and quote-level coloring. */
 export function textToHtml(
@@ -48,7 +49,7 @@ export function textToHtml(
 
 /** Escape text while turning URLs / email addresses into links (tokenized so escaping never corrupts hrefs). */
 function linkify(text: string): string {
-  const re = new RegExp(`${URL_RE.source}|${EMAIL_RE.source}`, "gi");
+  const re = new RegExp(`${URL_RE.source}|${EMAIL_SCAN_RE.source}`, "gi");
   let out = "";
   let last = 0;
   let m: RegExpExecArray | null;
