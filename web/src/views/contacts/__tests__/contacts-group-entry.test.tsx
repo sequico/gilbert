@@ -128,6 +128,28 @@ describe("the contacts list and its group entries", () => {
     expect(rows()).toContain("Solo Studio");
   });
 
+  it("sorts the list before grouping it, so a letter heading appears once", async () => {
+    /*
+     * The rows come from unordered maps of cards (the reader's own and each
+     * group's); grouping by adjacent initial only holds once they are sorted.
+     * Unsorted, the same letter reappears as a second heading -- and two
+     * headings then share a React key.
+     */
+    useContacts.setState({
+      cards: {
+        c1: card({ id: "c1", uid: "u1", name: { full: "Zoe Last" } }),
+        c2: card({ id: "c2", uid: "u2", name: { full: "Ada First" } }),
+        c3: card({ id: "c3", uid: "u3", name: { full: "Alice Middle" } }),
+      },
+    });
+    await render();
+    expect(rows()).toEqual(["Ada First", "Alice Middle", "Zoe Last"]);
+    const letters = [...host.querySelectorAll(".contact-letter")].map(
+      (h) => h.textContent,
+    );
+    expect(letters).toEqual(["A", "Z"]);
+  });
+
   it("shows a person's email, phone, post, dates and links", async () => {
     await render("c1");
     expect(headings()).toContain("Email");

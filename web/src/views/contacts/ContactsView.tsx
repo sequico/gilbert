@@ -258,7 +258,16 @@ export function ContactsView({ id }: { id?: string }) {
         q,
       ),
     );
-    return rowsInBook.filter((p) => kept.has(p.card));
+    /*
+     * Sorted again after the rows are put back by their book: `filterCards`
+     * order is thrown away by the filter above, and the letter headings below
+     * group on adjacency. Without this, the reader's own book and a group's
+     * each restart at "A", so the same letter appears twice and two headings
+     * share a React key.
+     */
+    return rowsInBook
+      .filter((p) => kept.has(p.card))
+      .sort((a, b) => sortKey(a.card).localeCompare(sortKey(b.card)));
   }, [contacts, rowsInBook, q]);
 
   /*
