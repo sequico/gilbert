@@ -52,6 +52,37 @@ getting it running means pointing it at the mail server you already operate.
 What you get is a client good enough to move into, and a set of agents that do
 the work around it.
 
+## What Gilbert is for
+
+Gilbert is **operations software**. It is built for the people who keep a
+business running — an administration, a back office, a service desk, an
+accounting team, whoever answers the phone — rather than for the people who
+sell it.
+
+It is deliberately **not a CRM**, and it ships **no sales functions**: no
+pipeline, no deals, no leads, no sales reporting, no quote engine. A company
+that sells can of course use Gilbert, because mail is mail and a purchase order
+that arrives as a PDF can be read, filed and answered — but the product takes
+no position on revenue. What it supports is the operation underneath: the work
+between something arriving and the matter being closed.
+
+Three surfaces carry that work:
+
+- **A mailer** — mail, calendars, contacts and files, in a client good enough
+  to move a whole company into, self-hosted so nothing of it leaves the
+  building.
+- **A phone** — a softphone in the browser, so a desk is reachable where the
+  work already is.
+- **An assistant for processes** — agents that read what arrives, file the
+  paperwork, read the document inside it, draft the answer, and say in the
+  group's chat what they have done, inside a permission list an administrator
+  writes and an audit trail a person can read.
+
+It is not an ERP either, and claims not to be: where a business already runs its
+accounting, its inventory or its purchasing elsewhere, Gilbert is the
+correspondence and the process around those systems, never a replacement for
+them.
+
 > **Try it in a minute — no server needed.** `npm run dev:mock` runs a complete
 > Gilbert against an in-memory mock Stalwart; open http://localhost:5173 and
 > sign in with `demo@example.com` / `demo`. `npm run dev:mock:agent` is the same
@@ -65,36 +96,31 @@ Everything below ships. It is the order this project cares about, not the order
 someone would build a mail client in: the agents are the reason Gilbert exists,
 and the mail client is what they live in.
 
-- **Agents that work the mail and the files.** An agent is a mailbox of its
-  own on Stalwart — `gilbert@…` — granted on a group the way any colleague is.
-  It watches four things: **mail** arriving, a **file** landing in the group's
-  Files, a **chat** message, and the **clock**. For each of them an
-  administrator writes an automation in a form, not in code — and the form asks
-  for three things: *when* it reacts, *what it is asked to do* in prose, and
-  *what it may do*, chosen as three areas (mail, chat, files and documents)
-  plus sending, which no area can grant on its own. It can label and move a
-  message, save its attachments into the right folder, read a PDF or a
-  spreadsheet or a scan, split, merge and extract PDF pages, prepare a reply
-  in Drafts, write a text document, post in the chat, and send.
-- **A leash, not a promise.** What an automation may do is a short list of
-  permissions checked in code on every answer, so neither the model nor a
-  cleverly worded instruction can widen it. The group's own review policy can
-  pause a run for a person; the pause becomes a question in the group's chat,
-  answered in words by any member. Sending outside the group always asks first,
-  whatever the policy says.
+- **Agents that work the mail and the files.** An agent is a mailbox of its own
+  on Stalwart — `gilbert@…` — granted on a group the way any colleague is. It
+  watches four things: **mail** arriving, a **file** landing in the group's
+  Files, a **chat** message, and the **clock**. For each, an administrator
+  writes an automation in a form, not in code: *when* it reacts, *what it is
+  asked to do* in prose, and *what it may do*, chosen as three areas — mail,
+  chat, files and documents — plus sending, which no area grants on its own. It
+  can label and move a message, save attachments into the right folder, read a
+  PDF, a spreadsheet or a scan, split, merge and extract PDF pages, prepare a
+  reply in Drafts, write a text document, post in the chat, and send.
+- **A leash, not a promise.** The allowlist is checked in code on every answer,
+  so neither the model nor a cleverly worded instruction can widen it. A group's
+  review policy can pause a run for a person; the pause becomes a question in
+  the group's chat, answered in words by any member. A send outside the group
+  always asks first, whatever the policy says.
 - **A receipt for everything.** Every run is recorded — one line written
-  *before* the effect, so an effect never exists without a line that accounts
-  for it — in a monthly document per group, kept twelve months, readable by
-  every member and exportable as JSON by an administrator before the oldest
-  month is pruned. What the thinking cost is recorded in tokens, run by run.
+  *before* the effect, so an effect never exists without a line that accounts for
+  it — in a monthly document per group, kept twelve months, readable by every
+  member and exportable as JSON. Tokens are counted run by run.
 - **Agents that know the place.** What an agent is told has three levels: the
-  **installation's own rules** — written once in Admin → Master and carried
-  into every call of every group — a group's **standing instruction** (how it
-  works, in what language, in what tone), and each automation's own
-  instruction. Beside them a group keeps a **notebook** of facts nobody should
-  have to repeat: its clients' names, how its mail is filed. Each of the three
-  is a document — two in the group's own account, one in the Master's — so a
-  replacement agent, a restart or a redeploy picks up exactly where the last
+  **installation's own rules** (Admin → Master, carried into every call of every
+  group), a group's **standing instruction** (how it works, in what language, in
+  what tone), and each automation's own instruction. Beside them a group keeps a
+  **notebook** of facts nobody should have to repeat. All of it is documents, so
+  a replacement agent, a restart or a redeploy picks up exactly where the last
   one was.
 - **Groups, as real accounts.** A group mailbox is an account of its own,
   owned by the group from creation: its mail, its calendars, its files, its
@@ -106,32 +132,31 @@ and the mail client is what they live in.
   roster, per-member read markers and search across the whole history. This is
   also where the agents talk and where approvals happen.
 - **A phone, and a directory everyone shares.** Point the deployment at its own
-  **Janus** WebRTC server — with its SIP plugin — put a SIP account on a
-  person's identity, and a softphone lives in the top bar: the browser is the
-  phone, registering through Janus and relaying the call, and collapsing into
-  the bar while a call is live so the reader keeps working. **One tab** holds the
-  line; every other tab shows no phone, and closing the holder hands the seat to
-  the next one. It dials a contact — from **Global contacts**, a group's book or
-  their own, or a number typed by hand — and its colour is the line: idle, in a
-  call, or unavailable. **Global contacts** is one directory the installation
+  **Janus** WebRTC server with its SIP plugin, put a SIP account on a person's
+  identity, and a softphone lives in the top bar: the browser is the phone,
+  registering through Janus and relaying the call, and collapsing into the bar
+  while a call is live so the reader keeps working. The deployment's own bridge
+  needs its **UDP media range open inbound** on the firewall — the one port it
+  opens; SIP goes outbound, so 5060 and 5061 are never opened. **One tab** holds
+  the line; every other tab shows no phone, and closing the holder hands the seat
+  to the next one. It dials a contact — from **Global contacts**, a group's book
+  or their own, or a number typed by hand — and its colour is the line: idle, in
+  a call, or unavailable. **Global contacts** is one directory the installation
   owns and every account reads; an administrator edits it from Contacts and
   everybody else reads it. What a browser cannot do is ring with the tab closed,
   which is the platform's limit and not a promise broken.
 - **File management that holds up.** A folder tree that remembers how you left
-  it, drag and drop from your desktop — a whole folder uploads with its
-  structure, empty folders included — uploads you can **cancel** mid-flight,
-  sorted columns that keep their order per folder, multi-select with download,
-  move and delete, and sharing per file and folder with rights per person.
-  Attach from Files without uploading again; save a message's attachments
-  straight into a folder of your own **or a group's**, so the file becomes the
-  group's.
-- **A mail client you would keep anyway.** Three-pane, keyboard-driven, with
+  it, drag and drop with whole folders (empty ones included), uploads you can
+  **cancel** mid-flight, a sort order kept per folder, multi-select with
+  download, move and delete, and sharing per file and folder with rights per
+  person. Attach from Files without uploading again, and save a message's
+  attachments straight into a folder of your own **or a group's**.
+- **A mail client you would keep anyway.** Three-pane and keyboard-driven, with
   conversations, labels, search grammar, cards inside messages, undo send,
-  scheduled send, read receipts, S/MIME signature checking, and graceful
-  degradation: if the server lacks a capability, the surface for it is not
-  drawn rather than broken. Calendars with invitations and free/busy, contacts
-  with vCard import, and a visual Sieve rule builder whose script is a real
-  Sieve script. (This part began as upstream's — see
+  scheduled send, read receipts, S/MIME signature checking, calendars with
+  invitations and free/busy, contacts with vCard import, and a visual Sieve rule
+  builder whose script is a real Sieve script — degrading gracefully when the
+  server lacks a capability. (This part began as upstream's — see
   [the line to upstream](#the-blocks-and-the-line-to-upstream).)
 - **Administration, three surfaces and no more.** **Master** configures the
   installation once — the agent's identity, the one model and its bounds, the
