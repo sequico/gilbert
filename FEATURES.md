@@ -835,33 +835,34 @@ wants to retire a chat clears the folders through Files.
 
 ## The phone, and Global contacts
 
-An installation that points Gilbert at its own **SIP server** gets a softphone
-in the client — **gilbertmailer**, speaking SIP over WebSocket with WebRTC
-media, audio only — and a **directory** every account reads. The telephony
-server is the deployment's own, external to the four blocks: Gilbert adds no
-registrar, no media relay and no durable telephony state beyond an identity's
-credentials (ADR 0023).
+A deployment that runs **Janus** with its SIP plugin gets a softphone in the
+client — **gilbertmailer** — and a **directory** every account reads. The
+telephony server is the deployment's own, external to the four blocks: Gilbert
+adds no registrar, no media relay and no durable telephony state beyond an
+identity's account (ADR 0023). The **browser is the phone**: it attaches to the
+Janus SIP plugin, registers the account and negotiates the media, and Janus
+terminates the WebRTC and relays SIP and RTP. Its signalling is the Janus API,
+carried over a WebSocket gilbertserver proxies on its own origin and certificate
+and authenticates by session.
 
+- **One tab holds the line.** The phone is seated by a **Web Lock**: the first
+  tab to ask is the phone, every other tab of the same origin shows none, and
+  closing, reloading or crashing the holder hands the seat to the next tab,
+  which registers then. The registration is the tab's — with no tab holding the
+  seat there is no registration, and the provider's own routing takes a call.
 - **The line.** One entry in the top bar, beside the chat launcher. Its colour
   is the line: outline when registered and idle, green in a call, red when the
-  line is not available. It registers with the person's **identity** — the SIP
-  address and password an administrator sets per identity in Enforce
-  Identities, account data that follows the account and can be enforced — with a
-  **30-second** registration renewed while the page is alive. One tab per device
-  holds the line, and it deregisters only when the page actually goes
-  (`pagehide`, a close or a navigation), never when a tab is backgrounded: a
-  hidden tab stays registered and is rung.
-- **The call.** An incoming call takes the screen on a phone and a banner on a
-  desktop. A live call **collapses into the top bar** so the reader keeps
-  working; the surface offers mute, a DTMF keypad and hang up, and a second
-  call is **call waiting** — the first is held while the second is answered, and
-  the reader switches between them. A number with no contact can be typed by
-  hand, so the phone is not limited to Contacts.
-- **Reliability is the priority.** A bad network or a lost server is answered
-  unattended: the transport reconnects with backoff and re-registers, and a
-  media path that breaks is restarted in place with a re-INVITE, the
-  configuration's endpoints tried in order. What cannot be recovered ends
-  cleanly rather than leaving a dead call on screen.
+  line is not available. It registers the **identity** it sends as — the SIP
+  server, user name and password an administrator sets per identity in
+  **Identities and SIP Phone**, account data that follows the account.
+- **The call.** An incoming call announces itself as a banner; a live call
+  **collapses into the top bar** so the reader keeps working. The surface offers
+  mute, a DTMF keypad (RFC 2833) and hang up; a second call is refused **486**
+  by the plugin and the provider's routing takes it. A number with no contact can
+  be typed by hand, so the phone is not limited to Contacts.
+- **Audio only, and the same for everyone.** G.711 passed through without
+  transcoding, on one TLS transport to the provider, with no STUN/TURN. What
+  cannot be recovered ends cleanly rather than leaving a dead call on screen.
 - **The dialer** reads Contacts separated by source — **Global contacts**,
   each group's book, the reader's personal books, and all of them — and a press
   dials; its list is read-only, editing belonging to Contacts. A contact with no
@@ -872,14 +873,14 @@ credentials (ADR 0023).
   brings an account created later in — the deployment's own share shape is owed
   the live probe ADR 0024 names. Every reader sees it in `All contacts` and in a
   section of its own; the phone offers its numbers as speed dial.
-- **The installation's settings** are one **SIP Phone** administration page:
-  the endpoints in the order they are tried, the STUN and TURN servers media may
-  need, and whether the phone is offered. Each person's credentials are per
-  identity, not on that page.
+- **No installation-level settings.** How Gilbert reaches Janus — its address
+  and port — is a deployment fact (`GILBERT_PHONE_JANUS_URL`), like
+  `STALWART_URL`: there is no SIP Phone administration page and no phone section
+  in the installation's document. Each person's account is per identity.
 - **What a browser cannot do**: ring with the tab closed, or keep a call across
-  a full reload. Both are the platform's limit rather than a broken promise; the
-  deregistration is what makes the server take the call instead, and a reload
-  with a call live asks first.
+  a full reload. Both are the platform's limit rather than a broken promise; with
+  no tab holding the seat the provider takes the call, and a reload with a call
+  live asks first.
 
 ---
 

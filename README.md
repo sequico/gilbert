@@ -105,13 +105,15 @@ and the mail client is what they live in.
   survives people joining and leaving, with replies, `@` mentions of the whole
   roster, per-member read markers and search across the whole history. This is
   also where the agents talk and where approvals happen.
-- **A phone, and a directory everyone shares.** Point the installation at its
-  own SIP server and a softphone lives in the top bar: it registers with the
-  person's identity, rings on a phone or a desktop, takes a second call while
-  the first waits, and collapses into the bar while a call is live so the reader
-  keeps working. It dials a contact — from **Global contacts**, a group's book
-  or their own, or a number typed by hand — and its colour is the line: idle, in
-  a call, or unavailable. **Global contacts** is one directory the installation
+- **A phone, and a directory everyone shares.** Point the deployment at its own
+  **Janus** WebRTC server — with its SIP plugin — put a SIP account on a
+  person's identity, and a softphone lives in the top bar: the browser is the
+  phone, registering through Janus and relaying the call, and collapsing into
+  the bar while a call is live so the reader keeps working. **One tab** holds the
+  line; every other tab shows no phone, and closing the holder hands the seat to
+  the next one. It dials a contact — from **Global contacts**, a group's book or
+  their own, or a number typed by hand — and its colour is the line: idle, in a
+  call, or unavailable. **Global contacts** is one directory the installation
   owns and every account reads; an administrator edits it from Contacts and
   everybody else reads it. What a browser cannot do is ring with the tab closed,
   which is the platform's limit and not a promise broken.
@@ -885,9 +887,9 @@ Copyright (C) 2026 Sequi Company — AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 The mail client Gilbert derives from is **ihasmail**, by **Coffey Labs**, used and
 modified under the same licence: that attribution is in [NOTICE](NOTICE), and the
-copyright in this build is Sequi Company's. The softphone is built on
-**SIP.js** (https://github.com/onsip/SIP.js), used under the MIT licence — also
-recorded, with its terms, in [NOTICE](NOTICE). The AGPL's section 13 is the point of
+copyright in this build is Sequi Company's. The phone runs on **Janus**, the
+WebRTC server by Meetecho s.r.l., used under the GPL-3.0 as a separate process —
+recorded, with the other attributions, in [NOTICE](NOTICE). The AGPL's section 13 is the point of
 it — webmail is nearly always run as a network service rather than handed to
 anyone as a binary, and that section closes the gap.
 

@@ -112,7 +112,19 @@ The MIT licence, under which all ten are used:
 
 ## SIP.js
 
-The softphone (ADR 0023) is built on **SIP.js** —
+The softphone the tree carries today is built on **SIP.js** —
 https://github.com/onsip/SIP.js — Copyright (c) 2020 Junction Networks, used
 under the MIT licence. It is used as a library, unmodified: nothing in Gilbert
 is derived from it. The MIT terms reproduced above are the ones it comes under.
+The softphone this project decides (ADR 0023) runs on Janus instead, below, and
+this section goes with the library when the client that uses it is removed.
+
+## Janus
+
+The phone (ADR 0023) runs on **Janus**, the WebRTC server —
+https://github.com/meetecho/janus-gateway — Copyright (C) Meetecho s.r.l., used
+under the GNU General Public License v3. It runs as a **separate process** in
+the deployment and is reached over its API: nothing in Gilbert is linked with
+it, derived from it or distributed with it, so its licence governs that process
+and not this work. It is credited here because the feature depends on it.
+
