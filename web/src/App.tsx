@@ -285,6 +285,16 @@ function AuthedApp() {
   // Initial data + push wiring
   useEffect(() => {
     if (!accountId) return;
+    /*
+     * The push stream opens first, before the startup reads below.
+     *
+     * A browser allows only a handful of connections per host, and the live
+     * updates dot is yellow until this stream's response comes back: started
+     * after the reads, it sits queued behind every one of them and the dot
+     * stays yellow long after the app is usable. Opened first, it claims its
+     * connection and turns green while the reads run behind it.
+     */
+    push.start();
     const mail = useMail.getState();
     /*
      * Renewal is chained onto this load on purpose: the registration's
@@ -310,7 +320,6 @@ function AuthedApp() {
     void useCalendar.getState().init();
     void useFiles.getState().init();
     void useSieve.getState().init();
-    push.start();
     // A push subscription stays silent until its verification code is echoed
     // back, and the code may have arrived while no tab was open.
     listenForVerification();
