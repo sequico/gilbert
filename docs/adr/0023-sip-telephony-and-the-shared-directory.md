@@ -102,15 +102,20 @@ set none has no softphone, and the phone entry is not offered.
 
 ### Registration, and what "not connected" means
 
-The client registers with its own contact and a **short life**, and renews it
-while the page is alive. It **deregisters explicitly only when the page
-actually goes away** — a `pagehide`, which is a close or a navigation, never a
-`visibilitychange`: a tab sent to the background, a phone's app suspended, or a
-desktop window sitting behind another keeps its registration, because the
-reader is still there and a call should still ring. Only then is the server
-asked to route the next call at once. A browser killed outright cannot run that
-handler, and the short expiry is what covers it: the server treats the address
-as unregistered once the life runs out.
+The client registers **one line, the default identity's**, with its own
+contact and a **30-second life**, and renews it while the page is alive. **One
+tab per device registers**: a second tab on the same device shows the call
+rather than registering a second contact, so a device never rings twice and
+never plays the audio twice.
+
+It **deregisters explicitly only when the page actually goes away** — a
+`pagehide`, which is a close or a navigation, never a `visibilitychange`: a tab
+sent to the background, a phone's app suspended, or a desktop window sitting
+behind another keeps its registration, because the reader is still there and a
+call should still ring. Only then is the server asked to route the next call at
+once. A browser killed outright cannot run that handler, and the 30-second
+expiry is what covers it: the server treats the address as unregistered once
+the life runs out.
 
 What the server does with that is the server's. With no contact registered it
 takes the call itself — a mailbox — and with another client registered under
@@ -127,11 +132,42 @@ Its state is one glyph, and it returns to idle on its own:
 - **red** — the line is not available: a second call while one is live, a
   registration that has dropped, or a call that failed or was declined.
 
-A press opens the call surface. An incoming call rings, with answering and
-declining, and the entry turns green when it is answered. **A live call
-collapses into the top bar** — on the phone and on the desktop alike — so the
-reader goes on with their mail while it lasts, and the collapsed control brings
-the call back. Nothing about a live call blocks the rest of the app.
+A press opens the call surface. An incoming call announces itself where the
+reader is — **a full screen on a phone and a banner under the top bar on a
+desktop**, both with answering and declining — and the entry turns green when
+it is answered. **A live call collapses into the top bar** — on the phone and
+on the desktop alike — so the reader goes on with their mail while it lasts,
+and the collapsed control brings the call back. Nothing about a live call
+blocks the rest of the app.
+
+### While a call is live
+
+The controls are **mute and a DTMF keypad**. Hold and transfer are not client
+features: where a server wants DTMF sequences for them, the operator documents
+them and the keypad is how they are sent — a matter between the server and its
+peers, not something the client models.
+
+**A second call is the server's to offer, and the client answers both ways.**
+Where the server forks a second invitation while one is live, the client takes
+it the way the server means it to — call waiting, the first held while the
+second is answered — and where the server expects busy, it refuses with 486 and
+the line reads red (above). Which one happens is the deployment's, not the
+client's.
+
+Signing out, or switching the account under the phone, ends the call: the
+credentials it was placed with go with the session.
+
+### The microphone, and the ring
+
+The microphone is asked for **as early as the surface can**, in its own
+gesture, by the same principle the notification permission already follows
+(ADR 0016): a permission asked silently is one nobody grants, and one deferred
+to the first call is a call that fails at the worst moment. Until it is
+granted, the phone says what is missing rather than pretending.
+
+An incoming call rings, and a device that cannot play the ringtone still gets
+the visual one. The reader's notification settings are respected: a reader who
+has silenced Gilbert is not rung audibly by it.
 
 ### Contacts the phone reads, and speed dial
 
@@ -146,7 +182,9 @@ the call's target.
 **The dialer's list is read-only and searches and dials, nothing else.** No
 contact is created, edited or deleted from it — not by a member and not by an
 administrator — because editing a contact belongs to Contacts. The dialer
-reads, searches and calls; every write is somewhere else.
+reads, searches and calls; every write is somewhere else. **A number can also
+be composed by hand**, through a keypad in the call surface, so the phone is
+not limited to the contacts it can read.
 
 ### The shared directory
 
@@ -206,9 +244,10 @@ the client is held to.
 
 ## Consequences
 
-- A call lives exactly as long as the page: a reload, a crash or a closed
-  browser ends it, and the server's routing — not the client — is what turns
-  that into a mailbox.
+- A call lives exactly as long as the page and cannot be carried across a
+  reload — the media stack dies with the document — so a reload with a call
+  live asks first. A crash or a closed browser ends it, and the server's
+  routing, not the client, is what turns that into a mailbox.
 - Backgrounding is not absence. A hidden tab, a suspended phone app or a
   window behind another stays registered and is rung; only a page that actually
   goes away leaves, and a crash is the expiry's to absorb.

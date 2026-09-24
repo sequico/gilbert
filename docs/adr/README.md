@@ -221,25 +221,30 @@ is, not what a user sees.
   meaning.
 - **0023 — SIP telephony and the shared directory.** The softphone is SIP.js
   over SIP over WebSocket with WebRTC media, in gilbertmailer, speaking to the
-  deployment's own SIP server; the credentials are an identity's, set by an
-  administrator through the identity door and enforceable, account data and
-  never device-local. The client registers with its own contact and a short
-  life, deregisters explicitly when the page actually goes — never when it is
-  merely backgrounded, where it stays registered and is rung — and lets the
-  server's registration state decide what an absent client means: a mailbox, or
-  a fork to the other clients registered under the same credentials. A live call
-  collapses into the top bar on both desktop and phone. The dialer's list is
-  read-only — search and dial, never an edit — and reads Contacts separated by
-  the shared directory, each group, personal and all, and a call starts either
-  from that list or from Contacts, where every write happens. The shared
-  directory is one address book owned by the Master, shared read-only with every
-  account and edited only by an administrator from inside Contacts, with no
-  per-member copy. Reliability is the priority: a bad network or a lost server
-  is answered unattended — reconnect, re-register, ICE restart, codecs
-  renegotiated as the path degrades and recovers, a call surviving a handover
-  or a short silence — and the configured endpoints are tried in order. The installation's endpoints, STUN/TURN and switch are one SIP
-  Phone administration page; each person's credentials are set per identity in
-  the identity-enforcement surface. The feature is stated in the public
-  documents when it is built — `FEATURES.md` and `README.md` — and not left to
-  the code; a browser that is closed cannot ring or be rung, which is the
-  platform's limit and what the deregistration answers.
+  deployment's own SIP server; the credentials are an identity's, set per
+  identity in the identity-enforcement surface and enforceable, account data and
+  never device-local. The client registers one line — the default identity's —
+  with a 30-second life renewed while the page is alive, one tab per device, and
+  deregisters explicitly only when the page actually goes, never when it is
+  merely backgrounded, where it stays registered and is rung; the server's
+  registration state then decides what an absent client means: a mailbox, or a
+  fork to the other clients under the same credentials. Reliability is the
+  priority: a bad network or a lost server is answered unattended — reconnect,
+  re-register, ICE restart, codecs renegotiated as the path degrades and
+  recovers — with the configured endpoints tried in order and a WSS gateway as
+  the fallback. Incoming calls take the screen on a phone and a banner on a
+  desktop; a live call collapses into the top bar; the controls are mute and
+  DTMF, hold and transfer being the server's own DTMF sequences; a second call
+  is call-waiting or 486 as the server offers it; a number can also be composed
+  by hand; and the microphone is asked as early as the surface can. The
+  installation's endpoints, STUN/TURN and switch are one SIP Phone
+  administration page. The dialer's list is read-only — search and dial, never
+  an edit — and reads Contacts separated by the shared directory, each group,
+  personal and all, and a call starts either from it or from Contacts, where
+  every write happens. The shared directory is one address book owned by the
+  Master, shared read-only with every account and edited only by an
+  administrator from inside Contacts, with no per-member copy. A reload cannot
+  carry a call, so it asks first. The feature is stated in the public documents
+  when it is built — `FEATURES.md` and `README.md` — and not left to the code; a
+  browser that is closed cannot ring or be rung, which is the platform's limit
+  and what the deregistration answers.
