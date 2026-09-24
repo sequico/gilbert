@@ -36,6 +36,7 @@ import { t } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
 import { toggleTarget } from "@/lib/palette";
 import { collectShare } from "@/lib/shareTarget";
+import { applyAppUpdate } from "@/lib/staleBuild";
 import { draftFromMailto, useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -468,10 +469,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }
               />
             )}
+            {/*
+              Refresh asks the worker for its script first -- the half a plain
+              reload cannot force -- and reloads whether or not the version
+              moved: the reader pressed the button, so the page comes back
+              fresh, and a client stuck on an old worker lands the new one.
+            */}
             <MenuItem
               icon={<RefreshCw size={16} />}
               label={t("Refresh")}
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                void applyAppUpdate().then((outcome) => {
+                  if (outcome !== "reloading") window.location.reload();
+                });
+              }}
             />
             <MenuItem
               icon={<LogOut size={16} />}
