@@ -117,6 +117,7 @@ import {
   publishInstallation,
   readInstallationForAdmin,
 } from "./installationAdmin.js";
+import { bridgeReachable } from "./phone/bridge.js";
 import { phoneSocket } from "./phone/proxy.js";
 import {
   MAX_PUSH_BODY_BYTES,
@@ -2621,6 +2622,18 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * reads its own.
    */
   /**
+   * Whether the phone's bridge is running (ADR 0023).
+   *
+   * A status for the administration, not a setting: a host that could not
+   * build Janus installs Gilbert without the phone, and this is how the
+   * administration knows to say the phone is unavailable and why. The client
+   * still proves the media path before offering the phone.
+   */
+  api.get("/admin/phone/status", requireSession, requireAdmin, async (c) =>
+    c.json(await bridgeReachable()),
+  );
+
+  /**
    * One identity's SIP account (ADR 0023).
    *
    * What the softphone registers with, per identity, written into the
@@ -2645,20 +2658,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           username?: unknown;
           password?: unknown;
         };
-        if (
-          typeof fields.server !== "string" ||
-          typeof fields.username !== "string" ||
-          typeof fields.password !== "string"
-        )
+        if (typeof fields.server !== "string" || typeof fields.username !== "string")
           throw new IdentityAdminError(
             "invalid_identity",
-            "A SIP account needs a string server, user name and password.",
+            "A SIP account needs a string server and user name.",
             400,
           );
         credential = {
           server: fields.server,
           username: fields.username,
-          password: fields.password,
+          password: typeof fields.password === "string" ? fields.password : "",
         };
       }
       await writePersonSipCredential(

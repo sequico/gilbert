@@ -2,6 +2,7 @@ import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import { describe, expect, it } from "vitest";
 import type { AddressBook, ContactCard } from "@/jmap/types";
 import { isGlobalContactsBook } from "@/lib/contacts";
+import { accountFor, readSipAccounts } from "@/lib/phone/credential";
 import {
   allDialerCards,
   contactPhoneNumbers,
@@ -157,5 +158,20 @@ describe("Global contacts is one named book", () => {
     expect(isGlobalContactsBook({ name: "Team contacts", myRights: readOnly })).toBe(
       false,
     );
+  });
+});
+
+describe("the account an identity registers with", () => {
+  it("is looked up without case, and absent means no phone", () => {
+    const account = { server: "pbx.example.com", username: "1001", password: "p" };
+    expect(accountFor({ "a@example.com": account }, "A@Example.com")).toEqual(account);
+    expect(accountFor({}, "a@example.com")).toBeNull();
+    expect(accountFor({}, null)).toBeNull();
+  });
+
+  it("reads nothing from an account whose document is not there", async () => {
+    // No account in this test has a folder: the reader answers an empty map
+    // rather than throwing, which is what keeps the phone off quietly.
+    await expect(readSipAccounts("no-such-account")).resolves.toEqual({});
   });
 });

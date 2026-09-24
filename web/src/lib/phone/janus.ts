@@ -62,15 +62,33 @@ export class Janus {
   async open(plugin: string): Promise<void> {
     const ws = new WebSocket(this.url);
     this.ws = ws;
-    ws.onmessage = (event) => this.receive(String(event.data));
-    ws.onclose = () => {
-      if (!this.closed) this.hooks.onClosed();
-    };
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onclose = () => reject(new Error("the phone bridge did not answer"));
-      ws.onerror = () => reject(new Error("the phone bridge did not answer"));
+    let opened = false;
+    /*
+     * One close handler, from the first byte: before the socket opens it
+     * rejects the wait (a bridge that never answered), and after it the line is
+     * gone and the owner is told, so it can reconnect. Overwriting it for the
+     * wait, as a naive version does, is what makes a dropped socket silent.
+     */
+    const first = new Promise<void>((resolve, reject) => {
+      const failed = new Error("the phone bridge did not answer");
+      ws.onopen = () => {
+        opened = true;
+        resolve();
+      };
+      ws.onclose = () => {
+        ws.onclose = null;
+        this.stopKeepalive();
+        this.rejectPending(new Error("the phone bridge is gone"));
+        if (opened) {
+          if (!this.closed) this.hooks.onClosed();
+        } else reject(failed);
+      };
+      ws.onerror = () => {
+        if (!opened) reject(failed);
+      };
     });
+    ws.onmessage = (event) => this.receive(String(event.data));
+    await first;
     const created = (await this.request({ janus: "create" })) as { id?: number };
     if (!created.id) throw new Error("the phone bridge accepted no session");
     this.session = created.id;
@@ -109,17 +127,13 @@ export class Janus {
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    if (this.keepalive !== null) {
-      window.clearInterval(this.keepalive);
-      this.keepalive = null;
-    }
+    this.stopKeepalive();
     if (this.ws && this.session !== null)
       this.send({ janus: "destroy", session_id: this.session });
-    this.ws?.close();
+    const ws = this.ws;
     this.ws = null;
-    for (const { reject } of this.pending.values())
-      reject(new Error("the phone bridge is gone"));
-    this.pending.clear();
+    ws?.close();
+    this.rejectPending(new Error("the phone bridge is gone"));
   }
 
   private next(): string {
@@ -130,6 +144,17 @@ export class Janus {
   private send(message: Record<string, unknown>): void {
     if (this.ws?.readyState !== WebSocket.OPEN) return;
     this.ws.send(JSON.stringify(message));
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepalive === null) return;
+    window.clearInterval(this.keepalive);
+    this.keepalive = null;
+  }
+
+  private rejectPending(error: Error): void {
+    for (const { reject } of this.pending.values()) reject(error);
+    this.pending.clear();
   }
 
   /** A request whose `success`/`error` response this waits for. */
@@ -185,6 +210,12 @@ export class Janus {
         return;
       case "hangup":
         this.hooks.onMediaGone();
+        return;
+      case "detached":
+      case "timeout":
+        // The handle (or the whole session) is gone, but the socket may not
+        // close: tell the owner so the line is not left looking registered.
+        if (!this.closed) this.hooks.onClosed();
         return;
       default:
         return;

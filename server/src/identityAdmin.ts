@@ -674,8 +674,8 @@ export async function personIdentities(
  *
  * The account lives in `sip.json`, in that account's own app folder, keyed
  * by identity email — the same impersonating door the default identity and the
- * lock write through. `null`, or an address that is only blanks, clears the
- * entry; the phone then has nothing to register for that identity.
+ * lock write through. `null` clears the entry; a credential with no server or
+ * user name is refused before it gets here, so only `null` removes it.
  */
 export async function writePersonSipCredential(
   admin: LiveSession,

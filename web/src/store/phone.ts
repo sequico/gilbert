@@ -41,7 +41,7 @@ interface PhoneStore {
 
   /** Take the seat if it is free, and register the account. */
   start(): Promise<void>;
-  /** Give the seat up and stop. Called on sign-out and on `pagehide`. */
+  /** Give the seat up and stop. Called on sign-out (the launcher unmount). */
   stop(): Promise<void>;
   dial(target: string): Promise<void>;
   answer(): Promise<void>;
@@ -97,15 +97,20 @@ export const usePhone = create<PhoneStore>((set, get) => ({
      * this run is done once `begin` has registered, and the tab keeps the seat
      * afterwards.
      */
-    void navigator.locks.request(SEAT, async () => {
-      if (gen !== generation) return;
-      await begin(set, gen);
-      if (gen !== generation) return;
-      await new Promise<void>((resolve) => {
-        releaseSeat = resolve;
+    void navigator.locks
+      .request(SEAT, async () => {
+        if (gen !== generation) return;
+        await begin(set, gen);
+        if (gen !== generation) return;
+        await new Promise<void>((resolve) => {
+          releaseSeat = resolve;
+        });
+        releaseSeat = null;
+      })
+      .catch(() => {
+        // A refused lock is no seat: this tab shows no phone and holds nothing.
+        started = false;
       });
-      releaseSeat = null;
-    });
   },
 
   async stop() {
@@ -141,8 +146,12 @@ export const usePhone = create<PhoneStore>((set, get) => ({
 
   async answer() {
     await get().requestMicrophone();
-    await phone?.answer().catch(() => undefined);
-    set({ incoming: null });
+    try {
+      await phone?.answer();
+      set({ incoming: null });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err) });
+    }
   },
 
   async decline() {

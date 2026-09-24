@@ -65,7 +65,7 @@ export function PhoneLauncher() {
     el.srcObject = stream;
     if (stream) void el.play().catch(() => undefined);
     else el.pause();
-  }, [stream]);
+  }, [stream, ready]);
 
   /* The ring, only if this page is not silenced. */
   useEffect(() => {

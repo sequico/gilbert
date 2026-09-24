@@ -115,6 +115,10 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
+    // The phone's signalling sockets (ADR 0023) are long-lived, and a closing
+    // HTTP server waits for its connections: end them first, so a call in
+    // progress cannot hold the process open past its shutdown.
+    for (const client of wss.clients) client.terminate();
     server.close();
     await fleet?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,

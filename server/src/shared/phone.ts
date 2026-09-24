@@ -93,7 +93,9 @@ export function isSipCredential(value: unknown): value is SipCredential {
  * The one parser both tiers use: the server reads the document to register, the
  * administration reads the same document to show what an identity holds.
  * Malformed, absent or shapeless all answer the empty map — "no credential" is
- * a state, not a fault.
+ * a state, not a fault. A document in an earlier shape (an `address`/`password`
+ * pair) is not this shape and reads as empty: the schema changed deliberately,
+ * and the next write replaces it with the current one.
  */
 export function parseSipCredentials(raw: unknown): Record<string, SipCredential> {
   if (typeof raw !== "object" || raw === null) return {};

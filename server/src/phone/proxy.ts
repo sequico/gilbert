@@ -7,8 +7,10 @@
  * deployment's bridge. The page therefore reaches no second endpoint and holds
  * no bridge address, and a deployment with no bridge answers nothing here.
  *
- * The connection is opened lazily, on the first frame, so an idle tab holds no
- * upstream socket, and it is torn down with either end.
+ * The upstream is opened as soon as an authenticated browser connects, so a
+ * bridge that is down fails at once rather than at the first frame, and it is
+ * torn down with either end. Frames that arrive before the upstream is open are
+ * buffered, and the buffer is dropped with the connection.
  */
 import { upgradeWebSocket } from "@hono/node-server";
 import type { WSContext } from "hono/ws";
@@ -18,33 +20,45 @@ import { BRIDGE_URL, JANUS_PROTOCOL } from "./bridge.js";
 /** The readyState of an open socket, from `ws` and from the browser alike. */
 const OPEN = WebSocket.OPEN;
 
-/** One upstream connection, opened on demand and pump both ways. */
+/** How long the bridge is given to answer before the client is given up on. */
+const CONNECT_TIMEOUT_MS = 5000;
+
+/** One upstream connection, opened with the client and piped both ways. */
 export const phoneSocket = upgradeWebSocket(() => {
   let upstream: WebSocket | null = null;
+  let connectTimer: ReturnType<typeof setTimeout> | null = null;
   /** Frames the page sent before the upstream socket was ready. */
   const pending: string[] = [];
 
-  const send = (frame: string) => {
-    if (upstream && upstream.readyState === OPEN) upstream.send(frame);
-    else pending.push(frame);
+  const clearTimer = () => {
+    if (connectTimer === null) return;
+    clearTimeout(connectTimer);
+    connectTimer = null;
   };
 
-  const open = (ws: WSContext) => {
-    if (upstream) return;
+  const end = (client: WSContext) => {
+    clearTimer();
+    upstream = null;
+    pending.length = 0;
+    client.close();
+  };
+
+  const open = (client: WSContext) => {
+    // CONNECTING or OPEN: the one already on its way is the one to use. A
+    // CLOSING/CLOSED socket is replaced rather than buffered into.
+    if (upstream && upstream.readyState < WebSocket.CLOSING) return;
     const socket = new WebSocket(BRIDGE_URL, JANUS_PROTOCOL);
     upstream = socket;
+    connectTimer = setTimeout(() => socket.terminate(), CONNECT_TIMEOUT_MS);
     socket.on("open", () => {
+      clearTimer();
       for (const frame of pending.splice(0)) socket.send(frame);
     });
     socket.on("message", (data) => {
-      ws.send(data.toString());
+      client.send(data.toString());
     });
-    const end = () => {
-      upstream = null;
-      ws.close();
-    };
-    socket.on("close", end);
-    socket.on("error", end);
+    socket.on("close", () => end(client));
+    socket.on("error", () => end(client));
   };
 
   return {
@@ -54,14 +68,18 @@ export const phoneSocket = upgradeWebSocket(() => {
     onMessage(event, ws) {
       open(ws);
       const frame = typeof event.data === "string" ? event.data : "";
-      if (frame) send(frame);
+      if (!frame) return;
+      if (upstream && upstream.readyState === OPEN) upstream.send(frame);
+      else pending.push(frame);
     },
     onClose() {
+      clearTimer();
       upstream?.close();
       upstream = null;
       pending.length = 0;
     },
     onError() {
+      clearTimer();
       upstream?.close();
       upstream = null;
       pending.length = 0;

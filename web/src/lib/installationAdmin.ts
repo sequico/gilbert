@@ -2,12 +2,11 @@
  * The installation document's own client door (ADR 0011).
  *
  * One reader and one writer for `GET`/`POST /api/admin/installation`, and the
- * shape both answer with, because two administration pages edit the same
- * document — the Installation editor and SIP Phone — and a second spelling of
- * the route, or of "what a boot would refuse", is how the two come to disagree
- * about the installation they are both looking at. The editor shows the whole
- * document; SIP Phone changes one section and publishes it back, which is why
- * the writer takes the document as text rather than a parsed value.
+ * shape both answer with. The Installation editor is the one administration
+ * page that publishes the document, and it shows and writes the whole of it,
+ * which is why the writer takes it as text rather than as a parsed value: a
+ * document the server can refuse is better than one the editor silently
+ * reshaped.
  */
 import { installationDefaults } from "@gilbert/shared/installation";
 import { apiFetch } from "@/jmap/client";
