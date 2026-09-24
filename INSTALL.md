@@ -72,8 +72,13 @@ sudo systemctl restart gilbert # the script starts it if the URL was already set
 ```
 
 The script builds the application, fetches the bridge from the release, and
-installs `gilbert-janus.service` and `gilbert.service`. Its header has the whole
-of it.
+installs `gilbert-janus.service` and `gilbert.service`. A host that already runs
+its own `gilbert.service` keeps it: the installer writes only the hardening
+drop-in beside it (`gilbert.service.d/10-hardening.conf`), so the unit is yours
+and the posture is Gilbert's. Its header has the whole of it.
+
+`GILBERT_BRIDGE=0` installs Gilbert **without the phone**: nothing is fetched, no
+bridge service, no port to open — a deliberate choice, not a workaround.
 
 ## The one port
 

@@ -1,15 +1,17 @@
-# Gilbert, as a host service. Installed by install/install.sh.
+# Gilbert, as a host service. Installed by install/install.sh when the host has
+# no gilbert.service of its own; a deployment that has one keeps it, and the
+# installer layers its hardening over it as a drop-in instead (see
+# gilbert-hardening.conf).
 #
-# It runs with the bridge beside it (ADR 0023) but does not require it: with no
-# bridge, or with its ports closed, the phone simply is not offered. The
+# It runs with the phone's bridge beside it (ADR 0023) but does not require it:
+# with no bridge, or with its ports closed, the phone is simply not offered. The
 # environment file carries the handshake and whatever else this deployment
 # states (see .env.example); everything else lives in Stalwart.
 [Unit]
 Description=Gilbert
 Documentation=https://github.com/sequico/gilbert
-After=network-online.target gilbert-janus.service
+After=network-online.target
 Wants=network-online.target
-Wants=gilbert-janus.service
 
 [Service]
 Type=simple
@@ -19,7 +21,6 @@ EnvironmentFile=@ENV@
 ExecStart=@NODE@ server/dist/index.js
 Restart=always
 RestartSec=2
-NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

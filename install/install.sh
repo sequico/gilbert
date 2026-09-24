@@ -21,7 +21,14 @@
 # install does NOT stop: Gilbert is installed without the phone, with a loud
 # warning here and a warning in the administration surface, both saying the
 # phone is unavailable and why. The phone's absence is a degraded feature, not
-# a broken installation.
+# a broken installation. `GILBERT_BRIDGE=0` skips the attempt entirely: nothing
+# is fetched, no `gilbert-janus.service` is installed, no port is opened —
+# a deliberate choice, not a workaround.
+#
+# IT LAYERS OVER YOUR UNIT. If the host already runs its own `gilbert.service`,
+# that unit stays: its ExecStart, its User, its paths. This script writes only
+# the hardening drop-in beside it (`gilbert.service.d/10-hardening.conf`), so the
+# posture is ours and the unit is yours. A host with no unit gets ours too.
 #
 # THE PORTS — THE ONE THING THE FIREWALL NEEDS
 #
@@ -95,6 +102,9 @@ command -v npm >/dev/null || die "npm is not installed."
 [ -f "$APP/package.json" ] || die "$APP is not a Gilbert checkout (no package.json)."
 
 # --- the application ---------------------------------------------------------
+# Built as root, the path the image builds by; `--ignore-scripts` keeps
+# dependency install scripts out of it. The service runs unprivileged, and the
+# outputs are handed to it below.
 say "building Gilbert"
 ( cd "$APP" && npm ci --ignore-scripts && npm run build )
 
@@ -104,31 +114,38 @@ if ! id "$USER_NAME" >/dev/null 2>&1; then
   useradd --system --no-create-home --shell /usr/sbin/nologin "$USER_NAME" \
     || warn "could not create $USER_NAME; the services may refuse to start"
 fi
+# The app only reads these; root's build outputs are world-readable anyway, but
+# handing them over keeps a write from ever needing a privilege.
+chown -R "$USER_NAME" "$APP/node_modules" "$APP/web/dist" "$APP/server/dist" \
+  2>/dev/null || true
 
 # --- the bridge (best effort, fetched from the release) ----------------------
 BRIDGE_OK=0
 BRIDGE_REASON="the bridge is not installed"
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64 | amd64) ARCH=amd64 ;;
-  aarch64 | arm64) ARCH=arm64 ;;
-  *) ARCH="" ;;
-esac
-
-if [ -z "$ARCH" ]; then
-  BRIDGE_REASON="this machine's architecture ($(uname -m)) has no bridge build"
+if [ "${GILBERT_BRIDGE:-1}" != "1" ]; then
+  BRIDGE_REASON="the bridge is disabled (GILBERT_BRIDGE=0)"
 else
-  asset="gilbert-janus-linux-$ARCH.tar.gz"
-  say "fetching the phone's bridge ($asset)"
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
-  if curl -fsSL "$RELEASE/$asset" -o "$tmp/$asset" \
-    && curl -fsSL "$RELEASE/$asset.sha256" -o "$tmp/$asset.sha256" \
-    && ( cd "$tmp" && sha256sum -c "$asset.sha256" >/dev/null 2>&1 ) \
-    && tar xzf "$tmp/$asset" -C "$PREFIX"; then
-    BRIDGE_OK=1
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64 | amd64) ARCH=amd64 ;;
+    aarch64 | arm64) ARCH=arm64 ;;
+    *) ARCH="" ;;
+  esac
+  if [ -z "$ARCH" ]; then
+    BRIDGE_REASON="this machine's architecture ($(uname -m)) has no bridge build"
   else
-    BRIDGE_REASON="the bridge could not be fetched from $RELEASE"
+    asset="gilbert-janus-linux-$ARCH.tar.gz"
+    say "fetching the phone's bridge ($asset)"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    if curl -fsSL "$RELEASE/$asset" -o "$tmp/$asset" \
+      && curl -fsSL "$RELEASE/$asset.sha256" -o "$tmp/$asset.sha256" \
+      && ( cd "$tmp" && sha256sum -c "$asset.sha256" >/dev/null 2>&1 ) \
+      && tar xzf "$tmp/$asset" -C "$PREFIX"; then
+      BRIDGE_OK=1
+    else
+      BRIDGE_REASON="the bridge could not be fetched from $RELEASE"
+    fi
   fi
 fi
 
@@ -161,7 +178,15 @@ say "installing systemd services ($UNIT_DIR)"
 install -d "$UNIT_DIR"
 sed_args=(-e "s#@USER@#${USER_NAME}#g" -e "s#@APP@#${APP}#g"
           -e "s#@ENV@#${ENV_FILE}#g" -e "s#@NODE@#$(command -v node)#g")
-sed "${sed_args[@]}" "$APP/install/gilbert.service" > "$UNIT_DIR/gilbert.service"
+# The unit is the deployment's: one already there keeps its ExecStart, its User
+# and its paths, and gets only the hardening drop-in. A host with none gets ours
+# too, so a fresh install is one command.
+if [ ! -f "$UNIT_DIR/gilbert.service" ]; then
+  sed "${sed_args[@]}" "$APP/install/gilbert.service" > "$UNIT_DIR/gilbert.service"
+fi
+install -d "$UNIT_DIR/gilbert.service.d"
+cp "$APP/install/gilbert-hardening.conf" \
+  "$UNIT_DIR/gilbert.service.d/10-hardening.conf"
 if [ "$BRIDGE_OK" = "1" ]; then
   sed "${sed_args[@]}" "$APP/install/gilbert-janus.service" \
     > "$UNIT_DIR/gilbert-janus.service"
