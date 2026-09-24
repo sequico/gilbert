@@ -33,11 +33,12 @@
  * and says that an assignment cannot be made until it reads again.
  */
 
-import { Pencil, Plus, RotateCw } from "lucide-react";
+import { Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import {
+  deleteGroupIdentity,
   fetchGroupIdentity,
   fetchUserIdentities,
   type GroupIdentityView,
@@ -47,6 +48,7 @@ import {
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { ownIdentity } from "@/lib/identityVisibility";
+import { confirmDialog } from "@/ui/dialog";
 import { ACTIVE_COLOR } from "@/ui/misc";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
 import {
@@ -138,6 +140,7 @@ function MemberRow({
   onName,
   onAssign,
   onEdit,
+  onDelete,
 }: {
   address: string;
   /** The group's own address: what an identity set for this member sends from. */
@@ -151,6 +154,7 @@ function MemberRow({
   onName: (address: string, name: string | null) => void;
   onAssign: (member: string, draft: Partial<Identity>) => void;
   onEdit: (member: string, identity: Identity) => void;
+  onDelete: (member: string, identity: Identity) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [reading, setReading] = useState(false);
@@ -189,15 +193,34 @@ function MemberRow({
       <div className="card-head">
         <h3>{address}</h3>
         {assigned && (
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(address, assigned);
-            }}
-          >
-            <Pencil size={14} /> {t("Edit")}
-          </button>
+          <>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(address, assigned);
+              }}
+            >
+              <Pencil size={14} /> {t("Edit")}
+            </button>
+            {/* The member's own sender going away: the identity they were
+                assigned is deleted, so they send as the group itself. Not
+                offered on the group's own identity, which everybody falls
+                back to and nothing may delete. */}
+            {!senderIsGroup && (
+              <button
+                className="icon-btn sm danger"
+                aria-label={t("Delete identity")}
+                title={t("Delete this identity so the member sends as the group")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(address, assigned);
+                }}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </>
         )}
       </div>
       {!open && (
@@ -359,6 +382,32 @@ export function GroupIdentities() {
   }
 
   /**
+   * Delete the identity a member was assigned.
+   *
+   * The member then falls back to the group's own identity, which is what a
+   * member with no identity of their own sends as — so the trash is the
+   * member's own sender going away, not the group's.
+   */
+  async function remove(member: string, identity: Identity) {
+    if (
+      !(await confirmDialog({
+        title: t("Delete {identity}?", { identity: identityLabel(identity) }),
+        message: t("{member} will then send as the group itself.", { member }),
+        confirmLabel: t("Delete"),
+        danger: true,
+      }))
+    )
+      return;
+    setError(null);
+    try {
+      await deleteGroupIdentity(name, identity.id);
+      await load(name);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  /**
    * The state of a group whose account holds nothing yet, and how to start its
    * first identity.
    *
@@ -485,6 +534,7 @@ export function GroupIdentities() {
                     onName={rememberName}
                     onAssign={assign}
                     onEdit={edit}
+                    onDelete={remove}
                   />
                 );
               })}

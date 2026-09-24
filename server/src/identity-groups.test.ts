@@ -572,3 +572,57 @@ test("a write that lands between the state and the list is not overwritten", asy
     "though the identity it wrote is the group's",
   );
 });
+
+test("a member's own sender can be deleted, and the group's own identity cannot", async () => {
+  /*
+   * The trash on a member's row (ADR 0007): the identity they were assigned is
+   * removed and the assignment with it, so they fall back to the group's own
+   * identity — what a member with no identity of their own sends as. The
+   * group's own is refused by name, because everybody falls back to it.
+   */
+  let view = (await group(TEAM)).body as unknown as GroupView;
+  let assignedId = view.assignments[DEMO];
+  if (!assignedId) {
+    const wrote = await post("/api/admin/identities/group", {
+      name: TEAM,
+      member: DEMO,
+      id: null,
+      patch: { name: "Demo User", email: TEAM },
+    });
+    assert.equal(wrote.status, 200, JSON.stringify(wrote.body));
+    view = (await group(TEAM)).body as unknown as GroupView;
+    assignedId = view.assignments[DEMO];
+  }
+  assert.ok(assignedId, "the member has a per-member identity to delete");
+  const before = view.identities.length;
+  const groupSenderId = view.groupSenderId;
+
+  const gone = await post("/api/admin/identities/group/delete", {
+    name: TEAM,
+    id: assignedId,
+  });
+  assert.equal(gone.status, 200, JSON.stringify(gone.body));
+
+  const after = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    after.identities.some((row) => row.id === assignedId),
+    false,
+    "the identity is gone",
+  );
+  assert.equal(after.assignments[DEMO] ?? null, null, "and the assignment with it");
+  assert.equal(after.groupSenderId, groupSenderId, "the group's own identity is untouched");
+  assert.equal(after.identities.length, before - 1);
+
+  const refuse = await post("/api/admin/identities/group/delete", {
+    name: TEAM,
+    id: after.groupSenderId,
+  });
+  assert.equal(refuse.status, 400, JSON.stringify(refuse.body));
+  assert.equal(refuse.body?.error, "identity_is_group");
+
+  const missing = await post("/api/admin/identities/group/delete", {
+    name: TEAM,
+    id: "nope",
+  });
+  assert.equal(missing.status, 404, JSON.stringify(missing.body));
+});

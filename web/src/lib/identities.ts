@@ -228,6 +228,21 @@ export async function saveGroupIdentity(
   return res.id;
 }
 
+/**
+ * `POST /api/admin/identities/group/delete` — remove one of a group's
+ * identities, as the agent.
+ *
+ * The one a member was assigned: they fall back to the group's own identity,
+ * which is what a member with no identity of their own sends as.
+ */
+export async function deleteGroupIdentity(name: string, id: string): Promise<void> {
+  await apiFetch<{ ok: true }>("/api/admin/identities/group/delete", {
+    method: "POST",
+    body: JSON.stringify({ name, id }),
+  });
+  await afterIdentityWrite();
+}
+
 /* ------------------------------------------------------------------ */
 /* What a member sends as in a group                                    */
 /* ------------------------------------------------------------------ */

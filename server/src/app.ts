@@ -98,6 +98,7 @@ import {
   identityLockedForSession,
   memberGroupAssignment,
   personIdentities,
+  removeGroupIdentity,
   removePersonIdentity,
   setPersonDefaultIdentity,
   setUserIdentityLock,
@@ -2783,6 +2784,28 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         body?.patch,
       );
       return c.json({ ok: true, id: written.id });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * Remove one of a group's identities, as the agent (ADR 0007).
+   *
+   * What a member was assigned, deleted: they fall back to the group's own
+   * identity, which is what a member with no identity of their own sends as.
+   * The group's own identity is refused by name, since everybody falls back to
+   * it.
+   */
+  api.post("/admin/identities/group/delete", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ name?: unknown; id?: unknown }>(c);
+    try {
+      await removeGroupIdentity(
+        c.get("session"),
+        typeof body?.name === "string" ? body.name : "",
+        typeof body?.id === "string" ? body.id : "",
+      );
+      return c.json({ ok: true });
     } catch (err) {
       return identityFailure(c, err);
     }

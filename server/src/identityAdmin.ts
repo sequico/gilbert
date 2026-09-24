@@ -996,6 +996,61 @@ export async function writeGroupIdentity(
 }
 
 /**
+ * Remove one of a group's identities and every assignment to it, as the agent.
+ *
+ * This is a member's own sender going away: the identity they were assigned is
+ * destroyed and the assignment dropped, so they fall back to the group's own
+ * identity — what a member with no assignment sends as. The group's own
+ * identity is refused by name: it is what everybody falls back to, so deleting
+ * it would leave the group with nothing to send as.
+ */
+export async function removeGroupIdentity(
+  admin: LiveSession,
+  name: string,
+  id: string,
+): Promise<void> {
+  const group = identityAddress(name, "group");
+  const ctx = await agentSession(admin);
+  const accountId = groupAccountId(ctx, group);
+  if (!accountId)
+    throw new IdentityAdminError(
+      "group_not_granted",
+      `The installation's agent is not a member of ${group}, so nothing here can write its identity. Grant the agent on that group and try again.`,
+      409,
+    );
+  const identities = await readIdentities(ctx, accountId);
+  if (!identities.some((identity) => identity.id === id))
+    throw new IdentityAdminError(
+      "identity_not_found",
+      `${group} holds no identity with that id.`,
+      404,
+    );
+  if (id === (accountOwnIdentity(identities, group)?.id ?? null))
+    throw new IdentityAdminError(
+      "identity_is_group",
+      `${group}'s own identity is what a member with no identity of their own sends as, so it cannot be deleted. Unassign it instead.`,
+      400,
+    );
+  await destroyIdentity(ctx, accountId, id);
+  await writeAssignmentDoc(
+    ctx,
+    accountId,
+    (members) => {
+      const next: Record<string, string> = {};
+      for (const [address, identityId] of Object.entries(members)) {
+        if (identityId === id) continue;
+        // As in `writeGroupIdentity`: an entry naming an identity this account
+        // no longer holds is not an assignment and is dropped here.
+        if (identities.some((identity) => identity.id === identityId))
+          next[address] = identityId;
+      }
+      return next;
+    },
+    admin.username,
+  );
+}
+
+/**
  * Store the full HTML of an over-sized signature in the account's own Files.
  *
  * The account is the one whose identity it is — the person's or the group's —
