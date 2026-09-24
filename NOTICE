@@ -109,3 +109,10 @@ The MIT licence, under which all ten are used:
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
+
+## SIP.js
+
+The softphone (ADR 0023) is built on **SIP.js** —
+https://github.com/onsip/SIP.js — Copyright (c) 2020 Junction Networks, used
+under the MIT licence. It is used as a library, unmodified: nothing in Gilbert
+is derived from it. The MIT terms reproduced above are the ones it comes under.

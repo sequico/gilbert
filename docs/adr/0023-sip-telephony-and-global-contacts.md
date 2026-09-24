@@ -2,9 +2,11 @@
 
 Status: Accepted
 
-Implementation: Built. The installation's `sip` settings and the SIP Phone page
-(`server/src/shared/installation.ts`, `server/src/shared/phone.ts`,
-`web/src/views/admin/AdminSipPhone.tsx`); the SIP.js line and the phone's
+Implementation: Built. The installation's `sip` settings, resolved by the boot
+and carried to the client (`server/src/shared/installation.ts`,
+`server/src/configuration.ts`, `server/src/bootstrap.ts`, `server/src/app.ts`,
+`web/src/jmap/types.ts`), and the SIP Phone page
+(`server/src/shared/phone.ts`, `web/src/views/admin/AdminSipPhone.tsx`); the SIP.js line and the phone's
 surfaces — registration, reconnect and re-registration, ICE restart, call
 waiting, mute, DTMF, the ring, the top-bar entry, the dialer, manual dialing,
 the incoming surface and the collapsed call (`web/src/lib/phone/`,

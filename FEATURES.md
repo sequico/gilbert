@@ -868,8 +868,10 @@ credentials (ADR 0023).
   number is simply not offered as a call.
 - **Global contacts** is one address book, owned by the Master, shared
   **read-only with every account** and written only by an administrator, from
-  inside Contacts. Every reader sees it in `All contacts` and in a section of
-  its own; the phone offers its numbers as speed dial.
+  inside Contacts. The administrator's write re-applies the share, which is what
+  brings an account created later in — the deployment's own share shape is owed
+  the live probe ADR 0023 names. Every reader sees it in `All contacts` and in a
+  section of its own; the phone offers its numbers as speed dial.
 - **The installation's settings** are one **SIP Phone** administration page:
   the endpoints in the order they are tried, the STUN and TURN servers media may
   need, and whether the phone is offered. Each person's credentials are per

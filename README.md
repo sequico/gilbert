@@ -885,7 +885,9 @@ Copyright (C) 2026 Sequi Company — AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 The mail client Gilbert derives from is **ihasmail**, by **Coffey Labs**, used and
 modified under the same licence: that attribution is in [NOTICE](NOTICE), and the
-copyright in this build is Sequi Company's. The AGPL's section 13 is the point of
+copyright in this build is Sequi Company's. The softphone is built on
+**SIP.js** (https://github.com/onsip/SIP.js), used under the MIT licence — also
+recorded, with its terms, in [NOTICE](NOTICE). The AGPL's section 13 is the point of
 it — webmail is nearly always run as a network service rather than handed to
 anyone as a binary, and that section closes the gap.
 

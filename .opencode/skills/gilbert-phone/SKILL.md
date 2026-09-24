@@ -112,8 +112,11 @@ Contacts** (ADR 0023).
 
 - It is an ordinary JMAP `AddressBook` + `ContactCard` in the **Master's
   account** — a Stalwart object, never a second store in Gilbert.
-- The share is **universal**: every account, including one created later. No
-  per-member copy, no patch, nothing to add by hand.
+- The share is **universal**: one rule, every account, including one created
+  later — the deployment's own share shape, which ADR 0023 leaves owed a live
+  probe. The administration re-applies it on every write, which is what brings
+  an account created since the last one in; there is no per-member copy and
+  nothing to add by hand.
 - It is **read-only to everyone but an administrator**, and the administrator
   edits it **from inside Contacts** (the same write door every privileged write
   uses, ADR 0001/0007). The share carries read only, so a member's own session
