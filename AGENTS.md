@@ -380,6 +380,20 @@ integration: load `.opencode/skills/gilbert-stalwart/SKILL.md`. Upstream merges:
 load `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`. The skill that governs
 a kind of work is loaded before the first edit of it.
 
+## Automatic by default (global user rule, active here)
+
+- **If the product needs something, make it happen** — do not add a button, a
+  wizard or a setup step that asks the reader to do it by hand. A control is
+  added only where the owner genuinely must choose; everything else is the
+  behaviour that just works.
+- **No per-user complexity.** A thing that serves everyone is set up once by the
+  product, not configured again for each person.
+- **User-friendly by default, without weakening security.** The automatic path
+  keeps the same door, the same permissions and the same boundaries: it removes
+  steps, not checks.
+- Before proposing a control, ask what should happen with nobody watching and
+  make that the behaviour. The global entry is canonical; this mirrors it.
+
 ## Shell: nothing unbounded in the foreground (global user rule, active here)
 
 - A command that is not bounded to a few seconds goes to the background at
