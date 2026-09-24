@@ -93,9 +93,11 @@ export class Janus {
     const created = (await this.request({ janus: "create" })) as { id?: number };
     if (!created.id) throw new Error(t("The phone bridge accepted no session."));
     this.session = created.id;
-    const attached = (await this.request({ janus: "attach", plugin })) as {
-      id?: number;
-    };
+    const attached = (await this.request({
+      janus: "attach",
+      session_id: this.session,
+      plugin,
+    })) as { id?: number };
     if (!attached.id) throw new Error(t("The phone bridge attached no plugin."));
     this.handle = attached.id;
     this.keepalive = window.setInterval(() => {
