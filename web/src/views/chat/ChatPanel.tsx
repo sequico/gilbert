@@ -1,8 +1,8 @@
 /**
  * The chat panel (ADR 0005): a glance-and-reply conversation surface.
  *
- * Shown as a popover under the top-bar launcher on desktop and a full-screen
- * sheet on mobile. It holds the conversation switcher (one entry per group
+ * Shown as a popover under the top-bar launcher on desktop and a sheet in the
+ * content area on mobile. It holds the conversation switcher (one entry per group
  * mailbox), the thread as bubbles with quote replies and scroll-up paging
  * into older messages, a search over the selected group's messages, and the
  * composer. Everything here is a view over the chat store; the durable data

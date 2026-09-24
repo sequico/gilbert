@@ -73,9 +73,13 @@ launcher.
 - **Panel**: a popover anchored under the launcher — a conversation switcher
   over the group accounts, the thread as bubbles, a text input at the
   bottom. It is transient by design, sitting below the composer dock's
-  z-index and closing itself when a composer is maximised.
-- **Mobile**: the launcher stays in the top bar; the panel becomes a
-  full-screen sheet rather than a popover, and is not a sixth tab.
+  z-index and closing itself when a composer is maximised; on a phone, where
+  every open composer is full-screen, any open composer closes it.
+- **Mobile**: the launcher stays in the top bar; the panel becomes a sheet in
+  the content area rather than a popover — portaled to the body so the top
+  bar's stacking context cannot trap it, and spanning only from the top bar's
+  foot to the tab bar's head, so the menu and the module tabs stay reachable
+  and the message field sits above the tab bar. It is not a sixth tab.
 - **Collapsed state** is device-local (`localStorage`), since it is UI
   preference, not account data.
 

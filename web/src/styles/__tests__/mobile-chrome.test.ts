@@ -121,18 +121,29 @@ describe("phone chrome", () => {
      * `inset: 0` on a fixed element sizes against the layout viewport, which on
      * a phone browser is the tall one that ignores the address bar. For a
      * surface whose bottom edge carries a control -- the composer's Send, the
-     * chat sheet's input, the dialog's foot -- that control ends up behind the
-     * toolbar until the page is scrolled, which a fixed element cannot be.
+     * dialog's foot -- that control ends up behind the toolbar until the page
+     * was scrolled, which a fixed element cannot be.
      *
-     * These three are the ones that are full height and have something at the
-     * bottom; a bottom-anchored bar is not this bug and is not listed.
+     * Both of these are full height and have something at the bottom; a
+     * bottom-anchored bar is not this bug and is not listed.
      */
-    /* `.composer` is the mobile block's; `.chat-sheet` renders on a phone only,
-       so it carries the rule where it is declared rather than under a media
-       query that could not change the answer. */
     expect(declarations(phone, ".composer")).toContain("height: 100dvh");
-    expect(declarations(css, ".chat-sheet")).toContain("height: 100dvh");
     expect(declarations(phone, ".dialog-backdrop")).toContain("height: 100dvh");
+  });
+
+  it("bounds the chat sheet between the two fixed bars", () => {
+    /*
+     * The sheet is portaled out of the top bar's stacking context, and it must
+     * span only the content area: a full-screen one hid the menu and put its
+     * own message field behind the tab bar. Its top is the top bar's foot and
+     * its bottom the tab bar's head, so both stay reachable and the field sits
+     * above the tab bar. `.chat-sheet` renders on a phone only, so it carries
+     * the rule where it is declared rather than under a media query that could
+     * not change the answer.
+     */
+    const sheet = declarations(css, ".chat-sheet");
+    expect(sheet).toContain("top: var(--topbar-h)");
+    expect(sheet).toContain("bottom: var(--mobile-chrome)");
   });
 
   it("keeps a toast above the fab it would otherwise land on", () => {

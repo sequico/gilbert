@@ -2651,20 +2651,24 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
 }
 
-/* Mobile: the panel becomes a full-screen sheet, not a sixth tab. `100dvh` for
-   the reason the composer takes it: this renders on a phone only, `inset: 0`
-   sizes against the layout viewport, and the sheet's own bottom edge is where
-   its composer sits -- so on a phone browser the send box and the input would
-   be behind the address bar until the page was scrolled, which a fixed element
-   cannot be. The bottom inset is the same argument with the home indicator. */
+/* Mobile: the panel becomes a sheet in the content area, not a sixth tab.
+   It is portaled to the body (ChatLauncher), so the top bar's own stacking
+   context no longer traps its z-index, and it spans only what the two fixed
+   bars leave: its top edge is the top bar's foot, its bottom edge the tab
+   bar's head. That keeps the menu and the module tabs reachable while the
+   chat is open, and puts the composer -- the message field -- directly above
+   the tab bar instead of behind it. It sits above the page content and the
+   floating action button (700); the launcher closes the sheet when a draft
+   opens (every composer is full-screen on a phone), so the composer dock and
+   the sheet never share the screen. */
 .chat-sheet {
-  position: fixed; inset: 0; z-index: 750; /* below the composer dock (955) */
-  height: 100dvh;
+  position: fixed; left: 0; right: 0;
+  top: var(--topbar-h); bottom: var(--mobile-chrome);
+  z-index: 705;
   background: var(--bg); display: flex; flex-direction: column;
   animation: chat-up .18s var(--ease);
 }
 .chat-sheet .chat-panel { height: 100%; }
-.chat-sheet .chat-composer { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
 .chat-sheet .chat-close { display: inline-flex; }
 @keyframes chat-up {
   from { transform: translateY(24px); opacity: .6; }

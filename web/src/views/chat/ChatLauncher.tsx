@@ -6,11 +6,14 @@
  * avatar is the corner anchor, so the launcher lives in the top bar and its
  * panel opens under it. Offered only when the session holds group mailboxes;
  * the product-admin group is not a chat account (ADR 0001). The panel is a
- * popover on desktop and a full-screen sheet on mobile, and it closes itself
- * when a composer is maximised (the composer is the persistent work area).
+ * popover on desktop and a sheet in the content area on mobile -- portaled to
+ * the body so the top bar's stacking context cannot trap it -- and it closes
+ * itself when a composer covers the screen (the composer is the persistent
+ * work area).
  */
 import { MessageCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
@@ -24,16 +27,22 @@ export function ChatLauncher() {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
   const btnRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const mailAccounts = useMail((s) => s.mailAccounts);
   const groups = groupMailboxAccounts(mailAccounts);
   const conversations = useChat((s) => s.conversations);
-  // A composer is "maximised" when the active draft is: the draft list
-  // changes on every edit, but the selector returns a boolean, so this only
-  // re-renders when the value actually flips.
+  /*
+   * A composer covers the panel: on the desktop that is the maximised draft,
+   * on a phone every open composer is full-screen. Both selectors return a
+   * boolean, so a keystroke in a draft does not re-render the launcher unless
+   * the value it answers actually flips.
+   */
+  const hasDraft = useCompose((s) => s.drafts.some((d) => !d.minimized));
   const maximized = useCompose((s) => {
     const active = s.activeKey ? s.drafts.find((d) => d.key === s.activeKey) : undefined;
     return active?.maximized ?? false;
   });
+  const coveredByComposer = isMobile ? hasDraft : maximized;
   const openConversation = useChat((s) => s.open);
 
   const unread = groups.reduce(
@@ -42,11 +51,11 @@ export function ChatLauncher() {
     0,
   );
 
-  // A maximised composer covers nearly the whole viewport; the chat panel is
-  // transient by design and yields to it (ADR 0005).
+  // A composer is the persistent work area; the chat panel is transient by
+  // design and yields to it (ADR 0005).
   useEffect(() => {
-    if (maximized) setOpen(false);
-  }, [maximized]);
+    if (coveredByComposer) setOpen(false);
+  }, [coveredByComposer]);
 
   // A notification's click asks the panel to open on the conversation it named.
   useEffect(() => {
@@ -78,6 +87,26 @@ export function ChatLauncher() {
     return () => window.removeEventListener("mousedown", onDown, true);
   }, [open]);
 
+  // On a phone the panel is a sheet in the content area, not a popover, so it
+  // brings no outside-press handling of its own: a press on the top bar, a
+  // tab-bar tab or the content behind it dismisses the sheet, exactly as it
+  // would the popover on a desktop. A press on the launcher is left to the
+  // toggle.
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (sheetRef.current?.contains(target) || btnRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("touchstart", onDown, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("touchstart", onDown, true);
+    };
+  }, [open, isMobile]);
+
   if (!groups.length) return null;
 
   const toggle = () => {
@@ -105,7 +134,7 @@ export function ChatLauncher() {
     </button>
   );
 
-  if (!open) return button;
+  if (!open || coveredByComposer) return button;
 
   const panel = <ChatPanel accounts={groups} onClose={() => setOpen(false)} />;
 
@@ -113,9 +142,12 @@ export function ChatLauncher() {
     return (
       <>
         {button}
-        <div className="chat-sheet" role="dialog" aria-label={t("Chat")}>
-          {panel}
-        </div>
+        {createPortal(
+          <div ref={sheetRef} className="chat-sheet" role="dialog" aria-label={t("Chat")}>
+            {panel}
+          </div>,
+          document.body,
+        )}
       </>
     );
   }

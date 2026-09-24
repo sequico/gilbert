@@ -23,7 +23,7 @@ describe("chat launcher toggle", () => {
 
   beforeEach(async () => {
     /* jsdom has no matchMedia; the launcher asks whether the window is
-       narrow before choosing the popover or the full-screen sheet. */
+       narrow before choosing the popover or the content-area sheet. */
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,

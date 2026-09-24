@@ -823,9 +823,12 @@ scans the group's whole history (loading any not-yet-fetched pages) and
 lists the matching messages, newest window first; a result jumps to the
 message in the thread.
 - **The panel** is a popover under the launcher on desktop (360–400 px,
-bubbles: mine right, others left, quote replies on hover) and a full-screen
-sheet on mobile — not a sixth tab. It is transient by design: it closes when
-a composer is maximised, and its z-order sits below the composer dock.
+bubbles: mine right, others left, quote replies on hover) and a sheet in the
+content area on mobile — between the top bar and the tab bar, so the menu and
+the module tabs stay reachable and the message field sits above the tab bar —
+not a sixth tab. It is transient by design: it closes when a composer opens
+(a maximised one on desktop, any full-screen one on a phone), and its z-order
+sits below the composer dock.
 - **V1 boundaries** (ADR 0005): no attachments, no typing indicator, no
 presence, no deletion or moderation — growth is append-only; a group that
 wants to retire a chat clears the folders through Files.
