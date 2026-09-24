@@ -406,7 +406,13 @@ a kind of work is loaded before the first edit of it.
   keeps the same door, the same permissions and the same boundaries: it removes
   steps, not checks.
 - Before proposing a control, ask what should happen with nobody watching and
-  make that the behaviour. The global entry is canonical; this mirrors it.
+  make that the behaviour.
+- **A tool the work needs, the agent installs.** A check, a validator, a build
+  dependency: when the task needs it and installing it is not destructive, it is
+  installed and used — never asked for, never worked around. Asking is for an
+  action that changes or destroys something the owner owns, not for acquiring a
+  tool the work in hand already requires. The global entry is canonical; this
+  mirrors it.
 
 ## Shell: nothing unbounded in the foreground (global user rule, active here)
 
