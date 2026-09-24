@@ -11,7 +11,11 @@
  */
 import { create } from "zustand";
 import { CAP } from "@/jmap/client";
-import { accountFor, readSipAccounts } from "@/lib/phone/credential";
+import {
+  accountFor,
+  readSipAccounts,
+  type SipCredential,
+} from "@/lib/phone/credential";
 import {
   requestMicrophone as askMicrophone,
   type MicrophonePermission,
@@ -41,6 +45,8 @@ interface PhoneStore {
 
   /** Take the seat if it is free, and register the account. */
   start(): Promise<void>;
+  /** Re-read the account now: a credential just written must show at once. */
+  refresh(): void;
   /** Give the seat up and stop. Called on sign-out (the launcher unmount). */
   stop(): Promise<void>;
   dial(target: string): Promise<void>;
@@ -64,6 +70,10 @@ type SetState = (
 
 /** The one phone of this tab. */
 let phone: Phone | null = null;
+/** The credential it registered with, so a re-read that changes nothing is free. */
+let runningCredential: SipCredential | null = null;
+/** Whether this tab holds the seat (only then does `refresh` mean anything). */
+let seatHeld = false;
 /** Whether this tab has begun taking the seat. */
 let started = false;
 /** Releases the seat; resolving it is how this tab gives the lock up. */
@@ -88,6 +98,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     const gen = generation;
     if (!navigator.locks?.request) {
       // A browser with no Web Locks has one tab to coordinate with: this one.
+      seatHeld = true;
       await begin(set, gen);
       return;
     }
@@ -100,6 +111,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     void navigator.locks
       .request(SEAT, async () => {
         if (gen !== generation) return;
+        seatHeld = true;
         await begin(set, gen);
         if (gen !== generation) return;
         await new Promise<void>((resolve) => {
@@ -110,7 +122,15 @@ export const usePhone = create<PhoneStore>((set, get) => ({
       .catch(() => {
         // A refused lock is no seat: this tab shows no phone and holds nothing.
         started = false;
+        seatHeld = false;
       });
+  },
+
+  refresh() {
+    // Only the tab that holds the seat can re-read: the others hold nothing.
+    if (!seatHeld) return;
+    clearCredentialRetry();
+    void begin(set, generation);
   },
 
   async stop() {
@@ -119,6 +139,8 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     releaseSeat?.();
     releaseSeat = null;
     started = false;
+    seatHeld = false;
+    runningCredential = null;
     const held = phone;
     phone = null;
     await held?.stop().catch(() => undefined);
@@ -202,14 +224,23 @@ async function begin(set: SetState, gen: number): Promise<void> {
      * account at all. A retry is what keeps a slow read from disabling the
      * phone for the session; a real absence simply retries quietly.
      */
+    const held = phone;
+    phone = null;
+    runningCredential = null;
+    await held?.stop().catch(() => undefined);
     set({ state: "off", ready: false });
     scheduleCredentialRetry(set, gen);
     return;
   }
   clearCredentialRetry();
+  // A re-read that finds the same account changes nothing: the line keeps
+  // running, and a live call is never dropped for a no-op.
+  if (phone && runningCredential && sameCredential(credential, runningCredential))
+    return;
   void readMicrophoneState().then((microphone) => set({ microphone }));
   const held = phone;
   phone = null;
+  runningCredential = credential;
   await held?.stop().catch(() => undefined);
 
   phone = new Phone(credential, {
@@ -238,4 +269,11 @@ function clearCredentialRetry(): void {
   if (credentialRetry === null) return;
   window.clearTimeout(credentialRetry);
   credentialRetry = null;
+}
+
+/** Whether two credentials name the same account, byte for byte. */
+function sameCredential(a: SipCredential, b: SipCredential): boolean {
+  return (
+    a.server === b.server && a.username === b.username && a.password === b.password
+  );
 }

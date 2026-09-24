@@ -37,6 +37,7 @@ import {
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { useSession } from "@/store/session";
+import { usePhone } from "@/store/phone";
 import { confirmDialog } from "@/ui/dialog";
 import { ACTIVE_COLOR } from "@/ui/misc";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
@@ -125,6 +126,10 @@ export function UserIdentities() {
    */
   async function saveSip(identity: Identity, sip: SipCredential | null) {
     await saveUserSipCredential(address, identity.email, sip);
+    // Writing a credential is the whole of turning a phone on: re-read the
+    // account now, so the line appears (or goes) without a reload. A write for
+    // somebody else changes nothing here, and the re-read knows it.
+    usePhone.getState().refresh();
     await readAccount(address);
   }
 
