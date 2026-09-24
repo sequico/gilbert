@@ -12,7 +12,7 @@
  * work area).
  */
 import { MessageCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -44,6 +44,16 @@ export function ChatLauncher() {
   });
   const coveredByComposer = isMobile ? hasDraft : maximized;
   const openConversation = useChat((s) => s.open);
+  /*
+   * Closing the panel gives the conversation up. While nothing is on screen an
+   * arrival must stay unread — the launcher badge and the notification are the
+   * signal then — so the store's open conversation is cleared with the panel,
+   * not left pointing at what was last looked at.
+   */
+  const shut = useCallback(() => {
+    setOpen(false);
+    useChat.getState().close();
+  }, []);
 
   const unread = groups.reduce(
     (n, a) =>
@@ -54,8 +64,8 @@ export function ChatLauncher() {
   // A composer is the persistent work area; the chat panel is transient by
   // design and yields to it (ADR 0005).
   useEffect(() => {
-    if (coveredByComposer) setOpen(false);
-  }, [coveredByComposer]);
+    if (coveredByComposer) shut();
+  }, [coveredByComposer, shut]);
 
   // A notification's click asks the panel to open on the conversation it named.
   useEffect(() => {
@@ -97,7 +107,7 @@ export function ChatLauncher() {
     const onDown = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
       if (sheetRef.current?.contains(target) || btnRef.current?.contains(target)) return;
-      setOpen(false);
+      shut();
     };
     document.addEventListener("mousedown", onDown, true);
     document.addEventListener("touchstart", onDown, true);
@@ -105,16 +115,20 @@ export function ChatLauncher() {
       document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("touchstart", onDown, true);
     };
-  }, [open, isMobile]);
+  }, [open, isMobile, shut]);
 
   if (!groups.length) return null;
 
   const toggle = () => {
     const next = !open;
-    setOpen(next);
+    if (!next) {
+      shut();
+      return;
+    }
+    setOpen(true);
     // First use: open the first conversation so the panel is not an empty
     // shell; `open` warms the transcript if the warm-up has not reached it.
-    if (next && !useChat.getState().openAccountId) {
+    if (!useChat.getState().openAccountId) {
       openConversation(groups[0]!.accountId);
     }
   };
@@ -136,7 +150,7 @@ export function ChatLauncher() {
 
   if (!open || coveredByComposer) return button;
 
-  const panel = <ChatPanel accounts={groups} onClose={() => setOpen(false)} />;
+  const panel = <ChatPanel accounts={groups} onClose={shut} />;
 
   if (isMobile) {
     return (
@@ -157,7 +171,7 @@ export function ChatLauncher() {
       {button}
       <Popover
         anchor={anchorFromEl(btnRef.current)}
-        onClose={() => setOpen(false)}
+        onClose={shut}
         align="end"
         width={384}
         role="dialog"

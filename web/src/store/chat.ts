@@ -86,6 +86,12 @@ interface ChatState {
   ensureAccount(accountId: Id): Promise<void>;
   /** Open the panel on a conversation: load it, then read up to the newest. */
   open(accountId: Id): void;
+  /**
+   * The panel no longer shows a conversation. Setting the open one back to none
+   * is what stops an arrival being marked read behind a **closed** panel: the
+   * badge and the notification are the signal while nothing is on screen.
+   */
+  close(): void;
   /** The reader's own address, which names their marker and their messages. */
   me(): string;
   setDraft(accountId: Id, text: string): void;
@@ -428,6 +434,10 @@ export const useChat = create<ChatState>((set, get) => {
           // no marker ever means "everything is unread" (ADR 0005 kind rule).
           markAt(accountId);
         });
+    },
+
+    close() {
+      set({ openAccountId: null });
     },
 
     setDraft(accountId, text) {

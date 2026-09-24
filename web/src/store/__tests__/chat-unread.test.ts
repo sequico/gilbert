@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "@/lib/chat";
-import { type ChatConversation, unreadOf } from "@/store/chat";
+import { type ChatConversation, unreadOf, useChat } from "@/store/chat";
 
 /**
  * Business logic review finding: `unreadOf` always called `unreadCount` with
@@ -77,5 +77,16 @@ describe("unreadOf", () => {
       reachedStart: false,
     });
     expect(unreadOf(conv)).toBe(2);
+  });
+});
+
+describe("the conversation the panel holds", () => {
+  it("is given up when the panel closes, so an arrival behind it stays unread", () => {
+    // `applyChanges` marks an arrival read while it is the open conversation, so
+    // the launcher clears it on every close. Left set, a message arriving after
+    // the panel was closed was swallowed silently — no badge, no notification.
+    useChat.setState({ openAccountId: "gg" });
+    useChat.getState().close();
+    expect(useChat.getState().openAccountId).toBeNull();
   });
 });
