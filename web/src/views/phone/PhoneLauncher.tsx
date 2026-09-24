@@ -1,14 +1,9 @@
 import { Delete, Mic, MicOff, Phone, PhoneCall, PhoneOff, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { contactDisplayName } from "@/lib/contacts";
-import { plural, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import {
-  allDialerCards,
-  type DialerSource,
-  dialerSources,
-  dialTarget,
-} from "@/lib/phone/dialer";
+import { type DialerSource, dialerSources, dialTarget } from "@/lib/phone/dialer";
 import { microphoneMessage, type MicrophoneState } from "@/lib/phone/microphone";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { useContacts } from "@/store/contacts";
@@ -34,6 +29,21 @@ const KEY_LETTERS: Record<string, string> = {
   "9": "WXYZ",
   "0": "+",
 };
+
+/** The dialer's contact categories, in the order they are shown. */
+const DIALER_CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "global", label: "Global" },
+  { id: "group", label: "Groups" },
+  { id: "personal", label: "Personal" },
+] as const;
+
+type DialerCategory = (typeof DIALER_CATEGORIES)[number]["id"];
+
+/** Whether a source belongs under a category tab. */
+function inCategory(source: DialerSource, category: DialerCategory): boolean {
+  return category === "all" || source.kind === category;
+}
 
 /**
  * The phone in the top-bar action cluster (ADR 0023).
@@ -300,6 +310,7 @@ function Dialer({ onDial }: { onDial: () => void }) {
   const mailAccounts = useMail((s) => s.mailAccounts);
   const [query, setQuery] = useState("");
   const [number, setNumber] = useState("");
+  const [category, setCategory] = useState<DialerCategory>("all");
 
   const groups = useMemo(
     () =>
@@ -332,20 +343,23 @@ function Dialer({ onDial }: { onDial: () => void }) {
   /*
    * A contact with no number is not offered as a call, and a source with none
    * is not a section: an empty "No contacts" heading under a group is noise
-   * rather than information.
+   * rather than information. The search finds a card by its name, any of its
+   * addresses — the local part alone is enough — and its numbers, and it runs
+   * across the whole active category, not just the tab that happens to be open
+   * first.
    */
+  const visible = sources.filter((source) => inCategory(source, category));
   const filtered = (
     query.trim()
-      ? sources.map((source) => ({
+      ? visible.map((source) => ({
           ...source,
           cards: filterCards(source.cards, query).filter((c) => dialTarget(c)),
         }))
-      : sources.map((source) => ({
+      : visible.map((source) => ({
           ...source,
           cards: source.cards.filter((c) => dialTarget(c)),
         }))
   ).filter((source) => source.cards.length > 0);
-  const all = filterCards(allDialerCards(sources), query).filter((c) => dialTarget(c));
 
   return (
     <div className="dialer">
@@ -400,6 +414,20 @@ function Dialer({ onDial }: { onDial: () => void }) {
       </button>
 
       <div className="dialer-contacts">
+        <div className="dialer-tabs" role="tablist" aria-label={t("Contacts")}>
+          {DIALER_CATEGORIES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={category === entry.id}
+              className={`dialer-tab ${category === entry.id ? "active" : ""}`}
+              onClick={() => setCategory(entry.id)}
+            >
+              {t(entry.label)}
+            </button>
+          ))}
+        </div>
         <div className="dialer-search">
           <Search size={15} className="faint" />
           <input
@@ -409,43 +437,35 @@ function Dialer({ onDial }: { onDial: () => void }) {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        {filtered.map((source) => (
-          <div key={source.id}>
-            <div className="nav-section">
-              <span>{source.label}</span>
+        <div className="dialer-list">
+          {filtered.map((source) => (
+            <div key={source.id}>
+              <div className="nav-section">
+                <span>{source.label}</span>
+              </div>
+              {source.cards.slice(0, 50).map((card) => {
+                const target = dialTarget(card);
+                return (
+                  <button
+                    type="button"
+                    key={`${source.accountId}:${card.id}`}
+                    className="dialer-contact"
+                    onClick={() => target && dial(target)}
+                  >
+                    <PhoneCall size={15} />
+                    <span className="grow truncate">{contactDisplayName(card)}</span>
+                    {target && <span className="hint truncate">{target}</span>}
+                  </button>
+                );
+              })}
             </div>
-            {source.cards.slice(0, 50).map((card) => {
-              const target = dialTarget(card);
-              return (
-                <button
-                  type="button"
-                  key={`${source.accountId}:${card.id}`}
-                  className="dialer-contact"
-                  onClick={() => target && dial(target)}
-                >
-                  <PhoneCall size={15} />
-                  <span className="grow truncate">{contactDisplayName(card)}</span>
-                  {target && <span className="hint truncate">{target}</span>}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-        {query.trim() && (
-          <>
-            <div className="nav-section">
-              <span>{t("All")}</span>
-            </div>
+          ))}
+          {!filtered.length && (
             <p className="hint" style={{ padding: "2px 12px" }}>
-              {plural(all.length, { one: "{n} contact", other: "{n} contacts" })}
+              {t("No contacts with a number to call.")}
             </p>
-          </>
-        )}
-        {!filtered.length && (
-          <p className="hint" style={{ padding: "2px 12px" }}>
-            {t("No contacts with a number to call.")}
-          </p>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

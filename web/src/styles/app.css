@@ -2930,8 +2930,19 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 
 /* The dialer is fixed: the number, the keypad and the call button never scroll
    away. Only the contacts below absorb the overflow, in their own scroll area. */
-.dialer-contacts { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
-.dialer-search { display: flex; align-items: center; gap: 6px; padding: 0 4px 4px; }
+.dialer-contacts { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+.dialer-tabs { display: flex; gap: 4px; padding: 0 2px 6px; }
+.dialer-tab {
+  flex: 1 1 0; min-width: 0; padding: 5px 4px; text-align: center;
+  font-size: .74rem; font-weight: 650; letter-spacing: .01em;
+  color: var(--fg-muted); background: transparent;
+  border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dialer-tab:hover { background: var(--bg-hover); color: var(--fg); }
+.dialer-tab.active { background: var(--accent-soft); color: var(--accent-soft-fg); border-color: transparent; }
+.dialer-search { display: flex; align-items: center; gap: 6px; padding: 0 2px 4px; }
+.dialer-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .dialer-contact {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
   text-align: start; border-radius: var(--radius-sm); color: var(--fg);

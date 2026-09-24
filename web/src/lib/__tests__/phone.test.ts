@@ -104,10 +104,16 @@ describe("the dialer's sources", () => {
 
   it("puts Global contacts first, then each group, then the reader's own", () => {
     expect(sources.map((s) => s.label)).toEqual(["Global contacts", "Team", "Personal"]);
-    expect(sources[0]?.global).toBe(true);
+    expect(sources[0]?.kind).toBe("global");
     expect(sources[0]?.cards.map((c) => c.id)).toEqual(["ada"]);
     expect(sources[1]?.cards.map((c) => c.id)).toEqual(["marie"]);
     expect(sources[2]?.cards.map((c) => c.id)).toEqual(["mine"]);
+  });
+
+  it("names each source's kind, so a surface can filter by it", () => {
+    // The dialer's category tabs are built on this: one label per source, and
+    // no surface has to parse an id to know what it is looking at.
+    expect(sources.map((s) => s.kind)).toEqual(["global", "group", "personal"]);
   });
 
   it("leaves a colleague's book out of the named sources", () => {
@@ -122,14 +128,14 @@ describe("the dialer's sources", () => {
       {
         id: "extra",
         label: "Other",
-        global: false,
+        kind: "group",
         accountId: "master",
         cards: [card("ada", "g1")],
       },
       {
         id: "elsewhere",
         label: "Elsewhere",
-        global: false,
+        kind: "personal",
         accountId: "grace",
         cards: [card("ada", "c1")],
       },

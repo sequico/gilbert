@@ -31,8 +31,8 @@ export interface DialerSource {
   id: string;
   /** What the source is called on screen. */
   label: string;
-  /** Whether this is the installation's own shared directory. */
-  global: boolean;
+  /** Which kind of source this is, so a surface can filter by it. */
+  kind: "global" | "group" | "personal";
   /**
    * The account the source's cards live in. A card id is unique inside its
    * account and nowhere else, so this is half of a card's identity — and the
@@ -77,7 +77,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
     sources.push({
       id: `global:${book.accountId}:${book.book.id}`,
       label: GLOBAL_CONTACTS_BOOK_NAME,
-      global: true,
+      kind: "global",
       accountId: book.accountId,
       cards: cardsInBook(input.cardsIn(book.accountId), book.book.id),
     });
@@ -88,7 +88,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
       sources.push({
         id: `group:${group.accountId}`,
         label: group.name,
-        global: false,
+        kind: "group",
         accountId: group.accountId,
         cards,
       });
@@ -98,7 +98,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
     sources.push({
       id: "personal",
       label: input.personalLabel,
-      global: false,
+      kind: "personal",
       accountId: input.ownAccountId,
       cards: input.ownCards,
     });
