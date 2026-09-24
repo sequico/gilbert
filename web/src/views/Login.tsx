@@ -47,7 +47,7 @@ export function LoginPage() {
   );
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [trustDevice, setTrustDevice] = useState(false);
+  const [trustDevice, setTrustDevice] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
