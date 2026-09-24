@@ -24,27 +24,7 @@ import {
   time,
 } from "./der";
 
-const OID = {
-  signedData: "1.2.840.113549.1.7.2",
-  data: "1.2.840.113549.1.7.1",
-  contentType: "1.2.840.113549.1.9.3",
-  messageDigest: "1.2.840.113549.1.9.4",
-  signingTime: "1.2.840.113549.1.9.5",
-
-  sha256: "2.16.840.1.101.3.4.2.1",
-  sha384: "2.16.840.1.101.3.4.2.2",
-  sha512: "2.16.840.1.101.3.4.2.3",
-  sha1: "1.3.14.3.2.26",
-
-  rsaEncryption: "1.2.840.113549.1.1.1",
-  sha256WithRsa: "1.2.840.113549.1.1.11",
-  sha384WithRsa: "1.2.840.113549.1.1.12",
-  sha512WithRsa: "1.2.840.113549.1.1.13",
-  rsaPss: "1.2.840.113549.1.1.10",
-  ecdsaWithSha256: "1.2.840.10045.4.3.2",
-  ecdsaWithSha384: "1.2.840.10045.4.3.3",
-  ecdsaWithSha512: "1.2.840.10045.4.3.4",
-} as const;
+import { OID } from "./oid";
 
 export type Digest = "SHA-256" | "SHA-384" | "SHA-512";
 export type SignatureKind = "rsa-pkcs1" | "rsa-pss" | "ecdsa";

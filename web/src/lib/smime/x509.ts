@@ -21,18 +21,7 @@ import {
   time,
 } from "./der";
 
-/** Relative distinguished-name attributes worth naming. */
-const OID = {
-  commonName: "2.5.4.3",
-  emailAddress: "1.2.840.113549.1.9.1",
-  organization: "2.5.4.10",
-  subjectAltName: "2.5.29.17",
-  rsaEncryption: "1.2.840.113549.1.1.1",
-  ecPublicKey: "1.2.840.10045.2.1",
-  curveP256: "1.2.840.10045.3.1.7",
-  curveP384: "1.3.132.0.34",
-  curveP521: "1.3.132.0.35",
-} as const;
+import { OID } from "./oid";
 
 export interface Certificate {
   /** SHA-256 over the whole DER, lowercase hex. What TOFU remembers. */
