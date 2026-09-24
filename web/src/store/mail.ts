@@ -204,6 +204,12 @@ export interface MailState {
    */
   assignmentByAccount: Record<Id, { assignedId: string | null }>;
   quotas: Quota[];
+  /**
+   * The account `quotas` is the storage of. The sidebar bar follows the account
+   * on screen, so it asks again when this is not the active one; a group's
+   * quota is the group's own (ADR 0023, RFC 9425).
+   */
+  quotaAccountId: Id | null;
   vacation: VacationResponse | null;
   list: ListState | null;
   selected: Record<Id, true>;
@@ -658,6 +664,7 @@ export const useMail = create<MailState>((set, get) => ({
   identitiesByAccount: {},
   assignmentByAccount: {},
   quotas: [],
+  quotaAccountId: null,
   vacation: null,
   list: null,
   selected: {},
@@ -700,6 +707,7 @@ export const useMail = create<MailState>((set, get) => ({
       identitiesByAccount: {},
       assignmentByAccount: {},
       quotas: [],
+      quotaAccountId: null,
       vacation: null,
       list: null,
       selected: {},
@@ -2067,13 +2075,19 @@ export const useMail = create<MailState>((set, get) => ({
   async loadQuota() {
     const accountId = get().accountId;
     if (!accountId || !client.hasCapability(CAP.quota)) return;
+    // Claimed before the read, so a second ask from the bar's effect answers
+    // itself instead of sending a second request for the account already on its
+    // way. A quick switch back is caught by the guard after the await.
+    set({ quotaAccountId: accountId });
     try {
       const res = await client.call<GetResponse<Quota>>("Quota/get", {
         accountId,
         ids: null,
       });
+      if (get().accountId !== accountId) return;
       set({ quotas: res.list });
     } catch {
+      if (get().accountId !== accountId) return;
       set({ quotas: [] });
     }
   },

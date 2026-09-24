@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { settingsMailboxTree } from "@/lib/mailboxScope";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
+import { accountQuota } from "@/lib/quota";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { promptDialog } from "@/ui/dialog";
@@ -61,7 +62,7 @@ export function FoldersSettings() {
   const quotas = useMail((s) => s.quotas);
   /** ADR 0015: this surface edits the reader's own tree, so the rule is asked once here. */
   const mayDestroyHere = useMayDestroy();
-  const q = quotas.find((x) => x.resourceType === "octets");
+  const q = accountQuota(quotas);
   /*
    * A role belongs to exactly one folder -- Stalwart answers "A mailbox with
    * role 'archive' already exists" -- so a role another folder holds is left

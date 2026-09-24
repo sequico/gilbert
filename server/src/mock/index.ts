@@ -3744,22 +3744,32 @@ const handlers: Record<string, Handler> = {
     if (p) vacation = { ...vacation, ...p };
     return setResp("VacationResponse", { updated: { singleton: null } });
   },
-  "Quota/get": () => ({
-    accountId: ACCOUNT,
-    state: "1",
-    list: [
-      {
-        id: "q1",
-        resourceType: "octets",
-        used: 734003200,
-        hardLimit: 2147483648,
-        scope: "account",
-        name: "Storage",
-        types: ["Email"],
-      },
-    ],
-    notFound: [],
-  }),
+  "Quota/get": (a) => {
+    /*
+     * Stalwart answers one octets quota per account, scope `account`: `used` is
+     * the account's whole disk usage and `types` names the data it covers — mail
+     * and files among them (live shape: `crates/jmap/src/quota/get.rs`). The
+     * numbers differ between the reader's own account and a group's, so a bar
+     * that follows the account on screen is visible here.
+     */
+    const group = a.accountId === GROUP_ACCOUNT || a.accountId === GROUP2_ACCOUNT;
+    return {
+      accountId: a.accountId,
+      state: "1",
+      list: [
+        {
+          id: "q1",
+          resourceType: "octets",
+          used: group ? 1342177280 : 734003200,
+          hardLimit: group ? 3221225472 : 2147483648,
+          scope: "account",
+          name: "Storage",
+          types: ["Email", "SieveScript", "FileNode", "CalendarEvent", "ContactCard"],
+        },
+      ],
+      notFound: [],
+    };
+  },
   "SieveScript/get": genericGet(sieveScripts, "SieveScript"),
   "SieveScript/set": (a) => {
     const r = genericSet(

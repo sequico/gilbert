@@ -34,6 +34,7 @@ import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
 import { toggleTarget } from "@/lib/palette";
+import { accountQuota } from "@/lib/quota";
 import { collectShare } from "@/lib/shareTarget";
 import { applyAppUpdate } from "@/lib/staleBuild";
 import { draftFromMailto, useCompose } from "@/store/compose";
@@ -712,10 +713,21 @@ function ModuleLink({
 }
 
 function QuotaBar() {
+  const accountId = useMail((s) => s.accountId);
+  const quotaAccountId = useMail((s) => s.quotaAccountId);
   const quotas = useMail((s) => s.quotas);
-  const q =
-    quotas.find((x) => x.resourceType === "octets" && x.types.includes("Email")) ??
-    quotas.find((x) => x.resourceType === "octets");
+  const loadQuota = useMail((s) => s.loadQuota);
+  /*
+   * The bar is the storage of the account on screen: opening a group mailbox
+   * turns it into the group's, and closing it turns it back. The effect is the
+   * guarantee — a switch that did not pass through `openAccount`, or a boot that
+   * set the account itself, still refills it — and a quota already held for that
+   * account answers itself in the store.
+   */
+  useEffect(() => {
+    if (accountId && quotaAccountId !== accountId) void loadQuota();
+  }, [accountId, quotaAccountId, loadQuota]);
+  const q = accountQuota(quotas);
   if (!q?.hardLimit) return null;
   const pct = Math.min(100, Math.round((q.used / q.hardLimit) * 100));
   return (

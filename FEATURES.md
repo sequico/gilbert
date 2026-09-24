@@ -1173,7 +1173,10 @@ group's name — so which mailbox is open is never a guess.
 - **Mark all as read**, optionally including subfolders.
 - **Folder colours**, per mailbox id.
 - **Unread counts** per folder, live.
-- **Storage quota** bar under the tree where the server reports one.
+- **Storage quota** bar under the tree where the server reports one: it is the
+  account on screen — the reader's own, or the group whose mailbox they opened —
+  and the server's number for that account's whole disk usage, mail and files
+  together.
 - **Settings → Folders is about this account's own folders.** A group
   mailbox's folders stay visible in the sidebar and are not listed here, and
   every change made in Settings lands on the reader's own account — a group's
