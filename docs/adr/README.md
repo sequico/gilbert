@@ -224,9 +224,10 @@ is, not what a user sees.
   own SIP server; the credentials are an identity's, set by an administrator
   through the identity door and enforceable, account data and never device-local.
   The client registers with its own contact and a short life, deregisters
-  explicitly when the page goes, and lets the server's registration state decide
-  what an absent client means — a mailbox, or a fork to the other clients
-  registered under the same credentials. A live call collapses into the top bar
+  explicitly when the page actually goes — never when it is merely backgrounded,
+  where it stays registered and is rung — and lets the server's registration
+  state decide what an absent client means: a mailbox, or a fork to the other
+  clients registered under the same credentials. A live call collapses into the top bar
   on both desktop and phone. A browser that is closed cannot ring or be rung:
   that is the platform's limit, and the deregistration is the product's answer
   to it rather than a workaround.

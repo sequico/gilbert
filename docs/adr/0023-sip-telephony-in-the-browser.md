@@ -56,10 +56,14 @@ has set none has no softphone, and the phone entry is not offered.
 ### Registration, and what "not connected" means
 
 The client registers with its own contact and a **short life**, and renews it
-while the page is alive. When the page goes away it **deregisters explicitly**
-(a `pagehide` handler), so the server routes the next call at once. A browser
-killed outright cannot run that handler, and the short expiry is what covers
-it: the server treats the address as unregistered once the life runs out.
+while the page is alive. It **deregisters explicitly only when the page
+actually goes away** — a `pagehide`, which is a close or a navigation, never a
+`visibilitychange`: a tab sent to the background, a phone's app suspended, or a
+desktop window sitting behind another keeps its registration, because the
+reader is still there and a call should still ring. Only then is the server
+asked to route the next call at once. A browser killed outright cannot run that
+handler, and the short expiry is what covers it: the server treats the address
+as unregistered once the life runs out.
 
 What the server does with that is the server's. With no contact registered it
 takes the call itself — a mailbox — and with another client registered under
@@ -107,6 +111,9 @@ target and the `Inviter` is sent.
 - A call lives exactly as long as the page: a reload, a crash or a closed
   browser ends it, and the server's routing — not the client — is what turns
   that into a mailbox.
+- Backgrounding is not absence. A hidden tab, a suspended phone app or a
+  window behind another stays registered and is rung; only a page that actually
+  goes away leaves, and a crash is the expiry's to absorb.
 - The operator needs a SIP server that speaks WSS and can reach the browser's
   media, with STUN/TURN where NAT demands it; a deployment without one shows no
   phone.
