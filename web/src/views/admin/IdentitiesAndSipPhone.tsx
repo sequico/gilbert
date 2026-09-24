@@ -21,13 +21,18 @@ const TAB_IDS = ["user", "group", "status"];
 
 /**
  * The tabs, built at render so their labels are translated then rather than at
- * import — a language picked later still reaches them.
+ * import — a language picked later still reaches them. The active tab is passed
+ * through so a panel can act on being opened (the bridge status checks itself).
  */
-function tabs(): Array<{ id: string; label: string; el: ReactNode }> {
+function tabs(active: string): Array<{ id: string; label: string; el: ReactNode }> {
   return [
     { id: "user", label: t("User identities"), el: <UserIdentities /> },
     { id: "group", label: t("Group identities"), el: <GroupIdentities /> },
-    { id: "status", label: t("Bridge status"), el: <PhoneStatusPanel /> },
+    {
+      id: "status",
+      label: t("Bridge status"),
+      el: <PhoneStatusPanel active={active === "status"} />,
+    },
   ];
 }
 

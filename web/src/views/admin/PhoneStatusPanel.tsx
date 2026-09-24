@@ -1,9 +1,8 @@
-import { Activity, RotateCw } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { RotateCw } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { probeBridgeMedia } from "@/lib/phone/sip";
 import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
-import { usePhone } from "@/store/phone";
 
 /** What the media check is doing, or last said. */
 type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
@@ -11,37 +10,33 @@ type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
 /**
  * The phone's bridge, monitored (ADR 0023): whether the service answers, the
  * Janus the deployment installed, the media range it opens, and a live check
- * that this browser can reach that range. It exists so an administrator sees
- * what is out of place without reading a log on the host.
+ * that this browser can reach it — for so an administrator sees what is out of
+ * place without reading a log on the host.
+ *
+ * The whole check is automatic: it runs when the tab is opened, and Re-check
+ * runs all of it again. There is no separate button per row to remember.
  */
-export function PhoneStatusPanel() {
+export function PhoneStatusPanel({ active }: { active: boolean }) {
   const [status, setStatus] = useState<PhoneStatus | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [media, setMedia] = useState<MediaCheck>("idle");
-  // The line as this tab sees it — the answer to "why is there no phone".
-  const line = usePhone((s) => s.state);
-  const offered = usePhone((s) => s.ready);
-  const lineError = usePhone((s) => s.error);
 
-  async function load() {
-    setLoading(true);
+  const check = useCallback(async () => {
+    setChecking(true);
+    setMedia("running");
     try {
       setStatus(await fetchPhoneStatus());
     } catch {
       setStatus(null);
-    } finally {
-      setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    void load();
+    setMedia((await probeBridgeMedia()) ? "reachable" : "unreachable");
+    setChecking(false);
   }, []);
 
-  async function testMedia() {
-    setMedia("running");
-    setMedia((await probeBridgeMedia()) ? "reachable" : "unreachable");
-  }
+  // Opening the tab checks everything, every time it is opened.
+  useEffect(() => {
+    if (active) void check();
+  }, [active, check]);
 
   const bridge = !status
     ? t("Unknown — the status could not be read")
@@ -80,33 +75,11 @@ export function PhoneStatusPanel() {
             media === "unreachable" ? "bad" : media === "reachable" ? "ok" : undefined
           }
         />
-        <Row
-          label={t("Phone line")}
-          value={
-            offered
-              ? line
-              : t("Not offered — no SIP account for this identity, or the media path above")
-          }
-          tone={line === "unavailable" ? "bad" : undefined}
-        />
       </div>
 
-      {lineError && (
-        <div className="error-box" style={{ marginTop: 12 }}>
-          {lineError}
-        </div>
-      )}
-
       <p style={{ marginTop: 12 }}>
-        <button className="btn" disabled={loading} onClick={() => void load()}>
-          <RotateCw size={15} /> {t("Re-check")}
-        </button>{" "}
-        <button
-          className="btn btn-ghost"
-          disabled={media === "running"}
-          onClick={() => void testMedia()}
-        >
-          <Activity size={15} /> {t("Test media path")}
+        <button className="btn" disabled={checking} onClick={() => void check()}>
+          <RotateCw size={15} /> {checking ? t("Checking…") : t("Re-check")}
         </button>
       </p>
 
