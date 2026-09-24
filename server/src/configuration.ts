@@ -462,6 +462,12 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * account and in each group's.
      */
     agent,
+    /**
+     * The installation's telephone settings (ADR 0023). A process with no boot
+     * runs on the defaults — the phone off — and a booted one spreads the
+     * document's section over it (`bootstrap.ts`).
+     */
+    sip: defaults.sip,
     pushMode: (environment.PUSH_MODE === "relay" ? "relay" : defaults.push.mode) as
       | "relay"
       | "subscribe",

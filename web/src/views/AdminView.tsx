@@ -4,6 +4,7 @@ import {
   Code,
   Info,
   KeyRound,
+  Phone,
   ServerCog,
   ShieldCheck,
   Tag,
@@ -18,6 +19,7 @@ import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminApprovals } from "@/views/admin/AdminApprovals";
 import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
+import { AdminSipPhone } from "@/views/admin/AdminSipPhone";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
 import { GroupAgents } from "@/views/admin/GroupAgents";
@@ -60,6 +62,13 @@ function sections(pendingApprovals: number): AdminSection[] {
       label: t("Installation"),
       icon: <ServerCog size={18} />,
       el: <AdminInstallation />,
+      owner: "mailer",
+    },
+    {
+      id: "sip-phone",
+      label: t("SIP Phone"),
+      icon: <Phone size={18} />,
+      el: <AdminSipPhone />,
       owner: "mailer",
     },
     {

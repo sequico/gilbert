@@ -177,6 +177,45 @@ export interface InstallationBranding {
   appName: string;
 }
 
+/** One TURN server the phone's media may need (ADR 0023). */
+export interface InstallationSipTurn {
+  /** The TURN URL, `turn:` or `turns:`. */
+  url: string;
+  /** The credential's user name; empty for a server that needs none. */
+  username: string;
+  /** The credential itself. */
+  credential: string;
+}
+
+/**
+ * The installation's telephone settings (ADR 0023): what the SIP Phone
+ * administration page edits.
+ *
+ * They are the installation's and not an account's — every client reaches the
+ * same SIP server — so the server, the ICE servers and the switch are decided
+ * once, in the installation's own document (ADR 0011). A person's SIP address
+ * and password are an identity's and are deliberately not here.
+ */
+export interface InstallationSip {
+  /**
+   * Whether the installation offers the softphone at all. Off means off: no
+   * top-bar entry, and the client registers with nothing. On with no endpoint
+   * is a deployment that switched the phone on before saying where it is, and
+   * the client shows the line as unavailable rather than pretending.
+   */
+  enabled: boolean;
+  /**
+   * The SIP-over-WebSocket URL of the server, in the order they are tried. The
+   * first reachable one is used and the rest are the failover the connection's
+   * reliability rests on.
+   */
+  endpoints: string[];
+  /** STUN servers (`stun:`/`stuns:`), used to learn the browser's reflexive address. */
+  stun: string[];
+  /** TURN servers, used where a direct media path cannot be found. */
+  turn: InstallationSipTurn[];
+}
+
 /**
  * The installation's configuration, one document.
  *
@@ -204,6 +243,8 @@ export interface InstallationDocument {
   upstreams: Record<string, string>;
   agent: InstallationAgent;
   branding: InstallationBranding;
+  /** The installation's telephone settings (ADR 0023). */
+  sip: InstallationSip;
   /** `APP_SECRET`. Generated on the first boot; see the note above. */
   secret: string;
 }
@@ -268,6 +309,14 @@ export function installationDefaults(): InstallationDocument {
     },
     branding: {
       appName: "Gilbert", // APP_NAME
+    },
+    sip: {
+      // Off until a deployment says otherwise: a softphone nothing configures
+      // is an entry that can only fail (ADR 0023).
+      enabled: false,
+      endpoints: [],
+      stun: [],
+      turn: [],
     },
     secret: "", // APP_SECRET — generated on the first boot, never a literal
   };
@@ -396,6 +445,19 @@ export function parseInstallationDocumentDetailed(
     }
     return n;
   };
+  /**
+   * A list of strings, each trimmed, each blank entry dropped: a trailing empty
+   * line in a hand-edited document is noise rather than a fault, while a value
+   * that is not a string at all is a problem.
+   */
+  const readStringList = (where: string, v: unknown, fallback: string[]): string[] => {
+    if (v === undefined || v === null) return fallback;
+    if (!Array.isArray(v) || v.some((entry) => typeof entry !== "string")) {
+      problems.push(`"${where}" must be a list of strings.`);
+      return fallback;
+    }
+    return (v as string[]).map((entry) => entry.trim()).filter(Boolean);
+  };
 
   const server = readSection("server", whole.server);
   const limits = readSection("limits", whole.limits);
@@ -403,6 +465,7 @@ export function parseInstallationDocumentDetailed(
   const push = readSection("push", whole.push);
   const agent = readSection("agent", whole.agent);
   const branding = readSection("branding", whole.branding);
+  const sip = readSection("sip", whole.sip);
 
   const version = readInt("version", whole.version, INSTALLATION_VERSION);
   if (version !== INSTALLATION_VERSION)
@@ -437,6 +500,36 @@ export function parseInstallationDocumentDetailed(
     problems.push(
       `"server.cookieName" must not be empty: sessions are held in that cookie, so a nameless one would sign nobody in.`,
     );
+
+  /*
+   * The phone's servers (ADR 0023). An endpoint is a URL the browser opens a
+   * WebSocket to, a STUN server is a URL, and a TURN server carries the
+   * credential that reaches it; a TURN entry with no URL is refused, since it
+   * could only be a mistake.
+   */
+  const turn: InstallationSipTurn[] = [];
+  if (sip.turn === undefined || sip.turn === null) {
+    turn.push(...defaults.sip.turn);
+  } else if (!Array.isArray(sip.turn)) {
+    problems.push(`"sip.turn" must be a list of servers.`);
+  } else {
+    sip.turn.forEach((entry, i) => {
+      if (!isRecord(entry)) {
+        problems.push(`"sip.turn[${i}]" must be an object with a "url".`);
+        return;
+      }
+      const url = readText(`sip.turn[${i}].url`, entry.url, "").trim();
+      if (!url) {
+        problems.push(`"sip.turn[${i}].url" must not be empty.`);
+        return;
+      }
+      turn.push({
+        url,
+        username: readText(`sip.turn[${i}].username`, entry.username, ""),
+        credential: readText(`sip.turn[${i}].credential`, entry.credential, ""),
+      });
+    });
+  }
 
   const doc: InstallationDocument = {
     version,
@@ -537,6 +630,12 @@ export function parseInstallationDocumentDetailed(
       inProcess: readBool("agent.inProcess", agent.inProcess, defaults.agent.inProcess),
     },
     branding: { appName },
+    sip: {
+      enabled: readBool("sip.enabled", sip.enabled, defaults.sip.enabled),
+      endpoints: readStringList("sip.endpoints", sip.endpoints, defaults.sip.endpoints),
+      stun: readStringList("sip.stun", sip.stun, defaults.sip.stun),
+      turn,
+    },
     secret: readText("secret", whole.secret, defaults.secret),
   };
 

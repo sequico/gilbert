@@ -3475,6 +3475,13 @@ function sessionExtras(
        * surface, and the section is all it removes.
        */
       identityLocked,
+      /**
+       * ADR 0023: the installation's telephone settings, so the client knows
+       * whether the phone is offered and where its server and ICE servers are.
+       * Each person's SIP address and password are account data and are read
+       * from the account, never here.
+       */
+      sip: config.sip,
     },
   };
 }
