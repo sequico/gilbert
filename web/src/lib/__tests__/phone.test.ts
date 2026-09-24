@@ -10,6 +10,7 @@ import {
 } from "@/lib/phone/config";
 import { credentialFor, readSipCredentials } from "@/lib/phone/credentials";
 import { allDialerCards, dialerSources } from "@/lib/phone/dialer";
+import { MAX_CALLS, ringAction, shouldRefuseAsBusy } from "@/lib/phone/policy";
 import type { SharedBook } from "@/store/contacts";
 
 /**
@@ -121,13 +122,46 @@ describe("the dialer's sources", () => {
     expect(sources.some((s) => s.cards.some((c) => c.id === "private"))).toBe(false);
   });
 
-  it("counts a card once, however many sources hold it", () => {
-    // `ada` is in the directory and in a colleague's book that shares her id.
+  it("counts a card once per account, and keeps the same id from another", () => {
+    // `ada` is listed twice in the directory's account, and once in another
+    // account's book under the same id — which is a different person.
     const all = allDialerCards([
       ...sources,
-      { id: "extra", label: "Other", global: false, cards: [card("ada", "g1")] },
+      {
+        id: "extra",
+        label: "Other",
+        global: false,
+        accountId: "master",
+        cards: [card("ada", "g1")],
+      },
+      {
+        id: "elsewhere",
+        label: "Elsewhere",
+        global: false,
+        accountId: "grace",
+        cards: [card("ada", "c1")],
+      },
     ]);
-    expect(all.filter((c) => c.id === "ada")).toHaveLength(1);
+    expect(all.filter((c) => c.id === "ada")).toHaveLength(2);
+  });
+});
+
+describe("the line's local policy", () => {
+  it("carries one active call and one waiting, and refuses the next as busy", () => {
+    expect(MAX_CALLS).toBe(2);
+    expect(shouldRefuseAsBusy(0)).toBe(false);
+    expect(shouldRefuseAsBusy(1)).toBe(false);
+    expect(shouldRefuseAsBusy(2)).toBe(true);
+    expect(shouldRefuseAsBusy(3)).toBe(true);
+  });
+
+  it("rings a free line, supersedes a waiting ring, and refuses a full one", () => {
+    expect(ringAction(0, false)).toBe("ring");
+    expect(ringAction(1, false)).toBe("ring");
+    expect(ringAction(0, true)).toBe("supersede");
+    expect(ringAction(1, true)).toBe("supersede");
+    expect(ringAction(2, false)).toBe("refuse-busy");
+    expect(ringAction(2, true)).toBe("refuse-busy");
   });
 });
 
