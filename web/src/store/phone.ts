@@ -14,8 +14,8 @@ import { CAP } from "@/jmap/client";
 import { accountFor, readSipAccounts, type SipCredential } from "@/lib/phone/credential";
 import {
   requestMicrophone as askMicrophone,
-  type MicrophonePermission,
   microphoneState as readMicrophoneState,
+  type MicrophoneState,
 } from "@/lib/phone/microphone";
 import { type LineState, Phone } from "@/lib/phone/sip";
 import { useMail } from "./mail";
@@ -37,7 +37,7 @@ interface PhoneStore {
   muted: boolean;
   error: string | null;
   /** What the browser will say about the microphone, without prompting. */
-  microphone: MicrophonePermission;
+  microphone: MicrophoneState;
 
   /** Take the seat if it is free, and register the account. */
   start(): Promise<void>;
@@ -52,7 +52,7 @@ interface PhoneStore {
   setMuted(muted: boolean): void;
   sendDtmf(tones: string): void;
   /** Ask for the microphone, in this gesture, and remember the answer. */
-  requestMicrophone(): Promise<MicrophonePermission>;
+  requestMicrophone(): Promise<MicrophoneState>;
 }
 
 /** The Web Lock that seats one tab. */

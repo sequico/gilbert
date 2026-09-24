@@ -13,6 +13,7 @@ import type { SipCredential } from "@gilbert/shared/phone";
 import { withBase } from "@/lib/basePath";
 import { t } from "@/lib/i18n";
 import { Janus, type JanusHooks, type Jsep } from "./janus";
+import { microphoneMessage, openMicrophone } from "./microphone";
 
 /** The line as the top-bar entry reads it. */
 export type LineState = "connecting" | "registered" | "unavailable";
@@ -349,20 +350,17 @@ export class Phone {
   /** A PeerConnection with a live microphone on it, or a clear failure. */
   private async newPeer(): Promise<RTCPeerConnection> {
     const pc = new RTCPeerConnection();
-    let media: MediaStream;
-    try {
-      media = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
+    const opened = await openMicrophone();
+    if (!opened.ok) {
       pc.close();
-      throw new Error(
-        t("The microphone is not available, so the call cannot carry your voice."),
-      );
+      throw new Error(microphoneMessage(opened.reason));
     }
+    const media = opened.stream;
     const track = media.getAudioTracks()[0];
     if (!track) {
       for (const other of media.getTracks()) other.stop();
       pc.close();
-      throw new Error(t("No microphone is available."));
+      throw new Error(microphoneMessage("no-device"));
     }
     const transceiver = pc.addTransceiver(track, {
       direction: "sendrecv",

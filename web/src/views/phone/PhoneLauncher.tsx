@@ -9,6 +9,7 @@ import {
   dialerSources,
   dialTarget,
 } from "@/lib/phone/dialer";
+import { microphoneMessage, type MicrophoneState } from "@/lib/phone/microphone";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -79,7 +80,7 @@ export function PhoneLauncher() {
    * is granted by nobody. The listener is disarmed once the browser answers.
    */
   useEffect(() => {
-    if (microphone === "granted" || microphone === "denied") return;
+    if (microphone !== "unknown") return;
     const ask = () => {
       window.removeEventListener("pointerdown", ask);
       window.removeEventListener("keydown", ask);
@@ -191,54 +192,58 @@ export function PhoneLauncher() {
         role="dialog"
         ariaLabel={call ? t("Call") : t("Phone")}
         width={300}
-        style={{ padding: 10 }}
+        style={{ padding: 10, maxHeight: "calc(100vh - 16px)", overflow: "hidden" }}
       >
-        <MicrophoneNotice microphone={microphone} />
-        {error && <div className="error-box">{error}</div>}
-        {call ? (
-          <CallControls remote={call.remote} muted={muted} />
-        ) : (
-          <Dialer onDial={panel.close} />
-        )}
+        <div className="phone-panel">
+          {call ? (
+            <CallControls remote={call.remote} muted={muted} />
+          ) : (
+            <Dialer onDial={panel.close} />
+          )}
+          <PhoneOverlay microphone={microphone} error={error} />
+        </div>
       </Popover>
     </>
   );
 }
 
 /**
- * What the surface says about the microphone.
+ * What the panel says when something is wrong — over the dialer, never in it.
  *
- * The permission is asked for automatically at the first gesture, so nothing
- * here is a step the reader has to take — except when the browser is already
- * blocking it, where only they can open the door again.
+ * A message in the flow would push the keypad and the call button down and make
+ * the panel scroll; the dialer must never scroll. So the cause floats over the
+ * panel's foot, where it covers the contacts rather than the controls.
  */
-function MicrophoneNotice({
+function PhoneOverlay({
   microphone,
+  error,
 }: {
-  microphone: "granted" | "denied" | "prompt" | "unknown";
+  microphone: MicrophoneState;
+  error: string | null;
 }) {
-  if (microphone === "granted") return null;
-  if (microphone === "denied")
+  if (error)
     return (
-      <div className="warn-box">
-        {t(
-          "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.",
-        )}{" "}
-        <button
-          className="btn btn-sm btn-ghost"
-          onClick={() => void usePhone.getState().requestMicrophone()}
-        >
-          {t("Try again")}
-        </button>
+      <div className="phone-overlay">
+        <div className="error-box">{error}</div>
       </div>
     );
-  return (
-    <p className="hint">
-      {t(
-        "The microphone is asked for the first time you touch the page; allow it so a call can carry your voice.",
-      )}
-    </p>
-  );
+  if (microphone !== "granted" && microphone !== "unknown")
+    return (
+      <div className="phone-overlay">
+        <div className="warn-box">
+          {microphoneMessage(microphone)}{" "}
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => void usePhone.getState().requestMicrophone()}
+          >
+            {t("Try again")}
+          </button>
+        </div>
+      </div>
+    );
+  // Unknown or granted: nothing to say — the permission is asked for at the
+  // first gesture, and the browser's own prompt is the surface for it.
+  return null;
 }
 
 /** The controls of a live call: mute, a DTMF keypad, and hang up. */
