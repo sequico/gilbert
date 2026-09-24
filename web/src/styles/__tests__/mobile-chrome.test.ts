@@ -60,13 +60,6 @@ describe("phone chrome", () => {
     expect(declarations(phone, ".module-bar")).toContain("display: none");
   });
 
-  it("gives the search field the top bar by dropping the address from it", () => {
-    expect(declarations(phone, ".topbar-email")).toContain("display: none");
-    /* And the address is styled by the stylesheet at all: an inline style is
-       not something a media query can turn off. */
-    expect(css, "no base rule for .topbar-email").toContain(".topbar-email {");
-  });
-
   it("reserves the top inset on the bar and on the drawer's close", () => {
     for (const selector of [".topbar", ".drawer-head"]) {
       expect(declarations(phone, selector), selector).toContain(

@@ -216,12 +216,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
   const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
-  // The primary address Stalwart reports for the signed-in account: the
-  // personal account's name, falling back to the address the session was
-  // opened with.
-  const primaryEmail =
-    Object.values(session?.accounts ?? {}).find((a) => a.isPersonal)?.name ??
-    session?.username;
   const acctMenu = useMenu();
   /*
    * "Go to folder" (#233), hosted here rather than in the mail view because
@@ -337,11 +331,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             {appName}
           </span>
         </Link>
-        {primaryEmail && (
-          <span className="topbar-email" title={primaryEmail}>
-            {primaryEmail}
-          </span>
-        )}
         <SearchBar />
         <div className="topbar-actions">
           {/* Chat comes first in the action cluster, with the phone entry

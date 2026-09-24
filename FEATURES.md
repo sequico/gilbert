@@ -961,8 +961,8 @@ on a phone (the sidebar is a drawer).
   beneath them — the top of the bar included, which is where the status bar
   sits in an installed app. The tab bar is the phone's module switcher, so the
   drawer holds the tree for the section you are in and no second copy of it;
-  the top bar drops the signed-in address, which the account menu already
-  carries, to give the search field the width it needs.
+  the top bar carries no signed-in address — the account menu names who is
+  signed in — so the search field keeps the width it needs.
 
 ### On a touchscreen
 

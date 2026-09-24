@@ -1293,15 +1293,6 @@ a.menu-item:hover { color: var(--fg); }
 /* `min-width: 0`, or the flex default of `auto` holds the search field at its
    own min-content and the account buttons beside it are pushed off a phone. */
 .searchbar { flex: 1 1 auto; min-width: 0; max-width: 720px; margin: 0 auto; position: relative; }
-/*
- * The signed-in address, beside the brand.
- *
- * Styled here rather than inline so the responsive block can reach it: an
- * inline style is not something a media query can turn off, and the width it
- * takes on a phone comes out of the search field, which is the one thing that
- * bar is for there.
- */
-.topbar-email { font-size: 12px; opacity: .65; margin-left: 10px; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
 .searchbar .search-input { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 8px 0 14px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid transparent; transition: background .12s, box-shadow .12s, border-color .12s; }
 .searchbar .search-input:focus-within { background: var(--bg-elev); box-shadow: var(--shadow-1); border-color: var(--border); }
 .searchbar input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; height: 100%; }
@@ -2132,15 +2123,14 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   /*
    * What the bar carries on a phone.
    *
-   * The address and the gear both go, and the search field is why. Everything
-   * else in this row is a fixed 36px that its own margin cannot give up: the
-   * menu and the brand on one side, and chat, the theme, admin (for an admin)
-   * and the account menu on the other -- 298px of a 360px screen before the
-   * search is measured, leaving it about 43px wide, an icon and a sliver. On a
-   * 320px screen, four. The address is in the account menu already, and so is
-   * Settings, so both are one tap away and the field gets the room.
+   * The gear goes, and the search field is why. Everything else in this row is a
+   * fixed 36px that its own margin cannot give up: the menu and the brand on one
+   * side, and chat, the theme, admin (for an admin) and the account menu on the
+   * other -- 298px of a 360px screen before the search is measured, leaving it
+   * about 43px wide, an icon and a sliver. On a 320px screen, four. Settings is
+   * in the account menu already, so it is one tap away and the field gets the
+   * room.
    */
-  .topbar-email { display: none; }
   .searchbar .search-input { height: 40px; }
   .topbar-actions .hide-mobile { display: none; }
   /*
