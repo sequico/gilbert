@@ -2,10 +2,21 @@
 
 Status: Proposed
 
-Implementation: Partly built. The top-bar phone entry exists and is inert
-(`web/src/views/AppShell.tsx`); nothing else is built — no SIP user agent, no
-call surface, no Global contacts, and no credentials in the
-identity-enforcement door.
+Implementation: Partly built. Built: the installation's `sip` settings and the
+SIP Phone page (`server/src/shared/installation.ts`,
+`server/src/shared/phone.ts`, `web/src/views/admin/AdminSipPhone.tsx`); the
+SIP.js line and the phone's surfaces — the top-bar entry, the dialer, manual
+dialing, mute and DTMF, the incoming surface and the collapsed call
+(`web/src/lib/phone/`, `web/src/store/phone.ts`,
+`web/src/views/phone/PhoneLauncher.tsx`, `web/src/views/AppShell.tsx`); and
+Global contacts read in Contacts and the dialer
+(`web/src/views/contacts/ContactsSidebar.tsx`, `web/src/lib/phone/dialer.ts`),
+simulated in the mock. Not built: no administration writes an identity's
+`sip.json` yet, so the client reads credentials the deployment has placed
+there; Global contacts is read-only for everybody, the administrator's write
+as the Master being unbuilt; call waiting is unbuilt, a second invitation
+while one is live being refused 486; no ringtone plays; and the public
+documents do not state the feature yet, which they do when it is whole.
 
 ## Context
 
@@ -97,8 +108,11 @@ A SIP address and password belong to an identity and are account data: they
 follow the account the way settings do, are written by an administrator in the
 identity-enforcement surface (ADR 0007) and can be enforced so a member cannot
 change them. They are gilbertstalwart's — objects the server holds for the
-account, an identity's among them — never device-local. A deployment that has
-set none has no softphone, and the phone entry is not offered.
+account, an identity's among them — never device-local. The document is
+`sip.json` in the account's `gilbert` app folder, keyed by identity email
+(`@gilbert/shared/phone`), the same app-folder pattern the settings document
+follows. A deployment that has set none has no softphone, and the phone entry
+is not offered.
 
 ### Registration, and what "not connected" means
 
@@ -190,7 +204,9 @@ not limited to the contacts it can read.
 
 **Global contacts is one address book, owned by the Master, shared read-only
 with every account, and written only by an administrator, from inside
-Contacts.**
+Contacts.** It is identified by its name, declared once in
+`@gilbert/shared/phone`, so the sidebar, the dialer and the mock cannot
+disagree about which book is the directory.
 
 - **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
   held in the Master's account — an object the server holds, gilbertstalwart's
