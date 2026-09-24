@@ -175,9 +175,7 @@ export class Janus {
     if (ok) pending.resolve(message.data ?? {});
     else
       pending.reject(
-        new Error(
-          message.error?.reason ?? t("The phone bridge refused the request."),
-        ),
+        new Error(message.error?.reason ?? t("The phone bridge refused the request.")),
       );
   }
 
