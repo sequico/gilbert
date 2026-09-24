@@ -2,10 +2,15 @@
 /* JMAP core (RFC 8620)                                                */
 /* ------------------------------------------------------------------ */
 
-import type { Invocation, MethodResponses } from "@gilbert/shared/jmap";
+import type {
+  Id,
+  Invocation,
+  MethodResponses,
+  SetError,
+  SetResponse,
+} from "@gilbert/shared/jmap";
 import type { WeekdayKey } from "@gilbert/shared/weekdays";
 
-export type Id = string;
 export type UTCDate = string; // "2024-01-01T10:00:00Z"
 export type LocalDate = string; // "2024-01-01T10:00:00"
 
@@ -91,12 +96,12 @@ export interface MailCapabilities {
 }
 
 /*
- * The protocol tuple, declared once: the server builds one of these for every
- * call it makes upstream and this client builds one for every call it makes
- * through the proxy, so its three positions are shared vocabulary rather than
- * either tier's own. `@gilbert/shared/jmap` owns it.
+ * The protocol shapes, declared once: the server builds a call for every one it
+ * makes upstream and this client builds one for every call it makes through the
+ * proxy, so the tuple's three positions and a `/set` answer's fields are shared
+ * vocabulary rather than either tier's own. `@gilbert/shared/jmap` owns them.
  */
-export type { Invocation, MethodResponses };
+export type { Id, Invocation, MethodResponses, SetError, SetResponse };
 
 export interface JmapResponse {
   methodResponses: Invocation[];
@@ -108,32 +113,6 @@ export interface MethodError {
   type: string;
   description?: string;
   [k: string]: unknown;
-}
-
-export interface SetError {
-  type: string;
-  description?: string;
-  properties?: string[];
-  /**
-   * The node already carrying the name, on an `alreadyExists` refusal from
-   * `FileNode/set` (`find_sibling_collision`, `crates/jmap/src/file/set.rs`,
-   * v0.16.21). It is what lets a caller that lost a create race adopt the node
-   * somebody else made instead of reporting a name nobody can see.
-   */
-  existingId?: Id;
-  [k: string]: unknown;
-}
-
-export interface SetResponse<T = Record<string, unknown>> {
-  accountId: Id;
-  oldState: string | null;
-  newState: string;
-  created?: Record<string, T>;
-  updated?: Record<string, T | null>;
-  destroyed?: Id[];
-  notCreated?: Record<string, SetError>;
-  notUpdated?: Record<string, SetError>;
-  notDestroyed?: Record<string, SetError>;
 }
 
 export interface GetResponse<T> {

@@ -24,6 +24,7 @@ import {
 import { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
+import type { SetResponse } from "../shared/jmap.js";
 import {
   GROUP_LABELS_FILE,
   isAgentLabel,
@@ -115,11 +116,6 @@ export interface EmailRecord {
   bodyValues?: unknown;
   attachments?: unknown;
   bodyStructure?: unknown;
-}
-
-interface SetResponse {
-  created?: Record<string, { id?: unknown }>;
-  notCreated?: Record<string, { description?: unknown; type?: unknown }>;
 }
 
 /* ------------------------------------------------------------------ */

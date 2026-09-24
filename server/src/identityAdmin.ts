@@ -71,6 +71,7 @@ import type {
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
+import type { SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
 /*
  * The client's settings document, and the one key of it this tier writes.
@@ -352,12 +353,6 @@ function groupAccountId(ctx: Ctx, group: string): string {
 /* ------------------------------------------------------------------ */
 /* Reading and writing one account's identities                        */
 /* ------------------------------------------------------------------ */
-
-interface SetResponse {
-  created?: Record<string, { id?: unknown }>;
-  notCreated?: Record<string, { type?: unknown; description?: unknown }>;
-  notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
-}
 
 /** What a method-level refusal says, when it says anything. */
 function refusalOf(entry: { type?: unknown; description?: unknown } | undefined): string {
