@@ -209,6 +209,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const openCompose = useCompose((s) => s.open);
   const openShare = useCompose((s) => s.openFromShare);
   const pushState = useSession((s) => s.pushState);
+  const pushReason = useSession((s) => s.pushReason);
+  const pushTitle = pushReason
+    ? `${t(PUSH_LABEL[pushState])} — ${pushReason}`
+    : t(PUSH_LABEL[pushState]);
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
   const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
@@ -350,8 +354,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span
             className="push-status hide-mobile"
             role="img"
-            aria-label={t(PUSH_LABEL[pushState])}
-            title={t(PUSH_LABEL[pushState])}
+            aria-label={pushTitle}
+            title={pushTitle}
           >
             <span className={`push-dot ${pushState}`} />
           </span>

@@ -1,4 +1,5 @@
 import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
+import { t } from "@/lib/i18n";
 import { withBase } from "@/lib/basePath";
 import { apiFetch } from "./client";
 import type { Id, StateChange } from "./types";
@@ -7,6 +8,13 @@ export type PushListener = (accountId: Id, type: string, newState: string) => vo
 
 /** Connected, trying to connect, or not trying. */
 export type PushState = "connected" | "connecting" | "disconnected";
+
+/**
+ * The longest pause between retries. Short, because the failures that keep a
+ * tab off the stream — a deploy, a proxy's idle timeout — end in seconds, and a
+ * minute of yellow reads as the app being broken when it is one retry away.
+ */
+const MAX_BACKOFF_MS = 15_000;
 
 /**
  * Everything a tab keeps live, offered to the dispatcher after a reconnect.
@@ -35,7 +43,9 @@ export function catchUpAfterReconnect(
 class PushManager {
   private es: EventSource | null = null;
   private listeners = new Set<PushListener>();
-  private connectionListeners = new Set<(state: PushState) => void>();
+  private connectionListeners = new Set<
+    (state: PushState, reason: string | null) => void
+  >();
   /** Called when the connection comes back after a drop, never on the first connect. */
   private reconnectListeners = new Set<() => void>();
   private backoff = 1000;
@@ -54,6 +64,8 @@ class PushManager {
    * "connecting" covers the first attempt and every backoff retry.
    */
   state: PushState = "disconnected";
+  /** Why the stream is not connected, when it is not: the dot says it on hover. */
+  private reason: string | null = null;
 
   start(): void {
     this.stopped = false;
@@ -79,7 +91,7 @@ class PushManager {
     return () => this.listeners.delete(fn);
   }
 
-  onConnection(fn: (state: PushState) => void): () => void {
+  onConnection(fn: (state: PushState, reason: string | null) => void): () => void {
     this.connectionListeners.add(fn);
     return () => this.connectionListeners.delete(fn);
   }
@@ -98,11 +110,29 @@ class PushManager {
     return () => this.reconnectListeners.delete(fn);
   }
 
-  private setState(v: PushState) {
-    if (this.state === v) return;
+  private setState(v: PushState, reason: string | null = null) {
+    if (this.state === v && this.reason === reason) return;
     this.state = v;
+    this.reason = reason;
     this.connected = v === "connected";
-    for (const fn of this.connectionListeners) fn(v);
+    for (const fn of this.connectionListeners) fn(v, reason);
+  }
+
+  /**
+   * Why the stream failed, told apart by whether the server answers at all.
+   *
+   * An `EventSource` error carries no status, so the one cheap question that
+   * separates "the network or the server is gone" from "the server closed this
+   * stream" is whether another route answers. One request per failed attempt,
+   * and the answer is what the dot says on hover.
+   */
+  private async failureReason(): Promise<string> {
+    try {
+      await fetch(withBase("/api/health"), { cache: "no-store" });
+      return t("the server closed the live-updates stream");
+    } catch {
+      return t("the server could not be reached");
+    }
   }
 
   /*
@@ -194,9 +224,15 @@ class PushManager {
         void apiFetch("/api/config").catch(() => undefined);
       }
       // A retry is already scheduled below, so this is "trying", not "given up".
+      // The ceiling is short on purpose: a stream that dropped while the server
+      // is healthy — a deploy, a proxy's idle timeout — is back within seconds,
+      // not the minute a 60 s cap left the dot yellow.
       this.setState("connecting");
-      const delay = Math.min(this.backoff, 60_000);
-      this.backoff = Math.min(this.backoff * 2, 60_000);
+      void this.failureReason().then((why) => {
+        if (!this.stopped && this.state !== "connected") this.setState("connecting", why);
+      });
+      const delay = Math.min(this.backoff, MAX_BACKOFF_MS);
+      this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);
       this.reconnectTimer = window.setTimeout(() => {
         this.reconnectTimer = null;
         this.connect();

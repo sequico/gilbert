@@ -24,6 +24,8 @@ interface SessionState {
   pushConnected: boolean;
   /** Finer than pushConnected: tells "reconnecting" from "not connected". */
   pushState: PushState;
+  /** Why the stream is not up, when it is not; null while it is. */
+  pushReason: string | null;
   /**
    * ADR 0001: the server is refusing the data routes until this account's
    * password changes. True when the session says so and when a request comes
@@ -61,6 +63,7 @@ export const useSession = create<SessionState>((set, get) => ({
   error: null,
   pushConnected: false,
   pushState: "disconnected",
+  pushReason: null,
   forcedPasswordChange: false,
   identityLocked: false,
 
@@ -271,8 +274,12 @@ client.onForcedPasswordChange(() => {
   }, 1000);
 });
 
-push.onConnection((state) =>
-  useSession.setState({ pushConnected: state === "connected", pushState: state }),
+push.onConnection((state, reason) =>
+  useSession.setState({
+    pushConnected: state === "connected",
+    pushState: state,
+    pushReason: reason,
+  }),
 );
 
 export function hasCap(cap: string): boolean {
