@@ -437,3 +437,53 @@ test("a production process refuses to serve a prefix nobody stated", () => {
     "an empty prefix is a statement: the domain root",
   );
 });
+
+/**
+ * The phone's servers are the installation's, from its own document (ADR 0023).
+ *
+ * The switch, the endpoints and the ICE servers are decided once for every
+ * client, so they are fields of the installation's document like the cookie
+ * name and the rate limit beside them; a process with no boot runs on the
+ * defaults, which is the phone off. The credential is deliberately not here —
+ * it is an identity's — so this pins only what the installation owns.
+ */
+test("the phone's servers come from the installation's document, and off by default", () => {
+  const defaults = installationDefaults();
+  assert.equal(defaults.sip.enabled, false, "a fresh installation offers no phone");
+  assert.deepEqual(defaults.sip.endpoints, []);
+
+  const bootless = configurationFromEnvironment(HANDSHAKE_ENV);
+  assert.equal(
+    bootless.sip.enabled,
+    false,
+    "a process with no boot offers no phone either",
+  );
+
+  const document = documentFromJson({
+    sip: {
+      enabled: true,
+      endpoints: ["wss://pbx.example.com/ws"],
+      stun: ["stun:stun.example.com:3478"],
+      turn: [{ url: "turn:turn.example.com:3478", username: "u", credential: "c" }],
+    },
+  });
+  const served = servedConfiguration(HANDSHAKE_ENV, document);
+  assert.equal(served.sip.enabled, true);
+  assert.deepEqual(served.sip.endpoints, ["wss://pbx.example.com/ws"]);
+  assert.deepEqual(served.sip.stun, ["stun:stun.example.com:3478"]);
+  assert.deepEqual(served.sip.turn, [
+    { url: "turn:turn.example.com:3478", username: "u", credential: "c" },
+  ]);
+});
+
+test("a TURN server with no URL is refused rather than silently dropped", () => {
+  const parsed = parseInstallationDocumentDetailed(
+    JSON.stringify({
+      ...installationDefaults(),
+      secret: A_SECRET,
+      sip: { turn: [{ username: "u" }] },
+    }),
+  );
+  assert.ok("problem" in parsed, "a TURN entry that names no server is a problem");
+  if ("problem" in parsed) assert.match(parsed.problem, /sip\.turn\[0\]\.url/);
+});

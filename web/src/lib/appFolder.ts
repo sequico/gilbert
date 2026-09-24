@@ -324,14 +324,16 @@ export async function writeBlobInFolder(
  * does not invent.
  */
 export async function readAppJson(accountId: Id, name: string): Promise<unknown | null> {
-  const folder = await findAppFolder(accountId);
-  if (!folder) return null;
-  const file = await findInFolder(accountId, folder, name);
-  if (!file?.blobId) return null;
   try {
+    const folder = await findAppFolder(accountId);
+    if (!folder) return null;
+    const file = await findInFolder(accountId, folder, name);
+    if (!file?.blobId) return null;
     const text = await client.fetchBlobText(accountId, file.blobId, APP_DOCUMENT_TYPE);
     return JSON.parse(text) as unknown;
   } catch {
+    // No folder, no file, a blob that will not read: all of them mean the
+    // caller holds none of this document.
     return null;
   }
 }
