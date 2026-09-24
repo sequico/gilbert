@@ -835,15 +835,20 @@ wants to retire a chat clears the folders through Files.
 
 ## The phone, and Global contacts
 
-A deployment that runs **Janus** with its SIP plugin gets a softphone in the
-client — **gilbertmailer** — and a **directory** every account reads. The
-telephony server is the deployment's own, external to the four blocks: Gilbert
-adds no registrar, no media relay and no durable telephony state beyond an
-identity's account (ADR 0023). The **browser is the phone**: it attaches to the
-Janus SIP plugin, registers the account and negotiates the media, and Janus
-terminates the WebRTC and relays SIP and RTP. Its signalling is the Janus API,
-carried over a WebSocket gilbertserver proxies on its own origin and certificate
-and authenticates by session.
+A softphone in the client — **gilbertmailer** — and a **directory** every
+account reads. The telephony server is the deployment's own, external to the
+four blocks: Gilbert adds no registrar, no media relay and no durable telephony
+state beyond an identity's account (ADR 0023). The phone has **two ways in**,
+chosen by the address of that server and nothing else:
+
+- a **`wss://` address** — the server offers SIP over WebSocket — is reached
+  **directly**: the browser is the SIP user agent (SIP.js) over WebSocket with
+  WebRTC media, and nothing else runs;
+- a **bare host** — the server offers only the classic transports — is reached
+  **through the Janus bridge**: the browser attaches to the Janus SIP plugin and
+  speaks the Janus API over a WebSocket gilbertserver proxies on its own origin
+  and certificate and authenticates by session, while Janus terminates the
+  WebRTC and relays SIP and RTP. Zadarma is the reference for this kind.
 
 - **One tab holds the line.** The phone is seated by a **Web Lock**: the first
   tab to ask is the phone, every other tab of the same origin shows none, and
@@ -858,11 +863,18 @@ and authenticates by session.
 - **The call.** An incoming call announces itself as a banner; a live call
   **collapses into the top bar** so the reader keeps working. The surface offers
   mute, a DTMF keypad (RFC 2833) and hang up; a second call is refused **486**
-  by the plugin and the provider's routing takes it. A number with no contact can
-  be typed by hand, so the phone is not limited to Contacts.
+  and the provider's routing takes it. A number with no contact can be typed by
+  hand, so the phone is not limited to Contacts.
 - **Audio only, and the same for everyone.** G.711 passed through without
-  transcoding, on one TLS transport to the provider, with no STUN/TURN. What
-  cannot be recovered ends cleanly rather than leaving a dead call on screen.
+  transcoding, with no STUN/TURN. Through the bridge the media range is the
+  **only** inbound port and the SIP leg is outbound — 5060/5061 are never
+  opened; directly, no bridge is involved at all. What cannot be recovered ends
+  cleanly rather than leaving a dead call on screen.
+- **Offered only where it can work.** The account must hold a SIP account, the
+  bridge must answer, and the media path must be proven before the entry is
+  drawn: a deployment whose bridge ports are still closed shows **no phone**,
+  and the administration states the bridge's media range as the one thing to
+  open.
 - **The dialer** reads Contacts separated by source — **Global contacts**,
   each group's book, the reader's personal books, and all of them — and a press
   dials; its list is read-only, editing belonging to Contacts. A contact with no
@@ -873,10 +885,11 @@ and authenticates by session.
   brings an account created later in — the deployment's own share shape is owed
   the live probe ADR 0024 names. Every reader sees it in `All contacts` and in a
   section of its own; the phone offers its numbers as speed dial.
-- **No installation-level settings.** How Gilbert reaches Janus — its address
-  and port — is a deployment fact (`GILBERT_PHONE_JANUS_URL`), like
-  `STALWART_URL`: there is no SIP Phone administration page and no phone section
-  in the installation's document. Each person's account is per identity.
+- **No installation-level settings.** No SIP Phone administration page and no
+  phone section in the installation's document: where the bridge lives and which
+  ports it needs are deployment facts, like `STALWART_URL`, and the direct way
+  needs no bridge. Each person's account is per identity, and the form of its
+  server is what selects the way in — there is no switch.
 - **What a browser cannot do**: ring with the tab closed, or keep a call across
   a full reload. Both are the platform's limit rather than a broken promise; with
   no tab holding the seat the provider takes the call, and a reload with a call

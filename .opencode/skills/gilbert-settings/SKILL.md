@@ -118,10 +118,11 @@ metadata:
 - Not every Settings page is policy material: filters, vacation, identities,
   2FA and folder/label structure live server-side (JMAP objects), not in the
   settings file.
-- The phone is not a setting either: how Gilbert reaches Janus is a deployment
-  fact (ADR 0023, `GILBERT_PHONE_JANUS_URL`) and each person's SIP account is an
-  identity's (ADR 0007), so neither belongs in `Settings`/`settings.json`.
-  Load `gilbert-phone` before reaching for a preference here.
+- The phone is not a setting either: the server account and the way in are an
+  identity's (ADR 0007), chosen by the address an administrator states, and the
+  bridge it may go through is a deployment fact (ADR 0023), so none of it
+  belongs in `Settings`/`settings.json`. Load `gilbert-phone` before reaching
+  for a preference here.
 
 ## Testing and local dev
 
