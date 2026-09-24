@@ -158,6 +158,16 @@ describe("phone chrome", () => {
     );
   });
 
+  it("gives the advanced search panel one column so its Search button fits", () => {
+    /* Two columns leave the date range and the Search button past the right
+       edge of a phone's panel, with no scrollbar to reach them. One column,
+       and the action row wraps under the checkboxes. */
+    expect(declarations(phone, ".search-panel .grid")).toContain(
+      "grid-template-columns: 1fr",
+    );
+    expect(declarations(phone, ".search-panel > .row")).toContain("flex-wrap: wrap");
+  });
+
   it("wraps the calendar toolbar so its mode switch stays reachable", () => {
     /* The date, Today and the two arrows leave the Day/Month/Agenda switch no
        room on a phone, and the bar does not scroll: Agenda ran off the right

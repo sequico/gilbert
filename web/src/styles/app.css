@@ -2146,11 +2146,17 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   /*
    * The advanced panel and its suggestions hang off the search field, so they
    * are as wide as it is -- which on a phone is not a form's worth of room.
-   * Fixed under the bar instead, where the two-column grid below has somewhere
-   * to put its columns, and capped so a small screen in landscape can scroll
-   * it rather than lose the Search button off the bottom.
+   * Fixed under the bar instead, and one column wide: the two-column grid the
+   * panel keeps on a desktop leaves the date range and the Search button past
+   * the right edge, and there is no scrollbar to reach them. The action row
+   * wraps under the checkboxes for the same reason. Capped so a small screen
+   * in landscape can scroll it rather than lose the Search button off the
+   * bottom.
    */
   .search-panel { position: fixed; left: 12px; right: 12px; top: calc(var(--topbar-h) + 2px); max-height: calc(100dvh - var(--topbar-h) - 12px); overflow-y: auto; }
+  .search-panel .grid { grid-template-columns: 1fr; }
+  .search-panel > .row { flex-wrap: wrap; row-gap: 8px; }
+  .search-panel > .row > .row:last-child { margin-left: auto; }
   .msg-row { padding-right: 8px; }
   /* The list ends above the fab rather than under it, so the last row is
      readable and tappable while the button that floats over it is there. */
