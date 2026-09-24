@@ -13,9 +13,15 @@ import { foldLine } from "./contentLines";
  * Whether an address book is the installation's shared Global contacts
  * directory (ADR 0023). One predicate, asked by the sidebar and the dialer, so
  * the two cannot disagree about which book is the directory.
+ *
+ * The name is the marker the decision fixes, and the book must not be writable:
+ * the directory is shared read-only, so a book somebody may write — their own,
+ * or a group's own — is not it, whatever it is called.
  */
-export function isGlobalContactsBook(book: Pick<AddressBook, "name">): boolean {
-  return book.name === GLOBAL_CONTACTS_BOOK_NAME;
+export function isGlobalContactsBook(
+  book: Pick<AddressBook, "name" | "myRights">,
+): boolean {
+  return book.name === GLOBAL_CONTACTS_BOOK_NAME && book.myRights?.mayWrite !== true;
 }
 
 /** Best display name for a card. */

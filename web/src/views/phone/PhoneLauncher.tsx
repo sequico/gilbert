@@ -22,15 +22,14 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
  *
  * The entry is the feature's whole presence until it is pressed: its colour is
  * the line's state and it returns to idle on its own. A press opens the call
- * surface — the dialer when nothing is live, the call's controls when something
- * is — and an incoming call takes the screen on a phone and a banner on a
- * desktop. A live call is never modal: the reader keeps working and the entry
- * carries the call.
+ * surface and asks for the microphone — a gesture, as the browser requires —
+ * and an incoming call takes the screen on a phone and a banner on a desktop. A
+ * live call is never modal: the reader keeps working and the entry carries it.
  *
  * What it cannot do is stated rather than pretended: the entry is absent when
  * the installation offers no phone or this account has no credential, the
- * microphone is asked for when the surface opens, and a tab that does not hold
- * the line shows the call without owning its controls.
+ * surface says when the microphone is missing, and a tab that does not hold the
+ * line shows the call without owning its controls.
  */
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
@@ -64,12 +63,13 @@ export function PhoneLauncher() {
    */
   useEffect(() => () => void usePhone.getState().stop(), []);
 
-  /* The peer's audio. Cleared when the call ends, so nothing lingers. */
+  /* The peer's audio, played while there is one and stopped when there is not. */
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     el.srcObject = stream;
     if (stream) void el.play().catch(() => undefined);
+    else el.pause();
   }, [stream]);
 
   /* The ring: only the tab that holds the line rings, and only if not silenced. */
@@ -114,8 +114,8 @@ export function PhoneLauncher() {
         style={colour ? { color: colour } : undefined}
         onClick={() => {
           setOpen(true);
-          // The permission is asked in its own gesture, as early as the surface
-          // can: a microphone deferred to the first call is a call that fails.
+          // The permission is asked in its own gesture. The answer is kept, so
+          // the surface can say what is missing without asking again.
           void usePhone.getState().requestMicrophone();
         }}
       >
@@ -159,13 +159,7 @@ export function PhoneLauncher() {
         title={call ? t("Call") : t("Phone")}
         size={isMobile ? "lg" : "md"}
       >
-        {microphone === "denied" && (
-          <div className="warn-box">
-            {t(
-              "The microphone is not available, so calls cannot carry your voice. Grant the permission in the browser's site settings and try again.",
-            )}
-          </div>
-        )}
+        <MicrophoneNotice microphone={microphone} />
         {error && <div className="error-box">{error}</div>}
         {call ? (
           <CallControls
@@ -175,11 +169,51 @@ export function PhoneLauncher() {
             onSwitch={(id) => usePhone.getState().switchTo(id)}
             readOnly={!leader}
           />
-        ) : (
+        ) : leader ? (
           <Dialer onDial={() => setOpen(false)} />
+        ) : (
+          <p className="hint">{t("Another tab is handling the phone.")}</p>
         )}
       </Dialog>
     </>
+  );
+}
+
+/**
+ * What the surface says about the microphone, and the one button that asks.
+ *
+ * A browser's own permission state is not readable everywhere, and the answer
+ * only arrives when it is asked for: so the surface says what is missing and
+ * offers the gesture, on a phone and on a desktop alike.
+ */
+function MicrophoneNotice({
+  microphone,
+}: {
+  microphone: "granted" | "denied" | "prompt" | "unknown";
+}) {
+  if (microphone === "granted") return null;
+  if (microphone === "unknown")
+    return (
+      <p className="hint">
+        {t(
+          "Grant the microphone in the browser's site settings to make calls; on some devices the browser asks the first time you place one.",
+        )}
+      </p>
+    );
+  return (
+    <div className="warn-box">
+      {microphone === "denied"
+        ? t(
+            "The microphone is not available, so calls cannot carry your voice. Grant the permission in the browser's site settings and try again.",
+          )
+        : t("Allow the microphone so calls can carry your voice.")}{" "}
+      <button
+        className="btn btn-sm btn-ghost"
+        onClick={() => void usePhone.getState().requestMicrophone()}
+      >
+        {microphone === "denied" ? t("Try again") : t("Allow microphone")}
+      </button>
+    </div>
   );
 }
 
@@ -276,7 +310,13 @@ function CallControls({
 
 /** The dialer: search, a keypad to compose a number, and the separated contacts. */
 function Dialer({ onDial }: { onDial: () => void }) {
-  const contacts = useContacts();
+  // Individual selections, not the whole store: the dialer rebuilds its sources
+  // when the cards it reads change, and for nothing else.
+  const cards = useContacts((s) => s.cards);
+  const sharedBooks = useContacts((s) => s.sharedBooks);
+  const cardsIn = useContacts((s) => s.cardsIn);
+  const filterCards = useContacts((s) => s.filterCards);
+  const ownAccountId = useContacts((s) => s.accountId) ?? "own";
   const mailAccounts = useMail((s) => s.mailAccounts);
   const [query, setQuery] = useState("");
   const [number, setNumber] = useState("");
@@ -289,17 +329,18 @@ function Dialer({ onDial }: { onDial: () => void }) {
       })),
     [mailAccounts],
   );
-  const ownCards = useMemo(() => Object.values(contacts.cards), [contacts.cards]);
+  const ownCards = useMemo(() => Object.values(cards), [cards]);
   const sources: DialerSource[] = useMemo(
     () =>
       dialerSources({
         ownCards,
-        sharedBooks: contacts.sharedBooks,
-        cardsIn: (accountId) => contacts.cardsIn(accountId),
+        sharedBooks,
+        cardsIn,
         groups,
         personalLabel: t("Personal"),
+        ownAccountId,
       }),
-    [ownCards, contacts, groups],
+    [ownCards, sharedBooks, cardsIn, groups, ownAccountId],
   );
 
   const dial = (target: string) => {
@@ -317,16 +358,14 @@ function Dialer({ onDial }: { onDial: () => void }) {
     query.trim()
       ? sources.map((source) => ({
           ...source,
-          cards: contacts.filterCards(source.cards, query).filter((c) => dialTarget(c)),
+          cards: filterCards(source.cards, query).filter((c) => dialTarget(c)),
         }))
       : sources.map((source) => ({
           ...source,
           cards: source.cards.filter((c) => dialTarget(c)),
         }))
   ).filter((source) => source.cards.length > 0);
-  const all = contacts
-    .filterCards(allDialerCards(sources), query)
-    .filter((c) => dialTarget(c));
+  const all = filterCards(allDialerCards(sources), query).filter((c) => dialTarget(c));
 
   return (
     <div>

@@ -52,18 +52,22 @@ export function GlobalContactsEditor({
    * builds a fresh array on every call, and a zustand v5 selector returning a
    * new snapshot re-renders forever. The filtering happens here, memoized.
    */
-  const ownCards = useContacts((s) => s.cards);
   const shared = useContacts((s) => s.sharedCards);
   const reloadShared = useContacts((s) => s.reloadShared);
-  const mine = useMemo(() => {
-    const fromAccount = Object.entries(shared)
-      .filter(([key]) => key.startsWith(`${accountId}:`))
-      .map(([, card]) => card);
-    // The directory lives in another account; the fallback covers a book that
-    // somehow sits in the reader's own.
-    const pool = fromAccount.length ? fromAccount : Object.values(ownCards);
-    return pool.filter((c) => c.addressBookIds?.[bookId]);
-  }, [shared, ownCards, accountId, bookId]);
+  /*
+   * The directory lives in another account, and its cards are the shared ones
+   * for that account. There is deliberately no fallback to the reader's own
+   * books: that would draw personal cards under the directory's name and offer
+   * edits the route writes somewhere else.
+   */
+  const mine = useMemo(
+    () =>
+      Object.entries(shared)
+        .filter(([key]) => key.startsWith(`${accountId}:`))
+        .map(([, card]) => card)
+        .filter((c) => c.addressBookIds?.[bookId]),
+    [shared, accountId, bookId],
+  );
   const [draft, setDraft] = useState<{
     id: string | null;
     card: GlobalContactInput;
@@ -159,7 +163,7 @@ export function GlobalContactsEditor({
             }
           />
           <span className="hint">
-            {t("One per line. These are what the phone offers as speed dial.")}
+            {t("One per line. The phone calls the preferred one.")}
           </span>
         </label>
         <label className="field">

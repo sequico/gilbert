@@ -42,7 +42,14 @@ function book(accountId: string, id: string, name: string): SharedBook {
   return {
     accountId,
     accountName: accountId,
-    book: { id, name, isDefault: false } as AddressBook,
+    book: {
+      id,
+      name,
+      isDefault: false,
+      // Shared books are read-only, which is what marks the directory apart
+      // from a book somebody may write.
+      myRights: { mayRead: true, mayWrite: false, mayShare: false, mayDelete: false },
+    } as AddressBook,
   };
 }
 
@@ -108,6 +115,7 @@ describe("the dialer's sources", () => {
     cardsIn: (accountId) => byAccount[accountId] ?? [],
     groups: [{ accountId: "team", name: "Team" }],
     personalLabel: "Personal",
+    ownAccountId: "me",
   });
 
   it("puts Global contacts first, then each group, then the reader's own", () => {
@@ -166,9 +174,25 @@ describe("the line's local policy", () => {
 });
 
 describe("Global contacts is one named book", () => {
-  it("is the one the shared constant names, and nothing else", () => {
-    expect(isGlobalContactsBook({ name: GLOBAL_CONTACTS_BOOK_NAME })).toBe(true);
-    expect(isGlobalContactsBook({ name: "Team contacts" })).toBe(false);
+  it("is the one the shared constant names, and must be read-only", () => {
+    const readOnly = {
+      mayRead: true,
+      mayWrite: false,
+      mayShare: false,
+      mayDelete: false,
+    };
+    expect(
+      isGlobalContactsBook({ name: GLOBAL_CONTACTS_BOOK_NAME, myRights: readOnly }),
+    ).toBe(true);
+    expect(
+      isGlobalContactsBook({
+        name: GLOBAL_CONTACTS_BOOK_NAME,
+        myRights: { mayRead: true, mayWrite: true, mayShare: true, mayDelete: true },
+      }),
+    ).toBe(false);
+    expect(isGlobalContactsBook({ name: "Team contacts", myRights: readOnly })).toBe(
+      false,
+    );
   });
 });
 

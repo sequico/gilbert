@@ -14,12 +14,13 @@
  * A call beyond what the line carries, and a ring superseded by a newer one,
  * are refused 486, the busy half of the decision.
  *
- * Reliability is the point of the configuration here: the transport reconnects
- * with backoff and re-registers, a broken media path is restarted with a
- * re-INVITE where the engine allows it, and the registration's life is short
- * enough that a browser killed outright stops being rung within the
- * half-minute. The reader is asked for nothing while any of it happens; the
- * line's colour and, on a real failure, the error sentence are the report.
+ * Reliability is the point of the configuration here: the configured endpoints
+ * are tried in order, the transport reconnects with backoff and re-registers, a
+ * broken media path is restarted with a re-INVITE where the engine allows it,
+ * and the registration's life is short enough that a browser killed outright
+ * stops being rung within the half-minute. The reader is asked for nothing
+ * while any of it happens; the line's colour and, on a real failure, the error
+ * sentence are the report.
  */
 import {
   Invitation,
@@ -41,8 +42,8 @@ export interface PhoneAgentOptions {
   address: string;
   /** The secret the registrar authenticates it with. */
   password: string;
-  /** The SIP-over-WebSocket endpoint in use, `wss://…`. */
-  endpoint: string;
+  /** The SIP-over-WebSocket endpoints, in the order they are tried. */
+  endpoints: string[];
   /** STUN/TURN, from the installation's own settings. */
   iceServers: RTCIceServer[];
 }
@@ -100,16 +101,43 @@ export class PhoneAgent {
     return this.calls.size > 0;
   }
 
-  /** Start the transport and register the one line. */
+  /** The calls on the line, counting a ring that is still waiting. */
+  private liveCount(): number {
+    return this.calls.size + (this.ringing ? 1 : 0);
+  }
+
+  /**
+   * Start the transport and register the one line, trying the endpoints in
+   * order: a deployment lists a fallback because the first one may be down, and
+   * the reader is asked for nothing while it is tried.
+   */
   async start(): Promise<void> {
     const uri = UserAgent.makeURI(this.addressUri());
     if (!uri) throw new Error(`Not a SIP address: ${this.options.address}`);
     this.hooks.onLine("connecting");
+    let last: unknown;
+    for (const endpoint of this.options.endpoints) {
+      try {
+        await this.startAt(uri, endpoint);
+        return;
+      } catch (err) {
+        last = err;
+      }
+    }
+    this.hooks.onLine("unavailable");
+    throw last ?? new Error("No SIP endpoint is configured.");
+  }
+
+  private async startAt(
+    uri: ReturnType<typeof UserAgent.makeURI>,
+    endpoint: string,
+  ): Promise<void> {
+    if (!uri) return;
     const ua = new UserAgent({
       uri,
       authorizationUsername: authUser(this.options.address),
       authorizationPassword: this.options.password,
-      transportOptions: { server: this.options.endpoint },
+      transportOptions: { server: endpoint },
       // Reliability, unattended: keep trying to reach the server, and say
       // nothing to the reader while it happens.
       reconnectionAttempts: 30,
@@ -137,8 +165,9 @@ export class PhoneAgent {
       if (state === "Stopped" && !this.ended) this.hooks.onLine("unavailable");
     });
     await ua.start();
-    this.registerer = new Registerer(ua, { expires: REGISTRATION_EXPIRES });
-    this.registerer.stateChange.addListener((state) => {
+    const registerer = new Registerer(ua, { expires: REGISTRATION_EXPIRES });
+    this.registerer = registerer;
+    registerer.stateChange.addListener((state) => {
       if (this.ended) return;
       if (state === RegistererState.Registered) this.hooks.onLine("registered");
       else if (
@@ -147,7 +176,7 @@ export class PhoneAgent {
       )
         this.hooks.onLine("connecting");
     });
-    await this.registerer.register();
+    await registerer.register();
   }
 
   /** Deregister and stop the transport. Called only when the page goes away. */
@@ -172,7 +201,7 @@ export class PhoneAgent {
   async call(target: string): Promise<void> {
     const ua = this.ua;
     if (!ua) throw new Error("The phone is not connected");
-    if (shouldRefuseAsBusy(this.calls.size)) throw new Error("The line is busy.");
+    if (shouldRefuseAsBusy(this.liveCount())) throw new Error("The line is busy.");
     const uri = UserAgent.makeURI(this.targetUri(target));
     if (!uri) throw new Error(`Not a number to call: ${target}`);
     const inviter = new Inviter(ua, uri, {
@@ -258,7 +287,7 @@ export class PhoneAgent {
 
   private receive(invitation: Invitation): void {
     const from = this.remoteOf(invitation);
-    const action = ringAction(this.calls.size, Boolean(this.ringing));
+    const action = ringAction(this.liveCount(), Boolean(this.ringing));
     if (action === "refuse-busy") {
       void invitation.reject({ statusCode: 486 }).catch(() => undefined);
       this.hooks.onError(`${from || "A call"} could not be taken: the line is busy.`);
@@ -357,6 +386,13 @@ export class PhoneAgent {
 
   private reflow(): void {
     if (!this.active && this.calls.size) this.active = this.calls.keys().next().value;
+    /*
+     * A promotion happens here when the active call ends and a held one takes
+     * over; the media has to follow the promotion, or the reader is on a call
+     * whose microphone is still off. `applyMedia` is idempotent, so running it
+     * on every reflow costs nothing and cannot be forgotten.
+     */
+    this.applyMedia();
     const calls: PhoneCallView[] = [...this.calls.entries()].map(([session, remote]) => ({
       id: session.id,
       remote,
@@ -372,7 +408,8 @@ export class PhoneAgent {
    * to start over, which is the one thing a client can do when the network
    * moved under it; the reader touches nothing. Only an outgoing call can send
    * the re-INVITE — the engine offers no re-INVITE on a received call — so a
-   * received call's path recovers through the transport's own reconnection.
+   * received call's path recovers through the transport's own reconnection,
+   * and whatever handler the engine installed is kept and called first.
    */
   private watchMedia(
     handler: Web.SessionDescriptionHandler | undefined,
@@ -380,7 +417,9 @@ export class PhoneAgent {
   ): void {
     const pc = handler?.peerConnection;
     if (!pc) return;
-    pc.oniceconnectionstatechange = () => {
+    const previous = pc.oniceconnectionstatechange;
+    pc.oniceconnectionstatechange = (event: Event) => {
+      previous?.call(pc, event);
       if (this.ended || !this.calls.has(session)) return;
       if (pc.iceConnectionState !== "failed") return;
       if (session instanceof Inviter) {

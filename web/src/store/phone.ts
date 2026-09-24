@@ -21,7 +21,11 @@ import {
   readSipCredentials,
   type SipCredential,
 } from "@/lib/phone/credentials";
-import { ensureMicrophone, type MicrophoneState } from "@/lib/phone/microphone";
+import {
+  requestMicrophone as askMicrophone,
+  type MicrophonePermission,
+  microphoneState as readMicrophoneState,
+} from "@/lib/phone/microphone";
 import { useMail } from "./mail";
 import { useSession } from "./session";
 
@@ -56,7 +60,8 @@ interface PhoneStore {
   stream: MediaStream | null;
   muted: boolean;
   error: string | null;
-  microphone: MicrophoneState | "unknown";
+  /** What the browser will say about the microphone, without prompting. */
+  microphone: MicrophonePermission;
 
   /** Read the configuration and, when this tab holds the line, register. */
   start(): Promise<void>;
@@ -70,8 +75,8 @@ interface PhoneStore {
   switchTo(id: string): void;
   setMuted(muted: boolean): void;
   sendDtmf(tones: string): void;
-  /** Ask for the microphone, and remember what the browser answered. */
-  requestMicrophone(): Promise<MicrophoneState>;
+  /** Ask for the microphone, in this gesture, and remember the answer. */
+  requestMicrophone(): Promise<MicrophonePermission>;
 }
 
 /** The one agent of this page. */
@@ -80,6 +85,12 @@ let agent: PhoneAgent | null = null;
 let startPromise: Promise<void> | null = null;
 let started = false;
 let leader = false;
+/**
+ * A count of the starts this page has begun. `stop()` bumps it, and a `begin`
+ * that sees a different number knows its run was abandoned and abandons the
+ * agent it made rather than leaving a live registration nobody owns.
+ */
+let generation = 0;
 let heartbeat: number | null = null;
 let standbyPoll: number | null = null;
 let credentialRetry: number | null = null;
@@ -104,6 +115,10 @@ const TAB_ID =
     ? crypto.randomUUID()
     : String(Math.random());
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function readLeader(): { id?: string; at?: number } | null {
   try {
     const raw = localStorage.getItem(LEADER_KEY);
@@ -124,20 +139,23 @@ function leaderIsLive(): boolean {
 }
 
 /**
- * Claim the line: write, then read back, and only the last writer owns it.
+ * Claim the line: write, wait a jittered moment, then read back — and only the
+ * tab whose write is still there owns it.
  *
  * Two tabs opening at once both see a stale (or absent) lease and both write;
- * the read-back is what leaves one of them holding it, rather than two
- * registrations from one device.
+ * the jittered re-read is what leaves one of them holding it, rather than two
+ * registrations from one device. Where storage is refused (a private window,
+ * a hardened browser) there is nothing to coordinate with, and the one tab is
+ * the only tab.
  */
-function claimLeadership(): boolean {
+async function claimLeadership(): Promise<boolean> {
   if (leaderIsLive()) return false;
   try {
     localStorage.setItem(LEADER_KEY, JSON.stringify({ id: TAB_ID, at: Date.now() }));
   } catch {
-    // No storage (a private window, a hardened browser): one tab is the only tab.
     return true;
   }
+  await sleep(20 + Math.random() * 60);
   return readLeader()?.id === TAB_ID;
 }
 
@@ -177,14 +195,17 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   async start() {
     if (started) return;
     if (startPromise) return startPromise;
-    startPromise = begin(set).finally(() => {
+    const gen = generation;
+    startPromise = begin(set, gen).finally(() => {
       startPromise = null;
     });
     return startPromise;
   },
 
   async stop() {
+    generation += 1;
     clearTimers();
+    releaseLeadership();
     await agent?.stop().catch(() => undefined);
     agent = null;
     started = false;
@@ -192,14 +213,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
     startPromise = null;
     currentSip = null;
     currentCredential = null;
-    if (mirror) {
-      try {
-        mirror.close();
-      } catch {
-        /* already closed */
-      }
-      mirror = null;
-    }
+    closeMirror();
     set({
       state: "off",
       ready: false,
@@ -213,7 +227,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   },
 
   async dial(target) {
-    if (!agent) return;
+    if (!agent || !leader) return;
     set({ error: null });
     await get().requestMicrophone();
     try {
@@ -224,42 +238,50 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   },
 
   async answer() {
+    if (!leader) return;
     await get().requestMicrophone();
     await agent?.answer().catch(() => undefined);
     set({ incoming: null });
   },
 
   async decline() {
+    if (!leader) return;
     await agent?.decline().catch(() => undefined);
     set({ incoming: null });
   },
 
   async hangup() {
+    if (!leader) return;
     await agent?.hangup().catch(() => undefined);
   },
 
   switchTo(id) {
+    if (!leader) return;
     agent?.activate(id);
   },
 
   setMuted(muted) {
-    agent?.setMuted(muted);
     set({ muted });
+    agent?.setMuted(muted);
   },
 
   sendDtmf(tones) {
+    if (!leader) return;
     agent?.sendDtmf(tones);
   },
 
   async requestMicrophone() {
-    const microphone = await ensureMicrophone();
+    const microphone = await askMicrophone();
     set({ microphone });
     return microphone;
   },
 }));
 
 /** Read the configuration, then register or follow the tab that does. */
-async function begin(set: (partial: Partial<PhoneStore>) => void): Promise<void> {
+async function begin(
+  set: (partial: Partial<PhoneStore>) => void,
+  gen: number,
+): Promise<void> {
   const session = useSession.getState();
   const sip = session.session?.gilbert?.sip;
   if (!phoneOffered(sip)) {
@@ -272,6 +294,7 @@ async function begin(set: (partial: Partial<PhoneStore>) => void): Promise<void>
     return;
   }
   const credentials = await readSipCredentials(accountId);
+  if (gen !== generation) return;
   const identity = useMail.getState().defaultIdentity();
   const primary =
     Object.values(session.session?.accounts ?? {}).find((a) => a.isPersonal)?.name ??
@@ -296,33 +319,51 @@ async function begin(set: (partial: Partial<PhoneStore>) => void): Promise<void>
   currentCredential = credential;
   started = true;
   set({ ready: true });
+  // The microphone's state is read once the phone is offered: the surface says
+  // what is missing without prompting, and prompts only in a gesture.
+  void readMicrophoneState().then((microphone) => set({ microphone }));
 
-  if (!claimLeadership()) {
+  if (!(await claimLeadership())) {
+    if (gen !== generation) return;
     // Another tab holds the line: follow the call it carries, and be ready to
     // take over if it dies.
     set({ leader: false, state: "connecting" });
     listenToMirror();
-    scheduleStandbyPoll(set);
+    scheduleStandbyPoll(set, gen);
     return;
   }
-  await takeLine(set, sip, credential);
+  if (gen !== generation) return;
+  await takeLine(set, gen, sip, credential);
 }
 
 /** Register the line, and watch for the page going away. */
 async function takeLine(
   set: (partial: Partial<PhoneStore>) => void,
+  gen: number,
   sip: InstallationSip,
   credential: SipCredential,
 ): Promise<void> {
   leader = true;
   keepAlive();
-  mirror = openMirror();
+  // The standby already has a channel with its listener on it; reusing it is
+  // what keeps the mirror one object rather than leaking the one it replaced.
+  if (!mirror) mirror = openMirror();
   set({ leader: true });
-  await startAgent(set, sip, credential);
+  if (standbyPoll !== null) {
+    window.clearInterval(standbyPoll);
+    standbyPoll = null;
+  }
+  await startAgent(set, gen, sip, credential);
+  if (gen !== generation) {
+    // The run was abandoned while the agent was starting: take it down rather
+    // than leave a registration nobody owns.
+    await agent?.stop().catch(() => undefined);
+    agent = null;
+    return;
+  }
   window.addEventListener(
     "pagehide",
     () => {
-      releaseLeadership();
       void usePhone.getState().stop();
     },
     { once: true },
@@ -331,6 +372,7 @@ async function takeLine(
 
 async function startAgent(
   set: (partial: Partial<PhoneStore>) => void,
+  gen: number,
   sip: InstallationSip,
   credential: SipCredential,
 ): Promise<void> {
@@ -338,7 +380,7 @@ async function startAgent(
     {
       address: credential.address,
       password: credential.password,
-      endpoint: sip.endpoints[0]!,
+      endpoints: sip.endpoints,
       iceServers: iceServers(sip),
     },
     {
@@ -355,8 +397,9 @@ async function startAgent(
         const held: HeldCall[] = calls
           .filter((c) => c !== active)
           .map((c) => ({ id: c.id, remote: c.remote }));
+        // `incoming` is deliberately left alone: a call ending is not a ring
+        // ending, and a still-ringing invitation must not lose its surface.
         set({
-          incoming: null,
           call: active ? { id: active.id, remote: active.remote } : null,
           held,
           stream,
@@ -370,9 +413,14 @@ async function startAgent(
       onError: (message) => set({ error: message }),
     },
   );
+  // The reader's mute choice survives a takeover: the new agent starts unmuted,
+  // so the flag the store already holds is pushed onto it.
+  agent.setMuted(usePhone.getState().muted);
   try {
     await agent.start();
+    if (gen !== generation) return;
   } catch (err) {
+    if (gen !== generation) return;
     /*
      * The line could not register. The reader gets a sentence naming what to
      * look at, and the transport's own words go to the console: a raw
@@ -397,10 +445,21 @@ function openMirror(): BroadcastChannel | null {
   }
 }
 
+function closeMirror(): void {
+  if (!mirror) return;
+  try {
+    mirror.close();
+  } catch {
+    /* already closed */
+  }
+  mirror = null;
+}
+
 /**
  * The tabs that do not hold the line still show the line and the call the
  * leader carries: they hear its state over a `BroadcastChannel` and render it,
- * so a device rings in one place and everyone sees the same call.
+ * so a device rings in one place and everyone sees the same call. A follower
+ * owns no controls — the launcher gates them on `leader` — and this only paints.
  */
 function listenToMirror(): void {
   if (mirror) return;
@@ -422,11 +481,7 @@ function listenToMirror(): void {
         usePhone.setState({ incoming: message.from || null });
         break;
       case "calls":
-        usePhone.setState({
-          incoming: null,
-          call: message.call ?? null,
-          held: message.held ?? [],
-        });
+        usePhone.setState({ call: message.call ?? null, held: message.held ?? [] });
         break;
       default:
         break;
@@ -435,16 +490,18 @@ function listenToMirror(): void {
 }
 
 /** Take the line over when the tab that held it stops renewing the lease. */
-function scheduleStandbyPoll(set: (partial: Partial<PhoneStore>) => void): void {
+function scheduleStandbyPoll(
+  set: (partial: Partial<PhoneStore>) => void,
+  gen: number,
+): void {
   if (standbyPoll !== null) return;
   standbyPoll = window.setInterval(() => {
-    if (leader || !currentSip || !currentCredential) return;
-    if (!claimLeadership()) return;
-    if (standbyPoll !== null) {
-      window.clearInterval(standbyPoll);
-      standbyPoll = null;
-    }
-    void takeLine(set, currentSip, currentCredential);
+    if (leader || !currentSip || !currentCredential || gen !== generation) return;
+    void (async () => {
+      if (!(await claimLeadership())) return;
+      if (gen !== generation) return;
+      await takeLine(set, gen, currentSip!, currentCredential!);
+    })();
   }, STANDBY_POLL_MS);
 }
 

@@ -39,6 +39,8 @@ export interface DialerInput {
   groups: Array<{ accountId: string; name: string }>;
   /** The label the reader's own source carries. */
   personalLabel: string;
+  /** The account the reader's own cards live in, for the (account, id) key. */
+  ownAccountId: string;
 }
 
 /** The cards filed in one book. */
@@ -83,9 +85,7 @@ export function dialerSources(input: DialerInput): DialerSource[] {
       id: "personal",
       label: input.personalLabel,
       global: false,
-      // The reader's own cards: `own` is the account they live in, and it is
-      // the label the store's own books are keyed under.
-      accountId: "own",
+      accountId: input.ownAccountId,
       cards: input.ownCards,
     });
 

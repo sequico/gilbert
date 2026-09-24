@@ -25,7 +25,15 @@ function readSip(doc: Record<string, unknown>): InstallationSip {
     enabled: sip.enabled === true,
     endpoints: Array.isArray(sip.endpoints) ? [...sip.endpoints] : [],
     stun: Array.isArray(sip.stun) ? [...sip.stun] : [],
-    turn: Array.isArray(sip.turn) ? sip.turn.map((entry) => ({ ...entry })) : [],
+    // Normalised, not copied: a document whose entry is missing a field must
+    // not make the editor throw when it is saved.
+    turn: Array.isArray(sip.turn)
+      ? sip.turn.map((entry) => ({
+          url: typeof entry?.url === "string" ? entry.url : "",
+          username: typeof entry?.username === "string" ? entry.username : "",
+          credential: typeof entry?.credential === "string" ? entry.credential : "",
+        }))
+      : [],
   };
 }
 
@@ -45,11 +53,6 @@ function readSip(doc: Record<string, unknown>): InstallationSip {
  */
 export function AdminSipPhone() {
   const [doc, setDoc] = useState<Record<string, unknown> | null>(null);
-  /**
-   * The `sip` section as it was stored, so the publish changes the fields this
-   * page shows and leaves any other key it does not know alone.
-   */
-  const [sipRaw, setSipRaw] = useState<Record<string, unknown>>({});
   const [sip, setSip] = useState<InstallationSip>({
     enabled: false,
     endpoints: [],
@@ -74,7 +77,6 @@ export function AdminSipPhone() {
       const parsed = JSON.parse(current.document) as Record<string, unknown>;
       setDoc(parsed);
       setSip(readSip(parsed));
-      setSipRaw((parsed.sip as Record<string, unknown> | undefined) ?? {});
       setLoaded(true);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
@@ -91,12 +93,22 @@ export function AdminSipPhone() {
     setPublished(false);
     setSaving(true);
     try {
+      /*
+       * The document is read again here, and that read is the base: another
+       * administrator may have changed a field this page does not show since
+       * it was loaded, and publishing the copy taken at load would overwrite
+       * it. Only the `sip` fields this page owns are changed, and the section's
+       * other keys come from the fresh copy too.
+       */
+      const current = await fetchInstallation();
+      const base = current.document
+        ? (JSON.parse(current.document) as Record<string, unknown>)
+        : doc;
+      const baseSip = (base.sip as Record<string, unknown> | undefined) ?? {};
       const next = {
-        ...doc,
-        // The stored section is the base, so a key this build does not know
-        // survives the publish rather than being dropped by the editor.
+        ...base,
         sip: {
-          ...sipRaw,
+          ...baseSip,
           enabled: sip.enabled,
           endpoints: sip.endpoints,
           stun: sip.stun,
@@ -112,7 +124,6 @@ export function AdminSipPhone() {
       const stored = JSON.parse(outcome.document) as Record<string, unknown>;
       setDoc(stored);
       setSip(readSip(stored));
-      setSipRaw((stored.sip as Record<string, unknown> | undefined) ?? {});
       setPublished(true);
       toast.success(t("Saved. The change applies at the next boot."));
     } catch (err) {
