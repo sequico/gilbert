@@ -8,16 +8,24 @@
 # SIP, so telephony runs through Janus — a separate daemon ([Janus], a WebRTC
 # server, with its SIP plugin) that translates between the page's WebRTC and
 # the provider's SIP. Janus is a second process, started and stopped with the
-# application: this script builds it from the pinned release and installs both
-# as systemd services (`gilbert-janus.service` and `gilbert.service`). It is
-# part of the release, not something an installer goes and gets by hand, and
-# its version is ours to bump (`deploy/janus/VERSION`).
+# application, and this script installs both as systemd services
+# (`gilbert-janus.service` and `gilbert.service`). It is part of the release,
+# not something an installer builds by hand.
 #
 # [Janus]: https://github.com/meetecho/janus-gateway
 #
-# THE PORTS — READ THIS, IT IS THE ONE THING THAT NEEDS THE FIREWALL
+# THE BRIDGE IS FETCHED, NOT COMPILED. The release publishes a host tarball of
+# the bridge, built once by CI from the pinned Janus (deploy/janus/VERSION), for
+# amd64 and arm64. This script downloads the latest one, checks its checksum and
+# unpacks it — no compiler, no build dependencies. If it cannot be fetched, the
+# install does NOT stop: Gilbert is installed without the phone, with a loud
+# warning here and a warning in the administration surface, both saying the
+# phone is unavailable and why. The phone's absence is a degraded feature, not
+# a broken installation.
 #
-# The bridge has two legs:
+# THE PORTS — THE ONE THING THE FIREWALL NEEDS
+#
+# When the bridge is installed, it has two legs:
 #
 #   the page <-> Janus leg:  WebRTC media over UDP, plus the Janus API on
 #                            loopback (127.0.0.1:8188) that only gilbertserver
@@ -27,8 +35,8 @@
 #                            SIP port (5060/5061) is ever opened.
 #
 # So the only thing to open inbound is the bridge's media range, UDP 10000-10200
-# (it is the range in `server/src/shared/phone.ts`, shown in the administration
-# too). On ufw:
+# (the range in `server/src/shared/phone.ts`, shown in the administration too).
+# On ufw:
 #
 #   ufw allow 10000:10200/udp
 #
@@ -42,115 +50,153 @@
 #
 # WHAT THIS DOES NOT DO
 #
-# It does not install Node (Gilbert needs the LTS line, 24 today) and it does
-# not put a reverse proxy in front: both are stated in the README
-# ("Deploying"). It targets Debian and Ubuntu.
+# It does not install Node (Gilbert needs the LTS line, 24 today — the bridge
+# tarball is self-contained and needs nothing) and it does not put a reverse
+# proxy in front: both are stated in INSTALL.md. It targets Linux.
 #
 # Usage, as root (or with sudo):
 #
 #   sudo ./install/install.sh
 #
-# Set GILBERT_APP to the checkout if this script is run from elsewhere, and
-# GILBERT_USER to the account the services run as (default: the user who
-# invoked sudo, else `gilbert`).
+# Set GILBERT_APP to the checkout if this script is run from elsewhere,
+# GILBERT_USER to the account the services run as (default: the user who invoked
+# sudo, else `gilbert`), and GILBERT_RELEASE_URL to fetch the bridge from a
+# mirror. GILBERT_ENV, GILBERT_JANUS_PREFIX and GILBERT_UNIT_DIR move the
+# environment file, the bridge prefix and the unit directory; the variables
+# below say what each is for.
 set -euo pipefail
 
 # --- what to install, and where ---------------------------------------------
 APP="${GILBERT_APP:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
-# The account the two services run as. It must be able to read the checkout.
+# The account the services run as. Prefer the user who invoked sudo (they own
+# the checkout); fall back to a system account this script creates if needed.
 USER_NAME="${GILBERT_USER:-${SUDO_USER:-gilbert}}"
 # The environment file the application reads at boot: the handshake (the
 # Stalwart URL, and the Master when this deployment runs an agent) and anything
 # else this deployment states. See `.env.example`.
 ENV_FILE="${GILBERT_ENV:-/etc/gilbert.env}"
-# Where Janus is installed. `/usr/local` so the `janus` binary and its config
-# land on the usual paths.
+# Where the bridge is installed. `/usr/local` so the `janus` binary and its
+# config land on the usual paths.
 PREFIX="${GILBERT_JANUS_PREFIX:-/usr/local}"
 # The bridge's config, beside Janus's own.
 JANUS_ETC="$PREFIX/etc/janus"
 UNIT_DIR="${GILBERT_UNIT_DIR:-/etc/systemd/system}"
+# Where the bridge's host tarball is published. The latest release's assets are
+# addressable by fixed name, so no API and no tag arithmetic are needed.
+RELEASE="${GILBERT_RELEASE_URL:-https://github.com/sequico/gilbert/releases/latest/download}"
 
 say() { printf '==> %s\n' "$*"; }
+warn() { printf '!! %s\n' "$*" >&2; }
 die() { printf '!! %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "run this as root (or with sudo)."
-command -v apt-get >/dev/null || die "this installer targets Debian and Ubuntu (apt-get not found)."
-command -v node >/dev/null || die "Node is not installed. Gilbert needs the LTS line (24); install it first (see the README)."
+command -v node >/dev/null || die "Node is not installed. Gilbert needs the LTS line (24); install it first (see INSTALL.md)."
 command -v npm >/dev/null || die "npm is not installed."
 [ -f "$APP/package.json" ] || die "$APP is not a Gilbert checkout (no package.json)."
-
-# --- the bridge's version ----------------------------------------------------
-# One pin, in the tree, ours to bump. The build below reads it from there, so
-# the version this installs and the version in the release notes are the same.
-JANUS_VERSION="$(tr -d '[:space:]' < "$APP/deploy/janus/VERSION")"
-[ -n "$JANUS_VERSION" ] || die "deploy/janus/VERSION is empty."
-
-say "installing build dependencies"
-apt-get update
-apt-get install -y --no-install-recommends \
-  ca-certificates curl autoconf automake libtool pkg-config \
-  gcc g++ make cmake gengetopt \
-  libglib2.0-dev libjansson-dev libconfig-dev libssl-dev libsrtp2-dev \
-  libnice-dev libcurl4-openssl-dev libsofia-sip-ua-dev libopus-dev \
-  libogg-dev libwebsockets-dev
 
 # --- the application ---------------------------------------------------------
 say "building Gilbert"
 ( cd "$APP" && npm ci --ignore-scripts && npm run build )
 
-# --- the bridge --------------------------------------------------------------
-# Built from the pinned upstream release, with only the two plugins the phone
-# uses (sip and echotest) and only the WebSocket transport. `make install`
-# puts the binary and the plugin/transport libraries under the prefix.
-if [ ! -x "$PREFIX/bin/janus" ] || [ "${GILBERT_JANUS_REBUILD:-0}" = "1" ]; then
-  say "building Janus $JANUS_VERSION"
-  build_dir="$(mktemp -d)"
-  trap 'rm -rf "$build_dir"' EXIT
-  curl -fsSL "https://github.com/meetecho/janus-gateway/archive/refs/tags/${JANUS_VERSION}.tar.gz" \
-    | tar xz -C "$build_dir"
-  (
-    cd "$build_dir"/janus-gateway-*
-    ./autogen.sh
-    ./configure --prefix="$PREFIX" \
-      --disable-docs --disable-data-channels \
-      --disable-all-plugins --enable-plugin-sip --enable-plugin-echotest \
-      --disable-all-transports --enable-websockets \
-      --disable-all-handlers --disable-all-loggers \
-      --disable-all-js-modules
-    make -j"$(nproc)"
-    make install
-    # The licence of the daemon we built, kept beside it (GPL-3.0).
-    mkdir -p "$PREFIX/share/janus"
-    cp COPYING "$PREFIX/share/janus/COPYING"
-  )
-else
-  say "Janus $JANUS_VERSION already built (GILBERT_JANUS_REBUILD=1 to rebuild)"
+# --- the service account -----------------------------------------------------
+if ! id "$USER_NAME" >/dev/null 2>&1; then
+  say "creating the service account $USER_NAME"
+  useradd --system --no-create-home --shell /usr/sbin/nologin "$USER_NAME" \
+    || warn "could not create $USER_NAME; the services may refuse to start"
 fi
 
-# --- the bridge's configuration ---------------------------------------------
-say "writing $JANUS_ETC"
-mkdir -p "$JANUS_ETC"
-# The media range is generated from its one definition, so the ports an
-# operator opens and the ports Janus binds cannot drift apart.
-node "$APP/scripts/janusConfig.mjs" "$JANUS_ETC/janus.jcfg"
-cp "$APP/deploy/janus/janus.transport.websockets.jcfg" \
-   "$APP/deploy/janus/janus.plugin.sip.jcfg" \
-   "$APP/deploy/janus/janus.plugin.echotest.jcfg" \
-   "$JANUS_ETC/"
+# --- the bridge (best effort, fetched from the release) ----------------------
+BRIDGE_OK=0
+BRIDGE_REASON="the bridge is not installed"
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64 | amd64) ARCH=amd64 ;;
+  aarch64 | arm64) ARCH=arm64 ;;
+  *) ARCH="" ;;
+esac
+
+if [ -z "$ARCH" ]; then
+  BRIDGE_REASON="this machine's architecture ($(uname -m)) has no bridge build"
+else
+  asset="gilbert-janus-linux-$ARCH.tar.gz"
+  say "fetching the phone's bridge ($asset)"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  if curl -fsSL "$RELEASE/$asset" -o "$tmp/$asset" \
+    && curl -fsSL "$RELEASE/$asset.sha256" -o "$tmp/$asset.sha256" \
+    && ( cd "$tmp" && sha256sum -c "$asset.sha256" >/dev/null 2>&1 ) \
+    && tar xzf "$tmp/$asset" -C "$PREFIX"; then
+    BRIDGE_OK=1
+  else
+    BRIDGE_REASON="the bridge could not be fetched from $RELEASE"
+  fi
+fi
+
+# Verify what was unpacked: a binary with no plugins is not a working bridge.
+if [ "$BRIDGE_OK" = "1" ] \
+   && { [ ! -x "$PREFIX/bin/janus" ] \
+        || [ ! -e "$PREFIX/lib/janus/plugins/libjanus_sip.so" ] \
+        || [ ! -e "$PREFIX/lib/janus/plugins/libjanus_echotest.so" ] \
+        || [ ! -e "$PREFIX/lib/janus/transports/libjanus_websockets.so" ]; }; then
+  BRIDGE_OK=0
+  BRIDGE_REASON="the downloaded bridge is missing its sip, echotest or websockets pieces"
+fi
+
+# --- the bridge's configuration and service ----------------------------------
+if [ "$BRIDGE_OK" = "1" ]; then
+  say "writing $JANUS_ETC"
+  mkdir -p "$JANUS_ETC"
+  # The media range is generated from its one definition, so the ports an
+  # operator opens and the ports Janus binds cannot drift apart; the prefix
+  # keeps the plugin folders findable wherever the tarball unpacked.
+  node "$APP/scripts/janusConfig.mjs" "$JANUS_ETC/janus.jcfg" "$PREFIX"
+  cp "$APP/deploy/janus/janus.transport.websockets.jcfg" \
+     "$APP/deploy/janus/janus.plugin.sip.jcfg" \
+     "$APP/deploy/janus/janus.plugin.echotest.jcfg" \
+     "$JANUS_ETC/"
+fi
 
 # --- the services ------------------------------------------------------------
 say "installing systemd services ($UNIT_DIR)"
 install -d "$UNIT_DIR"
-for unit in gilbert-janus.service gilbert.service; do
-  sed -e "s#@USER@#${USER_NAME}#g" \
-      -e "s#@APP@#${APP}#g" \
-      -e "s#@ENV@#${ENV_FILE}#g" \
-      -e "s#@NODE@#$(command -v node)#g" \
-      "$APP/install/$unit" > "$UNIT_DIR/$unit"
-done
+sed_args=(-e "s#@USER@#${USER_NAME}#g" -e "s#@APP@#${APP}#g"
+          -e "s#@ENV@#${ENV_FILE}#g" -e "s#@NODE@#$(command -v node)#g")
+sed "${sed_args[@]}" "$APP/install/gilbert.service" > "$UNIT_DIR/gilbert.service"
+if [ "$BRIDGE_OK" = "1" ]; then
+  sed "${sed_args[@]}" "$APP/install/gilbert-janus.service" \
+    > "$UNIT_DIR/gilbert-janus.service"
+fi
 systemctl daemon-reload
-systemctl enable --now gilbert-janus.service
-systemctl enable --now gilbert.service
+
+if [ "$BRIDGE_OK" = "1" ]; then
+  systemctl enable --now gilbert-janus.service
+  say "the bridge is installed and running ($(cat "$PREFIX/share/janus/VERSION" 2>/dev/null || echo "unknown version"))"
+else
+  warn "the phone is NOT available on this host: $BRIDGE_REASON."
+  warn "Gilbert is installed without it; the administration says the same."
+fi
+
+# --- the environment file, and starting the application ----------------------
+if [ ! -f "$ENV_FILE" ]; then
+  say "creating $ENV_FILE"
+  cat > "$ENV_FILE" <<EOF
+# Gilbert's environment: the handshake and this deployment's own facts.
+# See the checkout's .env.example for what each name is for. Fill this in,
+# then: systemctl restart gilbert
+STALWART_URL=
+GILBERT_AGENT_ADDRESS=
+GILBERT_AGENT_PASSWORD=
+EOF
+  chmod 600 "$ENV_FILE"
+fi
+systemctl enable gilbert.service
+
+if grep -qE '^[[:space:]]*STALWART_URL=.+' "$ENV_FILE"; then
+  systemctl restart gilbert.service
+else
+  warn "$ENV_FILE has no STALWART_URL yet: gilbert.service is enabled but not"
+  warn "started. Fill the file in, then: systemctl start gilbert.service"
+fi
 
 # --- what is left for the operator -------------------------------------------
 cat <<EOF
@@ -158,16 +204,16 @@ cat <<EOF
 ==> installed.
 
   the application   systemctl status gilbert.service
-  the bridge        systemctl status gilbert-janus.service
-  the environment   $ENV_FILE   (start from .env.example)
+  the environment   $ENV_FILE
+$( [ "$BRIDGE_OK" = "1" ] && echo "  the bridge        systemctl status gilbert-janus.service" || echo "  the bridge        NOT installed ($BRIDGE_REASON)" )
 
-Two things are the operator's, and the README covers both:
+Two things are the operator's, and INSTALL.md covers both:
 
   1. a reverse proxy in front of the application (see Caddyfile.example /
      nginx.example.conf). The application listens on 127.0.0.1:8080 by default.
 
-  2. THE PHONE'S MEDIA PORTS. Open the bridge's UDP range inbound, and open it
-     in any cloud firewall too:
+  2. THE PHONE'S MEDIA PORTS, if the bridge was installed. Open its UDP range
+     inbound, and open it in any cloud firewall too:
 
          ufw allow 10000:10200/udp
 
@@ -176,6 +222,6 @@ Two things are the operator's, and the README covers both:
 
      If the range is closed, the phone does not appear at all — that is the
      design, not a failure: the client proves the media path before offering
-     the phone, so a bridge whose ports are shut shows no phone.
+     the phone.
 
 EOF

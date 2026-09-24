@@ -56,10 +56,9 @@ RUN ./autogen.sh \
       --disable-all-plugins --enable-plugin-sip --enable-plugin-echotest \
       --disable-all-transports --enable-websockets \
       --disable-all-handlers --disable-all-loggers \
-      --disable-all-js-modules \
  && make -j"$(nproc)" \
  && make install \
- && mkdir -p /usr/local/share/janus \
+ && mkdir -p /usr/local/share/janus /usr/local/lib/janus/loggers /usr/local/lib/janus/events \
  && cp COPYING /usr/local/share/janus/COPYING
 
 # ---- runtime stage ----
@@ -88,7 +87,6 @@ COPY deploy/janus/janus.transport.websockets.jcfg \
      deploy/janus/janus.plugin.echotest.jcfg \
      /usr/local/etc/janus/
 COPY deploy/janus/entrypoint.sh /usr/local/bin/gilbert-entrypoint
-COPY deploy/healthcheck.mjs /usr/local/bin/gilbert-healthcheck.mjs
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 # config.ts reads the version through this at startup. With GILBERT_VERSION
@@ -122,7 +120,7 @@ EXPOSE 8080
 # The bridge's API is loopback-only and its media range is a deployment fact
 # (ADR 0023): the range is stated in the administration, and an operator opens
 # it on the host.
-HEALTHCHECK --interval=30s --timeout=5s CMD ["node", "/usr/local/bin/gilbert-healthcheck.mjs"]
+HEALTHCHECK --interval=30s --timeout=5s CMD ["node", "/app/scripts/healthcheck.mjs"]
 # Janus first, then whatever this image was told to run (ADR 0023).
 ENTRYPOINT ["/usr/local/bin/gilbert-entrypoint"]
 CMD ["node", "server/dist/index.js"]

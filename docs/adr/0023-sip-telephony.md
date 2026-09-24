@@ -11,9 +11,10 @@ Implementation: Built. The browser's Janus client is
 proxies is `server/src/phone/proxy.ts` (registered in `server/src/app.ts`), the
 bridge's address is `server/src/phone/bridge.ts`, and the account document and
 the media range are `server/src/shared/phone.ts`. The bridge itself — the pinned
-Janus, its configs and its entrypoint — is built and shipped by `deploy/janus/`
-and `install/install.sh`, with `scripts/janusConfig.mjs` deriving the media
-range from that shared definition. Global contacts is a record of its own (ADR
+Janus, its configs and its entrypoint — is built by `deploy/janus/` for the
+image and published as a host tarball the installer fetches
+(`install/install.sh`), with `scripts/janusConfig.mjs` deriving the media range
+from that shared definition. Global contacts is a record of its own (ADR
 0024).
 
 ## Context
@@ -98,10 +99,10 @@ in by — not a shared secret, and not a second door.
 
 **There is no installation-level phone configuration and no SIP Phone page.**
 No `sip` section, no endpoints, no STUN/TURN. The bridge ships with the release
-— the image and the host installer both build it from one pin — so there is
-nothing to configure; the one deployment fact an operator acts on is the media
-range, opened inbound. A user with no account has no phone and no entry; a user
-with one has it. There is no per-user switch.
+— the image builds it from one pin and the release publishes a host tarball the
+installer fetches — so there is nothing to configure; the one deployment fact an
+operator acts on is the media range, opened inbound. A user with no account has
+no phone and no entry; a user with one has it. There is no per-user switch.
 
 ### Desktop only
 
@@ -221,3 +222,5 @@ be composed by hand, through a keypad, and it is sent to the provider as
 - ADR 0016 — what reaches a closed client, and why the browser's own push
   cannot answer a call
 - ADR 0024 — Global contacts, the directory the dialer reads
+- [INSTALL.md](../../INSTALL.md) — installing Gilbert and its bridge, and the one
+  port it needs

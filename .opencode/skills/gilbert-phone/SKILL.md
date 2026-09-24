@@ -39,10 +39,11 @@ single seat and the administration are in place. Global contacts is built.
    STUN/TURN**: the bridge is the ICE peer on a public IP. The media range is the
    **only** inbound port; the SIP leg is outbound, so 5060/5061 are never opened.
 7. **No installation-level phone settings** — no `sip` section, no SIP Phone
-   page, no STUN/TURN. The bridge ships with the release (the image and the host
-   installer both build it from `deploy/janus/VERSION`); the only deployment
-   fact an operator acts on is the media range, `BRIDGE_MEDIA_PORTS`, opened
-   inbound — with it closed the phone does not appear.
+   page, no STUN/TURN. The bridge ships with the release (the image builds it
+   from `deploy/janus/VERSION`; the release publishes a host tarball the
+   installer fetches); the only deployment fact an operator acts on is the
+   media range, `BRIDGE_MEDIA_PORTS`, opened inbound — with it closed the phone
+   does not appear.
 8. **Desktop only**: a page rings only while it is alive.
 9. Each person's **server, user name and password** are account data, set in
    **Identities and SIP Phone** in the identity-enforcement surface (ADR 0007),
@@ -101,4 +102,5 @@ single seat and the administration are in place. Global contacts is built.
    probe ADR 0023 names.
 
 Companion skills: Stalwart objects load `gilbert-stalwart`; group books load
-`gilbert-groups`; strings load `gilbert-i18n`.
+`gilbert-groups`; strings load `gilbert-i18n`. Installing and running the bridge
+— both ways, and the one port — is `INSTALL.md`.

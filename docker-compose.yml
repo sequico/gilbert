@@ -11,19 +11,10 @@ services:
     restart: unless-stopped
     # Host networking, because the image runs the phone's Janus bridge beside
     # the app (ADR 0023) and a media server must be reachable at the host's
-    # public IP. On the compose network Janus would see only a private address
-    # and a call would connect and carry no audio. It also means the reverse
-    # proxy sits on the host and reaches the app on 127.0.0.1:8080 (HOST below);
-    # the Janus API binds 127.0.0.1:8188 and is never exposed.
-    #
-    # THE ONE THING AN OPERATOR OPENS: the bridge's media range, UDP
-    # 10000-10200, inbound on this host and in any cloud firewall:
-    #
-    #     ufw allow 10000:10200/udp
-    #
-    # Nothing else. No SIP port (5060/5061: the leg to the provider is
-    # outbound). If the range is closed, the phone does not appear at all --
-    # the client proves the media path before offering it.
+    # public IP. The one thing an operator opens is the bridge's media range,
+    # UDP 10000-10200; INSTALL.md has the whole of it. The app binds
+    # 127.0.0.1:8080 (HOST below), behind the host's proxy; the Janus API binds
+    # 127.0.0.1:8188 and is never exposed.
     network_mode: host
     # The app needs no privileges and, with IMMUTABLE set, writes nowhere: the
     # whole of its state lives in Stalwart.

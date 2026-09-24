@@ -8,6 +8,11 @@
 # without it — the agent container does, since it serves no phone.
 set -euo pipefail
 
+if [ "$#" -eq 0 ]; then
+  echo "gilbert-entrypoint: nothing to run — give it a command, e.g. node server/dist/index.js" >&2
+  exit 2
+fi
+
 bridge=""
 if [ "${GILBERT_BRIDGE:-1}" = "1" ]; then
   janus &

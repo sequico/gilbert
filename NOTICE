@@ -115,9 +115,9 @@ The MIT licence, under which all ten are used:
 The phone's bridge (ADR 0023) is **Janus**, the WebRTC server —
 https://github.com/meetecho/janus-gateway — Copyright (C) Meetecho s.r.l.,
 licensed under the **GNU General Public License v3**. It ships with Gilbert: the
-container image builds it from the pinned release, and the host installer builds
-the same release, so it is a **separate process of this release** and not a
-library linked into Gilbert. Its licence and its complete corresponding source
+container image builds it from the pinned release, and the release publishes a
+host tarball of that same build that the host installer fetches, so it is a
+**separate process of this release** and not a library linked into Gilbert. Its licence and its complete corresponding source
 are therefore offered with this distribution — the version is pinned in
 `deploy/janus/VERSION`, its source is the upstream tag of that name
 (`https://github.com/meetecho/janus-gateway/tree/<version>`), and the licence

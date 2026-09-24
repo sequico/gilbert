@@ -160,10 +160,11 @@ the local gate matches CI.
 Version from git at build time (`node scripts/version.mjs`).
 
 **The phone's bridge is a pinned dependency of our own** (ADR 0023): Janus, a
-second process the image and the host installer both build from the one pin in
-`deploy/janus/VERSION`. Dependabot sees neither it nor that tag, so
-`node scripts/janusVersion.mjs` says pinned-vs-upstream and it is bumped by
-hand, deliberately, like the Node line — never left to drift.
+second process the image builds from the one pin in `deploy/janus/VERSION` and
+the release publishes as a host tarball the host installer fetches. Dependabot
+sees neither it nor that tag, so `node scripts/janusVersion.mjs` says
+pinned-vs-upstream and it is bumped by hand, deliberately, like the Node line —
+never left to drift.
 
 ## Language
 Code comments, documentation, commit messages and every other file in the repo
@@ -173,6 +174,13 @@ content.
 
 ## Workflow
 Read the affected area first; smallest coherent diff.
+**A dev stack you start, you stop (owner decision 2026-09-24).** Anything
+launched to exercise the tree — the mock Stalwart, the dev server, Vite, a
+container — is killed when the work that needed it is done, in that turn. A
+process left listening holds ports the next run needs and looks like a working
+deployment to whoever finds it next; leave one running only when the owner says
+so in that same turn. This outranks the convenience of a warm stack: it is one
+command to start again.
 **Load the skill that governs the work before the first edit of it (global user
 rule, active here — owner decision 2026-09-18).** The list at the end of this
 file says which skill a kind of work belongs to, and `gilbert-project` is loaded

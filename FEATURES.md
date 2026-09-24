@@ -837,9 +837,10 @@ wants to retire a chat clears the folders through Files.
 
 ## The phone, and Global contacts
 
-Gilbert carries its own **Janus** bridge with the SIP plugin — the image and
-the host installer both include it, as a second process beside the app — so a
-softphone in the client — **gilbertmailer** — and a **directory** every account
+Gilbert carries its own **Janus** bridge with the SIP plugin — the image carries
+it and the release publishes a host tarball the installer fetches, as a second
+process beside the app — so a softphone in the client — **gilbertmailer** — and a
+**directory** every account
 reads arrive with the installation. The telephony server is the deployment's
 own, external to the four blocks: Gilbert adds no registrar, no media relay and
 no durable telephony state beyond an identity's account (ADR 0023). The
@@ -885,12 +886,10 @@ is the reference.
   brings an account created later in — the deployment's own share shape is owed
   the live probe ADR 0024 names. Every reader sees it in `All contacts` and in a
   section of its own; the phone offers its numbers as speed dial.
-- **No installation-level settings.** The bridge arrives with the release — its
-  plugins, its loopback API and its config are in the image and in the host
-  installer — so there is no SIP Phone administration page and no phone section
-  in the installation's document. The one deployment fact an operator acts on is
-  the media range: open UDP 10000-10200 inbound, and with it closed the phone
-  does not appear at all. Each person's account is per identity.
+- **No installation-level settings.** There is no SIP Phone administration page
+  and no phone section in the installation's document; each person's account is
+  per identity. The bridge ships with the release, and the one thing an operator
+  opens is its media range — [INSTALL.md](INSTALL.md) has the whole of it.
 - **What a browser cannot do**: ring with the tab closed, or keep a call across
   a full reload. Both are the platform's limit rather than a broken promise; with
   no tab holding the seat the provider takes the call, and a reload with a call

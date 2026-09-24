@@ -300,41 +300,16 @@ reproduces those four as well.
 
 - Upgrading? [stalwart-migrator](https://git.coffeylabs.org/coffey-labs/stalwart-migrator) does it in place, checkpointing every phase and validating afterwards. The live instance moved 0.15.5 → 0.16.19 with eight seconds of downtime and nothing lost.
 
-## Quick start (Docker)
+## Quick start
 
-```bash
-cp .env.example .env
-# edit: STALWART_URL=https://mail.example.com, and the Master's own account in
-# GILBERT_AGENT_ADDRESS / GILBERT_AGENT_PASSWORD (.env.example says what for)
-docker compose up --build -d
-# → http://localhost:8080  (put Caddy/nginx in front for TLS; see Caddyfile.example / nginx.example.conf)
-```
+**[INSTALL.md](INSTALL.md) installs Gilbert** — the environment it needs, the two
+ways to run it (Docker, or a host install), the phone's bridge, and the one port
+the firewall opens.
 
-That command is a complete installation: the web client, and an agent beside it
-that serves the groups you have granted it. Users sign in with their Stalwart
-mailbox credentials. **An account with two-factor authentication needs an app
-password**, created in Stalwart's own settings — Stalwart accepts a TOTP code
-only through an OAuth flow and offers no password grant, so no client holding a
-username and password can exchange them plus a code for a token.
-
-The variables *this* build reads, and what each one is for, are in
-[`.env.example`](.env.example); `Caddyfile.example` and `nginx.example.conf` in
-this repository are the drop-in configuration for a TLS front.
-
-**The phone.** The image carries the phone's bridge too (ADR 0023): Janus,
-started beside the app, with the SIP plugin that reaches the deployment's own
-SIP server. It needs **one** thing opened inbound — its media range, UDP
-**10000-10200** — and that is all:
-
-```bash
-ufw allow 10000:10200/udp   # and the same in any cloud firewall
-```
-
-The bridge's API is loopback-only and the leg to the SIP provider is outbound,
-so no SIP port (5060/5061) is ever opened. With the range closed, the phone
-**does not appear at all** — the client proves the media path before offering it
-— and nothing else breaks. The administration shows the same range in
-**Identities and SIP Phone**.
+Either way the client and an agent run beside each other, and users sign in with
+their Stalwart mailbox credentials. **An account with two-factor authentication
+needs an app password** — Stalwart accepts a TOTP code only through an OAuth
+flow and offers no password grant.
 
 ### Turning the agents on
 
@@ -893,52 +868,27 @@ names a git ref.
 
 ### Deploying
 
-Two ways, and both deliver the whole product — the application **and** the
-phone's bridge (ADR 0023):
+Both ways carry the whole product — the application and the phone's bridge — and
+**[INSTALL.md](INSTALL.md) is the guide**:
 
-- **One image.** `docker compose up --build -d` (above) or
-  [`deploy.example.sh`](deploy.example.sh): the `gilbert` image runs the app and
-  Janus together, two processes in one container. It runs with host networking
-  so the bridge is reachable at the host's public IP.
-- **One host installer, no Docker.** `sudo ./install/install.sh` builds the app
-  and the pinned bridge and installs both as systemd services
-  (`gilbert.service`, `gilbert-janus.service`). Debian and Ubuntu.
+- **Docker**: `docker compose up --build -d` (above), or
+  [`deploy.example.sh`](deploy.example.sh), a single-host redeploy that refuses
+  anything held back by `.deploy-hold`, asks before shipping new commits, and
+  keeps the newest `GILBERT_KEEP_VERSIONS` images — never the one running;
+- **Host, no Docker**: `sudo ./install/install.sh`, which builds the app and
+  installs the bridge as a systemd service (`gilbert.service`,
+  `gilbert-janus.service`).
 
-Either way, **the one thing to open** is the bridge's media range, UDP
-**10000-10200**, inbound on the host and in any cloud firewall:
-
-```bash
-ufw allow 10000:10200/udp
-```
-
-Nothing else — the bridge's API is loopback-only and its leg to the SIP server
-is outbound. With the range closed the phone does not appear; nothing else
-breaks. The range is the same value the administration shows in **Identities and
-SIP Phone**.
-
-The bridge's version is pinned in [`deploy/janus/VERSION`](deploy/janus/VERSION)
-and is ours to update: no dependency bot sees it, so
-`node scripts/janusVersion.mjs` says whether we are behind when the dependencies
-are updated.
-
-[`deploy.example.sh`](deploy.example.sh) is a single-host Docker redeploy: it
-fetches, refuses anything held back by `.deploy-hold`, shows what is about to be
-introduced and asks, rebuilds with the right version baked in, replaces the
-container, waits for healthy, then prunes all but the newest
-`GILBERT_KEEP_VERSIONS` images — never the one actually running.
-
-```bash
-./deploy.sh                 # origin/main, asks before shipping new commits
-./deploy.sh --dry-run       # run the guards and stop
-./deploy.sh v2026.8.30 --yes  # a named ref, no prompt (there is no tty over ssh)
-```
-
-`--yes` does not override a hold; clearing one means deleting its line.
+The one thing an operator opens is the bridge's media range, UDP 10000-10200;
+[INSTALL.md](INSTALL.md) says why, and what the phone does when it is closed. The
+bridge's version is pinned in [`deploy/janus/VERSION`](deploy/janus/VERSION) and
+is ours to update — [INSTALL.md](INSTALL.md) has the check.
 
 ## Where to read more
 
 | | |
 | --- | --- |
+| 🚀 **[INSTALL.md](INSTALL.md)** | Installing Gilbert — both ways — the phone's bridge, and the one port it needs |
 | 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature, with the capability each one needs |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
