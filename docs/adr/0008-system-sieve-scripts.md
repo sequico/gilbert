@@ -123,7 +123,7 @@ widget syntax-highlighting both a person's script and a system one, never two.
 
 A new section, **System Sieve** (`web/src/views/admin/SystemSieve.tsx`),
 under the admin navigation's existing **Stalwart** group
-(`web/src/views/AdminView.tsx`), beside **Identities and SIP Phone** (ADR 0007).
+(`web/src/views/AdminView.tsx`).
 The client reaches it through `web/src/lib/adminSieve.ts`, one function per
 route on `/api/admin/sieve/system*` — the same shape `web/src/lib/agents.ts`
 already gives the agent admin surfaces, not a direct JMAP call from the
@@ -202,5 +202,5 @@ destroyed.
   (npm, MIT)
 - ADR 0001 — `requireAdmin`, impersonation, a permission grantable apart from
   the admin marker
-- ADR 0007 — the **Stalwart** admin nav group, a form shared between a
-  person's own settings and the admin surface
+- ADR 0007 — the identity section, a form shared between a person's own
+  settings and the admin surface

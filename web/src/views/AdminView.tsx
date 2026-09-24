@@ -33,16 +33,17 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the
  * installation's own document (ADR 0003's Master, configured once), the group
- * label catalogs, forced password changes — the surfaces ADR 0001/0003/0005
- * cover, which stand without an agent. "Assistant" is everything ADR 0003
+ * label catalogs, forced password changes, and **Identities and SIP Phone**,
+ * one section holding a person's and a group's behind two tabs (ADR 0007) —
+ * the surfaces ADR 0001/0003/0005 cover, which stand without an agent.
+ * "Assistant" is everything ADR 0003
  * covers,
  * restructured by ADR 0003 into three sections: **Master** (the installation,
  * configured once), **Group Agents** (one group's automations, standing
  * instruction, memory, audit and fleet, behind a single picker) and
  * **Approvals** (cross-group oversight, read-only by construction). "Stalwart"
- * is the mail server's own records, written over JMAP: **Identities and SIP
- * Phone**, one section holding a person's and a group's behind two tabs (ADR
- * 0007), and **System Sieve**, its trusted, server-wide Sieve scripts (ADR 0008). The
+ * is the mail server's own records, written over JMAP: **System Sieve**, its
+ * trusted, server-wide Sieve scripts (ADR 0008). The
  * split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
@@ -74,6 +75,13 @@ function sections(pendingApprovals: number): AdminSection[] {
       label: t("Force passwords"),
       icon: <KeyRound size={18} />,
       el: <AdminUsers />,
+      owner: "mailer",
+    },
+    {
+      id: "identities-and-sip-phone",
+      label: t("Identities and SIP Phone"),
+      icon: <UserCog size={18} />,
+      el: <IdentitiesAndSipPhone />,
       owner: "mailer",
     },
     {
@@ -116,13 +124,6 @@ function sections(pendingApprovals: number): AdminSection[] {
       owner: "assistant",
     },
     {
-      id: "identities-and-sip-phone",
-      label: t("Identities and SIP Phone"),
-      icon: <UserCog size={18} />,
-      el: <IdentitiesAndSipPhone />,
-      owner: "stalwart",
-    },
-    {
       id: "system-sieve",
       label: t("System Sieve"),
       icon: <Code size={18} />,
@@ -145,11 +146,12 @@ function sections(pendingApprovals: number): AdminSection[] {
  * copy both surfaces render through — so the shield icon in the top bar and
  * these sections stay consistent. The nav groups the surfaces by owner:
  * "Gilbert Mailer" for the mail server's own administration (policy, the
- * installation document, forced passwords, group label catalogs), "Gilbert
+ * installation document, forced passwords, group label catalogs, and the
+ * identities an administrator sets as one section with a tab per kind of
+ * principal, ADR 0007), "Gilbert
  * Assistant" for the agent fleet (ADR 0003) — Master, Group Agents and
  * Approvals — and "Stalwart"
- * for the mail server's own records — the identities an administrator sets, as
- * one section with a tab per kind of principal (ADR 0007), and its trusted,
+ * for the mail server's own records — its trusted,
  * server-wide Sieve scripts (ADR 0008) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {

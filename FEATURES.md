@@ -628,7 +628,8 @@ the same capabilities on every account it lists, so a folder, calendar or
 address-book share that carries an address would otherwise read as a group —
 and the one classifier is a probe of the account's mailbox tree, server-side
 and in the client alike. A share is never administered or served as a group.
-- **Identities and SIP Phone** (ADR 0007), under *Stalwart* in the administration:
+- **Identities and SIP Phone** (ADR 0007), under *Gilbert Mailer* in the
+  administration, after *Force passwords*:
   one section, two tabs — **User identities** for a person's, **Group
   identities** for a group's. Each tab picks its principal from a menu that
   lists the accounts the server reports — the empty choice is in it as a real
@@ -767,11 +768,11 @@ and in the client alike. A share is never administered or served as a group.
   instead whether there is enough to create.
 - **Nav grouping**: the administration sections are grouped by owner —
 Gilbert Mailer (policy, the installation document, forced passwords, group
-label catalogs), Gilbert Assistant (the agent fleet and what it does per
+label catalogs, and **Identities and SIP Phone**, one section with a tab per
+kind of principal), Gilbert Assistant (the agent fleet and what it does per
 group), server configuration
-under “Stalwart” (**Identities and SIP Phone**, one section with a tab per kind of
-principal, and **System Sieve**, its trusted, server-wide Sieve scripts), and
-About ungrouped at the tail.
+under “Stalwart” (**System Sieve**, its trusted, server-wide Sieve scripts),
+and About ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per
