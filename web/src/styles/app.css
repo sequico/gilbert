@@ -2246,6 +2246,15 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   /* Basis zero, so the date stays on the first row and truncates instead of
      wrapping to a line of its own. */
   .cal-toolbar h2 { flex: 1 1 0; margin: 0 4px; font-size: 1em; }
+  /*
+    A settings table is wider than a phone, and the pane it sits in would pan
+    sideways with it -- the whole page moving to reach one cell. The table
+    scrolls on its own instead, so the page keeps still. The card head wraps
+    for the same reason: a title and its row of actions do not fit one phone
+    line, and the last action was clipped.
+  */
+  .settings-content .sessions-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .card-head { flex-wrap: wrap; row-gap: 8px; }
   .contact-detail { padding: 16px 16px 80px; }
   .files-table .hide-mobile { display: none; }
   .event-popover { width: calc(100vw - 24px); }

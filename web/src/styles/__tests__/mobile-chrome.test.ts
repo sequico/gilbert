@@ -168,6 +168,16 @@ describe("phone chrome", () => {
     expect(declarations(phone, ".search-panel > .row")).toContain("flex-wrap: wrap");
   });
 
+  it("scrolls a wide settings table on its own, and wraps a card head", () => {
+    /* A settings table is wider than a phone: without this its overflow pans
+       the whole settings pane sideways. A card head's title and its actions
+       likewise do not fit one line, and the last action was clipped. */
+    expect(declarations(phone, ".settings-content .sessions-table")).toContain(
+      "overflow-x: auto",
+    );
+    expect(declarations(phone, ".card-head")).toContain("flex-wrap: wrap");
+  });
+
   it("wraps the calendar toolbar so its mode switch stays reachable", () => {
     /* The date, Today and the two arrows leave the Day/Month/Agenda switch no
        room on a phone, and the bar does not scroll: Agenda ran off the right
