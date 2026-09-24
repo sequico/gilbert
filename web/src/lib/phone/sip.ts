@@ -87,6 +87,9 @@ function bridgeUrl(): string {
 export async function probeBridgeMedia(): Promise<boolean> {
   let pc: RTCPeerConnection | null = null;
   let timer: number | null = null;
+  // Resolves the wait when Janus refuses a request: it will not answer an offer
+  // it rejected, so waiting the probe out would only lose the reason.
+  let giveUp: (() => void) | null = null;
   const janus = new Janus(bridgeUrl(), {
     onEvent: (plugin, _data, jsep) => {
       if (plugin === "janus.plugin.echotest" && jsep && pc)
@@ -96,6 +99,7 @@ export async function probeBridgeMedia(): Promise<boolean> {
       void pc?.addIceCandidate(candidate).catch(() => undefined);
     },
     onMediaGone: () => undefined,
+    onRefused: () => giveUp?.(),
     onClosed: () => undefined,
   });
   try {
@@ -103,6 +107,7 @@ export async function probeBridgeMedia(): Promise<boolean> {
     const connection = new RTCPeerConnection();
     pc = connection;
     const reached = new Promise<boolean>((resolve) => {
+      giveUp = () => resolve(false);
       connection.onconnectionstatechange = () => {
         if (connection.connectionState === "connected") resolve(true);
         else if (connection.connectionState === "failed") resolve(false);
@@ -378,6 +383,7 @@ export class Phone {
         void this.pc?.addIceCandidate(candidate).catch(() => undefined);
       },
       onMediaGone: () => this.endCall(),
+      onRefused: (reason) => this.hooks.onError(reason),
       onClosed: () => {
         if (this.ended) return;
         this.hooks.onLine("connecting");

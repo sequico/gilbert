@@ -43,6 +43,7 @@ const hooks = {
   onEvent() {},
   onRemoteCandidate() {},
   onMediaGone() {},
+  onRefused() {},
   onClosed() {},
 };
 
@@ -69,16 +70,52 @@ describe("the Janus API client", () => {
     janus.trickle({ candidate: "x" } as RTCIceCandidateInit);
 
     const sent = FakeSocket.instances[0]?.sent ?? [];
+    const create = sent.find((f) => f.janus === "create");
+    expect(typeof create?.transaction).toBe("string");
     const attach = sent.find((f) => f.janus === "attach");
     expect(attach).toBeTruthy();
     expect(attach?.session_id).toBe(111);
+    expect(typeof attach?.transaction).toBe("string");
 
     const message = sent.find((f) => f.janus === "message");
     expect(message?.session_id).toBe(111);
     expect(message?.handle_id).toBe(222);
+    // Janus refuses a request without a transaction (456), so the
+    // fire-and-forget frames carry one too.
+    expect(typeof message?.transaction).toBe("string");
 
     const trickle = sent.find((f) => f.janus === "trickle");
     expect(trickle?.session_id).toBe(111);
     expect(trickle?.handle_id).toBe(222);
+    expect(typeof trickle?.transaction).toBe("string");
+  });
+
+  it("reports a request Janus refused when nobody awaits it", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    FakeSocket.reply = (frame) => {
+      if (frame.janus === "create")
+        return { janus: "success", transaction: frame.transaction, data: { id: 111 } };
+      if (frame.janus === "attach")
+        return { janus: "success", transaction: frame.transaction, data: { id: 222 } };
+      // A `message` is fire-and-forget here, so its refusal has no waiter.
+      if (frame.janus === "message")
+        return {
+          janus: "error",
+          transaction: frame.transaction,
+          error: { code: 456, reason: "Missing mandatory element (transaction)" },
+        };
+      return null;
+    };
+
+    const refused: string[] = [];
+    const janus = new Janus("ws://bridge", {
+      ...hooks,
+      onRefused: (reason) => refused.push(reason),
+    });
+    await janus.open("janus.plugin.sip");
+    janus.message({ request: "register" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(refused).toEqual(["Missing mandatory element (transaction)"]);
   });
 });

@@ -24,6 +24,8 @@ export interface JanusHooks {
   onRemoteCandidate(candidate: RTCIceCandidateInit): void;
   /** Janus tore the media down. */
   onMediaGone(): void;
+  /** A request Janus refused, when no caller was waiting for its answer. */
+  onRefused(reason: string): void;
   /** The socket is gone and will not come back on its own. */
   onClosed(): void;
 }
@@ -146,7 +148,12 @@ export class Janus {
 
   private send(message: Record<string, unknown>): void {
     if (this.ws?.readyState !== WebSocket.OPEN) return;
-    this.ws.send(JSON.stringify(message));
+    // Every Janus request carries a transaction — a request without one is
+    // refused 456. `request()` sets its own so it can await the reply; the
+    // fire-and-forget sends (message, trickle, keepalive, destroy) get a fresh
+    // one here, and a caller that set it keeps it.
+    const frame = { transaction: this.next(), ...message };
+    this.ws.send(JSON.stringify(frame));
   }
 
   private stopKeepalive(): void {
@@ -170,10 +177,21 @@ export class Janus {
   }
 
   private settle(transaction: string | undefined, ok: boolean, message: Message): void {
-    if (!transaction) return;
-    const pending = this.pending.get(transaction);
-    this.pending.delete(transaction);
-    if (!pending) return;
+    const pending = transaction ? this.pending.get(transaction) : undefined;
+    if (transaction) this.pending.delete(transaction);
+    if (!pending) {
+      /*
+       * A request nobody is waiting on — a message, a trickle, the keepalive —
+       * was refused. Reporting it is what keeps an API error from vanishing:
+       * the refusal is an answer like any other, and dropping it is how a
+       * malformed frame reads as a silent media failure instead of a 456.
+       */
+      if (!ok)
+        this.hooks.onRefused(
+          message.error?.reason ?? t("The phone bridge refused the request."),
+        );
+      return;
+    }
     if (ok) pending.resolve(message.data ?? {});
     else
       pending.reject(
