@@ -750,7 +750,6 @@ export const catalog: Catalog = {
     "Search mail": "Поиск по почте",
     "Advanced search": "Расширенный поиск",
     "Keyboard shortcuts": "Сочетания клавиш",
-    "Keyboard shortcuts (?)": "Сочетания клавиш (?)",
     Shortcuts: "Сочетания",
     "Go to": "Перейти",
     Menu: "Меню",

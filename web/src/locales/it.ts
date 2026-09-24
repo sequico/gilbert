@@ -1213,7 +1213,6 @@ export const catalog: Catalog = {
 
     "Keyboard shortcuts": "Scorciatoie da tastiera",
 
-    "Keyboard shortcuts (?)": "Scorciatoie da tastiera (?)",
     Shortcuts: "Scorciatoie",
 
     "Go to": "Vai a",

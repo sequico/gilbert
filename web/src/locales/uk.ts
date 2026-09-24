@@ -746,7 +746,6 @@ export const catalog: Catalog = {
     "Search mail": "Пошук поштою",
     "Advanced search": "Розширений пошук",
     "Keyboard shortcuts": "Сполучення клавіш",
-    "Keyboard shortcuts (?)": "Сполучення клавіш (?)",
     Shortcuts: "Сполучення",
     "Go to": "Перейти",
     Menu: "Меню",

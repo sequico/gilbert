@@ -755,7 +755,6 @@ export const catalog: Catalog = {
     "Search mail": "Pesquisar no e-mail",
     "Advanced search": "Pesquisa avançada",
     "Keyboard shortcuts": "Atalhos de teclado",
-    "Keyboard shortcuts (?)": "Atalhos de teclado (?)",
     Shortcuts: "Atalhos",
     "Go to": "Ir para",
     Menu: "Menu",

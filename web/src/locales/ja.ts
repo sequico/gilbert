@@ -749,7 +749,6 @@ export const catalog: Catalog = {
     "Search mail": "メールを検索",
     "Advanced search": "詳細検索",
     "Keyboard shortcuts": "キーボードショートカット",
-    "Keyboard shortcuts (?)": "キーボードショートカット (?)",
     Shortcuts: "ショートカット",
     "Go to": "移動",
     Menu: "メニュー",

@@ -760,7 +760,6 @@ export const catalog: Catalog = {
     "Search mail": "Rechercher dans les messages",
     "Advanced search": "Recherche avancée",
     "Keyboard shortcuts": "Raccourcis clavier",
-    "Keyboard shortcuts (?)": "Raccourcis clavier (?)",
     Shortcuts: "Raccourcis",
     "Go to": "Aller à",
     Menu: "Menu",

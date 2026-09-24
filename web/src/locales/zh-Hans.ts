@@ -735,7 +735,6 @@ export const catalog: Catalog = {
     "Search mail": "搜索邮件",
     "Advanced search": "高级搜索",
     "Keyboard shortcuts": "键盘快捷键",
-    "Keyboard shortcuts (?)": "键盘快捷键 (?)",
     Shortcuts: "快捷键",
     "Go to": "转到",
     Menu: "菜单",

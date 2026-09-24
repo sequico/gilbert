@@ -61,8 +61,9 @@ marker unchanged.
 ### Placement
 
 The chat launcher sits in the top bar, first item of the action cluster,
-left of the push-status dot — a child of the same action group the avatar
-anchors, not a free sibling after the search bar (whose flexible, centred
+with the phone entry beside it and the push-status dot after them — a child
+of the same action group the avatar anchors, not a free sibling after the
+search bar (whose flexible, centred
 layout would otherwise leave an icon drifting in whitespace on wide
 viewports). The bottom-right corner is the composer dock's, and the mobile
 FAB and tab bar own the bottom edge, so neither is available to a chat

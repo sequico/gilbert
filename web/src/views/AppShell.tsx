@@ -339,9 +339,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         <SearchBar />
         <div className="topbar-actions">
-          {/* Chat comes first in the action cluster, left of the push dot:
-              ADR 0005. Rendered (or not) by the launcher itself. */}
+          {/* Chat comes first in the action cluster, with the phone entry
+              beside it and the push dot after them: ADR 0005. Rendered (or not)
+              by the launcher itself. */}
           <ChatLauncher />
+          {/*
+            The phone entry. It marks the slot the feature will use and has no
+            behaviour yet: what it opens is decided by its own ADR.
+          */}
+          <button className="icon-btn" aria-label={t("Phone")} title={t("Phone")}>
+            <Phone size={21} />
+          </button>
           <span
             className="push-status hide-mobile"
             role="img"
@@ -350,21 +358,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <span className={`push-dot ${pushState}`} />
           </span>
-          <button
-            className="icon-btn hide-mobile"
-            aria-label={t("Keyboard shortcuts")}
-            title={t("Keyboard shortcuts (?)")}
-            onClick={() => setHelpOpen(true)}
-          >
-            <HelpCircle size={21} />
-          </button>
-          {/*
-            The phone entry. It marks the slot the feature will use and has no
-            behaviour yet: what it opens is decided by its own ADR.
-          */}
-          <button className="icon-btn" aria-label={t("Phone")} title={t("Phone")}>
-            <Phone size={21} />
-          </button>
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"
@@ -432,11 +425,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <MenuSep />
             <MenuItem
+              icon={<HelpCircle size={16} />}
+              label={t("Help")}
+              onClick={() => setHelpOpen(true)}
+            />
+            <ThemeMenuItem />
+            <MenuItem
               icon={<Settings size={16} />}
               label={t("Settings")}
               onClick={() => navigate("/settings")}
             />
-            <ThemeMenuItem />
             {/*
               The install/update command, on a phone only: a desktop browser
               installs from its address bar, and the account menu there already
