@@ -16,8 +16,9 @@ import { GroupIdentities } from "@/views/admin/GroupIdentities";
 import { PhoneStatusPanel } from "@/views/admin/PhoneStatusPanel";
 import { UserIdentities } from "@/views/admin/UserIdentities";
 
-/** The tab order, for the keyboard movement between them. */
-const TAB_IDS = ["user", "group", "status"];
+/** The tab order, for the keyboard movement between them, and the one shown first. */
+const DEFAULT_TAB = "user";
+const TAB_IDS = [DEFAULT_TAB, "group", "status"];
 
 /**
  * The tabs, built at render so their labels are translated then rather than at
@@ -44,9 +45,9 @@ function neighbour(from: string, delta: number): string {
 }
 
 export function IdentitiesAndSipPhone() {
-  const [tab, setTab] = useState(TAB_IDS[0]);
+  const [tab, setTab] = useState(DEFAULT_TAB);
   const [status, setStatus] = useState<PhoneStatus | null>(null);
-  const list = tabs();
+  const list = tabs(tab);
   const select = (id: string) => {
     setTab(id);
     document.getElementById(`identities-sip-${id}`)?.focus();
