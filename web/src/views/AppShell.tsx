@@ -10,6 +10,7 @@ import {
   Menu as MenuIcon,
   Moon,
   PenSquare,
+  Phone,
   Plus,
   RefreshCw,
   Settings,
@@ -356,6 +357,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setHelpOpen(true)}
           >
             <HelpCircle size={21} />
+          </button>
+          {/*
+            The phone entry. It marks the slot the feature will use and has no
+            behaviour yet: what it opens is decided by its own ADR.
+          */}
+          <button className="icon-btn" aria-label={t("Phone")} title={t("Phone")}>
+            <Phone size={21} />
           </button>
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
