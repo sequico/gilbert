@@ -52,14 +52,42 @@ credentials, the `Registerer` owns the registration's life, and an `Inviter`
 or `Invitation` is one call. Nothing in gilbertserver proxies the signalling or
 the media: the browser speaks to the deployment's SIP server directly.
 
+### The connection, and how it survives
+
+The client reaches the server over **SIP over WebSocket** (WSS), and the
+connection is **reliable and unattended**: the endpoints are configured in the
+order they are tried, and when the one in use drops the client reconnects with
+backoff and re-registers — the reader is asked for nothing, and the call
+surface never leans on a socket that is quietly gone.
+
+A browser has WebSocket as its SIP transport and no other: TCP, TLS and UDP are
+not the page's to open. "Another transport" therefore means another endpoint. A
+deployment whose fallback is a transport the browser does not speak — plain SIP
+over TLS or UDP — puts a WSS-speaking gateway in front of its server and lists
+that endpoint, so the failover is seamless from the client's side. A connection
+that is not there is not called registered, which is the red the entry shows.
+
+### Where the phone is configured
+
+The installation's telephone settings are **one administration page, SIP
+Phone**: the server endpoints in the order they are tried, the STUN/TURN
+servers media needs, and whether the phone is offered at all. They are
+installation-wide — every client reaches the same server — and belong with the
+installation's own configuration (ADR 0011), not in the environment and not per
+account.
+
+Each person's SIP address and password are **not** on that page. They belong to
+an identity and are set per identity in the identity-enforcement surface (ADR
+0007), where the administration already sets, and can lock, what an identity is.
+
 ### Credentials
 
 A SIP address and password belong to an identity and are account data: they
-follow the account the way settings do, are written by an administrator through
-the identity-administration door (ADR 0007) and can be enforced so a member
-cannot change them. They are gilbertstalwart's — objects the server holds for
-the account, an identity's among them — never device-local. A deployment that
-has set none has no softphone, and the phone entry is not offered.
+follow the account the way settings do, are written by an administrator in the
+identity-enforcement surface (ADR 0007) and can be enforced so a member cannot
+change them. They are gilbertstalwart's — objects the server holds for the
+account, an identity's among them — never device-local. A deployment that has
+set none has no softphone, and the phone entry is not offered.
 
 ### Registration, and what "not connected" means
 
@@ -174,8 +202,10 @@ the client is held to.
   window behind another stays registered and is rung; only a page that actually
   goes away leaves, and a crash is the expiry's to absorb.
 - The operator needs a SIP server that speaks WSS and can reach the browser's
-  media, with STUN/TURN where NAT demands it; a deployment without one shows no
-  phone.
+  media, with STUN/TURN where NAT demands it, and lists the endpoints it is
+  reached at in the order they are tried — with a WSS-speaking gateway in front
+  of a server whose own transport the browser cannot open. A deployment without
+  one shows no phone.
 - The microphone is a browser permission, and on iOS a ringtone and the answer
   gesture carry their own restrictions: an incoming call may ring quietly until
   the reader has interacted with the page.
@@ -206,8 +236,8 @@ the client is held to.
 - SIP.js — <https://github.com/onsip/SIP.js>
 - ADR 0001 — the administration door and impersonation
 - ADR 0004 — a contact group is not a recipient
-- ADR 0007 — the identity-administration door the credentials are written
-  through
+- ADR 0007 — the identity-enforcement surface the credentials are written in
+- ADR 0011 — the installation's own configuration the SIP Phone page writes
 - ADR 0016 — what reaches a closed client, and why the browser's own push
   cannot answer a call
 - ADR 0018 — a contact is moved between accounts by an administrator

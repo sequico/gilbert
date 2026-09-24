@@ -234,7 +234,11 @@ is, not what a user sees.
   from that list or from Contacts, where every write happens. The shared
   directory is one address book owned by the Master, shared read-only with every
   account and edited only by an administrator from inside Contacts, with no
-  per-member copy. The feature is stated in the public documents when it is
-  built — `FEATURES.md` and `README.md` — and not left to the code; a browser
-  that is closed cannot ring or be rung, which is the platform's limit and what
-  the deregistration answers.
+  per-member copy. The connection is reliable and unattended: the configured
+  endpoints are tried in order, and a dropped one reconnects and re-registers
+  on its own. The installation's endpoints, STUN/TURN and switch are one SIP
+  Phone administration page; each person's credentials are set per identity in
+  the identity-enforcement surface. The feature is stated in the public
+  documents when it is built — `FEATURES.md` and `README.md` — and not left to
+  the code; a browser that is closed cannot ring or be rung, which is the
+  platform's limit and what the deregistration answers.
