@@ -12,7 +12,7 @@
 import type { SipCredential } from "@gilbert/shared/phone";
 import { withBase } from "@/lib/basePath";
 import { t } from "@/lib/i18n";
-import { Janus, type Jsep } from "./janus";
+import { Janus, type JanusHooks, type Jsep } from "./janus";
 
 /** The line as the top-bar entry reads it. */
 export type LineState = "connecting" | "registered" | "unavailable";
@@ -340,7 +340,9 @@ export class Phone {
   private async mediaReachable(): Promise<void> {
     if (!(await probeBridgeMedia()))
       throw new Error(
-        t("The phone bridge could not carry media: its media ports are not reachable."),
+        t(
+          "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.",
+        ),
       );
   }
 
@@ -384,7 +386,7 @@ export class Phone {
     return pc;
   }
 
-  private janusHooks() {
+  private janusHooks(): JanusHooks {
     return {
       onEvent: (plugin: string, data: unknown, jsep?: Jsep) => {
         if (plugin !== "janus.plugin.sip" || !isSipData(data)) return;
@@ -421,8 +423,17 @@ export class Phone {
         this.hooks.onLine("registered");
         return;
       case "registration_failed":
+        // The line reached Gilbert and Gilbert could not reach the SIP server:
+        // the failure is on the server's leg to the provider, not the browser's
+        // to Gilbert. Every registering tab fails the same way, so every handset
+        // turns red with this cause rather than the reader looking at their own
+        // network.
         this.hooks.onLine("unavailable");
-        this.hooks.onError(t("The line could not register with the SIP server."));
+        this.hooks.onError(
+          t(
+            "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.",
+          ),
+        );
         return;
       case "incomingcall":
         this.remote = result.username ?? result.caller ?? "";

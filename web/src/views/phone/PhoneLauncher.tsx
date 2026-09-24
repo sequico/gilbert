@@ -100,12 +100,19 @@ export function PhoneLauncher() {
 
   if (!ready) return null;
 
+  /*
+   * A red handset carries why, so the reader does not open it to find out: the
+   * cause names which leg failed — Gilbert's to the SIP provider, or the
+   * browser's to Gilbert — because the two are fixed by different people.
+   */
+  const label = state === "unavailable" && error ? error : t("Phone");
+
   return (
     <>
       <button
         className="icon-btn"
-        aria-label={t("Phone")}
-        title={t("Phone")}
+        aria-label={label}
+        title={label}
         style={colour ? { color: colour } : undefined}
         onClick={() => {
           setOpen(true);

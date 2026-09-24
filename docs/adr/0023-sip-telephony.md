@@ -118,7 +118,10 @@ Its state is one glyph, and it returns to idle on its own:
 - **outline** — registered, no call;
 - **green** — a call is live, incoming answered or outgoing connected;
 - **red** — the line is not available: a second call while one is live, a
-  registration that has dropped, or a call that failed or was declined.
+  registration that has dropped, or a call that failed or was declined. The
+  cause it carries names which leg failed — the browser's to Gilbert, or
+  Gilbert's to the SIP provider — because the two are fixed by different
+  people.
 
 A press opens the call surface. An incoming call announces itself as a banner
 under the top bar; the entry turns green when it is answered. **A live call

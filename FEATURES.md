@@ -858,9 +858,12 @@ is the reference.
   seat there is no registration, and the provider's own routing takes a call.
 - **The line.** One entry in the top bar, beside the chat launcher. Its colour
   is the line: outline when registered and idle, green in a call, red when the
-  line is not available. It registers the **identity** it sends as — the SIP
-  server, user name and password an administrator sets per identity in
-  **Identities and SIP Phone**, account data that follows the account.
+  line is not available — and the red names which leg failed, the browser's to
+  Gilbert or Gilbert's to the SIP provider, so a reader is not sent to fix
+  their own network for a server's fault. It registers the **identity** it sends
+  as — the SIP server, user name and password an administrator sets per
+  identity in **Identities and SIP Phone**, account data that follows the
+  account.
 - **The call.** An incoming call announces itself as a banner; a live call
   **collapses into the top bar** so the reader keeps working. The surface offers
   mute, a DTMF keypad (RFC 2833) and hang up; a second call is refused **486**

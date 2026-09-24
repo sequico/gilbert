@@ -113,4 +113,28 @@ describe("the phone's socket lifecycle", () => {
 
     await phone.stop();
   });
+
+  it("marks the line unavailable, with the server's SIP leg named, when the registration is refused", async () => {
+    const phone = new Phone(credential, hooks);
+    await phone.start();
+    const sip = FakeSocket.instances[1]!;
+    // The plugin's own event: the registrar refused the account.
+    sip.onmessage?.({
+      data: JSON.stringify({
+        janus: "event",
+        plugindata: {
+          plugin: "janus.plugin.sip",
+          data: { sip: "event", result: { event: "registration_failed" } },
+        },
+      }),
+    });
+
+    // Red is "unavailable", and the cause names the leg that failed.
+    expect(lines).toContain("unavailable");
+    expect(
+      lines.some((line) => line.startsWith("error:") && line.includes("SIP provider")),
+    ).toBe(true);
+
+    await phone.stop();
+  });
 });
