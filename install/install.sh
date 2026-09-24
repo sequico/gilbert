@@ -17,7 +17,10 @@
 # THE BRIDGE IS FETCHED, NOT COMPILED. The release publishes a host tarball of
 # the bridge, built once by CI from the pinned Janus (deploy/janus/VERSION), for
 # amd64 and arm64. This script downloads the latest one, checks its checksum and
-# unpacks it — no compiler, no build dependencies. If it cannot be fetched, the
+# unpacks it — no compiler, no build dependencies. It carries Janus alone, not
+# the system libraries Janus links; those are installed here, as the image
+# installs them, and the bridge is refused if any is still missing (that is the
+# `ExecMainStatus=127` a bare tarball gives). If it cannot be fetched, the
 # install does NOT stop: Gilbert is installed without the phone, with a loud
 # warning here and a warning in the administration surface, both saying the
 # phone is unavailable and why. The phone's absence is a degraded feature, not
@@ -57,9 +60,10 @@
 #
 # WHAT THIS DOES NOT DO
 #
-# It does not install Node (Gilbert needs the LTS line, 24 today — the bridge
-# tarball is self-contained and needs nothing) and it does not put a reverse
-# proxy in front: both are stated in INSTALL.md. It targets Linux.
+# It does not install Node (Gilbert needs the LTS line, 24 today; the bridge
+# tarball carries Janus and this script installs the libraries Janus links, so
+# no compiler is needed) and it does not put a reverse proxy in front: both are
+# stated in INSTALL.md. It targets Linux.
 #
 # Usage, as root (or with sudo):
 #
@@ -157,6 +161,30 @@ if [ "$BRIDGE_OK" = "1" ] \
         || [ ! -e "$PREFIX/lib/janus/transports/libjanus_websockets.so" ]; }; then
   BRIDGE_OK=0
   BRIDGE_REASON="the downloaded bridge is missing its sip, echotest or websockets pieces"
+fi
+
+# The libraries Janus links are the host's, not the tarball's: install them the
+# way the image does, then refuse a bridge the linker cannot resolve — that is
+# the difference between a service that runs and `ExecMainStatus=127`.
+if [ "$BRIDGE_OK" = "1" ]; then
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y --no-install-recommends \
+      libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
+      libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17 \
+      >/dev/null 2>&1 || true
+  fi
+  missing="$(
+    {
+      ldd "$PREFIX/bin/janus"
+      for so in "$PREFIX"/lib/janus/plugins/*.so "$PREFIX"/lib/janus/transports/*.so; do
+        [ -e "$so" ] && ldd "$so"
+      done
+    } 2>/dev/null | grep 'not found' | awk '{print $1}' | sort -u | tr '\n' ' '
+  )"
+  if [ -n "$missing" ]; then
+    BRIDGE_OK=0
+    BRIDGE_REASON="the bridge needs libraries this host does not have: $missing"
+  fi
 fi
 
 # --- the bridge's configuration and service ----------------------------------
