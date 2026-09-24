@@ -24,12 +24,13 @@ import { readFileSync } from "node:fs";
  * too. The values are the placeholders a catalogue entry names, not a reason
  * to leave the sentence English.
  *
- * What is not seen is English that is not the template's own text: a template
- * behind `??`, `?:` or a helper is not walked into, nor is a literal nested
- * inside a substitution -- `${name ?? "attachment"}` keeps that word where it
- * is, and only the file's own name is ever wanted there. Widening this needs
- * the literal test to stop reading one sentence's opening, which is a change
- * of its own.
+ * What is still not seen is English that is not the template's own text: a
+ * literal nested inside a substitution is not walked into --
+ * `${name ?? "attachment"}` keeps that word where it is, and only the file's
+ * own name is ever wanted there. A branch or a fallback *around* the position
+ * (`?:`, `??`) is walked, because the string a reader sees is chosen there and
+ * cannot be a catalogue key as written; a call is not, because a wrapper or a
+ * helper is where a translation belongs.
  */
 import ts from "typescript";
 import {
@@ -55,7 +56,14 @@ const UI_PROPS = new Set([
   "seriesLabel",
   "seriesHint",
 ]);
-const UI_ATTRS = new Set(["title", "aria-label", "placeholder", "alt"]);
+const UI_ATTRS = new Set([
+  "title",
+  "aria-label",
+  "placeholder",
+  "alt",
+  "label",
+  "ariaLabel",
+]);
 const TOASTS = new Set(["error", "success", "info", "show"]);
 const EQUALITY = new Set([
   ts.SyntaxKind.EqualsEqualsEqualsToken,
@@ -122,13 +130,20 @@ for (const file of sourceFiles()) {
    * taken out is asked the kit's own question instead: `NOT_PROSE` is how this
    * repository says "punctuation, digits and symbols -- nothing to translate",
    * so `${name} (${size})` is quiet and `${name} — shared by ${owner}` is not.
+   * A template whose whole static text is punctuation and digits (`${p}%`) is
+   * formatting rather than prose, so it is asked for a letter and left quiet.
    */
   const reportTemplate = (x) => {
     const parts = ts.isNoSubstitutionTemplateLiteral(x)
       ? [x.text]
       : [x.head.text, ...x.templateSpans.map((s) => s.literal.text)];
     const staticText = parts.join("");
-    if (NOT_PROSE.test(staticText) || NEVER_TRANSLATED.has(staticText)) return;
+    if (
+      !/[A-Za-z]/.test(staticText) ||
+      NOT_PROSE.test(staticText) ||
+      NEVER_TRANSLATED.has(staticText)
+    )
+      return;
     const { line } = src.getLineAndCharacterOfPosition(x.getStart(src));
     found.push({ file, line: line + 1, text: parts.join("{}") });
   };
@@ -166,6 +181,34 @@ for (const file of sourceFiles()) {
   mark(src);
   const wrapped = exempt;
 
+  /*
+   * English behind a branch or a fallback is still English a reader sees:
+   * `cond ? "Yes" : "No"`, `value ?? "None"`, a template inside either. The
+   * old reader looked only at a literal sitting directly in the position, so
+   * the login button's own two labels stayed hardcoded while the gate stayed
+   * green. Walks any expression but a call (a wrapper or a helper is out of
+   * scope here) and a nested element, and reports the string or template it
+   * reaches.
+   */
+  const walkText = (x) => {
+    if (isTemplate(x)) {
+      reportTemplate(x);
+      return;
+    }
+    if (ts.isStringLiteral(x)) {
+      if (!wrapped.has(x)) report(x, x.text);
+      return;
+    }
+    if (
+      ts.isCallExpression(x) ||
+      ts.isJsxElement(x) ||
+      ts.isJsxSelfClosingElement(x) ||
+      ts.isJsxFragment(x)
+    )
+      return;
+    ts.forEachChild(x, walkText);
+  };
+
   const visit = (n) => {
     if (
       ts.isPropertyAssignment(n) &&
@@ -175,25 +218,27 @@ for (const file of sourceFiles()) {
         report(n.initializer, n.initializer.text);
       if (isTemplate(n.initializer)) reportTemplate(n.initializer);
     }
-    if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src))) {
-      const walk = (x) => {
-        if (isTemplate(x)) reportTemplate(x);
-        if (ts.isStringLiteral(x) && !wrapped.has(x)) report(x, x.text);
-        if (!ts.isCallExpression(x)) ts.forEachChild(x, walk);
-      };
-      walk(n.initializer);
-    }
+    if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src)))
+      walkText(n.initializer);
+    /*
+     * A JSX child that is an expression: `{busy ? "Signing in…" : "Sign in"}`.
+     * The coverage report reads JSX *text*, and the gate reads attributes and
+     * toasts, so a string chosen by a branch as a child fell between the two.
+     */
+    if (
+      ts.isJsxExpression(n) &&
+      n.expression &&
+      (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))
+    )
+      walkText(n.expression);
     if (
       ts.isCallExpression(n) &&
       ts.isPropertyAccessExpression(n.expression) &&
       n.expression.expression.getText(src) === "toast" &&
-      TOASTS.has(n.expression.name.text)
-    ) {
-      const a0 = n.arguments[0];
-      if (a0 && ts.isStringLiteral(a0) && !wrapped.has(a0)) report(a0, a0.text);
-      /* A template literal cannot be a catalogue key at all, so it is always a find. */
-      if (a0 && isTemplate(a0)) reportTemplate(a0);
-    }
+      TOASTS.has(n.expression.name.text) &&
+      n.arguments[0]
+    )
+      walkText(n.arguments[0]);
     ts.forEachChild(n, visit);
   };
   visit(src);
