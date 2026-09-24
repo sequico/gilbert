@@ -11,6 +11,12 @@
  */
 import { create } from "zustand";
 import { CAP } from "@/jmap/client";
+import {
+  appendCall,
+  CALL_LOG_LIMIT,
+  type CallLogEntry,
+  readCallLog,
+} from "@/lib/phone/callLog";
 import { accountFor, readSipAccounts, type SipCredential } from "@/lib/phone/credential";
 import {
   requestMicrophone as askMicrophone,
@@ -36,8 +42,14 @@ interface PhoneStore {
   stream: MediaStream | null;
   muted: boolean;
   error: string | null;
+  /** Why the browser's path to Gilbert is down, when it is (ADR 0023). */
+  mediaReason: string | null;
+  /** Why this account's registration is down, when it is (ADR 0023). */
+  sipReason: string | null;
   /** What the browser will say about the microphone, without prompting. */
   microphone: MicrophoneState;
+  /** This account's calls, newest first (ADR 0023). */
+  callLog: CallLogEntry[];
 
   /** Take the seat if it is free, and register the account. */
   start(): Promise<void>;
@@ -86,7 +98,10 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   stream: null,
   muted: false,
   error: null,
+  mediaReason: null,
+  sipReason: null,
   microphone: "unknown",
+  callLog: [],
 
   async start() {
     if (started) return;
@@ -148,6 +163,9 @@ export const usePhone = create<PhoneStore>((set, get) => ({
       stream: null,
       muted: false,
       error: null,
+      mediaReason: null,
+      sipReason: null,
+      callLog: [],
     });
   },
 
@@ -205,6 +223,11 @@ async function begin(set: SetState, gen: number): Promise<void> {
     set({ state: "off", ready: false });
     return;
   }
+  // The account's history is read whatever the line does: it is the account's,
+  // not the registration's.
+  void readCallLog(accountId).then((callLog) => {
+    if (gen === generation) set({ callLog });
+  });
   const accounts = await readSipAccounts(accountId);
   if (gen !== generation) return;
   const identity = useMail.getState().defaultIdentity();
@@ -239,10 +262,18 @@ async function begin(set: SetState, gen: number): Promise<void> {
   await held?.stop().catch(() => undefined);
 
   phone = new Phone(credential, {
-    onLine: (state) => set({ state }),
-    onProven: () => set({ ready: true }),
+    onLine: (state) =>
+      set((s) => ({ state, sipReason: state === "registered" ? null : s.sipReason })),
+    onProven: () => set({ ready: true, mediaReason: null }),
     onIncoming: (from) => set({ incoming: from || null }),
     onCall: (call, stream) => set({ call, stream }),
+    onCallEnded: (entry) => {
+      set((s) => ({ callLog: [entry, ...s.callLog].slice(0, CALL_LOG_LIMIT) }));
+      const logAccount = useSession.getState().ownAccountFor(CAP.mail);
+      if (logAccount) void appendCall(logAccount, entry).catch(() => undefined);
+    },
+    onLineFailure: (leg, reason) =>
+      set(leg === "media" ? { mediaReason: reason } : { sipReason: reason }),
     onError: (message) => set({ error: message }),
   });
   await phone.start();

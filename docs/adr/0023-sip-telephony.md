@@ -6,7 +6,10 @@ Implementation: Built. The browser's Janus client is
 `web/src/lib/phone/janus.ts`, the SIP plugin and its media are
 `web/src/lib/phone/sip.ts`, the one seat and the account are
 `web/src/store/phone.ts`, the surface is
-`web/src/views/phone/PhoneLauncher.tsx`, the administration is
+`web/src/views/phone/PhoneLauncher.tsx` with its contacts pane
+(`PhoneContactsPanel.tsx`), dialer and call-history pane (`CallLogPanel.tsx`),
+and the account's own call history is `web/src/lib/phone/callLog.ts`; the
+administration is
 `web/src/views/admin/IdentitiesAndSipPhone.tsx`; the socket gilbertserver
 proxies is `server/src/phone/proxy.ts` (registered in `server/src/app.ts`), the
 bridge's address is `server/src/phone/bridge.ts`, and the account document and
@@ -123,11 +126,30 @@ Its state is one glyph, and it returns to idle on its own:
   Gilbert's to the SIP provider — because the two are fixed by different
   people.
 
-A press opens the call surface. An incoming call announces itself as a banner
+A press opens the call surface: a panel, attached to the handset it was opened
+from, in three panes — the **contacts** on the left, the **dialer** in the
+centre, the account's **call history** on the right. The contacts pane carries
+the two states a reader needs, each a dot with its cause on hover — the
+browser's path to Gilbert, and this account's registration — and the tabs that
+choose which contacts the list offers: everything, the installation's directory,
+the reader's own, or one of the groups they belong to; a search narrows it, with
+its clear control in the field. An incoming call announces itself as a banner
 under the top bar; the entry turns green when it is answered. **A live call
 collapses into the top bar** so the reader goes on with their mail while it
 lasts, and the collapsed control brings the call back. Nothing about a live call
 blocks the rest of the app. Signing out ends the call.
+
+### The calls it keeps
+
+**The history is the account's own**, in its app folder (`calls.json`,
+`web/src/lib/phone/callLog.ts`): the calls the phone took and placed, newest
+first, each naming the direction, the other party, when it began, how many
+seconds it connected — and, where the reader's contacts hold that number, the
+person. It follows the account between devices and survives a sign-out, and it
+is **bounded** (a hundred calls), because it is a convenience rather than an
+archive. The tab that holds the seat writes it as each call ends, from the one
+entry the phone raises; no second store, and no server of Gilbert's keeps a
+call.
 
 ### The microphone, and the ring
 
@@ -153,11 +175,11 @@ outbound, so whoever installs Gilbert knows exactly what to open.
 
 ### Contacts the phone reads, and speed dial
 
-The phone's list — the dialer's mini surface — reads its contacts from Contacts,
+The phone's list — the panel's contacts pane — reads its contacts from Contacts,
 under the same separation the Contacts view draws: **Global contacts (ADR
 0024), each group's book (group A, group B, and so on), the reader's personal
 books, and all of them together**. A call starts from either place, a line in
-the dialer's list or the contact itself in Contacts. Every number a contact
+the panel's list or the contact itself in Contacts. Every number a contact
 carries is callable, and the action is absent where a contact has none.
 
 **The dialer's list is read-only and searches and dials, nothing else.** No
@@ -174,8 +196,8 @@ be composed by hand, through a keypad, and it is sent to the provider as
   routing and its own DTMF sequences; the plugin refuses a second call 486 and
   Gilbert ships none of them.
 - **The system call log.** Writing Android's `CallLog` needs a native app and a
-  permission, and iOS offers no public API for it. Neither is in scope; a call
-  list inside the phone surface may come later.
+  permission, and iOS offers no public API for it. Neither is in scope: the
+  history Gilbert keeps is its own (above), in the account's app folder.
 - **A PBX.** The SIP server is the provider's, external to the four blocks. The
   Janus bridge is the deployment's own WebRTC-to-SIP leg, not a registrar and
   not a telephone system.

@@ -12,6 +12,7 @@
 import type { SipCredential } from "@gilbert/shared/phone";
 import { withBase } from "@/lib/basePath";
 import { t } from "@/lib/i18n";
+import type { CallLogEntry } from "./callLog";
 import { Janus, type JanusHooks, type Jsep } from "./janus";
 import { microphoneMessage, openMicrophone } from "./microphone";
 
@@ -35,6 +36,14 @@ export interface PhoneHooks {
   onIncoming(from: string): void;
   /** The call, and the audio to play, or nulls when there is none. */
   onCall(call: ActiveCall | null, stream: MediaStream | null): void;
+  /** A call ended: the one place an entry is born, so the log's shape is the phone's. */
+  onCallEnded(entry: CallLogEntry): void;
+  /**
+   * A leg the line needs is down, with the cause: the browser's path to Gilbert
+   * ("media"), or the registration with the SIP provider ("sip"). The two are
+   * kept apart so each can be explained where it is shown.
+   */
+  onLineFailure(leg: "media" | "sip", reason: string): void;
   onError(message: string): void;
 }
 
@@ -168,6 +177,14 @@ export class Phone {
   private failures = 0;
   /** Whether a connection attempt is on its way, so two cannot race. */
   private connecting = false;
+  /** The call in progress, for the one entry the log gets when it ends. */
+  private callMeta: {
+    direction: "in" | "out";
+    remote: string;
+    at: number;
+    connectedAt: number | null;
+    outcome: CallLogEntry["outcome"];
+  } | null = null;
 
   constructor(
     private readonly credential: SipCredential,
@@ -184,7 +201,7 @@ export class Phone {
     try {
       await this.connect();
     } catch (err) {
-      this.hooks.onError(reason(err));
+      this.hooks.onLineFailure("media", reason(err));
       this.hooks.onLine("unavailable");
       this.scheduleReconnect();
     }
@@ -215,6 +232,13 @@ export class Phone {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       this.remote = target;
+      this.callMeta = {
+        direction: "out",
+        remote: target,
+        at: Date.now(),
+        connectedAt: null,
+        outcome: "failed",
+      };
       janus.message(
         { request: "call", uri: callUri(this.credential, target) },
         { type: "offer", sdp: offer.sdp ?? "" },
@@ -261,11 +285,9 @@ export class Phone {
 
   /** Decline the ringing call. */
   async decline(): Promise<void> {
+    if (this.callMeta) this.callMeta.outcome = "declined";
     this.janus?.message({ request: "decline" });
-    this.ringing = null;
-    this.remote = "";
-    this.hooks.onIncoming("");
-    this.hooks.onCall(null, null);
+    this.endCall();
   }
 
   /** End the call, wherever it is. */
@@ -379,6 +401,7 @@ export class Phone {
     pc.ontrack = (event) => {
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       this.stream = stream;
+      this.markConnected();
       this.hooks.onCall({ remote: this.remote }, stream);
     };
     return pc;
@@ -427,7 +450,8 @@ export class Phone {
         // turns red with this cause rather than the reader looking at their own
         // network.
         this.hooks.onLine("unavailable");
-        this.hooks.onError(
+        this.hooks.onLineFailure(
+          "sip",
           t(
             "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.",
           ),
@@ -436,6 +460,13 @@ export class Phone {
       case "incomingcall":
         this.remote = result.username ?? result.caller ?? "";
         this.ringing = { offer: jsep };
+        this.callMeta = {
+          direction: "in",
+          remote: this.remote,
+          at: Date.now(),
+          connectedAt: null,
+          outcome: "missed",
+        };
         this.hooks.onIncoming(this.remote);
         return;
       case "progress":
@@ -445,10 +476,14 @@ export class Phone {
         return;
       case "accepted":
         if (jsep) void this.pc?.setRemoteDescription(jsep).catch(() => undefined);
+        this.markConnected();
         this.hooks.onCall({ remote: this.remote }, this.stream);
         return;
-      case "hangup":
       case "declined":
+        if (this.callMeta) this.callMeta.outcome = "declined";
+        this.endCall();
+        return;
+      case "hangup":
       case "failed":
         this.endCall();
         return;
@@ -457,8 +492,29 @@ export class Phone {
     }
   }
 
+  /** The call is up: from here it is measured, and it counts as answered. */
+  private markConnected(): void {
+    if (this.callMeta && this.callMeta.connectedAt === null) {
+      this.callMeta.connectedAt = Date.now();
+      this.callMeta.outcome = "answered";
+    }
+  }
+
   /** Drop the call, its media and the microphone with it. */
   private endCall(): void {
+    // The one entry the log gets for this call, born before anything is cleared.
+    const meta = this.callMeta;
+    this.callMeta = null;
+    if (meta)
+      this.hooks.onCallEnded({
+        at: meta.at,
+        direction: meta.direction,
+        remote: meta.remote,
+        seconds: meta.connectedAt
+          ? Math.max(0, Math.round((Date.now() - meta.connectedAt) / 1000))
+          : 0,
+        outcome: meta.connectedAt ? "answered" : meta.outcome,
+      });
     this.ringing = null;
     this.remote = "";
     this.stream = null;
@@ -491,7 +547,7 @@ export class Phone {
         return;
       }
       void this.connect().catch((err) => {
-        this.hooks.onError(reason(err));
+        this.hooks.onLineFailure("media", reason(err));
         this.hooks.onLine("unavailable");
         this.scheduleReconnect();
       });
@@ -514,7 +570,7 @@ export class Phone {
     }
     this.failures = 0;
     void this.connect().catch((err) => {
-      this.hooks.onError(reason(err));
+      this.hooks.onLineFailure("media", reason(err));
       this.hooks.onLine("unavailable");
       this.scheduleReconnect();
     });

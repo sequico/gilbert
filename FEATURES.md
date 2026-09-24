@@ -880,10 +880,19 @@ is the reference.
   drawn: a deployment whose bridge ports are still closed shows **no phone**,
   and the administration states the bridge's media range as the one thing to
   open.
-- **The dialer** reads Contacts separated by source — **Global contacts**,
-  each group's book, the reader's personal books, and all of them — and a press
-  dials; its list is read-only, editing belonging to Contacts. A contact with no
-  number is simply not offered as a call.
+- **The phone panel** opens attached to the handset in three panes: the
+  **contacts** on the left, the **dialer** in the centre, the account's **call
+  history** on the right. The contacts pane carries two dots with their cause on
+  hover — the browser's path to Gilbert, and this account's registration — and
+  tabs (**All**, **Global**, **My**, and one row per group the reader belongs
+  to) that choose which contacts the list offers, a search with its clear
+  control narrowing it live. A press dials; the list is read-only, editing
+  belonging to Contacts, and a contact with no number is simply not offered as a
+  call.
+- **The call history** is the account's own (`calls.json` in its app folder):
+  the calls placed and taken, newest first, each with the direction, the other
+  party — or the contact it matches — when it began and the seconds it
+  connected. It follows the account between devices and is bounded.
 - **Global contacts** is one address book, owned by the Master, shared
   **read-only with every account** and written only by an administrator, from
   inside Contacts. The administrator's write re-applies the share, which is what

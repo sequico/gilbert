@@ -65,11 +65,14 @@ class FakePeer {
 
 const lines: string[] = [];
 const calls: Array<string | null> = [];
+const failures: Array<{ leg: string; reason: string }> = [];
 const hooks: PhoneHooks = {
   onLine: (state) => lines.push(state),
   onProven: () => {},
   onIncoming: () => {},
   onCall: (call) => calls.push(call?.remote ?? null),
+  onCallEnded: () => {},
+  onLineFailure: (leg, reason) => failures.push({ leg, reason }),
   onError: (message) => lines.push(`error:${message}`),
 };
 
@@ -82,6 +85,7 @@ beforeEach(() => {
   FakeSocket.instances = [];
   lines.length = 0;
   calls.length = 0;
+  failures.length = 0;
 });
 
 afterEach(() => {
@@ -129,10 +133,10 @@ describe("the phone's socket lifecycle", () => {
       }),
     });
 
-    // Red is "unavailable", and the cause names the leg that failed.
+    // Red is "unavailable", and the failure names the leg that failed.
     expect(lines).toContain("unavailable");
     expect(
-      lines.some((line) => line.startsWith("error:") && line.includes("SIP provider")),
+      failures.some((f) => f.leg === "sip" && f.reason.includes("SIP provider")),
     ).toBe(true);
 
     await phone.stop();

@@ -5,6 +5,7 @@ import { isGlobalContactsBook } from "@/lib/contacts";
 import { accountFor, readSipAccounts } from "@/lib/phone/credential";
 import {
   allDialerCards,
+  contactNameFor,
   contactPhoneNumbers,
   dialerSources,
   dialTarget,
@@ -61,6 +62,12 @@ describe("the number a contact dials", () => {
     expect(contactPhoneNumbers(two)).toEqual(["111", "222"]);
     expect(dialTarget(two)).toBe("111");
     expect(dialTarget(card("d", "b"))).toBeNull();
+  });
+
+  it("turns a call's number back into the contact that carries it", () => {
+    const ada = card("ada", "b", { p1: { number: "+44 20 7946 0001" } });
+    expect(contactNameFor([ada], "sip:442079460001@pbx.example.com")).toBe("ada");
+    expect(contactNameFor([ada], "sip:999@pbx.example.com")).toBeNull();
   });
 });
 

@@ -72,8 +72,11 @@ single seat and the administration are in place. Global contacts is built.
 - **The phone**: `web/src/lib/phone/janus.ts` (the Janus API),
   `web/src/lib/phone/sip.ts` (the SIP plugin, the media and the connectivity
   probe), `web/src/lib/phone/credential.ts` (the account, read from the
-  person's own Files), the seat and the state in `web/src/store/phone.ts`, the
-  surface in `web/src/views/phone/PhoneLauncher.tsx`; the proxied socket in
+  person's own Files), `web/src/lib/phone/callLog.ts` (the account's call
+  history, `calls.json` in its app folder), the seat and the state in
+  `web/src/store/phone.ts`, the surface in
+  `web/src/views/phone/PhoneLauncher.tsx` with its panes
+  (`PhoneContactsPanel.tsx`, `CallLogPanel.tsx`); the proxied socket in
   `server/src/phone/proxy.ts`, the bridge's address in
   `server/src/phone/bridge.ts`, the document and the media range in
   `server/src/shared/phone.ts`, and the administration in
@@ -99,7 +102,10 @@ single seat and the administration are in place. Global contacts is built.
    configures; how Gilbert reaches Janus is the deployment's.
 5. Never let the browser frame SIP: it speaks the Janus API.
 6. Desktop only.
-7. The mock cannot prove a bridge; a real Janus and a provider are the owed
+7. **The call history is the account's own**, in its app folder (`calls.json`):
+   written by the tab that holds the seat as each call ends, newest first and
+   bounded. Nothing of gilbertserver's keeps a call.
+8. The mock cannot prove a bridge; a real Janus and a provider are the owed
    probe ADR 0023 names.
 
 Companion skills: Stalwart objects load `gilbert-stalwart`; group books load

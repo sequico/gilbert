@@ -2898,11 +2898,10 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialpad-digit { font-size: 1.15rem; font-weight: 600; line-height: 1.05; }
 .dialpad-letters { font-size: .55rem; font-weight: 700; letter-spacing: .14em; color: var(--fg-faint); }
 
-.dialer { display: flex; flex-direction: column; max-height: calc(100vh - 44px); }
-.phone-panel { position: relative; }
+.dialer { display: flex; flex-direction: column; }
 .phone-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 2px; pointer-events: none; }
 .phone-overlay > * { box-shadow: var(--shadow-2); }
-.dialer-display { display: flex; align-items: center; gap: 2px; }
+.dialer-display { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .dialer-number {
   flex: 1; min-width: 0; padding: 6px 4px; text-align: center;
   font-size: 1.35rem; font-weight: 650; letter-spacing: .03em;
@@ -2928,27 +2927,68 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialer-call:active:not(:disabled) { transform: scale(.95); }
 .dialer-call:disabled { opacity: .4; box-shadow: none; cursor: default; }
 
-/* The dialer is fixed: the number, the keypad and the call button never scroll
-   away. Only the contacts below absorb the overflow, in their own scroll area. */
-.dialer-contacts { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
-.dialer-tabs { display: flex; gap: 4px; padding: 0 2px 6px; }
-.dialer-tab {
-  flex: 1 1 0; min-width: 0; padding: 5px 4px; text-align: center;
-  font-size: .74rem; font-weight: 650; letter-spacing: .01em;
-  color: var(--fg-muted); background: transparent;
-  border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.dialer-tab:hover { background: var(--bg-hover); color: var(--fg); }
-.dialer-tab.active { background: var(--accent-soft); color: var(--accent-soft-fg); border-color: transparent; }
-.dialer-search { display: flex; align-items: center; gap: 6px; padding: 0 2px 4px; }
-.dialer-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .dialer-contact {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
   text-align: start; border-radius: var(--radius-sm); color: var(--fg);
 }
 .dialer-contact:hover { background: var(--bg-hover); }
 .dialer-contact .hint { font-size: .82em; }
+
+/*
+ * The phone panel's three panes (ADR 0023): the contacts on the left, the
+ * dialer in the centre, the account's call log on the right. The dialer is
+ * fixed — it never scrolls — and each list scrolls in its own column.
+ */
+.phone-grid { display: flex; gap: 10px; align-items: stretch; }
+.phone-contacts-panel { flex: 0 0 250px; min-width: 0; display: flex; flex-direction: column; }
+.phone-center { flex: 0 0 250px; min-width: 0; position: relative; display: flex; flex-direction: column; }
+.phone-log-panel { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); padding-left: 8px; }
+.phone-col-title, .phone-center-title {
+  padding: 4px 0 8px; text-align: center; font-size: .85rem; font-weight: 650;
+  color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.phone-status { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.phone-status-row { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--fg-muted); }
+.phone-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
+.phone-dot.ok { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
+.phone-dot.bad { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.phone-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+.phone-tab {
+  flex: 1 1 0; min-width: 0; padding: 5px 4px; text-align: center;
+  font-size: .74rem; font-weight: 650; color: var(--fg-muted);
+  background: transparent; border: 1px solid var(--border); border-radius: 999px;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.phone-tab:hover { background: var(--bg-hover); color: var(--fg); }
+.phone-tab.active { background: var(--accent-soft); color: var(--accent-soft-fg); border-color: transparent; }
+.phone-tab-row {
+  display: block; width: 100%; padding: 5px 8px; text-align: start;
+  font-size: .78rem; font-weight: 600; color: var(--fg-muted);
+  border-radius: var(--radius-sm); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.phone-tab-row:hover { background: var(--bg-hover); color: var(--fg); }
+.phone-tab-row.active { background: var(--accent-soft); color: var(--accent-soft-fg); }
+.phone-search {
+  display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; padding: 0 6px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev);
+}
+.phone-search-input {
+  flex: 1; min-width: 0; padding: 5px 2px; border: 0; background: transparent;
+  color: var(--fg); font: inherit; font-size: .82rem; outline: none;
+}
+.phone-search-clear {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; color: var(--fg-muted);
+}
+.phone-search-clear:hover { background: var(--bg-hover); color: var(--fg); }
+.phone-contact-list { flex: 1 1 auto; min-height: 0; max-height: 420px; overflow-y: auto; }
+.phone-log-list { flex: 1 1 auto; min-height: 0; max-height: 440px; overflow-y: auto; }
+.phone-log-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: var(--radius-sm); }
+.phone-log-row:hover { background: var(--bg-hover); }
+.phone-log-icon { flex: 0 0 auto; color: var(--fg-muted); }
+.phone-log-row.bad .phone-log-icon { color: var(--danger); }
+.phone-log-secs { flex: 0 0 auto; font-size: .78rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 
 .call-panel { display: flex; flex-direction: column; }
 .call-who { margin: 4px 0 12px; text-align: center; font-size: 1.05rem; font-weight: 650; }

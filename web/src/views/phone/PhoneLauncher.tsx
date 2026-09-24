@@ -1,17 +1,15 @@
-import { Delete, Mic, MicOff, Phone, PhoneCall, PhoneOff, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { contactDisplayName } from "@/lib/contacts";
+import { Delete, Mic, MicOff, Phone, PhoneCall, PhoneOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { type DialerSource, dialerSources, dialTarget } from "@/lib/phone/dialer";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
-import { useContacts } from "@/store/contacts";
-import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
+import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
-import { Avatar, useIsMobile, useIsTouch } from "@/ui/misc";
+import { useIsMobile, useIsTouch } from "@/ui/misc";
 import { Popover, useMenu } from "@/ui/popover";
+import { CallLogPanel } from "./CallLogPanel";
+import { PhoneContactsPanel } from "./PhoneContactsPanel";
 
 /** The digits the keypad offers, in the order a phone lays them out. */
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -29,41 +27,26 @@ const KEY_LETTERS: Record<string, string> = {
   "0": "+",
 };
 
-/** The dialer's contact categories, in the order they are shown. */
-const DIALER_CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "global", label: "Global" },
-  { id: "group", label: "Groups" },
-  { id: "personal", label: "Personal" },
-] as const;
-
-type DialerCategory = (typeof DIALER_CATEGORIES)[number]["id"];
-
-/** Whether a source belongs under a category tab. */
-function inCategory(source: DialerSource, category: DialerCategory): boolean {
-  return category === "all" || source.kind === category;
-}
-
 /**
  * The phone in the top-bar action cluster (ADR 0023).
  *
  * The entry is the feature's whole presence until it is pressed: its colour is
  * the line's state and it returns to idle on its own. A press opens the call
- * surface **attached to the handset** — not a dialog in the middle of the
- * screen — and an incoming call announces itself as a banner under the top bar.
- * A live call is never modal: the reader keeps working and the entry carries it.
+ * surface **attached to the handset** — a wide panel with the contacts on the
+ * left, the dialer in the centre and the account's call log on the right — and
+ * an incoming call announces itself as a banner under the top bar. A live call
+ * is never modal: the reader keeps working and the entry carries it.
  *
  * It is offered only where it can work: the entry is absent until the tab holds
- * the seat, the account is registered and the bridge's media has answered. The
- * surface says what is missing rather than pretending.
- *
- * It is also **desktop only**: a page suspended in the background or behind a
- * locked screen cannot ring, so on a touch device the entry is not offered at
- * all — and nothing registers and no microphone is asked for there.
+ * the seat, the account is registered and the bridge's media has answered. It is
+ * also **desktop only**: a page suspended behind a locked screen cannot ring, so
+ * on a touch device the entry is not offered at all — and nothing registers and
+ * no microphone is asked for there.
  */
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
   const touch = useIsTouch();
+  const username = useSession((s) => s.session?.username ?? "");
   const ready = usePhone((s) => s.ready);
   const state = usePhone((s) => s.state);
   const incoming = usePhone((s) => s.incoming);
@@ -198,7 +181,8 @@ export function PhoneLauncher() {
         </div>
       </Dialog>
 
-      {/* The call surface: attached to the handset that opened it. */}
+      {/* The call surface: attached to the handset that opened it, three panes
+          wide — the contacts, the dialer, the account's calls. */}
       <Popover
         anchor={panel.anchor}
         onClose={panel.close}
@@ -206,16 +190,26 @@ export function PhoneLauncher() {
         align="end"
         role="dialog"
         ariaLabel={call ? t("Call") : t("Phone")}
-        width={300}
-        style={{ padding: 10, maxHeight: "calc(100vh - 16px)", overflow: "hidden" }}
+        width={780}
+        style={{
+          padding: 10,
+          maxHeight: "calc(100vh - 16px)",
+          maxWidth: "min(780px, calc(100vw - 16px))",
+          overflow: "hidden",
+        }}
       >
-        <div className="phone-panel">
-          {call ? (
-            <CallControls remote={call.remote} muted={muted} />
-          ) : (
-            <Dialer onDial={panel.close} />
-          )}
-          <PhoneOverlay error={error} />
+        <div className="phone-grid">
+          <PhoneContactsPanel />
+          <div className="phone-center">
+            <div className="phone-center-title">{username}</div>
+            {call ? (
+              <CallControls remote={call.remote} muted={muted} />
+            ) : (
+              <Dialer onDial={panel.close} />
+            )}
+            <PhoneOverlay error={error} />
+          </div>
+          <CallLogPanel />
         </div>
       </Popover>
     </>
@@ -227,9 +221,8 @@ export function PhoneLauncher() {
  *
  * A message in the flow would push the keypad and the call button down and make
  * the panel scroll, and a message that takes the pointer swallows the presses
- * on the contacts underneath it — the tabs and the rows become unclickable. So
- * the cause floats over the panel's foot and is read-only: the dialer keeps
- * every press it had.
+ * on the contacts underneath it. So the cause floats over the dialer's foot and
+ * is read-only: every control keeps every press it had.
  */
 function PhoneOverlay({ error }: { error: string | null }) {
   if (!error) return null;
@@ -282,68 +275,14 @@ function CallControls({ remote, muted }: { remote: string; muted: boolean }) {
   );
 }
 
-/** The dialer: a keypad to compose a number, and the contacts to dial instead. */
+/** The dialer: the number the reader composes, and the one button that dials it. */
 function Dialer({ onDial }: { onDial: () => void }) {
-  // Individual selections, not the whole store: the dialer rebuilds its sources
-  // when the cards it reads change, and for nothing else.
-  const cards = useContacts((s) => s.cards);
-  const sharedBooks = useContacts((s) => s.sharedBooks);
-  const cardsIn = useContacts((s) => s.cardsIn);
-  const filterCards = useContacts((s) => s.filterCards);
-  const ownAccountId = useContacts((s) => s.accountId) ?? "own";
-  const mailAccounts = useMail((s) => s.mailAccounts);
-  const [query, setQuery] = useState("");
   const [number, setNumber] = useState("");
-  const [category, setCategory] = useState<DialerCategory>("all");
-
-  const groups = useMemo(
-    () =>
-      groupMailboxAccounts(mailAccounts).map((g) => ({
-        accountId: g.accountId,
-        name: g.name,
-      })),
-    [mailAccounts],
-  );
-  const ownCards = useMemo(() => Object.values(cards), [cards]);
-  const sources: DialerSource[] = useMemo(
-    () =>
-      dialerSources({
-        ownCards,
-        sharedBooks,
-        cardsIn,
-        groups,
-        personalLabel: t("Personal"),
-        ownAccountId,
-      }),
-    [ownCards, sharedBooks, cardsIn, groups, ownAccountId],
-  );
-
   const dial = (target: string) => {
     if (!target) return;
     void usePhone.getState().dial(target);
     onDial();
   };
-
-  /*
-   * A contact with no number is not offered as a call, and a source with none
-   * is not a section: an empty "No contacts" heading under a group is noise
-   * rather than information. The search finds a card by its name, any of its
-   * addresses — the local part alone is enough — and its numbers, and it runs
-   * across the whole active category, not just the tab that happens to be open
-   * first.
-   */
-  const visible = sources.filter((source) => inCategory(source, category));
-  const filtered = (
-    query.trim()
-      ? visible.map((source) => ({
-          ...source,
-          cards: filterCards(source.cards, query).filter((c) => dialTarget(c)),
-        }))
-      : visible.map((source) => ({
-          ...source,
-          cards: source.cards.filter((c) => dialTarget(c)),
-        }))
-  ).filter((source) => source.cards.length > 0);
 
   return (
     <div className="dialer">
@@ -396,67 +335,6 @@ function Dialer({ onDial }: { onDial: () => void }) {
       >
         <PhoneCall size={24} />
       </button>
-
-      <div className="dialer-contacts">
-        <div className="dialer-tabs" role="tablist" aria-label={t("Contacts")}>
-          {DIALER_CATEGORIES.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              role="tab"
-              aria-selected={category === entry.id}
-              className={`dialer-tab ${category === entry.id ? "active" : ""}`}
-              onClick={() => setCategory(entry.id)}
-            >
-              {t(entry.label)}
-            </button>
-          ))}
-        </div>
-        <div className="dialer-search">
-          <Search size={15} className="faint" />
-          <input
-            className="input grow"
-            placeholder={t("Search contacts")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <div className="dialer-list">
-          {filtered.map((source) => (
-            <div key={source.id}>
-              <div className="nav-section">
-                <span>{source.label}</span>
-              </div>
-              {source.cards.slice(0, 50).map((card) => {
-                const target = dialTarget(card);
-                return (
-                  <button
-                    type="button"
-                    key={`${source.accountId}:${card.id}`}
-                    className="dialer-contact"
-                    onClick={() => target && dial(target)}
-                  >
-                    <Avatar
-                      who={{
-                        name: contactDisplayName(card),
-                        email: Object.values(card.emails ?? {})[0]?.address,
-                      }}
-                      size="sm"
-                    />
-                    <span className="grow truncate">{contactDisplayName(card)}</span>
-                    {target && <span className="hint truncate">{target}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          {!filtered.length && (
-            <p className="hint" style={{ padding: "2px 12px" }}>
-              {t("No contacts with a number to call.")}
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

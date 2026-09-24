@@ -9,7 +9,7 @@
  */
 import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import type { ContactCard } from "@/jmap/types";
-import { isGlobalContactsBook } from "@/lib/contacts";
+import { contactDisplayName, isGlobalContactsBook } from "@/lib/contacts";
 import type { SharedBook } from "@/store/contacts";
 
 /** Every number a card carries, the preferred one first. */
@@ -24,6 +24,22 @@ export function contactPhoneNumbers(card: ContactCard): string[] {
 /** The number the phone dials for a contact, or null when it carries none. */
 export function dialTarget(card: ContactCard): string | null {
   return contactPhoneNumbers(card)[0] ?? null;
+}
+
+/**
+ * The name of the contact a call's remote matches, or null.
+ *
+ * The one rule that turns a number back into a person, so the call log and any
+ * other surface resolve a number the same way: match on digits, because the SIP
+ * leg spells a number differently from the card that holds it.
+ */
+export function contactNameFor(cards: ContactCard[], remote: string): string | null {
+  const digits = remote.replace(/\D/g, "");
+  if (!digits) return null;
+  for (const card of cards)
+    for (const number of contactPhoneNumbers(card))
+      if (number.replace(/\D/g, "") === digits) return contactDisplayName(card);
+  return null;
 }
 
 export interface DialerSource {
