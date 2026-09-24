@@ -15,7 +15,17 @@
  * blank rather than an error anybody sees. One definition makes the reader and
  * the writer move together; `server/src/account.test.ts` pins the field lists
  * the routes actually answer with.
+ *
+ * `MASKED` sits beside the shapes rather than in a tier: it is Stalwart's own
+ * placeholder for a secret, so the module that writes credentials and the mock
+ * that answers as Stalwart would must spell it the same way.
  */
+
+/**
+ * What Stalwart returns in place of a stored secret; echo it back to leave the
+ * secret unchanged.
+ */
+export const MASKED = "[********]";
 
 /** What `/api/auth/sessions` reports about a session, with nothing secret in it. */
 export interface SessionSummary {

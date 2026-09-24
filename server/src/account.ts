@@ -8,7 +8,7 @@ import {
 } from "./appFolder.js";
 import { config } from "./config.js";
 import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
-import type { SecurityState } from "./shared/accountSecurity.js";
+import { MASKED, type SecurityState } from "./shared/accountSecurity.js";
 import {
   GROUP_LABELS_FILE,
   isLabelCatalog,
@@ -42,8 +42,6 @@ export { filesAccountId };
 
 /** Stalwart's id for a singleton object; the number it encodes spells this. */
 const SINGLETON = "singleton";
-/** Returned in place of a stored secret; echo it back to leave one unchanged. */
-const MASKED = "[********]";
 
 /** An error with a message meant for the person using the app. */
 export class AccountError extends Error {
@@ -304,8 +302,6 @@ export async function disableOtp(
   ]);
   setResult(res, "updated");
 }
-
-export { MASKED };
 
 /* ------------------------------------------------------------------ */
 /* The forced-password-change directive (ADR 0001)                     */
