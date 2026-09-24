@@ -1,10 +1,11 @@
-# ADR 0023 — SIP telephony in the browser
+# ADR 0023 — SIP telephony and the shared directory
 
 Status: Proposed
 
 Implementation: Partly built. The top-bar phone entry exists and is inert
 (`web/src/views/AppShell.tsx`); nothing else is built — no SIP user agent, no
-call surface, and no credentials in the identity-enforcement door.
+call surface, no shared directory, and no credentials in the
+identity-enforcement door.
 
 ## Context
 
@@ -13,9 +14,10 @@ one of Gilbert's four blocks — and an administrator sets each identity's SIP
 address and password in the identity-enforcement surface (ADR 0007). What is
 missing is the client: a softphone in gilbertmailer that makes and receives
 calls from the desktop and from a phone's browser, offers a contact as speed
-dial, and carries its state in one top-bar entry.
+dial, and carries its state in one top-bar entry. And the contacts it dials
+need a source every reader shares.
 
-Three facts decide the shape.
+Four facts decide the shape.
 
 - **A browser can hold a call only while it is awake.** SIP over WebSocket and
   WebRTC media both need a live page, and a service worker cannot hold an
@@ -33,6 +35,12 @@ Three facts decide the shape.
   the base the other browser softphones are built on. Its release cadence is
   slow — 0.21.2, 2022 — while its main branch is alive, which is accepted for a
   library this old and this widely deployed.
+- **Contacts are books, and none of them is everybody's.** The reader's own, a
+  group's — membership is the subscription (ADR 0021) — and a colleague's,
+  added deliberately. `All contacts` merges the books the reader may read.
+  Re-built per group or per person, a directory of the installation's people
+  and places would drift, and the same address would be spelled three ways in
+  three books.
 
 ## Decision
 
@@ -86,10 +94,10 @@ collapses into the top bar** — on the phone and on the desktop alike — so th
 reader goes on with their mail while it lasts, and the collapsed control brings
 the call back. Nothing about a live call blocks the rest of the app.
 
-### Contacts in the dialer, and speed dial
+### Contacts the phone reads, and speed dial
 
-The phone's own list — the dialer's mini surface — reads its contacts from
-Contacts, under the same separation the Contacts view draws: **the global
+The phone's list — the dialer's mini surface — reads its contacts from
+Contacts, under the same separation the Contacts view draws: **the shared
 directory, each group's book (group A, group B, and so on), the reader's
 personal books, and all of them together**. A call starts from either place, a
 line in the dialer's list or the contact itself in Contacts, and the two send
@@ -98,9 +106,34 @@ the call's target.
 
 **The dialer's list is read-only and searches and dials, nothing else.** No
 contact is created, edited or deleted from it — not by a member and not by an
-administrator — because editing a contact belongs to Contacts, which is where
-the directory's own controls live (ADR 0024). The dialer reads, searches and
-calls; every write is somewhere else.
+administrator — because editing a contact belongs to Contacts. The dialer
+reads, searches and calls; every write is somewhere else.
+
+### The shared directory
+
+**The shared directory is one address book, owned by the Master, shared
+read-only with every account, and written only by an administrator, from inside
+Contacts.**
+
+- **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
+  held in the Master's account — an object the server holds, gilbertstalwart's
+  area. No new object type, and no second store in Gilbert.
+- **Everyone reads it.** The share is universal: every account, including one
+  created later. A reader sees the directory in `All contacts` beside their own
+  book and the group books their membership subscribes, with no per-member
+  patch and nothing to add by hand.
+- **Only an administrator writes it, and from inside Contacts.** The directory
+  is edited where it is read: the Contacts surface draws the edit controls for
+  an administrator alone, and for everybody else the cards are read-only. The
+  write itself goes through the same door every privileged write uses —
+  impersonation as the Master, or the deployment's agent (ADR 0001, ADR 0007).
+  The share carries read only, so a member's own session cannot edit a card,
+  and the client shows those cards as it shows any book it may not write
+  (`cardWritable`): Edit and Delete withheld.
+- **Its cards are ordinary cards**, so they take part in the composer's
+  recipient suggestions and the contact search the way every readable book's
+  do, under ADR 0004's rules for group cards.
+- **The phone offers them as speed dial**, like any other contact.
 
 ### On the phone
 
@@ -123,6 +156,14 @@ the client is held to.
   telephony state beyond the identity's credentials.
 - **Video, recording and conferencing.** Audio calls only; anything the SIP
   server does beyond that is the operator's.
+- **A second contacts store.** The directory lives in Stalwart as a book;
+  Gilbert keeps nothing of its own.
+- **The directory copied per member, or writable by one.** A per-account copy
+  that could drift, or a write path for a member, is not this decision.
+- **The directory per group.** A group's own books stay the group's; the
+  directory is the installation's, owned by the Master and read by everyone.
+- **An org chart.** The directory is a book of contacts, with the fields a card
+  has, and nothing about reporting lines.
 
 ## Consequences
 
@@ -141,6 +182,16 @@ the client is held to.
 - The credentials being account data means a change reaches every device, and
   enforcement can lock them — which is the point of setting them in the
   identity door rather than in a per-device form.
+- One edit of the directory changes what every reader sees: there is nothing to
+  republish and no copy to keep in step, and a reader added later sees it
+  without any patch because the share is universal rather than one written per
+  member. The exact Stalwart shape of a share that names every account at once
+  is to be confirmed against a live server; what the decision requires is that
+  it is one rule.
+- Reading the directory costs the client nothing new: it arrives with the
+  shared books `loadShared` already loads, and `All contacts` already merges
+  them. A deployment with no usable agent has no directory administration, and
+  the administration says so rather than refusing with a permission error.
 - **The documents state the feature, and the public ones first.** The phone is
   a feature of the product and not a capability left to the code: when it is
   built, `FEATURES.md` gains its entry and `README.md` names the phone among
@@ -153,7 +204,11 @@ the client is held to.
 
 - `web/src/views/AppShell.tsx` — the top-bar phone entry
 - SIP.js — <https://github.com/onsip/SIP.js>
+- ADR 0001 — the administration door and impersonation
+- ADR 0004 — a contact group is not a recipient
 - ADR 0007 — the identity-administration door the credentials are written
   through
 - ADR 0016 — what reaches a closed client, and why the browser's own push
   cannot answer a call
+- ADR 0018 — a contact is moved between accounts by an administrator
+- ADR 0021 — a group's folders are subscribed for every member

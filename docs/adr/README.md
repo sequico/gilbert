@@ -219,27 +219,22 @@ is, not what a user sees.
   account the action is aimed at, because a group's copy of a conversation and
   the reader's own are two threads. The dated entries keep their literal
   meaning.
-- **0023 — SIP telephony in the browser.** The softphone is SIP.js over SIP over
-  WebSocket with WebRTC media, in gilbertmailer, speaking to the deployment's
-  own SIP server; the credentials are an identity's, set by an administrator
-  through the identity door and enforceable, account data and never device-local.
-  The client registers with its own contact and a short life, deregisters
-  explicitly when the page actually goes — never when it is merely backgrounded,
-  where it stays registered and is rung — and lets the server's registration
-  state decide what an absent client means: a mailbox, or a fork to the other
-  clients registered under the same credentials. A live call collapses into the
-  top bar on both desktop and phone; the dialer's own list is read-only —
-  search and dial, never an edit — and reads Contacts separated by global, each
-  group, personal and all, and a call starts either from that list or from
-  Contacts, where every write happens. The feature is stated in the public
-  documents when it is built — `FEATURES.md` and `README.md` — and not left to
-  the code. A browser that is closed cannot ring or be rung: that is the
-  platform's limit, and the deregistration is the product's answer to it rather
-  than a workaround.
-- **0024 — A global contact directory.** One address book owned by the Master,
-  shared read-only with every account and shown inside Contacts in `All
-  contacts`, beside the reader's own book and the group books their membership
-  subscribes. Only an administrator writes it, through the same impersonation
-  door every privileged write uses, and a member's client withholds Edit and
-  Delete; a reader added later sees it with no per-member patch. The phone's
-  speed dial (ADR 0023) reads it like any book.
+- **0023 — SIP telephony and the shared directory.** The softphone is SIP.js
+  over SIP over WebSocket with WebRTC media, in gilbertmailer, speaking to the
+  deployment's own SIP server; the credentials are an identity's, set by an
+  administrator through the identity door and enforceable, account data and
+  never device-local. The client registers with its own contact and a short
+  life, deregisters explicitly when the page actually goes — never when it is
+  merely backgrounded, where it stays registered and is rung — and lets the
+  server's registration state decide what an absent client means: a mailbox, or
+  a fork to the other clients registered under the same credentials. A live call
+  collapses into the top bar on both desktop and phone. The dialer's list is
+  read-only — search and dial, never an edit — and reads Contacts separated by
+  the shared directory, each group, personal and all, and a call starts either
+  from that list or from Contacts, where every write happens. The shared
+  directory is one address book owned by the Master, shared read-only with every
+  account and edited only by an administrator from inside Contacts, with no
+  per-member copy. The feature is stated in the public documents when it is
+  built — `FEATURES.md` and `README.md` — and not left to the code; a browser
+  that is closed cannot ring or be rung, which is the platform's limit and what
+  the deregistration answers.
