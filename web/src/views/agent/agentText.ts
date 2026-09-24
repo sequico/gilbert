@@ -243,21 +243,31 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
  * A cadence in words.
  *
  * The intervals are `AGENT_SCHEDULE_PRESETS`'s, checked below, so the editor
- * and this sentence cannot offer different cadences; the words differ on
- * purpose (a select label is title case, a sentence is not). A value the select
- * cannot produce — a document written by hand, or by a build that had other
- * presets — is still said in minutes rather than dropped out of the sentence.
+ * and this sentence cannot offer different cadences. One table serves both
+ * surfaces: a sentence reads it as it is, a select label title-cases it. A
+ * value the select cannot produce — a document written by hand, or by a build
+ * that had other presets — is said in minutes rather than dropped.
  */
-const SCHEDULE_LABELS: Record<number, string> = {
+const SCHEDULE_WORDS: Record<AgentScheduleMinutes, string> = {
   60: "every hour",
   1440: "every day",
   10080: "every week",
-} satisfies Record<AgentScheduleMinutes, string>;
+};
+
+/**
+ * A cadence in words, or null for one this client has no words for. `titleCase`
+ * is for a select label, whose options are capitalised.
+ */
+export function scheduleWords(minutes: number, titleCase = false): string | null {
+  const words = SCHEDULE_WORDS[minutes as AgentScheduleMinutes];
+  if (!words) return null;
+  return titleCase ? `${words[0]!.toUpperCase()}${words.slice(1)}` : words;
+}
 
 export function scheduleText(rule: Pick<AgentRule, "trigger">): string {
   const minutes = scheduleMinutesOf(rule);
-  const label = SCHEDULE_LABELS[minutes];
-  return label ? t(label) : t("every {minutes} minutes", { minutes });
+  const words = scheduleWords(minutes);
+  return words ? t(words) : t("every {minutes} minutes", { minutes });
 }
 
 /**
