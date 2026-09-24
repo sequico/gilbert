@@ -212,12 +212,16 @@ prune_old_images() {
   local in_use stale
   in_use="$(docker inspect "$NAME" --format '{{.Config.Image}}' 2>/dev/null || true)"
   # Newest first, tags only, skipping the moving ":current" pointer.
+  # No stale image is the empty answer, not a failure: a `grep -v` that filters
+  # every line exits 1, and under `set -o pipefail` that is the assignment's
+  # status, which `set -e` would take as the deploy failing after it succeeded.
+  # The `|| true` is that status, not the value: `stale` still holds the list.
   stale="$(docker images "$IMAGE_REPO" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
     | grep -v ":current" \
     | sort -k2 -r \
     | cut -f1 \
     | grep -vxF "$in_use" \
-    | tail -n +"$((KEEP_VERSIONS + 1))")"
+    | tail -n +"$((KEEP_VERSIONS + 1))")" || true
   [ -n "$stale" ] || return 0
   echo "==> removing $(printf '%s\n' "$stale" | wc -l) old image(s), keeping the newest $KEEP_VERSIONS"
   printf '%s\n' "$stale" | xargs -r docker rmi >/dev/null 2>&1 || true

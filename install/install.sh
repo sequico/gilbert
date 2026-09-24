@@ -175,6 +175,11 @@ if [ "$BRIDGE_OK" = "1" ]; then
       apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 || true
     done
   fi
+  # A healthy bridge is the empty answer, not a failure: `grep` exits 1 when
+  # nothing matches, `pipefail` makes that the pipeline's status, and `set -e`
+  # would kill the installer right here — so the script survived only while the
+  # bridge was broken. The `|| true` is that status, not the value: `missing`
+  # still holds what was found.
   missing="$(
     export LD_LIBRARY_PATH="$PREFIX/lib/janus"
     {
@@ -183,7 +188,7 @@ if [ "$BRIDGE_OK" = "1" ]; then
         [ -e "$so" ] && ldd "$so"
       done
     } 2>/dev/null | grep 'not found' | awk '{print $1}' | sort -u | tr '\n' ' '
-  )"
+  )" || true
   if [ -n "$missing" ]; then
     BRIDGE_OK=0
     BRIDGE_REASON="the bridge needs libraries this host does not have: $missing"
