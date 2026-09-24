@@ -37,6 +37,8 @@ interface PhoneStore {
   ready: boolean;
   /** The ringing call, before it is answered. */
   incoming: string | null;
+  /** The SIP user the line registers as, shown as the panel's title. */
+  sipUser: string | null;
   /** The call, once it is connected. */
   call: { remote: string } | null;
   /** What the call surface plays: the peer's audio. */
@@ -95,6 +97,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
   state: "off",
   ready: false,
   incoming: null,
+  sipUser: null,
   call: null,
   stream: null,
   muted: false,
@@ -160,6 +163,7 @@ export const usePhone = create<PhoneStore>((set, get) => ({
       state: "off",
       ready: false,
       incoming: null,
+      sipUser: null,
       call: null,
       stream: null,
       muted: false,
@@ -256,6 +260,8 @@ async function begin(set: SetState, gen: number): Promise<void> {
     return;
   }
   clearCredentialRetry();
+  // The panel's title names the SIP account, not the login.
+  set({ sipUser: credential.username });
   // A re-read that finds the same account changes nothing: the line keeps
   // running, and a live call is never dropped for a no-op.
   if (phone && runningCredential && sameCredential(credential, runningCredential)) return;

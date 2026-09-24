@@ -1,6 +1,6 @@
 import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
-import { t } from "@/lib/i18n";
 import { withBase } from "@/lib/basePath";
+import { t } from "@/lib/i18n";
 import { apiFetch } from "./client";
 import type { Id, StateChange } from "./types";
 

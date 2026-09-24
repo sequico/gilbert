@@ -2927,68 +2927,77 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialer-call:active:not(:disabled) { transform: scale(.95); }
 .dialer-call:disabled { opacity: .4; box-shadow: none; cursor: default; }
 
-.dialer-contact {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
-  text-align: start; border-radius: var(--radius-sm); color: var(--fg);
-}
-.dialer-contact:hover { background: var(--bg-hover); }
-.dialer-contact .hint { font-size: .82em; }
-
 /*
  * The phone panel's three panes (ADR 0023): the contacts on the left, the
- * dialer in the centre, the account's call log on the right. The dialer is
- * fixed — it never scrolls — and each list scrolls in its own column.
+ * dialer in the centre, the account's call history on the right. Each pane is
+ * divided from the next by a rule, and the dialer never scrolls; each list
+ * scrolls in its own column. Everything here is the app's own vocabulary —
+ * `.nav-section` headers, `.tab` tabs, `.input`, the accent and border tokens —
+ * so the phone reads as another surface of the same product.
  */
-.phone-grid { display: flex; gap: 10px; align-items: stretch; }
-.phone-contacts-panel { flex: 0 0 250px; min-width: 0; display: flex; flex-direction: column; }
-.phone-center { flex: 0 0 250px; min-width: 0; position: relative; display: flex; flex-direction: column; }
-.phone-log-panel { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); padding-left: 8px; }
-.phone-col-title, .phone-center-title {
-  padding: 4px 0 8px; text-align: center; font-size: .85rem; font-weight: 650;
-  color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.phone-grid { display: flex; align-items: stretch; min-height: 460px; }
+.phone-pane { display: flex; flex-direction: column; min-width: 0; padding: 8px 12px; }
+.phone-pane + .phone-pane { border-left: 1px solid var(--border); }
+.phone-contacts-panel { flex: 0 0 262px; }
+.phone-center { flex: 0 0 248px; position: relative; }
+.phone-log-panel { flex: 1 1 auto; }
+
+/* The SIP account the line registers as, in place of a window's title bar. */
+.phone-title {
+  padding: 2px 0 10px; margin-bottom: 8px; text-align: center; font-weight: 650;
+  color: var(--fg); border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.phone-status { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-.phone-status-row { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--fg-muted); }
+
+.phone-status {
+  display: flex; flex-direction: column; gap: 5px;
+  padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.phone-status-row { display: flex; align-items: center; gap: 8px; font-size: .85em; color: var(--fg-muted); }
 .phone-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
 .phone-dot.ok { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
 .phone-dot.bad { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
-.phone-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
-.phone-tab {
-  flex: 1 1 0; min-width: 0; padding: 5px 4px; text-align: center;
-  font-size: .74rem; font-weight: 650; color: var(--fg-muted);
-  background: transparent; border: 1px solid var(--border); border-radius: 999px;
-  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+.phone-tabs { display: flex; margin: 6px 0 6px; }
+.phone-tabs .tab { flex: 1 1 0; min-width: 0; padding: 6px 4px; text-align: center; font-size: .85em; }
+
+/* A group, a tab of its own: membership is the subscription, so a row here
+   selects its calendars' contacts the way the fixed tabs select a kind. */
+.phone-group {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px;
+  text-align: start; border-radius: var(--radius-sm); color: var(--fg-muted); cursor: pointer;
 }
-.phone-tab:hover { background: var(--bg-hover); color: var(--fg); }
-.phone-tab.active { background: var(--accent-soft); color: var(--accent-soft-fg); border-color: transparent; }
-.phone-tab-row {
-  display: block; width: 100%; padding: 5px 8px; text-align: start;
-  font-size: .78rem; font-weight: 600; color: var(--fg-muted);
-  border-radius: var(--radius-sm); cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.phone-tab-row:hover { background: var(--bg-hover); color: var(--fg); }
-.phone-tab-row.active { background: var(--accent-soft); color: var(--accent-soft-fg); }
-.phone-search {
-  display: flex; align-items: center; gap: 4px; margin: 8px 0 4px; padding: 0 6px;
-  border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev);
-}
-.phone-search-input {
-  flex: 1; min-width: 0; padding: 5px 2px; border: 0; background: transparent;
-  color: var(--fg); font: inherit; font-size: .82rem; outline: none;
-}
+.phone-group:hover { background: var(--bg-hover); color: var(--fg); }
+.phone-group.active { background: var(--accent-soft); color: var(--accent-soft-fg); font-weight: 600; }
+
+.phone-search { position: relative; display: flex; align-items: center; margin: 8px 0 6px; }
+.phone-search .input { padding-right: 30px; }
 .phone-search-clear {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; border-radius: 50%; color: var(--fg-muted);
+  position: absolute; right: 4px; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; color: var(--fg-muted);
 }
 .phone-search-clear:hover { background: var(--bg-hover); color: var(--fg); }
-.phone-contact-list { flex: 1 1 auto; min-height: 0; max-height: 420px; overflow-y: auto; }
-.phone-log-list { flex: 1 1 auto; min-height: 0; max-height: 440px; overflow-y: auto; }
-.phone-log-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: var(--radius-sm); }
+
+.phone-contact-list, .phone-log-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.phone-contact { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; border-radius: var(--radius-sm); }
+.phone-contact:hover { background: var(--bg-hover); }
+.phone-contact-name { font-weight: 550; }
+/* One line per number, its type first so "mobile" and "work" are told apart. */
+.phone-contact-number {
+  display: flex; align-items: baseline; gap: 6px; width: 100%;
+  text-align: start; padding: 1px 0; color: var(--link); cursor: pointer;
+}
+.phone-contact-number:hover { text-decoration: underline; }
+.phone-contact-number .hint { flex: 0 0 auto; text-transform: capitalize; }
+
+.phone-log-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 4px; border-radius: var(--radius-sm); }
 .phone-log-row:hover { background: var(--bg-hover); }
-.phone-log-icon { flex: 0 0 auto; color: var(--fg-muted); }
+.phone-log-icon { flex: 0 0 auto; margin-top: 2px; color: var(--fg-muted); }
 .phone-log-row.bad .phone-log-icon { color: var(--danger); }
-.phone-log-secs { flex: 0 0 auto; font-size: .78rem; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.phone-log-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.phone-log-time { font-size: .78em; white-space: nowrap; }
+.phone-log-secs { font-size: .82em; font-variant-numeric: tabular-nums; }
+.phone-log-label { font-size: .82em; letter-spacing: .05em; }
 
 .call-panel { display: flex; flex-direction: column; }
 .call-who { margin: 4px 0 12px; text-align: center; font-size: 1.05rem; font-weight: 650; }

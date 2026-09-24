@@ -1,22 +1,22 @@
-import { Search, X } from "lucide-react";
+import { Users, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { contactDisplayName } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { type DialerSource, dialerSources, dialTarget } from "@/lib/phone/dialer";
+import { contactNumbers, type DialerSource, dialTarget } from "@/lib/phone/dialer";
 import { useContacts } from "@/store/contacts";
-import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
 import { Avatar } from "@/ui/misc";
+import { usePhoneSources } from "./usePhoneSources";
 
 /**
- * The phone's contacts, the panel beside the dialer (ADR 0023).
+ * The phone's contacts, the pane beside the dialer (ADR 0023).
  *
  * Two status rows say what is true of the line — the browser's path to Gilbert,
- * and this account's registration — and the tabs choose which contacts the list
- * below offers: everything, the installation's directory, the reader's own, or
- * one of the groups they belong to. A search narrows what is shown, and the
- * list is the tab and the search together, live.
+ * and this account's registration — each with its cause on hover. The tabs
+ * choose which contacts the list offers: everything, the installation's
+ * directory, the reader's own, or one of the groups they belong to. A search
+ * narrows it, and each number a contact carries is offered with its type, so
+ * "mobile" and "work" are not the same button.
  */
 
 /** The fixed tabs, before the group rows: every kind a source can be. */
@@ -35,51 +35,23 @@ function inTab(source: DialerSource, tab: string): boolean {
 }
 
 export function PhoneContactsPanel() {
-  // Individual selections, not the whole store: the panel rebuilds its sources
-  // when the cards it reads change, and for nothing else.
-  const cards = useContacts((s) => s.cards);
-  const sharedBooks = useContacts((s) => s.sharedBooks);
-  const cardsIn = useContacts((s) => s.cardsIn);
   const filterCards = useContacts((s) => s.filterCards);
-  const ownAccountId = useContacts((s) => s.accountId) ?? "own";
-  const mailAccounts = useMail((s) => s.mailAccounts);
   const ready = usePhone((s) => s.ready);
   const line = usePhone((s) => s.state);
   const mediaReason = usePhone((s) => s.mediaReason);
   const sipReason = usePhone((s) => s.sipReason);
+  const { sources, groups } = usePhoneSources();
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
 
-  const groups = useMemo(
-    () =>
-      groupMailboxAccounts(mailAccounts).map((g) => ({
-        id: `group:${g.accountId}`,
-        accountId: g.accountId,
-        label: g.name,
-      })),
-    [mailAccounts],
-  );
-  const ownCards = useMemo(() => Object.values(cards), [cards]);
-  const sources: DialerSource[] = useMemo(
-    () =>
-      dialerSources({
-        ownCards,
-        sharedBooks,
-        cardsIn,
-        groups: groups.map((g) => ({ accountId: g.accountId, name: g.label })),
-        personalLabel: t("Personal"),
-        ownAccountId,
-      }),
-    [ownCards, sharedBooks, cardsIn, groups, ownAccountId],
-  );
-
   /*
-   * The list the panel shows: the selected tab, the search over it, and no card
+   * The list the pane shows: the selected tab, the search over it, and no card
    * twice — a card filed in two books is one row, keyed by its account and id.
    */
   const rows = useMemo(() => {
     const seen = new Set<string>();
-    const out: Array<{ key: string; card: (typeof ownCards)[number] }> = [];
+    const out: Array<{ key: string; card: (typeof sources)[number]["cards"][number] }> =
+      [];
     for (const source of sources.filter((s) => inTab(s, tab))) {
       const picked = query.trim() ? filterCards(source.cards, query) : source.cards;
       for (const card of picked) {
@@ -93,7 +65,7 @@ export function PhoneContactsPanel() {
   }, [sources, tab, query, filterCards]);
 
   return (
-    <div className="phone-contacts-panel">
+    <div className="phone-pane phone-contacts-panel">
       <div className="phone-status">
         <div
           className="phone-status-row"
@@ -117,19 +89,22 @@ export function PhoneContactsPanel() {
               : (sipReason ?? t("Not registered with the SIP provider."))
           }
         >
-          <span className={`phone-dot ${line === "registered" ? "ok" : "bad"}`} aria-hidden />
+          <span
+            className={`phone-dot ${line === "registered" ? "ok" : "bad"}`}
+            aria-hidden
+          />
           <span className="grow truncate">{t("SIP connection")}</span>
         </div>
       </div>
 
-      <div className="phone-tabs" role="tablist" aria-label={t("Contacts")}>
+      <div className="tabs phone-tabs" role="tablist" aria-label={t("Contacts")}>
         {FIXED_TABS.map((entry) => (
           <button
             key={entry.id}
             type="button"
             role="tab"
             aria-selected={tab === entry.id}
-            className={`phone-tab ${tab === entry.id ? "active" : ""}`}
+            className="tab"
             onClick={() => setTab(entry.id)}
           >
             {t(entry.label)}
@@ -142,17 +117,17 @@ export function PhoneContactsPanel() {
           type="button"
           role="tab"
           aria-selected={tab === group.id}
-          className={`phone-tab-row ${tab === group.id ? "active" : ""}`}
+          className={`phone-group ${tab === group.id ? "active" : ""}`}
           onClick={() => setTab(group.id)}
         >
-          {group.label}
+          <Users size={15} />
+          <span className="grow truncate">{group.label}</span>
         </button>
       ))}
 
       <div className="phone-search">
-        <Search size={14} className="faint" />
         <input
-          className="phone-search-input"
+          className="input"
           placeholder={t("Search contacts")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -171,27 +146,33 @@ export function PhoneContactsPanel() {
       </div>
 
       <div className="phone-contact-list">
-        {rows.map(({ key, card }) => {
-          const target = dialTarget(card);
-          return (
-            <button
-              key={key}
-              type="button"
-              className="dialer-contact"
-              onClick={() => target && void usePhone.getState().dial(target)}
-            >
-              <Avatar
-                who={{
-                  name: contactDisplayName(card),
-                  email: Object.values(card.emails ?? {})[0]?.address,
-                }}
-                size="sm"
-              />
-              <span className="grow truncate">{contactDisplayName(card)}</span>
-              {target && <span className="hint truncate">{target}</span>}
-            </button>
-          );
-        })}
+        {rows.map(({ key, card }) => (
+          <div key={key} className="phone-contact">
+            <Avatar
+              who={{
+                name: contactDisplayName(card),
+                email: Object.values(card.emails ?? {})[0]?.address,
+              }}
+              size="sm"
+            />
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="phone-contact-name truncate">
+                {contactDisplayName(card)}
+              </div>
+              {contactNumbers(card).map((number) => (
+                <button
+                  key={number.number}
+                  type="button"
+                  className="phone-contact-number"
+                  onClick={() => void usePhone.getState().dial(number.number)}
+                >
+                  {number.label && <span className="hint">{number.label}</span>}
+                  <span className="truncate">{number.number}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
         {!rows.length && (
           <p className="hint" style={{ padding: "4px 6px" }}>
             {t("No contacts with a number to call.")}

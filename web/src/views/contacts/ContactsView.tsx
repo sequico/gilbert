@@ -41,6 +41,7 @@ import {
   contactCompany,
   contactDisplayName,
   contactEmails,
+  contactFieldLabel,
   contactPhoto,
   formatAddressLines,
   memberCards,
@@ -1099,7 +1100,7 @@ function ContactDetail({
   const members =
     c.kind === "group" ? memberCards(contacts.cardsIn(groupAccount), c.members) : [];
   const ctxLabel = (ctx?: Record<string, boolean>, label?: string) =>
-    label || Object.keys(ctx ?? {}).join(", ") || "";
+    contactFieldLabel(label, ctx);
 
   return (
     <div>

@@ -9,16 +9,30 @@
  */
 import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import type { ContactCard } from "@/jmap/types";
-import { contactDisplayName, isGlobalContactsBook } from "@/lib/contacts";
+import {
+  contactDisplayName,
+  contactFieldLabel,
+  isGlobalContactsBook,
+} from "@/lib/contacts";
 import type { SharedBook } from "@/store/contacts";
 
-/** Every number a card carries, the preferred one first. */
-export function contactPhoneNumbers(card: ContactCard): string[] {
+/** Every number a card carries, the preferred one first, each with its label. */
+export function contactNumbers(
+  card: ContactCard,
+): Array<{ number: string; label: string }> {
   return Object.values(card.phones ?? {})
     .filter((phone) => Boolean(phone.number?.trim()))
     .slice()
     .sort((a, b) => (a.pref ?? 1) - (b.pref ?? 1))
-    .map((phone) => phone.number.trim());
+    .map((phone) => ({
+      number: phone.number.trim(),
+      label: contactFieldLabel(phone.label, phone.contexts, phone.features),
+    }));
+}
+
+/** Every number a card carries, the preferred one first. */
+export function contactPhoneNumbers(card: ContactCard): string[] {
+  return contactNumbers(card).map((entry) => entry.number);
 }
 
 /** The number the phone dials for a contact, or null when it carries none. */
@@ -27,18 +41,22 @@ export function dialTarget(card: ContactCard): string | null {
 }
 
 /**
- * The name of the contact a call's remote matches, or null.
+ * The contact a call's remote matches, with the number's own label, or null.
  *
  * The one rule that turns a number back into a person, so the call log and any
  * other surface resolve a number the same way: match on digits, because the SIP
  * leg spells a number differently from the card that holds it.
  */
-export function contactNameFor(cards: ContactCard[], remote: string): string | null {
+export function contactMatchFor(
+  cards: ContactCard[],
+  remote: string,
+): { name: string; label: string } | null {
   const digits = remote.replace(/\D/g, "");
   if (!digits) return null;
   for (const card of cards)
-    for (const number of contactPhoneNumbers(card))
-      if (number.replace(/\D/g, "") === digits) return contactDisplayName(card);
+    for (const entry of contactNumbers(card))
+      if (entry.number.replace(/\D/g, "") === digits)
+        return { name: contactDisplayName(card), label: entry.label };
   return null;
 }
 

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { usePhone } from "@/store/phone";
-import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
 import { useIsMobile, useIsTouch } from "@/ui/misc";
@@ -46,7 +45,7 @@ const KEY_LETTERS: Record<string, string> = {
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
   const touch = useIsTouch();
-  const username = useSession((s) => s.session?.username ?? "");
+  const sipUser = usePhone((s) => s.sipUser);
   const ready = usePhone((s) => s.ready);
   const state = usePhone((s) => s.state);
   const incoming = usePhone((s) => s.incoming);
@@ -190,18 +189,18 @@ export function PhoneLauncher() {
         align="end"
         role="dialog"
         ariaLabel={call ? t("Call") : t("Phone")}
-        width={780}
+        width={860}
         style={{
           padding: 10,
           maxHeight: "calc(100vh - 16px)",
-          maxWidth: "min(780px, calc(100vw - 16px))",
+          maxWidth: "min(860px, calc(100vw - 16px))",
           overflow: "hidden",
         }}
       >
         <div className="phone-grid">
           <PhoneContactsPanel />
-          <div className="phone-center">
-            <div className="phone-center-title">{username}</div>
+          <div className="phone-pane phone-center">
+            <div className="phone-title">{sipUser}</div>
             {call ? (
               <CallControls remote={call.remote} muted={muted} />
             ) : (
@@ -286,6 +285,24 @@ function Dialer({ onDial }: { onDial: () => void }) {
 
   return (
     <div className="dialer">
+      <div className="dialpad">
+        {KEYS.map((key) => (
+          <button
+            type="button"
+            key={key}
+            className="dialpad-key"
+            onClick={() => setNumber((v) => v + key)}
+          >
+            <span className="dialpad-digit">{key}</span>
+            {KEY_LETTERS[key] && (
+              <span className="dialpad-letters">{KEY_LETTERS[key]}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* The field the reader can type into, under the keys: the keypad is the
+          phone's own entry, and this is for a number copied from somewhere. */}
       <div className="dialer-display">
         <input
           className="dialer-number"
@@ -308,22 +325,6 @@ function Dialer({ onDial }: { onDial: () => void }) {
         >
           <Delete size={18} />
         </button>
-      </div>
-
-      <div className="dialpad">
-        {KEYS.map((key) => (
-          <button
-            type="button"
-            key={key}
-            className="dialpad-key"
-            onClick={() => setNumber((v) => v + key)}
-          >
-            <span className="dialpad-digit">{key}</span>
-            {KEY_LETTERS[key] && (
-              <span className="dialpad-letters">{KEY_LETTERS[key]}</span>
-            )}
-          </button>
-        ))}
       </div>
 
       <button

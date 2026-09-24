@@ -2,17 +2,17 @@ import { PhoneIncoming, PhoneMissed, PhoneOutgoing } from "lucide-react";
 import { useMemo } from "react";
 import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
-import { contactNameFor } from "@/lib/phone/dialer";
-import { useContacts } from "@/store/contacts";
+import { allDialerCards, contactMatchFor } from "@/lib/phone/dialer";
 import { usePhone } from "@/store/phone";
+import { usePhoneSources } from "./usePhoneSources";
 
 /**
- * The account's calls, the panel beside the dialer (ADR 0023).
+ * The account's calls, the pane beside the dialer (ADR 0023).
  *
  * The list is the account's own `calls.json`, newest first, so it follows the
- * person between devices. Each row is one call: which way it went, the number
- * or the contact it matches, when, and — for a call that connected — how many
- * seconds it lasted.
+ * person between devices. Each row is one call: which way it went, the contact
+ * it matches with the number underneath, when, and — for a call that connected
+ * — how many seconds it lasted.
  */
 
 /** The word a call shows where a connected one shows its seconds. */
@@ -24,15 +24,23 @@ const OUTCOME_LABELS: Record<string, string> = {
 
 export function CallLogPanel() {
   const callLog = usePhone((s) => s.callLog);
-  const cards = useContacts((s) => s.cards);
-  const allCards = useMemo(() => Object.values(cards), [cards]);
+  // The same sources the contacts pane lists, so a number dialled from there
+  // resolves back to the same person here.
+  const { sources } = usePhoneSources();
+  const allCards = useMemo(() => allDialerCards(sources), [sources]);
 
   return (
-    <div className="phone-log-panel">
-      <div className="phone-col-title">{t("Recent calls")}</div>
+    <div className="phone-pane phone-log-panel">
+      <div className="nav-section" style={{ padding: "0 0 6px" }}>
+        <span>{t("Recent calls")}</span>
+      </div>
       <div className="phone-log-list">
         {callLog.map((entry, i) => {
-          const name = contactNameFor(allCards, entry.remote);
+          const match = contactMatchFor(allCards, entry.remote);
+          // The name when there is one, the number otherwise; the number and
+          // its type (mobile, work) under it.
+          const title = match?.name ?? entry.remote;
+          const label = match?.label ? match.label.toUpperCase() : "";
           const bad = entry.outcome !== "answered";
           const Icon =
             entry.direction === "out" ? PhoneOutgoing : bad ? PhoneMissed : PhoneIncoming;
@@ -40,14 +48,24 @@ export function CallLogPanel() {
             <div key={`${entry.at}:${i}`} className={`phone-log-row ${bad ? "bad" : ""}`}>
               <Icon size={15} className="phone-log-icon" />
               <div className="grow" style={{ minWidth: 0 }}>
-                <div className="truncate">{name ?? entry.remote}</div>
-                <div className="hint truncate">{formatDateTime(new Date(entry.at))}</div>
+                <div className="truncate">{title}</div>
+                {match && (
+                  <div className="hint truncate">
+                    {entry.remote}
+                    {label && <span className="phone-log-label"> {label}</span>}
+                  </div>
+                )}
               </div>
-              <span className="phone-log-secs">
-                {entry.outcome === "answered"
-                  ? t("{n}s", { n: entry.seconds })
-                  : t(OUTCOME_LABELS[entry.outcome] ?? "Failed")}
-              </span>
+              <div className="phone-log-right">
+                <span className="phone-log-time hint">
+                  {formatDateTime(new Date(entry.at))}
+                </span>
+                <span className="phone-log-secs">
+                  {entry.outcome === "answered"
+                    ? t("{n}s", { n: entry.seconds })
+                    : t(OUTCOME_LABELS[entry.outcome] ?? "Failed")}
+                </span>
+              </div>
             </div>
           );
         })}

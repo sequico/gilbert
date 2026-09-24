@@ -499,7 +499,9 @@ export function CalendarSidebar() {
                 <MenuItem
                   icon={<Pencil size={16} />}
                   label={t("Edit")}
-                  disabled={(shared && !menuCal.myRights.mayWriteAll) || (groupCal && !isAdmin)}
+                  disabled={
+                    (shared && !menuCal.myRights.mayWriteAll) || (groupCal && !isAdmin)
+                  }
                   onClick={() => {
                     setEditCal(menuCal);
                     setEditAccountId(menuAccountId);

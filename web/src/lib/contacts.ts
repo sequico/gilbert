@@ -20,9 +20,22 @@ import { foldLine } from "./contentLines";
  * read-only hid it from exactly the administrator who maintains it.
  */
 export function isGlobalContactsBook(
-  book: Pick<AddressBook, "name">,
+  book: Pick<AddressBook, "name" | "myRights">,
 ): boolean {
   return book.name === GLOBAL_CONTACTS_BOOK_NAME;
+}
+
+/**
+ * The human label of a card field: its own label, or the contexts/features that
+ * type it ("mobile", "work"). One rule, so a number reads the same in Contacts
+ * and in the phone's list.
+ */
+export function contactFieldLabel(
+  label?: string,
+  contexts?: Record<string, boolean>,
+  features?: Record<string, boolean>,
+): string {
+  return label || Object.keys({ ...contexts, ...features }).join(", ") || "";
 }
 
 /** Best display name for a card. */
