@@ -219,7 +219,7 @@ is, not what a user sees.
   account the action is aimed at, because a group's copy of a conversation and
   the reader's own are two threads. The dated entries keep their literal
   meaning.
-- **0023 — SIP telephony and the shared directory.** The softphone is SIP.js
+- **0023 — SIP telephony and Global contacts.** The softphone is SIP.js
   over SIP over WebSocket with WebRTC media, in gilbertmailer, speaking to the
   deployment's own SIP server; the credentials are an identity's, set per
   identity in the identity-enforcement surface and enforceable, account data and
@@ -239,10 +239,11 @@ is, not what a user sees.
   by hand; and the microphone is asked as early as the surface can. The
   installation's endpoints, STUN/TURN and switch are one SIP Phone
   administration page. The dialer's list is read-only — search and dial, never
-  an edit — and reads Contacts separated by the shared directory, each group,
+  an edit — and reads Contacts separated by Global contacts, each group,
   personal and all, and a call starts either from it or from Contacts, where
-  every write happens. The shared directory is one address book owned by the
-  Master, shared read-only with every account and edited only by an
+  every write happens. Global contacts is one address book owned by the Master,
+  shared read-only with every account, shown in a section of its own in the
+  Contacts sidebar as well as merged in `All contacts`, and edited only by an
   administrator from inside Contacts, with no per-member copy. A reload cannot
   carry a call, so it asks first. The feature is stated in the public documents
   when it is built — `FEATURES.md` and `README.md` — and not left to the code; a

@@ -1,10 +1,10 @@
-# ADR 0023 — SIP telephony and the shared directory
+# ADR 0023 — SIP telephony and Global contacts
 
 Status: Proposed
 
 Implementation: Partly built. The top-bar phone entry exists and is inert
 (`web/src/views/AppShell.tsx`); nothing else is built — no SIP user agent, no
-call surface, no shared directory, and no credentials in the
+call surface, no Global contacts, and no credentials in the
 identity-enforcement door.
 
 ## Context
@@ -38,9 +38,9 @@ Four facts decide the shape.
 - **Contacts are books, and none of them is everybody's.** The reader's own, a
   group's — membership is the subscription (ADR 0021) — and a colleague's,
   added deliberately. `All contacts` merges the books the reader may read.
-  Re-built per group or per person, a directory of the installation's people
-  and places would drift, and the same address would be spelled three ways in
-  three books.
+  Re-built per group or per person, the installation's own directory —
+  **Global contacts** — would drift, and the same address would be spelled
+  three ways in three books.
 
 ## Decision
 
@@ -172,12 +172,12 @@ has silenced Gilbert is not rung audibly by it.
 ### Contacts the phone reads, and speed dial
 
 The phone's list — the dialer's mini surface — reads its contacts from
-Contacts, under the same separation the Contacts view draws: **the shared
-directory, each group's book (group A, group B, and so on), the reader's
-personal books, and all of them together**. A call starts from either place, a
-line in the dialer's list or the contact itself in Contacts, and the two send
-the same `Inviter`. It is a client-side action: the contact's address becomes
-the call's target.
+Contacts, under the same separation the Contacts view draws: **Global contacts,
+each group's book (group A, group B, and so on), the reader's personal books,
+and all of them together**. A call starts from either place, a line in the
+dialer's list or the contact itself in Contacts, and the two send the same
+`Inviter`. It is a client-side action: the contact's address becomes the call's
+target.
 
 **The dialer's list is read-only and searches and dials, nothing else.** No
 contact is created, edited or deleted from it — not by a member and not by an
@@ -186,26 +186,29 @@ reads, searches and calls; every write is somewhere else. **A number can also
 be composed by hand**, through a keypad in the call surface, so the phone is
 not limited to the contacts it can read.
 
-### The shared directory
+### Global contacts
 
-**The shared directory is one address book, owned by the Master, shared
-read-only with every account, and written only by an administrator, from inside
+**Global contacts is one address book, owned by the Master, shared read-only
+with every account, and written only by an administrator, from inside
 Contacts.**
 
 - **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
   held in the Master's account — an object the server holds, gilbertstalwart's
   area. No new object type, and no second store in Gilbert.
 - **Everyone reads it.** The share is universal: every account, including one
-  created later. A reader sees the directory in `All contacts` beside their own
-  book and the group books their membership subscribes, with no per-member
-  patch and nothing to add by hand.
-- **Only an administrator writes it, and from inside Contacts.** The directory
-  is edited where it is read: the Contacts surface draws the edit controls for
-  an administrator alone, and for everybody else the cards are read-only. The
-  write itself goes through the same door every privileged write uses —
-  impersonation as the Master, or the deployment's agent (ADR 0001, ADR 0007).
-  The share carries read only, so a member's own session cannot edit a card,
-  and the client shows those cards as it shows any book it may not write
+  created later. A reader sees it in `All contacts` beside their own book and
+  the group books their membership subscribes, with no per-member patch and
+  nothing to add by hand.
+- **It has a section of its own, named Global contacts**, in the Contacts
+  sidebar beside the reader's books and each group's, so it can be opened and
+  browsed alone; merged into `All contacts` it is the same book.
+- **Only an administrator writes it, and from inside Contacts.** Global
+  contacts is edited where it is read: the Contacts surface draws the edit
+  controls for an administrator alone, and for everybody else the cards are
+  read-only. The write itself goes through the same door every privileged write
+  uses — impersonation as the Master, or the deployment's agent (ADR 0001, ADR
+  0007). The share carries read only, so a member's own session cannot edit a
+  card, and the client shows those cards as it shows any book it may not write
   (`cardWritable`): Edit and Delete withheld.
 - **Its cards are ordinary cards**, so they take part in the composer's
   recipient suggestions and the contact search the way every readable book's
@@ -233,14 +236,14 @@ the client is held to.
   telephony state beyond the identity's credentials.
 - **Video, recording and conferencing.** Audio calls only; anything the SIP
   server does beyond that is the operator's.
-- **A second contacts store.** The directory lives in Stalwart as a book;
+- **A second contacts store.** Global contacts lives in Stalwart as a book;
   Gilbert keeps nothing of its own.
-- **The directory copied per member, or writable by one.** A per-account copy
+- **Global contacts copied per member, or writable by one.** A per-account copy
   that could drift, or a write path for a member, is not this decision.
-- **The directory per group.** A group's own books stay the group's; the
-  directory is the installation's, owned by the Master and read by everyone.
-- **An org chart.** The directory is a book of contacts, with the fields a card
-  has, and nothing about reporting lines.
+- **Global contacts per group.** A group's own books stay the group's; Global
+  contacts is the installation's, owned by the Master and read by everyone.
+- **An org chart.** Global contacts is a book of contacts, with the fields a
+  card has, and nothing about reporting lines.
 
 ## Consequences
 
@@ -262,16 +265,17 @@ the client is held to.
 - The credentials being account data means a change reaches every device, and
   enforcement can lock them — which is the point of setting them in the
   identity door rather than in a per-device form.
-- One edit of the directory changes what every reader sees: there is nothing to
-  republish and no copy to keep in step, and a reader added later sees it
+- One edit of Global contacts changes what every reader sees: there is nothing
+  to republish and no copy to keep in step, and a reader added later sees it
   without any patch because the share is universal rather than one written per
   member. The exact Stalwart shape of a share that names every account at once
   is to be confirmed against a live server; what the decision requires is that
   it is one rule.
-- Reading the directory costs the client nothing new: it arrives with the
+- Reading Global contacts costs the client nothing new: it arrives with the
   shared books `loadShared` already loads, and `All contacts` already merges
-  them. A deployment with no usable agent has no directory administration, and
-  the administration says so rather than refusing with a permission error.
+  them. A deployment with no usable agent has no Global contacts
+  administration, and the administration says so rather than refusing with a
+  permission error.
 - **The documents state the feature, and the public ones first.** The phone is
   a feature of the product and not a capability left to the code: when it is
   built, `FEATURES.md` gains its entry and `README.md` names the phone among
