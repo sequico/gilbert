@@ -221,23 +221,26 @@ is, not what a user sees.
   meaning.
 - **0023 — SIP telephony through a Janus bridge.** A browser cannot speak SIP,
   and a deployment's provider may not offer it over WebSocket, so the phone runs
-  on **Janus** with its SIP plugin — a process of the deployment's own. The
-  browser speaks the Janus API over a WebSocket that gilbertserver proxies on
-  its own origin and authenticates by session, with WebRTC media; it never holds
-  a SIP credential. gilbertserver registers each user's account **server-side**,
-  one registration per user held by the process: an incoming call is forked to
-  every connected desktop client, first answer wins and the rest are cancelled,
-  and with no client connected Gilbert does not answer — the provider's own
-  routing takes it. A second call is refused 486. Audio only, G.711 passed
-  through without transcoding, DTMF over RFC 2833, TLS to the provider, no
-  STUN/TURN. Each person's SIP server, username and password are account data,
-  set in **Identities and SIP Phone** in the identity-enforcement surface; there
-  is no installation-level phone configuration and no SIP Phone page, because
-  how Gilbert reaches Janus is a deployment fact. The surface is **desktop
-  only**: a page rings only while it is alive. The dialer is read-only, reads
-  Contacts separated by Global contacts, each group, personal and all, and a
-  number can be typed by hand. Not built; the tree still carries an earlier
-  client-side SIP-over-WebSocket phone, which this decision replaces.
+  on **Janus** with its SIP plugin — a process of the deployment's own — and the
+  browser is the SIP user agent it makes possible: it attaches to the plugin,
+  registers the account and negotiates the media, while Janus terminates the
+  WebRTC and relays SIP and RTP. Its signalling is the Janus API over a
+  WebSocket gilbertserver proxies on its own origin and certificate and
+  authenticates by session, and where Janus lives is a deployment fact. Exactly one
+  tab of one browser holds the line, seated by a **Web Lock** so every other tab
+  shows no phone and the next waiting tab takes the seat and registers when the
+  holder goes; the registration is the tab's, and the provider's own routing
+  takes a call while none holds it. Audio only, G.711 passed through without
+  transcoding, DTMF over RFC 2833 by the browser's own sender, TLS to the
+  provider, no STUN/TURN. A second call is refused 486 by the plugin. Each
+  person's SIP server, user name and password are account data, set in
+  **Identities and SIP Phone** in the identity-enforcement surface and kept in
+  the account's own `sip.json`; there is no installation-level phone
+  configuration and no SIP Phone page. The surface is **desktop only**: a page
+  rings only while it is alive. The dialer is read-only, reads Contacts separated
+  by Global contacts, each group, personal and all, and a number can be typed by
+  hand. Not built; the tree still carries an earlier client-side
+  SIP-over-WebSocket phone, which this decision replaces.
 
 - **0024 — Global contacts.** One address book in the Master's account, created
   by the installation rather than by hand, shared read-only with every account
