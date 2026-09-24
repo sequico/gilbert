@@ -105,8 +105,11 @@ single seat and the administration are in place. Global contacts is built.
 7. **The call history is the account's own**, in its app folder (`calls.json`):
    written by the tab that holds the seat as each call ends, newest first and
    bounded. Nothing of gilbertserver's keeps a call.
-8. The mock cannot prove a bridge; a real Janus and a provider are the owed
-   probe ADR 0023 names.
+8. The mock cannot prove a bridge, so `dev:mock` **stubs** the phone
+   (`VITE_PHONE_MOCK=1`, `@/lib/phone/mock`): media proven and the line
+   registered, and a dialled call that connects and ends on its own, so the
+   surface can be seen with no Janus. The real bridge and a provider are the
+   owed probe ADR 0023 names.
 
 Companion skills: Stalwart objects load `gilbert-stalwart`; group books load
 `gilbert-groups`; strings load `gilbert-i18n`. Installing and running the bridge

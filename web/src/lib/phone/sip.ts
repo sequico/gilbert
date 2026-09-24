@@ -15,6 +15,7 @@ import { t } from "@/lib/i18n";
 import type { CallLogEntry } from "./callLog";
 import { Janus, type JanusHooks, type Jsep } from "./janus";
 import { microphoneMessage, openMicrophone } from "./microphone";
+import { PHONE_MOCK } from "./mock";
 
 /** The line as the top-bar entry reads it. */
 export type LineState = "connecting" | "registered" | "unavailable";
@@ -224,6 +225,21 @@ export class Phone {
 
   /** Place a call to a contact's number or an address typed by hand. */
   async call(target: string): Promise<void> {
+    if (PHONE_MOCK) {
+      // No bridge to carry it: show the call, then let it end on its own so the
+      // surface and the history move the way they do for a real one.
+      this.callMeta = {
+        direction: "out",
+        remote: target,
+        at: Date.now(),
+        connectedAt: null,
+        outcome: "failed",
+      };
+      this.markConnected();
+      this.hooks.onCall({ remote: target }, null);
+      window.setTimeout(() => this.endCall(), 4000);
+      return;
+    }
     const janus = this.janus;
     if (!janus) throw new Error(t("The phone is not connected."));
     if (this.pc || this.ringing) throw new Error(t("The line is busy."));
@@ -296,6 +312,10 @@ export class Phone {
       await this.decline();
       return;
     }
+    if (PHONE_MOCK) {
+      this.endCall();
+      return;
+    }
     this.janus?.message({ request: "hangup" });
   }
 
@@ -318,6 +338,14 @@ export class Phone {
     this.connecting = true;
     try {
       this.hooks.onLine("connecting");
+      if (PHONE_MOCK) {
+        // No bridge in the mock: pretend the media path and the registration, so
+        // the surface can be seen and driven without a Janus.
+        this.mediaProven = true;
+        this.hooks.onProven();
+        this.hooks.onLine("registered");
+        return;
+      }
       // The media path is probed once: it is the browser's network that decides
       // it, and that does not change between a socket that dropped and its
       // replacement. Registration crosses Janus's leg to the provider and says

@@ -23,6 +23,7 @@ import {
   type MicrophoneState,
   microphoneState as readMicrophoneState,
 } from "@/lib/phone/microphone";
+import { PHONE_MOCK } from "@/lib/phone/mock";
 import { type LineState, Phone } from "@/lib/phone/sip";
 import { useMail } from "./mail";
 import { useSession } from "./session";
@@ -235,8 +236,11 @@ async function begin(set: SetState, gen: number): Promise<void> {
     Object.values(session.session?.accounts ?? {}).find((a) => a.isPersonal)?.name ??
     session.session?.username ??
     "";
-  const credential =
-    accountFor(accounts, identity?.email) ?? accountFor(accounts, primary);
+  // In the mock there is no bridge and no SIP account to read: a stub credential
+  // keeps the line up so the surface can be seen (see `@/lib/phone/mock`).
+  const credential = PHONE_MOCK
+    ? { server: "mock", username: "demo", password: "" }
+    : (accountFor(accounts, identity?.email) ?? accountFor(accounts, primary));
   if (!credential) {
     /*
      * The identity list may not have landed yet, or the account holds no
