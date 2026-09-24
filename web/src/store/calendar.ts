@@ -25,7 +25,7 @@ import {
   birthdaysInRange,
   isBirthdayEvent,
 } from "@/lib/birthdays";
-import { dueReminders } from "@/lib/calendarReminders";
+import { dueReminders, dueSubscriptionReminders } from "@/lib/calendarReminders";
 import {
   browserTimeZone,
   DAY_MS,
@@ -74,6 +74,7 @@ function startReminderTimer(get: () => CalendarState): void {
       get().calendars,
       from,
       now,
+      useSession.getState().session?.username ?? "",
     )) {
       const title = event.title || t("(untitled)");
       showNotification(title, {
@@ -85,7 +86,27 @@ function startReminderTimer(get: () => CalendarState): void {
       });
       toast.show(t("Reminder: {title}", { title }));
     }
+    for (const { key, event } of dueSubscriptionReminders(
+      get().subscriptionEvents,
+      from,
+      now,
+    )) {
+      showNotification(event.summary, {
+        body: t("Calendar reminder"),
+        tag: `gilbert-reminder-${key}`,
+        evenWhenFocused: true,
+      });
+      toast.show(t("Reminder: {title}", { title: event.summary }));
+    }
   }, 30_000);
+}
+
+/** Stop the reminder timer: a sign-out has no reader to remind. */
+function stopReminderTimer(): void {
+  if (reminderTimer !== null) {
+    window.clearInterval(reminderTimer);
+    reminderTimer = null;
+  }
 }
 
 export interface EventInstance {
@@ -2147,6 +2168,7 @@ function sharedAccountsSignature(
 useSession.subscribe((s, prev) => {
   if (s.status !== "authenticated") {
     lastSharedAccounts = "";
+    stopReminderTimer();
     // A sign-out must not leave the previous reader's shared content behind:
     // the calendar store outlives the session, and on a shared machine the
     // next reader would briefly see it.

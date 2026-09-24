@@ -1,5 +1,6 @@
 import type { CalendarEvent, JSCalendarAlert } from "@/jmap/types";
 import { parseDuration, zonedToDate } from "./dates";
+import type { IcsEvent } from "./ics";
 
 /**
  * When a calendar event's own reminder falls due (ADR 0016).
@@ -17,6 +18,15 @@ export interface AlertDefaults {
   defaultAlertsWithoutTime?: Record<string, JSCalendarAlert> | null;
 }
 
+/** Whether the reader themselves declined this event, matched by address. */
+function declinedBy(event: CalendarEvent, ownAddress: string): boolean {
+  const address = ownAddress.toLowerCase();
+  return Object.values(event.participants ?? {}).some((p) => {
+    const addr = (p.calendarAddress ?? "").replace(/^mailto:/i, "").toLowerCase();
+    return addr === address && p.participationStatus === "declined";
+  });
+}
+
 /**
  * The instants an event's reminders fall due, in ms, oldest first, or `[]`.
  *
@@ -25,9 +35,16 @@ export interface AlertDefaults {
  * the event is. A trigger that is not an offset from the start (an absolute
  * one) is left alone rather than guessed at.
  */
-export function alertInstants(event: CalendarEvent, calendar?: AlertDefaults): number[] {
+export function alertInstants(
+  event: CalendarEvent,
+  calendar?: AlertDefaults,
+  ownAddress = "",
+): number[] {
   // A cancelled event is not going to happen, so its reminder says nothing.
   if (event.status === "cancelled") return [];
+  // Nor one the reader themselves declined: it is not on their calendar to
+  // attend, whatever the event says.
+  if (ownAddress && declinedBy(event, ownAddress)) return [];
   const start = zonedToDate(event.start, event.timeZone).getTime();
   if (!Number.isFinite(start)) return [];
   const alerts =
@@ -61,14 +78,41 @@ export function dueReminders(
   calendars: Record<string, AlertDefaults | undefined>,
   from: number,
   to: number,
+  ownAddress = "",
 ): Array<{ key: string; event: CalendarEvent; at: number }> {
   const out: Array<{ key: string; event: CalendarEvent; at: number }> = [];
   for (const event of events) {
     const calendarId = Object.keys(event.calendarIds ?? {})[0];
     const calendar = calendarId ? calendars[calendarId] : undefined;
-    for (const at of alertInstants(event, calendar)) {
+    for (const at of alertInstants(event, calendar, ownAddress)) {
       if (at > from && at <= to) out.push({ key: `${event.id}@${at}`, event, at });
     }
   }
+  return out;
+}
+
+/** The instants a subscribed calendar's event has its reminders due, in ms. */
+export function icsAlertInstants(event: IcsEvent): number[] {
+  return event.alarms
+    .map(
+      (a) =>
+        (a.relativeTo === "end" ? event.end : event.start).getTime() + a.offset * 1000,
+    )
+    .filter(Number.isFinite)
+    .sort((x, y) => x - y);
+}
+
+/** What subscribed calendars have due in `(from, to]`, one entry per alarm. */
+export function dueSubscriptionReminders(
+  subscriptions: Record<string, IcsEvent[]>,
+  from: number,
+  to: number,
+): Array<{ key: string; event: IcsEvent; at: number }> {
+  const out: Array<{ key: string; event: IcsEvent; at: number }> = [];
+  for (const [subId, events] of Object.entries(subscriptions))
+    for (const event of events)
+      for (const at of icsAlertInstants(event))
+        if (at > from && at <= to)
+          out.push({ key: `${subId}:${event.uid}@${at}`, event, at });
   return out;
 }

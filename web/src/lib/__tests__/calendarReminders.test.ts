@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent, JSCalendarAlert } from "@/jmap/types";
-import { alertInstants, dueReminders } from "@/lib/calendarReminders";
+import {
+  alertInstants,
+  dueReminders,
+  dueSubscriptionReminders,
+  icsAlertInstants,
+} from "@/lib/calendarReminders";
+import { parseIcs } from "@/lib/ics";
 
 /**
  * When an event's own reminder falls due (ADR 0016).
@@ -96,5 +102,68 @@ describe("a calendar event's reminders", () => {
     );
     expect(due.map((d) => d.event.id)).toEqual(["today"]);
     expect(due[0]!.key).toBe(`today@${Date.UTC(2026, 0, 1, 9, 50)}`);
+  });
+
+  it("says nothing for an event the reader themselves declined", () => {
+    const declined = event({
+      participants: {
+        me: {
+          "@type": "Participant",
+          calendarAddress: "mailto:me@example.org",
+          participationStatus: "declined",
+        },
+      },
+      alerts: { a: offset(10) },
+    });
+    expect(alertInstants(declined, undefined, "me@example.org")).toEqual([]);
+    // A different reader still gets it.
+    expect(alertInstants(declined, undefined, "other@example.org")).not.toEqual([]);
+  });
+});
+
+const ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "BEGIN:VEVENT",
+  "UID:x",
+  "DTSTART:20260101T100000Z",
+  "DTEND:20260101T110000Z",
+  "SUMMARY:Standup",
+  "BEGIN:VALARM",
+  "ACTION:DISPLAY",
+  "TRIGGER:-PT10M",
+  "END:VALARM",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("a subscribed calendar's alarms", () => {
+  it("reads a DISPLAY alarm and falls due before its event", () => {
+    const { events } = parseIcs(ICS);
+    expect(events[0]!.alarms).toEqual([{ offset: -600, relativeTo: "start" }]);
+    expect(icsAlertInstants(events[0]!)).toEqual([Date.UTC(2026, 0, 1, 9, 50)]);
+  });
+
+  it("ignores an EMAIL alarm, which is the server's to send", () => {
+    const { events } = parseIcs(ICS.replace("ACTION:DISPLAY", "ACTION:EMAIL"));
+    expect(events[0]!.alarms).toEqual([]);
+  });
+
+  it("measures an end-relative alarm from the event's end", () => {
+    const { events } = parseIcs(
+      ICS.replace("TRIGGER:-PT10M", "TRIGGER;RELATED=END:-PT10M"),
+    );
+    expect(icsAlertInstants(events[0]!)).toEqual([Date.UTC(2026, 0, 1, 10, 50)]);
+  });
+
+  it("returns only what falls in the window", () => {
+    const { events } = parseIcs(ICS);
+    const due = dueSubscriptionReminders(
+      { sub: events },
+      Date.UTC(2026, 0, 1, 9, 0),
+      Date.UTC(2026, 0, 1, 12, 0),
+    );
+    expect(due).toHaveLength(1);
+    expect(due[0]!.event.uid).toBe("x");
   });
 });

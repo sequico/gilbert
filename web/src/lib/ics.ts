@@ -26,6 +26,14 @@ import type {
 import { foldLine, unfoldLines } from "./contentLines";
 import { tzOffsetMs, zoneFormatter } from "./dates";
 
+/** One `VALARM` an event carries: a `DISPLAY` reminder, and when it fires. */
+export interface IcsAlarm {
+  /** Signed seconds from the reference point, as the `TRIGGER` says. */
+  offset: number;
+  /** What the offset is measured from. */
+  relativeTo: "start" | "end";
+}
+
 export interface IcsEvent {
   uid: string;
   summary: string;
@@ -36,6 +44,8 @@ export interface IcsEvent {
   description?: string;
   /** True when the source carried an RRULE that has not been expanded. */
   recurring: boolean;
+  /** The `DISPLAY` alarms it carries, for the reminder sweep (ADR 0016). */
+  alarms: IcsAlarm[];
 }
 
 interface Line {
@@ -193,6 +203,9 @@ export function parseIcs(text: string): ParseResult {
     | null = null;
   /** Depth of any component that is not a VEVENT, so its properties are ignored. */
   let skipping = 0;
+  /** The VALARM being read inside the current VEVENT, if any. */
+  let alarm: { offset?: number; relativeTo: "start" | "end"; action?: string } | null =
+    null;
 
   for (const raw of unfoldLines(text)) {
     const line = parseLine(raw);
@@ -201,7 +214,8 @@ export function parseIcs(text: string): ParseResult {
 
     if (prop === "BEGIN") {
       const kind = value.trim().toUpperCase();
-      if (kind === "VEVENT" && !skipping) current = { recurring: false };
+      if (kind === "VEVENT" && !skipping) current = { recurring: false, alarms: [] };
+      else if (kind === "VALARM" && current && !skipping) alarm = { relativeTo: "start" };
       else if (kind !== "VCALENDAR") skipping++;
       continue;
     }
@@ -214,10 +228,41 @@ export function parseIcs(text: string): ParseResult {
           events.push(finished);
         }
         current = null;
+      } else if (kind === "VALARM" && alarm) {
+        // A reminder the source carries: only a DISPLAY one is this client's to
+        // show, and only an offset trigger names a time it can.
+        const { offset, relativeTo, action } = alarm;
+        if (
+          current &&
+          offset !== undefined &&
+          (action === undefined || action === "DISPLAY")
+        )
+          (current.alarms ??= []).push({ offset, relativeTo });
+        alarm = null;
       } else if (kind !== "VCALENDAR" && skipping) skipping--;
       continue;
     }
     if (skipping) continue;
+
+    // Inside a VALARM: the trigger time and the action, which decide whether it
+    // is a reminder this client shows.
+    if (alarm) {
+      if (prop === "TRIGGER") {
+        // An absolute trigger names a wall-clock instant, which has no offset
+        // to carry; only the duration form is a reminder before the event.
+        if ((params.VALUE ?? "").toUpperCase() !== "DATE-TIME") {
+          const secs = parseIcsDuration(value);
+          if (secs !== null) {
+            alarm.offset = secs;
+            alarm.relativeTo =
+              (params.RELATED ?? "").toUpperCase() === "END" ? "end" : "start";
+          }
+        }
+      } else if (prop === "ACTION") {
+        alarm.action = value.trim().toUpperCase();
+      }
+      continue;
+    }
 
     if (!current) {
       // Calendar-level properties. X-WR-CALNAME is not in the RFC but is what
@@ -292,6 +337,7 @@ function finish(
     location: e.location,
     description: e.description,
     recurring: Boolean(e.recurring),
+    alarms: e.alarms ?? [],
   };
 }
 
