@@ -1803,6 +1803,10 @@ const groupCards: Obj[] = [
  * stand-in above; a real deployment's universal share is what the mock does not
  * reproduce, so the two are separate here while they are one book in
  * production.
+ *
+ * Module state, like every other fixture in this file: the mock is one
+ * process, and the test runner gives each test file its own, so a book a test
+ * creates is not inherited by another file.
  */
 const masterAddressBooks: Obj[] = [];
 const masterCards: Obj[] = [];

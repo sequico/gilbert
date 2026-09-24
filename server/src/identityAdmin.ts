@@ -46,6 +46,7 @@ import {
   readAppJsonAt,
   writeAppBytesAt,
   writeAppFile,
+  writeAppFileIn,
 } from "./appFolder.js";
 import { agentAddress } from "./config.js";
 import { isStateMismatch, JMAP_SUBMISSION, JmapClient } from "./jmap.js";
@@ -77,6 +78,7 @@ import {
   parseSipCredentials,
   SIP_CREDENTIALS_FILE,
   type SipCredential,
+  type SipCredentialsDocument,
   withSipCredential,
 } from "./shared/phone.js";
 /*
@@ -682,6 +684,19 @@ export async function writePersonSipCredential(
   credential: SipCredential | null,
 ): Promise<void> {
   const target = identityAddress(address);
+  const key = email.trim().toLowerCase();
+  if (!key)
+    throw new IdentityAdminError(
+      "invalid_identity",
+      "A SIP credential belongs to an identity, and this one names no email to key it by.",
+      400,
+    );
+  if (credential?.address.trim() && !credential.password)
+    throw new IdentityAdminError(
+      "invalid_identity",
+      "A SIP address with no password is not a credential the registrar will take.",
+      400,
+    );
   const imp = await impersonateAs(admin, target);
   if (!imp.ok)
     throw new IdentityAdminError(
@@ -696,15 +711,48 @@ export async function writePersonSipCredential(
       `${target} holds no account this session can write a credential to.`,
       409,
     );
-  const current = parseSipCredentials(
-    await readAppJsonAt(imp.ctx, accountId, SIP_CREDENTIALS_FILE),
+  await writeSipDocument(imp.ctx, accountId, (current) =>
+    withSipCredential(current, key, credential),
   );
-  await writeAppFile(
-    imp.ctx,
-    accountId,
-    SIP_CREDENTIALS_FILE,
-    withSipCredential(current, email, credential),
-  );
+}
+
+/**
+ * One compare-and-set write of the credential document.
+ *
+ * The app folder is created first, the FileNode state read next, then the
+ * document, and the write carries `ifInState` — the order `writeAssignmentDoc`
+ * uses, for the same reason: two administrators setting two identities at once
+ * is a lost race for one of them rather than a silent overwrite of the other.
+ * One retry, because the change is applied to what the retry reads.
+ */
+async function writeSipDocument(
+  ctx: Ctx,
+  accountId: string,
+  change: (current: Record<string, SipCredential>) => SipCredentialsDocument,
+): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const folderId = await ensureAppFolder(ctx, accountId);
+    const state = await appFolderState(ctx, accountId);
+    const current = parseSipCredentials(
+      await readAppJsonAt(ctx, accountId, SIP_CREDENTIALS_FILE),
+    );
+    try {
+      await writeAppFileIn(
+        ctx,
+        accountId,
+        folderId,
+        SIP_CREDENTIALS_FILE,
+        change(current),
+        {
+          ifInState: state,
+        },
+      );
+      return;
+    } catch (err) {
+      if (isStateMismatch(err) && attempt === 0) continue;
+      throw err;
+    }
+  }
 }
 
 /**
@@ -801,7 +849,7 @@ export async function agentSession(admin: LiveSession): Promise<Ctx> {
   if (!address)
     throw new IdentityAdminError(
       "agent_not_configured",
-      "This deployment names no agent, so a group's identity cannot be written: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
+      "This deployment names no agent, so a group's identity and the Global contacts directory cannot be written: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
       409,
     );
   const agent = await openAgentSession(admin, address);

@@ -487,3 +487,26 @@ test("a TURN server with no URL is refused rather than silently dropped", () => 
   assert.ok("problem" in parsed, "a TURN entry that names no server is a problem");
   if ("problem" in parsed) assert.match(parsed.problem, /sip\.turn\[0\]\.url/);
 });
+
+test("a sip section that is not an object, or an endpoint that is not a URL, is refused", () => {
+  const notAnObject = parseInstallationDocumentDetailed(
+    JSON.stringify({ ...installationDefaults(), secret: A_SECRET, sip: "on" }),
+  );
+  assert.ok("problem" in notAnObject, "a section must be an object, not a word");
+  if ("problem" in notAnObject)
+    assert.match(notAnObject.problem, /"sip" must be an object/);
+
+  const notAnEndpoint = parseInstallationDocumentDetailed(
+    JSON.stringify({
+      ...installationDefaults(),
+      secret: A_SECRET,
+      sip: { endpoints: ["https://pbx.example.com/ws"] },
+    }),
+  );
+  assert.ok(
+    "problem" in notAnEndpoint,
+    "the browser opens a WebSocket, so an https endpoint is a typo, not an endpoint",
+  );
+  if ("problem" in notAnEndpoint)
+    assert.match(notAnEndpoint.problem, /"sip\.endpoints\[0\]" must be ws: or wss:/);
+});

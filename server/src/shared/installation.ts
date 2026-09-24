@@ -177,6 +177,23 @@ export interface InstallationBranding {
   appName: string;
 }
 
+/**
+ * A fresh copy of an installation's telephone settings.
+ *
+ * The document's object is not handed around by reference: the booted path
+ * aliases `installation.sip` and the session hands it to every reader, so one
+ * in-place edit would leak to all of them. The copy is the one place that
+ * shape is duplicated, so the two callers cannot disagree about it.
+ */
+export function cloneSip(sip: InstallationSip): InstallationSip {
+  return {
+    enabled: sip.enabled,
+    endpoints: [...sip.endpoints],
+    stun: [...sip.stun],
+    turn: sip.turn.map((server) => ({ ...server })),
+  };
+}
+
 /** One TURN server the phone's media may need (ADR 0023). */
 export interface InstallationSipTurn {
   /** The TURN URL, `turn:` or `turns:`. */
@@ -446,17 +463,50 @@ export function parseInstallationDocumentDetailed(
     return n;
   };
   /**
-   * A list of strings, each trimmed, each blank entry dropped: a trailing empty
-   * line in a hand-edited document is noise rather than a fault, while a value
-   * that is not a string at all is a problem.
+   * A URL as the parser requires one: absolute, and on a scheme the client can
+   * actually open. The same strictness `readUpstreams` applies, because an
+   * endpoint a typo left as `htps://…` is a phone that is offered and can only
+   * fail at connect — refused at boot instead.
    */
-  const readStringList = (where: string, v: unknown, fallback: string[]): string[] => {
+  const readUrl = (where: string, value: unknown, schemes: string[]): string | null => {
+    const text = typeof value === "string" ? value.trim() : "";
+    if (!text) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(text);
+    } catch {
+      problems.push(`"${where}" is not an absolute URL: ${text}.`);
+      return null;
+    }
+    if (!schemes.includes(parsed.protocol)) {
+      problems.push(`"${where}" must be ${schemes.join(" or ")}: ${text}.`);
+      return null;
+    }
+    return text;
+  };
+  /**
+   * A list of URLs, each trimmed, each blank entry dropped: a trailing empty
+   * line in a hand-edited document is noise rather than a fault, while a value
+   * that is not a URL on an allowed scheme is a problem.
+   */
+  const readUrlList = (
+    where: string,
+    v: unknown,
+    fallback: string[],
+    schemes: string[],
+  ): string[] => {
     if (v === undefined || v === null) return fallback;
-    if (!Array.isArray(v) || v.some((entry) => typeof entry !== "string")) {
-      problems.push(`"${where}" must be a list of strings.`);
+    if (!Array.isArray(v)) {
+      problems.push(`"${where}" must be a list of URLs.`);
       return fallback;
     }
-    return (v as string[]).map((entry) => entry.trim()).filter(Boolean);
+    const out: string[] = [];
+    v.forEach((entry, i) => {
+      if (typeof entry === "string" && !entry.trim()) return;
+      const url = readUrl(`${where}[${i}]`, entry, schemes);
+      if (url) out.push(url);
+    });
+    return out;
   };
 
   const server = readSection("server", whole.server);
@@ -518,9 +568,14 @@ export function parseInstallationDocumentDetailed(
         problems.push(`"sip.turn[${i}]" must be an object with a "url".`);
         return;
       }
-      const url = readText(`sip.turn[${i}].url`, entry.url, "").trim();
+      const url = readUrl(`sip.turn[${i}].url`, entry.url, ["turn:", "turns:"]);
       if (!url) {
-        problems.push(`"sip.turn[${i}].url" must not be empty.`);
+        if (
+          entry.url === undefined ||
+          entry.url === null ||
+          (typeof entry.url === "string" && !entry.url.trim())
+        )
+          problems.push(`"sip.turn[${i}].url" must not be empty.`);
         return;
       }
       turn.push({
@@ -632,8 +687,13 @@ export function parseInstallationDocumentDetailed(
     branding: { appName },
     sip: {
       enabled: readBool("sip.enabled", sip.enabled, defaults.sip.enabled),
-      endpoints: readStringList("sip.endpoints", sip.endpoints, defaults.sip.endpoints),
-      stun: readStringList("sip.stun", sip.stun, defaults.sip.stun),
+      // The browser opens a WebSocket to an endpoint and asks a STUN server
+      // for its reflexive address: a scheme it cannot use is refused here.
+      endpoints: readUrlList("sip.endpoints", sip.endpoints, defaults.sip.endpoints, [
+        "ws:",
+        "wss:",
+      ]),
+      stun: readUrlList("sip.stun", sip.stun, defaults.sip.stun, ["stun:", "stuns:"]),
       turn,
     },
     secret: readText("secret", whole.secret, defaults.secret),

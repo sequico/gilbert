@@ -37,37 +37,68 @@ async function masterAccount(
   return { ctx, accountId };
 }
 
+/** The refusal, in the identity door's own shape, so the route maps it. */
+function bookRefusal(err: unknown, what: string): IdentityAdminError {
+  if (err instanceof IdentityAdminError) return err;
+  return new IdentityAdminError(
+    "global_contacts_book",
+    `${what}: ${err instanceof Error ? err.message : String(err)}`,
+    502,
+  );
+}
+
+/**
+ * The directory book's id, or null — and a read that fails is not "no book".
+ *
+ * A transient failure answered as an empty list would have the caller create a
+ * second "Global contacts"; the failure is raised instead, so the write stops
+ * rather than duplicating the directory.
+ */
+async function findGlobalContactsBook(
+  client: JmapClient,
+  accountId: string,
+): Promise<string | null> {
+  try {
+    const res = await client.call<{
+      list?: Array<{ id?: unknown; name?: unknown }>;
+    }>("AddressBook/get", { accountId, ids: null, properties: ["id", "name"] }, [
+      JMAP_CONTACTS,
+    ]);
+    const found = (res.list ?? []).find(
+      (book) => book.name === GLOBAL_CONTACTS_BOOK_NAME && typeof book.id === "string",
+    );
+    return found ? (found.id as string) : null;
+  } catch (err) {
+    throw bookRefusal(err, "The directory's address book could not be read");
+  }
+}
+
 /**
  * The Global contacts book's id, creating the book on first use.
  *
  * Found by name — the one the shared constant declares — because that name is
- * the decision (`gilbert-phone`). Creating it as the Master is what makes it
- * the installation's book rather than anybody's.
+ * the decision (`gilbert-phone`). A create the server refused is not a failure
+ * until the book is looked for again: a sibling already carrying the name is
+ * the directory, and adopting it is what keeps it one book.
  */
 export async function globalContactsBookId(ctx: Ctx, accountId: string): Promise<string> {
   const client = new JmapClient(ctx);
-  const res = await client.call<{ list?: Array<{ id?: unknown; name?: unknown }> }>(
-    "AddressBook/get",
-    { accountId, ids: null, properties: ["id", "name"] },
-    [JMAP_CONTACTS],
-  );
-  const found = (res.list ?? []).find(
-    (book) => book.name === GLOBAL_CONTACTS_BOOK_NAME && typeof book.id === "string",
-  );
-  if (found) return found.id as string;
+  const found = await findGlobalContactsBook(client, accountId);
+  if (found) return found;
   const set = await client.call<{ created?: Record<string, { id?: unknown }> }>(
     "AddressBook/set",
     { accountId, create: { b: { name: GLOBAL_CONTACTS_BOOK_NAME } } },
     [JMAP_CONTACTS],
   );
   const id = set.created?.b?.id;
-  if (typeof id !== "string")
-    throw new IdentityAdminError(
-      "global_contacts_book",
-      "The directory's address book could not be created.",
-      502,
-    );
-  return id;
+  if (typeof id === "string") return id;
+  const after = await findGlobalContactsBook(client, accountId);
+  if (after) return after;
+  throw new IdentityAdminError(
+    "global_contacts_book",
+    "The directory's address book could not be created.",
+    502,
+  );
 }
 
 /**
@@ -76,10 +107,11 @@ export async function globalContactsBookId(ctx: Ctx, accountId: string): Promise
  * The decision is one rule that reaches every account, including one created
  * later; whether Stalwart has such a wildcard share is what the ADR leaves owed
  * a live probe, so this is the best-known shape: every principal read through
- * the standard door, shared `mayRead`. It runs on every write, which is what
- * brings an account created since the last one in — a new account is shared the
- * next time the directory is written. A server that will not enumerate fails
- * the write loudly rather than leaving a directory nobody can read.
+ * the standard door, merged into the book's existing share so a principal
+ * beyond the enumeration's page keeps its grant. It runs on every write, which
+ * is what brings an account created since the last one in. An enumeration that
+ * names nobody, and a share the server refuses, both fail loudly: a directory
+ * nobody can read is not a directory.
  */
 async function shareWithEveryone(
   ctx: Ctx,
@@ -92,16 +124,37 @@ async function shareWithEveryone(
     { accountId, limit: 1000 },
     [JMAP_PRINCIPALS],
   );
-  const shareWith: Record<string, { mayRead: boolean }> = {};
+  const wanted: Record<string, { mayRead: boolean }> = {};
   for (const principal of principals.list ?? [])
     if (typeof principal.id === "string" && principal.id !== accountId)
-      shareWith[principal.id] = { mayRead: true };
-  if (!Object.keys(shareWith).length) return;
-  await client.call(
+      wanted[principal.id] = { mayRead: true };
+  if (!Object.keys(wanted).length)
+    throw new IdentityAdminError(
+      "global_contacts_share",
+      "No principal could be enumerated, so the directory could not be shared with anyone.",
+      502,
+    );
+
+  const current = await client.call<{
+    list?: Array<{ shareWith?: unknown }>;
+  }>("AddressBook/get", { accountId, ids: [bookId], properties: ["id", "shareWith"] }, [
+    JMAP_CONTACTS,
+  ]);
+  const existing = (current.list?.[0]?.shareWith ?? {}) as Record<string, unknown>;
+  const shareWith = { ...existing, ...wanted };
+  const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
     "AddressBook/set",
     { accountId, update: { [bookId]: { shareWith } } },
     [JMAP_CONTACTS, JMAP_PRINCIPALS],
   );
+  const refused = res.notUpdated?.[bookId];
+  if (refused)
+    throw new IdentityAdminError(
+      "global_contacts_share",
+      refusalOf(refused as { type?: unknown; description?: unknown }) ||
+        "The directory could not be shared.",
+      502,
+    );
 }
 
 function text(value: unknown): string {
@@ -213,13 +266,32 @@ export async function writeGlobalContact(
   }
 }
 
-/** Remove one card from the directory. */
+/**
+ * Remove one card from the directory.
+ *
+ * The id is checked against the directory book first: the Master's account is
+ * read and written by this client alone today, and a route that destroys any id
+ * it is handed is one typo away from deleting something that was not the
+ * directory's.
+ */
 export async function destroyGlobalContact(
   admin: LiveSession,
   id: string,
 ): Promise<void> {
   const { ctx, accountId } = await masterAccount(admin);
+  const bookId = await globalContactsBookId(ctx, accountId);
   const client = new JmapClient(ctx);
+  const got = await client.call<{
+    list?: Array<{ addressBookIds?: Record<string, unknown> }>;
+  }>("ContactCard/get", { accountId, ids: [id], properties: ["id", "addressBookIds"] }, [
+    JMAP_CONTACTS,
+  ]);
+  if (!got.list?.[0]?.addressBookIds?.[bookId])
+    throw new IdentityAdminError(
+      "global_contact",
+      "That card is not in the Global contacts directory.",
+      404,
+    );
   const res = await client.call<{ notDestroyed?: Record<string, unknown> }>(
     "ContactCard/set",
     { accountId, destroy: [id] },

@@ -134,6 +134,7 @@ import {
 } from "./sessions.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { cloneSip } from "./shared/installation.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { GlobalContactInput, SipCredential } from "./shared/phone.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
@@ -2618,13 +2619,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ address?: unknown; email?: unknown; sip?: unknown }>(c);
     try {
       const raw = body?.sip;
-      const credential: SipCredential | null =
-        raw && typeof raw === "object"
-          ? {
-              address: String((raw as { address?: unknown }).address ?? ""),
-              password: String((raw as { password?: unknown }).password ?? ""),
-            }
-          : null;
+      let credential: SipCredential | null = null;
+      if (raw !== null && raw !== undefined) {
+        if (typeof raw !== "object")
+          throw new IdentityAdminError(
+            "invalid_identity",
+            "The SIP credential must be an object or null.",
+            400,
+          );
+        const fields = raw as { address?: unknown; password?: unknown };
+        if (typeof fields.address !== "string" || typeof fields.password !== "string")
+          throw new IdentityAdminError(
+            "invalid_identity",
+            "A SIP credential needs a string address and a string password.",
+            400,
+          );
+        credential = { address: fields.address, password: fields.password };
+      }
       await writePersonSipCredential(
         c.get("session"),
         typeof body?.address === "string" ? body.address : "",
@@ -3566,7 +3577,7 @@ function sessionExtras(
        * Each person's SIP address and password are account data and are read
        * from the account, never here.
        */
-      sip: config.sip,
+      sip: cloneSip(config.sip),
     },
   };
 }

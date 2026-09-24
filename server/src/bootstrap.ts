@@ -40,10 +40,11 @@ import {
   readInstallation,
 } from "./installation.js";
 import { sleep as defaultSleep } from "./shared/async.js";
-import type {
-  InstallationAgent,
-  InstallationDocument,
-  InstallationSip,
+import {
+  cloneSip,
+  type InstallationAgent,
+  type InstallationDocument,
+  type InstallationSip,
 } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
@@ -361,7 +362,7 @@ export function configurationFrom(
     rawPushRelay: document.push.rawRelay,
     stalwartUrl: handshake.stalwartUrl,
     stalwartServers: document.upstreams,
-    sip: document.sip,
+    sip: cloneSip(document.sip),
     agent: {
       address: handshake.masterAddress,
       password: handshake.masterPassword,
