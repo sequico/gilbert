@@ -201,8 +201,8 @@ export function ContactsView({ id }: { id?: string }) {
    * still told apart without opening anything.
    *
    * A colleague's shared book is not a group's and stays out: that one the
-   * reader adds deliberately, and it has a section of its own in the sidebar for
-   * it. `cardsIn` reads the groups' cards rather than the whole shared cache, so
+   * reader adds deliberately, and it lives under `Shared with me` in the
+   * sidebar. `cardsIn` reads the groups' cards rather than the whole shared cache, so
    * what `loadShared` left unloaded (a stranger's account) cannot arrive here by
    * the back door.
    *

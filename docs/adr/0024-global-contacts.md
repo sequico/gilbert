@@ -36,9 +36,9 @@ disagree about which book is the directory.
   own book and the group books their membership subscribes, with no per-member
   patch and nothing to add by hand. The administration re-applies the share on
   every write, which is what brings an account created since the last one in.
-- **It has a section of its own, named Global contacts**, in the Contacts
-  sidebar beside the reader's books and each group's, so it can be opened and
-  browsed alone; merged into `All contacts` it is the same book.
+- **It is the first row of the Contacts sidebar**, above `All contacts` and the
+  reader's own books, so it can be opened and browsed alone; merged into
+  `All contacts` it is the same book.
 - **Only an administrator writes it, and from inside Contacts.** Global
   contacts is edited where it is read: the Contacts surface draws the edit
   controls for an administrator alone, and for everybody else the cards are

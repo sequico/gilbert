@@ -14,14 +14,15 @@ import { foldLine } from "./contentLines";
  * directory (ADR 0023). One predicate, asked by the sidebar and the dialer, so
  * the two cannot disagree about which book is the directory.
  *
- * The name is the marker the decision fixes, and the book must not be writable:
- * the directory is shared read-only, so a book somebody may write — their own,
- * or a group's own — is not it, whatever it is called.
+ * The name is the marker the decision fixes (ADR 0024). Rights are deliberately
+ * not part of it: an administrator's own session may see the book writable and a
+ * member's read-only, and the directory is the directory either way — requiring
+ * read-only hid it from exactly the administrator who maintains it.
  */
 export function isGlobalContactsBook(
-  book: Pick<AddressBook, "name" | "myRights">,
+  book: Pick<AddressBook, "name">,
 ): boolean {
-  return book.name === GLOBAL_CONTACTS_BOOK_NAME && book.myRights?.mayWrite !== true;
+  return book.name === GLOBAL_CONTACTS_BOOK_NAME;
 }
 
 /** Best display name for a card. */

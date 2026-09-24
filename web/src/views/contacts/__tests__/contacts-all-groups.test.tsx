@@ -22,7 +22,7 @@ vi.mock("@/lib/download", () => ({ downloadFile: vi.fn() }));
  * in somebody's own book are not the same contact.
  *
  * A colleague's share is the other half of the rule and is asserted here too:
- * that one is added deliberately, it lives in a section of its own, and its
+ * that one is added deliberately, it lives under *Shared with me*, and its
  * cards must not arrive in this list by being reachable.
  */
 

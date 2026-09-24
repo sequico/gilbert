@@ -61,7 +61,8 @@ single seat and the administration are in place. Global contacts is built.
    at boot** (`ensureGlobalContacts`), not by hand.
 2. Shared **read-only with every account**; written only by an administrator
    from inside Contacts, through a server route that acts as the Master.
-3. A **section of its own** in the Contacts sidebar, merged in `All contacts`;
+3. The **first row of the Contacts sidebar**, above `All contacts` and the
+   reader's books, merged in `All contacts`;
    the book's name is the marker (`@gilbert/shared/phone`).
 4. The dialer reads it **read-only**, separated from groups and personal books;
    a number can be typed by hand.

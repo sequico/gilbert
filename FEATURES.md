@@ -888,8 +888,9 @@ is the reference.
   **read-only with every account** and written only by an administrator, from
   inside Contacts. The administrator's write re-applies the share, which is what
   brings an account created later in — the deployment's own share shape is owed
-  the live probe ADR 0024 names. Every reader sees it in `All contacts` and in a
-  section of its own; the phone offers its numbers as speed dial.
+  the live probe ADR 0024 names. Every reader sees it as the first row of the
+  Contacts sidebar and merged in `All contacts`; the phone offers its numbers as
+  speed dial.
 - **No installation-level settings.** There is no SIP Phone administration page
   and no phone section in the installation's document; each person's account is
   per identity. The bridge ships with the release, and the one thing an operator
@@ -1764,12 +1765,13 @@ JMAP Contacts and JSContact.
   own width, with a double-click back to the default. Its width is remembered
   per device, beside the mail list's, for the same reason. The divider is hidden
   where a narrow screen shows one pane at a time.
-- **Address books**, yours under *My address books*, one section per group
-  mailbox you belong to — its books, and a **+** that creates a book **owned by
-  the group** in the group's own account — and other people's plainly separate
-  below, with the same *Available to add* / *Shared with me* split the calendar
-  uses. Create, rename, share, stop sharing, delete; one is the default for new
-  cards.
+- **Address books**: the **Contacts** list leads with **Global contacts**, then
+  **All contacts**, then the reader's own under **My contacts**; a **Group
+  contacts** section gives each group mailbox you belong to its own subsection —
+  its books, and a **+** that creates a book **owned by the group** in the
+  group's own account — and other people's are plainly separate under **Shared
+  with me**, with the same *Available to add* split the calendar uses. Create,
+  rename, share, stop sharing, delete; one is the default for new cards.
 - **Contact records**: photo, prefix, first, middle, last, suffix, nickname,
   company, job title, any number of emails, phones and addresses with types,
   birthday, website and notes.
@@ -1792,7 +1794,7 @@ JMAP Contacts and JSContact.
   list of everything is the reader's own cards **and** the cards of every group
   they belong to, with **the group named on the row** that came from one, small
   and at its end. A colleague's shared book is not a group's and stays out: that
-  one is added deliberately and has a section of its own in the sidebar. **A row
+  one is added deliberately and lives under *Shared with me* in the sidebar. **A row
   is opened by its account and its id** — ids are minted per account, so the
   reader's own card and a group's can carry the same one, and the account is what
   tells them apart: it travels in the row's address, in the tick on it, and in

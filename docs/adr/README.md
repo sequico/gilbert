@@ -245,7 +245,7 @@ is, not what a user sees.
 - **0024 — Global contacts.** One address book in the Master's account, created
   by the installation rather than by hand, shared read-only with every account
   and written only by an administrator from inside Contacts through a server
-  route that acts as the Master. It has a section of its own in the Contacts
-  sidebar as well as being merged in `All contacts`, its cards are ordinary
-  cards, and the phone offers them as speed dial. The exact Stalwart shape of a
-  share naming every account at once is owed a live probe.
+  route that acts as the Master. It leads the Contacts sidebar, above
+  `All contacts` and the reader's own books, as well as being merged in it; its
+  cards are ordinary cards, and the phone offers them as speed dial. The exact
+  Stalwart shape of a share naming every account at once is owed a live probe.

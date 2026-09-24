@@ -50,7 +50,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   me / Available to add* area. A calendar a group owns is deleted and renamed
   from that same section, with no treatment of its own.
 - **Address books**: same shape — `store/contacts.ts`
-  `createBook(name, accountId?)`; `ContactsSidebar` sections per group.
+  `createBook(name, accountId?)`; `ContactsSidebar` gives each group its own
+  subsection under **Group contacts**.
   **Global contacts is not one of these**: it is one Master-owned book with a
   universal read-only share, the installation's rather than a group's, and it
   gets no per-group section and no per-group copy (`gilbert-phone`).

@@ -1,4 +1,3 @@
-import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import {
   Book,
   BookOpen,
@@ -137,10 +136,10 @@ export function ContactsSidebar() {
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
   /*
-   * The installation's directory (ADR 0023): one read-only book, read by
-   * everyone and never "added". It has a section of its own rather than a row
-   * in "Shared with me", because it is not somebody's share — it is the
-   * installation's — and it is shown whether or not a member subscribed to it.
+   * The installation's directory (ADR 0024): one book, read by everyone and
+   * never "added". It leads the Contacts list rather than sitting in "Shared
+   * with me", because it is not somebody's share — it is the installation's —
+   * and it is shown whether or not a member subscribed to it.
    */
   const globalBooks = contacts.sharedBooks.filter((b) => isGlobalContactsBook(b.book));
   const others = contacts.sharedBooks.filter((b) => !isGlobalContactsBook(b.book));
@@ -154,14 +153,6 @@ export function ContactsSidebar() {
       !groupIds.has(b.accountId) &&
       !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
   );
-  const hasSubscribed =
-    globalBooks.length > 0 ||
-    others.some(
-      (b) =>
-        groupIds.has(b.accountId) ||
-        b.book.isSubscribed ||
-        isAdded(b.accountId, b.book.id),
-    );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */
   const subscribedRow = (accountId: string, accountName: string, book: AddressBook) => (
@@ -238,6 +229,34 @@ export function ContactsSidebar() {
       <div className="nav-section">
         <span>{t("Contacts")}</span>
       </div>
+      {/* The installation's directory (ADR 0024): one book, read by everyone,
+          shown whether or not a member subscribed to it. */}
+      {globalBooks.map(({ accountId, book }) => (
+        <div
+          key={`${accountId}:${book.id}`}
+          className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
+          onClick={() => contacts.select({ accountId, bookId: book.id })}
+          title={t("{name} — shared with everyone", { name: book.name })}
+        >
+          <Globe size={17} />
+          <span className="grow truncate">{book.name}</span>
+          {/* Only an administrator writes the directory (ADR 0024), and from
+              inside Contacts: everybody else reads the same book. */}
+          {isAdmin && (
+            <button
+              className="icon-btn xs nav-more"
+              title={t("Edit Global contacts")}
+              aria-label={t("Edit Global contacts")}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingGlobal({ accountId, bookId: book.id });
+              }}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+        </div>
+      ))}
       <div
         className={`nav-item ${isOn(null, "all") ? "active" : ""}`}
         onClick={() => contacts.select({ accountId: null, bookId: "all" })}
@@ -255,7 +274,7 @@ export function ContactsSidebar() {
       </div>
 
       <div className="nav-section">
-        <span>{t("My address books")}</span>
+        <span>{t("My contacts")}</span>
         <button
           className="icon-btn sm"
           title={t("New address book")}
@@ -298,57 +317,11 @@ export function ContactsSidebar() {
         </div>
       ))}
 
-      {globalBooks.length > 0 && (
-        <>
-          <div className="nav-section">
-            <span>{GLOBAL_CONTACTS_BOOK_NAME}</span>
-          </div>
-          {globalBooks.map(({ accountId, book }) => (
-            <div
-              key={`${accountId}:${book.id}`}
-              className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
-              onClick={() => contacts.select({ accountId, bookId: book.id })}
-              title={t("{name} — shared with everyone", { name: book.name })}
-            >
-              <Globe size={17} />
-              <span className="grow truncate">{book.name}</span>
-              {/* Only an administrator writes the directory (ADR 0023), and
-                  from inside Contacts: everybody else reads the same book.
-                  The control follows each row, so more than one such book is
-                  no special case. */}
-              {isAdmin && (
-                <button
-                  className="icon-btn xs nav-more"
-                  title={t("Edit Global contacts")}
-                  aria-label={t("Edit Global contacts")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingGlobal({ accountId, bookId: book.id });
-                  }}
-                >
-                  <Pencil size={14} />
-                </button>
-              )}
-            </div>
-          ))}
-        </>
+      {groups.length > 0 && (
+        <div className="nav-section">
+          <span>{t("Group contacts")}</span>
+        </div>
       )}
-
-      <div className="nav-section">
-        <span>{t("Shared with me")}</span>
-        <button
-          className="icon-btn sm"
-          title={t("Check for new shares")}
-          aria-label={t("Check for new shares")}
-          onClick={async () => {
-            setRefreshing(true);
-            await refreshShares(true);
-            setRefreshing(false);
-          }}
-        >
-          <RefreshCw size={14} className={refreshing ? "spin" : ""} />
-        </button>
-      </div>
       {groups.map((g) => (
         <Fragment key={g.accountId}>
           <div className="nav-section">
@@ -384,12 +357,28 @@ export function ContactsSidebar() {
             ))}
         </Fragment>
       ))}
+
+      <div className="nav-section">
+        <span>{t("Shared with me")}</span>
+        <button
+          className="icon-btn sm"
+          title={t("Check for new shares")}
+          aria-label={t("Check for new shares")}
+          onClick={async () => {
+            setRefreshing(true);
+            await refreshShares(true);
+            setRefreshing(false);
+          }}
+        >
+          <RefreshCw size={14} className={refreshing ? "spin" : ""} />
+        </button>
+      </div>
       {sharedOnlySubscribed.map(({ accountId, accountName, book }) => (
         <Fragment key={`${accountId}:${book.id}`}>
           {subscribedRow(accountId, accountName, book)}
         </Fragment>
       ))}
-      {!hasSubscribed && (
+      {sharedOnlySubscribed.length === 0 && (
         <p className="hint" style={{ padding: "4px 12px" }}>
           {contacts.sharedLoaded ? "Nothing added yet." : "Looking…"}
         </p>
