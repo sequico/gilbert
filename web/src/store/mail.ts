@@ -2921,6 +2921,36 @@ function removeFromList(
   }
 }
 
+/** The sender's name for a message, or a generic one when it names none. */
+function senderName(email: Pick<Email, "from">): string {
+  const from = email.from?.[0];
+  return from?.name || from?.email || "New message";
+}
+
+/**
+ * One mail notification: the sender as its title, the subject and preview as
+ * its body, and a tap that opens the message where it lives. One renderer, so
+ * the reader's own account and a group cannot show the same arrival two ways.
+ */
+function announceMail(
+  email: Pick<Email, "id" | "threadId" | "from" | "subject" | "preview">,
+  inboxId: Id,
+  title: string,
+): void {
+  showNotification(title, {
+    body: `${email.subject || "(no subject)"}\n${email.preview ?? ""}`.trim(),
+    tag: `gilbert-${email.id}`,
+    onClick: () => {
+      window.location.hash = "";
+      // The one navigation that does not go through wouter -- it is synthesising
+      // a popstate so the router picks the address up -- so it is also the one
+      // that has to add the mount prefix itself.
+      window.history.pushState({}, "", withBase(`/mail/${inboxId}/${email.threadId}`));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    },
+  });
+}
+
 async function notifyNewMail(created: Id[], get: () => MailState) {
   const s = settings();
   const inbox = get().roleId("inbox");
@@ -2931,23 +2961,8 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
   );
   if (!fresh.length) return;
   if (s.notificationSound) playNewMailSound();
-  if (s.desktopNotifications) {
-    for (const e of fresh.slice(0, 3)) {
-      const from = e.from?.[0];
-      showNotification(from?.name || from?.email || "New message", {
-        body: `${e.subject || "(no subject)"}\n${e.preview ?? ""}`.trim(),
-        tag: e.id,
-        onClick: () => {
-          window.location.hash = "";
-          // The one navigation that does not go through wouter -- it is
-          // synthesising a popstate so the router picks the address up -- so
-          // it is also the one that has to add the mount prefix itself.
-          window.history.pushState({}, "", withBase(`/mail/${inbox}/${e.threadId}`));
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        },
-      });
-    }
-  }
+  if (!s.desktopNotifications) return;
+  for (const e of fresh.slice(0, 3)) announceMail(e, inbox, senderName(e));
 }
 
 /**
@@ -3001,21 +3016,7 @@ export async function notifyGroupMail(
   if (!s.desktopNotifications) return;
   const name =
     get().mailAccounts.find((a) => a.accountId === accountId)?.name ?? accountId;
-  for (const e of fresh) {
-    const from = e.from?.[0];
-    showNotification(`${from?.name || from?.email || "New message"} · ${name}`, {
-      body: `${e.subject || "(no subject)"}\n${e.preview ?? ""}`.trim(),
-      tag: `gilbert-${e.id}`,
-      onClick: () => {
-        window.location.hash = "";
-        // The one navigation that does not go through wouter -- it is
-        // synthesising a popstate so the router picks the address up -- so it
-        // is also the one that has to add the mount prefix itself.
-        window.history.pushState({}, "", withBase(`/mail/${inbox}/${e.threadId}`));
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      },
-    });
-  }
+  for (const e of fresh) announceMail(e, inbox, `${senderName(e)} · ${name}`);
 }
 
 /**
