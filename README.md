@@ -321,6 +321,21 @@ The variables *this* build reads, and what each one is for, are in
 [`.env.example`](.env.example); `Caddyfile.example` and `nginx.example.conf` in
 this repository are the drop-in configuration for a TLS front.
 
+**The phone.** The image carries the phone's bridge too (ADR 0023): Janus,
+started beside the app, with the SIP plugin that reaches the deployment's own
+SIP server. It needs **one** thing opened inbound — its media range, UDP
+**10000-10200** — and that is all:
+
+```bash
+ufw allow 10000:10200/udp   # and the same in any cloud firewall
+```
+
+The bridge's API is loopback-only and the leg to the SIP provider is outbound,
+so no SIP port (5060/5061) is ever opened. With the range closed, the phone
+**does not appear at all** — the client proves the media path before offering it
+— and nothing else breaks. The administration shows the same range in
+**Identities and SIP Phone**.
+
 ### Turning the agents on
 
 An agent is a Stalwart account, and its grant is membership — there is no
@@ -878,7 +893,35 @@ names a git ref.
 
 ### Deploying
 
-[`deploy.example.sh`](deploy.example.sh) is a single-host Docker deploy: it
+Two ways, and both deliver the whole product — the application **and** the
+phone's bridge (ADR 0023):
+
+- **One image.** `docker compose up --build -d` (above) or
+  [`deploy.example.sh`](deploy.example.sh): the `gilbert` image runs the app and
+  Janus together, two processes in one container. It runs with host networking
+  so the bridge is reachable at the host's public IP.
+- **One host installer, no Docker.** `sudo ./install/install.sh` builds the app
+  and the pinned bridge and installs both as systemd services
+  (`gilbert.service`, `gilbert-janus.service`). Debian and Ubuntu.
+
+Either way, **the one thing to open** is the bridge's media range, UDP
+**10000-10200**, inbound on the host and in any cloud firewall:
+
+```bash
+ufw allow 10000:10200/udp
+```
+
+Nothing else — the bridge's API is loopback-only and its leg to the SIP server
+is outbound. With the range closed the phone does not appear; nothing else
+breaks. The range is the same value the administration shows in **Identities and
+SIP Phone**.
+
+The bridge's version is pinned in [`deploy/janus/VERSION`](deploy/janus/VERSION)
+and is ours to update: no dependency bot sees it, so
+`node scripts/janusVersion.mjs` says whether we are behind when the dependencies
+are updated.
+
+[`deploy.example.sh`](deploy.example.sh) is a single-host Docker redeploy: it
 fetches, refuses anything held back by `.deploy-hold`, shows what is about to be
 introduced and asks, rebuilds with the right version baked in, replaces the
 container, waits for healthy, then prunes all but the newest

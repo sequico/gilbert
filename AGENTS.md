@@ -159,6 +159,12 @@ the local gate matches CI.
 `npm run prepush:full` appends `codeql`. The pre-push hook runs it.
 Version from git at build time (`node scripts/version.mjs`).
 
+**The phone's bridge is a pinned dependency of our own** (ADR 0023): Janus, a
+second process the image and the host installer both build from the one pin in
+`deploy/janus/VERSION`. Dependabot sees neither it nor that tag, so
+`node scripts/janusVersion.mjs` says pinned-vs-upstream and it is bumped by
+hand, deliberately, like the Node line — never left to drift.
+
 ## Language
 Code comments, documentation, commit messages and every other file in the repo
 are written in **English**. Never write or translate repo content into another

@@ -221,7 +221,9 @@ is, not what a user sees.
   meaning.
 - **0023 — SIP telephony.** A browser cannot speak SIP, and a deployment's
   provider may not offer it over WebSocket, so the phone runs on **Janus** with
-  its SIP plugin — a process of the deployment's own. The browser attaches to the
+  its SIP plugin — a second process that ships with Gilbert (the image and the
+  host installer both build it; one media UDP range is the only thing an
+  operator opens). The browser attaches to the
   plugin, registers the account and negotiates the media, while Janus terminates
   the WebRTC and relays SIP and RTP; it never frames SIP, speaking the **Janus
   API** over a WebSocket gilbertserver proxies on its own origin and certificate

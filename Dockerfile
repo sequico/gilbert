@@ -23,9 +23,47 @@ COPY web/package.json web/
 RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
+# The bridge's main config, from the one definition of the media range the
+# administration also shows (ADR 0023).
+RUN node scripts/janusConfig.mjs /janus.jcfg
+
+# ---- the phone's bridge (ADR 0023) ----
+# Janus with its SIP plugin, built from the pinned upstream release. It is the
+# second process of the one image, not a service of its own, so the phone
+# arrives with Gilbert and nothing is installed by hand.
+FROM debian:bookworm AS janus
+ARG JANUS_VERSION=""
+COPY deploy/janus/VERSION /janus-version
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates curl autoconf automake libtool pkg-config \
+      gcc g++ make cmake gengetopt \
+      libglib2.0-dev libjansson-dev libconfig-dev libssl-dev libsrtp2-dev \
+      libnice-dev libcurl4-openssl-dev libsofia-sip-ua-dev libopus-dev \
+      libogg-dev libwebsockets-dev \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN VERSION="${JANUS_VERSION:-$(cat /janus-version)}" \
+ && curl -fsSL "https://github.com/meetecho/janus-gateway/archive/refs/tags/${VERSION}.tar.gz" \
+      | tar xz \
+ && mv janus-gateway-* janus
+WORKDIR /src/janus
+# Only the two plugins the phone uses, only the WebSocket transport, and no
+# data channels, docs or JS modules: the smallest bridge that carries a call.
+RUN ./autogen.sh \
+ && ./configure --prefix=/usr/local \
+      --disable-docs --disable-data-channels \
+      --disable-all-plugins --enable-plugin-sip --enable-plugin-echotest \
+      --disable-all-transports --enable-websockets \
+      --disable-all-handlers --disable-all-loggers \
+      --disable-all-js-modules \
+ && make -j"$(nproc)" \
+ && make install \
+ && mkdir -p /usr/local/share/janus \
+ && cp COPYING /usr/local/share/janus/COPYING
 
 # ---- runtime stage ----
-FROM node:24-alpine AS runtime
+FROM node:24-bookworm-slim AS runtime
 # Re-declared: an ARG does not cross stages.
 ARG GILBERT_VERSION=""
 ARG BASE_PATH=""
@@ -36,6 +74,21 @@ ENV NODE_ENV=production \
     GILBERT_VERSION=$GILBERT_VERSION \
     BASE_PATH=$BASE_PATH
 WORKDIR /app
+# The bridge's runtime libraries, and Janus itself from the stage above.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
+      libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17 \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=janus /usr/local /usr/local
+COPY --from=build /janus.jcfg /usr/local/etc/janus/janus.jcfg
+COPY deploy/janus/janus.transport.websockets.jcfg \
+     deploy/janus/janus.plugin.sip.jcfg \
+     deploy/janus/janus.plugin.echotest.jcfg \
+     /usr/local/etc/janus/
+COPY deploy/janus/entrypoint.sh /usr/local/bin/gilbert-entrypoint
+COPY deploy/healthcheck.mjs /usr/local/bin/gilbert-healthcheck.mjs
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 # config.ts reads the version through this at startup. With GILBERT_VERSION
@@ -45,19 +98,16 @@ COPY scripts/ ./scripts/
 # Only what the server loads at runtime: hono and its Node adapter, about 4 MB.
 # The build stage's tree is 132 MB of vite, TypeScript, esbuild and React that
 # never executes here but shipped anyway -- and showed up in every CVE scan.
-RUN npm ci --ignore-scripts --omit=dev --workspace server \
-    && rm -rf /root/.npm /tmp/*
+RUN chmod +x /usr/local/bin/gilbert-entrypoint \
+ && npm ci --ignore-scripts --omit=dev --workspace server \
+ && rm -rf /root/.npm /tmp/* \
+ && mkdir -p /data && chown node:node /data \
+ # The base image ships a package manager the server never calls. Anyone who
+ # gets code execution should not find one waiting for them.
+ && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
+           /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
-# /data is the only path the process may write. /app stays root-owned and
-# read-only to the runtime user on purpose; the previous `chown -R /app`
-# re-wrote every file and, on overlayfs, duplicated the whole tree into a
-# second 173 MB layer.
-RUN mkdir -p /data && chown node:node /data \
-    # The base image ships a package manager the server never calls. Anyone who
-    # gets code execution should not find one waiting for them.
-    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
-              /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 USER node
 # No `VOLUME ["/data"]`. It reads like documentation for where the session file
 # goes, but Docker acts on it: a container started without `-v` gets an
@@ -69,14 +119,10 @@ USER node
 # that want the sessions to survive say so themselves: docker-compose.yml and
 # deploy.example.sh both mount a *named* volume at /data, which is unaffected.
 EXPOSE 8080
-# Shell form, so $BASE_PATH is expanded by the container rather than baked in
-# empty at build time: the health endpoint moves with the mount.
-#
-# The two substitutions repeat, in sh, what scripts/basePath.mjs does in
-# JavaScript -- drop a trailing slash, add a leading one -- because this runs
-# before there is a Node process to ask. It is worth the duplication: an
-# operator who writes BASE_PATH=mail/ gets a working server, and without this
-# a healthcheck that says the working server is unhealthy and has Docker
-# restart it forever.
-HEALTHCHECK --interval=30s --timeout=5s CMD BP="${BASE_PATH%/}"; case "$BP" in ""|/*) ;; *) BP="/$BP";; esac; wget -qO- "http://127.0.0.1:8080$BP/api/health" || exit 1
+# The bridge's API is loopback-only and its media range is a deployment fact
+# (ADR 0023): the range is stated in the administration, and an operator opens
+# it on the host.
+HEALTHCHECK --interval=30s --timeout=5s CMD ["node", "/usr/local/bin/gilbert-healthcheck.mjs"]
+# Janus first, then whatever this image was told to run (ADR 0023).
+ENTRYPOINT ["/usr/local/bin/gilbert-entrypoint"]
 CMD ["node", "server/dist/index.js"]

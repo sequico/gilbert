@@ -39,8 +39,10 @@ single seat and the administration are in place. Global contacts is built.
    STUN/TURN**: the bridge is the ICE peer on a public IP. The media range is the
    **only** inbound port; the SIP leg is outbound, so 5060/5061 are never opened.
 7. **No installation-level phone settings** — no `sip` section, no SIP Phone
-   page, no STUN/TURN. Where the bridge lives and which ports it needs are the
-   deployment's own facts.
+   page, no STUN/TURN. The bridge ships with the release (the image and the host
+   installer both build it from `deploy/janus/VERSION`); the only deployment
+   fact an operator acts on is the media range, `BRIDGE_MEDIA_PORTS`, opened
+   inbound — with it closed the phone does not appear.
 8. **Desktop only**: a page rings only while it is alive.
 9. Each person's **server, user name and password** are account data, set in
    **Identities and SIP Phone** in the identity-enforcement surface (ADR 0007),
@@ -73,7 +75,12 @@ single seat and the administration are in place. Global contacts is built.
   `server/src/phone/proxy.ts`, the bridge's address in
   `server/src/phone/bridge.ts`, the document and the media range in
   `server/src/shared/phone.ts`, and the administration in
-  `web/src/views/admin/IdentitiesAndSipPhone.tsx`.
+  `web/src/views/admin/IdentitiesAndSipPhone.tsx`. The bridge itself is built
+  and configured by `deploy/janus/` (the pinned `VERSION`, the Janus configs,
+  the container entrypoint) and `install/install.sh` (the host services), with
+  `scripts/janusConfig.mjs` deriving the media range from
+  `@gilbert/shared/phone`, and `scripts/janusVersion.mjs` saying whether the pin
+  is behind upstream.
 - **Global contacts**: `server/src/globalContactsAdmin.ts` (the write, the
   share, the boot-time `ensureGlobalContacts`), `server/src/index.ts` (its
   call), `server/src/shared/phone.ts`,

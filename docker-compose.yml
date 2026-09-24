@@ -9,13 +9,22 @@ services:
         BASE_PATH: ${BASE_PATH:-}
     image: gilbert:2
     restart: unless-stopped
-    # Loopback only: Gilbert expects a TLS reverse proxy in front of it. On
-    # every interface the app is reachable over plain HTTP, passwords and all,
-    # and with TRUST_PROXY any machine on a private network can set its own
-    # X-Forwarded-For. A proxy running in Docker reaches the service by name on
-    # the compose network and needs no published port at all.
-    ports:
-      - "127.0.0.1:8080:8080"
+    # Host networking, because the image runs the phone's Janus bridge beside
+    # the app (ADR 0023) and a media server must be reachable at the host's
+    # public IP. On the compose network Janus would see only a private address
+    # and a call would connect and carry no audio. It also means the reverse
+    # proxy sits on the host and reaches the app on 127.0.0.1:8080 (HOST below);
+    # the Janus API binds 127.0.0.1:8188 and is never exposed.
+    #
+    # THE ONE THING AN OPERATOR OPENS: the bridge's media range, UDP
+    # 10000-10200, inbound on this host and in any cloud firewall:
+    #
+    #     ufw allow 10000:10200/udp
+    #
+    # Nothing else. No SIP port (5060/5061: the leg to the provider is
+    # outbound). If the range is closed, the phone does not appear at all --
+    # the client proves the media path before offering it.
+    network_mode: host
     # The app needs no privileges and, with IMMUTABLE set, writes nowhere: the
     # whole of its state lives in Stalwart.
     read_only: true
@@ -35,6 +44,9 @@ services:
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
       GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
+      # Host networking puts the app on every interface unless it is told
+      # otherwise: loopback only, behind the host's reverse proxy.
+      HOST: "127.0.0.1"
       # The container's own facts, and the facts about the image rather than
       # the installation: what it serves, and where its source can be had.
       IMMUTABLE: "1"
@@ -73,6 +85,9 @@ services:
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
       IMMUTABLE: "1"
+      # The worker serves no phone, so it starts no bridge (ADR 0023): the same
+      # image, one process fewer.
+      GILBERT_BRIDGE: "0"
     # The same posture as the server above: nothing to write, nothing to gain
     # and no way to gain it.
     read_only: true

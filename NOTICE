@@ -112,10 +112,16 @@ The MIT licence, under which all ten are used:
 
 ## Janus
 
-The phone (ADR 0023) runs on **Janus**, the WebRTC server —
-https://github.com/meetecho/janus-gateway — Copyright (C) Meetecho s.r.l., used
-under the GNU General Public License v3. It runs as a **separate process** in
-the deployment and is reached over its API: nothing in Gilbert is linked with
-it, derived from it or distributed with it, so its licence governs that process
-and not this work. It is credited here because the feature depends on it.
+The phone's bridge (ADR 0023) is **Janus**, the WebRTC server —
+https://github.com/meetecho/janus-gateway — Copyright (C) Meetecho s.r.l.,
+licensed under the **GNU General Public License v3**. It ships with Gilbert: the
+container image builds it from the pinned release, and the host installer builds
+the same release, so it is a **separate process of this release** and not a
+library linked into Gilbert. Its licence and its complete corresponding source
+are therefore offered with this distribution — the version is pinned in
+`deploy/janus/VERSION`, its source is the upstream tag of that name
+(`https://github.com/meetecho/janus-gateway/tree/<version>`), and the licence
+text is installed beside the binary (`/usr/local/share/janus/COPYING`).
+Gilbert's own code is not derived from it, and the two run as separate
+processes.
 

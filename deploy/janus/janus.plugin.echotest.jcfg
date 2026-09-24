@@ -1,0 +1,5 @@
+# The echo test (ADR 0023): the phone probes it before it offers itself, so a
+# bridge whose media ports are closed shows no phone rather than a broken one.
+general: {
+	enable = true
+}

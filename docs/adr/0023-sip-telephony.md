@@ -10,8 +10,11 @@ Implementation: Built. The browser's Janus client is
 `web/src/views/admin/IdentitiesAndSipPhone.tsx`; the socket gilbertserver
 proxies is `server/src/phone/proxy.ts` (registered in `server/src/app.ts`), the
 bridge's address is `server/src/phone/bridge.ts`, and the account document and
-the media range are `server/src/shared/phone.ts`. Global contacts is a record of
-its own (ADR 0024).
+the media range are `server/src/shared/phone.ts`. The bridge itself — the pinned
+Janus, its configs and its entrypoint — is built and shipped by `deploy/janus/`
+and `install/install.sh`, with `scripts/janusConfig.mjs` deriving the media
+range from that shared definition. Global contacts is a record of its own (ADR
+0024).
 
 ## Context
 
@@ -94,10 +97,11 @@ that person's own account, read through the door that account is already signed
 in by — not a shared secret, and not a second door.
 
 **There is no installation-level phone configuration and no SIP Phone page.**
-No `sip` section, no endpoints, no STUN/TURN: where the bridge lives and which
-ports it needs are the **deployment's** own facts, like `STALWART_URL`, and not
-an administrator's settings. A user with no account has no phone and no entry; a
-user with one has it. There is no per-user switch.
+No `sip` section, no endpoints, no STUN/TURN. The bridge ships with the release
+— the image and the host installer both build it from one pin — so there is
+nothing to configure; the one deployment fact an operator acts on is the media
+range, opened inbound. A user with no account has no phone and no entry; a user
+with one has it. There is no per-user switch.
 
 ### Desktop only
 
@@ -183,12 +187,13 @@ be composed by hand, through a keypad, and it is sent to the provider as
 
 ## Consequences
 
-- The deployment runs a second process with a public IP and a media UDP range
-  open on its firewall: that range is the only inbound port, and the SIP leg is
-  outbound. Media traverses the bridge, so a call costs the bandwidth twice and
-  the relay's CPU; **G.711** keeps that relay a pass-through rather than a
-  transcoder. A restart drops the calls in progress, and the tabs that hold the
-  seat register again when their socket returns.
+- The release runs a second process — the bridge — beside the server, in the
+  same image or as a systemd unit, and it needs a public IP and a media UDP
+  range open on its firewall: that range is the only inbound port, and the SIP
+  leg is outbound. Media traverses the bridge, so a call costs the bandwidth
+  twice and the relay's CPU; **G.711** keeps that relay a pass-through rather
+  than a transcoder. A restart drops the calls in progress, and the tabs that
+  hold the seat register again when their socket returns.
 - The line is the browser's. Closing the tab that holds the seat drops the
   registration, and while no tab holds it the provider's routing, not Gilbert,
   decides what an inbound call becomes. A call lives as long as the page and
