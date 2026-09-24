@@ -610,7 +610,11 @@ test("a member's own sender can be deleted, and the group's own identity cannot"
     "the identity is gone",
   );
   assert.equal(after.assignments[DEMO] ?? null, null, "and the assignment with it");
-  assert.equal(after.groupSenderId, groupSenderId, "the group's own identity is untouched");
+  assert.equal(
+    after.groupSenderId,
+    groupSenderId,
+    "the group's own identity is untouched",
+  );
   assert.equal(after.identities.length, before - 1);
 
   const refuse = await post("/api/admin/identities/group/delete", {
