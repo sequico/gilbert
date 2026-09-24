@@ -165,6 +165,8 @@ export class Phone {
   private mediaProven = false;
   private reconnect: number | null = null;
   private failures = 0;
+  /** Whether a connection attempt is on its way, so two cannot race. */
+  private connecting = false;
 
   constructor(
     private readonly credential: SipCredential,
@@ -174,6 +176,10 @@ export class Phone {
   /** Register the line, and keep trying while the tab holds the seat. */
   async start(): Promise<void> {
     this.ended = false;
+    // The network coming back is the one signal the browser gives that a retry
+    // is worth making now: waiting out an accumulated backoff would leave the
+    // line dead long after the network under it is healthy again.
+    window.addEventListener("online", this.onOnline);
     try {
       await this.connect();
     } catch (err) {
@@ -186,6 +192,7 @@ export class Phone {
   /** Give the line up: hang up, unregister and stop retrying. */
   async stop(): Promise<void> {
     this.ended = true;
+    window.removeEventListener("online", this.onOnline);
     if (this.reconnect !== null) {
       window.clearTimeout(this.reconnect);
       this.reconnect = null;
@@ -282,43 +289,51 @@ export class Phone {
   }
 
   private async connect(): Promise<void> {
-    this.hooks.onLine("connecting");
-    // The media path is probed once: it is the browser's network that decides
-    // it, and that does not change between a socket that dropped and its
-    // replacement. Registration crosses Janus's leg to the provider and says
-    // nothing about the page's, so a bridge whose ports are closed must show no
-    // phone rather than a line that fails on the first call.
-    if (!this.mediaProven) {
-      await this.mediaReachable();
-      if (this.ended) return;
-      this.mediaProven = true;
-    }
-    // The media path is proven (or was): the phone is offered from here, and a
-    // registration that fails is the red glyph, not an invisible absence.
-    this.hooks.onProven();
-    const janus = new Janus(bridgeUrl(), this.janusHooks());
-    const previous = this.janus;
-    this.janus = janus;
-    previous?.close();
+    // One attempt at a time: a network return and a pending retry can both ask
+    // within the same moment, and two sessions would race for the one line.
+    if (this.connecting) return;
+    this.connecting = true;
     try {
-      await janus.open("janus.plugin.sip");
-    } catch (err) {
-      if (this.janus === janus) this.janus = null;
-      janus.close();
-      throw err;
+      this.hooks.onLine("connecting");
+      // The media path is probed once: it is the browser's network that decides
+      // it, and that does not change between a socket that dropped and its
+      // replacement. Registration crosses Janus's leg to the provider and says
+      // nothing about the page's, so a bridge whose ports are closed must show no
+      // phone rather than a line that fails on the first call.
+      if (!this.mediaProven) {
+        await this.mediaReachable();
+        if (this.ended) return;
+        this.mediaProven = true;
+      }
+      // The media path is proven (or was): the phone is offered from here, and a
+      // registration that fails is the red glyph, not an invisible absence.
+      this.hooks.onProven();
+      const janus = new Janus(bridgeUrl(), this.janusHooks());
+      const previous = this.janus;
+      this.janus = janus;
+      previous?.close();
+      try {
+        await janus.open("janus.plugin.sip");
+      } catch (err) {
+        if (this.janus === janus) this.janus = null;
+        janus.close();
+        throw err;
+      }
+      if (this.ended) {
+        if (this.janus === janus) this.janus = null;
+        janus.close();
+        return;
+      }
+      janus.message({
+        request: "register",
+        username: sipAddress(this.credential),
+        secret: this.credential.password,
+        proxy: `sip:${this.credential.server}`,
+        display_name: this.credential.username,
+      });
+    } finally {
+      this.connecting = false;
     }
-    if (this.ended) {
-      if (this.janus === janus) this.janus = null;
-      janus.close();
-      return;
-    }
-    janus.message({
-      request: "register",
-      username: sipAddress(this.credential),
-      secret: this.credential.password,
-      proxy: `sip:${this.credential.server}`,
-      display_name: this.credential.username,
-    });
   }
 
   /** Whether this browser can reach the bridge's media; throws when it cannot. */
@@ -386,6 +401,13 @@ export class Phone {
       onRefused: (reason) => this.hooks.onError(reason),
       onClosed: () => {
         if (this.ended) return;
+        /*
+         * The handle, and the call on it, went with the socket: the reconnect
+         * opens a new session, so a call that was live cannot be recovered.
+         * Ending it here stops the microphone and clears the surface rather
+         * than leaving a dead call on screen until the line registers again.
+         */
+        this.endCall();
         this.hooks.onLine("connecting");
         this.scheduleReconnect();
       },
@@ -453,6 +475,12 @@ export class Phone {
     this.reconnect = window.setTimeout(() => {
       this.reconnect = null;
       if (this.ended) return;
+      // A connect already on its way owns the line: let it finish rather than
+      // racing it, and try again if it has not settled by then.
+      if (this.connecting) {
+        this.scheduleReconnect();
+        return;
+      }
       void this.connect().catch((err) => {
         this.hooks.onError(reason(err));
         this.hooks.onLine("unavailable");
@@ -460,4 +488,26 @@ export class Phone {
       });
     }, delay);
   }
+
+  /**
+   * The network is back: drop the accumulated backoff and try now.
+   *
+   * The browser fires this on a wake, a network change and a regained link,
+   * and it is the one moment a retry is more likely to succeed than the one the
+   * backoff would have waited for. A connect already on its way is left to
+   * finish: two attempts at once would race for the one line.
+   */
+  private onOnline = () => {
+    if (this.ended || this.connecting) return;
+    if (this.reconnect !== null) {
+      window.clearTimeout(this.reconnect);
+      this.reconnect = null;
+    }
+    this.failures = 0;
+    void this.connect().catch((err) => {
+      this.hooks.onError(reason(err));
+      this.hooks.onLine("unavailable");
+      this.scheduleReconnect();
+    });
+  };
 }
