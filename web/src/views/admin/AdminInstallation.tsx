@@ -1,65 +1,13 @@
-import { installationDefaults } from "@gilbert/shared/installation";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/jmap/client";
 import { t, tNode } from "@/lib/i18n";
+import {
+  fetchInstallation,
+  type InstallationView,
+  type InstallationPublished as Published,
+  publishInstallation,
+  startingInstallationDocument,
+} from "@/lib/installationAdmin";
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
-
-/**
- * The installation's own document, as the Master's account holds it.
- *
- * `present` is the question "is there one at all" answered on its own, and
- * `problem` is why a boot would refuse what is there — the server judges that
- * with the reader the boot itself uses, so the surface says what a restart
- * would do rather than guessing. There is no field asking whether this is the
- * account a boot reads: the server answers this route only for that account,
- * and refuses the read outright when this deployment names no Master.
- */
-interface InstallationView {
-  present: boolean;
-  document: string | null;
-  problem: string | null;
-  /** The Files account whose app folder holds it — the Master's own. */
-  account: string;
-  /** The address that account belongs to: the Master the installation signs in as. */
-  master: string;
-  location: string;
-}
-
-/**
- * What a publish wrote, and when it applies.
- *
- * `applies` is a time, not a reassurance: the server reads the document at
- * boot, so a publish lands in the account's Files and the *next* boot runs on
- * it. The running process keeps the configuration it booted with, which is
- * what `message` says in as many words.
- */
-interface Published {
-  account: string;
-  /** The address of the account just written to: the Master the installation signs in as. */
-  master: string;
-  location: string;
-  /** The document as it is now stored: byte for byte what a read returns. */
-  document: string;
-  epoch: number;
-  applies: "next-boot";
-  message: string;
-}
-
-/**
- * A document to start from when the account holds none.
- *
- * The shared defaults (`@gilbert/shared/installation`) are the same values the
- * boot writes on a first start, so this is not a second idea of what an
- * installation is; the one thing a person cannot supply is the app secret, and
- * it is generated here the way the boot generates it. Publishing this is what
- * gives an installation its document before it has ever booted on one.
- */
-function startingDocument(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const secret = btoa(String.fromCharCode(...bytes));
-  return JSON.stringify({ ...installationDefaults(), secret }, null, 2);
-}
 
 /**
  * The installation's own document (ADR 0003 — the installation is configured
@@ -90,19 +38,17 @@ export function AdminInstallation() {
   async function load() {
     setLoadError(null);
     try {
-      const res = await apiFetch<{ installation: InstallationView }>(
-        "/api/admin/installation",
-      );
-      setView(res.installation);
-      if (res.installation.document === null) {
+      const current = await fetchInstallation();
+      setView(current);
+      if (current.document === null) {
         // Nothing is there: the editor starts from the defaults and a fresh
         // secret rather than an empty box nothing can be published from.
-        setText(startingDocument());
+        setText(startingInstallationDocument());
         setBaseline("");
         setSeeded(true);
       } else {
-        setText(res.installation.document);
-        setBaseline(res.installation.document);
+        setText(current.document);
+        setBaseline(current.document);
         setSeeded(false);
       }
       setLoaded(true);
@@ -126,30 +72,27 @@ export function AdminInstallation() {
     }
     setSaving(true);
     try {
-      const res = await apiFetch<{ outcome: Published }>("/api/admin/installation", {
-        method: "POST",
-        body: text,
-      });
+      const outcome = await publishInstallation(text);
       /*
        * The server hands back the document as it is now stored — the
        * validator's defaults filled in, the epoch moved on — so the editor
        * shows what is really there rather than what was typed, and the button
        * has nothing left to publish until the text moves again.
        */
-      setText(res.outcome.document);
-      setBaseline(res.outcome.document);
+      setText(outcome.document);
+      setBaseline(outcome.document);
       setSeeded(false);
-      setNotice(res.outcome);
+      setNotice(outcome);
       setView((current) =>
         current
           ? {
               ...current,
               present: true,
-              document: res.outcome.document,
+              document: outcome.document,
               problem: null,
-              account: res.outcome.account,
-              master: res.outcome.master,
-              location: res.outcome.location,
+              account: outcome.account,
+              master: outcome.master,
+              location: outcome.location,
             }
           : current,
       );

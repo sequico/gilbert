@@ -1,41 +1,17 @@
+import type { InstallationSip, InstallationSipTurn } from "@gilbert/shared/installation";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/jmap/client";
 import { t } from "@/lib/i18n";
+import { fetchInstallation, publishInstallation } from "@/lib/installationAdmin";
 import { Switch } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
-/** A TURN server as the installation document carries it (ADR 0023). */
-interface TurnRow {
-  url: string;
-  username: string;
-  credential: string;
+/** One line per entry, for the textareas the URL lists are edited in. */
+function asLines(values: string[]): string {
+  return values.join("\n");
 }
 
-/** The stored installation document, as `GET /api/admin/installation` answers. */
-interface InstallationView {
-  present: boolean;
-  document: string | null;
-  problem: string | null;
-  account: string;
-  master: string;
-  location: string;
-}
-
-/** The document's `sip` section, as this page reads and writes it. */
-interface SipSection {
-  enabled: boolean;
-  endpoints: string[];
-  stun: string[];
-  turn: TurnRow[];
-}
-
-function asLines(value: unknown): string {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string").join("\n")
-    : "";
-}
-
+/** The same, back: trimmed, blanks dropped. */
 function linesToArray(value: string): string[] {
   return value
     .split("\n")
@@ -43,19 +19,13 @@ function linesToArray(value: string): string[] {
     .filter(Boolean);
 }
 
-function readSip(doc: Record<string, unknown>): SipSection {
-  const sip = (doc.sip ?? {}) as Record<string, unknown>;
+function readSip(doc: Record<string, unknown>): InstallationSip {
+  const sip = (doc.sip ?? {}) as Partial<InstallationSip>;
   return {
     enabled: sip.enabled === true,
-    endpoints: Array.isArray(sip.endpoints) ? (sip.endpoints as string[]) : [],
-    stun: Array.isArray(sip.stun) ? (sip.stun as string[]) : [],
-    turn: Array.isArray(sip.turn)
-      ? (sip.turn as Partial<TurnRow>[]).map((entry) => ({
-          url: typeof entry.url === "string" ? entry.url : "",
-          username: typeof entry.username === "string" ? entry.username : "",
-          credential: typeof entry.credential === "string" ? entry.credential : "",
-        }))
-      : [],
+    endpoints: Array.isArray(sip.endpoints) ? [...sip.endpoints] : [],
+    stun: Array.isArray(sip.stun) ? [...sip.stun] : [],
+    turn: Array.isArray(sip.turn) ? sip.turn.map((entry) => ({ ...entry })) : [],
   };
 }
 
@@ -66,16 +36,16 @@ function readSip(doc: Record<string, unknown>): SipSection {
  * endpoints in the order they are tried, the STUN and TURN servers media may
  * need, and whether this installation offers the phone at all. They are the
  * installation's own document (ADR 0011), so this page reads that document,
- * changes only its `sip` section and publishes it back whole; each person's
- * SIP address and password are an identity's and are set in Enforce Identities,
- * not here.
+ * changes only its `sip` section and publishes it back whole; each person's SIP
+ * address and password are an identity's and are set in Enforce Identities, not
+ * here.
  *
  * The running process keeps what it booted with, so a publish applies at the
  * next boot and the page says so rather than reporting a live change.
  */
 export function AdminSipPhone() {
   const [doc, setDoc] = useState<Record<string, unknown> | null>(null);
-  const [sip, setSip] = useState<SipSection>({
+  const [sip, setSip] = useState<InstallationSip>({
     enabled: false,
     endpoints: [],
     stun: [],
@@ -90,15 +60,13 @@ export function AdminSipPhone() {
   async function load() {
     setLoadError(null);
     try {
-      const res = await apiFetch<{ installation: InstallationView }>(
-        "/api/admin/installation",
-      );
-      if (res.installation.document === null) {
+      const current = await fetchInstallation();
+      if (current.document === null) {
         setDoc(null);
         setLoaded(true);
         return;
       }
-      const parsed = JSON.parse(res.installation.document) as Record<string, unknown>;
+      const parsed = JSON.parse(current.document) as Record<string, unknown>;
       setDoc(parsed);
       setSip(readSip(parsed));
       setLoaded(true);
@@ -119,23 +87,15 @@ export function AdminSipPhone() {
     try {
       const next = {
         ...doc,
-        sip: {
-          enabled: sip.enabled,
-          endpoints: sip.endpoints,
-          stun: sip.stun,
-          turn: sip.turn.filter((row) => row.url.trim()),
-        },
+        sip: { ...sip, turn: sip.turn.filter((row) => row.url.trim()) },
       };
       /*
        * The whole document goes back, with only `sip` changed: the route
        * validates it and takes the next epoch, so everything this page does not
        * show survives the publish.
        */
-      const res = await apiFetch<{ outcome: { document: string } }>(
-        "/api/admin/installation",
-        { method: "POST", body: JSON.stringify(next, null, 2) },
-      );
-      const stored = JSON.parse(res.outcome.document) as Record<string, unknown>;
+      const outcome = await publishInstallation(JSON.stringify(next, null, 2));
+      const stored = JSON.parse(outcome.document) as Record<string, unknown>;
       setDoc(stored);
       setSip(readSip(stored));
       setPublished(true);
@@ -185,7 +145,7 @@ export function AdminSipPhone() {
     );
   }
 
-  const setTurn = (index: number, patch: Partial<TurnRow>) =>
+  const setTurn = (index: number, patch: Partial<InstallationSipTurn>) =>
     setSip((s) => ({
       ...s,
       turn: s.turn.map((row, i) => (i === index ? { ...row, ...patch } : row)),
@@ -284,7 +244,10 @@ export function AdminSipPhone() {
         <button
           className="btn btn-ghost"
           onClick={() =>
-            setSip((s) => ({ ...s, turn: [...s.turn, { url: "", username: "", credential: "" }] }))
+            setSip((s) => ({
+              ...s,
+              turn: [...s.turn, { url: "", username: "", credential: "" }],
+            }))
           }
         >
           <Plus size={14} /> {t("Add a TURN server")}
