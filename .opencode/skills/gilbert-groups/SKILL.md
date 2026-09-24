@@ -51,6 +51,9 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   from that same section, with no treatment of its own.
 - **Address books**: same shape — `store/contacts.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` sections per group.
+  **Global contacts is not one of these**: it is one Master-owned book with a
+  universal read-only share, the installation's rather than a group's, and it
+  gets no per-group section and no per-group copy (`gilbert-phone`).
 - **Files**: ownership follows the browsed context (`store/files.ts`
   `openAccount`); a doc created while browsing the group account is the
   group's. The composer's "Attach from Files" picker lists every probed

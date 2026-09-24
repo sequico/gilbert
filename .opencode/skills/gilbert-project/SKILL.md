@@ -97,7 +97,7 @@ expect a peer's writes in the same checkout to cost a read-only child its
 `bash` — that child verifies by reading and says what it could not run, and
 **every gate stays in the parent**.
 
-Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or policy-shaped loads `gilbert-settings`.
+Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or policy-shaped loads `gilbert-settings`; the softphone and Global contacts load `gilbert-phone`.
 
 ## 3b. The agent vocabulary and what an automation is
 

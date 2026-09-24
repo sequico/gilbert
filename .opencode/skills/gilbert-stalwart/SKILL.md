@@ -81,6 +81,11 @@ Where the integration lives:
   (signatures capped at 2047 bytes of UTF-8 — Rust `len()`, see
   `web/src/lib/signatureHtml.ts`), calendar events, contacts, sieve scripts,
   principal/group structure.
+- **Global contacts** (ADR 0023, `gilbert-phone`): one `AddressBook` +
+  `ContactCard`s in the **Master's** account, shared **read-only with every
+  account** and written only by an administrator from inside Contacts — a
+  Stalwart object, never a second store. The exact shape of a share naming every
+  account at once is **owed a live probe** (see the live questions below).
 - Installation policy: `server/src/config.ts` (settings-policy file/env),
   served by `/api/config`; admin group concept in `docs/adr/0001` (admin is
   membership of a Stalwart group, e.g. `admins@domain`; policy documents in

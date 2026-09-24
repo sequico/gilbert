@@ -374,7 +374,8 @@ Full law: load `.opencode/skills/gilbert-project/SKILL.md`. Renames: load
 `.opencode/skills/gilbert-branding/SKILL.md`. UI strings & languages: load
 `.opencode/skills/gilbert-i18n/SKILL.md`. Settings & policy: load
 `.opencode/skills/gilbert-settings/SKILL.md`. Group-owned data & features: load
-`.opencode/skills/gilbert-groups/SKILL.md`. Stalwart internals, quirks &
+`.opencode/skills/gilbert-groups/SKILL.md`. The phone and Global contacts: load
+`.opencode/skills/gilbert-phone/SKILL.md`. Stalwart internals, quirks &
 integration: load `.opencode/skills/gilbert-stalwart/SKILL.md`. Upstream merges:
 load `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`. The skill that governs
 a kind of work is loaded before the first edit of it.
