@@ -9,30 +9,39 @@
  * again.
  */
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
 import { GroupIdentities } from "@/views/admin/GroupIdentities";
 import { PhoneStatusPanel } from "@/views/admin/PhoneStatusPanel";
 import { UserIdentities } from "@/views/admin/UserIdentities";
 
-/** The tabs, in the order the section offers them. */
-const TABS = [
-  { id: "user", label: "User identities", el: <UserIdentities /> },
-  { id: "group", label: "Group identities", el: <GroupIdentities /> },
-  { id: "status", label: "Bridge status", el: <PhoneStatusPanel /> },
-];
+/** The tab order, for the keyboard movement between them. */
+const TAB_IDS = ["user", "group", "status"];
+
+/**
+ * The tabs, built at render so their labels are translated then rather than at
+ * import — a language picked later still reaches them.
+ */
+function tabs(): Array<{ id: string; label: string; el: ReactNode }> {
+  return [
+    { id: "user", label: t("User identities"), el: <UserIdentities /> },
+    { id: "group", label: t("Group identities"), el: <GroupIdentities /> },
+    { id: "status", label: t("Bridge status"), el: <PhoneStatusPanel /> },
+  ];
+}
 
 /** The tab one arrow press moves to, wrapping at the ends. */
 function neighbour(from: string, delta: number): string {
-  const index = TABS.findIndex((entry) => entry.id === from);
-  const next = (index + delta + TABS.length) % TABS.length;
-  return TABS[next]?.id ?? from;
+  const index = TAB_IDS.indexOf(from);
+  const next = (index + delta + TAB_IDS.length) % TAB_IDS.length;
+  return TAB_IDS[next] ?? from;
 }
 
 export function IdentitiesAndSipPhone() {
-  const [tab, setTab] = useState(TABS[0]?.id ?? "user");
+  const [tab, setTab] = useState(TAB_IDS[0]);
   const [status, setStatus] = useState<PhoneStatus | null>(null);
+  const list = tabs();
   const select = (id: string) => {
     setTab(id);
     document.getElementById(`identities-sip-${id}`)?.focus();
@@ -68,7 +77,7 @@ export function IdentitiesAndSipPhone() {
         </div>
       )}
       <div className="tabs" role="tablist" aria-label={t("Identities and SIP Phone")}>
-        {TABS.map((entry) => (
+        {list.map((entry) => (
           <button
             key={entry.id}
             type="button"
@@ -89,11 +98,11 @@ export function IdentitiesAndSipPhone() {
               }
             }}
           >
-            {t(entry.label)}
+            {entry.label}
           </button>
         ))}
       </div>
-      {TABS.map((entry) => (
+      {list.map((entry) => (
         <div
           key={entry.id}
           id={`identities-sip-${entry.id}-panel`}
