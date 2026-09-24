@@ -10,7 +10,7 @@ import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
-import { Avatar, useIsMobile } from "@/ui/misc";
+import { Avatar, useIsMobile, useIsTouch } from "@/ui/misc";
 import { Popover, useMenu } from "@/ui/popover";
 
 /** The digits the keypad offers, in the order a phone lays them out. */
@@ -56,9 +56,14 @@ function inCategory(source: DialerSource, category: DialerCategory): boolean {
  * It is offered only where it can work: the entry is absent until the tab holds
  * the seat, the account is registered and the bridge's media has answered. The
  * surface says what is missing rather than pretending.
+ *
+ * It is also **desktop only**: a page suspended in the background or behind a
+ * locked screen cannot ring, so on a touch device the entry is not offered at
+ * all — and nothing registers and no microphone is asked for there.
  */
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
+  const touch = useIsTouch();
   const ready = usePhone((s) => s.ready);
   const state = usePhone((s) => s.state);
   const incoming = usePhone((s) => s.incoming);
@@ -78,9 +83,10 @@ export function PhoneLauncher() {
    * does. Closing the tab releases the lock with the page.
    */
   useEffect(() => {
+    if (touch) return;
     void usePhone.getState().start();
     return () => void usePhone.getState().stop();
-  }, []);
+  }, [touch]);
 
   /*
    * The microphone is asked for by the product, not by the reader finding a
@@ -89,7 +95,7 @@ export function PhoneLauncher() {
    * is granted by nobody. The listener is disarmed once the browser answers.
    */
   useEffect(() => {
-    if (microphone !== "unknown") return;
+    if (touch || microphone !== "unknown") return;
     const ask = () => {
       window.removeEventListener("pointerdown", ask);
       window.removeEventListener("keydown", ask);
@@ -101,7 +107,7 @@ export function PhoneLauncher() {
       window.removeEventListener("pointerdown", ask);
       window.removeEventListener("keydown", ask);
     };
-  }, [microphone]);
+  }, [microphone, touch]);
 
   /* The peer's audio, played while there is one and stopped when there is not. */
   useEffect(() => {
@@ -143,7 +149,7 @@ export function PhoneLauncher() {
       ? "var(--danger)"
       : undefined;
 
-  if (!ready) return null;
+  if (touch || !ready) return null;
 
   /*
    * A red handset carries why, so the reader does not open it to find out: the
