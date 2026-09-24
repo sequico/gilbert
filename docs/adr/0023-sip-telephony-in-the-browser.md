@@ -86,11 +86,23 @@ collapses into the top bar** — on the phone and on the desktop alike — so th
 reader goes on with their mail while it lasts, and the collapsed control brings
 the call back. Nothing about a live call blocks the rest of the app.
 
-### Speed dial from the contacts
+### Contacts in the dialer, and speed dial
 
-A contact's number starts a call from the contacts surface: clicking the name
-calls it. It is a client-side action — the contact's address becomes the call's
-target and the `Inviter` is sent.
+The phone's own list — the dialer's mini surface — reads its contacts from
+Contacts, under the same separation the Contacts view draws: **the global
+directory, each group's book (group A, group B, and so on), the reader's
+personal books, and all of them together**. A call starts from either place, a
+line in the dialer's list or the contact itself in Contacts, and the two send
+the same `Inviter`. It is a client-side action: the contact's address becomes
+the call's target.
+
+### On the phone
+
+The entry, the dialer's list, the ringing surface and the collapsed call are
+laid out for a narrow screen and a fingertip from the start, not narrowed
+afterwards. The phone works as well, and reads as one product with the rest of
+gilbertmailer, on a phone as on a desktop — the same bar every other surface in
+the client is held to.
 
 ### What is not in it
 
@@ -123,8 +135,13 @@ target and the `Inviter` is sent.
 - The credentials being account data means a change reaches every device, and
   enforcement can lock them — which is the point of setting them in the
   identity door rather than in a per-device form.
-- The phone entry already in the top bar becomes live; the feature is written
-  into `FEATURES.md` when it is built.
+- **The documents state the feature, and the public ones first.** The phone is
+  a feature of the product and not a capability left to the code: when it is
+  built, `FEATURES.md` gains its entry and `README.md` names the phone among
+  what Gilbert does. The public documents are where a reader learns what the
+  product offers, and a surface this visible is stated there — and in this
+  record's index entry — rather than discovered. The phone entry already in the
+  top bar becomes live in the same change.
 
 ## References
 

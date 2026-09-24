@@ -22,7 +22,8 @@ nothing new for the client.
 ## Decision
 
 **The global directory is one address book, owned by the Master, shared
-read-only with every account, and written only through the administration.**
+read-only with every account, and written only by an administrator, from inside
+Contacts.**
 
 - **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
   held in the Master's account — an object the server holds, gilbertstalwart's
@@ -31,12 +32,14 @@ read-only with every account, and written only through the administration.**
   created later. A reader sees the directory in `All contacts` beside their own
   book and the group books their membership subscribes, with no per-member
   patch and nothing to add by hand.
-- **Only an administrator writes it.** The write goes through the same door
-  every privileged write uses — impersonation as the Master, or the
-  deployment's agent (ADR 0001, ADR 0007). The share carries read only, so a
-  member's own session cannot edit a card, and the client shows those cards as
-  it shows any book it may not write (`cardWritable`): Edit and Delete
-  withheld.
+- **Only an administrator writes it, and from inside Contacts.** The directory
+  is edited where it is read: the Contacts surface draws the edit controls for
+  an administrator alone, and for everybody else the cards are read-only. The
+  write itself goes through the same door every privileged write uses —
+  impersonation as the Master, or the deployment's agent (ADR 0001, ADR 0007).
+  The share carries read only, so a member's own session cannot edit a card,
+  and the client shows those cards as it shows any book it may not write
+  (`cardWritable`): Edit and Delete withheld.
 - **Its cards are ordinary cards**, so they take part in the composer's
   recipient suggestions and the contact search the way every readable book's
   do, under ADR 0004's rules for group cards.

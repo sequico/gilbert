@@ -227,10 +227,14 @@ is, not what a user sees.
   explicitly when the page actually goes — never when it is merely backgrounded,
   where it stays registered and is rung — and lets the server's registration
   state decide what an absent client means: a mailbox, or a fork to the other
-  clients registered under the same credentials. A live call collapses into the top bar
-  on both desktop and phone. A browser that is closed cannot ring or be rung:
-  that is the platform's limit, and the deregistration is the product's answer
-  to it rather than a workaround.
+  clients registered under the same credentials. A live call collapses into the
+  top bar on both desktop and phone; the dialer's own list reads Contacts
+  separated by global, each group, personal and all, and a call starts either
+  from that list or from Contacts. The feature is stated in the public
+  documents when it is built — `FEATURES.md` and `README.md` — and not left to
+  the code. A browser that is closed cannot ring or be rung: that is the
+  platform's limit, and the deregistration is the product's answer to it rather
+  than a workaround.
 - **0024 — A global contact directory.** One address book owned by the Master,
   shared read-only with every account and shown inside Contacts in `All
   contacts`, beside the reader's own book and the group books their membership
