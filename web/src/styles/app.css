@@ -2921,7 +2921,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 
 .dialer-call {
   display: flex; align-items: center; justify-content: center;
-  width: 56px; height: 56px; margin: 18px auto 4px; border: 0; border-radius: 50%;
+  width: 56px; height: 56px; margin: 26px auto 4px; border: 0; border-radius: 50%;
   background: var(--success); color: var(--bg-elev); cursor: pointer;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--success) 40%, transparent);
   transition: transform .08s var(--ease), opacity .12s var(--ease);
