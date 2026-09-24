@@ -19,7 +19,7 @@ import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { refreshSessionShares } from "@/lib/sharedCollections";
+import { refreshSharesInto } from "@/lib/sharedCollections";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
@@ -29,14 +29,11 @@ import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
 
 /**
- * Newly shared books appear without a sign-in: the session is re-read
- * (`refreshSessionShares`), and this store is then initialised on top of it --
- * always, because it lists whatever the session currently says.
+ * Newly shared books appear without a sign-in: the session is re-read and this
+ * store initialised on top of it.
  */
-async function refreshShares(force = false): Promise<void> {
-  await refreshSessionShares(force);
-  await useContacts.getState().init();
-}
+const refreshShares = (force = false): Promise<void> =>
+  refreshSharesInto(force, () => useContacts.getState().init());
 
 /**
  * Address books in the app's own left pane, the reader's above and other

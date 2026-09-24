@@ -35,3 +35,21 @@ export async function refreshSessionShares(force = false): Promise<void> {
     /* The stores still hold what the last session said. */
   }
 }
+
+/**
+ * Re-read the session's shares and then re-initialise a store on top of it --
+ * always, because that store lists whatever the session currently says.
+ *
+ * The surfaces that offer shared collections ask this of their own store;
+ * `after` is for the one that must also ask which shared accounts exist (Files,
+ * whose tree is what lists them).
+ */
+export async function refreshSharesInto(
+  force: boolean,
+  init: () => Promise<void>,
+  after?: () => Promise<void>,
+): Promise<void> {
+  await refreshSessionShares(force);
+  await init();
+  if (after) await after();
+}

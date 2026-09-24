@@ -18,7 +18,7 @@ import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
-import { refreshSessionShares } from "@/lib/sharedCollections";
+import { refreshSharesInto } from "@/lib/sharedCollections";
 import { useFiles } from "@/store/files";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -26,16 +26,16 @@ import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
 
 /**
- * The shared accounts on offer are kept current: the session is re-read
- * (`refreshSessionShares`), and the tree is then initialised on top of it --
- * always, because it lists whatever the session currently says.
+ * The shared accounts on offer are kept current: the session is re-read, the
+ * tree is initialised on top of it, and -- because this view is what lists
+ * shared accounts -- the shared set is discovered.
  */
-async function refreshShares(force = false): Promise<void> {
-  await refreshSessionShares(force);
-  await useFiles.getState().init();
-  // This view lists shared accounts, so it is where the question belongs.
-  await useFiles.getState().discoverShared();
-}
+const refreshShares = (force = false): Promise<void> =>
+  refreshSharesInto(
+    force,
+    () => useFiles.getState().init(),
+    () => useFiles.getState().discoverShared(),
+  );
 
 /**
  * The folder tree beside the file list.
