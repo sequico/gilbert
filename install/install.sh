@@ -167,11 +167,14 @@ fi
 # way the image does, then refuse a bridge the linker cannot resolve — that is
 # the difference between a service that runs and `ExecMainStatus=127`.
 if [ "$BRIDGE_OK" = "1" ]; then
+  # One package at a time: a name this distribution does not have must not stop
+  # the others from installing — apt installs nothing at all when one name is
+  # unknown. Whatever is still missing after this is named by the ldd check.
   if command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y --no-install-recommends \
-      libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
-      libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17 \
-      >/dev/null 2>&1 || true
+    for pkg in libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
+               libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17; do
+      apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 || true
+    done
   fi
   missing="$(
     {
