@@ -125,6 +125,16 @@ interface FilesState {
   discoverShared(): Promise<void>;
   /** Browse an account: the reader's own, or one shared with them. */
   openAccount(accountId: Id | null): void;
+  /**
+   * Open the account that holds `nodeId`, asking each one that could.
+   *
+   * A link names a folder and not the account it lives in, and Files opens a
+   * shared account in place: a cold load starts on the reader's own, where the
+   * folder is not, so the listing comes back empty. Nothing moves when none of
+   * the accounts holds it -- that is the empty-folder case, not a reason to
+   * take the reader somewhere else.
+   */
+  openOwningAccount(nodeId: Id): Promise<void>;
   loadChildren(parentId: Id | null): Promise<void>;
   mkdir(parentId: Id | null, name: string): Promise<Id>;
   /*
@@ -947,6 +957,34 @@ export const useFiles = create<FilesState>((set, get) => ({
   openAccount(accountId) {
     if (accountId === get().accountId) return;
     set(emptyForAccount(accountId));
+  },
+
+  async openOwningAccount(nodeId) {
+    // The accounts that could hold it: the one on screen first, so a folder
+    // that is already here is not probed for, then the reader's own and each
+    // share the session offered.
+    const candidates = [
+      get().accountId,
+      get().ownAccountId,
+      ...get().sharedAccounts.map((a) => a.id),
+    ].filter((id): id is Id => Boolean(id));
+    const seen = new Set<Id>();
+    for (const accountId of candidates) {
+      if (seen.has(accountId)) continue;
+      seen.add(accountId);
+      try {
+        const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+          accountId,
+          ids: [nodeId],
+          properties: fileNodeProps(),
+        });
+        if (!res.list.some((n) => n.id === nodeId)) continue;
+        if (accountId !== get().accountId) get().openAccount(accountId);
+        return;
+      } catch {
+        // A refused account is not the one holding it; try the next.
+      }
+    }
   },
 
   /*

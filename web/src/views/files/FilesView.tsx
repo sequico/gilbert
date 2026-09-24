@@ -122,6 +122,36 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   }, [files.available, files.accountId, parentId]);
 
   /*
+   * A link names a folder, not the account it lives in. Files opens a shared
+   * account in place, and a cold load starts on the reader's own -- where the
+   * folder is not, so the listing comes back empty. Resolve it to the account
+   * that holds it before letting that empty listing stand.
+   *
+   * The probe runs once per candidate set: the folder trees are what say the
+   * account on screen holds it, and the shares arrive a moment after the view
+   * does, so the key includes both.
+   */
+  const probedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!parentId || !files.initialized || !files.treeLoaded) return;
+    if (files.nodes[parentId]) return;
+    const key = `${parentId}:${files.accountId ?? ""}:${files.sharedAccounts
+      .map((a) => a.id)
+      .join(",")}`;
+    if (probedFor.current === key) return;
+    probedFor.current = key;
+    void files.openOwningAccount(parentId);
+  }, [
+    parentId,
+    files.initialized,
+    files.treeLoaded,
+    files.nodes,
+    files.accountId,
+    files.sharedAccounts,
+    files.openOwningAccount,
+  ]);
+
+  /*
    * Opening Files lands where this device left off -- the folder that was open
    * last time, when it belongs to the account being browsed and still exists.
    * The attempt belongs to an account rather than to the mount: opening a share
