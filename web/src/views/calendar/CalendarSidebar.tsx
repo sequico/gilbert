@@ -35,8 +35,10 @@ import { sharedKey } from "@/lib/sharedKey";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { dateTimeKey, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
+import { CALENDAR_COLORS } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
@@ -144,6 +146,20 @@ export function CalendarSidebar() {
      or a "+", and its calendars fall into the read-only area below. */
   const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
+  const isAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
+  /*
+   * The color a new calendar in a group starts on: the first of the palette the
+   * group is not already using, so its calendars are told apart at a glance.
+   * The admin, who is the only one who may change it, can still pick another.
+   */
+  const groupColor = (accountId: Id): string => {
+    const used = new Set(
+      cal.sharedCalendars
+        .filter((c) => c.accountId === accountId)
+        .map((c) => c.calendar.color),
+    );
+    return CALENDAR_COLORS.find((c) => !used.has(c)) ?? CALENDAR_COLORS[0] ?? "#0f766e";
+  };
   const sharedOnlySubscribed = cal.sharedCalendars.filter(
     (c) => !groupIds.has(c.accountId) && isAdded(c),
   );
@@ -402,6 +418,11 @@ export function CalendarSidebar() {
           rights, so "shared with me" and "there is an account here at all" look
           identical -- `isSubscribed` is the only thing that tells them apart,
           and adding one is a deliberate act rather than a guess on our part. */}
+      {groups.length > 0 && (
+        <div className="nav-section" style={{ paddingLeft: 4 }}>
+          <span>{t("Group calendars")}</span>
+        </div>
+      )}
       {groups.map((g) => (
         <Fragment key={g.accountId}>
           <div className="nav-section">
@@ -411,7 +432,7 @@ export function CalendarSidebar() {
               title={t("New calendar in {group}", { group: g.name })}
               aria-label={t("New calendar in {group}", { group: g.name })}
               onClick={() => {
-                setEditCal({});
+                setEditCal({ color: groupColor(g.accountId) });
                 setEditAccountId(g.accountId);
               }}
             >
@@ -422,9 +443,11 @@ export function CalendarSidebar() {
             .filter((c) => c.accountId === g.accountId)
             .map((c) => (
               <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
-                {isAdded(c)
-                  ? subscribedRow(c.accountId, c.accountName, c.calendar)
-                  : availableRow(c.accountId, c.accountName, c.calendar)}
+                {/* A group's calendar needs no adding: membership of the group
+                    is the subscription, the same rule a group's books follow.
+                    A row offering "+ add" here reads as a calendar nobody has,
+                    which is not what a member's group calendar is. */}
+                {subscribedRow(c.accountId, c.accountName, c.calendar)}
               </Fragment>
             ))}
         </Fragment>
@@ -463,6 +486,7 @@ export function CalendarSidebar() {
         {menuCal &&
           (() => {
             const shared = menuAccountId !== null && menuAccountId !== cal.accountId;
+            const groupCal = menuAccountId !== null && groupIds.has(menuAccountId);
             const hidKey = shared ? `${menuAccountId}:${menuCal.id}` : menuCal.id;
             const hidden = Boolean(cal.hidden[hidKey]);
             return (
@@ -475,7 +499,7 @@ export function CalendarSidebar() {
                 <MenuItem
                   icon={<Pencil size={16} />}
                   label={t("Edit")}
-                  disabled={shared && !menuCal.myRights.mayWriteAll}
+                  disabled={(shared && !menuCal.myRights.mayWriteAll) || (groupCal && !isAdmin)}
                   onClick={() => {
                     setEditCal(menuCal);
                     setEditAccountId(menuAccountId);
