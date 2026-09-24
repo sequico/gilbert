@@ -105,6 +105,16 @@ and the mail client is what they live in.
   survives people joining and leaving, with replies, `@` mentions of the whole
   roster, per-member read markers and search across the whole history. This is
   also where the agents talk and where approvals happen.
+- **A phone, and a directory everyone shares.** Point the installation at its
+  own SIP server and a softphone lives in the top bar: it registers with the
+  person's identity, rings on a phone or a desktop, takes a second call while
+  the first waits, and collapses into the bar while a call is live so the reader
+  keeps working. It dials a contact — from **Global contacts**, a group's book
+  or their own, or a number typed by hand — and its colour is the line: idle, in
+  a call, or unavailable. **Global contacts** is one directory the installation
+  owns and every account reads; an administrator edits it from Contacts and
+  everybody else reads it. What a browser cannot do is ring with the tab closed,
+  which is the platform's limit and not a promise broken.
 - **File management that holds up.** A folder tree that remembers how you left
   it, drag and drop from your desktop — a whole folder uploads with its
   structure, empty folders included — uploads you can **cancel** mid-flight,

@@ -833,6 +833,52 @@ sits below the composer dock.
 presence, no deletion or moderation — growth is append-only; a group that
 wants to retire a chat clears the folders through Files.
 
+## The phone, and Global contacts
+
+An installation that points Gilbert at its own **SIP server** gets a softphone
+in the client — **gilbertmailer**, speaking SIP over WebSocket with WebRTC
+media, audio only — and a **directory** every account reads. The telephony
+server is the deployment's own, external to the four blocks: Gilbert adds no
+registrar, no media relay and no durable telephony state beyond an identity's
+credentials (ADR 0023).
+
+- **The line.** One entry in the top bar, beside the chat launcher. Its colour
+  is the line: outline when registered and idle, green in a call, red when the
+  line is not available. It registers with the person's **identity** — the SIP
+  address and password an administrator sets per identity in Enforce
+  Identities, account data that follows the account and can be enforced — with a
+  **30-second** registration renewed while the page is alive. One tab per device
+  holds the line, and it deregisters only when the page actually goes
+  (`pagehide`, a close or a navigation), never when a tab is backgrounded: a
+  hidden tab stays registered and is rung.
+- **The call.** An incoming call takes the screen on a phone and a banner on a
+  desktop. A live call **collapses into the top bar** so the reader keeps
+  working; the surface offers mute, a DTMF keypad and hang up, and a second
+  call is **call waiting** — the first is held while the second is answered, and
+  the reader switches between them. A number with no contact can be typed by
+  hand, so the phone is not limited to Contacts.
+- **Reliability is the priority.** A bad network or a lost server is answered
+  unattended: the transport reconnects with backoff and re-registers, and a
+  media path that breaks is restarted in place with a re-INVITE, the
+  configuration's endpoints tried in order. What cannot be recovered ends
+  cleanly rather than leaving a dead call on screen.
+- **The dialer** reads Contacts separated by source — **Global contacts**,
+  each group's book, the reader's personal books, and all of them — and a press
+  dials; its list is read-only, editing belonging to Contacts. A contact with no
+  number is simply not offered as a call.
+- **Global contacts** is one address book, owned by the Master, shared
+  **read-only with every account** and written only by an administrator, from
+  inside Contacts. Every reader sees it in `All contacts` and in a section of
+  its own; the phone offers its numbers as speed dial.
+- **The installation's settings** are one **SIP Phone** administration page:
+  the endpoints in the order they are tried, the STUN and TURN servers media may
+  need, and whether the phone is offered. Each person's credentials are per
+  identity, not on that page.
+- **What a browser cannot do**: ring with the tab closed, or keep a call across
+  a full reload. Both are the platform's limit rather than a broken promise; the
+  deregistration is what makes the server take the call instead, and a reload
+  with a call live asks first.
+
 ---
 
 # The upstream client

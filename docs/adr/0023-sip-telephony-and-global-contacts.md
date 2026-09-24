@@ -1,22 +1,26 @@
 # ADR 0023 — SIP telephony and Global contacts
 
-Status: Proposed
+Status: Accepted
 
-Implementation: Partly built. Built: the installation's `sip` settings and the
-SIP Phone page (`server/src/shared/installation.ts`,
-`server/src/shared/phone.ts`, `web/src/views/admin/AdminSipPhone.tsx`); the
-SIP.js line and the phone's surfaces — the top-bar entry, the dialer, manual
-dialing, mute and DTMF, the incoming surface and the collapsed call
-(`web/src/lib/phone/`, `web/src/store/phone.ts`,
-`web/src/views/phone/PhoneLauncher.tsx`, `web/src/views/AppShell.tsx`); and
-Global contacts read in Contacts and the dialer
-(`web/src/views/contacts/ContactsSidebar.tsx`, `web/src/lib/phone/dialer.ts`),
-simulated in the mock. Not built: no administration writes an identity's
-`sip.json` yet, so the client reads credentials the deployment has placed
-there; Global contacts is read-only for everybody, the administrator's write
-as the Master being unbuilt; call waiting is unbuilt, a second invitation
-while one is live being refused 486; no ringtone plays; and the public
-documents do not state the feature yet, which they do when it is whole.
+Implementation: Built. The installation's `sip` settings and the SIP Phone page
+(`server/src/shared/installation.ts`, `server/src/shared/phone.ts`,
+`web/src/views/admin/AdminSipPhone.tsx`); the SIP.js line and the phone's
+surfaces — registration, reconnect and re-registration, ICE restart, call
+waiting, mute, DTMF, the ring, the top-bar entry, the dialer, manual dialing,
+the incoming surface and the collapsed call (`web/src/lib/phone/`,
+`web/src/store/phone.ts`, `web/src/views/phone/PhoneLauncher.tsx`,
+`web/src/views/AppShell.tsx`); the per-identity credentials set in the
+identity-enforcement surface and read from the account's `sip.json`
+(`server/src/identityAdmin.ts`, `web/src/views/admin/UserIdentities.tsx`,
+`web/src/views/admin/SipCredentialDialog.tsx`,
+`web/src/lib/phone/credentials.ts`); Global contacts read in Contacts and the
+dialer and written by an administrator as the Master
+(`server/src/globalContactsAdmin.ts`,
+`web/src/views/contacts/ContactsSidebar.tsx`,
+`web/src/views/contacts/GlobalContactsEditor.tsx`,
+`web/src/lib/phone/dialer.ts`); and the public documents state it
+(`README.md`, `FEATURES.md`). The universal share's exact Stalwart shape is the
+one live probe the body names.
 
 ## Context
 
