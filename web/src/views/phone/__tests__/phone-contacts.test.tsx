@@ -113,11 +113,11 @@ describe("the dialer's contacts pane", () => {
     expect(host.querySelectorAll(".phone-contact")).toHaveLength(0);
   });
 
-  it("shows the company under the name, in small", () => {
+  it("shows the company beside the name, in small", () => {
     act(() => root.render(<PhoneContactsPanel />));
-    expect(host.querySelector(".phone-contact-company")?.textContent).toBe(
-      "Example Corp",
-    );
+    const line = host.querySelector(".phone-contact .c-name");
+    expect(line?.querySelector(".phone-contact-name")?.textContent).toBe("Grace Hopper");
+    expect(line?.querySelector(".c-company")?.textContent).toBe("Example Corp");
   });
 
   it("names the two line states as the phone's own connections", () => {

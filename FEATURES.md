@@ -893,7 +893,7 @@ is the reference.
   that choose which contacts the list offers, a search with its clear control
   narrowing it live. Only a contact that carries a number is offered,
   and a press dials it; a contact with no number is not a row, and a row names
-  the person with the company under the name where the card carries one.
+  the person with the company beside the name where the card carries one.
   Editing belongs to Contacts, so the list is read-only.
 - **The call history** is the account's own (`calls.json` in its app folder):
   the calls placed and taken, newest first, each with the direction, the other

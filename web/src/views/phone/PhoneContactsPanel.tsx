@@ -167,10 +167,10 @@ export function PhoneContactsPanel() {
                 size="sm"
               />
               <div className="grow" style={{ minWidth: 0 }}>
-                <div className="phone-contact-name truncate">{name}</div>
-                {beside && (
-                  <div className="phone-contact-company hint truncate">{beside}</div>
-                )}
+                <div className="c-name">
+                  <span className="phone-contact-name">{name}</span>
+                  {beside && <span className="c-company">{beside}</span>}
+                </div>
                 {contactNumbers(card).map((number) => (
                   <button
                     key={number.number}
