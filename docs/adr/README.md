@@ -231,3 +231,10 @@ is, not what a user sees.
   on both desktop and phone. A browser that is closed cannot ring or be rung:
   that is the platform's limit, and the deregistration is the product's answer
   to it rather than a workaround.
+- **0024 — A global contact directory.** One address book owned by the Master,
+  shared read-only with every account and shown inside Contacts in `All
+  contacts`, beside the reader's own book and the group books their membership
+  subscribes. Only an administrator writes it, through the same impersonation
+  door every privileged write uses, and a member's client withholds Edit and
+  Delete; a reader added later sees it with no per-member patch. The phone's
+  speed dial (ADR 0023) reads it like any book.
