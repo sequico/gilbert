@@ -1,8 +1,10 @@
+import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
 import {
   Book,
   BookOpen,
   Download,
   Eraser,
+  Globe,
   MoreVertical,
   Pencil,
   Plus,
@@ -17,6 +19,7 @@ import {
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
+import { isGlobalContactsBook } from "@/lib/contacts";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { refreshSharesInto } from "@/lib/sharedCollections";
@@ -125,20 +128,32 @@ export function ContactsSidebar() {
      or a "+", and its books fall into the read-only area below. */
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
-  const sharedOnlySubscribed = contacts.sharedBooks.filter(
+  /*
+   * The installation's directory (ADR 0023): one read-only book, read by
+   * everyone and never "added". It has a section of its own rather than a row
+   * in "Shared with me", because it is not somebody's share — it is the
+   * installation's — and it is shown whether or not a member subscribed to it.
+   */
+  const globalBooks = contacts.sharedBooks.filter((b) => isGlobalContactsBook(b.book));
+  const others = contacts.sharedBooks.filter((b) => !isGlobalContactsBook(b.book));
+  const sharedOnlySubscribed = others.filter(
     (b) =>
       !groupIds.has(b.accountId) &&
       (b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
   );
-  const sharedOnlyAvailable = contacts.sharedBooks.filter(
+  const sharedOnlyAvailable = others.filter(
     (b) =>
       !groupIds.has(b.accountId) &&
       !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
   );
-  const hasSubscribed = contacts.sharedBooks.some(
-    (b) =>
-      groupIds.has(b.accountId) || b.book.isSubscribed || isAdded(b.accountId, b.book.id),
-  );
+  const hasSubscribed =
+    globalBooks.length > 0 ||
+    others.some(
+      (b) =>
+        groupIds.has(b.accountId) ||
+        b.book.isSubscribed ||
+        isAdded(b.accountId, b.book.id),
+    );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */
   const subscribedRow = (accountId: string, accountName: string, book: AddressBook) => (
@@ -275,6 +290,25 @@ export function ContactsSidebar() {
         </div>
       ))}
 
+      {globalBooks.length > 0 && (
+        <>
+          <div className="nav-section">
+            <span>{GLOBAL_CONTACTS_BOOK_NAME}</span>
+          </div>
+          {globalBooks.map(({ accountId, book }) => (
+            <div
+              key={`${accountId}:${book.id}`}
+              className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
+              onClick={() => contacts.select({ accountId, bookId: book.id })}
+              title={t("{name} — shared with everyone", { name: book.name })}
+            >
+              <Globe size={17} />
+              <span className="grow truncate">{book.name}</span>
+            </div>
+          ))}
+        </>
+      )}
+
       <div className="nav-section">
         <span>{t("Shared with me")}</span>
         <button
@@ -315,7 +349,7 @@ export function ContactsSidebar() {
             </button>
           </div>
           {contacts.sharedBooks
-            .filter((b) => b.accountId === g.accountId)
+            .filter((b) => b.accountId === g.accountId && !isGlobalContactsBook(b.book))
             .map((b) => (
               <Fragment key={`${b.accountId}:${b.book.id}`}>
                 {/* A group's books need no adding: membership of the group is

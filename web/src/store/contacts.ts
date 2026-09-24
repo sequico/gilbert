@@ -19,6 +19,7 @@ import {
   contactDisplayName,
   contactEmails,
   groupRecipients,
+  isGlobalContactsBook,
   sortKey,
 } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
@@ -624,7 +625,11 @@ export const useContacts = create<ContactsState>((set, get) => ({
                   (b) =>
                     b.isSubscribed ||
                     added.has(sharedKey(accountId, b.id)) ||
-                    groupIds.has(accountId),
+                    groupIds.has(accountId) ||
+                    // The installation's directory is read by everyone and is
+                    // never "added": it is there whether or not a member
+                    // subscribed to it (ADR 0023).
+                    isGlobalContactsBook(b),
                 )
                 .map((b) => b.id),
             );

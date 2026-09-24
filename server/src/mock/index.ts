@@ -8,6 +8,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { MASKED } from "../shared/accountSecurity.js";
 import { localDateTime } from "../shared/localDateTime.js";
+import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/phone.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
@@ -1629,6 +1630,26 @@ const sharedAddressBooks: Obj[] = [
     shareWith: {},
     myRights: abRights(false),
   },
+  /*
+   * The installation's shared directory (ADR 0023).
+   *
+   * Simulated as a read-only book the reader is subscribed to in the shared
+   * account, because that is the shape the client can exercise here. What a
+   * real deployment owes and this does not reproduce is the **one rule that
+   * names every account at once** — the Master-owned universal share — which is
+   * owed a live probe (`gilbert-stalwart`). The name is the shared constant's,
+   * so the mock cannot drift from the client about which book is the directory.
+   */
+  {
+    id: "gc1",
+    name: GLOBAL_CONTACTS_BOOK_NAME,
+    description: null,
+    sortOrder: 0,
+    isDefault: false,
+    isSubscribed: true,
+    shareWith: {},
+    myRights: abRights(false),
+  },
 ];
 const sharedCards: Obj[] = [
   {
@@ -1649,6 +1670,32 @@ const sharedCards: Obj[] = [
     name: { full: "Dorothy Vaughan" },
     emails: { e1: { address: "dorothy@example.org", contexts: {} } },
     phones: {},
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date(now()).toISOString(),
+  },
+  /* Two people the installation's directory carries, with numbers the dialer
+     can ring: the phone's speed dial reads these. */
+  {
+    id: "gc1c1",
+    addressBookIds: { gc1: true },
+    name: { full: "Ada Lovelace" },
+    emails: { e1: { address: "ada@example.org", contexts: {} } },
+    phones: { p1: { number: "+44 20 7946 0001" } },
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date(now()).toISOString(),
+  },
+  {
+    id: "gc1c2",
+    addressBookIds: { gc1: true },
+    name: { full: "Alan Turing" },
+    emails: { e1: { address: "alan@example.org", contexts: {} } },
+    phones: { p1: { number: "+44 20 7946 0002" } },
     organizations: {},
     nicknames: {},
     addresses: {},
