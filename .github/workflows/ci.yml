@@ -44,5 +44,15 @@ jobs:
       - run: npm run i18n:check
       - run: npm test
       - run: npm run build
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Docker build
-        run: docker build -t gilbert:ci .
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: gilbert:ci
+          # The phone's bridge is the slow stage. This job runs first (it is the
+          # release's pre-check) and caches it under the same scope the release's
+          # image build reads, so Janus is compiled once, not three times.
+          cache-from: type=gha,scope=linux/amd64
+          cache-to: type=gha,mode=max,scope=linux/amd64
