@@ -87,6 +87,20 @@ export function ThreadView({
   const fullIds = useMail((s) => s.fullIds);
   const loading = useMail((s) => Boolean(s.loadingThreads[threadId]));
   const mailboxes = useMail((s) => s.mailboxes);
+  const accountId = useMail((s) => s.accountId);
+  /*
+   * The account that owns the folder the route names. A conversation is asked
+   * of the active account, and a cold load mounts this before that account is
+   * the folder's owner -- `MailView` resolves the owner from the folder trees
+   * and switches to it. Asking too early returns "no such conversation" from
+   * the wrong account, which is an error this view would never retry.
+   */
+  const mailboxOwner = useMail((s) => (mailboxId ? s.accountOfMailbox(mailboxId) : null));
+  const ready = !mailboxId || (accountId !== null && mailboxOwner === accountId);
+  /* Not ready is the moment the folder's account is still being opened; the
+     conversation has not been asked for yet, so it is a wait, not an empty
+     thread. */
+  const pending = !ready || loading;
   const settings = useSettings((s) => s.settings);
   const labels = useEffectiveLabels();
   const reply = useCompose((s) => s.reply);
@@ -112,8 +126,9 @@ export function ThreadView({
   const [viewEl, setViewEl] = useState<HTMLDivElement | null>(null);
   useEdgeBack(viewEl, onBack, isTouch && narrow);
 
-  // Load
+  // Load, once the folder's account is the one on screen.
   useEffect(() => {
+    if (!ready) return;
     setError(null);
     useMail.getState().setOpenThread(threadId);
     loadThread(threadId).catch((err) => setError((err as Error).message));
@@ -121,7 +136,7 @@ export function ThreadView({
       if (useMail.getState().openThreadId === threadId)
         useMail.getState().setOpenThread(null);
     };
-  }, [threadId, loadThread]);
+  }, [threadId, ready, loadThread]);
 
   const messages = useMemo(() => {
     if (!thread) return [] as Email[];
@@ -346,7 +361,6 @@ export function ThreadView({
      app's default reply all, and the plain reply to the sender alone. */
   const defaultReply = DEFAULT_REPLY_MODE;
   const otherReply: ReplyMode = defaultReply === REPLY_ALL ? REPLY : REPLY_ALL;
-  const accountId = useMail((s) => s.accountId);
 
   return (
     <div className="thread-view" ref={setViewEl}>
@@ -506,7 +520,7 @@ export function ThreadView({
             {error}
           </div>
         )}
-        {loading && !shown.length && <Spinner label={t("Loading conversation…")} />}
+        {pending && !shown.length && <Spinner label={t("Loading conversation…")} />}
         {shown.map((e, i) => (
           <MessageView
             key={e.id}

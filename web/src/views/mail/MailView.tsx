@@ -50,6 +50,17 @@ export function MailView({
   } | null>(null);
   const reconcile = useScheduled((s) => s.reconcile);
   const scheduledId = useMail((s) => scheduledMailboxIdFrom(s.mailboxes));
+  const accountId = useMail((s) => s.accountId);
+  /*
+   * The account that owns the folder the route names, or null while no cached
+   * tree holds it. A link carries a folder id and not its account, and on a
+   * cold load the active account is whatever this device was last on -- which
+   * need not be the folder's owner.
+   */
+  const mailboxOwner = useMail((s) => (mailboxId ? s.accountOfMailbox(mailboxId) : null));
+  // Every account's tree is read by the time the probe names the accounts, so
+  // that is the moment "no tree holds this folder" becomes an answer.
+  const accountsProbed = useMail((s) => s.mailAccounts.length > 0);
 
   const q = useMemo(
     () => (search ? (new URLSearchParams(searchStr).get("q") ?? "") : ""),
@@ -62,7 +73,19 @@ export function MailView({
   }, [search, mailboxId, inboxId, navigate]);
 
   /*
-   * A folder id this account does not have.
+   * A cold load opens whatever account this device was last on; the route
+   * names a folder, which may be a group's. Switching to its owner before the
+   * list and the conversation are asked is what stops a refresh from asking
+   * the wrong account -- which answers "no such conversation" for a thread it
+   * simply does not hold. The trees are all cached, so the owner is known.
+   */
+  useEffect(() => {
+    if (!mailboxOwner || mailboxOwner === accountId) return;
+    void useMail.getState().openAccount(mailboxOwner);
+  }, [mailboxOwner, accountId]);
+
+  /*
+   * A folder id no account has.
    *
    * The ordinary empty state -- "Nothing here. This folder is empty." -- is a
    * claim about a folder that is not there, so it would read a stale link as a
@@ -71,8 +94,11 @@ export function MailView({
    *
    * Inbox is the kinder landing than a dead end, but silently swapping one
    * folder for another would be its own small lie, so it says what happened.
-   * `mailboxesLoaded` gates it: without that, every cold load redirects in the
-   * moment before the folder list arrives.
+   * Two gates keep it from firing on a folder that is merely somewhere else:
+   * `mailboxesLoaded` (the list arrives after the first paint) and `mailboxOwner`
+   * with `accountsProbed` (the folder may belong to a group whose tree has not
+   * been read yet). Only when every account has been asked and none holds it is
+   * the folder really gone.
    */
   useEffect(() => {
     if (
@@ -80,9 +106,19 @@ export function MailView({
       !inboxId
     )
       return;
+    if (mailboxOwner || !accountsProbed) return;
     toast.show(translate("That folder no longer exists. Showing your inbox instead."));
     navigate(`/mail/${inboxId}`, { replace: true });
-  }, [search, mailboxId, mailboxesLoaded, mailboxes, inboxId, navigate]);
+  }, [
+    search,
+    mailboxId,
+    mailboxesLoaded,
+    mailboxes,
+    inboxId,
+    mailboxOwner,
+    accountsProbed,
+    navigate,
+  ]);
 
   /*
    * Search keeps newest-first whatever the setting says. A result list is

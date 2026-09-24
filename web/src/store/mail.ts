@@ -233,6 +233,12 @@ export interface MailState {
   loadMailboxes(): Promise<void>;
   roleId(role: MailboxRole): Id | null;
   /**
+   * The account whose folder tree holds `mailboxId`, or null when no cached
+   * tree does. A route names a folder and not the account it lives in; on a
+   * cold load this is how that folder is resolved back to its owner.
+   */
+  accountOfMailbox(mailboxId: Id): Id | null;
+  /**
    * ADR 0015: whether a destroy may be taken in the account on screen at all.
    *
    * The rule itself is `@/lib/mailDelete`, and this is the store's read of the
@@ -872,6 +878,18 @@ export const useMail = create<MailState>((set, get) => ({
 
   roleId(role) {
     for (const m of Object.values(get().mailboxes)) if (m.role === role) return m.id;
+    return null;
+  },
+
+  accountOfMailbox(mailboxId) {
+    const { accountId, accountTrees, mailboxes } = get();
+    // The account on screen wins, so a folder that exists in two trees is not
+    // attributed to the other one and is never a reason to switch away.
+    if (accountId && (mailboxes[mailboxId] || accountTrees[accountId]?.[mailboxId]))
+      return accountId;
+    for (const [owner, tree] of Object.entries(accountTrees)) {
+      if (tree[mailboxId]) return owner;
+    }
     return null;
   },
 
