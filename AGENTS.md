@@ -386,6 +386,15 @@ a kind of work is loaded before the first edit of it.
   own tool text puts the line at >5 s; there is no global default and no
   auto-promotion, and `Ctrl+B → /jobs` is the owner's manual override, never
   the recovery path for a command an agent launched.
+- **A timeout is sized to the work, never to a default maximum** (global user
+  rule, active here): a command that normally returns in a second gets a few
+  seconds, not minutes. Tool calls stop being handed a long timeout "to be
+  safe" — a long timeout does not make a stale command finish, and is no
+  substitute for knowing the work is done.
+- **Throw it into the background and poll, rather than waiting a timeout out**
+  (global user rule, active here): a command that is stale or hung is killed
+  or backgrounded and polled — sitting through its timeout is lost time, and
+  the owner must never be the one who waits it out for the agent.
 - If a foreground command is already sitting with no output, move it to `/jobs`
   yourself and poll it, or kill it and relaunch it in the background — the
   owner must never be the one who unsticks it.
