@@ -2177,8 +2177,9 @@ setting for both works for exactly one palette and stops working at two.
 | **Everforest** | The medium-contrast variant of each side |
 | **Primer** | The colours behind GitHub's design system. Named for the system, not for GitHub, which has not endorsed anything here |
 
-Every one has both halves, so the top-bar toggle only ever changes the side and
-never the colours. Accent colours still sit on top of any of them.
+Every one has both halves, so the theme switch in the account menu only ever
+changes the side and never the colours. Accent colours still sit on top of any
+of them.
 
 The ten borrowed palettes are the work of their own projects and are used
 under the MIT licence — see [NOTICE](NOTICE). Only the published colour values

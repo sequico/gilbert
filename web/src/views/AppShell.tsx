@@ -357,7 +357,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <HelpCircle size={21} />
           </button>
-          <ThemeToggle />
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"
@@ -429,6 +428,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               label={t("Settings")}
               onClick={() => navigate("/settings")}
             />
+            <ThemeMenuItem />
             {/*
               The install/update command, on a phone only: a desktop browser
               installs from its address bar, and the account menu there already
@@ -740,19 +740,22 @@ function QuotaBar() {
 }
 
 /**
- * Flip to light and back from the top bar.
+ * Flip to light and back from the account menu.
  *
- * The setting has four values and only two of them are "light", so the button
+ * The setting has four values and only two of them are "light", so the item
  * acts on what is actually on screen rather than on the setting: if you can
- * see a dark theme, one click gives you light.
+ * see a dark theme, one press gives you light.
  *
  * Coming back is the part that needs remembering. There is more than one way
  * to be dark — "dark", "gilbert", or "system" while the OS is — so the way
  * back is whichever you were on, kept in `lastDarkTheme`, rather than plain
- * "dark" for everyone. Without that, two clicks would quietly move an
+ * "dark" for everyone. Without that, two presses would quietly move an
  * gilbert user onto a theme they never chose.
+ *
+ * It lives in the account menu rather than the top bar: a phone's bar has no
+ * room to spare, and the account menu is where Settings already sits.
  */
-function ThemeToggle() {
+function ThemeMenuItem() {
   const effective = useEffectiveTheme();
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
@@ -768,13 +771,10 @@ function ThemeToggle() {
   // The palette is the same in both modes, so the label is only ever the side.
   const label = next.mode === "light" ? t("light mode") : t("dark mode");
   return (
-    <button
-      className="icon-btn"
-      aria-label={t("Switch to {theme}", { theme: label })}
-      title={t("Switch to {theme}", { theme: label })}
+    <MenuItem
+      icon={effective === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+      label={t("Switch to {theme}", { theme: label })}
       onClick={() => update(next)}
-    >
-      {effective === "dark" ? <Sun size={21} /> : <Moon size={21} />}
-    </button>
+    />
   );
 }
