@@ -9,7 +9,7 @@
  * again.
  */
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
 import { GroupIdentities } from "@/views/admin/GroupIdentities";
@@ -25,14 +25,24 @@ const TAB_IDS = [DEFAULT_TAB, "group", "status"];
  * import — a language picked later still reaches them. The active tab is passed
  * through so a panel can act on being opened (the bridge status checks itself).
  */
-function tabs(active: string): Array<{ id: string; label: string; el: ReactNode }> {
+function tabs(
+  active: string,
+  status: PhoneStatus | null,
+  refreshStatus: () => Promise<void>,
+): Array<{ id: string; label: string; el: ReactNode }> {
   return [
     { id: "user", label: t("User identities"), el: <UserIdentities /> },
     { id: "group", label: t("Group identities"), el: <GroupIdentities /> },
     {
       id: "status",
       label: t("Bridge status"),
-      el: <PhoneStatusPanel active={active === "status"} />,
+      el: (
+        <PhoneStatusPanel
+          active={active === "status"}
+          status={status}
+          refreshStatus={refreshStatus}
+        />
+      ),
     },
   ];
 }
@@ -47,30 +57,32 @@ function neighbour(from: string, delta: number): string {
 export function IdentitiesAndSipPhone() {
   const [tab, setTab] = useState(DEFAULT_TAB);
   const [status, setStatus] = useState<PhoneStatus | null>(null);
-  const list = tabs(tab);
+  /*
+   * One read of the bridge's state for the whole surface (SSOT): the banner
+   * above the tabs and the Bridge status rows are the same fact, so the panel
+   * is handed this and never reads it itself. Re-check feeds the same function
+   * back, so a refresh is the one door either way.
+   */
+  const refreshStatus = useCallback(async () => {
+    try {
+      setStatus(await fetchPhoneStatus());
+    } catch {
+      // A status that cannot be read is not a verdict, so nothing is claimed.
+      setStatus(null);
+    }
+  }, []);
+  const list = tabs(tab, status, refreshStatus);
+
+  // Read once when the surface opens, whatever tab is active: the banner needs
+  // the bridge's state before the Bridge status tab is ever visited.
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
+
   const select = (id: string) => {
     setTab(id);
     document.getElementById(`identities-sip-${id}`)?.focus();
   };
-
-  /*
-   * Read whether the bridge is running, so a host that could not install it is
-   * said once here and detailed in the Bridge status tab. A status that cannot
-   * be read is not a verdict, so nothing is claimed.
-   */
-  useEffect(() => {
-    let live = true;
-    void fetchPhoneStatus()
-      .then((next) => {
-        if (live) setStatus(next);
-      })
-      .catch(() => {
-        if (live) setStatus(null);
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
 
   return (
     <div>

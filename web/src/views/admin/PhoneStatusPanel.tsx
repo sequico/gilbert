@@ -2,7 +2,7 @@ import { RotateCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { probeBridgeMedia } from "@/lib/phone/sip";
-import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
+import type { PhoneStatus } from "@/lib/phoneAdmin";
 
 /** What the media check is doing, or last said. */
 type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
@@ -16,22 +16,27 @@ type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
  * The whole check is automatic: it runs when the tab is opened, and Re-check
  * runs all of it again. There is no separate button per row to remember.
  */
-export function PhoneStatusPanel({ active }: { active: boolean }) {
-  const [status, setStatus] = useState<PhoneStatus | null>(null);
+export function PhoneStatusPanel({
+  active,
+  status,
+  refreshStatus,
+}: {
+  active: boolean;
+  /** The bridge's server-side state, read once by the surface that owns it. */
+  status: PhoneStatus | null;
+  /** Re-read that state; the panel never reads it on its own. */
+  refreshStatus: () => Promise<void>;
+}) {
   const [checking, setChecking] = useState(false);
   const [media, setMedia] = useState<MediaCheck>("idle");
 
   const check = useCallback(async () => {
     setChecking(true);
     setMedia("running");
-    try {
-      setStatus(await fetchPhoneStatus());
-    } catch {
-      setStatus(null);
-    }
+    await refreshStatus();
     setMedia((await probeBridgeMedia()) ? "reachable" : "unreachable");
     setChecking(false);
-  }, []);
+  }, [refreshStatus]);
 
   // Opening the tab checks everything, every time it is opened.
   useEffect(() => {
