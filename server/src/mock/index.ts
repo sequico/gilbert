@@ -1796,16 +1796,39 @@ const groupCards: Obj[] = [
     updated: new Date(now()).toISOString(),
   },
 ];
+/*
+ * The Master's own books and cards (ADR 0023): the administrator's route
+ * writes the Global contacts directory into this account, as the installation's
+ * agent. The directory the demo reader *sees* is the shared account's
+ * stand-in above; a real deployment's universal share is what the mock does not
+ * reproduce, so the two are separate here while they are one book in
+ * production.
+ */
+const masterAddressBooks: Obj[] = [];
+const masterCards: Obj[] = [];
+
 const booksFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedAddressBooks
     : accountId === GROUP_ACCOUNT
       ? groupAddressBooks
-      : accountId === GROUP2_ACCOUNT ||
-          accountId === TARGET_ACCOUNT ||
-          accountId === AGENT_ACCOUNT
-        ? []
-        : addressBooks;
+      : accountId === AGENT_ACCOUNT
+        ? masterAddressBooks
+        : accountId === GROUP2_ACCOUNT || accountId === TARGET_ACCOUNT
+          ? []
+          : addressBooks;
+
+/** The cards a ContactCard call reaches, by account: the one rule, once. */
+const cardsFor = (accountId: unknown): Obj[] =>
+  accountId === SHARED_ACCOUNT
+    ? sharedCards
+    : accountId === GROUP_ACCOUNT
+      ? groupCards
+      : accountId === AGENT_ACCOUNT
+        ? masterCards
+        : accountId === GROUP2_ACCOUNT
+          ? []
+          : cards;
 /** One per contact, by index; a gap means that card has no birthday. */
 const BIRTHDAYS: Array<{ year?: number; month: number; day: number } | null> = [
   { year: 1815, month: 12, day: 10 },
@@ -4108,14 +4131,7 @@ const handlers: Record<string, Handler> = {
     )(a);
   },
   "ContactCard/query": (a) => {
-    const list =
-      a.accountId === SHARED_ACCOUNT
-        ? sharedCards
-        : a.accountId === GROUP_ACCOUNT
-          ? groupCards
-          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
-            ? []
-            : cards;
+    const list = cardsFor(a.accountId);
     return {
       accountId: a.accountId ?? ACCOUNT,
       queryState: "1",
@@ -4127,17 +4143,7 @@ const handlers: Record<string, Handler> = {
   },
   // An empty `properties` list returns `id` alone, which `pick` already does.
   // 0.16.22 made Stalwart agree; through 0.16.21 it returned every property.
-  "ContactCard/get": (a) =>
-    genericGet(
-      a.accountId === SHARED_ACCOUNT
-        ? sharedCards
-        : a.accountId === GROUP_ACCOUNT
-          ? groupCards
-          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
-            ? []
-            : cards,
-      "ContactCard",
-    )(a),
+  "ContactCard/get": (a) => genericGet(cardsFor(a.accountId), "ContactCard")(a),
   "ContactCard/set": (a) => {
     checkIfInState(a, "ContactCard");
     /*
@@ -4176,14 +4182,7 @@ const handlers: Record<string, Handler> = {
       ...(a.create ? { create } : {}),
       ...(a.update ? { update } : {}),
     };
-    const list =
-      a.accountId === GROUP_ACCOUNT
-        ? groupCards
-        : a.accountId === SHARED_ACCOUNT
-          ? sharedCards
-          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
-            ? []
-            : cards;
+    const list = cardsFor(a.accountId);
     if (a.accountId === SHARED_ACCOUNT) {
       /* Grace's books are read-only shares, so nothing in them may be written
          -- created, updated or destroyed. A member of a *group* writes to the
