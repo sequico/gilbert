@@ -4,7 +4,6 @@ import {
   Code,
   Info,
   KeyRound,
-  Phone,
   ServerCog,
   ShieldCheck,
   Tag,
@@ -19,11 +18,10 @@ import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminApprovals } from "@/views/admin/AdminApprovals";
 import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
-import { AdminSipPhone } from "@/views/admin/AdminSipPhone";
 import { AdminUsers } from "@/views/admin/AdminUsers";
-import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
 import { GroupAgents } from "@/views/admin/GroupAgents";
 import { GroupLabels } from "@/views/admin/GroupLabels";
+import { IdentitiesAndSipPhone } from "@/views/admin/IdentitiesAndSipPhone";
 import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
@@ -42,9 +40,9 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * configured once), **Group Agents** (one group's automations, standing
  * instruction, memory, audit and fleet, behind a single picker) and
  * **Approvals** (cross-group oversight, read-only by construction). "Stalwart"
- * is the mail server's own records, written over JMAP: **Enforce Identities**,
- * one section holding a person's and a group's behind two tabs (ADR 0007), and
- * **System Sieve**, its trusted, server-wide Sieve scripts (ADR 0008). The
+ * is the mail server's own records, written over JMAP: **Identities and SIP
+ * Phone**, one section holding a person's and a group's behind two tabs (ADR
+ * 0007), and **System Sieve**, its trusted, server-wide Sieve scripts (ADR 0008). The
  * split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
@@ -62,13 +60,6 @@ function sections(pendingApprovals: number): AdminSection[] {
       label: t("Installation"),
       icon: <ServerCog size={18} />,
       el: <AdminInstallation />,
-      owner: "mailer",
-    },
-    {
-      id: "sip-phone",
-      label: t("SIP Phone"),
-      icon: <Phone size={18} />,
-      el: <AdminSipPhone />,
       owner: "mailer",
     },
     {
@@ -125,10 +116,10 @@ function sections(pendingApprovals: number): AdminSection[] {
       owner: "assistant",
     },
     {
-      id: "enforce-identities",
-      label: t("Enforce Identities"),
+      id: "identities-and-sip-phone",
+      label: t("Identities and SIP Phone"),
       icon: <UserCog size={18} />,
-      el: <EnforceIdentities />,
+      el: <IdentitiesAndSipPhone />,
       owner: "stalwart",
     },
     {

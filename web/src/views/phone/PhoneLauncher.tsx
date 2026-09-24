@@ -3,13 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { contactDisplayName } from "@/lib/contacts";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { dialTarget } from "@/lib/phone/config";
-import { allDialerCards, type DialerSource, dialerSources } from "@/lib/phone/dialer";
+import {
+  allDialerCards,
+  type DialerSource,
+  dialerSources,
+  dialTarget,
+} from "@/lib/phone/dialer";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
-import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
@@ -23,45 +26,37 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
  * The entry is the feature's whole presence until it is pressed: its colour is
  * the line's state and it returns to idle on its own. A press opens the call
  * surface and asks for the microphone — a gesture, as the browser requires —
- * and an incoming call takes the screen on a phone and a banner on a desktop. A
- * live call is never modal: the reader keeps working and the entry carries it.
+ * and an incoming call announces itself as a banner under the top bar. A live
+ * call is never modal: the reader keeps working and the entry carries it.
  *
- * What it cannot do is stated rather than pretended: the entry is absent when
- * the installation offers no phone or this account has no credential, the
- * surface says when the microphone is missing, and a tab that does not hold the
- * line shows the call without owning its controls.
+ * It is offered only where it can work: the entry is absent until the tab holds
+ * the seat, the account is registered and the bridge's media has answered. The
+ * surface says what is missing rather than pretending.
  */
 export function PhoneLauncher() {
   const isMobile = useIsMobile();
   const ready = usePhone((s) => s.ready);
   const state = usePhone((s) => s.state);
-  const leader = usePhone((s) => s.leader);
   const incoming = usePhone((s) => s.incoming);
   const call = usePhone((s) => s.call);
-  const held = usePhone((s) => s.held);
   const stream = usePhone((s) => s.stream);
   const muted = usePhone((s) => s.muted);
   const error = usePhone((s) => s.error);
   const microphone = usePhone((s) => s.microphone);
-  const start = usePhone((s) => s.start);
   const [open, setOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-
-  const session = useSession((s) => s.session);
-  const sipOffered = Boolean(session?.gilbert?.sip?.enabled);
   // The reader's own notification setting decides whether a call is heard.
   const notificationSound = useSettings((s) => s.settings.notificationSound);
 
-  useEffect(() => {
-    if (sipOffered) void start();
-  }, [sipOffered, start]);
-
   /*
-   * The shell unmounts on sign-out, and that is where a call ends: the
-   * credentials it was placed with go with the session, so the registration is
-   * released and the agent stops rather than lingering until `pagehide`.
+   * The launcher is mounted for the session's life: it asks for the seat when
+   * it appears and gives it up when the shell unmounts, which is what a sign-out
+   * does. Closing the tab releases the lock with the page.
    */
-  useEffect(() => () => void usePhone.getState().stop(), []);
+  useEffect(() => {
+    void usePhone.getState().start();
+    return () => void usePhone.getState().stop();
+  }, []);
 
   /* The peer's audio, played while there is one and stopped when there is not. */
   useEffect(() => {
@@ -72,15 +67,15 @@ export function PhoneLauncher() {
     else el.pause();
   }, [stream]);
 
-  /* The ring: only the tab that holds the line rings, and only if not silenced. */
+  /* The ring, only if this page is not silenced. */
   useEffect(() => {
-    if (incoming && notificationSound && leader) {
+    if (incoming && notificationSound) {
       startRing();
       return stopRing;
     }
     stopRing();
     return undefined;
-  }, [incoming, notificationSound, leader]);
+  }, [incoming, notificationSound]);
 
   /*
    * A full reload tears the media stack down, so a call cannot survive one.
@@ -127,28 +122,22 @@ export function PhoneLauncher() {
       <Dialog
         open={Boolean(incoming)}
         onClose={() => void usePhone.getState().decline()}
-        title={call ? t("Call waiting") : t("Incoming call")}
+        title={t("Incoming call")}
         size={isMobile ? "lg" : "sm"}
       >
         <p className="lead" style={{ textAlign: "center" }}>
           {incoming || t("Unknown caller")}
         </p>
         <div className="row" style={{ justifyContent: "center", gap: 12 }}>
-          {leader ? (
-            <>
-              <button className="btn" onClick={() => void usePhone.getState().answer()}>
-                {t("Answer")}
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={() => void usePhone.getState().decline()}
-              >
-                {t("Decline")}
-              </button>
-            </>
-          ) : (
-            <p className="hint">{t("Answering in another tab.")}</p>
-          )}
+          <button className="btn" onClick={() => void usePhone.getState().answer()}>
+            {t("Answer")}
+          </button>
+          <button
+            className="btn btn-danger"
+            onClick={() => void usePhone.getState().decline()}
+          >
+            {t("Decline")}
+          </button>
         </div>
       </Dialog>
 
@@ -162,17 +151,9 @@ export function PhoneLauncher() {
         <MicrophoneNotice microphone={microphone} />
         {error && <div className="error-box">{error}</div>}
         {call ? (
-          <CallControls
-            remote={call.remote}
-            muted={muted}
-            held={held}
-            onSwitch={(id) => usePhone.getState().switchTo(id)}
-            readOnly={!leader}
-          />
-        ) : leader ? (
-          <Dialer onDial={() => setOpen(false)} />
+          <CallControls remote={call.remote} muted={muted} />
         ) : (
-          <p className="hint">{t("Another tab is handling the phone.")}</p>
+          <Dialer onDial={() => setOpen(false)} />
         )}
       </Dialog>
     </>
@@ -218,31 +199,8 @@ function MicrophoneNotice({
 }
 
 /** The controls of a live call: mute, a DTMF keypad, and hang up. */
-function CallControls({
-  remote,
-  muted,
-  held,
-  onSwitch,
-  readOnly,
-}: {
-  remote: string;
-  muted: boolean;
-  held: Array<{ id: string; remote: string }>;
-  onSwitch: (id: string) => void;
-  readOnly: boolean;
-}) {
+function CallControls({ remote, muted }: { remote: string; muted: boolean }) {
   const [tones, setTones] = useState("");
-  if (readOnly)
-    return (
-      <div>
-        <p className="lead" style={{ textAlign: "center" }}>
-          {remote}
-        </p>
-        <p className="hint" style={{ textAlign: "center" }}>
-          {t("This call is answered in another tab.")}
-        </p>
-      </div>
-    );
   return (
     <div>
       <p className="lead" style={{ textAlign: "center" }}>
@@ -282,27 +240,6 @@ function CallControls({
         <p className="hint" style={{ textAlign: "center" }}>
           {tones}
         </p>
-      )}
-      {/* Calls waiting while this one is active (ADR 0023): the reader switches
-          between them rather than losing either. */}
-      {held.length > 0 && (
-        <div>
-          <div className="nav-section">
-            <span>{t("On hold")}</span>
-          </div>
-          {held.map((other) => (
-            <button
-              key={other.id}
-              className="nav-item"
-              style={{ width: "100%", textAlign: "start" }}
-              onClick={() => onSwitch(other.id)}
-            >
-              <PhoneCall size={15} />
-              <span className="grow truncate">{other.remote}</span>
-              <span className="hint">{t("Switch")}</span>
-            </button>
-          ))}
-        </div>
       )}
     </div>
   );

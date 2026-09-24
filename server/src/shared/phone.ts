@@ -1,37 +1,57 @@
 /**
- * The constants and shapes of the phone feature both tiers read (ADR 0023).
+ * The constants and shapes of the phone feature both tiers read (ADR 0023,
+ * ADR 0024).
  *
  * The name of the installation's shared directory and the document an account
- * holds its per-identity SIP credentials in are decisions, not one tier's
- * private spelling: the client draws and dials Global contacts by that name,
- * the server ensures the book carries it, and the administrator writes the
- * credential document the client reads. Declared twice, either would drift into
- * two names for one thing.
+ * holds its per-identity SIP accounts in are decisions, not one tier's private
+ * spelling: the client draws and dials Global contacts by that name, the server
+ * ensures the book carries it, and the administrator writes the credential
+ * document the client reads. Declared twice, either would drift into two names
+ * for one thing.
  *
  * Type declarations and constants only: no runtime code reaches a bundle
- * through this file except the two string literals, which is what the
- * declaration is for.
+ * through this file except the string literals and the small parsers, which is
+ * what the declaration is for.
  */
 
 /** The name the installation's Global contacts address book carries. */
 export const GLOBAL_CONTACTS_BOOK_NAME = "Global contacts";
 
-/** The document holding per-identity SIP credentials in an account's app folder. */
+/** The document holding per-identity SIP accounts in an account's app folder. */
 export const SIP_CREDENTIALS_FILE = "sip.json";
 
 /** The schema this build writes into that document. */
-export const SIP_CREDENTIALS_VERSION = 1;
+export const SIP_CREDENTIALS_VERSION = 2;
 
-/** One identity's SIP credential (ADR 0023). */
+/**
+ * The media port range the bridge opens inbound (ADR 0023).
+ *
+ * The one thing a deployment must open for the phone: the administration shows
+ * this range, and the deployment's Janus is configured to it. Declared once so
+ * the line an administrator reads and the bridge's own configuration cannot
+ * drift apart without changing here.
+ */
+export const BRIDGE_MEDIA_PORTS = "10000-10200";
+
+/**
+ * One identity's SIP account (ADR 0023).
+ *
+ * A server, a user name and a password — the three things a registrar asks
+ * for. Nothing here is the address of record: `sip:<username>@<server>` is
+ * derived from these, so a deployment states each part once and the phone
+ * cannot register at one server while being known by another.
+ */
 export interface SipCredential {
-  /** The address of record, `sip:user@domain` or a bare address. */
-  address: string;
-  /** The secret the registrar authenticates it with. */
+  /** The registrar's host: `pbx.example.com` or `pbx.example.com:5061`. */
+  server: string;
+  /** The user the registrar authenticates. */
+  username: string;
+  /** The secret it authenticates with; empty where the registrar asks for none. */
   password: string;
 }
 
 /**
- * The credential document: one credential per identity, keyed by the identity's
+ * The credential document: one account per identity, keyed by the identity's
  * email — which is what the account's own administration names an identity by,
  * and stable across identity re-creation in a way an id is not.
  */
@@ -41,7 +61,7 @@ export interface SipCredentialsDocument {
 }
 
 /**
- * What an administrator types for one Global contacts card (ADR 0023).
+ * What an administrator types for one Global contacts card (ADR 0024).
  *
  * A small, deliberate shape rather than a whole JSContact object: the
  * administration sends these fields and the server builds the card, so a
@@ -56,12 +76,13 @@ export interface GlobalContactInput {
   notes: string;
 }
 
-/** Whether a stored value is a usable credential. */
+/** Whether a stored value is a usable account: a server and a user name. */
 export function isSipCredential(value: unknown): value is SipCredential {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as SipCredential).address === "string" &&
+    typeof (value as SipCredential).server === "string" &&
+    typeof (value as SipCredential).username === "string" &&
     typeof (value as SipCredential).password === "string"
   );
 }
@@ -69,10 +90,10 @@ export function isSipCredential(value: unknown): value is SipCredential {
 /**
  * Read a credential document into its map, keyed by lower-cased identity email.
  *
- * The one parser both tiers use: the account reads its own document to
- * register, the administration reads the same document to show what an
- * identity holds. Malformed, absent or shapeless all answer the empty map —
- * "no credential" is a state, not a fault.
+ * The one parser both tiers use: the server reads the document to register, the
+ * administration reads the same document to show what an identity holds.
+ * Malformed, absent or shapeless all answer the empty map — "no credential" is
+ * a state, not a fault.
  */
 export function parseSipCredentials(raw: unknown): Record<string, SipCredential> {
   if (typeof raw !== "object" || raw === null) return {};
@@ -85,12 +106,12 @@ export function parseSipCredentials(raw: unknown): Record<string, SipCredential>
 }
 
 /**
- * The document after one identity's credential is set or cleared.
+ * The document after one identity's account is set or cleared.
  *
- * `null`, or an empty address, removes the entry: an identity with no SIP
- * address is one the phone does not register, which is a state rather than a
- * credential of blanks. The one place a credential enters or leaves the
- * document, so the writer cannot spell the shape a second way.
+ * `null`, or an entry that names no server or no user, removes it: an identity
+ * that names nothing to register with is one the phone does not register, which
+ * is a state rather than an account of blanks. The one place an account enters
+ * or leaves the document, so the writer cannot spell the shape a second way.
  */
 export function withSipCredential(
   current: Record<string, SipCredential>,
@@ -99,8 +120,10 @@ export function withSipCredential(
 ): SipCredentialsDocument {
   const identities = { ...current };
   const key = email.trim().toLowerCase();
-  const address = credential?.address?.trim() ?? "";
-  if (credential && address) identities[key] = { address, password: credential.password };
+  const server = credential?.server?.trim() ?? "";
+  const username = credential?.username?.trim() ?? "";
+  if (credential && server && username)
+    identities[key] = { server, username, password: credential.password };
   else delete identities[key];
   return { version: SIP_CREDENTIALS_VERSION, identities };
 }

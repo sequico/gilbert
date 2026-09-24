@@ -25,7 +25,7 @@ not change because the reader opened a share or a group's mail. The person's
 own section and the administration therefore address that account and no
 other, and read one list of the same objects.
 
-The administration gains **Enforce Identities**, under the **Stalwart**
+The administration gains **Identities and SIP Phone**, under the **Stalwart**
 group of the admin navigation, with two tabs: **User identities** and
 **Group identities**.
 

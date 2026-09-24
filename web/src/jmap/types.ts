@@ -2,7 +2,6 @@
 /* JMAP core (RFC 8620)                                                */
 /* ------------------------------------------------------------------ */
 
-import type { InstallationSip } from "@gilbert/shared/installation";
 import type {
   Id,
   Invocation,
@@ -67,12 +66,6 @@ export interface JmapSession {
      */
     identityLocked?: boolean;
     /**
-     * ADR 0023: the installation's telephone settings — whether the phone is
-     * offered, the SIP-over-WebSocket endpoints in the order they are tried,
-     * and the STUN/TURN servers media may use. A person's own SIP address and
-     * password are account data and are read from the account, not here.
-     */
-    sip?: InstallationSip;
     /** Locale configured for the account in Stalwart, if the server exposes it. */
     userLocale?: string | null;
     /** What the upstream server was willing to say about itself. */

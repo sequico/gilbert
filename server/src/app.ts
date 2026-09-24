@@ -117,6 +117,7 @@ import {
   publishInstallation,
   readInstallationForAdmin,
 } from "./installationAdmin.js";
+import { phoneSocket } from "./phone/proxy.js";
 import {
   MAX_PUSH_BODY_BYTES,
   attach as pushAttach,
@@ -139,7 +140,6 @@ import {
 } from "./sessions.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
-import { cloneSip } from "./shared/installation.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { GlobalContactInput, SipCredential } from "./shared/phone.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
@@ -870,6 +870,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
   api.use("*", smallBodies);
+
+  /*
+   * The phone's signalling socket (ADR 0023): the browser's Janus API, carried
+   * on this server's own origin and behind the Gilbert session, so the page
+   * reaches no second endpoint and holds no bridge address. A deployment with
+   * no bridge answers nothing here, and the client offers no phone.
+   */
+  api.get("/phone", requireSession, phoneSocket);
 
   /*
    * The forced-password-change door (ADR 0001).
@@ -2613,7 +2621,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * reads its own.
    */
   /**
-   * One identity's SIP credential (ADR 0023).
+   * One identity's SIP account (ADR 0023).
    *
    * What the softphone registers with, per identity, written into the
    * account's own `sip.json` — the same document the account reads. `sip:
@@ -2629,17 +2637,29 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         if (typeof raw !== "object")
           throw new IdentityAdminError(
             "invalid_identity",
-            "The SIP credential must be an object or null.",
+            "The SIP account must be an object or null.",
             400,
           );
-        const fields = raw as { address?: unknown; password?: unknown };
-        if (typeof fields.address !== "string" || typeof fields.password !== "string")
+        const fields = raw as {
+          server?: unknown;
+          username?: unknown;
+          password?: unknown;
+        };
+        if (
+          typeof fields.server !== "string" ||
+          typeof fields.username !== "string" ||
+          typeof fields.password !== "string"
+        )
           throw new IdentityAdminError(
             "invalid_identity",
-            "A SIP credential needs a string address and a string password.",
+            "A SIP account needs a string server, user name and password.",
             400,
           );
-        credential = { address: fields.address, password: fields.password };
+        credential = {
+          server: fields.server,
+          username: fields.username,
+          password: fields.password,
+        };
       }
       await writePersonSipCredential(
         c.get("session"),
@@ -3609,13 +3629,6 @@ function sessionExtras(
        * surface, and the section is all it removes.
        */
       identityLocked,
-      /**
-       * ADR 0023: the installation's telephone settings, so the client knows
-       * whether the phone is offered and where its server and ICE servers are.
-       * Each person's SIP address and password are account data and are read
-       * from the account, never here.
-       */
-      sip: cloneSip(config.sip),
     },
   };
 }

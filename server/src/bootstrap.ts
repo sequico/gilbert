@@ -40,12 +40,7 @@ import {
   readInstallation,
 } from "./installation.js";
 import { sleep as defaultSleep } from "./shared/async.js";
-import {
-  cloneSip,
-  type InstallationAgent,
-  type InstallationDocument,
-  type InstallationSip,
-} from "./shared/installation.js";
+import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /**
@@ -318,8 +313,6 @@ export interface InstallationConfiguration {
   stalwartUrl: string;
   stalwartServers: Record<string, string>;
   agent: InstallationAgentConfiguration;
-  /** The installation's telephone settings (ADR 0023), `sip` in the document. */
-  sip: InstallationSip;
 }
 
 /**
@@ -362,7 +355,6 @@ export function configurationFrom(
     rawPushRelay: document.push.rawRelay,
     stalwartUrl: handshake.stalwartUrl,
     stalwartServers: document.upstreams,
-    sip: cloneSip(document.sip),
     agent: {
       address: handshake.masterAddress,
       password: handshake.masterPassword,

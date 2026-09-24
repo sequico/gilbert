@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { WebSocketServer } from "ws";
 import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
@@ -70,8 +71,21 @@ async function main() {
     },
   );
   const app = createApp();
+  /*
+   * The phone's signalling socket (ADR 0023) rides the app's own HTTP server:
+   * `upgradeWebSocket` (server/src/phone/proxy.ts) hands the upgrade to this
+   * WebSocket server, which is what makes the route reachable. No bridge is
+   * named here; the proxy reaches it, and a deployment without one simply
+   * answers nothing.
+   */
+  const wss = new WebSocketServer({ noServer: true });
   const server = serve(
-    { fetch: app.fetch, hostname: config.host, port: config.port },
+    {
+      fetch: app.fetch,
+      hostname: config.host,
+      port: config.port,
+      websocket: { server: wss },
+    },
     (info) => {
       /* The browser will not trust 0.0.0.0: it is not a potentially
          trustworthy origin, so security headers such as COOP are ignored and

@@ -178,62 +178,6 @@ export interface InstallationBranding {
 }
 
 /**
- * A fresh copy of an installation's telephone settings.
- *
- * The document's object is not handed around by reference: the booted path
- * aliases `installation.sip` and the session hands it to every reader, so one
- * in-place edit would leak to all of them. The copy is the one place that
- * shape is duplicated, so the two callers cannot disagree about it.
- */
-export function cloneSip(sip: InstallationSip): InstallationSip {
-  return {
-    enabled: sip.enabled,
-    endpoints: [...sip.endpoints],
-    stun: [...sip.stun],
-    turn: sip.turn.map((server) => ({ ...server })),
-  };
-}
-
-/** One TURN server the phone's media may need (ADR 0023). */
-export interface InstallationSipTurn {
-  /** The TURN URL, `turn:` or `turns:`. */
-  url: string;
-  /** The credential's user name; empty for a server that needs none. */
-  username: string;
-  /** The credential itself. */
-  credential: string;
-}
-
-/**
- * The installation's telephone settings (ADR 0023): what the SIP Phone
- * administration page edits.
- *
- * They are the installation's and not an account's — every client reaches the
- * same SIP server — so the server, the ICE servers and the switch are decided
- * once, in the installation's own document (ADR 0011). A person's SIP address
- * and password are an identity's and are deliberately not here.
- */
-export interface InstallationSip {
-  /**
-   * Whether the installation offers the softphone at all. Off means off: no
-   * top-bar entry, and the client registers with nothing. On with no endpoint
-   * is a deployment that switched the phone on before saying where it is, and
-   * the client shows the line as unavailable rather than pretending.
-   */
-  enabled: boolean;
-  /**
-   * The SIP-over-WebSocket URL of the server, in the order they are tried. The
-   * first reachable one is used and the rest are the failover the connection's
-   * reliability rests on.
-   */
-  endpoints: string[];
-  /** STUN servers (`stun:`/`stuns:`), used to learn the browser's reflexive address. */
-  stun: string[];
-  /** TURN servers, used where a direct media path cannot be found. */
-  turn: InstallationSipTurn[];
-}
-
-/**
  * The installation's configuration, one document.
  *
  * `secret` is the app secret (`APP_SECRET`): the key sealed sessions and
@@ -260,8 +204,6 @@ export interface InstallationDocument {
   upstreams: Record<string, string>;
   agent: InstallationAgent;
   branding: InstallationBranding;
-  /** The installation's telephone settings (ADR 0023). */
-  sip: InstallationSip;
   /** `APP_SECRET`. Generated on the first boot; see the note above. */
   secret: string;
 }
@@ -326,14 +268,6 @@ export function installationDefaults(): InstallationDocument {
     },
     branding: {
       appName: "Gilbert", // APP_NAME
-    },
-    sip: {
-      // Off until a deployment says otherwise: a softphone nothing configures
-      // is an entry that can only fail (ADR 0023).
-      enabled: false,
-      endpoints: [],
-      stun: [],
-      turn: [],
     },
     secret: "", // APP_SECRET — generated on the first boot, never a literal
   };
@@ -462,59 +396,6 @@ export function parseInstallationDocumentDetailed(
     }
     return n;
   };
-  /**
-   * A URL as the parser requires one: absolute, and on a scheme the client can
-   * actually open. The same strictness `readUpstreams` applies, because an
-   * endpoint a typo left as `htps://…` is a phone that is offered and can only
-   * fail at connect — refused at boot instead.
-   */
-  const readUrl = (where: string, value: unknown, schemes: string[]): string | null => {
-    if (typeof value !== "string") {
-      // A value that is there and is not text is a problem, never a silent
-      // drop: an endpoint the operator wrote as a number is one they meant.
-      if (value !== undefined && value !== null)
-        problems.push(`"${where}" must be a URL.`);
-      return null;
-    }
-    const text = value.trim();
-    if (!text) return null;
-    let parsed: URL;
-    try {
-      parsed = new URL(text);
-    } catch {
-      problems.push(`"${where}" is not an absolute URL: ${text}.`);
-      return null;
-    }
-    if (!schemes.includes(parsed.protocol)) {
-      problems.push(`"${where}" must be ${schemes.join(" or ")}: ${text}.`);
-      return null;
-    }
-    return text;
-  };
-  /**
-   * A list of URLs, each trimmed, each blank entry dropped: a trailing empty
-   * line in a hand-edited document is noise rather than a fault, while a value
-   * that is not a URL on an allowed scheme is a problem.
-   */
-  const readUrlList = (
-    where: string,
-    v: unknown,
-    fallback: string[],
-    schemes: string[],
-  ): string[] => {
-    if (v === undefined || v === null) return [...fallback];
-    if (!Array.isArray(v)) {
-      problems.push(`"${where}" must be a list of URLs.`);
-      return [...fallback];
-    }
-    const out: string[] = [];
-    v.forEach((entry, i) => {
-      if (typeof entry === "string" && !entry.trim()) return;
-      const url = readUrl(`${where}[${i}]`, entry, schemes);
-      if (url) out.push(url);
-    });
-    return out;
-  };
 
   const server = readSection("server", whole.server);
   const limits = readSection("limits", whole.limits);
@@ -522,7 +403,6 @@ export function parseInstallationDocumentDetailed(
   const push = readSection("push", whole.push);
   const agent = readSection("agent", whole.agent);
   const branding = readSection("branding", whole.branding);
-  const sip = readSection("sip", whole.sip);
 
   const version = readInt("version", whole.version, INSTALLATION_VERSION);
   if (version !== INSTALLATION_VERSION)
@@ -559,41 +439,11 @@ export function parseInstallationDocumentDetailed(
     );
 
   /*
-   * The phone's servers (ADR 0023). An endpoint is a URL the browser opens a
-   * WebSocket to, a STUN server is a URL, and a TURN server carries the
-   * credential that reaches it; a TURN entry with no URL is refused, since it
-   * could only be a mistake.
+   * There is no phone section (ADR 0023): where the Janus bridge lives and
+   * which ports it needs are the deployment's own facts, and each person's SIP
+   * account is account data the identity surface holds -- neither is this
+   * installation document's.
    */
-  const turn: InstallationSipTurn[] = [];
-  if (sip.turn === undefined || sip.turn === null) {
-    // Copies, not the defaults' own objects: a parsed document must not alias
-    // what `installationDefaults()` hands out.
-    turn.push(...defaults.sip.turn.map((server) => ({ ...server })));
-  } else if (!Array.isArray(sip.turn)) {
-    problems.push(`"sip.turn" must be a list of servers.`);
-  } else {
-    sip.turn.forEach((entry, i) => {
-      if (!isRecord(entry)) {
-        problems.push(`"sip.turn[${i}]" must be an object with a "url".`);
-        return;
-      }
-      const url = readUrl(`sip.turn[${i}].url`, entry.url, ["turn:", "turns:"]);
-      if (!url) {
-        if (
-          entry.url === undefined ||
-          entry.url === null ||
-          (typeof entry.url === "string" && !entry.url.trim())
-        )
-          problems.push(`"sip.turn[${i}].url" must not be empty.`);
-        return;
-      }
-      turn.push({
-        url,
-        username: readText(`sip.turn[${i}].username`, entry.username, ""),
-        credential: readText(`sip.turn[${i}].credential`, entry.credential, ""),
-      });
-    });
-  }
 
   const doc: InstallationDocument = {
     version,
@@ -694,17 +544,6 @@ export function parseInstallationDocumentDetailed(
       inProcess: readBool("agent.inProcess", agent.inProcess, defaults.agent.inProcess),
     },
     branding: { appName },
-    sip: {
-      enabled: readBool("sip.enabled", sip.enabled, defaults.sip.enabled),
-      // The browser opens a WebSocket to an endpoint and asks a STUN server
-      // for its reflexive address: a scheme it cannot use is refused here.
-      endpoints: readUrlList("sip.endpoints", sip.endpoints, defaults.sip.endpoints, [
-        "ws:",
-        "wss:",
-      ]),
-      stun: readUrlList("sip.stun", sip.stun, defaults.sip.stun, ["stun:", "stuns:"]),
-      turn,
-    },
     secret: readText("secret", whole.secret, defaults.secret),
   };
 

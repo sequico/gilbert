@@ -1632,7 +1632,7 @@ export const catalog: Catalog = {
       "Nur ein Administrator dieser Gruppe ändert ihre Daueranweisung und ihre Automatisierungen; jedes Mitglied liest sie hier.",
     "No standing instruction has been written for this group.":
       "Für diese Gruppe wurde keine Daueranweisung hinterlegt.",
-    // The two tabs Enforce Identities is split into.
+    // The two tabs Identities and SIP Phone is split into.
     "User identities": "Benutzeridentitäten",
     "Group identities": "Gruppenidentitäten",
     "{name} — shared by {owner}": "{name} — von {owner} freigegeben",

@@ -1,5 +1,5 @@
 /**
- * User identities (ADR 0007), the first tab of **Enforce Identities**: what
+ * User identities (ADR 0007), the first tab of **Identities and SIP Phone**: what
  * an administrator sets on a person's account, through the same form the
  * person's own settings use.
  *
@@ -62,7 +62,7 @@ export function UserIdentities() {
    */
   const [locked, setLocked] = useState<IdentityLockState | null>(null);
   const [editing, setEditing] = useState<Partial<Identity> | null>(null);
-  /** The identity whose SIP credential (ADR 0023) is being edited. */
+  /** The identity whose SIP account (ADR 0023) is being edited. */
   const [sipFor, setSipFor] = useState<Identity | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +120,7 @@ export function UserIdentities() {
   }
 
   /**
-   * Write one identity's SIP credential (ADR 0023), then re-read the account so
+   * Write one identity's SIP account (ADR 0023), then re-read the account so
    * the row says what is really stored rather than what was typed.
    */
   async function saveSip(identity: Identity, sip: SipCredential | null) {
@@ -318,13 +318,13 @@ export function UserIdentities() {
                       ? t("Default")
                       : t("Make default")}
                   </button>
-                  {/* The SIP credential (ADR 0023): what the phone registers
+                  {/* The SIP account (ADR 0023): what the phone registers
                       with for this identity. Its own editor, because it is not
                       an identity property and the person's own dialog must not
                       offer it. */}
                   <button
                     className="btn btn-sm btn-ghost"
-                    title={t("SIP credential")}
+                    title={t("SIP account")}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSipFor(identity);

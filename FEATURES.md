@@ -1,8 +1,10 @@
 # Features
 
-What Gilbert is, in one paragraph, is the top of [README.md](README.md); this is
-the inventory of everything it does, at the level of detail someone evaluating
-it or working on it actually needs.
+What Gilbert is, in one paragraph, is the top of [README.md](README.md); what
+it is *for* — operations rather than sales, deliberately no CRM and no sales
+functions — is [there too](README.md#what-gilbert-is-for). This is the
+inventory of everything it does, at the level of detail someone evaluating it
+or working on it actually needs.
 
 It is ordered the way this project cares about it: **Gilbert's own** first —
 the groups, the chat and above all the agents — and the client the mail core
@@ -626,7 +628,7 @@ the same capabilities on every account it lists, so a folder, calendar or
 address-book share that carries an address would otherwise read as a group —
 and the one classifier is a probe of the account's mailbox tree, server-side
 and in the client alike. A share is never administered or served as a group.
-- **Enforce Identities** (ADR 0007), under *Stalwart* in the administration:
+- **Identities and SIP Phone** (ADR 0007), under *Stalwart* in the administration:
   one section, two tabs — **User identities** for a person's, **Group
   identities** for a group's. Each tab picks its principal from a menu that
   lists the accounts the server reports — the empty choice is in it as a real
@@ -767,7 +769,7 @@ and in the client alike. A share is never administered or served as a group.
 Gilbert Mailer (policy, the installation document, forced passwords, group
 label catalogs), Gilbert Assistant (the agent fleet and what it does per
 group), server configuration
-under “Stalwart” (**Enforce Identities**, one section with a tab per kind of
+under “Stalwart” (**Identities and SIP Phone**, one section with a tab per kind of
 principal, and **System Sieve**, its trusted, server-wide Sieve scripts), and
 About ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
@@ -862,9 +864,10 @@ and authenticates by session. Zadarma is the reference.
   hand, so the phone is not limited to Contacts.
 - **Audio only, and the same for everyone.** G.711 passed through without
   transcoding, on one TLS transport to the provider, with no STUN/TURN. The
-  media range is the **only** inbound port and the SIP leg is outbound —
-  5060/5061 are never opened. What cannot be recovered ends cleanly rather than
-  leaving a dead call on screen.
+  deployment's firewall must leave the bridge's **UDP media range open
+  inbound** — it is the only port a deployment opens — while the SIP leg to the
+  provider is outbound, so 5060/5061 are never opened. What cannot be recovered
+  ends cleanly rather than leaving a dead call on screen.
 - **Offered only where it can work.** The account must hold a SIP account, the
   bridge must answer, and the media path must be proven before the entry is
   drawn: a deployment whose bridge ports are still closed shows **no phone**,

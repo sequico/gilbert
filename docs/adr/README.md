@@ -238,8 +238,7 @@ is, not what a user sees.
   page, and the phone appears only where it can carry a call. The surface is
   **desktop only**: a page rings only while it is alive, and the dialer is
   read-only over Contacts separated by Global contacts, each group, personal and
-  all, with a number typed by hand. Not built; the tree still carries an earlier
-  client-side SIP-over-WebSocket phone, which this decision replaces.
+  all, with a number typed by hand. Built.
 
 - **0024 — Global contacts.** One address book in the Master's account, created
   by the installation rather than by hand, shared read-only with every account

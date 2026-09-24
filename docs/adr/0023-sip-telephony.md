@@ -2,13 +2,16 @@
 
 Status: Accepted
 
-Implementation: Not built. The phone this record decides — a browser on the
-Janus SIP plugin, one tab holding the line — does not exist. The tree still
-carries an earlier client-side softphone that speaks SIP over WebSocket from the
-browser (`web/src/lib/phone/agent.ts`, `web/src/store/phone.ts`,
-`web/src/views/phone/PhoneLauncher.tsx`, `web/src/views/admin/AdminSipPhone.tsx`),
-which this decision replaces and which is to be removed. Global contacts is a
-record of its own (ADR 0024).
+Implementation: Built. The browser's Janus client is
+`web/src/lib/phone/janus.ts`, the SIP plugin and its media are
+`web/src/lib/phone/sip.ts`, the one seat and the account are
+`web/src/store/phone.ts`, the surface is
+`web/src/views/phone/PhoneLauncher.tsx`, the administration is
+`web/src/views/admin/IdentitiesAndSipPhone.tsx`; the socket gilbertserver
+proxies is `server/src/phone/proxy.ts` (registered in `server/src/app.ts`), the
+bridge's address is `server/src/phone/bridge.ts`, and the account document and
+the media range are `server/src/shared/phone.ts`. Global contacts is a record of
+its own (ADR 0024).
 
 ## Context
 

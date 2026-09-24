@@ -1,6 +1,6 @@
 ---
 name: gilbert-phone
-description: The browser phone and Global contacts law of the Gilbert client — the Janus SIP plugin the browser is a user agent through, the gilbertserver WebSocket proxy that authenticates it by session, the single tab that holds the line by a Web Lock, where SIP credentials live, and the one Master-owned Global contacts directory. Load before touching the phone, the dialer, Global contacts, or the telephony administration surface.
+description: The browser phone and Global contacts law of the Gilbert client — the Janus SIP plugin the browser is a user agent through, the gilbertserver WebSocket proxy that authenticates it by session, the single tab that holds the line by a Web Lock, where the SIP account lives, and the one Master-owned Global contacts directory. Load before touching the phone, the dialer, Global contacts, or the telephony administration surface.
 metadata:
   short-description: Browser phone (Janus) & Global contacts law
 ---
@@ -13,8 +13,8 @@ disagrees with a record is a bug in one of the two.
 
 ## State
 
-The phone is **not built**: the tree still carries an earlier client-side
-SIP-over-WebSocket softphone that ADR 0023 replaces. Global contacts is built.
+The phone is built: the browser's Janus client, the gilbertserver proxy, the
+single seat and the administration are in place. Global contacts is built.
 
 ## The phone (ADR 0023) — the invariants
 
@@ -65,13 +65,17 @@ SIP-over-WebSocket softphone that ADR 0023 replaces. Global contacts is built.
 
 ## The map
 
-- **Not built**: the browser client on the Janus SIP plugin and the
-  gilbertserver WebSocket proxy in front of Janus. The tree's
-  `web/src/lib/phone/agent.ts`, `web/src/store/phone.ts`,
-  `web/src/views/phone/PhoneLauncher.tsx` and
-  `web/src/views/admin/AdminSipPhone.tsx` are the client ADR 0023 replaces.
-- **Built**: Global contacts — `server/src/globalContactsAdmin.ts` (the write,
-  the share, the boot-time `ensureGlobalContacts`), `server/src/index.ts` (its
+- **The phone**: `web/src/lib/phone/janus.ts` (the Janus API),
+  `web/src/lib/phone/sip.ts` (the SIP plugin, the media and the connectivity
+  probe), `web/src/lib/phone/credential.ts` (the account, read from the
+  person's own Files), the seat and the state in `web/src/store/phone.ts`, the
+  surface in `web/src/views/phone/PhoneLauncher.tsx`; the proxied socket in
+  `server/src/phone/proxy.ts`, the bridge's address in
+  `server/src/phone/bridge.ts`, the document and the media range in
+  `server/src/shared/phone.ts`, and the administration in
+  `web/src/views/admin/IdentitiesAndSipPhone.tsx`.
+- **Global contacts**: `server/src/globalContactsAdmin.ts` (the write, the
+  share, the boot-time `ensureGlobalContacts`), `server/src/index.ts` (its
   call), `server/src/shared/phone.ts`,
   `web/src/views/contacts/GlobalContactsEditor.tsx`,
   `web/src/views/contacts/ContactsSidebar.tsx`, `web/src/lib/contacts.ts`.

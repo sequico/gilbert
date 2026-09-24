@@ -670,9 +670,9 @@ export async function personIdentities(
 }
 
 /**
- * Set or clear one identity's SIP credential (ADR 0023), as the person.
+ * Set or clear one identity's SIP account (ADR 0023), as the person.
  *
- * The credential lives in `sip.json`, in that account's own app folder, keyed
+ * The account lives in `sip.json`, in that account's own app folder, keyed
  * by identity email — the same impersonating door the default identity and the
  * lock write through. `null`, or an address that is only blanks, clears the
  * entry; the phone then has nothing to register for that identity.
@@ -688,13 +688,13 @@ export async function writePersonSipCredential(
   if (!key)
     throw new IdentityAdminError(
       "invalid_identity",
-      "A SIP credential belongs to an identity, and this one names no email to key it by.",
+      "A SIP account belongs to an identity, and this one names no email to key it by.",
       400,
     );
-  if (credential?.address.trim() && !credential.password)
+  if (credential && !(credential.server.trim() && credential.username.trim()))
     throw new IdentityAdminError(
       "invalid_identity",
-      "A SIP address with no password is not a credential the registrar will take.",
+      "A SIP account needs a server and a user name.",
       400,
     );
   const imp = await impersonateAs(admin, target);

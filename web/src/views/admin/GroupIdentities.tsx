@@ -1,5 +1,5 @@
 /**
- * Group identities (ADR 0007), the second tab of **Enforce Identities**: what a
+ * Group identities (ADR 0007), the second tab of **Identities and SIP Phone**: what a
  * group mailbox sends as, and who sends as which.
  *
  * Written **as the Master**, always, because Stalwart refuses to impersonate a

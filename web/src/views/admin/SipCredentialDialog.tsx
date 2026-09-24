@@ -4,13 +4,13 @@ import { t } from "@/lib/i18n";
 import { Dialog } from "@/ui/dialog";
 
 /**
- * One identity's SIP credential (ADR 0023), set by an administrator.
+ * One identity's SIP account (ADR 0023), set by an administrator.
  *
- * The address and password the phone registers with, written into the
- * account's own `sip.json` and read by that account's client. It is deliberately
- * its own small editor rather than a field of the identity form: the credential
- * is not an identity property, and the person's own Identities & signatures
- * dialog must not offer it — only the administration sets this.
+ * The server, user name and password the phone registers with, written into
+ * the account's own `sip.json` and read by that account's client. It is
+ * deliberately its own small editor rather than a field of the identity form:
+ * the account is not an identity property, and the person's own Identities &
+ * signatures dialog must not offer it — only the administration sets this.
  */
 export function SipCredentialDialog({
   identity,
@@ -24,13 +24,15 @@ export function SipCredentialDialog({
   onClose: () => void;
   onSave: (sip: SipCredential | null) => Promise<void>;
 }) {
-  const [address, setAddress] = useState(current?.address ?? "");
+  const [server, setServer] = useState(current?.server ?? "");
+  const [username, setUsername] = useState(current?.username ?? "");
   const [password, setPassword] = useState(current?.password ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setAddress(current?.address ?? "");
+    setServer(current?.server ?? "");
+    setUsername(current?.username ?? "");
     setPassword(current?.password ?? "");
     setError(null);
   }, [current]);
@@ -48,23 +50,33 @@ export function SipCredentialDialog({
     }
   }
 
-  const canSave = Boolean(address.trim());
+  const canSave = Boolean(server.trim() && username.trim());
 
   return (
-    <Dialog open onClose={onClose} title={t("SIP credential")} size="sm">
+    <Dialog open onClose={onClose} title={t("SIP account")} size="sm">
       <p className="hint">{identity}</p>
       <label className="field">
-        <span>{t("SIP address")}</span>
+        <span>{t("Server")}</span>
         <input
           className="input"
           spellCheck={false}
-          placeholder="sip:1001@pbx.example.com"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          placeholder="pbx.example.com"
+          value={server}
+          onChange={(e) => setServer(e.target.value)}
         />
       </label>
       <label className="field">
-        <span>{t("SIP password")}</span>
+        <span>{t("User name")}</span>
+        <input
+          className="input"
+          spellCheck={false}
+          placeholder="1001"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </label>
+      <label className="field">
+        <span>{t("Password")}</span>
         <input
           className="input"
           type="password"
@@ -74,7 +86,7 @@ export function SipCredentialDialog({
       </label>
       <p className="hint">
         {t(
-          "This is what the account's phone registers with. An identity with no address above is not registered.",
+          "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.",
         )}
       </p>
       {error && <div className="error-box">{error}</div>}
@@ -94,7 +106,9 @@ export function SipCredentialDialog({
         <button
           className="btn btn-primary"
           disabled={busy || !canSave}
-          onClick={() => void run({ address: address.trim(), password })}
+          onClick={() =>
+            void run({ server: server.trim(), username: username.trim(), password })
+          }
         >
           {t("Save")}
         </button>

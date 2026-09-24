@@ -3,25 +3,23 @@ import { describe, expect, it } from "vitest";
 import type { AddressBook, ContactCard } from "@/jmap/types";
 import { isGlobalContactsBook } from "@/lib/contacts";
 import {
+  allDialerCards,
   contactPhoneNumbers,
+  dialerSources,
   dialTarget,
-  iceServers,
-  phoneOffered,
-} from "@/lib/phone/config";
-import { credentialFor, readSipCredentials } from "@/lib/phone/credentials";
-import { allDialerCards, dialerSources } from "@/lib/phone/dialer";
-import { MAX_CALLS, ringAction, shouldRefuseAsBusy } from "@/lib/phone/policy";
+} from "@/lib/phone/dialer";
+import { callUri, sipAddress } from "@/lib/phone/sip";
 import type { SharedBook } from "@/store/contacts";
 
 /**
- * The phone's pure rules (ADR 0023): whether it is offered, what the media
- * stack is built with, which number a contact dials, how the dialer separates
- * its sources, and how a credential is looked up.
+ * The phone's pure rules (ADR 0023): which number a contact dials, how the
+ * dialer separates its sources, and how the account's own server becomes the
+ * address of record and a dialled target.
  *
- * These are the parts of the phone that can be pinned without a SIP server, a
+ * These are the parts of the phone that can be pinned without a bridge, a
  * microphone or a browser, and they are the parts a change is most likely to
- * quietly break: the separation the dialer draws, and the credential belonging
- * to the right identity.
+ * quietly break: the separation the dialer draws, and the server a call is
+ * sent through.
  */
 
 function card(
@@ -53,39 +51,6 @@ function book(accountId: string, id: string, name: string): SharedBook {
   };
 }
 
-describe("whether the phone is offered", () => {
-  it("is offered only with a switch on and at least one endpoint", () => {
-    expect(phoneOffered(undefined)).toBe(false);
-    expect(
-      phoneOffered({ enabled: false, endpoints: ["wss://pbx/ws"], stun: [], turn: [] }),
-    ).toBe(false);
-    expect(phoneOffered({ enabled: true, endpoints: [], stun: [], turn: [] })).toBe(
-      false,
-    );
-    expect(
-      phoneOffered({ enabled: true, endpoints: ["wss://pbx/ws"], stun: [], turn: [] }),
-    ).toBe(true);
-  });
-});
-
-describe("the ICE servers media is built with", () => {
-  it("groups the STUN servers and carries each TURN server's credential", () => {
-    const servers = iceServers({
-      enabled: true,
-      endpoints: [],
-      stun: ["stun:one:3478", "stun:two:3478"],
-      turn: [
-        { url: "turn:t:3478", username: "u", credential: "c" },
-        { url: "", username: "", credential: "" },
-      ],
-    });
-    expect(servers).toEqual([
-      { urls: ["stun:one:3478", "stun:two:3478"] },
-      { urls: "turn:t:3478", username: "u", credential: "c" },
-    ]);
-  });
-});
-
 describe("the number a contact dials", () => {
   it("takes the preferred one first and null when there is none", () => {
     const two = card("c", "b", {
@@ -95,6 +60,24 @@ describe("the number a contact dials", () => {
     expect(contactPhoneNumbers(two)).toEqual(["111", "222"]);
     expect(dialTarget(two)).toBe("111");
     expect(dialTarget(card("d", "b"))).toBeNull();
+  });
+});
+
+describe("the address a call is sent to", () => {
+  const account = { server: "pbx.example.com", username: "1001", password: "p" };
+
+  it("is the account's own address of record", () => {
+    expect(sipAddress(account)).toBe("sip:1001@pbx.example.com");
+  });
+
+  it("sends a bare number through the account's server, and leaves an address as it is", () => {
+    expect(callUri(account, "5551234")).toBe("sip:5551234@pbx.example.com");
+    expect(callUri(account, "sip:someone@elsewhere.example")).toBe(
+      "sip:someone@elsewhere.example",
+    );
+    expect(callUri(account, "someone@elsewhere.example")).toBe(
+      "sip:someone@elsewhere.example",
+    );
   });
 });
 
@@ -154,25 +137,6 @@ describe("the dialer's sources", () => {
   });
 });
 
-describe("the line's local policy", () => {
-  it("carries one active call and one waiting, and refuses the next as busy", () => {
-    expect(MAX_CALLS).toBe(2);
-    expect(shouldRefuseAsBusy(0)).toBe(false);
-    expect(shouldRefuseAsBusy(1)).toBe(false);
-    expect(shouldRefuseAsBusy(2)).toBe(true);
-    expect(shouldRefuseAsBusy(3)).toBe(true);
-  });
-
-  it("rings a free line, supersedes a waiting ring, and refuses a full one", () => {
-    expect(ringAction(0, false)).toBe("ring");
-    expect(ringAction(1, false)).toBe("ring");
-    expect(ringAction(0, true)).toBe("supersede");
-    expect(ringAction(1, true)).toBe("supersede");
-    expect(ringAction(2, false)).toBe("refuse-busy");
-    expect(ringAction(2, true)).toBe("refuse-busy");
-  });
-});
-
 describe("Global contacts is one named book", () => {
   it("is the one the shared constant names, and must be read-only", () => {
     const readOnly = {
@@ -193,24 +157,5 @@ describe("Global contacts is one named book", () => {
     expect(isGlobalContactsBook({ name: "Team contacts", myRights: readOnly })).toBe(
       false,
     );
-  });
-});
-
-describe("the credential an identity registers with", () => {
-  it("is looked up without case, and absent means no phone", async () => {
-    expect(
-      credentialFor(
-        { "a@example.com": { address: "sip:a", password: "p" } },
-        "A@Example.com",
-      ),
-    ).toEqual({ address: "sip:a", password: "p" });
-    expect(credentialFor({}, "a@example.com")).toBeNull();
-    expect(credentialFor({}, null)).toBeNull();
-  });
-
-  it("reads nothing from an account whose document is not there", async () => {
-    // No account in this test has a folder: the reader answers an empty map
-    // rather than throwing, which is what keeps the phone off quietly.
-    await expect(readSipCredentials("no-such-account")).resolves.toEqual({});
   });
 });

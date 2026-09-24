@@ -21,10 +21,12 @@
     "@e965/xlsx": "0.20.3",
     "@hono/node-server": "^2.1.1",
     "@hyzyla/pdfium": "^2.1.13",
+    "@types/ws": "^8.18.1",
     "hono": "^4.13.8",
     "mammoth": "^1.12.3",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.3.289"
+    "pdfjs-dist": "^6.3.289",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.5",

@@ -118,7 +118,7 @@ export interface PersonIdentitiesView {
    * chosen one and the client falls back to its first. */
   defaultIdentityId: string | null;
   /**
-   * Each identity's SIP address and password (ADR 0023), keyed by the
+   * Each identity’s SIP server, user name and password (ADR 0023), keyed by the
    * identity's email — the key the account's own `sip.json` carries and the
    * phone reads, so the administrator sees exactly what will register.
    */

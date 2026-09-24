@@ -12,6 +12,20 @@ import type { ContactCard } from "@/jmap/types";
 import { isGlobalContactsBook } from "@/lib/contacts";
 import type { SharedBook } from "@/store/contacts";
 
+/** Every number a card carries, the preferred one first. */
+export function contactPhoneNumbers(card: ContactCard): string[] {
+  return Object.values(card.phones ?? {})
+    .filter((phone) => Boolean(phone.number?.trim()))
+    .slice()
+    .sort((a, b) => (a.pref ?? 1) - (b.pref ?? 1))
+    .map((phone) => phone.number.trim());
+}
+
+/** The number the phone dials for a contact, or null when it carries none. */
+export function dialTarget(card: ContactCard): string | null {
+  return contactPhoneNumbers(card)[0] ?? null;
+}
+
 export interface DialerSource {
   /** Stable key for React and for the selection. */
   id: string;

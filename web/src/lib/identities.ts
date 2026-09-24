@@ -134,13 +134,13 @@ export async function saveUserIdentity(
 }
 
 /**
- * `POST /api/admin/identities/user/sip` — one identity's SIP credential
+ * `POST /api/admin/identities/user/sip` — one identity's SIP account
  * (ADR 0023), written into the account's own `sip.json`. `null` clears it.
  */
 export async function saveUserSipCredential(
   address: string,
   email: string,
-  sip: { address: string; password: string } | null,
+  sip: { server: string; username: string; password: string } | null,
 ): Promise<void> {
   await apiFetch<{ ok: true }>("/api/admin/identities/user/sip", {
     method: "POST",

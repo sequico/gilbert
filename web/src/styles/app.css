@@ -1070,7 +1070,7 @@ img { max-width: 100%; }
 .field > label, .label { font-size: .85em; font-weight: 600; color: var(--fg-muted); letter-spacing: .01em; }
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 
-/* The tabs one administration section is split into (Enforce Identities). */
+/* The tabs one administration section is split into (Identities and SIP Phone). */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .tab {
   border: none; background: none; color: var(--fg-muted); cursor: pointer;
