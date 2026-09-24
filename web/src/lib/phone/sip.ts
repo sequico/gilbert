@@ -24,6 +24,12 @@ export interface ActiveCall {
 
 export interface PhoneHooks {
   onLine(state: LineState): void;
+  /**
+   * The media path to the bridge is proven, so the phone may be offered. It is
+   * what separates "no phone" (no media, per the record) from "a line that is
+   * there but not registered" (the red glyph, with its reason readable).
+   */
+  onProven(): void;
   /** A call is ringing; the empty string clears it. */
   onIncoming(from: string): void;
   /** The call, and the audio to play, or nulls when there is none. */
@@ -282,6 +288,9 @@ export class Phone {
       if (this.ended) return;
       this.mediaProven = true;
     }
+    // The media path is proven (or was): the phone is offered from here, and a
+    // registration that fails is the red glyph, not an invisible absence.
+    this.hooks.onProven();
     const janus = new Janus(bridgeUrl(), this.janusHooks());
     const previous = this.janus;
     this.janus = janus;

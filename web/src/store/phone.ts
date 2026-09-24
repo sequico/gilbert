@@ -244,11 +244,8 @@ async function begin(set: SetState, gen: number): Promise<void> {
   await held?.stop().catch(() => undefined);
 
   phone = new Phone(credential, {
-    onLine: (state) =>
-      set((current) => ({
-        state,
-        ready: state === "registered" || current.ready,
-      })),
+    onLine: (state) => set({ state }),
+    onProven: () => set({ ready: true }),
     onIncoming: (from) => set({ incoming: from || null }),
     onCall: (call, stream) => set({ call, stream }),
     onError: (message) => set({ error: message }),

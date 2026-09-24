@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import { probeBridgeMedia } from "@/lib/phone/sip";
 import { fetchPhoneStatus, type PhoneStatus } from "@/lib/phoneAdmin";
+import { usePhone } from "@/store/phone";
 
 /** What the media check is doing, or last said. */
 type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
@@ -17,6 +18,10 @@ export function PhoneStatusPanel() {
   const [status, setStatus] = useState<PhoneStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [media, setMedia] = useState<MediaCheck>("idle");
+  // The line as this tab sees it — the answer to "why is there no phone".
+  const line = usePhone((s) => s.state);
+  const offered = usePhone((s) => s.ready);
+  const lineError = usePhone((s) => s.error);
 
   async function load() {
     setLoading(true);
@@ -75,7 +80,22 @@ export function PhoneStatusPanel() {
             media === "unreachable" ? "bad" : media === "reachable" ? "ok" : undefined
           }
         />
+        <Row
+          label={t("Phone line")}
+          value={
+            offered
+              ? line
+              : t("Not offered — no SIP account for this identity, or the media path above")
+          }
+          tone={line === "unavailable" ? "bad" : undefined}
+        />
       </div>
+
+      {lineError && (
+        <div className="error-box" style={{ marginTop: 12 }}>
+          {lineError}
+        </div>
+      )}
 
       <p style={{ marginTop: 12 }}>
         <button className="btn" disabled={loading} onClick={() => void load()}>
