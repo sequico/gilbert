@@ -11,11 +11,7 @@
  */
 import { create } from "zustand";
 import { CAP } from "@/jmap/client";
-import {
-  accountFor,
-  readSipAccounts,
-  type SipCredential,
-} from "@/lib/phone/credential";
+import { accountFor, readSipAccounts, type SipCredential } from "@/lib/phone/credential";
 import {
   requestMicrophone as askMicrophone,
   type MicrophonePermission,
@@ -235,8 +231,7 @@ async function begin(set: SetState, gen: number): Promise<void> {
   clearCredentialRetry();
   // A re-read that finds the same account changes nothing: the line keeps
   // running, and a live call is never dropped for a no-op.
-  if (phone && runningCredential && sameCredential(credential, runningCredential))
-    return;
+  if (phone && runningCredential && sameCredential(credential, runningCredential)) return;
   void readMicrophoneState().then((microphone) => set({ microphone }));
   const held = phone;
   phone = null;
@@ -270,7 +265,5 @@ function clearCredentialRetry(): void {
 
 /** Whether two credentials name the same account, byte for byte. */
 function sameCredential(a: SipCredential, b: SipCredential): boolean {
-  return (
-    a.server === b.server && a.username === b.username && a.password === b.password
-  );
+  return a.server === b.server && a.username === b.username && a.password === b.password;
 }

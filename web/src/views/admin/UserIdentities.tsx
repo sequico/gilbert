@@ -36,8 +36,8 @@ import {
   setUserIdentityLock,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
-import { useSession } from "@/store/session";
 import { usePhone } from "@/store/phone";
+import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
 import { ACTIVE_COLOR } from "@/ui/misc";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
