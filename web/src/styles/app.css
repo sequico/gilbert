@@ -2879,6 +2879,69 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
    one. Only the first span is the caption; a hint after the control is not. */
 .field > span:first-child { font-size: .85em; font-weight: 600; color: var(--fg-muted); letter-spacing: .01em; }
 
-/* The phone's dialpad: twelve keys in the 3×4 grid a phone lays them in. */
-.dialpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
-.dialpad-key { justify-content: center; }
+/*
+ * The phone surface (ADR 0023): a keypad that reads as one — round-topped keys
+ * with the letters a phone prints — a number the reader can see compose, and a
+ * call button that is the one obvious action. The same keys carry the in-call
+ * DTMF pad, so the two never look like different products.
+ */
+.dialpad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 10px; }
+.dialpad-key {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-height: 50px; padding: 2px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--bg-elev); color: var(--fg); cursor: pointer;
+  transition: background .12s var(--ease), border-color .12s var(--ease), transform .06s var(--ease);
+}
+.dialpad-key:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.dialpad-key:active { background: var(--bg-active); transform: scale(.95); }
+.dialpad-digit { font-size: 1.15rem; font-weight: 600; line-height: 1.05; }
+.dialpad-letters { font-size: .55rem; font-weight: 700; letter-spacing: .14em; color: var(--fg-faint); }
+
+.dialer-display { display: flex; align-items: center; gap: 2px; }
+.dialer-number {
+  flex: 1; min-width: 0; padding: 6px 4px; text-align: center;
+  font-size: 1.35rem; font-weight: 650; letter-spacing: .03em;
+  color: var(--fg); background: transparent; border: 0; border-bottom: 1px solid var(--border);
+}
+.dialer-number:focus { outline: none; border-bottom-color: var(--accent); }
+.dialer-number::placeholder { color: var(--fg-faint); font-size: .95rem; font-weight: 400; }
+.dialer-back {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%; color: var(--fg-muted);
+}
+.dialer-back:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg); }
+.dialer-back:disabled { opacity: .35; cursor: default; }
+
+.dialer-call {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; margin: 2px auto 6px; border: 0; border-radius: 50%;
+  background: var(--success); color: var(--bg-elev); cursor: pointer;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--success) 40%, transparent);
+  transition: transform .08s var(--ease), opacity .12s var(--ease);
+}
+.dialer-call:hover:not(:disabled) { transform: translateY(-1px); }
+.dialer-call:active:not(:disabled) { transform: scale(.95); }
+.dialer-call:disabled { opacity: .4; box-shadow: none; cursor: default; }
+
+.dialer-contacts { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+.dialer-search { display: flex; align-items: center; gap: 6px; padding: 0 4px 4px; }
+.dialer-contact {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
+  text-align: start; border-radius: var(--radius-sm); color: var(--fg);
+}
+.dialer-contact:hover { background: var(--bg-hover); }
+.dialer-contact svg { flex: 0 0 auto; color: var(--fg-muted); }
+.dialer-contact .hint { font-size: .82em; }
+
+.call-panel { display: flex; flex-direction: column; }
+.call-who { margin: 4px 0 12px; text-align: center; font-size: 1.05rem; font-weight: 650; }
+.call-actions { display: flex; justify-content: center; gap: 8px; margin-bottom: 4px; }
+.call-action {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 999px; color: var(--fg); background: var(--bg-elev); cursor: pointer;
+}
+.call-action:hover { background: var(--bg-hover); }
+.call-action.call-hangup { border-color: transparent; background: var(--danger); color: var(--bg-elev); }
+.call-action.call-hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
+.call-tones { margin: 0 0 4px; text-align: center; color: var(--fg-muted); letter-spacing: .12em; }

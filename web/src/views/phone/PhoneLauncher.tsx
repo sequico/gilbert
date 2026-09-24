@@ -16,18 +16,32 @@ import { usePhone } from "@/store/phone";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
+import { Popover, useMenu } from "@/ui/popover";
 
 /** The digits the keypad offers, in the order a phone lays them out. */
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+
+/** The letters a key carries, printed under its digit as a phone prints them. */
+const KEY_LETTERS: Record<string, string> = {
+  "2": "ABC",
+  "3": "DEF",
+  "4": "GHI",
+  "5": "JKL",
+  "6": "MNO",
+  "7": "PQRS",
+  "8": "TUV",
+  "9": "WXYZ",
+  "0": "+",
+};
 
 /**
  * The phone in the top-bar action cluster (ADR 0023).
  *
  * The entry is the feature's whole presence until it is pressed: its colour is
  * the line's state and it returns to idle on its own. A press opens the call
- * surface and asks for the microphone — a gesture, as the browser requires —
- * and an incoming call announces itself as a banner under the top bar. A live
- * call is never modal: the reader keeps working and the entry carries it.
+ * surface **attached to the handset** — not a dialog in the middle of the
+ * screen — and an incoming call announces itself as a banner under the top bar.
+ * A live call is never modal: the reader keeps working and the entry carries it.
  *
  * It is offered only where it can work: the entry is absent until the tab holds
  * the seat, the account is registered and the bridge's media has answered. The
@@ -43,7 +57,7 @@ export function PhoneLauncher() {
   const muted = usePhone((s) => s.muted);
   const error = usePhone((s) => s.error);
   const microphone = usePhone((s) => s.microphone);
-  const [open, setOpen] = useState(false);
+  const panel = useMenu();
   const audioRef = useRef<HTMLAudioElement>(null);
   // The reader's own notification setting decides whether a call is heard.
   const notificationSound = useSettings((s) => s.settings.notificationSound);
@@ -57,6 +71,27 @@ export function PhoneLauncher() {
     void usePhone.getState().start();
     return () => void usePhone.getState().stop();
   }, []);
+
+  /*
+   * The microphone is asked for by the product, not by the reader finding a
+   * button. A browser prompts only inside a user gesture, so the first gesture
+   * anywhere in the app is taken as the moment — asking on load, outside one,
+   * is granted by nobody. The listener is disarmed once the browser answers.
+   */
+  useEffect(() => {
+    if (microphone === "granted" || microphone === "denied") return;
+    const ask = () => {
+      window.removeEventListener("pointerdown", ask);
+      window.removeEventListener("keydown", ask);
+      void usePhone.getState().requestMicrophone();
+    };
+    window.addEventListener("pointerdown", ask);
+    window.addEventListener("keydown", ask);
+    return () => {
+      window.removeEventListener("pointerdown", ask);
+      window.removeEventListener("keydown", ask);
+    };
+  }, [microphone]);
 
   /* The peer's audio, played while there is one and stopped when there is not. */
   useEffect(() => {
@@ -113,12 +148,11 @@ export function PhoneLauncher() {
         className="icon-btn"
         aria-label={label}
         title={label}
+        aria-haspopup="dialog"
         style={colour ? { color: colour } : undefined}
-        onClick={() => {
-          setOpen(true);
-          // The permission is asked in its own gesture. The answer is kept, so
-          // the surface can say what is missing without asking again.
-          void usePhone.getState().requestMicrophone();
+        onClick={(event) => {
+          panel.open(event);
+          if (microphone !== "granted") void usePhone.getState().requestMicrophone();
         }}
       >
         {call || incoming ? <PhoneCall size={21} /> : <Phone size={21} />}
@@ -148,31 +182,35 @@ export function PhoneLauncher() {
         </div>
       </Dialog>
 
-      {/* The call surface: the dialer, or the live call's controls. */}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={call ? t("Call") : t("Phone")}
-        size={isMobile ? "lg" : "md"}
+      {/* The call surface: attached to the handset that opened it. */}
+      <Popover
+        anchor={panel.anchor}
+        onClose={panel.close}
+        trigger={panel.trigger}
+        align="end"
+        role="dialog"
+        ariaLabel={call ? t("Call") : t("Phone")}
+        width={300}
+        style={{ padding: 10 }}
       >
         <MicrophoneNotice microphone={microphone} />
         {error && <div className="error-box">{error}</div>}
         {call ? (
           <CallControls remote={call.remote} muted={muted} />
         ) : (
-          <Dialer onDial={() => setOpen(false)} />
+          <Dialer onDial={panel.close} />
         )}
-      </Dialog>
+      </Popover>
     </>
   );
 }
 
 /**
- * What the surface says about the microphone, and the one button that asks.
+ * What the surface says about the microphone.
  *
- * A browser's own permission state is not readable everywhere, and the answer
- * only arrives when it is asked for: so the surface says what is missing and
- * offers the gesture, on a phone and on a desktop alike.
+ * The permission is asked for automatically at the first gesture, so nothing
+ * here is a step the reader has to take — except when the browser is already
+ * blocking it, where only they can open the door again.
  */
 function MicrophoneNotice({
   microphone,
@@ -180,28 +218,26 @@ function MicrophoneNotice({
   microphone: "granted" | "denied" | "prompt" | "unknown";
 }) {
   if (microphone === "granted") return null;
-  if (microphone === "unknown")
+  if (microphone === "denied")
     return (
-      <p className="hint">
+      <div className="warn-box">
         {t(
-          "Grant the microphone in the browser's site settings to make calls; on some devices the browser asks the first time you place one.",
-        )}
-      </p>
+          "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.",
+        )}{" "}
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={() => void usePhone.getState().requestMicrophone()}
+        >
+          {t("Try again")}
+        </button>
+      </div>
     );
   return (
-    <div className="warn-box">
-      {microphone === "denied"
-        ? t(
-            "The microphone is not available, so calls cannot carry your voice. Grant the permission in the browser's site settings and try again.",
-          )
-        : t("Allow the microphone so calls can carry your voice.")}{" "}
-      <button
-        className="btn btn-sm btn-ghost"
-        onClick={() => void usePhone.getState().requestMicrophone()}
-      >
-        {microphone === "denied" ? t("Try again") : t("Allow microphone")}
-      </button>
-    </div>
+    <p className="hint">
+      {t(
+        "The microphone is asked for the first time you touch the page; allow it so a call can carry your voice.",
+      )}
+    </p>
   );
 }
 
@@ -209,50 +245,45 @@ function MicrophoneNotice({
 function CallControls({ remote, muted }: { remote: string; muted: boolean }) {
   const [tones, setTones] = useState("");
   return (
-    <div>
-      <p className="lead" style={{ textAlign: "center" }}>
-        {remote}
-      </p>
-      <div className="row" style={{ justifyContent: "center", gap: 8 }}>
+    <div className="call-panel">
+      <p className="call-who">{remote}</p>
+      <div className="call-actions">
         <button
-          className="btn btn-ghost"
+          className="call-action"
           onClick={() => usePhone.getState().setMuted(!muted)}
           aria-label={muted ? t("Unmute") : t("Mute")}
         >
-          {muted ? <MicOff size={18} /> : <Mic size={18} />}
+          {muted ? <MicOff size={19} /> : <Mic size={19} />}
           {muted ? t("Unmute") : t("Mute")}
         </button>
         <button
-          className="btn btn-danger"
+          className="call-action call-hangup"
           onClick={() => void usePhone.getState().hangup()}
         >
-          <PhoneOff size={18} /> {t("Hang up")}
+          <PhoneOff size={19} /> {t("Hang up")}
         </button>
       </div>
       <div className="dialpad">
         {KEYS.map((key) => (
           <button
+            type="button"
             key={key}
-            className="btn btn-ghost dialpad-key"
+            className="dialpad-key"
             onClick={() => {
               usePhone.getState().sendDtmf(key);
               setTones((v) => v + key);
             }}
           >
-            {key}
+            <span className="dialpad-digit">{key}</span>
           </button>
         ))}
       </div>
-      {tones && (
-        <p className="hint" style={{ textAlign: "center" }}>
-          {tones}
-        </p>
-      )}
+      {tones && <p className="call-tones">{tones}</p>}
     </div>
   );
 }
 
-/** The dialer: search, a keypad to compose a number, and the separated contacts. */
+/** The dialer: a keypad to compose a number, and the contacts to dial instead. */
 function Dialer({ onDial }: { onDial: () => void }) {
   // Individual selections, not the whole store: the dialer rebuilds its sources
   // when the cards it reads change, and for nothing else.
@@ -312,90 +343,105 @@ function Dialer({ onDial }: { onDial: () => void }) {
   const all = filterCards(allDialerCards(sources), query).filter((c) => dialTarget(c));
 
   return (
-    <div>
-      {/* Compose a number by hand, so the phone is not limited to Contacts. */}
-      <div className="row" style={{ gap: 6 }}>
+    <div className="dialer">
+      <div className="dialer-display">
         <input
-          className="input grow"
+          className="dialer-number"
           placeholder={t("Number or address")}
           value={number}
           onChange={(e) => setNumber(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") dial(number.trim());
           }}
+          inputMode="tel"
+          autoComplete="off"
+          aria-label={t("Number or address")}
         />
         <button
-          className="icon-btn sm"
+          type="button"
+          className="dialer-back"
           aria-label={t("Delete")}
+          disabled={!number}
           onClick={() => setNumber((v) => v.slice(0, -1))}
         >
-          <Delete size={16} />
-        </button>
-        <button
-          className="btn"
-          disabled={!number.trim()}
-          onClick={() => dial(number.trim())}
-        >
-          <PhoneCall size={16} /> {t("Call")}
+          <Delete size={18} />
         </button>
       </div>
+
       <div className="dialpad">
         {KEYS.map((key) => (
           <button
+            type="button"
             key={key}
-            className="btn btn-ghost dialpad-key"
+            className="dialpad-key"
             onClick={() => setNumber((v) => v + key)}
           >
-            {key}
+            <span className="dialpad-digit">{key}</span>
+            {KEY_LETTERS[key] && (
+              <span className="dialpad-letters">{KEY_LETTERS[key]}</span>
+            )}
           </button>
         ))}
       </div>
-      <div className="row">
-        <Search size={15} className="faint" />
-        <input
-          className="input grow"
-          placeholder={t("Search contacts")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {filtered.map((source) => (
-        <div key={source.id}>
-          <div className="nav-section">
-            <span>{source.label}</span>
-          </div>
-          {source.cards.slice(0, 50).map((card) => {
-            const target = dialTarget(card);
-            return (
-              <button
-                key={`${source.accountId}:${card.id}`}
-                className="nav-item"
-                onClick={() => target && dial(target)}
-                style={{ width: "100%", textAlign: "start" }}
-              >
-                <PhoneCall size={15} />
-                <span className="grow truncate">{contactDisplayName(card)}</span>
-                {target && <span className="hint truncate">{target}</span>}
-              </button>
-            );
-          })}
+
+      <button
+        type="button"
+        className="dialer-call"
+        disabled={!number.trim()}
+        onClick={() => dial(number.trim())}
+        aria-label={t("Call")}
+      >
+        <PhoneCall size={24} />
+      </button>
+
+      <div className="dialer-contacts">
+        <div className="dialer-search">
+          <Search size={15} className="faint" />
+          <input
+            className="input grow"
+            placeholder={t("Search contacts")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </div>
-      ))}
-      {query.trim() && (
-        <>
-          <div className="nav-section">
-            <span>{t("All")}</span>
+        {filtered.map((source) => (
+          <div key={source.id}>
+            <div className="nav-section">
+              <span>{source.label}</span>
+            </div>
+            {source.cards.slice(0, 50).map((card) => {
+              const target = dialTarget(card);
+              return (
+                <button
+                  type="button"
+                  key={`${source.accountId}:${card.id}`}
+                  className="dialer-contact"
+                  onClick={() => target && dial(target)}
+                >
+                  <PhoneCall size={15} />
+                  <span className="grow truncate">{contactDisplayName(card)}</span>
+                  {target && <span className="hint truncate">{target}</span>}
+                </button>
+              );
+            })}
           </div>
+        ))}
+        {query.trim() && (
+          <>
+            <div className="nav-section">
+              <span>{t("All")}</span>
+            </div>
+            <p className="hint" style={{ padding: "2px 12px" }}>
+              {plural(all.length, { one: "{n} contact", other: "{n} contacts" })}
+            </p>
+          </>
+        )}
+        {!filtered.length && (
           <p className="hint" style={{ padding: "2px 12px" }}>
-            {plural(all.length, { one: "{n} contact", other: "{n} contacts" })}
+            {t("No contacts with a number to call.")}
           </p>
-        </>
-      )}
-      {!filtered.length && (
-        <p className="hint" style={{ padding: "2px 12px" }}>
-          {t("No contacts with a number to call.")}
-        </p>
-      )}
+        )}
+      </div>
     </div>
   );
 }
