@@ -179,6 +179,20 @@ async function shareWithEveryone(
     );
 }
 
+/**
+ * Make the directory exist and be shared, as the Master.
+ *
+ * Run at boot so the directory is there for every reader without anyone
+ * creating it: a thing the product needs is made to happen, not asked for with
+ * a button. Idempotent — an existing book is found and its share re-applied —
+ * and safe to run on every boot, because the alternative is a feature that is
+ * absent until an administrator happens to do the right thing.
+ */
+export async function ensureGlobalContacts(ctx: Ctx, accountId: string): Promise<void> {
+  const bookId = await globalContactsBookId(ctx, accountId);
+  await shareWithEveryone(ctx, accountId, bookId);
+}
+
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }

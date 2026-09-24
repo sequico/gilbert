@@ -3,6 +3,7 @@ import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
+import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { releaseOnShutdown } from "./push.js";
 
 async function main() {
@@ -33,6 +34,27 @@ async function main() {
    * no port has.
    */
   assertServable(config);
+  /*
+   * Global contacts (ADR 0024): the installation's shared directory exists
+   * because the installation needs it, not because an administrator made it.
+   * Created once, as the Master, before anything is served, so the section is
+   * there for every reader on the first load. A failure is logged and does not
+   * stop the process: a directory that could not be reached is a degraded
+   * feature, not a boot that cannot serve.
+   */
+  await ensureGlobalContacts(
+    {
+      authorization: boot.master.authorization,
+      session: boot.master.session,
+      username: boot.master.address,
+    },
+    boot.accountId,
+  ).catch((err) => {
+    console.warn(
+      "[gilbert] Global contacts could not be prepared:",
+      err instanceof Error ? err.message : String(err),
+    );
+  });
   await useDurableSessions(
     sessionDocumentIo(
       {
