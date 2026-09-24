@@ -62,6 +62,17 @@ RUN ./autogen.sh \
  && cp COPYING /usr/local/share/janus/COPYING \
  && cp /janus-version /usr/local/share/janus/VERSION
 
+# The two sonames a current distribution has moved past. This is built on
+# bookworm, so the bridge links libconfig.so.9 and libwebsockets.so.17, while
+# Ubuntu ships libconfig.so.11 and libwebsockets.so.19 — different sonames, so
+# neither the host's package nor a mirror of the Ubuntu one would do. They travel
+# beside the bridge (found through LD_LIBRARY_PATH, set by the service), so a
+# host needs no Debian packages at all.
+RUN find /usr/lib -maxdepth 2 \
+      \( -name 'libconfig.so.9*' -o -name 'libwebsockets.so.17*' \) \
+      -exec cp -L {} /usr/local/lib/janus/ \; \
+ && ls -1 /usr/local/lib/janus/ | grep -E '^lib(config|websockets)\.so\.'
+
 # ---- runtime stage ----
 FROM node:24-bookworm-slim AS runtime
 # Re-declared: an ARG does not cross stages.

@@ -72,13 +72,13 @@ sudo systemctl restart gilbert # the script starts it if the URL was already set
 ```
 
 The script builds the application, fetches the bridge from the release (it
-unpacks Janus, and installs the shared libraries Janus links — the same ones the
-container image installs), and installs `gilbert-janus.service` and
-`gilbert.service`. A host that already runs its own `gilbert.service` keeps it:
-the installer writes only the hardening drop-in beside it
-(`gilbert.service.d/10-hardening.conf`), so the unit is yours and the posture is
-Gilbert's. If the libraries cannot be satisfied, it refuses the bridge and
-Gilbert runs without the phone, saying so. Its header has the whole of it.
+unpacks Janus — which carries the two sonames current distributions have moved
+past — and installs the host's shared libraries), and installs
+`gilbert-janus.service` and `gilbert.service`. A host that already runs its own
+`gilbert.service` keeps it: the installer writes only the hardening drop-in
+beside it (`gilbert.service.d/10-hardening.conf`), so the unit is yours and the
+posture is Gilbert's. If the libraries cannot be satisfied, it refuses the bridge
+and Gilbert runs without the phone, saying so. Its header has the whole of it.
 
 `GILBERT_BRIDGE=0` installs Gilbert **without the phone**: nothing is fetched, no
 bridge service, no port to open — a deliberate choice, not a workaround.
@@ -122,10 +122,10 @@ the first call.
   UDP 10000-10200 inbound and in the cloud firewall, then reload. The client's
   probe is what decides.
 - **`gilbert-janus.service` is `activating`/failed with `ExecMainStatus=127`.**
-  The linker cannot find a library Janus links. Re-run the installer (it installs
-  them), or install them by hand —
-  `apt-get install libconfig9 libnice10 libsrtp2-1 libjansson4 libwebsockets17 libsofia-sip-ua0 libopus0 libogg0 libglib2.0-0 libssl3 libcurl4`
-  — then `sudo systemctl restart gilbert-janus.service`.
+  The linker cannot find a library Janus links. Re-run the installer: it
+  installs the host's packages, and the bridge carries the two sonames current
+  distributions have moved past. If one is still missing,
+  `ldd /usr/local/bin/janus | grep 'not found'` names it.
 - **No phone for one person only.** That identity has no SIP account yet.
 - **It rings but there is no audio.** The leg to the provider: check the SIP
   account, and that the provider is reachable from the host over SIP (outbound).
