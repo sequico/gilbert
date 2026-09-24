@@ -4,14 +4,13 @@ import { contactDisplayName } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { type DialerSource, dialerSources, dialTarget } from "@/lib/phone/dialer";
-import { microphoneMessage, type MicrophoneState } from "@/lib/phone/microphone";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { usePhone } from "@/store/phone";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
-import { useIsMobile } from "@/ui/misc";
+import { Avatar, useIsMobile } from "@/ui/misc";
 import { Popover, useMenu } from "@/ui/popover";
 
 /** The digits the keypad offers, in the order a phone lays them out. */
@@ -210,7 +209,7 @@ export function PhoneLauncher() {
           ) : (
             <Dialer onDial={panel.close} />
           )}
-          <PhoneOverlay microphone={microphone} error={error} />
+          <PhoneOverlay error={error} />
         </div>
       </Popover>
     </>
@@ -218,42 +217,21 @@ export function PhoneLauncher() {
 }
 
 /**
- * What the panel says when something is wrong — over the dialer, never in it.
+ * What the panel says when something failed — over the dialer, never in it.
  *
  * A message in the flow would push the keypad and the call button down and make
- * the panel scroll; the dialer must never scroll. So the cause floats over the
- * panel's foot, where it covers the contacts rather than the controls.
+ * the panel scroll, and a message that takes the pointer swallows the presses
+ * on the contacts underneath it — the tabs and the rows become unclickable. So
+ * the cause floats over the panel's foot and is read-only: the dialer keeps
+ * every press it had.
  */
-function PhoneOverlay({
-  microphone,
-  error,
-}: {
-  microphone: MicrophoneState;
-  error: string | null;
-}) {
-  if (error)
-    return (
-      <div className="phone-overlay">
-        <div className="error-box">{error}</div>
-      </div>
-    );
-  if (microphone !== "granted" && microphone !== "unknown")
-    return (
-      <div className="phone-overlay">
-        <div className="warn-box">
-          {microphoneMessage(microphone)}{" "}
-          <button
-            className="btn btn-sm btn-ghost"
-            onClick={() => void usePhone.getState().requestMicrophone()}
-          >
-            {t("Try again")}
-          </button>
-        </div>
-      </div>
-    );
-  // Unknown or granted: nothing to say — the permission is asked for at the
-  // first gesture, and the browser's own prompt is the surface for it.
-  return null;
+function PhoneOverlay({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <div className="phone-overlay">
+      <div className="error-box">{error}</div>
+    </div>
+  );
 }
 
 /** The controls of a live call: mute, a DTMF keypad, and hang up. */
@@ -452,7 +430,13 @@ function Dialer({ onDial }: { onDial: () => void }) {
                     className="dialer-contact"
                     onClick={() => target && dial(target)}
                   >
-                    <PhoneCall size={15} />
+                    <Avatar
+                      who={{
+                        name: contactDisplayName(card),
+                        email: Object.values(card.emails ?? {})[0]?.address,
+                      }}
+                      size="sm"
+                    />
                     <span className="grow truncate">{contactDisplayName(card)}</span>
                     {target && <span className="hint truncate">{target}</span>}
                   </button>

@@ -2901,7 +2901,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialer { display: flex; flex-direction: column; max-height: calc(100vh - 44px); }
 .phone-panel { position: relative; }
 .phone-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 2px; pointer-events: none; }
-.phone-overlay > * { pointer-events: auto; box-shadow: var(--shadow-2); }
+.phone-overlay > * { box-shadow: var(--shadow-2); }
 .dialer-display { display: flex; align-items: center; gap: 2px; }
 .dialer-number {
   flex: 1; min-width: 0; padding: 6px 4px; text-align: center;
@@ -2948,7 +2948,6 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   text-align: start; border-radius: var(--radius-sm); color: var(--fg);
 }
 .dialer-contact:hover { background: var(--bg-hover); }
-.dialer-contact svg { flex: 0 0 auto; color: var(--fg-muted); }
 .dialer-contact .hint { font-size: .82em; }
 
 .call-panel { display: flex; flex-direction: column; }
