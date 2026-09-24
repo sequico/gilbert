@@ -26,6 +26,8 @@ export interface AlertDefaults {
  * one) is left alone rather than guessed at.
  */
 export function alertInstants(event: CalendarEvent, calendar?: AlertDefaults): number[] {
+  // A cancelled event is not going to happen, so its reminder says nothing.
+  if (event.status === "cancelled") return [];
   const start = zonedToDate(event.start, event.timeZone).getTime();
   if (!Number.isFinite(start)) return [];
   const alerts =
@@ -36,6 +38,7 @@ export function alertInstants(event: CalendarEvent, calendar?: AlertDefaults): n
             ? calendar?.defaultAlertsWithoutTime
             : calendar?.defaultAlertsWithTime) ?? {})
         : {};
+  const durationMs = (parseDuration(event.duration) || 0) * 1000;
   const out: number[] = [];
   for (const alert of Object.values(alerts)) {
     if (!alert) continue;
@@ -45,7 +48,9 @@ export function alertInstants(event: CalendarEvent, calendar?: AlertDefaults): n
       continue;
     const seconds = parseDuration(trigger.offset);
     if (!Number.isFinite(seconds)) continue;
-    out.push(start + seconds * 1000);
+    // The offset is measured from the start unless the trigger names the end.
+    const base = trigger.relativeTo === "end" ? start + durationMs : start;
+    out.push(base + seconds * 1000);
   }
   return out.sort((a, b) => a - b);
 }

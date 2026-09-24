@@ -260,7 +260,9 @@ default when `useDefaultAlerts` is true — is announced when that reminder's
 instant arrives, and only such an event: one with no alert set is not announced,
 which is what "only the events whose notification is set" means. The instant is
 the event's start less its trigger's offset; a `display` reminder is the action
-the editor writes and the only one honoured.
+the editor writes and the only one honoured. The client works over the events it
+holds — the ranges it has loaded — so a reminder is announced for an event it
+has already looked at, and nothing sweeps the whole calendar.
 
 It reaches the reader on every channel a **running** client has: an in-app
 notice, and the system notification the mail and chat paths already use — on the

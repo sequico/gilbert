@@ -56,6 +56,31 @@ describe("a calendar event's reminders", () => {
     expect(alertInstants(event({ alerts: { a: offset(5, "email") } }))).toEqual([]);
   });
 
+  it("measures an end-relative trigger from the event's end", () => {
+    const e = event({
+      start: "2026-01-01T10:00:00",
+      duration: "PT1H",
+      alerts: {
+        a: {
+          "@type": "Alert",
+          trigger: {
+            "@type": "OffsetTrigger",
+            offset: "-PT10M",
+            relativeTo: "end",
+          },
+          action: "display",
+        },
+      },
+    });
+    expect(alertInstants(e)).toEqual([Date.UTC(2026, 0, 1, 10, 50)]);
+  });
+
+  it("says nothing for a cancelled event", () => {
+    expect(
+      alertInstants(event({ status: "cancelled", alerts: { a: offset(10) } })),
+    ).toEqual([]);
+  });
+
   it("returns only what falls in the window", () => {
     const today = event({ id: "today", alerts: { a: offset(10) } });
     const tomorrow = event({
