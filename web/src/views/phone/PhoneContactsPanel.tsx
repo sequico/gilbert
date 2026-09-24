@@ -2,7 +2,7 @@ import { Users, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { contactDisplayName } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
-import { contactNumbers, type DialerSource, dialTarget } from "@/lib/phone/dialer";
+import { contactNumbers, type DialerSource } from "@/lib/phone/dialer";
 import { useContacts } from "@/store/contacts";
 import { usePhone } from "@/store/phone";
 import { Avatar } from "@/ui/misc";
@@ -47,6 +47,8 @@ export function PhoneContactsPanel() {
   /*
    * The list the pane shows: the selected tab, the search over it, and no card
    * twice — a card filed in two books is one row, keyed by its account and id.
+   * Every contact is listed; only the ones with a number offer a call, because a
+   * contact with no number is still somebody the reader may look for.
    */
   const rows = useMemo(() => {
     const seen = new Set<string>();
@@ -56,7 +58,7 @@ export function PhoneContactsPanel() {
       const picked = query.trim() ? filterCards(source.cards, query) : source.cards;
       for (const card of picked) {
         const key = `${source.accountId}:${card.id}`;
-        if (seen.has(key) || !dialTarget(card)) continue;
+        if (seen.has(key)) continue;
         seen.add(key);
         out.push({ key, card });
       }
@@ -79,7 +81,7 @@ export function PhoneContactsPanel() {
           }
         >
           <span className={`phone-dot ${ready ? "ok" : "bad"}`} aria-hidden />
-          <span className="grow truncate">{t("Gilbert connection")}</span>
+          <span className="grow truncate">{t("Gilbert phone connection")}</span>
         </div>
         <div
           className="phone-status-row"
@@ -93,7 +95,7 @@ export function PhoneContactsPanel() {
             className={`phone-dot ${line === "registered" ? "ok" : "bad"}`}
             aria-hidden
           />
-          <span className="grow truncate">{t("SIP connection")}</span>
+          <span className="grow truncate">{t("SIP server connection")}</span>
         </div>
       </div>
 
@@ -175,7 +177,7 @@ export function PhoneContactsPanel() {
         ))}
         {!rows.length && (
           <p className="hint" style={{ padding: "4px 6px" }}>
-            {t("No contacts with a number to call.")}
+            {t("No contacts.")}
           </p>
         )}
       </div>

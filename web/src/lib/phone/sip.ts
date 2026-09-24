@@ -20,9 +20,62 @@ import { PHONE_MOCK } from "./mock";
 /** The line as the top-bar entry reads it. */
 export type LineState = "connecting" | "registered" | "unavailable";
 
-/** A call as the surface reads it. */
+/**
+ * Where a call has got to, as the call surface reads it: the phase its status
+ * line names. `calling` from the INVITE going out until the provider answers,
+ * `ringing` for a 180/183, `connected` once the media is up, and one terminal
+ * phase per way a call can fail — a busy line, a number with no route, an
+ * unavailable one, a decline, or anything else. A terminal phase is held for a
+ * moment so the reader can read it, then the call ends.
+ */
+export type CallPhase =
+  | "calling"
+  | "ringing"
+  | "connected"
+  | "busy"
+  | "no-route"
+  | "unavailable"
+  | "declined"
+  | "failed";
+
+/** The phase a SIP status code ends a call with. */
+export function phaseForSipCode(code: number | undefined): CallPhase {
+  switch (code) {
+    case 486:
+    case 600:
+      return "busy";
+    case 404:
+      return "no-route";
+    case 408:
+    case 480:
+    case 487:
+      return "unavailable";
+    default:
+      return "failed";
+  }
+}
+
+/** The sentence a phase shows, translated where the status line renders. */
+const CALL_PHASE_LABELS: Record<CallPhase, string> = {
+  calling: "Calling…",
+  ringing: "Ringing…",
+  connected: "Connected",
+  busy: "The line is busy",
+  "no-route": "No route to this number",
+  unavailable: "This number is not available",
+  declined: "The call was declined",
+  failed: "The call could not be completed",
+};
+
+/** The status line's sentence for a phase. */
+export function callPhaseLabel(phase: CallPhase): string {
+  return t(CALL_PHASE_LABELS[phase]);
+}
+
+/** A call as the surface reads it: who, and where it has got to. */
 export interface ActiveCall {
   remote: string;
+  phase: CallPhase;
 }
 
 export interface PhoneHooks {
@@ -150,6 +203,10 @@ interface SipData {
     username?: string;
     displayname?: string;
     caller?: string;
+    /** The SIP status code a terminal event carries (486, 404, …). */
+    code?: number;
+    /** Its reason phrase, for the log and the reader. */
+    reason?: string;
   };
 }
 
@@ -161,6 +218,13 @@ function isSipData(data: unknown): data is SipData {
 const PROBE_TIMEOUT_MS = 6000;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
+/**
+ * How long a terminal phase stays on screen before the call clears. A busy line
+ * or a number with no route is the whole answer the reader was waiting for, and
+ * clearing the surface the instant it arrives is what makes a call look like it
+ * silently did nothing.
+ */
+const FAILED_HOLD_MS = 4000;
 
 export class Phone {
   private janus: Janus | null = null;
@@ -178,6 +242,14 @@ export class Phone {
   private failures = 0;
   /** Whether a connection attempt is on its way, so two cannot race. */
   private connecting = false;
+  /** Where the current call has got to, for the status line. */
+  private phase: CallPhase = "calling";
+  /** The timer that clears a terminal phase once its hold is over. */
+  private finishTimer: number | null = null;
+  /** Bumped per mock call, so a stale mock timer cannot touch a later one. */
+  private mockRun = 0;
+  /** Whether this end asked for the call to end, so a 487 is not called failed. */
+  private cancelling = false;
   /** The call in progress, for the one entry the log gets when it ends. */
   private callMeta: {
     direction: "in" | "out";
@@ -225,9 +297,12 @@ export class Phone {
 
   /** Place a call to a contact's number or an address typed by hand. */
   async call(target: string): Promise<void> {
+    this.clearFinish();
+    this.cancelling = false;
     if (PHONE_MOCK) {
-      // No bridge to carry it: show the call, then let it end on its own so the
-      // surface and the history move the way they do for a real one.
+      // No bridge to carry it: walk the phases, then let it end on its own so
+      // the surface and the history move the way they do for a real one.
+      this.remote = target;
       this.callMeta = {
         direction: "out",
         remote: target,
@@ -235,9 +310,23 @@ export class Phone {
         connectedAt: null,
         outcome: "failed",
       };
-      this.markConnected();
-      this.hooks.onCall({ remote: target }, null);
-      window.setTimeout(() => this.endCall(), 4000);
+      this.phase = "calling";
+      this.emitCall(null);
+      const run = ++this.mockRun;
+      const later = (ms: number, fn: () => void) =>
+        window.setTimeout(() => {
+          if (this.mockRun === run && !this.ended) fn();
+        }, ms);
+      later(800, () => {
+        this.phase = "ringing";
+        this.emitCall(null);
+      });
+      later(1700, () => {
+        this.markConnected();
+        this.phase = "connected";
+        this.emitCall(null);
+      });
+      later(4500, () => this.endCall());
       return;
     }
     const janus = this.janus;
@@ -259,7 +348,8 @@ export class Phone {
         { request: "call", uri: callUri(this.credential, target) },
         { type: "offer", sdp: offer.sdp ?? "" },
       );
-      this.hooks.onCall({ remote: target }, null);
+      this.phase = "calling";
+      this.emitCall();
     } catch (err) {
       this.endCall();
       throw err;
@@ -292,7 +382,8 @@ export class Phone {
         sdp = { type: "offer", sdp: offer.sdp ?? "" };
       }
       janus.message({ request: "accept" }, sdp);
-      this.hooks.onCall({ remote: this.remote }, this.stream);
+      this.phase = "connected";
+      this.emitCall();
     } catch (err) {
       this.endCall();
       throw err;
@@ -302,6 +393,7 @@ export class Phone {
   /** Decline the ringing call. */
   async decline(): Promise<void> {
     if (this.callMeta) this.callMeta.outcome = "declined";
+    this.cancelling = true;
     this.janus?.message({ request: "decline" });
     this.endCall();
   }
@@ -312,6 +404,7 @@ export class Phone {
       await this.decline();
       return;
     }
+    this.cancelling = true;
     if (PHONE_MOCK) {
       this.endCall();
       return;
@@ -430,7 +523,8 @@ export class Phone {
       const stream = event.streams[0] ?? new MediaStream([event.track]);
       this.stream = stream;
       this.markConnected();
-      this.hooks.onCall({ remote: this.remote }, stream);
+      this.phase = "connected";
+      this.emitCall(stream);
     };
     return pc;
   }
@@ -497,27 +591,79 @@ export class Phone {
         };
         this.hooks.onIncoming(this.remote);
         return;
+      case "calling":
+        this.phase = "calling";
+        this.emitCall();
+        return;
+      case "ringing":
+        this.phase = "ringing";
+        this.emitCall();
+        return;
       case "progress":
         // Early media: the answer arrived in a 183, so `accepted` will carry
         // none. Take it now, so the audio can start before the call is up.
         if (jsep) void this.pc?.setRemoteDescription(jsep).catch(() => undefined);
+        this.phase = "ringing";
+        this.emitCall();
         return;
       case "accepted":
         if (jsep) void this.pc?.setRemoteDescription(jsep).catch(() => undefined);
         this.markConnected();
-        this.hooks.onCall({ remote: this.remote }, this.stream);
+        this.phase = "connected";
+        this.emitCall();
         return;
       case "declined":
-        if (this.callMeta) this.callMeta.outcome = "declined";
-        this.endCall();
+        // The remote refused our call: a phase the reader can read, held a
+        // moment, rather than a surface that clears as if nothing happened.
+        if (this.callMeta?.direction === "out") this.fail("declined");
+        else this.endCall();
         return;
       case "hangup":
-      case "failed":
-        this.endCall();
+      case "failed": {
+        const code = result.code;
+        if (this.cancelling) this.endCall();
+        else if (this.callMeta?.direction === "out" && code !== undefined && code >= 300)
+          this.fail(phaseForSipCode(code));
+        else this.endCall();
         return;
+      }
       default:
         return;
     }
+  }
+
+  /** Tell the surface where the call is now, and the audio it should play. */
+  private emitCall(stream: MediaStream | null = this.stream): void {
+    this.hooks.onCall(
+      this.callMeta && this.remote ? { remote: this.remote, phase: this.phase } : null,
+      stream,
+    );
+  }
+
+  /**
+   * End the call with a phase the reader can read, and hold it briefly.
+   *
+   * The media and the microphone go at once — there is nothing left to carry —
+   * but the call stays on screen for `FAILED_HOLD_MS` so "busy" or "no route"
+   * is actually seen, then clears and writes its one log entry.
+   */
+  private fail(phase: CallPhase): void {
+    if (this.callMeta)
+      this.callMeta.outcome = phase === "declined" ? "declined" : "failed";
+    this.teardownMedia();
+    this.phase = phase;
+    this.emitCall(null);
+    this.clearFinish();
+    this.finishTimer = window.setTimeout(() => {
+      this.finishTimer = null;
+      this.finishCall();
+    }, FAILED_HOLD_MS);
+  }
+
+  private clearFinish(): void {
+    if (this.finishTimer === null) return;
+    window.clearTimeout(this.finishTimer);
+    this.finishTimer = null;
   }
 
   /** The call is up: from here it is measured, and it counts as answered. */
@@ -528,23 +674,9 @@ export class Phone {
     }
   }
 
-  /** Drop the call, its media and the microphone with it. */
-  private endCall(): void {
-    // The one entry the log gets for this call, born before anything is cleared.
-    const meta = this.callMeta;
-    this.callMeta = null;
-    if (meta)
-      this.hooks.onCallEnded({
-        at: meta.at,
-        direction: meta.direction,
-        remote: meta.remote,
-        seconds: meta.connectedAt
-          ? Math.max(0, Math.round((Date.now() - meta.connectedAt) / 1000))
-          : 0,
-        outcome: meta.connectedAt ? "answered" : meta.outcome,
-      });
+  /** Stop the media: the peer, the microphone and the audio all go. */
+  private teardownMedia(): void {
     this.ringing = null;
-    this.remote = "";
     this.stream = null;
     this.sender = null;
     const local = this.local;
@@ -557,8 +689,37 @@ export class Phone {
     } catch {
       /* already closed */
     }
+  }
+
+  /** Clear the surface and write the one log entry this call gets. */
+  private finishCall(): void {
+    this.clearFinish();
+    // The entry is born before anything is cleared: it reads what the call was.
+    const meta = this.callMeta;
+    this.callMeta = null;
+    if (meta)
+      this.hooks.onCallEnded({
+        at: meta.at,
+        direction: meta.direction,
+        remote: meta.remote,
+        seconds: meta.connectedAt
+          ? Math.max(0, Math.round((Date.now() - meta.connectedAt) / 1000))
+          : 0,
+        outcome: meta.connectedAt ? "answered" : meta.outcome,
+      });
+    this.remote = "";
+    this.phase = "calling";
+    // A later dial must not be ended by a timer left over from this one.
+    this.mockRun += 1;
+    this.cancelling = false;
     this.hooks.onIncoming("");
     this.hooks.onCall(null, null);
+  }
+
+  /** Drop the call, its media and the microphone with it. */
+  private endCall(): void {
+    this.teardownMedia();
+    this.finishCall();
   }
 
   private scheduleReconnect(): void {

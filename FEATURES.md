@@ -868,7 +868,11 @@ is the reference.
   **collapses into the top bar** so the reader keeps working. The surface offers
   mute, a DTMF keypad (RFC 2833) and hang up; a second call is refused **486**
   and the provider's routing takes it. A number with no contact can be typed by
-  hand, so the phone is not limited to Contacts.
+  hand, so the phone is not limited to Contacts. One keypad stays in one place
+  through every phase — it composes the number, then sends DTMF — and the live
+  call takes the dial button's own place, with a small self-updating line naming
+  its phase (calling, ringing, connected, busy, no route, …) so a call that
+  never lands says why.
 - **Audio only, and the same for everyone.** G.711 passed through without
   transcoding, on one TLS transport to the provider, with no STUN/TURN. The
   deployment's firewall must leave the bridge's **UDP media range open
@@ -880,15 +884,15 @@ is the reference.
   drawn: a deployment whose bridge ports are still closed shows **no phone**,
   and the administration states the bridge's media range as the one thing to
   open.
-- **The phone panel** opens attached to the handset in three panes: the
+- **The phone panel** opens attached to the handset in three equal panes: the
   **contacts** on the left, the **dialer** in the centre, the account's **call
   history** on the right. The contacts pane carries two dots with their cause on
-  hover — the browser's path to Gilbert, and this account's registration — and
+  hover — the browser's path to Gilbert and its own SIP server connection — and
   tabs (**All**, **Global**, **My**, and one row per group the reader belongs
   to) that choose which contacts the list offers, a search with its clear
-  control narrowing it live. A press dials; the list is read-only, editing
-  belonging to Contacts, and a contact with no number is simply not offered as a
-  call.
+  control narrowing it live. Every contact is listed; a press dials the numbers
+  one carries, and a contact with no number is listed and searchable but simply
+  not offered as a call. Editing belongs to Contacts, so the list is read-only.
 - **The call history** is the account's own (`calls.json` in its app folder):
   the calls placed and taken, newest first, each with the direction, the other
   party — or the contact it matches — when it began and the seconds it

@@ -2891,7 +2891,13 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialer { display: flex; flex-direction: column; }
 .phone-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 2px; pointer-events: none; }
 .phone-overlay > * { box-shadow: var(--shadow-2); }
-.dialer-display { display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* One row under the keys: the number, or the tones a call sends. Its height is
+   fixed so the keypad above keeps one position through every phase. */
+.dialer-display { display: flex; align-items: center; gap: 2px; min-width: 0; min-height: 38px; }
+.dialer-tones {
+  flex: 1; text-align: center; min-width: 0;
+  color: var(--fg-muted); font-size: 1.1rem; letter-spacing: .18em;
+}
 .dialer-number {
   flex: 1; min-width: 0; padding: 6px 4px; text-align: center;
   font-size: 1.35rem; font-weight: 650; letter-spacing: .03em;
@@ -2906,9 +2912,16 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .dialer-back:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg); }
 .dialer-back:disabled { opacity: .35; cursor: default; }
 
+/* The button's place, kept for every phase: the green dial button when idle,
+   the live call when there is one, so nothing above it ever moves. */
+.dialer-foot {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  min-height: 88px; padding-top: 4px;
+}
+
 .dialer-call {
   display: flex; align-items: center; justify-content: center;
-  width: 56px; height: 56px; margin: 2px auto 6px; border: 0; border-radius: 50%;
+  width: 56px; height: 56px; margin: 18px auto 4px; border: 0; border-radius: 50%;
   background: var(--success); color: var(--bg-elev); cursor: pointer;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--success) 40%, transparent);
   transition: transform .08s var(--ease), opacity .12s var(--ease);
@@ -2925,12 +2938,18 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
  * `.nav-section` headers, `.tab` tabs, `.input`, the accent and border tokens —
  * so the phone reads as another surface of the same product.
  */
-.phone-grid { display: flex; align-items: stretch; min-height: 460px; }
-.phone-pane { display: flex; flex-direction: column; min-width: 0; padding: 8px 12px; }
+.phone-grid { display: flex; align-items: stretch; height: min(540px, calc(100vh - 16px)); }
+.phone-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 8px 12px; }
 .phone-pane + .phone-pane { border-left: 1px solid var(--border); }
-.phone-contacts-panel { flex: 0 0 262px; }
-.phone-center { flex: 0 0 248px; position: relative; }
-.phone-log-panel { flex: 1 1 auto; }
+/*
+ * The three panes are equal: the contacts, the dialer and the account's calls
+ * each take a third, so no pane reads as the important one and the dialer is
+ * wide enough for its keypad. Each scrolls in its own column; the dialer does
+ * not.
+ */
+.phone-contacts-panel { flex: 1 1 0; }
+.phone-center { flex: 1 1 0; position: relative; }
+.phone-log-panel { flex: 1 1 0; }
 
 /* The SIP account the line registers as, in place of a window's title bar. */
 .phone-title {
@@ -2989,9 +3008,17 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .phone-log-secs { font-size: .82em; font-variant-numeric: tabular-nums; }
 .phone-log-label { font-size: .82em; letter-spacing: .05em; }
 
-.call-panel { display: flex; flex-direction: column; }
-.call-who { margin: 4px 0 12px; text-align: center; font-size: 1.05rem; font-weight: 650; }
-.call-actions { display: flex; justify-content: center; gap: 8px; margin-bottom: 4px; }
+/* The live call where the dial button was: a small self-updating phase line,
+   the number, and the two actions. It takes the width of the pane so a long
+   number is truncated rather than pushing the actions. */
+.call-panel { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.call-status { margin: 0 0 2px; min-height: 1.1em; text-align: center; font-size: .82em; color: var(--fg-muted); }
+.call-who {
+  margin: 0 0 8px; max-width: 100%; text-align: center;
+  font-size: 1.05rem; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.call-actions { display: flex; justify-content: center; gap: 8px; }
 .call-action {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px;
   border: 1px solid var(--border); border-radius: 999px; color: var(--fg); background: var(--bg-elev); cursor: pointer;
@@ -2999,4 +3026,3 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .call-action:hover { background: var(--bg-hover); }
 .call-action.call-hangup { border-color: transparent; background: var(--danger); color: var(--bg-elev); }
 .call-action.call-hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
-.call-tones { margin: 0 0 4px; text-align: center; color: var(--fg-muted); letter-spacing: .12em; }

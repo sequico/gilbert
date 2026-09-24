@@ -10,7 +10,7 @@ import {
   dialerSources,
   dialTarget,
 } from "@/lib/phone/dialer";
-import { callUri, sipAddress } from "@/lib/phone/sip";
+import { callPhaseLabel, callUri, phaseForSipCode, sipAddress } from "@/lib/phone/sip";
 import type { SharedBook } from "@/store/contacts";
 
 /**
@@ -188,5 +188,34 @@ describe("the account an identity registers with", () => {
     // No account in this test has a folder: the reader answers an empty map
     // rather than throwing, which is what keeps the phone off quietly.
     await expect(readSipAccounts("no-such-account")).resolves.toEqual({});
+  });
+});
+
+describe("the phase a call's status line names", () => {
+  it("reads a SIP status code as the phase it ends a call with", () => {
+    // Busy, no route and unavailable are the three the reader can act on, and
+    // getting one of them wrong sends them to fix the wrong thing.
+    expect(phaseForSipCode(486)).toBe("busy");
+    expect(phaseForSipCode(600)).toBe("busy");
+    expect(phaseForSipCode(404)).toBe("no-route");
+    expect(phaseForSipCode(408)).toBe("unavailable");
+    expect(phaseForSipCode(480)).toBe("unavailable");
+    expect(phaseForSipCode(487)).toBe("unavailable");
+    expect(phaseForSipCode(503)).toBe("failed");
+    expect(phaseForSipCode(undefined)).toBe("failed");
+  });
+
+  it("gives every phase a sentence, so no status line is blank", () => {
+    const phases = [
+      "calling",
+      "ringing",
+      "connected",
+      "busy",
+      "no-route",
+      "unavailable",
+      "declined",
+      "failed",
+    ] as const;
+    for (const phase of phases) expect(callPhaseLabel(phase)).toBeTruthy();
   });
 });

@@ -2,6 +2,7 @@ import { Delete, Mic, MicOff, Phone, PhoneCall, PhoneOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
 import { startRing, stopRing } from "@/lib/phone/ringtone";
+import { type CallPhase, callPhaseLabel } from "@/lib/phone/sip";
 import { usePhone } from "@/store/phone";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
@@ -51,7 +52,6 @@ export function PhoneLauncher() {
   const incoming = usePhone((s) => s.incoming);
   const call = usePhone((s) => s.call);
   const stream = usePhone((s) => s.stream);
-  const muted = usePhone((s) => s.muted);
   const error = usePhone((s) => s.error);
   const microphone = usePhone((s) => s.microphone);
   const panel = useMenu();
@@ -201,11 +201,7 @@ export function PhoneLauncher() {
           <PhoneContactsPanel />
           <div className="phone-pane phone-center">
             <div className="phone-title">{sipUser}</div>
-            {call ? (
-              <CallControls remote={call.remote} muted={muted} />
-            ) : (
-              <Dialer onDial={panel.close} />
-            )}
+            <Dialer onDial={panel.close} />
             <PhoneOverlay error={error} />
           </div>
           <CallLogPanel />
@@ -232,11 +228,122 @@ function PhoneOverlay({ error }: { error: string | null }) {
   );
 }
 
-/** The controls of a live call: mute, a DTMF keypad, and hang up. */
-function CallControls({ remote, muted }: { remote: string; muted: boolean }) {
+/**
+ * The dialer, always mounted: one keypad whose keys append while there is no
+ * call and send DTMF while there is one, so the keys never move between the two
+ * (ADR 0023). Under it, one row for the number the reader composes — or the
+ * tones an in-call press sends — and one foot: the green call button when idle,
+ * and the call itself when there is one, in the button's own place rather than
+ * the top — its phase, its number, and mute and hang up.
+ */
+function Dialer({ onDial }: { onDial: () => void }) {
+  const call = usePhone((s) => s.call);
+  const muted = usePhone((s) => s.muted);
+  const [number, setNumber] = useState("");
   const [tones, setTones] = useState("");
+  const inCall = call !== null;
+
+  const dial = (target: string) => {
+    if (!target) return;
+    void usePhone.getState().dial(target);
+    onDial();
+  };
+  const press = (key: string) => {
+    if (inCall) {
+      usePhone.getState().sendDtmf(key);
+      setTones((v) => v + key);
+    } else {
+      setNumber((v) => v + key);
+    }
+  };
+
+  return (
+    <div className="dialer">
+      <div className="dialpad">
+        {KEYS.map((key) => (
+          <button
+            type="button"
+            key={key}
+            className="dialpad-key"
+            onClick={() => press(key)}
+          >
+            <span className="dialpad-digit">{key}</span>
+            {!inCall && KEY_LETTERS[key] && (
+              <span className="dialpad-letters">{KEY_LETTERS[key]}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* The field the reader types into, or the tones an in-call press sends:
+          one row, always in the same place, so the keypad above never moves. */}
+      <div className="dialer-display">
+        {inCall ? (
+          <span className="dialer-tones" aria-live="polite">
+            {tones}
+          </span>
+        ) : (
+          <>
+            <input
+              className="dialer-number"
+              placeholder={t("Number or address")}
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") dial(number.trim());
+              }}
+              inputMode="tel"
+              autoComplete="off"
+              aria-label={t("Number or address")}
+            />
+            <button
+              type="button"
+              className="dialer-back"
+              aria-label={t("Delete")}
+              disabled={!number}
+              onClick={() => setNumber((v) => v.slice(0, -1))}
+            >
+              <Delete size={18} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* The button's place: idle it dials, in a call the call takes it over. */}
+      <div className="dialer-foot">
+        {call ? (
+          <CallControls remote={call.remote} phase={call.phase} muted={muted} />
+        ) : (
+          <button
+            type="button"
+            className="dialer-call"
+            disabled={!number.trim()}
+            onClick={() => dial(number.trim())}
+            aria-label={t("Call")}
+          >
+            <PhoneCall size={24} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The live call in the button's place: its phase, its number, mute and hang up. */
+function CallControls({
+  remote,
+  phase,
+  muted,
+}: {
+  remote: string;
+  phase: CallPhase;
+  muted: boolean;
+}) {
   return (
     <div className="call-panel">
+      <p className="call-status" aria-live="polite">
+        {callPhaseLabel(phase)}
+      </p>
       <p className="call-who">{remote}</p>
       <div className="call-actions">
         <button
@@ -254,88 +361,6 @@ function CallControls({ remote, muted }: { remote: string; muted: boolean }) {
           <PhoneOff size={19} /> {t("Hang up")}
         </button>
       </div>
-      <div className="dialpad">
-        {KEYS.map((key) => (
-          <button
-            type="button"
-            key={key}
-            className="dialpad-key"
-            onClick={() => {
-              usePhone.getState().sendDtmf(key);
-              setTones((v) => v + key);
-            }}
-          >
-            <span className="dialpad-digit">{key}</span>
-          </button>
-        ))}
-      </div>
-      {tones && <p className="call-tones">{tones}</p>}
-    </div>
-  );
-}
-
-/** The dialer: the number the reader composes, and the one button that dials it. */
-function Dialer({ onDial }: { onDial: () => void }) {
-  const [number, setNumber] = useState("");
-  const dial = (target: string) => {
-    if (!target) return;
-    void usePhone.getState().dial(target);
-    onDial();
-  };
-
-  return (
-    <div className="dialer">
-      <div className="dialpad">
-        {KEYS.map((key) => (
-          <button
-            type="button"
-            key={key}
-            className="dialpad-key"
-            onClick={() => setNumber((v) => v + key)}
-          >
-            <span className="dialpad-digit">{key}</span>
-            {KEY_LETTERS[key] && (
-              <span className="dialpad-letters">{KEY_LETTERS[key]}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* The field the reader can type into, under the keys: the keypad is the
-          phone's own entry, and this is for a number copied from somewhere. */}
-      <div className="dialer-display">
-        <input
-          className="dialer-number"
-          placeholder={t("Number or address")}
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") dial(number.trim());
-          }}
-          inputMode="tel"
-          autoComplete="off"
-          aria-label={t("Number or address")}
-        />
-        <button
-          type="button"
-          className="dialer-back"
-          aria-label={t("Delete")}
-          disabled={!number}
-          onClick={() => setNumber((v) => v.slice(0, -1))}
-        >
-          <Delete size={18} />
-        </button>
-      </div>
-
-      <button
-        type="button"
-        className="dialer-call"
-        disabled={!number.trim()}
-        onClick={() => dial(number.trim())}
-        aria-label={t("Call")}
-      >
-        <PhoneCall size={24} />
-      </button>
     </div>
   );
 }

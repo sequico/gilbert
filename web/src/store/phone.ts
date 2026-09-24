@@ -24,7 +24,7 @@ import {
   microphoneState as readMicrophoneState,
 } from "@/lib/phone/microphone";
 import { PHONE_MOCK } from "@/lib/phone/mock";
-import { type LineState, Phone } from "@/lib/phone/sip";
+import { type CallPhase, type LineState, Phone } from "@/lib/phone/sip";
 import { useMail } from "./mail";
 import { useSession } from "./session";
 
@@ -39,8 +39,8 @@ interface PhoneStore {
   incoming: string | null;
   /** The SIP user the line registers as, shown as the panel's title. */
   sipUser: string | null;
-  /** The call, once it is connected. */
-  call: { remote: string } | null;
+  /** The call, and where it has got to. */
+  call: { remote: string; phase: CallPhase } | null;
   /** What the call surface plays: the peer's audio. */
   stream: MediaStream | null;
   muted: boolean;
