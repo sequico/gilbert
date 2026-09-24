@@ -61,6 +61,7 @@ import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
 import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
+import { CallNumber } from "@/views/phone/CallNumber";
 import { LazyContactEditor } from "../lazyPieces";
 
 /*
@@ -1241,7 +1242,7 @@ function ContactDetail({
                   </span>
                   <span className="v row gap-8">
                     <Phone size={14} className="muted" />
-                    <a href={`tel:${p.number}`}>{p.number}</a>
+                    <CallNumber number={p.number} />
                   </span>
                 </div>
               ))}
