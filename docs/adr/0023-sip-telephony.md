@@ -83,14 +83,17 @@ establish a TLS transport and the provider's certificate is not publicly
 trusted, so forcing it would fail the registration rather than secure it. The
 leg is outbound either way. There is **no STUN/TURN**: the bridge is on a
 public IP and is the browser's ICE peer. Because the browser's own host
-candidates are the media path, the bridge must resolve them, and Chrome
-obfuscates them as random `<uuid>.local` mDNS names — the **host installer**
-installs `avahi-daemon` and `libnss-mdns` and points `nsswitch.conf` at them,
-since a Janus that cannot resolve those names adds none of the browser's
-candidates and leaves ICE to peer-reflexive discovery; the container image runs
-unprivileged and read-only and so cannot, and keeps that fallback. The media
-range is the **only** port a deployment opens inbound — the SIP leg to the
-provider is outbound, so 5060/5061 are never opened.
+candidates are the media path, and Chrome obfuscates them as random
+`<uuid>.local` mDNS names, the bridge reaches the browser through ICE's
+**peer-reflexive** discovery: those names are link-local, so a browser on
+another network is never resolved to an address, and the browser's first check
+is what teaches the bridge where it is. The **host installer** installs
+`avahi-daemon` and `libnss-mdns` and points `nsswitch.conf` at them, which
+removes the resolver error and lets a same-LAN browser's candidate be used
+directly; the container image runs unprivileged and read-only and cannot, and
+keeps the peer-reflexive path. The media range is the **only** port a deployment
+opens inbound — the SIP leg to the provider is outbound, so 5060/5061 are never
+opened.
 
 ### A second call
 

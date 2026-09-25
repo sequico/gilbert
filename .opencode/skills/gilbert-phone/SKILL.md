@@ -65,13 +65,15 @@ single seat and the administration are in place. Global contacts is built.
     vocabulary (`.tab`, `.nav-section`, `.input`, the theme tokens): no bespoke
     controls, and the two panes read the same contact sources so a number dialled
     resolves back to the same person.
-12. **The bridge host resolves mDNS.** With no STUN the browser's own host
-    candidates are the media path, and Chrome obfuscates them as random
-    `<uuid>.local` names; the **host installer** installs `avahi-daemon` and
-    `libnss-mdns` and points `nsswitch.conf` at them, so Janus adds the
-    browser's candidates instead of leaving ICE to peer-reflexive discovery.
-    The container image runs unprivileged and read-only and cannot, so a
-    containerised bridge keeps that fallback.
+12. **The browser is reached peer-reflexively, and mDNS names are link-local.**
+    With no STUN the browser's own host candidates are the media path, and
+    Chrome obfuscates them as random `<uuid>.local` names; a browser on another
+    network can never be resolved to an address, so ICE learns where it is from
+    its own first check. The **host installer** installs `avahi-daemon` and
+    `libnss-mdns` and points `nsswitch.conf` at them, which removes the resolver
+    error and gives a same-LAN browser's candidate directly; the container image
+    runs unprivileged and read-only and cannot, so a containerised bridge keeps
+    the peer-reflexive path.
 
 ## The directory (ADR 0024) — the invariants
 

@@ -96,13 +96,17 @@ ufw allow 10000:10200/udp     # and the same in any cloud firewall
 ```
 
 There is no STUN, so the browser's own media addresses are the path the bridge
-carries — and Chrome obfuscates them as random `<uuid>.local` names. The **host
+carries — and Chrome writes them as random `<uuid>.local` names. The **host
 installer** installs `avahi-daemon` and `libnss-mdns` and points
-`/etc/nsswitch.conf` at them, so Janus can resolve those names; a host where
-they could not be installed still runs a phone, but one that has to fall back
-on peer-reflexive ICE and can fail on some networks. A container image runs
-unprivileged and read-only and cannot start avahi, so a containerised bridge
-keeps that fallback.
+`/etc/nsswitch.conf` at them, so Janus resolves those names instead of logging a
+resolver error on every call. **mDNS is link-local, though**: a name only
+resolves on the same network, so a browser over the Internet can never be turned
+into an address that way and its candidate is not added. ICE falls back on
+**peer-reflexive** discovery — the browser's first check teaches the bridge where
+it is — which is why calls work with the bridge remote. The resolver therefore
+removes the error (and the retry it caused) and gives a same-LAN deployment the
+candidate directly; a container image, unprivileged and read-only, cannot start
+avahi and keeps the peer-reflexive path.
 
 ## With or without the phone
 
@@ -138,11 +142,11 @@ the first call.
 - **No phone for one person only.** That identity has no SIP account yet.
 - **It rings but there is no audio.** The leg to the provider: check the SIP
   account, and that the provider is reachable from the host over SIP (outbound).
-- **A call connects but has no audio, or ICE is flaky on some networks.** The
-  bridge could not resolve the browser's `.local` mDNS candidates. Check
-  `systemctl status avahi-daemon` and that `/etc/nsswitch.conf`'s `hosts:` line
-  carries `mdns4_minimal`; the installer arranges both. Janus falls back on
-  peer-reflexive ICE, which is not always enough.
+- **A call connects but has no audio, or ICE is flaky.** The remote browser's
+  `.local` candidate is **not** the cause: it is link-local and never added, and
+  ICE uses peer-reflexive discovery (above). Check the bridge's media range is
+  open and `avahi-daemon` runs on the host, then read which leg failed in
+  `journalctl -u gilbert-janus.service`.
 - **`gilbert.service` is enabled but stopped.** `/etc/gilbert.env` has no
   `STALWART_URL`; set it and `sudo systemctl start gilbert.service`.
 
