@@ -251,11 +251,12 @@ be composed by hand, through a keypad, and it is sent to the provider as
 - **The documents state the feature, and the public ones first.** When the phone
   is built, `FEATURES.md` gains its entry and `README.md` names it among what
   Gilbert does, rather than the feature living only in the code.
-- **Owed a live probe**: the Janus SIP plugin registering through the provider
-  and carrying a call end to end (Zadarma as the reference), its WebRTC-to-SIP
-  media path, DTMF over RFC 2833, the provider's own behaviour for a second
-  call while one is live, and the STUN responder answering a remote browser with
-  its server-reflexive candidate.
+- **Owed a live probe**: DTMF over RFC 2833 through the provider, an incoming
+  call taken through it, and the provider's own behaviour for a second call
+  while one is live. Registration and an outgoing call with two-way
+  WebRTC-to-SIP media, and the STUN responder answering a remote browser with
+  its server-reflexive candidate, are **live-verified on the bridge host
+  (2026-09-25)** — see [KNOWN-ISSUES.md](../../KNOWN-ISSUES.md).
 
 ## References
 
