@@ -2307,7 +2307,7 @@ export const useMail = create<MailState>((set, get) => ({
              * below merges over the cached copy. Dropping it only ever costs
              * the message its place in the thread.
              */
-            return { emails: next, fullIds: nextFull, emailState: since };
+            return { emails: next, fullIds: nextFull };
           });
           // Refresh the list-level props of updated/cached emails.
           const cached = [...updated].filter((id) => get().emails[id]);
@@ -2333,6 +2333,15 @@ export const useMail = create<MailState>((set, get) => ({
               return { emails: next };
             });
           }
+          /*
+           * The token moves only once every read the new state promised has
+           * landed. An aborted pass (or a failed `Email/get`) leaves
+           * `emailState` where it was, so the next pass asks for the same
+           * window again rather than dropping the updated emails whose list
+           * props were never fetched -- `refreshList` below re-reads ids only,
+           * not those props.
+           */
+          set({ emailState: since });
           if (created.size) await notifyNewMail([...created], get);
         } catch (err) {
           if (err instanceof JmapMethodError && err.type === "cannotCalculateChanges") {
@@ -2384,6 +2393,9 @@ export const useMail = create<MailState>((set, get) => ({
      * so a visible Gilbert is not the quiet one (ADR 0016).
      */
     void get().refreshAccountTree(accountId);
+    // `notifyGroupMail` reads the message to announce; an aborted pass leaves
+    // the announcement to the next one rather than fetching against nothing.
+    if (signal?.aborted) return;
     if (types.has("Email")) await notifyGroupMail(accountId, get).catch(() => undefined);
   },
 

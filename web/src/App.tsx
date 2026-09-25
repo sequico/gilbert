@@ -345,9 +345,10 @@ function AuthedApp() {
     let timer: number | null = null;
     /*
      * Hand one account's types to every store that draws them. The promises are
-     * returned so a cancellable pass can wait for its own heavy reads (mail and
-     * chat page through changes); the stores that only kick a single reload off
-     * are fire-and-forget and are skipped outright once the pass is aborted.
+     * returned so a cancellable pass can wait for its own paging reads (mail
+     * and chat); the stores that only kick a single reload off are not awaited
+     * (each is one read with its own error handling) and are not dispatched at
+     * all once the pass is already aborted.
      */
     const dispatch = (
       accountId: string,
@@ -441,7 +442,10 @@ function AuthedApp() {
       void runCatchUp(controller.signal).finally(() => {
         catchUpRunning = false;
         if (catchUpAbort === controller) catchUpAbort = null;
-        if (catchUpWanted && !controller.signal.aborted) startCatchUp();
+        // A signal that arrived during the pass re-runs it. An abort does not:
+        // `stopCatchUp` cleared the flag before aborting, so only a trigger
+        // that came *after* the abort can still be waiting here.
+        if (catchUpWanted) startCatchUp();
       });
     };
     const stopCatchUp = () => {
@@ -453,8 +457,23 @@ function AuthedApp() {
     // session is deliberately exempt (see `onReconnect`): the initial load is
     // happening right then.
     const unsubReconnect = push.onReconnect(startCatchUp);
+    /*
+     * Abort only on a transition *out of* "connected". The dot's state also
+     * notifies for its own reasons — a failed attempt's reason arrives in a
+     * second update that is still "connecting" — and treating every
+     * non-connected emission as a drop would abort the very pass the
+     * reachability probe just started.
+     */
+    let wasConnected = false;
     const unsubConn = push.onConnection((state) => {
-      if (state !== "connected") stopCatchUp();
+      if (state === "connected") {
+        wasConnected = true;
+        return;
+      }
+      if (wasConnected) {
+        wasConnected = false;
+        stopCatchUp();
+      }
     });
     const unsubReach = push.onReachability((reachable) => {
       // Only the blocked-stream case needs this: while the stream is up it is
@@ -478,6 +497,9 @@ function AuthedApp() {
       unsubReach();
       unsubState();
       window.removeEventListener("offline", onOffline);
+      // A live burst queued but not yet flushed must not dispatch against the
+      // stores of the next account.
+      if (timer) window.clearTimeout(timer);
       stopCatchUp();
       push.stop();
     };

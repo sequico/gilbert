@@ -25,8 +25,8 @@ const PUSH_RETRY_MS = 1000;
  * Everything a tab keeps live, offered to the dispatcher.
  *
  * The one definition for both triggers of the live catch-up: the moment the
- * stream returns after a drop, and every tick of the poll that runs while it
- * is down. Push plays nothing back to a client that was away — asleep,
+ * stream returns after a drop, and the reachability probe that runs while the
+ * stream is down. Push plays nothing back to a client that was away — asleep,
  * offline, or behind a connection that dropped — so a tab has to ask for
  * everything it shows. The types come from the list the subscription itself is
  * built from (`PUSH_STATE_TYPES`), never from a hand-picked few: a surface left

@@ -266,8 +266,8 @@ export class JmapClient {
   }
 
   /**
-   * Queue a single method call; calls made within the same tick are batched
-   * into one HTTP request (up to maxCallsInRequest).
+   * Queue a single method call; calls made within the same tick under the same
+   * signal are batched into one HTTP request (up to maxCallsInRequest).
    *
    * `signal` makes the call cancellable: the HTTP request carries it, and an
    * already-aborted signal rejects without a request at all. A catch-up pass
@@ -383,6 +383,7 @@ export class JmapClient {
     createdIds?: Record<string, Id>,
     signal?: AbortSignal,
   ): Promise<JmapResponse> {
+    if (signal?.aborted) throw new ApiError(0, "aborted", "Request aborted");
     const body: Record<string, unknown> = {
       using: this.supportedUsing(using),
       methodCalls,

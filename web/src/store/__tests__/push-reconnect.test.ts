@@ -155,3 +155,43 @@ describe("push reconnect catch-up", () => {
     expect(everyLiveType).toContain("SieveScript");
   });
 });
+
+/**
+ * The probe behind a failed attempt is a signal of its own.
+ *
+ * A network that blocks the live stream never opens it, so the probe's answer
+ * is the only "the server answers" evidence a catch-up has there. It fires on
+ * every probe, true and false: a single transition would leave a blocked
+ * stream with one trigger and then silence, and a down line with no way to say
+ * so.
+ */
+describe("push reachability", () => {
+  it("reports every probe, true and false", async () => {
+    const seen: boolean[] = [];
+    const unsub = push.onReachability((r) => seen.push(r));
+    const answer = (reachable: boolean) =>
+      vi.fn((url: string) =>
+        String(url).includes("/api/health")
+          ? reachable
+            ? Promise.resolve({})
+            : Promise.reject(new Error("down"))
+          : Promise.resolve({ ok: true, status: 200, json: async () => ({}) }),
+      );
+    vi.stubGlobal("fetch", answer(true));
+    push.start();
+    latest().open();
+    // A drop whose probe answers: the stream is blocked, not the line.
+    latest().fail();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(seen).toContain(true);
+
+    // Reconnect, then a drop whose probe cannot reach anything.
+    vi.stubGlobal("fetch", answer(false));
+    await vi.advanceTimersByTimeAsync(1000);
+    latest().open();
+    latest().fail();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(seen).toContain(false);
+    unsub();
+  });
+});

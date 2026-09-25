@@ -335,12 +335,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* The live-updates bead reads as the product's own state, so it sits
             with the name — "Gilbert ●" — and the right cluster is left to
             actions. */}
-        <span
-          className="push-status"
-          role="img"
-          aria-label={pushTitle}
-          title={pushTitle}
-        >
+        <span className="push-status" role="img" aria-label={pushTitle} title={pushTitle}>
           <span className={`push-dot ${pushState}`} />
         </span>
         <SearchBar />

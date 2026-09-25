@@ -2315,10 +2315,10 @@ needed nothing in either half.
   Each failed attempt probes a cheap route: if it answers, the stream is blocked
   rather than the line, and the same catch-up that runs on reconnect runs there
   too — one definition, so the fallback cannot cover less than the live path
-  does. The header shows which of the three states it is in — connected,
-  reconnecting, or off and polling — and the dot beside the brand says on hover
-  whether the server answered at all (it closed the stream) or could not be
-  reached.
+  does. On desktop, the header shows which of the three states it is in —
+  connected, reconnecting, or off and polling — and the dot beside the brand
+  says on hover whether the server answered at all (it closed the stream) or
+  could not be reached.
 - **Unread count in the tab title and painted onto the favicon**, so the tab
   tells you before you look.
 - **Desktop notifications** for new mail and new chat messages while Gilbert is
