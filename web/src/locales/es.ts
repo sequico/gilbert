@@ -495,7 +495,7 @@ export const catalog: Catalog = {
       "Cuando alguien pide una confirmación de lectura",
     "Ask me on each message": "Preguntarme en cada mensaje",
     "5 seconds": "5 segundos",
-    "8 seconds": "8 segundos",
+    "10 seconds": "10 segundos",
     "15 seconds": "15 segundos",
     "30 seconds": "30 segundos",
     Locale: "Regional",
@@ -1009,6 +1009,7 @@ export const catalog: Catalog = {
     "Could not do that — open Gilbert and try again":
       "No se pudo hacer eso: abra Gilbert e inténtelo de nuevo",
     "Sending…": "Enviando…",
+    "Sending “{subject}”": "Enviando «{subject}»",
     "Saving…": "Guardando…",
     Error: "Error",
     "Saved {when}": "Guardado {when}",

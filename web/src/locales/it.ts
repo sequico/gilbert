@@ -794,8 +794,7 @@ export const catalog: Catalog = {
 
     "5 seconds": "5 secondi",
 
-    "8 seconds": "8 secondi",
-
+    "10 seconds": "10 secondi",
     "15 seconds": "15 secondi",
 
     "30 seconds": "30 secondi",
@@ -1591,6 +1590,8 @@ export const catalog: Catalog = {
 
     "Sending…": "Invio…",
 
+
+    "Sending “{subject}”": "Invio di «{subject}»",
     "Saving…": "Salvataggio…",
     Error: "Errore",
 

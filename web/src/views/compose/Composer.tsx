@@ -35,7 +35,7 @@ import { type Draft, useCompose } from "@/store/compose";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { scheduleSupported, scheduleWindowMs } from "@/store/scheduled";
-import { useSettings } from "@/store/settings";
+import { UNDO_SEND_OPTIONS, useSettings } from "@/store/settings";
 import { attachmentIcon } from "@/ui/attachmentIcon";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { useIsMobile } from "@/ui/misc";
@@ -678,12 +678,13 @@ export function Composer({ draft }: { draft: Draft }) {
               label={translate("Undo window: {seconds}s", {
                 seconds: settings.undoSendSeconds,
               })}
-              onClick={() =>
-                updateSettings({
-                  undoSendSeconds:
-                    settings.undoSendSeconds >= 30 ? 0 : settings.undoSendSeconds + 5,
-                })
-              }
+              onClick={() => {
+                const here = UNDO_SEND_OPTIONS.findIndex(
+                  (option) => option.seconds === settings.undoSendSeconds,
+                );
+                const next = UNDO_SEND_OPTIONS[(here + 1) % UNDO_SEND_OPTIONS.length]!;
+                updateSettings({ undoSendSeconds: next.seconds });
+              }}
             />
             {canSchedule && (
               <ScheduleMenuItems

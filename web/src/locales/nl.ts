@@ -490,7 +490,7 @@ export const catalog: Catalog = {
       "Wanneer iemand om een leesbevestiging vraagt",
     "Ask me on each message": "Bij elk bericht vragen",
     "5 seconds": "5 seconden",
-    "8 seconds": "8 seconden",
+    "10 seconds": "10 seconden",
     "15 seconds": "15 seconden",
     "30 seconds": "30 seconden",
     Locale: "Regio",
@@ -998,6 +998,7 @@ export const catalog: Catalog = {
     "Could not do that — open Gilbert and try again":
       "Dat lukte niet — open Gilbert en probeer het opnieuw",
     "Sending…": "Bezig met verzenden…",
+    "Sending “{subject}”": "Verzenden “{subject}”",
     "Saving…": "Bezig met opslaan…",
     Error: "Fout",
     "Saved {when}": "Opgeslagen {when}",

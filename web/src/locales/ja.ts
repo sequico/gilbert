@@ -492,7 +492,7 @@ export const catalog: Catalog = {
     "When someone requests a read receipt": "開封確認を要求されたとき",
     "Ask me on each message": "メールごとに確認する",
     "5 seconds": "5 秒",
-    "8 seconds": "8 秒",
+    "10 seconds": "10 秒",
     "15 seconds": "15 秒",
     "30 seconds": "30 秒",
     Locale: "地域",
@@ -1008,6 +1008,7 @@ export const catalog: Catalog = {
     "Could not do that — open Gilbert and try again":
       "実行できませんでした - Gilbert を開いてやり直してください",
     "Sending…": "送信中…",
+    "Sending “{subject}”": "「{subject}」を送信中",
     "Saving…": "保存中…",
     Error: "エラー",
     "Saved {when}": "{when} に保存",

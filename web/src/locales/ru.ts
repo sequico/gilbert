@@ -494,7 +494,7 @@ export const catalog: Catalog = {
     "When someone requests a read receipt": "Когда запрашивают уведомление о прочтении",
     "Ask me on each message": "Спрашивать для каждого письма",
     "5 seconds": "5 секунд",
-    "8 seconds": "8 секунд",
+    "10 seconds": "10 секунд",
     "15 seconds": "15 секунд",
     "30 seconds": "30 секунд",
     Locale: "Регион",
@@ -1002,6 +1002,7 @@ export const catalog: Catalog = {
     "Could not do that — open Gilbert and try again":
       "Не удалось — откройте Gilbert и повторите попытку",
     "Sending…": "Отправка…",
+    "Sending “{subject}”": "Отправка «{subject}»",
     "Saving…": "Сохранение…",
     Error: "Ошибка",
     "Saved {when}": "Сохранено {when}",

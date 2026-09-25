@@ -503,7 +503,7 @@ export const catalog: Catalog = {
     "When someone requests a read receipt": "Lorsqu'un accusé de réception est demandé",
     "Ask me on each message": "Me demander pour chaque message",
     "5 seconds": "5 secondes",
-    "8 seconds": "8 secondes",
+    "10 seconds": "10 secondes",
     "15 seconds": "15 secondes",
     "30 seconds": "30 secondes",
     Locale: "Régional",
@@ -1013,6 +1013,7 @@ export const catalog: Catalog = {
     "Could not do that — open Gilbert and try again":
       "Impossible : ouvrez Gilbert et réessayez",
     "Sending…": "Envoi…",
+    "Sending “{subject}”": "Envoi de « {subject} »",
     "Saving…": "Enregistrement…",
     Error: "Erreur",
     "Saved {when}": "Enregistré {when}",

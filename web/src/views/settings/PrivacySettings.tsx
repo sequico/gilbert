@@ -4,7 +4,11 @@ import { domainOf } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useMail } from "@/store/mail";
-import { type ReadReceiptPolicy, useSettings } from "@/store/settings";
+import {
+  type ReadReceiptPolicy,
+  UNDO_SEND_OPTIONS,
+  useSettings,
+} from "@/store/settings";
 import { Switch } from "@/ui/misc";
 
 /**
@@ -197,11 +201,11 @@ export function PrivacySettings() {
           value={String(s.undoSendSeconds)}
           onChange={(e) => update({ undoSendSeconds: Number(e.target.value) })}
         >
-          <option value="0">{t("Off")}</option>
-          <option value="5">{t("5 seconds")}</option>
-          <option value="8">{t("8 seconds")}</option>
-          <option value="15">{t("15 seconds")}</option>
-          <option value="30">{t("30 seconds")}</option>
+          {UNDO_SEND_OPTIONS.map((option) => (
+            <option key={option.seconds} value={option.seconds}>
+              {t(option.label)}
+            </option>
+          ))}
         </select>
         <p className="hint">
           {t(

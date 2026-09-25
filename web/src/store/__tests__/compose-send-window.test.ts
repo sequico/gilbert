@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   chainCalls.length = 0;
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
-  useSettings.setState({ settings: { ...DEFAULT_SETTINGS, undoSendSeconds: 2 } });
+  useSettings.setState({ settings: { ...DEFAULT_SETTINGS, undoSendSeconds: 5 } });
   useMail.setState({
     accountId: "a1",
     identities: [jane] as never,
@@ -88,7 +88,7 @@ describe("a switch to another mailbox inside the undo window", () => {
     expect(useCompose.getState().drafts.some((d) => d.key === key)).toBe(false);
 
     useMail.setState({ accountId: "a2", identities: [team] as never });
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
     await settle();
 
     expect(chainCalls).toEqual([]);
@@ -99,7 +99,7 @@ describe("a switch to another mailbox inside the undo window", () => {
     void useCompose.getState().send(key);
 
     useMail.setState({ accountId: null, identities: [] as never });
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
     await settle();
 
     expect(chainCalls).toEqual([]);
@@ -115,7 +115,7 @@ describe("the identity a send was pressed under", () => {
 
     // The account's identity list comes back in another order inside the window.
     useMail.setState({ identities: [team, jane] as never });
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
     await settle();
 
     const submission = chainCalls.find(([method]) => method === "EmailSubmission/set");

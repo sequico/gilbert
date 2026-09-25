@@ -1079,11 +1079,22 @@ export const useCompose = create<ComposeState>((set, get) => ({
       await doSend();
       return;
     }
-    const toastId = toast.show(translate("Sending…"), {
-      duration: delay * 1000,
-      progress: true,
-      action: { label: translate("Undo"), onClick: () => get().undoSend(key) },
-    });
+    /*
+     * The toast names the mail so a burst of sends can be told apart, and the
+     * undo it offers is addressed by the draft key -- the message's own id --
+     * never by that subject: two different sends may carry the same one.
+     */
+    const subject = d.subject.trim();
+    const toastId = toast.show(
+      subject
+        ? translate("Sending “{subject}”", { subject })
+        : translate("Sending…"),
+      {
+        duration: delay * 1000,
+        progress: true,
+        action: { label: translate("Undo"), onClick: () => get().undoSend(key) },
+      },
+    );
     const timer = window.setTimeout(() => void doSend(), delay * 1000);
     set((s) => ({
       pendingSends: {
@@ -1112,7 +1123,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
       return {
         pendingSends: rest,
         drafts: [...s.drafts, { ...p.draft, sending: false }],
-        activeKey: key,
+        // Reopen the taken-back mail only when nothing else is open: a send you
+        // take back must not pull you out of the draft you started while it was
+        // in flight.
+        activeKey: s.activeKey ?? key,
       };
     });
   },

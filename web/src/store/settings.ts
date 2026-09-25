@@ -324,6 +324,23 @@ export interface Settings {
   appliedPolicyChanges: string[];
 }
 
+/**
+ * The undo windows the product offers, in seconds.
+ *
+ * One list, read by both the settings control and the composer's own window
+ * control, so the two cannot drift. `0` means off. The `label` is the English
+ * catalogue key, translated where the control renders it.
+ */
+export const UNDO_SEND_OPTIONS = [
+  { seconds: 0, label: "Off" },
+  { seconds: 5, label: "5 seconds" },
+  { seconds: 10, label: "10 seconds" },
+  { seconds: 15, label: "15 seconds" },
+  { seconds: 30, label: "30 seconds" },
+] as const;
+
+const UNDO_WINDOWS: readonly number[] = UNDO_SEND_OPTIONS.map((o) => o.seconds);
+
 export const DEFAULT_SETTINGS: Settings = {
   /**
    * gilbert's own palette is what a new account gets, so the app looks like
@@ -348,7 +365,7 @@ export const DEFAULT_SETTINGS: Settings = {
   imagePolicy: "always",
   themeMessageBody: false,
   themeStyledMessages: false,
-  undoSendSeconds: 5,
+  undoSendSeconds: 10,
   composeFormat: "html",
   signatureAboveQuote: true,
   includeQuote: true,
@@ -458,7 +475,28 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
     if (value === undefined) continue;
     out[key] = value;
   }
-  return migratedThemeFields(out) as Partial<Settings>;
+  return migratedSettingsFields(out) as Partial<Settings>;
+}
+
+/**
+ * A stored undo window that is no longer one of the offered choices -- an
+ * older build, a hand-edited file -- reads as the default, so no control is
+ * left with a value it cannot show. Only when the key is present: a file that
+ * never set it keeps whatever it is merged over.
+ */
+function withValidUndoWindow(source: Record<string, unknown>): Record<string, unknown> {
+  if (!("undoSendSeconds" in source)) return source;
+  const value = source.undoSendSeconds;
+  if (typeof value === "number" && UNDO_WINDOWS.includes(value)) return source;
+  return { ...source, undoSendSeconds: DEFAULT_SETTINGS.undoSendSeconds };
+}
+
+/**
+ * Every migration an incoming settings object is read through, in one place:
+ * a file off the server, an import and a policy write all arrive here.
+ */
+function migratedSettingsFields(source: Record<string, unknown>): Record<string, unknown> {
+  return withValidUndoWindow(migratedThemeFields(source));
 }
 
 /**
@@ -763,7 +801,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * still handed on -- an import is the reader's own file, and the
        * known-keys-only rule is `acceptRemote`'s, for files off the server.
        */
-      get().update(migratedThemeFields(parsed) as Partial<Settings>);
+      get().update(migratedSettingsFields(parsed) as Partial<Settings>);
       return true;
     } catch {
       return false;
