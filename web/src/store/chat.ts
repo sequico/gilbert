@@ -99,7 +99,7 @@ interface ChatState {
   /** Send the conversation's draft, optionally as a reply. */
   send(accountId: Id): Promise<void>;
   /** A FileNode state change arrived for a chat account: fetch what is new. */
-  applyChanges(accountId: Id): Promise<void>;
+  applyChanges(accountId: Id, signal?: AbortSignal): Promise<void>;
   /** Drop everything (sign-out). */
   reset(): void;
   /** Re-read a conversation from the server (error retry). */
@@ -553,9 +553,10 @@ export const useChat = create<ChatState>((set, get) => {
       }
     },
 
-    async applyChanges(accountId) {
+    async applyChanges(accountId, signal) {
       const conv = get().conversations[accountId];
       if (!conv?.loaded || !conv.folders || conv.stateToken === null) return;
+      if (signal?.aborted) return;
       if (chatSyncs.has(accountId)) return;
       chatSyncs.add(accountId);
       const chatFolder = conv.folders.chat;
@@ -567,11 +568,16 @@ export const useChat = create<ChatState>((set, get) => {
         let hasMore = true;
         let guard = 0;
         while (hasMore && guard++ < 8) {
-          const ch = await client.call<ChangesResponse>("FileNode/changes", {
-            accountId,
-            sinceState: since,
-            maxChanges: 500,
-          });
+          const ch = await client.call<ChangesResponse>(
+            "FileNode/changes",
+            {
+              accountId,
+              sinceState: since,
+              maxChanges: 500,
+            },
+            [],
+            signal,
+          );
           created.push(...ch.created);
           for (const id of ch.destroyed) destroyed.add(id);
           for (const id of ch.updated) updated.add(id);
@@ -613,11 +619,16 @@ export const useChat = create<ChatState>((set, get) => {
         if (fresh.length) {
           // One get for the batch, then the shared parser keeps only the
           // nodes that actually live in this conversation's chat folder.
-          const got = await client.call<GetResponse<FileNode>>("FileNode/get", {
-            accountId,
-            ids: fresh,
-            properties: messageProps(),
-          });
+          const got = await client.call<GetResponse<FileNode>>(
+            "FileNode/get",
+            {
+              accountId,
+              ids: fresh,
+              properties: messageProps(),
+            },
+            [],
+            signal,
+          );
           const onlyHere = got.list.filter((n) => n.parentId === chatFolder);
           for (const m of await parseMessages(accountId, onlyHere))
             if (sortedInsert(nodes, m)) arrived.push(m);

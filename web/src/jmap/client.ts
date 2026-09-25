@@ -91,6 +91,8 @@ interface Pending {
   method: string;
   args: Record<string, unknown>;
   using: Set<string>;
+  /** Set for a call made inside a cancellable pass; see `call`. */
+  signal?: AbortSignal;
   resolve: (v: unknown) => void;
   reject: (e: unknown) => void;
 }
@@ -266,17 +268,28 @@ export class JmapClient {
   /**
    * Queue a single method call; calls made within the same tick are batched
    * into one HTTP request (up to maxCallsInRequest).
+   *
+   * `signal` makes the call cancellable: the HTTP request carries it, and an
+   * already-aborted signal rejects without a request at all. A catch-up pass
+   * hands one signal to every call it makes, so a dropped line can abort the
+   * whole pass instead of letting its requests run against nothing.
    */
   call<T = Record<string, unknown>>(
     method: string,
     args: Record<string, unknown>,
     using: string[] = [],
+    signal?: AbortSignal,
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new ApiError(0, "aborted", "Request aborted"));
+        return;
+      }
       this.pending.push({
         method,
         args,
         using: new Set([CAP.core, ...usingFor(method), ...using]),
+        signal,
         resolve: resolve as (v: unknown) => void,
         reject,
       });
@@ -291,20 +304,36 @@ export class JmapClient {
     this.flushScheduled = false;
     const batch = this.pending;
     this.pending = [];
+    /*
+     * One HTTP request carries one signal, so the batch is grouped by the
+     * signal its calls were made under before it is chunked. A catch-up pass
+     * makes its calls under its own signal and a live refresh under none, and
+     * the two must not share a request: aborting the pass would otherwise
+     * cancel the live call with it.
+     */
+    const groups = new Map<AbortSignal | null, Pending[]>();
+    for (const p of batch) {
+      const key = p.signal ?? null;
+      const group = groups.get(key);
+      if (group) group.push(p);
+      else groups.set(key, [p]);
+    }
     const max = this.maxCallsInRequest;
-    for (let i = 0; i < batch.length; i += max) {
-      void this.sendBatch(batch.slice(i, i + max));
+    for (const [signal, group] of groups) {
+      for (let i = 0; i < group.length; i += max) {
+        void this.sendBatch(group.slice(i, i + max), signal ?? undefined);
+      }
     }
   }
 
-  private async sendBatch(batch: Pending[]): Promise<void> {
+  private async sendBatch(batch: Pending[], signal?: AbortSignal): Promise<void> {
     const using = new Set<string>();
     const calls: Invocation[] = batch.map((p, idx) => {
       for (const u of p.using) using.add(u);
       return [p.method, p.args, `c${this.callCounter++}_${idx}`];
     });
     try {
-      const res = await this.request(calls, [...using]);
+      const res = await this.request(calls, [...using], undefined, signal);
       const byId = new Map<string, Invocation[]>();
       for (const inv of res.methodResponses) {
         const arr = byId.get(inv[2]) ?? [];
@@ -352,6 +381,7 @@ export class JmapClient {
     methodCalls: Invocation[],
     using: string[] = [CAP.core, CAP.mail],
     createdIds?: Record<string, Id>,
+    signal?: AbortSignal,
   ): Promise<JmapResponse> {
     const body: Record<string, unknown> = {
       using: this.supportedUsing(using),
@@ -361,6 +391,7 @@ export class JmapClient {
     const res = await apiFetch<JmapResponse>("/api/jmap", {
       method: "POST",
       body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
     });
     if (res.sessionState && this.session && res.sessionState !== this.session.state) {
       for (const fn of this.stateHandlers) fn(res.sessionState);

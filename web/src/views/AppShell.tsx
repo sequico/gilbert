@@ -332,23 +332,25 @@ export function AppShell({ children }: { children: ReactNode }) {
             {appName}
           </span>
         </Link>
+        {/* The live-updates bead reads as the product's own state, so it sits
+            with the name — "Gilbert ●" — and the right cluster is left to
+            actions. */}
+        <span
+          className="push-status"
+          role="img"
+          aria-label={pushTitle}
+          title={pushTitle}
+        >
+          <span className={`push-dot ${pushState}`} />
+        </span>
         <SearchBar />
         <div className="topbar-actions">
           {/* Chat comes first in the action cluster, with the phone entry
-              beside it and the push dot after them: ADR 0005. Rendered (or not)
-              by the launcher itself. */}
+              beside it: ADR 0005. Rendered (or not) by the launcher itself. */}
           <ChatLauncher />
           {/* The phone (ADR 0023): its own entry, its own state, and no
               presence at all where the installation or the account has none. */}
           <PhoneLauncher />
-          <span
-            className="push-status hide-mobile"
-            role="img"
-            aria-label={pushTitle}
-            title={pushTitle}
-          >
-            <span className={`push-dot ${pushState}`} />
-          </span>
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"

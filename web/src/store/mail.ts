@@ -354,12 +354,16 @@ export interface MailState {
   queryAllIds(): Promise<Id[]>;
   setAnchor(id: Id | null): void;
 
-  applyChanges(types: Set<string>): Promise<void>;
+  applyChanges(types: Set<string>, signal?: AbortSignal): Promise<void>;
   /**
    * Route one account's push change: the active account's own flow, or a group
    * mailbox's -- which refreshes its tree and announces the mail it received.
    */
-  applyAccountChanges(accountId: Id, types: Set<string>): Promise<void>;
+  applyAccountChanges(
+    accountId: Id,
+    types: Set<string>,
+    signal?: AbortSignal,
+  ): Promise<void>;
   importEml(
     blobId: Id,
     mailboxId: Id,
@@ -2241,9 +2245,13 @@ export const useMail = create<MailState>((set, get) => ({
     set({ anchorId: id });
   },
 
-  async applyChanges(types) {
+  async applyChanges(types, signal) {
     const accountId = get().accountId;
     if (!accountId) return;
+    // A pass aborted at the start is not worth a single request; one aborted
+    // mid-way stops before each further call, because `client.call` rejects an
+    // aborted signal without sending anything.
+    if (signal?.aborted) return;
     if (types.has("Mailbox")) void get().loadMailboxes();
     if (types.has("Email")) {
       const state = get().emailState;
@@ -2256,11 +2264,16 @@ export const useMail = create<MailState>((set, get) => ({
           const destroyed = new Set<Id>();
           // Page through Email/changes.
           while (guard++ < 10) {
-            const ch = await client.call<ChangesResponse>("Email/changes", {
-              accountId,
-              sinceState: since,
-              maxChanges: 500,
-            });
+            const ch = await client.call<ChangesResponse>(
+              "Email/changes",
+              {
+                accountId,
+                sinceState: since,
+                maxChanges: 500,
+              },
+              [],
+              signal,
+            );
             ch.created.forEach((id) => created.add(id));
             ch.updated.forEach((id) => updated.add(id));
             ch.destroyed.forEach((id) => destroyed.add(id));
@@ -2301,11 +2314,16 @@ export const useMail = create<MailState>((set, get) => ({
           if (cached.length) {
             const results = await Promise.all(
               chunk(cached, client.maxObjectsInGet).map((part) =>
-                client.call<GetResponse<Email>>("Email/get", {
-                  accountId,
-                  ids: part,
-                  properties: LIST_PROPS,
-                }),
+                client.call<GetResponse<Email>>(
+                  "Email/get",
+                  {
+                    accountId,
+                    ids: part,
+                    properties: LIST_PROPS,
+                  },
+                  [],
+                  signal,
+                ),
               ),
             );
             set((s) => {
@@ -2322,9 +2340,13 @@ export const useMail = create<MailState>((set, get) => ({
           }
         }
       }
+      // The list and the tree are next; an aborted pass leaves them to the
+      // pass that follows the reconnection rather than firing requests now.
+      if (signal?.aborted) return;
       void get().refreshList();
       void get().loadMailboxes();
     }
+    if (signal?.aborted) return;
     if (types.has("Thread") || types.has("Email")) {
       const open = get().openThreadId;
       if (open)
@@ -2351,8 +2373,9 @@ export const useMail = create<MailState>((set, get) => ({
     if (types.has("Quota")) void get().loadQuota();
   },
 
-  async applyAccountChanges(accountId, types) {
-    if (accountId === get().accountId) return get().applyChanges(types);
+  async applyAccountChanges(accountId, types, signal) {
+    if (signal?.aborted) return;
+    if (accountId === get().accountId) return get().applyChanges(types, signal);
     if (!get().mailAccounts.some((a) => a.accountId === accountId)) return;
     /*
      * A mailbox changed while the reader is elsewhere -- a group box under

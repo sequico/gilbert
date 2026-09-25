@@ -10,16 +10,16 @@ export type PushListener = (accountId: Id, type: string, newState: string) => vo
 export type PushState = "connected" | "connecting" | "disconnected";
 
 /**
- * The heartbeat of a down connection, in milliseconds.
+ * How long to wait before opening the stream again.
  *
- * One number for both halves of it: how long before the stream is opened
- * again, and how often the catch-up runs while it is down. Fixed at one second
- * rather than escalating — the failures that keep a tab off the stream (a
- * deploy, a proxy's idle timeout, a network that just came back) end in
- * seconds, and a heartbeat that never slows down reconnects the instant the
- * server does instead of waiting out a grown-backoff delay.
+ * Fixed at one second rather than escalating — the failures that keep a tab off
+ * the stream (a deploy, a proxy's idle timeout, a network that just came back)
+ * end in seconds, and a heartbeat that never slows down reconnects the instant
+ * the server does instead of waiting out a grown-backoff delay. The reachability
+ * probe behind each failed attempt rides the same cadence, which is what keeps a
+ * blocked stream's catch-up moving.
  */
-export const PUSH_RETRY_MS = 1000;
+const PUSH_RETRY_MS = 1000;
 
 /**
  * Everything a tab keeps live, offered to the dispatcher.
@@ -54,6 +54,15 @@ class PushManager {
   >();
   /** Called when the connection comes back after a drop, never on the first connect. */
   private reconnectListeners = new Set<() => void>();
+  /**
+   * Called after every reachability probe, not only when the answer changes.
+   *
+   * The stream retries every second while down, so a probe every second is what
+   * a network that blocks the stream leaves as the only "the server answers"
+   * signal — and it has to arrive every time, because the catch-up it triggers
+   * is single-flight and coalesces rather than piling up.
+   */
+  private reachabilityListeners = new Set<(reachable: boolean) => void>();
   /** Whether this connection has already asked the session a question. */
   private authChecked = false;
   /** Whether the current EventSource ever opened; see the error handler. */
@@ -102,6 +111,19 @@ class PushManager {
   }
 
   /**
+   * The answer of the reachability probe behind a failed attempt.
+   *
+   * `true` means a cheap route answered even though the stream did not open —
+   * the stream is blocked, not the line — so a surface that syncs over normal
+   * requests has a reason to run. `false` means nothing answered. Fired on
+   * every probe, not only on a change.
+   */
+  onReachability(fn: (reachable: boolean) => void): () => void {
+    this.reachabilityListeners.add(fn);
+    return () => this.reachabilityListeners.delete(fn);
+  }
+
+  /**
    * Fired once when a connection comes back after a drop.
    *
    * JMAP push only delivers changes that happen while the connection is up —
@@ -134,10 +156,17 @@ class PushManager {
   private async failureReason(): Promise<string> {
     try {
       await fetch(withBase("/api/health"), { cache: "no-store" });
+      this.emitReachability(true);
       return t("the server closed the live-updates stream");
     } catch {
+      this.emitReachability(false);
       return t("the server could not be reached");
     }
+  }
+
+  /** Tell every listener what the reachability probe just found. */
+  private emitReachability(reachable: boolean) {
+    for (const fn of this.reachabilityListeners) fn(reachable);
   }
 
   /*
@@ -173,6 +202,9 @@ class PushManager {
       this.wasOpen = true;
       this.authChecked = false;
       this.setState("connected");
+      // After the state, so a reachability listener does not read this as a
+      // blocked stream that still needs the probe-driven catch-up.
+      this.emitReachability(true);
       if (!this.everConnected) {
         this.everConnected = true;
         return;

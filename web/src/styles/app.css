@@ -1286,7 +1286,7 @@ a.menu-item:hover { color: var(--fg); }
  */
 .app { height: 100%; display: grid; grid-template-rows: var(--topbar-h) auto 1fr; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 .topbar { display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--bg); position: relative; z-index: 50; }
-.topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2em; letter-spacing: -.01em; color: var(--fg); text-decoration: none; padding-right: 8px; min-width: 0; }
+.topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2em; letter-spacing: -.01em; color: var(--fg); text-decoration: none; padding-right: 0; min-width: 0; }
 .topbar .brand img { width: 34px; height: 34px; object-fit: contain; }
 .topbar .brand .brand-name { color: #14b8a6; }
 .topbar .brand .brand-name span { color: var(--fg-muted); font-weight: 500; }
@@ -1300,10 +1300,11 @@ a.menu-item:hover { color: var(--fg); }
 .search-panel { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 16px; z-index: 60; animation: pop .12s var(--ease); }
 .search-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .topbar-actions { display: flex; align-items: center; gap: 4px; }
-/* Live-updates indicator. Three states, and a raised bead rather than a flat
-   speck: at 8px flat it was invisible against either theme. The gloss is a
-   highlight over a solid colour rather than a colour-mix, so it needs no
-   per-theme variant -- the same bead reads on light and dark alike. */
+/* Live-updates indicator, sitting with the brand as "Gilbert ●". Three states,
+   and a raised bead rather than a flat speck: at 8px flat it was invisible
+   against either theme. The gloss is a highlight over a solid colour rather
+   than a colour-mix, so it needs no per-theme variant -- the same bead reads on
+   light and dark alike. */
 .push-status { display: inline-flex; align-items: center; padding: 0 4px; }
 .push-dot {
   width: 12px;
@@ -2120,6 +2121,9 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   */
   .topbar { padding: env(safe-area-inset-top) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); gap: 4px; }
   .topbar .brand .brand-name { display: none; }
+  /* With the name hidden the bead would only crowd the search field; the
+     screen's own notifications still say what arrived. */
+  .topbar > .push-status { display: none; }
   /*
    * What the bar carries on a phone.
    *

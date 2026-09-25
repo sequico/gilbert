@@ -1,7 +1,7 @@
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
-import { catchUpLive, push, PUSH_RETRY_MS } from "@/jmap/push";
+import { catchUpLive, push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
@@ -26,7 +26,6 @@ import {
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
-import { pollWhileVisible } from "@/lib/visiblePoll";
 import {
   autoEnableWebPush,
   listenForVerification,
@@ -344,6 +343,47 @@ function AuthedApp() {
      */
     const pending = new Map<string, Set<string>>();
     let timer: number | null = null;
+    /*
+     * Hand one account's types to every store that draws them. The promises are
+     * returned so a cancellable pass can wait for its own heavy reads (mail and
+     * chat page through changes); the stores that only kick a single reload off
+     * are fire-and-forget and are skipped outright once the pass is aborted.
+     */
+    const dispatch = (
+      accountId: string,
+      types: Set<string>,
+      signal?: AbortSignal,
+    ): Promise<unknown>[] => {
+      if (signal?.aborted) return [];
+      const work: Promise<unknown>[] = [];
+      if (accountId === useMail.getState().accountId) {
+        work.push(useMail.getState().applyChanges(types, signal));
+      } else {
+        // A mailbox changed while the reader is elsewhere -- a group box under
+        // their own, or their own while they are inside a group. The store
+        // refreshes its tree and announces what it received, or ignores an
+        // account that is not one of the reader's mailboxes.
+        work.push(useMail.getState().applyAccountChanges(accountId, types, signal));
+      }
+      /*
+       * Shared data lives in an account that is not the reader's own, but these
+       * stores draw it beside their own: a change to a shared account has to
+       * reach them too. Each store routes the account — its own, or one whose
+       * shared cache it renders — and ignores the rest.
+       */
+      useContacts.getState().applyChanges(types, accountId);
+      useCalendar.getState().applyChanges(types, accountId);
+      if (accountId === useFiles.getState().accountId)
+        useFiles.getState().applyChanges(types);
+      if (accountId === useSieve.getState().accountId)
+        useSieve.getState().applyChanges(types);
+      // Chat is FileNode state on the group accounts (ADR 0005); the store
+      // ignores accounts it does not hold and events it does not need, so
+      // every FileNode change can be offered to it.
+      if (types.has("FileNode"))
+        work.push(useChat.getState().applyChanges(accountId, signal));
+      return work;
+    };
     const queue = (acct: string, type: string) => {
       const types = pending.get(acct) ?? new Set<string>();
       types.add(type);
@@ -351,74 +391,94 @@ function AuthedApp() {
       if (timer) return;
       timer = window.setTimeout(() => {
         timer = null;
-        for (const [a, types] of pending) {
-          if (a === useMail.getState().accountId) {
-            void useMail.getState().applyChanges(types);
-          } else {
-            // A mailbox changed while the reader is elsewhere -- a group box
-            // under their own, or their own while they are inside a group. The
-            // store refreshes its tree and announces what it received, or
-            // ignores an account that is not one of the reader's mailboxes.
-            void useMail.getState().applyAccountChanges(a, types);
-          }
-          /*
-           * Shared data lives in an account that is not the reader's own, but
-           * these stores draw it beside their own: a change to a shared
-           * account has to reach them too. Each store routes the account — its
-           * own, or one whose shared cache it renders — and ignores the rest.
-           */
-          useContacts.getState().applyChanges(types, a);
-          useCalendar.getState().applyChanges(types, a);
-          if (a === useFiles.getState().accountId)
-            useFiles.getState().applyChanges(types);
-          if (a === useSieve.getState().accountId)
-            useSieve.getState().applyChanges(types);
-          // Chat is FileNode state on the group accounts (ADR 0005); the
-          // store ignores accounts it does not hold and events it does not
-          // need, so every FileNode change can be offered to it.
-          if (types.has("FileNode")) void useChat.getState().applyChanges(a);
-        }
+        for (const [a, types] of pending) dispatch(a, types);
         pending.clear();
       }, RELOAD_DEBOUNCE_MS);
     };
     const unsub = push.subscribe((acct, type) => queue(acct, type));
     /*
-     * Catch-up when the push connection comes back after a drop — sleep, a
-     * wifi blip, a suspended tab. The poll below runs the same pass on the
-     * one-second heartbeat while the stream is down, so this closes the last
-     * fraction of a second between the final poll and the stream returning.
-     * Every account is caught up the way a StateChange for it would be —
-     * per-account changes from the store's last-known state, which is safe and
-     * idempotent whether or not the server replays anything on reconnect — and
-     * every live type goes to the dispatcher the live path uses, so no surface
-     * is left out of the gap. The first connect of a session is deliberately
-     * exempt: the initial load is happening right now.
+     * One catch-up pass, run from the two signals that say the server can be
+     * reached: the live stream coming back after a drop, and the reachability
+     * probe behind each failed attempt — which is all a network that blocks the
+     * stream leaves. The pass is the same `catchUpLive` over the same account
+     * set the live path uses, so it cannot cover less than the live path does,
+     * and it is idempotent from each store's last-known state.
+     *
+     * It is single-flight and cancellable. One pass runs at a time and a signal
+     * arriving meanwhile is coalesced into a single re-run; when the connection
+     * leaves "connected" the pass in flight is aborted — through the signal
+     * every call in it carries — so a line that drops mid-sync neither leaves
+     * requests running against nothing nor stacks a second pass on top.
      */
-    const unsubReconnect = push.onReconnect(() => {
+    let catchUpAbort: AbortController | null = null;
+    let catchUpRunning = false;
+    let catchUpWanted = false;
+    const runCatchUp = async (signal: AbortSignal) => {
+      const byAccount = new Map<string, Set<string>>();
       const mail = useMail.getState();
-      catchUpLive(liveMailAccountIds(mail.accountId, mail.mailAccounts), queue);
+      catchUpLive(
+        liveMailAccountIds(mail.accountId, mail.mailAccounts),
+        (accountId, type) => {
+          const types = byAccount.get(accountId) ?? new Set<string>();
+          types.add(type);
+          byAccount.set(accountId, types);
+        },
+      );
+      const work: Promise<unknown>[] = [];
+      for (const [accountId, types] of byAccount)
+        work.push(...dispatch(accountId, types, signal));
+      await Promise.allSettled(work);
+    };
+    const startCatchUp = () => {
+      if (catchUpRunning) {
+        catchUpWanted = true;
+        return;
+      }
+      catchUpRunning = true;
+      catchUpWanted = false;
+      const controller = new AbortController();
+      catchUpAbort = controller;
+      void runCatchUp(controller.signal).finally(() => {
+        catchUpRunning = false;
+        if (catchUpAbort === controller) catchUpAbort = null;
+        if (catchUpWanted && !controller.signal.aborted) startCatchUp();
+      });
+    };
+    const stopCatchUp = () => {
+      catchUpWanted = false;
+      catchUpAbort?.abort();
+    };
+    // The stream returning after a drop is the reconnect catch-up; leaving
+    // "connected" aborts whatever pass is in flight. The first connect of a
+    // session is deliberately exempt (see `onReconnect`): the initial load is
+    // happening right then.
+    const unsubReconnect = push.onReconnect(startCatchUp);
+    const unsubConn = push.onConnection((state) => {
+      if (state !== "connected") stopCatchUp();
     });
+    const unsubReach = push.onReachability((reachable) => {
+      // Only the blocked-stream case needs this: while the stream is up it is
+      // the catch-up trigger, and on a down line nothing is reachable.
+      if (!reachable) stopCatchUp();
+      else if (!push.connected) startCatchUp();
+    });
+    // The browser knows a line dropped before the stream's error does; a pass
+    // already in flight is stopped at once.
+    const onOffline = () => stopCatchUp();
+    window.addEventListener("offline", onOffline);
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();
       // A session refresh can add or drop group mailboxes; rediscover them.
       void useMail.getState().discoverMailAccounts();
     });
-    /*
-     * While the stream is down, the same catch-up runs on the same one-second
-     * heartbeat that reopens it: one definition (`catchUpLive`), one cadence
-     * (`PUSH_RETRY_MS`), so the poll cannot cover less than the live path does
-     * or drift from it the way a hand-picked pair of stores did.
-     */
-    const stopPoll = pollWhileVisible(() => {
-      if (push.connected) return;
-      const mail = useMail.getState();
-      catchUpLive(liveMailAccountIds(mail.accountId, mail.mailAccounts), queue);
-    }, PUSH_RETRY_MS);
     return () => {
       unsub();
       unsubReconnect();
+      unsubConn();
+      unsubReach();
       unsubState();
-      stopPoll();
+      window.removeEventListener("offline", onOffline);
+      stopCatchUp();
       push.stop();
     };
   }, [accountId]);
