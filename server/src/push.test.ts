@@ -902,7 +902,7 @@ test("every surface that subscribes also catches up after a reconnect", () => {
     if (!source.includes("push.subscribe(")) continue;
     subscribed.push(file);
     assert.ok(
-      source.includes("push.onReconnect(") || source.includes("catchUpAfterReconnect("),
+      source.includes("push.onReconnect(") || source.includes("catchUpLive("),
       `${file} subscribes to the push rail and never catches up after a reconnect`,
     );
   }

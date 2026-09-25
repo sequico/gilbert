@@ -170,6 +170,26 @@ export function groupMailboxAccounts(
 }
 
 /**
+ * Every account a full catch-up has to reach: the one on screen plus every
+ * mailbox the session holds, the reader's own and each group's.
+ *
+ * Used by both triggers of the live catch-up — the reconnect after a drop and
+ * the poll while the stream is down — so the two cannot name different
+ * accounts. `mailAccounts` already carries the reader's own and the groups, so
+ * the active account is added only for the window in which a tree is open
+ * before discovery has refreshed the list.
+ */
+export function liveMailAccountIds(
+  activeAccountId: string | null,
+  accounts: ReadonlyArray<MailAccountInfo>,
+): Set<string> {
+  const ids = new Set<string>();
+  if (activeAccountId) ids.add(activeAccountId);
+  for (const a of accounts) ids.add(a.accountId);
+  return ids;
+}
+
+/**
  * Whether this account is a group mailbox.
  *
  * **The one classifier**, read by every surface that has to know: an account

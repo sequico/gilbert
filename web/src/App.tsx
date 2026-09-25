@@ -1,13 +1,13 @@
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
-import { catchUpAfterReconnect, push } from "@/jmap/push";
+import { catchUpLive, push, PUSH_RETRY_MS } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { liveMailAccountIds } from "@/lib/mailAccounts";
 import {
   notificationAskDue,
   rememberNotificationAsk,
@@ -26,6 +26,7 @@ import {
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
+import { pollWhileVisible } from "@/lib/visiblePoll";
 import {
   autoEnableWebPush,
   listenForVerification,
@@ -383,44 +384,41 @@ function AuthedApp() {
     const unsub = push.subscribe((acct, type) => queue(acct, type));
     /*
      * Catch-up when the push connection comes back after a drop — sleep, a
-     * wifi blip, a suspended tab. Push delivered nothing while it was down,
-     * and the poll below only runs while it is down, so the moment the
-     * connection returns is the one moment left to fetch what happened in the
-     * gap; without this the lists and the badge stay stale until an unrelated
-     * event arrives. Every account is caught up the way a StateChange for it
-     * would be — per-account changes from the store's last-known state, which
-     * is safe and idempotent whether or not the server replays anything on
-     * reconnect — and every live type goes to the dispatcher the live path
-     * uses, so no surface is left out of the gap. The first connect of a
-     * session is deliberately exempt: the initial load is happening right now.
+     * wifi blip, a suspended tab. The poll below runs the same pass on the
+     * one-second heartbeat while the stream is down, so this closes the last
+     * fraction of a second between the final poll and the stream returning.
+     * Every account is caught up the way a StateChange for it would be —
+     * per-account changes from the store's last-known state, which is safe and
+     * idempotent whether or not the server replays anything on reconnect — and
+     * every live type goes to the dispatcher the live path uses, so no surface
+     * is left out of the gap. The first connect of a session is deliberately
+     * exempt: the initial load is happening right now.
      */
     const unsubReconnect = push.onReconnect(() => {
       const mail = useMail.getState();
-      const accounts = new Set<string>();
-      if (mail.accountId) accounts.add(mail.accountId);
-      for (const a of mail.mailAccounts) accounts.add(a.accountId);
-      // A group mailbox is reached through the account that owns it.
-      for (const a of groupMailboxAccounts(mail.mailAccounts)) accounts.add(a.accountId);
-      catchUpAfterReconnect(accounts, queue);
+      catchUpLive(liveMailAccountIds(mail.accountId, mail.mailAccounts), queue);
     });
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();
       // A session refresh can add or drop group mailboxes; rediscover them.
       void useMail.getState().discoverMailAccounts();
     });
-    // Poll fallback when push is disconnected (every 2 minutes)
-    const poll = window.setInterval(() => {
-      if (!push.connected && document.visibilityState === "visible") {
-        void useMail.getState().applyChanges(new Set(["Email", "Mailbox"]));
-        for (const a of groupMailboxAccounts(useMail.getState().mailAccounts))
-          void useChat.getState().applyChanges(a.accountId);
-      }
-    }, 120_000);
+    /*
+     * While the stream is down, the same catch-up runs on the same one-second
+     * heartbeat that reopens it: one definition (`catchUpLive`), one cadence
+     * (`PUSH_RETRY_MS`), so the poll cannot cover less than the live path does
+     * or drift from it the way a hand-picked pair of stores did.
+     */
+    const stopPoll = pollWhileVisible(() => {
+      if (push.connected) return;
+      const mail = useMail.getState();
+      catchUpLive(liveMailAccountIds(mail.accountId, mail.mailAccounts), queue);
+    }, PUSH_RETRY_MS);
     return () => {
       unsub();
       unsubReconnect();
       unsubState();
-      window.clearInterval(poll);
+      stopPoll();
       push.stop();
     };
   }, [accountId]);

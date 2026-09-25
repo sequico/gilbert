@@ -10,24 +10,30 @@ export type PushListener = (accountId: Id, type: string, newState: string) => vo
 export type PushState = "connected" | "connecting" | "disconnected";
 
 /**
- * The longest pause between retries. Short, because the failures that keep a
- * tab off the stream — a deploy, a proxy's idle timeout — end in seconds, and a
- * minute of yellow reads as the app being broken when it is one retry away.
+ * The heartbeat of a down connection, in milliseconds.
+ *
+ * One number for both halves of it: how long before the stream is opened
+ * again, and how often the catch-up runs while it is down. Fixed at one second
+ * rather than escalating — the failures that keep a tab off the stream (a
+ * deploy, a proxy's idle timeout, a network that just came back) end in
+ * seconds, and a heartbeat that never slows down reconnects the instant the
+ * server does instead of waiting out a grown-backoff delay.
  */
-const MAX_BACKOFF_MS = 15_000;
+export const PUSH_RETRY_MS = 1000;
 
 /**
- * Everything a tab keeps live, offered to the dispatcher after a reconnect.
+ * Everything a tab keeps live, offered to the dispatcher.
  *
- * Push plays nothing back to a client that was away — asleep, offline, or
- * behind a connection that dropped — so a tab that comes back has to ask for
- * everything it shows, and the moment the connection returns is the only
- * moment left to fetch the gap. The types come from the list the subscription
- * itself is built from (`PUSH_STATE_TYPES`), never from a hand-picked few: a
- * surface left out here stays stale for as long as the connection looks
- * healthy, which is the one failure nobody notices.
+ * The one definition for both triggers of the live catch-up: the moment the
+ * stream returns after a drop, and every tick of the poll that runs while it
+ * is down. Push plays nothing back to a client that was away — asleep,
+ * offline, or behind a connection that dropped — so a tab has to ask for
+ * everything it shows. The types come from the list the subscription itself is
+ * built from (`PUSH_STATE_TYPES`), never from a hand-picked few: a surface left
+ * out here stays stale for as long as the connection looks healthy, which is
+ * the one failure nobody notices.
  */
-export function catchUpAfterReconnect(
+export function catchUpLive(
   accountIds: Iterable<Id>,
   queue: (accountId: Id, type: string) => void,
 ): void {
@@ -48,7 +54,6 @@ class PushManager {
   >();
   /** Called when the connection comes back after a drop, never on the first connect. */
   private reconnectListeners = new Set<() => void>();
-  private backoff = 1000;
   /** Whether this connection has already asked the session a question. */
   private authChecked = false;
   /** Whether the current EventSource ever opened; see the error handler. */
@@ -61,7 +66,7 @@ class PushManager {
   connected = false;
   /**
    * Finer than `connected`, which cannot tell "trying" from "given up".
-   * "connecting" covers the first attempt and every backoff retry.
+   * "connecting" covers the first attempt and every retry.
    */
   state: PushState = "disconnected";
   /** Why the stream is not connected, when it is not: the dot says it on hover. */
@@ -137,9 +142,9 @@ class PushManager {
 
   /*
    * The network is back (a wake from sleep, a tab made visible again, a
-   * network change): waiting out an accumulated backoff would make a healthy
+   * network change): waiting out the retry timer would make a healthy
    * connection look dead, so the timer is dropped and the next attempt is
-   * immediate from the 1 s base.
+   * immediate.
    */
   private retryNow() {
     if (this.stopped || this.es) return;
@@ -147,7 +152,6 @@ class PushManager {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.backoff = 1000;
     this.connect();
   }
 
@@ -168,7 +172,6 @@ class PushManager {
     es.onopen = () => {
       this.wasOpen = true;
       this.authChecked = false;
-      this.backoff = 1000;
       this.setState("connected");
       if (!this.everConnected) {
         this.everConnected = true;
@@ -198,10 +201,8 @@ class PushManager {
       /* keepalive */
     });
     es.onerror = () => {
-      // An error on a stream that had opened is most likely a server-side
-      // close (a deploy, a timeout): those are not the outage exponential
-      // backoff exists for, so the next attempt starts from the 1 s base.
-      // Failures while still trying to connect keep doubling, capped at 60 s.
+      // A drop and a first-attempt failure are the same thing here: close and
+      // retry on a fixed one-second heartbeat, for as long as the tab is open.
       const opened = this.wasOpen;
       this.wasOpen = false;
       es.close();
@@ -210,7 +211,6 @@ class PushManager {
         this.setState("disconnected");
         return;
       }
-      if (opened) this.backoff = 1000;
       /*
        * A session that ended while a tab sat open leaves the stream failing for
        * ever: the browser sees a connection error, never a 401, so the tab sits
@@ -224,19 +224,14 @@ class PushManager {
         void apiFetch("/api/config").catch(() => undefined);
       }
       // A retry is already scheduled below, so this is "trying", not "given up".
-      // The ceiling is short on purpose: a stream that dropped while the server
-      // is healthy — a deploy, a proxy's idle timeout — is back within seconds,
-      // not the minute a 60 s cap left the dot yellow.
       this.setState("connecting");
       void this.failureReason().then((why) => {
         if (!this.stopped && this.state !== "connected") this.setState("connecting", why);
       });
-      const delay = Math.min(this.backoff, MAX_BACKOFF_MS);
-      this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);
       this.reconnectTimer = window.setTimeout(() => {
         this.reconnectTimer = null;
         this.connect();
-      }, delay);
+      }, PUSH_RETRY_MS);
     };
   }
 }

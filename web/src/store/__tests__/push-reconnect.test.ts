@@ -1,14 +1,14 @@
 import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { catchUpAfterReconnect, push } from "@/jmap/push";
+import { catchUpLive, push } from "@/jmap/push";
 
 /**
  * The reconnect contract behind the app's catch-up.
  *
  * jsdom has no EventSource, so the connection is faked: each `connect()`
  * creates an instance, and a test drives it — `open()` for the browser's
- * onopen, `fail()` for the drop that sends EventSource into its backoff
- * retry. What is pinned: onReconnect fires only when a connection comes back
+ * onopen, `fail()` for the drop that schedules the fixed one-second retry.
+ * What is pinned: onReconnect fires only when a connection comes back
  * after a drop, never on the first connect of a session (the initial load is
  * happening then, and firing would double it), and a `stop()`/`start()` pair
  * — what an account switch does — starts a fresh session rather than being
@@ -80,7 +80,7 @@ describe("push reconnect", () => {
     latest().open();
     latest().fail();
     expect(push.state).toBe("connecting");
-    // The first retry waits one second of backoff, then reconnects.
+    // The retry waits the fixed one second, then reconnects.
     await vi.advanceTimersByTimeAsync(1000);
     expect(FakeEventSource.instances).toHaveLength(2);
     latest().open();
@@ -98,7 +98,7 @@ describe("push reconnect", () => {
     await vi.advanceTimersByTimeAsync(1000);
     latest().open();
     expect(fn).toHaveBeenCalledTimes(1);
-    // The second drop waits the doubled backoff before reconnecting.
+    // The second drop waits the same fixed second before reconnecting.
     latest().fail();
     await vi.advanceTimersByTimeAsync(2000);
     expect(FakeEventSource.instances).toHaveLength(3);
@@ -139,7 +139,7 @@ describe("push reconnect catch-up", () => {
   it("asks every account for every live type, not a hand-picked few", () => {
     const queued = new Map<string, string[]>();
     const accounts = ["me@example.com", "group@example.com"];
-    catchUpAfterReconnect(accounts, (accountId, type) => {
+    catchUpLive(accounts, (accountId, type) => {
       queued.set(accountId, [...(queued.get(accountId) ?? []), type]);
     });
 

@@ -2311,10 +2311,13 @@ needed nothing in either half.
   never holds credentials. State changes arrive per type, and each store
   refreshes only what changed.
 - **Polling behind it** for networks that cut long-lived connections, and
-  reconnection with backoff, capped short so a drop comes back in seconds. The
-  header shows which of the three states it is in — connected, reconnecting, or
-  off and polling — and the reconnecting dot says on hover whether the server
-  answered at all (it closed the stream) or could not be reached.
+  reconnection on a fixed one-second heartbeat for as long as the tab is open.
+  While the stream is down, the same catch-up that runs on reconnect runs every
+  second — one definition, so the fallback cannot cover less than the live path
+  does. The header shows which of the three states it is in — connected,
+  reconnecting, or off and polling — and the reconnecting dot says on hover
+  whether the server answered at all (it closed the stream) or could not be
+  reached.
 - **Unread count in the tab title and painted onto the favicon**, so the tab
   tells you before you look.
 - **Desktop notifications** for new mail and new chat messages while Gilbert is
