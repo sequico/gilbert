@@ -4,14 +4,14 @@
  *
  * The installation's own agent, the one model it runs on, the rules that hold
  * everywhere, and the groups it has been granted — configured once, and rarely
- * returned to. Everything that is a fact about *one* group (its automations,
- * its standing instruction, its policy, its memory, what it has done, the
- * agents serving it) lives in Group Agents instead; what is waiting across
- * every group lives in Approvals. This page answers four short questions in the
- * order a person asks them — is there an agent and how does it sign in, which
- * model serves it, what does it hold true everywhere, which groups does it work
- * in — as one page rather than tabs, because each answer is now short enough to
- * read at a glance.
+ * returned to. The four answers are four tabs, in the order a person asks them:
+ * **Identity** (is there an agent, and how does it sign in), **Model** (which
+ * model serves it), **Rules** (what does it hold true everywhere), **Groups**
+ * (which groups does it work in). The tab strip is a nav; each panel's own
+ * heading says the full name. Everything that is a fact about *one* group (its
+ * automations, its standing instruction, its policy, its memory, what it has
+ * done, the agents serving it) lives in Group Agents instead; what is waiting
+ * across every group lives in Approvals.
  *
  * Nothing here grants anything, and nothing here names the agent. The
  * deployment names it in the environment it starts with, and a group's
@@ -21,7 +21,7 @@
  * record of its own to fall out of step.
  */
 import { ArrowRight, Bot } from "lucide-react";
-import { useEffect } from "react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import { Link } from "wouter";
 import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
@@ -40,12 +40,30 @@ import { ProsePanel } from "./agent/ProsePanel";
  */
 const STATUS_POLL_MS = 30_000;
 
+/**
+ * The four answers this section gives, as tabs.
+ *
+ * The order is the order a person asks them (ADR 0003): whether the agent
+ * exists and how it signs in, which model serves it, what it holds true
+ * everywhere, and which groups it works in. Each panel repeats its tab's name
+ * as its heading — the full name the short strip is a nav to.
+ */
+const MASTER_PARTS = [
+  { id: "identity", label: "Identity" },
+  { id: "model", label: "Model" },
+  { id: "rules", label: "Rules" },
+  { id: "groups", label: "Groups" },
+] as const;
+
+type MasterPart = (typeof MASTER_PARTS)[number]["id"];
+
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
   // This section's own read: a save refused in another panel is that panel's
   // to report, and it has its own line here.
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
+  const [part, setPart] = useState<MasterPart>("identity");
 
   useEffect(() => {
     void loadStatus();
@@ -58,6 +76,22 @@ export function AdminAgents() {
      */
     return pollWhileVisible(() => void loadStatus(), STATUS_POLL_MS);
   }, [loadStatus]);
+
+  /*
+   * Arrow-key movement across the tab strip, the way the tab ARIA pattern asks
+   * for: the strip is one stop in the tab order and the arrows move between the
+   * tabs, instead of every tab being its own stop.
+   */
+  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const at = MASTER_PARTS.findIndex((entry) => entry.id === part);
+    const next = MASTER_PARTS[(at + step + MASTER_PARTS.length) % MASTER_PARTS.length];
+    if (!next) return;
+    setPart(next.id);
+    document.getElementById(`master-tab-${next.id}`)?.focus();
+  };
 
   return (
     <div>
@@ -76,28 +110,56 @@ export function AdminAgents() {
         </div>
       )}
 
-      <Identity status={status} />
-      <section style={{ marginTop: 28 }}>
-        <AgentProviders />
-      </section>
-      <section style={{ marginTop: 28 }}>
-        <ProsePanel
-          scope=""
-          heading={t("Rules")}
-          lead={t(
-            "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.",
-          )}
-          label={t("How this installation's agent works")}
-          placeholder={t(
-            "Always answer in the language the message was written in, and never send anything outside the group without a person.",
-          )}
-          readingAbout={t("the installation's own rules")}
-          canRead={false}
-        />
-      </section>
-      <section style={{ marginTop: 28 }}>
-        <Groups status={status} />
-      </section>
+      <div
+        className="segmented agent-tabs"
+        role="tablist"
+        aria-label={t("Master sections")}
+        onKeyDown={onTabKey}
+      >
+        {MASTER_PARTS.map((entry) => (
+          <button
+            key={entry.id}
+            id={`master-tab-${entry.id}`}
+            type="button"
+            role="tab"
+            aria-selected={part === entry.id}
+            // One shared panel, so only the selected tab names it: a reference
+            // from an inactive tab would point at a panel that is not its own.
+            aria-controls={part === entry.id ? "master-tabpanel" : undefined}
+            tabIndex={part === entry.id ? 0 : -1}
+            className={part === entry.id ? "active" : ""}
+            onClick={() => setPart(entry.id)}
+          >
+            {t(entry.label)}
+          </button>
+        ))}
+      </div>
+      <div
+        role="tabpanel"
+        id="master-tabpanel"
+        aria-labelledby={`master-tab-${part}`}
+        tabIndex={-1}
+        style={{ marginTop: 20 }}
+      >
+        {part === "identity" && <Identity status={status} />}
+        {part === "model" && <AgentProviders />}
+        {part === "rules" && (
+          <ProsePanel
+            scope=""
+            heading={t("Rules")}
+            lead={t(
+              "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.",
+            )}
+            label={t("How this installation's agent works")}
+            placeholder={t(
+              "Always answer in the language the message was written in, and never send anything outside the group without a person.",
+            )}
+            readingAbout={t("the installation's own rules")}
+            canRead={false}
+          />
+        )}
+        {part === "groups" && <Groups status={status} />}
+      </div>
     </div>
   );
 }
