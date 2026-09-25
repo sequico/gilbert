@@ -135,6 +135,16 @@ describe("applying a settings file", () => {
     const applied = acceptRemote({ conversationMode: false, markReadDelay: 0 });
     expect(applied).toEqual({ conversationMode: false, markReadDelay: 0 });
   });
+
+  it("reads an undo window it no longer offers as the default", () => {
+    // 8 was an offered window in an older build; a file carrying it must not
+    // leave the settings control with a value it has no option for, while an
+    // offered value is kept exactly.
+    expect(acceptRemote({ undoSendSeconds: 8 })).toEqual({
+      undoSendSeconds: DEFAULT_SETTINGS.undoSendSeconds,
+    });
+    expect(acceptRemote({ undoSendSeconds: 5 })).toEqual({ undoSendSeconds: 5 });
+  });
 });
 
 describe("the client's own folder", () => {

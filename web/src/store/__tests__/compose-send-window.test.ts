@@ -3,6 +3,7 @@ import { client } from "@/jmap/client";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { toast } from "@/ui/toast";
 
 /**
  * What a Send in the undo window is aimed at.
@@ -123,5 +124,27 @@ describe("the identity a send was pressed under", () => {
     const create = (submission?.[1].create as { s?: { identityId?: string } } | undefined)
       ?.s;
     expect(create?.identityId).toBe("i1");
+  });
+});
+
+describe("the undo a send offers", () => {
+  it("names the mail, and addresses the undo by its key", async () => {
+    const show = vi.spyOn(toast, "show").mockReturnValue(1);
+    const key = openDraft();
+    await useCompose.getState().send(key);
+
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show.mock.calls[0]![0]).toContain("Hi");
+    const action = show.mock.calls[0]![1]!.action!;
+
+    // The reader starts another draft while the send is in flight; taking the
+    // first back restores it to the drafts without pulling them out of it.
+    const other = useCompose.getState().open({ subject: "Other" });
+    void action.onClick();
+    const s = useCompose.getState();
+    expect(s.drafts.some((d) => d.key === key)).toBe(true);
+    expect(s.activeKey).toBe(other);
+
+    show.mockRestore();
   });
 });

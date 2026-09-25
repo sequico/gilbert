@@ -4,11 +4,7 @@ import { domainOf } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useMail } from "@/store/mail";
-import {
-  type ReadReceiptPolicy,
-  UNDO_SEND_OPTIONS,
-  useSettings,
-} from "@/store/settings";
+import { type ReadReceiptPolicy, UNDO_SEND_OPTIONS, useSettings } from "@/store/settings";
 import { Switch } from "@/ui/misc";
 
 /**

@@ -112,7 +112,10 @@ export const ENTRIES: Record<string, KeyEntry> = {
     example: false,
   },
   sendAndArchive: { desc: t("Send and archive in one action."), example: false },
-  undoSendSeconds: { desc: t("How long Send is undoable, in seconds."), example: 10 },
+  undoSendSeconds: {
+    desc: t("How long Send is undoable, in seconds."),
+    example: DEFAULT_SETTINGS.undoSendSeconds,
+  },
   spellcheck: { desc: t("Spellcheck the composer."), example: true },
   templates: { desc: t("Compose templates the account saved."), example: [] },
 

@@ -1590,7 +1590,6 @@ export const catalog: Catalog = {
 
     "Sending…": "Invio…",
 
-
     "Sending “{subject}”": "Invio di «{subject}»",
     "Saving…": "Salvataggio…",
     Error: "Errore",

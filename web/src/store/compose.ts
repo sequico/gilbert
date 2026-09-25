@@ -1086,9 +1086,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
      */
     const subject = d.subject.trim();
     const toastId = toast.show(
-      subject
-        ? translate("Sending “{subject}”", { subject })
-        : translate("Sending…"),
+      subject ? translate("Sending “{subject}”", { subject }) : translate("Sending…"),
       {
         duration: delay * 1000,
         progress: true,
