@@ -64,6 +64,11 @@ single seat and the administration are in place. Global contacts is built.
     vocabulary (`.tab`, `.nav-section`, `.input`, the theme tokens): no bespoke
     controls, and the two panes read the same contact sources so a number dialled
     resolves back to the same person.
+12. **The bridge host resolves mDNS.** With no STUN the browser's own host
+    candidates are the media path, and Chrome obfuscates them as random
+    `<uuid>.local` names; the installer installs `avahi-daemon` and
+    `libnss-mdns` and points `nsswitch.conf` at them, so Janus adds the
+    browser's candidates instead of leaving ICE to peer-reflexive discovery.
 
 ## The directory (ADR 0024) — the invariants
 

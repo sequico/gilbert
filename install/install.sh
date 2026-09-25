@@ -100,6 +100,42 @@ say() { printf '==> %s\n' "$*"; }
 warn() { printf '!! %s\n' "$*" >&2; }
 die() { printf '!! %s\n' "$*" >&2; exit 1; }
 
+# Make the browser's host candidates resolvable (ADR 0023).
+#
+# There is no STUN: the browser's own host candidates are the media path, and
+# Chrome obfuscates them as random `<uuid>.local` names. Janus resolves those
+# through the system resolver, so with no mDNS resolution it adds none of the
+# browser's candidates and leaves ICE to peer-reflexive discovery — which works
+# on some networks and not others, the phone failing intermittently. `nss-mdns`
+# over avahi is what makes the names resolve. Best effort: a host that cannot
+# have it still runs a phone, just a less reliable one, so this warns rather
+# than failing the install.
+ensure_mdns_resolution() {
+  if [ -f /etc/nsswitch.conf ] && grep -qE '^hosts:.*[[:space:]]mdns' /etc/nsswitch.conf; then
+    return 0
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    if ! apt-get install -y --no-install-recommends avahi-daemon libnss-mdns >/dev/null 2>&1; then
+      warn "could not install avahi-daemon/libnss-mdns: the bridge may not resolve the browser's mDNS host candidates, and ICE may fall back to peer-reflexive discovery"
+      return 0
+    fi
+  else
+    warn "no apt-get to install avahi-daemon/libnss-mdns: the bridge may not resolve the browser's mDNS host candidates"
+    return 0
+  fi
+  if [ -f /etc/nsswitch.conf ] && ! grep -qE '^hosts:.*[[:space:]]mdns' /etc/nsswitch.conf; then
+    if grep -qE '^hosts:[[:space:]]+files([[:space:]]|$)' /etc/nsswitch.conf; then
+      sed -i -E 's/^(hosts:[[:space:]]+files[[:space:]]+)/\1mdns4_minimal [NOTFOUND=return] /' /etc/nsswitch.conf \
+        || warn "could not point /etc/nsswitch.conf at mdns4_minimal"
+    else
+      sed -i -E 's/^(hosts:[[:space:]]+)/\1mdns4_minimal [NOTFOUND=return] /' /etc/nsswitch.conf \
+        || warn "could not point /etc/nsswitch.conf at mdns4_minimal"
+    fi
+  fi
+  systemctl enable --now avahi-daemon.service >/dev/null 2>&1 \
+    || warn "could not start avahi-daemon: the bridge may not resolve the browser's mDNS host candidates"
+}
+
 [ "$(id -u)" -eq 0 ] || die "run this as root (or with sudo)."
 command -v node >/dev/null || die "Node is not installed. Gilbert needs the LTS line (24); install it first (see INSTALL.md)."
 command -v npm >/dev/null || die "npm is not installed."
@@ -215,6 +251,9 @@ if [ "$BRIDGE_OK" = "1" ]; then
      "$APP/deploy/janus/janus.plugin.sip.jcfg" \
      "$APP/deploy/janus/janus.plugin.echotest.jcfg" \
      "$JANUS_ETC/"
+  # The bridge is useless without the browser's media addresses, and those
+  # arrive as mDNS names.
+  ensure_mdns_resolution
 fi
 
 # --- the services ------------------------------------------------------------

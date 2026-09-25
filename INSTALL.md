@@ -95,6 +95,13 @@ inbound is the bridge's media range, **UDP 10000-10200** (the value in
 ufw allow 10000:10200/udp     # and the same in any cloud firewall
 ```
 
+There is no STUN, so the browser's own media addresses are the path the bridge
+carries — and Chrome obfuscates them as random `<uuid>.local` names. The
+installer installs `avahi-daemon` and `libnss-mdns` and points
+`/etc/nsswitch.conf` at them, so Janus can resolve those names; a host where
+they could not be installed still runs a phone, but one that has to fall back
+on peer-reflexive ICE and can fail on some networks.
+
 ## With or without the phone
 
 - **With the phone.** Open the media range above and set each person's SIP
@@ -129,6 +136,11 @@ the first call.
 - **No phone for one person only.** That identity has no SIP account yet.
 - **It rings but there is no audio.** The leg to the provider: check the SIP
   account, and that the provider is reachable from the host over SIP (outbound).
+- **A call connects but has no audio, or ICE is flaky on some networks.** The
+  bridge could not resolve the browser's `.local` mDNS candidates. Check
+  `systemctl status avahi-daemon` and that `/etc/nsswitch.conf`'s `hosts:` line
+  carries `mdns4_minimal`; the installer arranges both. Janus falls back on
+  peer-reflexive ICE, which is not always enough.
 - **`gilbert.service` is enabled but stopped.** `/etc/gilbert.env` has no
   `STALWART_URL`; set it and `sudo systemctl start gilbert.service`.
 
