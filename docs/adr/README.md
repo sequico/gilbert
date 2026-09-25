@@ -231,9 +231,9 @@ is, not what a user sees.
   seated by a **Web Lock** so every other tab shows no phone and the next waiting
   tab takes the seat and registers when the holder goes; the registration is the
   tab's, and the provider's own routing takes a call while none holds it. Audio
-  only, G.711 passed through without transcoding, DTMF over RFC 2833, TLS to the
-  provider, no STUN/TURN; the media range is the only inbound port and the SIP
-  leg is outbound. A second call is refused 486 by the plugin. Each person's
+  only, G.711 passed through without transcoding, DTMF over RFC 2833, SIP over
+  UDP to the provider, no STUN/TURN; the media range is the only inbound port and
+  the SIP leg is outbound. A second call is refused 486 by the plugin. Each person's
   server, user name and password are account data, set in **Identities and SIP
   Phone** in the identity-enforcement surface and kept in the account's own
   `sip.json`; there is no installation-level phone configuration and no SIP Phone

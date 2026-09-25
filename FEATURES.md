@@ -874,7 +874,8 @@ is the reference.
   its phase (calling, ringing, connected, busy, no route, …) so a call that
   never lands says why.
 - **Audio only, and the same for everyone.** G.711 passed through without
-  transcoding, on one TLS transport to the provider, with no STUN/TURN. The
+  transcoding, over the provider's own SIP transport (UDP/5060 as built; not
+  TLS), with no STUN/TURN. The
   deployment's firewall must leave the bridge's **UDP media range open
   inbound** — it is the only port a deployment opens — while the SIP leg to the
   provider is outbound, so 5060/5061 are never opened. What cannot be recovered

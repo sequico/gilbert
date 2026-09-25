@@ -77,15 +77,20 @@ an inbound call. Gilbert keeps no registration of its own.
 Audio only, **G.711 (PCMU/PCMA)** negotiated end to end and **passed through
 without transcoding**. **DTMF is RFC 2833**: the browser's own `RTCDTMFSender`
 inserts the telephone-event RTP into the stream, and Janus relays it. The leg to
-the provider runs over **TLS**. There is **no STUN/TURN**: the bridge is on a
+the provider runs over the transport the provider's own record names — **SIP
+over UDP/5060** as built, and **not TLS**: Janus's SIP plugin does not reliably
+establish a TLS transport and the provider's certificate is not publicly
+trusted, so forcing it would fail the registration rather than secure it. The
+leg is outbound either way. There is **no STUN/TURN**: the bridge is on a
 public IP and is the browser's ICE peer. Because the browser's own host
 candidates are the media path, the bridge must resolve them, and Chrome
-obfuscates them as random `<uuid>.local` mDNS names — the installer installs
-`avahi-daemon` and `libnss-mdns` and points `nsswitch.conf` at them, since a
-Janus that cannot resolve those names adds none of the browser's candidates and
-leaves ICE to peer-reflexive discovery. The media range is the **only** port a
-deployment opens inbound — the SIP leg to the provider is outbound, so
-5060/5061 are never opened.
+obfuscates them as random `<uuid>.local` mDNS names — the **host installer**
+installs `avahi-daemon` and `libnss-mdns` and points `nsswitch.conf` at them,
+since a Janus that cannot resolve those names adds none of the browser's
+candidates and leaves ICE to peer-reflexive discovery; the container image runs
+unprivileged and read-only and so cannot, and keeps that fallback. The media
+range is the **only** port a deployment opens inbound — the SIP leg to the
+provider is outbound, so 5060/5061 are never opened.
 
 ### A second call
 

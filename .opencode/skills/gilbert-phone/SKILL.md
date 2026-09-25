@@ -35,9 +35,10 @@ single seat and the administration are in place. Global contacts is built.
 5. One call per handle: the plugin refuses a second invitation **486**. No
    client call waiting, hold or transfer.
 6. Audio only; **G.711 passed through** without transcoding; DTMF is **RFC 2833**
-   through the browser's own `RTCDTMFSender`; TLS to the provider. **No
-   STUN/TURN**: the bridge is the ICE peer on a public IP. The media range is the
-   **only** inbound port; the SIP leg is outbound, so 5060/5061 are never opened.
+   through the browser's own `RTCDTMFSender`; SIP over **UDP/5060** to the
+   provider (not TLS — see ROADMAP). **No STUN/TURN**: the bridge is the ICE peer
+   on a public IP. The media range is the **only** inbound port; the SIP leg is
+   outbound, so 5060/5061 are never opened.
 7. **No installation-level phone settings** — no `sip` section, no SIP Phone
    page, no STUN/TURN. The bridge ships with the release (the image builds it
    from `deploy/janus/VERSION`; the release publishes a host tarball the
@@ -66,9 +67,11 @@ single seat and the administration are in place. Global contacts is built.
     resolves back to the same person.
 12. **The bridge host resolves mDNS.** With no STUN the browser's own host
     candidates are the media path, and Chrome obfuscates them as random
-    `<uuid>.local` names; the installer installs `avahi-daemon` and
+    `<uuid>.local` names; the **host installer** installs `avahi-daemon` and
     `libnss-mdns` and points `nsswitch.conf` at them, so Janus adds the
     browser's candidates instead of leaving ICE to peer-reflexive discovery.
+    The container image runs unprivileged and read-only and cannot, so a
+    containerised bridge keeps that fallback.
 
 ## The directory (ADR 0024) — the invariants
 

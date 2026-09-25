@@ -92,3 +92,14 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   replaced — and it is worth doing when the mail area is otherwise quiet,
   because a shape change re-points every path-scoped reading of the tree, the
   collision maps a merge is read against included.
+
+- **SIP over TLS toward the provider.** The bridge reaches the provider over the
+  transport the provider's own record names, which is **UDP/5060** today. The
+  leg is outbound, so nothing is exposed inbound, but the signalling is in the
+  clear. TLS is the intended end state and is not reachable yet: Janus's SIP
+  plugin does not reliably establish a TLS transport, and the provider's
+  certificate is not publicly trusted — its own setup guides tell clients to
+  disable verification, which is a false sense of security rather than a fix.
+  It needs, in order: a certificate a system trust store accepts, a `sips_certs_dir`
+  configured for the plugin, and a registration that actually negotiates
+  `sips:`/TLS — verified with a capture, never assumed.

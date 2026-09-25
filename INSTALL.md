@@ -96,11 +96,13 @@ ufw allow 10000:10200/udp     # and the same in any cloud firewall
 ```
 
 There is no STUN, so the browser's own media addresses are the path the bridge
-carries — and Chrome obfuscates them as random `<uuid>.local` names. The
-installer installs `avahi-daemon` and `libnss-mdns` and points
+carries — and Chrome obfuscates them as random `<uuid>.local` names. The **host
+installer** installs `avahi-daemon` and `libnss-mdns` and points
 `/etc/nsswitch.conf` at them, so Janus can resolve those names; a host where
 they could not be installed still runs a phone, but one that has to fall back
-on peer-reflexive ICE and can fail on some networks.
+on peer-reflexive ICE and can fail on some networks. A container image runs
+unprivileged and read-only and cannot start avahi, so a containerised bridge
+keeps that fallback.
 
 ## With or without the phone
 
