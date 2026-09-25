@@ -194,6 +194,12 @@ Excalidraw only when their phase arrives.
 Not yet accepted, and each unsettled point below has a question in **Questions,
 settled and open**. The approval lifecycle is settled and is the core of it.
 
+### The surface in the app
+
+The KB is a top-level section of its own — the **fifth**, placed after **Mail,
+Calendar, Contacts and Files** in the module bar — and not a folder inside Files
+(Q18) or a panel of another section. Its name is **KB** in every language (Q19).
+
 ### Two tiers, one shape
 
 | | **Company KB** (the lead) | **Group KB** |
@@ -453,8 +459,11 @@ still standing. The open ones are the reasons this record is still Proposed.
     a later concern.*
 18. **Are KB pages also visible in Files?** — **Open.** *Recommend no: the KB is
     its own surface, the way chat is not a folder of messages.*
-19. **Naming** — **Open.** *Recommend `gilbert/knowledge`, UI label "Knowledge",
-    the four-block vocabulary; strings through `gilbert-i18n`.*
+19. **Naming** — **Settled.** The surface is called **KB** in every language —
+    the same three letters, never translated, the way the app's own name is not
+    — while the identifier and the store path stay `gilbert/knowledge` (the
+    four-block vocabulary). It is a term of art rather than English copy, so no
+    catalog carries a translation of it and the label renders "KB" everywhere.
 20. **Per-page restrictions inside the company KB** — **Open.** *Recommend out of
     scope for v1; say so rather than imply a boundary that is not there.*
 21. **What may an agent do unattended?** — **Settled.** Read and draft, including
