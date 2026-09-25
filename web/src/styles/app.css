@@ -3030,3 +3030,52 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .call-action:hover { background: var(--bg-hover); }
 .call-action.call-hangup { border-color: transparent; background: var(--danger); color: var(--bg-elev); }
 .call-action.call-hangup:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
+
+/*
+ * The incoming call: the one moment the phone takes the screen. A caller disc,
+ * who is calling, and the two round actions a phone offers — answer green,
+ * decline red — in the app's own tokens (the same green as the dial button, the
+ * same pill radius as the in-call actions), so it reads as the phone rather
+ * than as a generic confirm.
+ */
+.incoming-call { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 2px; }
+.incoming-avatar {
+  display: flex; align-items: center; justify-content: center;
+  width: 78px; height: 78px; margin-bottom: 10px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-soft-fg);
+  animation: incoming-ring 1.6s var(--ease) infinite;
+}
+@keyframes incoming-ring {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); }
+  50% { box-shadow: 0 0 0 12px transparent; }
+}
+.incoming-label {
+  font-size: .74em; font-weight: 650; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--fg-muted);
+}
+.incoming-who {
+  margin: 4px 0 0; max-width: 100%; font-size: 1.3rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.incoming-error { margin: 10px 0 0; text-align: center; }
+.incoming-actions { display: flex; justify-content: center; gap: 24px; margin-top: 18px; }
+.incoming-action {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border: 0; background: transparent; color: var(--fg-muted); cursor: pointer;
+  font-size: .78em; font-weight: 550;
+}
+.incoming-action-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 50%; color: var(--bg-elev);
+  transition: transform .08s var(--ease);
+}
+.incoming-action:hover .incoming-action-btn { transform: translateY(-1px); }
+.incoming-action:active .incoming-action-btn { transform: scale(.95); }
+.incoming-action.answer .incoming-action-btn {
+  background: var(--success);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--success) 40%, transparent);
+}
+.incoming-action.decline .incoming-action-btn {
+  background: var(--danger);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--danger) 40%, transparent);
+}

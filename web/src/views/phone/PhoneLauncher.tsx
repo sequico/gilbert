@@ -111,6 +111,16 @@ export function PhoneLauncher() {
   }, [incoming, notificationSound]);
 
   /*
+   * An incoming call takes the screen: the panel that was open is closed, so a
+   * popover — which sits above a dialog by design — cannot cover the answer.
+   */
+  const closePanel = useRef(panel.close);
+  closePanel.current = panel.close;
+  useEffect(() => {
+    if (incoming) closePanel.current();
+  }, [incoming]);
+
+  /*
    * A full reload tears the media stack down, so a call cannot survive one.
    * The browser's own confirmation is the only door: this asks for it while a
    * call is live and does nothing once it is over.
@@ -157,26 +167,44 @@ export function PhoneLauncher() {
       </button>
       <audio ref={audioRef} autoPlay playsInline hidden />
 
-      {/* An incoming call: the screen on a phone, a dialog on a desktop. */}
+      {/* An incoming call: the screen on a phone, a window on a desktop. A
+          caller disc, who is calling, and the two round actions a phone offers,
+          in the app's own tokens rather than a generic confirm. */}
       <Dialog
         open={Boolean(incoming)}
         onClose={() => void usePhone.getState().decline()}
-        title={t("Incoming call")}
         size={isMobile ? "lg" : "sm"}
+        closeOnBackdrop={false}
       >
-        <p className="lead" style={{ textAlign: "center" }}>
-          {incoming || t("Unknown caller")}
-        </p>
-        <div className="row" style={{ justifyContent: "center", gap: 12 }}>
-          <button className="btn" onClick={() => void usePhone.getState().answer()}>
-            {t("Answer")}
-          </button>
-          <button
-            className="btn btn-danger"
-            onClick={() => void usePhone.getState().decline()}
-          >
-            {t("Decline")}
-          </button>
+        <div className="incoming-call">
+          <div className="incoming-avatar">
+            <PhoneCall size={34} />
+          </div>
+          <div className="incoming-label">{t("Incoming call")}</div>
+          <p className="incoming-who">{incoming || t("Unknown caller")}</p>
+          <div className="incoming-actions">
+            <button
+              type="button"
+              className="incoming-action answer"
+              autoFocus
+              onClick={() => void usePhone.getState().answer()}
+            >
+              <span className="incoming-action-btn">
+                <PhoneCall size={24} />
+              </span>
+              {t("Answer")}
+            </button>
+            <button
+              type="button"
+              className="incoming-action decline"
+              onClick={() => void usePhone.getState().decline()}
+            >
+              <span className="incoming-action-btn">
+                <PhoneOff size={24} />
+              </span>
+              {t("Decline")}
+            </button>
+          </div>
         </div>
       </Dialog>
 
