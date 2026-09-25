@@ -240,6 +240,10 @@ export class Phone {
   private stream: MediaStream | null = null;
   private remote = "";
   private ringing: { offer?: Jsep } | null = null;
+  /** Remote candidates that arrived before the description they belong to. */
+  private pendingCandidates: RTCIceCandidateInit[] = [];
+  /** Whether the peer connection has a remote description to add to. */
+  private remoteReady = false;
   private muted = false;
   private ended = false;
   /** Whether the media path has already been proven for this line. */
@@ -306,6 +310,8 @@ export class Phone {
   async call(target: string): Promise<void> {
     this.clearFinish();
     this.cancelling = false;
+    this.pendingCandidates = [];
+    this.remoteReady = false;
     if (PHONE_MOCK) {
       // No bridge to carry it: walk the phases, then let it end on its own so
       // the surface and the history move the way they do for a real one.
@@ -379,7 +385,7 @@ export class Phone {
     try {
       let sdp: Jsep;
       if (ringing.offer) {
-        await pc.setRemoteDescription(ringing.offer);
+        await this.setRemote(ringing.offer);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         sdp = { type: "answer", sdp: answer.sdp ?? "" };
@@ -525,6 +531,7 @@ export class Phone {
     this.pc = pc;
     this.sender = transceiver.sender;
     this.local = media;
+    this.remoteReady = false;
     track.enabled = !this.muted;
     pc.onicecandidate = (event) => {
       this.janus?.trickle(
@@ -541,6 +548,32 @@ export class Phone {
     return pc;
   }
 
+  /**
+   * Apply a remote description, then the candidates that arrived before it.
+   *
+   * An incoming call is offered while no peer connection exists yet, and Janus
+   * trickles its candidates as the offer goes out. `addIceCandidate` before a
+   * remote description is an error, so candidates are held and applied here
+   * the moment there is a description to attach them to. Without this the
+   * answered call would have no remote candidates and the media path would
+   * never come up.
+   */
+  private async setRemote(sdp: Jsep): Promise<void> {
+    const pc = this.pc;
+    if (!pc) return;
+    await pc.setRemoteDescription(sdp);
+    this.remoteReady = true;
+    const held = this.pendingCandidates;
+    this.pendingCandidates = [];
+    for (const candidate of held) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch {
+        /* a candidate the description no longer accepts */
+      }
+    }
+  }
+
   private janusHooks(): JanusHooks {
     return {
       onEvent: (plugin: string, data: unknown, jsep?: Jsep) => {
@@ -552,7 +585,16 @@ export class Phone {
         if (data.result) this.sipEvent(data.result, jsep);
       },
       onRemoteCandidate: (candidate: RTCIceCandidateInit) => {
-        void this.pc?.addIceCandidate(candidate).catch(() => undefined);
+        const pc = this.pc;
+        // No peer connection yet, or no remote description to attach a
+        // candidate to: hold it. An incoming call offers this way — Janus
+        // trickles its candidates while the call is still ringing, and
+        // `addIceCandidate` before the description is an error.
+        if (!pc || !this.remoteReady) {
+          this.pendingCandidates.push(candidate);
+          return;
+        }
+        void pc.addIceCandidate(candidate).catch(() => undefined);
       },
       onMediaGone: () => this.endCall(),
       onRefused: (reason) => this.hooks.onError(reason),
@@ -593,6 +635,11 @@ export class Phone {
         );
         return;
       case "incomingcall":
+        // A fresh window for this invitation's candidates: the offer is
+        // stored, and the candidates Janus sends while it rings are held
+        // until `answer` has a description to apply them to.
+        this.pendingCandidates = [];
+        this.remoteReady = false;
         this.remote = result.username ?? result.caller ?? "";
         this.ringing = { offer: jsep };
         this.callMeta = {
@@ -615,12 +662,12 @@ export class Phone {
       case "progress":
         // Early media: the answer arrived in a 183, so `accepted` will carry
         // none. Take it now, so the audio can start before the call is up.
-        if (jsep) void this.pc?.setRemoteDescription(jsep).catch(() => undefined);
+        if (jsep) void this.setRemote(jsep).catch(() => undefined);
         this.phase = "ringing";
         this.emitCall();
         return;
       case "accepted":
-        if (jsep) void this.pc?.setRemoteDescription(jsep).catch(() => undefined);
+        if (jsep) void this.setRemote(jsep).catch(() => undefined);
         this.markConnected();
         this.phase = "connected";
         this.emitCall();
@@ -692,6 +739,8 @@ export class Phone {
     this.ringing = null;
     this.stream = null;
     this.sender = null;
+    this.pendingCandidates = [];
+    this.remoteReady = false;
     const local = this.local;
     this.local = null;
     if (local) for (const track of local.getTracks()) track.stop();
