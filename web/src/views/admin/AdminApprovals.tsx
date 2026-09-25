@@ -17,7 +17,7 @@ import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
+import { agentGroupNames, agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import {
   AGENT_OUTCOME_LABELS,
   automationText,
@@ -96,7 +96,7 @@ function CrossGroupAudit() {
   const [groupFilter, setGroupFilter] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("");
 
-  const groups = (status?.groups ?? []).map((g) => g.name);
+  const groups = agentGroupNames(status);
 
   // One read per granted group, reusing the same store and the same
   // documents the Group Agents workspace reads — not a second store, and not

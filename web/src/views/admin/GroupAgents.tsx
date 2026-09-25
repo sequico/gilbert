@@ -38,10 +38,10 @@
 import { Bot, CheckCircle2, Tags } from "lucide-react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { useSearch } from "wouter";
-import { type AgentStatus, type AgentStatusGroup, addAgentLabels } from "@/lib/agents";
+import { type AgentStatus, addAgentLabels } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { agentViewKey, useAgents } from "@/store/agents";
+import { agentGroupNames, agentViewKey, useAgents } from "@/store/agents";
 import { toast } from "@/ui/toast";
 import { GroupAudit } from "./agent/GroupAudit";
 import { GroupInstruction } from "./agent/GroupInstruction";
@@ -85,7 +85,7 @@ export function GroupAgents() {
       : "behaviour",
   );
   const [group, setGroup] = useState(() => initial.get("group") ?? "");
-  const groups = agentGroups(status).map((entry) => entry.name);
+  const groups = agentGroupNames(status);
   const known = group !== "" && groups.includes(group);
 
   // Keep the address bar in step, so the URL is always a link to what is on
@@ -262,17 +262,6 @@ export function GroupAgents() {
       </div>
     </div>
   );
-}
-
-/**
- * The groups the agent works in — the ones an automation can run in.
- *
- * The status carries the agent's own membership as its session shows it, so
- * there is nothing to filter here: a group in the list is a group the agent is
- * in.
- */
-function agentGroups(status: AgentStatus | null): AgentStatusGroup[] {
-  return status?.groups ?? [];
 }
 
 /* ------------------------------------------------------------------ */

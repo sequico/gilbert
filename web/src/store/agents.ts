@@ -22,6 +22,7 @@ import type { AgentRule } from "@gilbert/agent/documents";
 import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { push } from "@/jmap/push";
+import { byAddress } from "@/lib/addressOrder";
 import {
   type AgentGrantCatalog,
   type AgentGroupSurface,
@@ -53,6 +54,18 @@ import { useSession } from "@/store/session";
  */
 export function agentViewKey(name: string): string {
   return name.trim().toLowerCase();
+}
+
+/**
+ * The groups the agent works in, in address order.
+ *
+ * The status carries the agent's own membership as its session shows it, so
+ * every surface that lists those groups — the Master Groups list, the group
+ * picker, the audit filter — reads the one order from here rather than sorting
+ * its own copy. The order is by address, the key a person reads in the list.
+ */
+export function agentGroupNames(status: AgentStatus | null): string[] {
+  return byAddress(status?.groups ?? []).map((group) => group.name);
 }
 
 interface AgentsState {

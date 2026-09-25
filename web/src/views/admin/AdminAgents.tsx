@@ -26,7 +26,7 @@ import { Link } from "wouter";
 import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { pollWhileVisible } from "@/lib/visiblePoll";
-import { useAgents } from "@/store/agents";
+import { agentGroupNames, useAgents } from "@/store/agents";
 import { fleetMeterLines, fleetReasonText, rosterText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
 import { ProsePanel } from "./agent/ProsePanel";
@@ -238,6 +238,7 @@ function Identity({ status }: { status: AgentStatus | null }) {
 /* ------------------------------------------------------------------ */
 
 function Groups({ status }: { status: AgentStatus | null }) {
+  const groups = agentGroupNames(status);
   return (
     <section>
       <h2>{t("Groups")}</h2>
@@ -248,7 +249,7 @@ function Groups({ status }: { status: AgentStatus | null }) {
       </p>
       {!status ? (
         <p className="hint">{t("Loading…")}</p>
-      ) : status.groups.length === 0 ? (
+      ) : groups.length === 0 ? (
         <p className="hint">
           {t(
             "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.",
@@ -263,14 +264,14 @@ function Groups({ status }: { status: AgentStatus | null }) {
             </tr>
           </thead>
           <tbody>
-            {status.groups.map((g) => (
-              <tr key={g.name}>
+            {groups.map((name) => (
+              <tr key={name}>
                 <td className="notranslate" translate="no">
-                  {g.name}
+                  {name}
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <Link
-                    href={`/admin/group-agents?group=${encodeURIComponent(g.name)}`}
+                    href={`/admin/group-agents?group=${encodeURIComponent(name)}`}
                     className="btn btn-sm btn-ghost"
                     title={t(
                       "Open this group's automations, standing instruction, memory and audit trail",

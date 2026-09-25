@@ -21,6 +21,7 @@ import type {
   PersonIdentitiesView,
 } from "@gilbert/shared/identityViews";
 import { apiFetch } from "@/jmap/client";
+import { byAddress } from "@/lib/addressOrder";
 import { useMail } from "@/store/mail";
 
 /*
@@ -98,14 +99,19 @@ export interface AdminGroupDirectory {
 /* The directories the pickers offer                                   */
 /* ------------------------------------------------------------------ */
 
-/** `GET /api/admin/users` — the accounts an identity may belong to. */
-export function fetchAdminUserDirectory(): Promise<AdminUserDirectory> {
-  return apiFetch<AdminUserDirectory>("/api/admin/users");
+/**
+ * `GET /api/admin/users` — the accounts an identity may belong to, in address
+ * order, so every surface that lists them lists them the same way.
+ */
+export async function fetchAdminUserDirectory(): Promise<AdminUserDirectory> {
+  const listing = await apiFetch<AdminUserDirectory>("/api/admin/users");
+  return { ...listing, users: byAddress(listing.users) };
 }
 
-/** `GET /api/admin/groups` — the group mailboxes an identity may belong to. */
-export function fetchAdminGroups(): Promise<AdminGroupDirectory> {
-  return apiFetch<AdminGroupDirectory>("/api/admin/groups");
+/** `GET /api/admin/groups` — the group mailboxes an identity may belong to, in address order. */
+export async function fetchAdminGroups(): Promise<AdminGroupDirectory> {
+  const listing = await apiFetch<AdminGroupDirectory>("/api/admin/groups");
+  return { ...listing, groups: byAddress(listing.groups) };
 }
 
 /* ------------------------------------------------------------------ */
