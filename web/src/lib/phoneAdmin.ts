@@ -19,6 +19,8 @@ export interface PhoneStatus {
   version: string | null;
   /** The media range the deployment opens. */
   mediaPorts: string;
+  /** The STUN responder's port the deployment opens. */
+  stunPort: number;
 }
 
 /** `GET /api/admin/phone/status` — the bridge's state, for the administration. */

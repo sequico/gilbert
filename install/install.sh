@@ -44,14 +44,16 @@
 #                            on the connection the registration opened, so no
 #                            SIP port (5060/5061) is ever opened.
 #
-# So the only thing to open inbound is the bridge's media range, UDP 10000-10200
-# (the range in `server/src/shared/phone.ts`, shown in the administration too).
-# On ufw:
+# So the things to open inbound are the bridge's media range, UDP 10000-10200,
+# and its STUN responder's port, UDP 3478 (both in `server/src/shared/phone.ts`,
+# shown in the administration too). On ufw:
 #
 #   ufw allow 10000:10200/udp
+#   ufw allow 3478/udp
 #
-# and, if the host sees the range through a cloud firewall or a security group,
-# the same rule there.
+# and, if the host sees them through a cloud firewall or a security group, the
+# same rules there. The STUN responder only answers a browser's Binding request;
+# it relays nothing, so no TURN transport or relay port is opened.
 #
 # If those ports are not open, NOTHING BREAKS LOUDLY: the phone simply does not
 # appear. The client proves the media path before it offers itself, so a
@@ -161,6 +163,7 @@ chown -R "$USER_NAME" "$APP/node_modules" "$APP/web/dist" "$APP/server/dist" \
 
 # --- the bridge (best effort, fetched from the release) ----------------------
 BRIDGE_OK=0
+STUN_OK=0
 BRIDGE_REASON="the bridge is not installed"
 if [ "${GILBERT_BRIDGE:-1}" != "1" ]; then
   BRIDGE_REASON="the bridge is disabled (GILBERT_BRIDGE=0)"
@@ -254,6 +257,25 @@ if [ "$BRIDGE_OK" = "1" ]; then
   # The bridge is useless without the browser's media addresses, and those
   # arrive as mDNS names.
   ensure_mdns_resolution
+
+  # The browser's STUN responder: coturn in STUN-only mode, on the port generated
+  # from its one definition. It answers the Binding request that gives the
+  # browser its server-reflexive address, and relays nothing. Best effort, like
+  # the bridge itself: without it ICE falls back to peer-reflexive discovery,
+  # which works but is less deterministic.
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y --no-install-recommends coturn >/dev/null 2>&1 || true
+  fi
+  if command -v turnserver >/dev/null 2>&1; then
+    install -d /etc/gilbert
+    node "$APP/scripts/stunConfig.mjs" /etc/gilbert/turnserver.conf
+    STUN_OK=1
+    # The distribution's own coturn service, if it exists, would race for the
+    # port: the bridge's responder is ours.
+    systemctl disable --now coturn.service >/dev/null 2>&1 || true
+  else
+    warn "coturn is not installed: the bridge has no STUN responder, and ICE falls back to peer-reflexive discovery"
+  fi
 fi
 
 # --- the services ------------------------------------------------------------
@@ -274,6 +296,10 @@ if [ "$BRIDGE_OK" = "1" ]; then
   sed "${sed_args[@]}" "$APP/install/gilbert-janus.service" \
     > "$UNIT_DIR/gilbert-janus.service"
 fi
+if [ "$STUN_OK" = "1" ]; then
+  sed "${sed_args[@]}" "$APP/install/gilbert-stun.service" \
+    > "$UNIT_DIR/gilbert-stun.service"
+fi
 systemctl daemon-reload
 
 if [ "$BRIDGE_OK" = "1" ]; then
@@ -282,6 +308,9 @@ if [ "$BRIDGE_OK" = "1" ]; then
 else
   warn "the phone is NOT available on this host: $BRIDGE_REASON."
   warn "Gilbert is installed without it; the administration says the same."
+fi
+if [ "$STUN_OK" = "1" ]; then
+  systemctl enable --now gilbert-stun.service
 fi
 
 # --- the environment file, and starting the application ----------------------
@@ -314,21 +343,24 @@ cat <<EOF
   the application   systemctl status gilbert.service
   the environment   $ENV_FILE
 $( [ "$BRIDGE_OK" = "1" ] && echo "  the bridge        systemctl status gilbert-janus.service" || echo "  the bridge        NOT installed ($BRIDGE_REASON)" )
+$( [ "$STUN_OK" = "1" ] && echo "  the STUN responder systemctl status gilbert-stun.service" || echo "  the STUN responder NOT installed (ICE uses peer-reflexive discovery)" )
 
 Two things are the operator's, and INSTALL.md covers both:
 
   1. a reverse proxy in front of the application (see Caddyfile.example /
      nginx.example.conf). The application listens on 127.0.0.1:8080 by default.
 
-  2. THE PHONE'S MEDIA PORTS, if the bridge was installed. Open its UDP range
-     inbound, and open it in any cloud firewall too:
+  2. THE PHONE'S PORTS, if the bridge was installed. Open its UDP media range
+     and its STUN port inbound, and open them in any cloud firewall too:
 
          ufw allow 10000:10200/udp
+         ufw allow 3478/udp
 
-     Nothing else is opened: the Janus API is loopback-only, and the SIP leg to
-     the provider is outbound, so 5060/5061 stay closed.
+     Nothing else is opened: the Janus API is loopback-only, the STUN responder
+     relays nothing, and the SIP leg to the provider is outbound, so 5060/5061
+     stay closed.
 
-     If the range is closed, the phone does not appear at all — that is the
+     If the ports are closed, the phone does not appear at all — that is the
      design, not a failure: the client proves the media path before offering
      the phone.
 

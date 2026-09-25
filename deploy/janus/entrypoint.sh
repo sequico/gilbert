@@ -14,9 +14,14 @@ if [ "$#" -eq 0 ]; then
 fi
 
 bridge=""
+stun=""
 if [ "${GILBERT_BRIDGE:-1}" = "1" ]; then
   janus &
   bridge=$!
+  # The browser's STUN responder, beside Janus: it answers the Binding request
+  # that gives the browser its server-reflexive address and relays nothing.
+  turnserver -c /etc/gilbert/turnserver.conf &
+  stun=$!
 fi
 
 "$@" &
@@ -24,6 +29,7 @@ app=$!
 
 stop() {
   [ -n "$bridge" ] && kill "$bridge" 2>/dev/null || true
+  [ -n "$stun" ] && kill "$stun" 2>/dev/null || true
   kill "$app" 2>/dev/null || true
 }
 trap stop TERM INT

@@ -34,6 +34,17 @@ export const SIP_CREDENTIALS_VERSION = 2;
 export const BRIDGE_MEDIA_PORTS = "10000-10200";
 
 /**
+ * The port the bridge's STUN responder listens on (ADR 0023).
+ *
+ * The browser asks it for the address the network gives it, so ICE has a
+ * server-reflexive candidate for this bridge instead of relying only on
+ * peer-reflexive discovery. Declared once: the client's `iceServers`, the
+ * responder's own configuration and the line an administrator reads all come
+ * from here.
+ */
+export const BRIDGE_STUN_PORT = 3478;
+
+/**
  * One identity's SIP account (ADR 0023).
  *
  * A server, a user name and a password — the three things a registrar asks

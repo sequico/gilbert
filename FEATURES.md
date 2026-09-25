@@ -875,11 +875,12 @@ is the reference.
   never lands says why.
 - **Audio only, and the same for everyone.** G.711 passed through without
   transcoding, over the provider's own SIP transport (UDP/5060 as built; not
-  TLS), with no STUN/TURN. The
-  deployment's firewall must leave the bridge's **UDP media range open
-  inbound** — it is the only port a deployment opens — while the SIP leg to the
-  provider is outbound, so 5060/5061 are never opened. What cannot be recovered
-  ends cleanly rather than leaving a dead call on screen.
+  TLS). The bridge runs its own **STUN-only responder** — no TURN, and no STUN an
+  operator names — so the browser gets a server-reflexive candidate. The
+  deployment's firewall must leave the bridge's **UDP media range and its STUN
+  port open inbound** — the two ports a deployment opens — while the SIP leg to
+  the provider is outbound, so 5060/5061 are never opened. What cannot be
+  recovered ends cleanly rather than leaving a dead call on screen.
 - **Offered only where it can work.** The account must hold a SIP account, the
   bridge must answer, and the media path must be proven before the entry is
   drawn: a deployment whose bridge ports are still closed shows **no phone**,

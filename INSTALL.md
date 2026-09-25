@@ -83,34 +83,33 @@ and Gilbert runs without the phone, saying so. Its header has the whole of it.
 `GILBERT_BRIDGE=0` installs Gilbert **without the phone**: nothing is fetched, no
 bridge service, no port to open — a deliberate choice, not a workaround.
 
-## The one port
+## The ports
 
 The bridge has two legs: **page ↔ Janus** (WebRTC media over UDP, plus the Janus
 API on loopback, never exposed) and **Janus ↔ provider** (SIP and RTP,
-**outbound only** — no SIP port is ever opened). So the only thing to open
-inbound is the bridge's media range, **UDP 10000-10200** (the value in
-`server/src/shared/phone.ts`, also shown under *Identities and SIP Phone*):
+**outbound only** — no SIP port is ever opened). A deployment opens **two UDP
+ports inbound**: the bridge's media range, **10000-10200**, and its **STUN
+responder**, **3478** (both in `server/src/shared/phone.ts`, also shown under
+*Identities and SIP Phone*):
 
 ```bash
 ufw allow 10000:10200/udp     # and the same in any cloud firewall
+ufw allow 3478/udp
 ```
 
-There is no STUN, so the browser's own media addresses are the path the bridge
-carries — and Chrome writes them as random `<uuid>.local` names. The **host
-installer** installs `avahi-daemon` and `libnss-mdns` and points
-`/etc/nsswitch.conf` at them, so Janus resolves those names instead of logging a
-resolver error on every call. **mDNS is link-local, though**: a name only
-resolves on the same network, so a browser over the Internet can never be turned
-into an address that way and its candidate is not added. ICE falls back on
-**peer-reflexive** discovery — the browser's first check teaches the bridge where
-it is — which is why calls work with the bridge remote. The resolver therefore
-removes the error (and the retry it caused) and gives a same-LAN deployment the
-candidate directly; a container image, unprivileged and read-only, cannot start
-avahi and keeps the peer-reflexive path.
+The STUN responder answers the browser's Binding request with the address its
+network gave it, so ICE has a **server-reflexive** candidate for the bridge
+instead of depending only on **peer-reflexive** discovery. It **relays
+nothing**: no TURN, no relay ports, no credentials. Chrome still obfuscates the
+browser's host candidates as random `<uuid>.local` names, and those are
+link-local — a browser on another network can never be turned into an address
+that way — so the **host installer** also installs `avahi-daemon` and
+`libnss-mdns` for a browser on the same network, while the container image,
+unprivileged and read-only, cannot start avahi.
 
 ## With or without the phone
 
-- **With the phone.** Open the media range above and set each person's SIP
+- **With the phone.** Open the two ports above and set each person's SIP
   account in *Identities and SIP Phone*. The bridge starts with the app.
 - **Without it, on purpose.** Set `GILBERT_BRIDGE=0` (the agent worker container
   does), or simply leave the range closed. The app runs fully and offers no
@@ -121,10 +120,10 @@ avahi and keeps the peer-reflexive path.
   administration says the same. Point `GILBERT_RELEASE_URL` at a mirror to fetch
   it from elsewhere.
 
-**A closed range does not break loudly: the phone simply does not appear.** The
+**Closed ports do not break loudly: the phone simply does not appear.** The
 client proves the media path against the bridge before offering itself, so a
-deployment whose range is shut shows no phone rather than an entry that fails on
-the first call.
+deployment whose ports are shut shows no phone rather than an entry that fails
+on the first call.
 
 ## When the phone is not there
 
@@ -132,8 +131,8 @@ the first call.
   could not fetch it (no release, or `GILBERT_RELEASE_URL` unreachable). Install
   it from a release, then `sudo systemctl restart gilbert-janus.service`.
 - **The bridge runs, but no phone appears.** Almost always the media range: open
-  UDP 10000-10200 inbound and in the cloud firewall, then reload. The client's
-  probe is what decides.
+  UDP 10000-10200 (and the STUN port, 3478) inbound and in the cloud firewall,
+  then reload. The client's probe is what decides.
 - **`gilbert-janus.service` is `activating`/failed with `ExecMainStatus=127`.**
   The linker cannot find a library Janus links. Re-run the installer: it
   installs the host's packages, and the bridge carries the two sonames current
@@ -142,11 +141,11 @@ the first call.
 - **No phone for one person only.** That identity has no SIP account yet.
 - **It rings but there is no audio.** The leg to the provider: check the SIP
   account, and that the provider is reachable from the host over SIP (outbound).
-- **A call connects but has no audio, or ICE is flaky.** The remote browser's
-  `.local` candidate is **not** the cause: it is link-local and never added, and
-  ICE uses peer-reflexive discovery (above). Check the bridge's media range is
-  open and `avahi-daemon` runs on the host, then read which leg failed in
-  `journalctl -u gilbert-janus.service`.
+- **A call connects but has no audio, or ICE is flaky.** Check the bridge's two
+  ports are open (media range and STUN) and that `gilbert-stun.service` runs, so
+  the browser has a server-reflexive candidate; the remote browser's `.local`
+  candidate is **not** the cause, since it is link-local and never added. Read
+  which leg failed in `journalctl -u gilbert-janus.service`.
 - **`gilbert.service` is enabled but stopped.** `/etc/gilbert.env` has no
   `STALWART_URL`; set it and `sudo systemctl start gilbert.service`.
 

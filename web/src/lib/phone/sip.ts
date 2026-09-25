@@ -9,7 +9,7 @@
  * Nothing is spoken to the page but JSEP and the plugin's own events. The
  * credential is the account's own, read by the account's own client.
  */
-import type { SipCredential } from "@gilbert/shared/phone";
+import { BRIDGE_STUN_PORT, type SipCredential } from "@gilbert/shared/phone";
 import { withBase } from "@/lib/basePath";
 import { t } from "@/lib/i18n";
 import type { CallLogEntry } from "./callLog";
@@ -146,6 +146,19 @@ function bridgeUrl(): string {
 }
 
 /**
+ * The bridge's STUN responder, for the browser's own address.
+ *
+ * The responder is a sibling of the bridge on the same host the page is served
+ * from, so the host name is the page's own and the port comes from its one
+ * definition. Without it ICE still learns the browser's address
+ * peer-reflexively, but only once a check has already crossed; the
+ * server-reflexive candidate makes the media path deterministic.
+ */
+function stunServers(): RTCIceServer[] {
+  return [{ urls: `stun:${window.location.hostname}:${BRIDGE_STUN_PORT}` }];
+}
+
+/**
  * Whether this browser can reach the bridge's media at all.
  *
  * The one media probe: it negotiates a throwaway WebRTC path with the bridge's
@@ -174,7 +187,7 @@ export async function probeBridgeMedia(): Promise<boolean> {
   });
   try {
     await janus.open("janus.plugin.echotest");
-    const connection = new RTCPeerConnection();
+    const connection = new RTCPeerConnection({ iceServers: stunServers() });
     pc = connection;
     const reached = new Promise<boolean>((resolve) => {
       giveUp = () => resolve(false);
@@ -510,7 +523,7 @@ export class Phone {
 
   /** A PeerConnection with a live microphone on it, or a clear failure. */
   private async newPeer(): Promise<RTCPeerConnection> {
-    const pc = new RTCPeerConnection();
+    const pc = new RTCPeerConnection({ iceServers: stunServers() });
     const opened = await openMicrophone();
     if (!opened.ok) {
       pc.close();

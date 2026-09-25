@@ -36,15 +36,18 @@ single seat and the administration are in place. Global contacts is built.
    client call waiting, hold or transfer.
 6. Audio only; **G.711 passed through** without transcoding; DTMF is **RFC 2833**
    through the browser's own `RTCDTMFSender`; SIP over **UDP/5060** to the
-   provider (not TLS — see ROADMAP). **No STUN/TURN**: the bridge is the ICE peer
-   on a public IP. The media range is the **only** inbound port; the SIP leg is
-   outbound, so 5060/5061 are never opened.
+   provider (not TLS — see ROADMAP). The bridge runs its own **STUN-only
+   responder** (`BRIDGE_STUN_PORT`) and **no TURN**: the browser asks it for its
+   server-reflexive address, so ICE does not depend only on peer-reflexive
+   discovery. The media range and the STUN port are the inbound ports; the SIP
+   leg is outbound, so 5060/5061 are never opened.
 7. **No installation-level phone settings** — no `sip` section, no SIP Phone
-   page, no STUN/TURN. The bridge ships with the release (the image builds it
-   from `deploy/janus/VERSION`; the release publishes a host tarball the
-   installer fetches); the only deployment fact an operator acts on is the
-   media range, `BRIDGE_MEDIA_PORTS`, opened inbound — with it closed the phone
-   does not appear.
+   page, no TURN and no STUN an operator names. The bridge — Janus with its STUN
+   responder — ships with the release (the image builds it from
+   `deploy/janus/VERSION`; the release publishes a host tarball the installer
+   fetches); the deployment facts an operator acts on are the media range,
+   `BRIDGE_MEDIA_PORTS`, and the STUN port, `BRIDGE_STUN_PORT`, opened inbound —
+   with them closed the phone does not appear.
 8. **Desktop only**: a page rings only while it is alive.
 9. Each person's **server, user name and password** are account data, set in
    **Identities and SIP Phone** in the identity-enforcement surface (ADR 0007),
@@ -53,8 +56,8 @@ single seat and the administration are in place. Global contacts is built.
 10. **The phone appears only where it can work**: the account must hold a SIP
     account, the Janus API must answer, and the media path must be proven before
     the entry is drawn. A deployment whose bridge ports are closed shows no
-    phone; the administration states the bridge's media range as the one thing
-    to open.
+    phone; the administration states the bridge's media range and its STUN port
+    as the things to open.
 11. **The surface is a panel of three panes**, attached to the handset: the
     **contacts** on the left — two status rows with a dot and the cause on hover
     (the browser's path to Gilbert, and the account's registration), the tabs
@@ -65,15 +68,14 @@ single seat and the administration are in place. Global contacts is built.
     vocabulary (`.tab`, `.nav-section`, `.input`, the theme tokens): no bespoke
     controls, and the two panes read the same contact sources so a number dialled
     resolves back to the same person.
-12. **The browser is reached peer-reflexively, and mDNS names are link-local.**
-    With no STUN the browser's own host candidates are the media path, and
-    Chrome obfuscates them as random `<uuid>.local` names; a browser on another
-    network can never be resolved to an address, so ICE learns where it is from
-    its own first check. The **host installer** installs `avahi-daemon` and
-    `libnss-mdns` and points `nsswitch.conf` at them, which removes the resolver
-    error and gives a same-LAN browser's candidate directly; the container image
-    runs unprivileged and read-only and cannot, so a containerised bridge keeps
-    the peer-reflexive path.
+12. **mDNS names are link-local; the STUN responder makes the path
+    deterministic.** Chrome obfuscates the browser's host candidates as random
+    `<uuid>.local` names, which only resolve on the same network; the **host
+    installer** installs `avahi-daemon` and `libnss-mdns` for a same-LAN
+    browser, and the container image, unprivileged and read-only, cannot. For a
+    browser on another network the bridge's **STUN-only responder** gives ICE a
+    server-reflexive candidate; without it the browser's own first check is
+    peer-reflexive, which works but only once it has crossed.
 
 ## The directory (ADR 0024) — the invariants
 
@@ -100,14 +102,15 @@ single seat and the administration are in place. Global contacts is built.
   (`PhoneContactsPanel.tsx`, `CallLogPanel.tsx`, and the shared
   `usePhoneSources.ts` they both read); the proxied socket in
   `server/src/phone/proxy.ts`, the bridge's address in
-  `server/src/phone/bridge.ts`, the document and the media range in
-  `server/src/shared/phone.ts`, and the administration in
-  `web/src/views/admin/IdentitiesAndSipPhone.tsx`. The bridge itself is built
-  and configured by `deploy/janus/` (the pinned `VERSION`, the Janus configs,
-  the container entrypoint) and `install/install.sh` (the host services), with
-  `scripts/janusConfig.mjs` deriving the media range from
-  `@gilbert/shared/phone`, and `scripts/janusVersion.mjs` saying whether the pin
-  is behind upstream.
+  `server/src/phone/bridge.ts`, the credential document, the media range and the
+  STUN port in `server/src/shared/phone.ts`, and the administration in
+  `web/src/views/admin/IdentitiesAndSipPhone.tsx`. The bridge — Janus with its
+  **STUN-only responder** beside it — is built and configured by `deploy/janus/`
+  (the pinned `VERSION`, the Janus configs, the container entrypoint) and
+  `install/install.sh` (`install/gilbert-stun.service` for the responder), with
+  `scripts/janusConfig.mjs` and `scripts/stunConfig.mjs` deriving the ports from
+  `@gilbert/shared/phone`, and `scripts/janusVersion.mjs` saying whether the
+  Janus pin is behind upstream.
 - **Global contacts**: `server/src/globalContactsAdmin.ts` (the write, the
   share, the boot-time `ensureGlobalContacts`), `server/src/index.ts` (its
   call), `server/src/shared/phone.ts`,
@@ -120,8 +123,8 @@ single seat and the administration are in place. Global contacts is built.
 2. The phone is the browser's: one seat, one tab, the registration with it. Do
    not add a server-held registration or a second seat.
 3. **If something is needed, make it happen** — no buttons, no per-user steps.
-4. Never add installation telephony settings or a STUN/TURN an operator
-   configures; how Gilbert reaches Janus is the deployment's.
+4. Never add installation telephony settings, a TURN server, or a STUN an
+   operator configures: the bridge's own STUN-only responder comes with it.
 5. Never let the browser frame SIP: it speaks the Janus API.
 6. Desktop only.
 7. **The call history is the account's own**, in its app folder (`calls.json`):
@@ -135,4 +138,4 @@ single seat and the administration are in place. Global contacts is built.
 
 Companion skills: Stalwart objects load `gilbert-stalwart`; group books load
 `gilbert-groups`; strings load `gilbert-i18n`. Installing and running the bridge
-— both ways, and the one port — is `INSTALL.md`.
+— both ways, and the two ports — is `INSTALL.md`.

@@ -1,3 +1,4 @@
+import { BRIDGE_STUN_PORT } from "@gilbert/shared/phone";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Phone, type PhoneHooks } from "@/lib/phone/sip";
 
@@ -54,11 +55,13 @@ class FakePeer {
   connectionState = "new";
   remoteSet = false;
   added: unknown[] = [];
+  config: RTCConfiguration | undefined;
   onconnectionstatechange: (() => void) | null = null;
   onicecandidate: ((event: { candidate: null }) => void) | null = null;
   ontrack: ((event: unknown) => void) | null = null;
 
-  constructor() {
+  constructor(config?: RTCConfiguration) {
+    this.config = config;
     FakePeer.instances.push(this);
   }
 
@@ -203,6 +206,27 @@ describe("answering an incoming call", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(call?.added).toEqual([candidate(7)]);
+    await phone.stop();
+  });
+
+  it("asks the bridge's STUN responder for the browser's own address", async () => {
+    const { phone, sip } = await readyPhone();
+    sip.onmessage?.(
+      event(
+        { sip: "event", result: { event: "incomingcall", username: "1234" } },
+        {
+          type: "offer",
+          sdp: "v=0",
+        },
+      ),
+    );
+
+    await phone.answer();
+
+    const call = FakePeer.instances.at(-1);
+    expect(call?.config?.iceServers).toEqual([
+      { urls: `stun:${window.location.hostname}:${BRIDGE_STUN_PORT}` },
+    ]);
     await phone.stop();
   });
 });

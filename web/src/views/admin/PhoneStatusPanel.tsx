@@ -9,9 +9,9 @@ type MediaCheck = "idle" | "running" | "reachable" | "unreachable";
 
 /**
  * The phone's bridge, monitored (ADR 0023): whether the service answers, the
- * Janus the deployment installed, the media range it opens, and a live check
- * that this browser can reach it — for so an administrator sees what is out of
- * place without reading a log on the host.
+ * Janus the deployment installed, the ports it opens, and a live check that
+ * this browser can reach it — so an administrator sees what is out of place
+ * without reading a log on the host.
  *
  * The whole check is automatic: it runs when the tab is opened, and Re-check
  * runs all of it again. There is no separate button per row to remember.
@@ -54,7 +54,7 @@ export function PhoneStatusPanel({
       : media === "reachable"
         ? t("Reachable")
         : media === "unreachable"
-          ? t("Not reachable — open the media range inbound")
+          ? t("Not reachable — open the bridge's ports inbound")
           : t("Not checked");
 
   return (
@@ -74,6 +74,10 @@ export function PhoneStatusPanel({
         <Row label={t("Janus version")} value={status?.version ?? t("not installed")} />
         <Row label={t("Media range (UDP, inbound)")} value={status?.mediaPorts ?? "—"} />
         <Row
+          label={t("STUN port (UDP, inbound)")}
+          value={status ? String(status.stunPort) : "—"}
+        />
+        <Row
           label={t("Media path from this browser")}
           value={mediaText}
           tone={
@@ -90,7 +94,7 @@ export function PhoneStatusPanel({
 
       <p className="hint">
         {t(
-          "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range above is the only port to open inbound.",
+          "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.",
         )}
       </p>
     </div>

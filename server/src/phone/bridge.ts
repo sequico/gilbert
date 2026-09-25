@@ -5,9 +5,9 @@
  * release: beside the server inside the one image, or beside it on the host
  * when the installer is used. Either way it is on loopback, and its API is
  * never exposed — only gilbertserver proxies the browser's WebSocket to it.
- * Its media range and the ports an operator opens are the deployment's; the
- * one thing the administration states is that range,
- * `BRIDGE_MEDIA_PORTS` in `@gilbert/shared/phone`.
+ * Its media range, its STUN responder's port and the ports an operator opens
+ * are the deployment's; the administration states them, `BRIDGE_MEDIA_PORTS`
+ * and `BRIDGE_STUN_PORT` in `@gilbert/shared/phone`.
  *
  * The bridge is **optional**: a host that cannot build Janus installs Gilbert
  * without the phone, and `bridgeReachable` is how the administration knows to
@@ -15,7 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { WebSocket } from "ws";
-import { BRIDGE_MEDIA_PORTS } from "../shared/phone.js";
+import { BRIDGE_MEDIA_PORTS, BRIDGE_STUN_PORT } from "../shared/phone.js";
 
 /** The bridge's WebSocket API, on loopback: it is a second process here. */
 export const BRIDGE_URL = "ws://127.0.0.1:8188";
@@ -43,6 +43,8 @@ export interface BridgeStatus {
   version: string | null;
   /** The media range the deployment opens, `BRIDGE_MEDIA_PORTS`. */
   mediaPorts: string;
+  /** The STUN responder's port, `BRIDGE_STUN_PORT`. */
+  stunPort: number;
 }
 
 function installedVersion(): string | null {
@@ -65,6 +67,7 @@ function installedVersion(): string | null {
 export async function bridgeReachable(): Promise<BridgeStatus> {
   const version = installedVersion();
   const mediaPorts = BRIDGE_MEDIA_PORTS;
+  const stunPort = BRIDGE_STUN_PORT;
   const socket = new WebSocket(BRIDGE_URL, JANUS_PROTOCOL);
   const reachable = await new Promise<boolean>((resolve) => {
     const timer = setTimeout(() => {
@@ -82,11 +85,12 @@ export async function bridgeReachable(): Promise<BridgeStatus> {
   });
   socket.close();
   return reachable
-    ? { available: true, reason: null, version, mediaPorts }
+    ? { available: true, reason: null, version, mediaPorts, stunPort }
     : {
         available: false,
         reason: "the phone's bridge is not running on this host",
         version,
         mediaPorts,
+        stunPort,
       };
 }

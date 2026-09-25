@@ -12,13 +12,14 @@ and the account's own call history is `web/src/lib/phone/callLog.ts`; the
 administration is
 `web/src/views/admin/IdentitiesAndSipPhone.tsx`; the socket gilbertserver
 proxies is `server/src/phone/proxy.ts` (registered in `server/src/app.ts`), the
-bridge's address is `server/src/phone/bridge.ts`, and the account document and
-the media range are `server/src/shared/phone.ts`. The bridge itself — the pinned
-Janus, its configs and its entrypoint — is built by `deploy/janus/` for the
-image and published as a host tarball the installer fetches
-(`install/install.sh`), with `scripts/janusConfig.mjs` deriving the media range
-from that shared definition. Global contacts is a record of its own (ADR
-0024).
+bridge's address is `server/src/phone/bridge.ts`, and the account document, the
+media range and the STUN port are `server/src/shared/phone.ts`. The bridge — the
+pinned Janus and the **STUN responder** beside it (coturn in STUN-only mode),
+their configs and the entrypoint — is built by `deploy/janus/` for the image and
+published as a host tarball the installer fetches (`install/install.sh`, with
+`install/gilbert-stun.service` running the responder on a host), with
+`scripts/janusConfig.mjs` and `scripts/stunConfig.mjs` deriving their ports from
+that shared definition. Global contacts is a record of its own (ADR 0024).
 
 ## Context
 
@@ -81,18 +82,19 @@ the provider runs over the transport the provider's own record names — **SIP
 over UDP/5060** as built, and **not TLS**: Janus's SIP plugin does not reliably
 establish a TLS transport and the provider's certificate is not publicly
 trusted, so forcing it would fail the registration rather than secure it. The
-leg is outbound either way. There is **no STUN/TURN**: the bridge is on a
-public IP and is the browser's ICE peer. Because the browser's own host
-candidates are the media path, and Chrome obfuscates them as random
-`<uuid>.local` mDNS names, the bridge reaches the browser through ICE's
-**peer-reflexive** discovery: those names are link-local, so a browser on
-another network is never resolved to an address, and the browser's first check
-is what teaches the bridge where it is. The **host installer** installs
-`avahi-daemon` and `libnss-mdns` and points `nsswitch.conf` at them, which
-removes the resolver error and lets a same-LAN browser's candidate be used
-directly; the container image runs unprivileged and read-only and cannot, and
-keeps the peer-reflexive path. The media range is the **only** port a deployment
-opens inbound — the SIP leg to the provider is outbound, so 5060/5061 are never
+leg is outbound either way. There is **no TURN**, and no STUN an operator names:
+the bridge runs its own **STUN-only responder** beside it (`coturn --stun-only`,
+on `BRIDGE_STUN_PORT`), so the browser asks for the address its network gives it
+and ICE has a **server-reflexive** candidate for this bridge. Without it a
+browser behind NAT is still reached by ICE's **peer-reflexive** discovery — the
+browser's first check teaching the bridge where it is — but the address arrives
+late and only once a check has crossed; the responder makes the media path
+deterministic. Chrome also obfuscates the browser's host candidates as random
+`<uuid>.local` mDNS names: those are link-local, so the **host installer**
+installs `avahi-daemon` and `libnss-mdns` to resolve them for a same-LAN
+browser, and the container image, unprivileged and read-only, cannot. The media
+range **and the STUN responder's port** are the two ports a deployment opens
+inbound — the SIP leg to the provider is outbound, so 5060/5061 are never
 opened.
 
 ### A second call
@@ -114,11 +116,13 @@ that person's own account, read through the door that account is already signed
 in by — not a shared secret, and not a second door.
 
 **There is no installation-level phone configuration and no SIP Phone page.**
-No `sip` section, no endpoints, no STUN/TURN. The bridge ships with the release
-— the image builds it from one pin and the release publishes a host tarball the
-installer fetches — so there is nothing to configure; the one deployment fact an
-operator acts on is the media range, opened inbound. A user with no account has
-no phone and no entry; a user with one has it. There is no per-user switch.
+No `sip` section, no endpoints, no TURN and no STUN an operator names — the
+bridge's own STUN-only responder travels with it. The bridge ships with the
+release — the image builds it from one pin and the release publishes a host
+tarball the installer fetches — so there is nothing to configure; the deployment
+facts an operator acts on are the two ports, opened inbound. A user with no
+account has no phone and no entry; a user with one has it. There is no per-user
+switch.
 
 ### Desktop only
 
@@ -183,8 +187,8 @@ answer, and the media path to the bridge must be proven before the entry is
 drawn. A half-configured deployment — the bridge's media ports still closed,
 above all — shows **no phone at all** rather than an entry that fails at the
 first call. Because those ports are the deployment's, the administration states
-them: a line naming the bridge's media range and saying that the SIP leg is
-outbound, so whoever installs Gilbert knows exactly what to open.
+them: a line naming the bridge's media range and its STUN port and saying that
+the SIP leg is outbound, so whoever installs Gilbert knows exactly what to open.
 
 ### Contacts the phone reads, and speed dial
 
@@ -216,8 +220,9 @@ be composed by hand, through a keypad, and it is sent to the provider as
   not a telephone system.
 - **Video, recording and conferencing.** Audio calls only; anything the provider
   does beyond that is the operator's.
-- **An operator-configured STUN/TURN.** The bridge is the ICE peer on a public
-  IP; there is no relay for a deployment to name.
+- **TURN, and an operator-configured STUN.** The bridge runs its own STUN-only
+  responder, so the browser gets a server-reflexive candidate; there is no relay
+  to name and no TURN credentials anywhere.
 - **A second contacts store.** The directory the dialer reads is Global contacts
   (ADR 0024), a Stalwart book; the phone keeps nothing of its own.
 - **A registration the server holds, or a second seat.** One tab of one browser
@@ -226,10 +231,10 @@ be composed by hand, through a keypad, and it is sent to the provider as
 
 ## Consequences
 
-- The release runs a second process — the bridge — beside the server, in the
-  same image or as a systemd unit, and it needs a public IP and a media UDP
-  range open on its firewall: that range is the only inbound port, and the SIP
-  leg is outbound. Media traverses the bridge, so a call costs the bandwidth
+- The release runs the bridge — Janus, with its STUN responder beside it — as a
+  process of its own next to the server, in the same image or as a systemd unit,
+  and it needs a public IP with a media UDP range and the STUN port open on its
+  firewall: those are the inbound ports, and the SIP leg is outbound. Media traverses the bridge, so a call costs the bandwidth
   twice and the relay's CPU; **G.711** keeps that relay a pass-through rather
   than a transcoder. A restart drops the calls in progress, and the tabs that
   hold the seat register again when their socket returns.
@@ -248,8 +253,9 @@ be composed by hand, through a keypad, and it is sent to the provider as
   Gilbert does, rather than the feature living only in the code.
 - **Owed a live probe**: the Janus SIP plugin registering through the provider
   and carrying a call end to end (Zadarma as the reference), its WebRTC-to-SIP
-  media path, DTMF over RFC 2833, and the provider's own behaviour for a second
-  call while one is live.
+  media path, DTMF over RFC 2833, the provider's own behaviour for a second
+  call while one is live, and the STUN responder answering a remote browser with
+  its server-reflexive candidate.
 
 ## References
 
@@ -260,5 +266,6 @@ be composed by hand, through a keypad, and it is sent to the provider as
 - ADR 0016 — what reaches a closed client, and why the browser's own push
   cannot answer a call
 - ADR 0024 — Global contacts, the directory the dialer reads
-- [INSTALL.md](../../INSTALL.md) — installing Gilbert and its bridge, and the one
-  port it needs
+- coturn — <https://github.com/coturn/coturn> (the STUN responder)
+- [INSTALL.md](../../INSTALL.md) — installing Gilbert and its bridge, and the
+  ports it needs

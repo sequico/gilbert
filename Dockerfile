@@ -26,6 +26,8 @@ RUN npm run build
 # The bridge's main config, from the one definition of the media range the
 # administration also shows (ADR 0023).
 RUN node scripts/janusConfig.mjs /janus.jcfg
+# The STUN responder's config, from the one definition of its port (ADR 0023).
+RUN node scripts/stunConfig.mjs /turnserver.conf
 
 # ---- the phone's bridge (ADR 0023) ----
 # Janus with its SIP plugin, built from the pinned upstream release. It is the
@@ -91,6 +93,7 @@ RUN apt-get update \
       ca-certificates \
       libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
       libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17 \
+      coturn \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=janus /usr/local /usr/local
 COPY --from=build /janus.jcfg /usr/local/etc/janus/janus.jcfg
@@ -98,6 +101,8 @@ COPY deploy/janus/janus.transport.websockets.jcfg \
      deploy/janus/janus.plugin.sip.jcfg \
      deploy/janus/janus.plugin.echotest.jcfg \
      /usr/local/etc/janus/
+# The bridge's STUN responder, generated from the one port definition (ADR 0023).
+COPY --from=build /turnserver.conf /etc/gilbert/turnserver.conf
 COPY deploy/janus/entrypoint.sh /usr/local/bin/gilbert-entrypoint
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
