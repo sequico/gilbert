@@ -460,7 +460,7 @@ still standing. The open ones are the reasons this record is still Proposed.
 18. **Are KB pages also visible in Files?** — **Open.** *Recommend no: the KB is
     its own surface, the way chat is not a folder of messages.*
 19. **Naming** — **Settled.** The surface is called **KB** in every language —
-    the same three letters, never translated, the way the app's own name is not
+    the same two letters, never translated, the way the app's own name is not
     — while the identifier and the store path stay `gilbert/knowledge` (the
     four-block vocabulary). It is a term of art rather than English copy, so no
     catalog carries a translation of it and the label renders "KB" everywhere.
