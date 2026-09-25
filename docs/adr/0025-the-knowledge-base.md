@@ -137,6 +137,58 @@ dependencies of the SPA, the search runs in-process, and the durable bytes stay
 in Stalwart. `Outline` is excluded on licence; the separate search services are
 excluded because they are a second store.
 
+## Which libraries we use
+
+The question "use the shelf, or take only the ideas and write it ourselves?" has
+one answer, and it is a split: **buy everything a thousand projects have already
+solved the same way; build the part that is Gilbert's alone.** A block editor, a
+CRDT, full-text search and a canvas are generic and hard; the durable bytes in
+Stalwart, the ownership, the control of a document and the agent that keeps it
+aligned are Gilbert's and exist nowhere to import.
+
+**Take off the shelf:**
+
+- **BlockNote** — the page editor (core MPL-2.0, React). It brings ProseMirror
+  and TipTap transitively, so those are not separate choices. This is the one
+  dependency v1 cannot do without.
+- **Orama** — the search engine (Apache-2.0), in-process over the pages' `text`,
+  read by both tiers.
+- **Yjs + Hocuspocus** — real-time co-editing, when that phase comes: Hocuspocus
+  is a library that mounts in the existing Node process (no new service); the
+  CRDT state checkpoints into the page documents.
+- **Excalidraw** — diagrams, optional and later, as an embedded React component.
+
+**Write ourselves** (no library owns this; it is the architecture):
+
+- `@gilbert/shared/knowledge` — the page shape, the folder layout, the tree and
+  text helpers, the one definition both tiers read.
+- Storage through the existing app-folder writers and their `ifInState`.
+- Ownership — the Master's company KB and each group's — the share, the
+  boot-time ensure.
+- Versioning and its retention, the publication lifecycle and its approval.
+- The agent's document-controller behaviour and its catalogue entries.
+- The wiring around Orama: the index over KB pages is ours, the engine is not.
+
+**Take only the ideas** (adopt nothing):
+
+- The full products — Outline (BSL 1.1), Docmost, Wiki.js, BookStack, AFFiNE,
+  AppFlowy. Each is a second database and a second service, which the law
+  refuses; they are read for what a KB needs, not depended on.
+- Meilisearch and Typesense — a second service and a second store.
+- Plate, Lexical and standalone TipTap — redundant once BlockNote is the editor;
+  kept only as the fallback if BlockNote proves too opinionated for the page
+  (Q12).
+- A QMS/ISO-9001 product — the shelf holds only tiny or unmaintained ones
+  (`dromation/open-eqms`, `jonaesantos/odoo-qms-iso9001`), none an embeddable
+  library, and each brings its own store. Document control is built on the KB and
+  the agent fleet (below).
+- A workflow/BPMN engine (`vercel/workflow`, `dbos`, Hatchet and the like) — the
+  fleet's own jobs, decisions and approvals (`docs/adr/0003`) are the workflow,
+  and a durable-workflow engine brings a database, which is refused.
+
+One dependency at a time: BlockNote and Orama in v1; Yjs/Hocuspocus and
+Excalidraw only when their phase arrives.
+
 ## The design as it stands
 
 Not accepted, and each point below has a question in **Open questions**. It is
@@ -274,6 +326,51 @@ ADR 0024 door, ready now), or a "quality manager" grant that does not exist yet
 because Gilbert administration is Stalwart administration plus the admin marker
 (`docs/adr/0001`) — **Q8**.
 
+## The agent as document controller
+
+The owner's further requirement is the one that makes the KB a controlled
+document system rather than a wiki: the agent must **keep the policies aligned**,
+**find inconsistencies**, **suggest improvements**, **change several documents
+for one operator request**, and **submit the result for approval**. A model that
+does this is a *document controller*, and it is where the KB earns its keep.
+
+- **Alignment and inconsistency checking is a read.** A pass over the KB reads
+  the pages and their `text` and looks for the failures a person misses:
+  contradictions between two documents, a reference to a revision that has been
+  superseded, a policy that should have changed when another did, a term used two
+  ways, a citation of a document that no longer exists. It writes nothing, so it
+  is safe to run; what it produces is **findings** — a prose proposal naming the
+  pages and the revisions it was drawn from, never a silent change.
+- **A multi-document change is a plan, built before it is written.** "Update
+  every procedure that references policy X" becomes a plan document: for each
+  page, the revision it was read at, the intended change and why. This is the
+  folder-merge discipline of `docs/adr/0014` — the plan is built, collisions and
+  pages moved since are detected, and only then is it applied, page by page,
+  under `ifInState`. JMAP has no transaction across FileNodes, so a partial
+  failure leaves the plan and the per-page outcomes recorded — never a
+  half-changed set of documents nobody can account for.
+- **Suggestions are the plan, not an edit.** "Suggest an improvement" is the same
+  plan with a person free to accept, amend or drop it; nothing lands in place
+  until a person or the policy says so.
+- **Submit for approval reuses the fleet's own door.** An edit to a controlled or
+  published document is never a publication: it becomes a review item. The fleet
+  already carries the shape — `awaiting_approval`, the Approvals surface, the
+  per-group review policy (`docs/adr/0003`, `docs/adr/0006`) — and a document
+  change rides it rather than growing a second approval system. A draft may be
+  edited directly, within the capability allowlist and the review policy.
+- **The catalogue grows, and stays closed.** A `knowledge` **read** (the lookup
+  of the previous section) and **propose/apply** write capabilities, offered and
+  bounded exactly like every existing action: the model chooses a kind and its
+  parameters and never writes a query or a JMAP method (`docs/adr/0020`). "Check
+  for inconsistencies" is such a read; "apply the plan" is such a write.
+- **The account is the lock.** `ifInState` is whole-account, so a plan is applied
+  in small conditional steps and retried, and it names the revisions it was built
+  from: a page changed since the plan was made is refused rather than
+  overwritten, and the plan says which page and why.
+- **The agent is not the approver.** It reads, checks, proposes and applies what
+  was approved; approval is a person's (Q8). An agent that could both propose and
+  approve collapses the separation ISO 9001 exists to keep.
+
 ## Open questions
 
 Each with a recommendation, to be answered by the owner. These are the reasons
@@ -345,6 +442,27 @@ this record is Proposed.
     otherwise public policy)? A universal folder share is all-or-nothing, so this
     would need per-node shares or a client rule. *Recommend out of scope for v1;
     say so rather than imply a boundary that is not there.*
+21. **What may an agent do to the company KB unattended?** Read only, propose, or
+    edit drafts? *Recommend read and propose everywhere; direct edits to drafts
+    only, and to a controlled document only once approved (Q10).*
+22. **When does the consistency pass run** — on change, on operator ask, or on a
+    clock? A clock spends the fleet's runs and the installation's model budget
+    (`docs/adr/0012`). *Recommend on change and on ask for v1; a schedule is a
+    separate decision with its own cost.*
+23. **Where do findings and plans live** — as KB documents (readable, auditable)
+    or as the fleet's job/decision documents (the existing trail)? *Recommend the
+    job/decision trail for provenance, with the plan text also attached to the
+    review item a person sees.*
+24. **May one plan touch more than one owner** (the company KB and a group's) in
+    a single request? *Recommend no in v1: a plan is one owner's, so its share and
+    its approval are unambiguous.*
+25. **Does approving a plan publish the new revisions, or only write drafts
+    pending a separate publish?** *Recommend new drafts; publishing stays its own
+    act (Q8), so approval of a change and issue of a revision are not one click.*
+26. **Who may ask the agent for a multi-document change** — any member, or an
+    administrator? *Recommend members for drafts and administrators/quality
+    holders for controlled documents, following whatever Q1 answers for the
+    company KB.*
 
 ## What is not in it
 
@@ -360,6 +478,11 @@ this record is Proposed.
   own record.
 - **Per-user setup.** The company KB exists at boot and is shared automatically;
   no button, no step nobody asked for (`AGENTS.md`, automatic by default).
+- **A QMS/ISO-9001 product or a workflow engine.** The shelf holds nothing
+  embeddable for either, and each brings a database; document control is built on
+  the KB and the fleet.
+- **A second approval system.** A controlled-document change reuses the fleet's
+  jobs, decisions and Approvals surface (`docs/adr/0003`).
 
 ## Consequences (of the shape as it stands)
 
@@ -387,6 +510,7 @@ this record is Proposed.
 - `docs/adr/0006` — the two speeds of context (the notebook and the lookup)
 - `docs/adr/0012` — a durable write is caused by a change, not by a clock
 - `docs/adr/0013` — a dropped name is written over, in place
+- `docs/adr/0014` — merging two folders is planned before it is written
 - `docs/adr/0019` — the three levels of prose
 - `docs/adr/0020` — a run may look something up
 - `docs/adr/0024` — Global contacts: the installation-owned, shared, admin-written
@@ -397,5 +521,6 @@ this record is Proposed.
 - `server/src/agent/documents.ts`, `server/src/agent/llm.ts` — the notebook and
   the lookup catalogue
 - `server/src/agent/documentFamily.ts` — the existing document reader
+- `docs/research/agent-intelligence-ideas.md` — the fleet's open ideas
 - `.opencode/skills/gilbert-stalwart/SKILL.md` — FileNode quirks and conditional
   writes

@@ -252,8 +252,11 @@ is, not what a user sees.
 - **0025 — The knowledge base (proposed, a working record).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
   owned by the Master and shared, plus a KB per group owned by the group, over
-  app-folder documents in Stalwart with a block editor (BlockNote), an in-process
-  search (Orama) and the agent fleet's lookup catalogue extended. The record is
-  **Proposed** and deliberately a notebook: it carries the findings, the design
-  as it stands, versioning and publication (e.g. ISO 9001 policies), and every
-  open question with a recommendation, before any code exists.
+  app-folder documents in Stalwart. It takes the editor (BlockNote) and the
+  search (Orama) off the shelf and builds the rest — storage, ownership,
+  versioning, publication — itself, and makes the fleet a **document controller**
+  that keeps policies aligned, finds inconsistencies, plans multi-document edits
+  and submits them for approval. The record is **Proposed** and deliberately a
+  notebook: it carries the findings, the design as it stands, versioning and
+  publication (e.g. ISO 9001 policies), the library choice, and every open
+  question with a recommendation, before any code exists.
