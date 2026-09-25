@@ -191,8 +191,8 @@ Excalidraw only when their phase arrives.
 
 ## The design as it stands
 
-Not accepted, and each point below has a question in **Open questions**. It is
-written down so the questions have something to point at.
+Not yet accepted, and each unsettled point below has a question in **Questions,
+settled and open**. The approval lifecycle is settled and is the core of it.
 
 ### Two tiers, one shape
 
@@ -200,7 +200,8 @@ written down so the questions have something to point at.
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
 | Who reads | everyone (universal share) | members (membership is the grant) |
-| Who writes | **open question Q1** | members |
+| Who writes | every member and every agent, **drafts only** | members and the group's agent, drafts only |
+| Who approves | **administrators only** | **administrators only** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
 | Access | a Stalwart share (not a security boundary) | the reader's own JMAP session |
@@ -210,17 +211,45 @@ differs. The surface lists **Company** first, then one section per group the
 reader is in — the contact sidebar's shape (Global contacts above the reader's
 books and the groups').
 
+### The lifecycle: one shared draft, an administrator approves
+
+The owner has settled how a KB article moves from a change to in force. It is the
+document-control core of this record, and it answers several of the questions
+below.
+
+- **An article has at most one unapproved draft, and everyone edits it.** Users
+  and agents alike write and modify the same draft — multi-edit by everybody —
+  rather than opening a competing draft of their own. A second intent is an edit
+  of that draft, not a second document.
+- **Agents review the draft.** The fleet reads the draft and its neighbours and
+  produces the review: inconsistencies, stale references, contradictions with
+  what is in force. A review is a read that yields findings; it is not an
+  approval.
+- **Only an administrator approves.** Administrators are the single approval
+  level. No member, and no agent, ever approves an article.
+- **Approval puts the draft in force, with an effective date.** The administrator
+  approves and states the date the revision takes effect; that becomes the
+  article's in-force revision.
+- **The previous revision stays in history as superseded.** Approving a new
+  revision supersedes the one before it, which remains readable and is marked
+  superseded. Nothing already issued is ever edited in place.
+
 ### Storage
 
-- **One document per page**: `gilbert/knowledge/<id>/page.json`, a JSON document
-  through the shared serializer (`@gilbert/shared/appDocument`). The page's file
-  name is its title; the hierarchy is the FileNode tree (a page is a folder whose
-  children are its sub-pages), so a listing carries titles without reading blobs.
+- **One article is one folder**: `gilbert/knowledge/<id>/`, holding the single
+  mutable `draft.json`, the immutable approved revisions (`revisions/<rev>.json`,
+  each carrying its approval and effective date), and which revision is in force.
+  The article's file name is its title; the tree is the FileNode tree (an article
+  is a folder whose children are its sub-articles), so a listing carries titles
+  without reading blobs.
 - **The document shape**, one definition in `@gilbert/shared/knowledge` read by
-  both tiers: identity and metadata (id, title, tags, created/updated, author),
-  the editor's `blocks` (the source of truth for the rich body), and a
-  denormalised `text` for search and for agents — so neither the search index nor
-  an agent's read has to understand the editor's format.
+  both tiers: the draft and a revision carry the same fields — identity and
+  metadata (id, title, tags, created/updated, author), the editor's `blocks` (the
+  source of truth for the rich body) and a denormalised `text` for search and for
+  agents — and a revision adds what issuance records (the administrator who
+  approved it, the approval instant, the effective date, and the revision it
+  supersedes). Neither the search index nor an agent's read has to understand the
+  editor's format.
 - **Attachments** are blobs in the account's Files, referenced from the page;
   the KB does not invent a second blob store.
 - **Who owns a page** follows the account it is created in, never a `shareWith`
@@ -262,35 +291,27 @@ the client reads the change back and reconciles.
 Stalwart keeps no history of a FileNode: an update replaces `blobId`/`type` and
 the old blob is reclaimed by the server's GC. So **history must be written as
 documents of its own**, and the cost is the `docs/adr/0012` cost: every revision
-is a blob that is never given back. The question is not "should there be
-history" but "**how much, and written when**".
+is a blob that is never given back. What that history is, and when it is written,
+is the design question the lifecycle below settles.
 
-The shapes on the table:
+The owner's lifecycle settles the shape: **a revision is minted at approval, not
+at every save.** The single shared draft is the mutable copy; an administrator's
+approval turns it into an immutable revision (the previous one becoming
+`superseded`), so the number of stored revisions equals the number of issued
+versions — proportional to intent, not to keystrokes. A snapshot per save and a
+diff are therefore not needed: within a draft, multi-edit is the point, and the
+draft is one document. The CRDT's own history is a question only if the
+co-editing decision (Q13) wants it.
 
-- **(a) A snapshot per save.** The head `page.json` carries `rev`; a save writes
-  an immutable `history/<rev>.json` first, then updates the head under
-  `ifInState`. Simple, robust (an orphan revision after a crash is harmless), and
-  every revision is readable by a fixed name. Cost: one blob per save.
-- **(b) Diffs.** Smaller storage, but it needs a diff/merge over a block tree —
-  more code and a new class of bug, which is the thing the owner asked to avoid.
-- **(c) Named revisions only.** History is written when a person marks or
-  publishes a version, not on every save. Fewest blobs; no "what did it look like
-  at 14:03", which is usually not what an enterprise document needs anyway.
-- **(d) The CRDT's own history.** Yjs carries snapshot/state APIs, but they are
-  not a user-facing revision list and would tie the history to the co-editing
-  decision (**Q4**).
+What is then true:
 
-Whichever shape: **retention must be bounded** — an unbounded per-save history is
-the periodic-write hazard of `docs/adr/0012` in a different costume. The audit
-trail's monthly window is a precedent for bounding by time; bounding by count
-("the last N drafts") is the alternative. A distinction the ISO case forces:
-**approved revisions are not history to prune, they are the controlled record**
-— what is bounded is drafts, not issued versions.
-
-Other versioning facts the questions must settle: who may restore an old
-revision (a restore is an ordinary save of older content, under `ifInState`), and
-whether a restore is itself a new revision (it should be — history that can be
-rewritten is not history).
+- **In-force and superseded revisions are kept for ever** — they are the
+  controlled record, not history to prune (the distinction the ISO case forces).
+- **The draft is the one bounded thing**: one per article, replaced by the next
+  revision on approval, so there is no per-save pile to bound.
+- **A restore of a superseded revision opens a new draft** — by any writer
+  permitted to draft — which an administrator then approves; history is never
+  edited in place.
 
 ## Publication
 
@@ -308,23 +329,22 @@ decided separately because each has a different cost.
    decision about search engines and caching. Attachments are worse: a JMAP blob
    URL is session-authenticated, so a public page's images would have to be
    streamed through a public route too. **Q7**.
-3. **Published and controlled** — the ISO 9001 sense. A page has a lifecycle
-   (`draft` → `in review` → `approved` → `obsolete`), an author and an approver,
-   an effective date, and a **revision that is frozen once approved**. Issuing a
-   new revision supersedes the old one, which stays readable and is marked
-   superseded, never edited. This is a document-control feature on top of the
-   versioning above, not an access level, and it is probably what "ISO 9001
-   policies" actually asks for. **Q9–Q11**.
+3. **Published and controlled** — the ISO 9001 sense, and the owner has settled
+   it (the lifecycle section): one shared draft, edited by users and agents,
+   reviewed by the fleet, then **approved by an administrator with an effective
+   date**, which puts it in force; the revision it replaces stays in history as
+   `superseded`. This is a document-control feature on top of the versioning
+   above, not an access level.
 
 The ISO case also implies: a stable identifier/permalink per controlled document,
 an approver distinct from the author, and possibly a controlled-documents
 catalogue page that lists what is currently in force — which is a document the
 installation owns and administrators maintain.
 
-Publication authority is its own question: an installation administrator (the
-ADR 0024 door, ready now), or a "quality manager" grant that does not exist yet
-because Gilbert administration is Stalwart administration plus the admin marker
-(`docs/adr/0001`) — **Q8**.
+Publication authority is settled: **administrators only**, through the ADR 0024
+door. A separate "quality manager" grant does not exist and is not needed for
+v1, because Gilbert administration is Stalwart administration plus the admin
+marker (`docs/adr/0001`).
 
 ## The agent as document controller
 
@@ -352,12 +372,12 @@ does this is a *document controller*, and it is where the KB earns its keep.
 - **Suggestions are the plan, not an edit.** "Suggest an improvement" is the same
   plan with a person free to accept, amend or drop it; nothing lands in place
   until a person or the policy says so.
-- **Submit for approval reuses the fleet's own door.** An edit to a controlled or
-  published document is never a publication: it becomes a review item. The fleet
-  already carries the shape — `awaiting_approval`, the Approvals surface, the
-  per-group review policy (`docs/adr/0003`, `docs/adr/0006`) — and a document
-  change rides it rather than growing a second approval system. A draft may be
-  edited directly, within the capability allowlist and the review policy.
+- **Drafting is free; approval is the administrator's.** Users and agents write
+  and modify the one shared draft directly, within the capability allowlist and
+  the review policy; a change to what is in force is never an edit of the issued
+  revision but an edit of the draft above it. When the draft is ready, approval is
+  what issues it (the lifecycle section), through the same privileged door every
+  other administrative write uses (ADR 0024, `docs/adr/0001`).
 - **The catalogue grows, and stays closed.** A `knowledge` **read** (the lookup
   of the previous section) and **propose/apply** write capabilities, offered and
   bounded exactly like every existing action: the model chooses a kind and its
@@ -367,102 +387,100 @@ does this is a *document controller*, and it is where the KB earns its keep.
   in small conditional steps and retried, and it names the revisions it was built
   from: a page changed since the plan was made is refused rather than
   overwritten, and the plan says which page and why.
-- **The agent is not the approver.** It reads, checks, proposes and applies what
-  was approved; approval is a person's (Q8). An agent that could both propose and
-  approve collapses the separation ISO 9001 exists to keep.
+- **The agent is not the approver.** It drafts and reviews; **only an
+  administrator approves and sets the effective date**. An agent that could both
+  draft and approve would collapse the separation ISO 9001 exists to keep.
 
-## Open questions
+## Questions, settled and open
 
-Each with a recommendation, to be answered by the owner. These are the reasons
-this record is Proposed.
+The approval lifecycle above settles several of these; each is marked
+**Settled** with what the owner decided, or **Open** with the recommendation
+still standing. The open ones are the reasons this record is still Proposed.
 
-1. **Who writes the company KB?**
-   (A) administrators only, the exact ADR 0024 door; (B) any member through a
-   server route that acts as the Master — same door, broader authorisation, a new
-   trust decision; (C) any member through a read-write Stalwart share on the
-   folder, their own session, no privileged door. *Recommend C if the share holds
-   under a live probe (the ADR 0024 wildcard-share probe is already owed), else
-   B; A is the fallback if the company wants an issued-documents-only KB.*
-2. **Where does the company KB live — hidden or visible?** `gilbert/knowledge`
-   inside the app folder (consistent with chat; keeps raw JSON out of Files) or a
-   visible `Knowledge` folder in the Master's Files. *Recommend hidden, with a
-   probe that a share on the nested folder grants read without exposing
-   `gilbert/` (where `settings.json` lives).*
-3. **Group KBs now or later?** The owner wants both, the company one as lead.
-   *Recommend the same code built once, company first; group scope in the phase
-   after.*
-4. **Versioning shape** — snapshot-per-save, named revisions, or CRDT history?
-   *Recommend named revisions for v1 (a save overwrites the head; "mark a
-   revision"/publish writes one), which keeps blob cost proportional to intent,
-   with snapshots-per-save a later option if the need is proven.*
-5. **Retention** — how long are drafts kept, how many revisions, and are approved
-   revisions kept for ever? *Recommend: approved revisions for ever (they are the
-   record); drafts bounded by count and age.*
-6. **Restore/revert** — who may restore, and is a restore a new revision?
-   *Recommend administrators may restore a published document, any writer a
-   draft; a restore is always a new revision.*
-7. **Does "public" include anonymous access?** *Recommend no for v1 —
+1. **Who writes the company KB?** — **Settled in principle:** every member and
+   every agent writes and edits drafts; only an administrator approves. Still
+   open is the *door* those member writes go through: (B) a server route that
+   acts as the Master — broader authorisation, a new trust decision; or (C) a
+   read-write Stalwart share on the folder, the member's own session, no
+   privileged door. *Recommend C if the share holds under a live probe (the ADR
+   0024 wildcard-share probe is already owed), else B.*
+2. **Where does the company KB live — hidden or visible?** — **Open.**
+   `gilbert/knowledge` inside the app folder (consistent with chat; keeps raw
+   JSON out of Files) or a visible `Knowledge` folder in the Master's Files.
+   *Recommend hidden, with a probe that a share on the nested folder grants read
+   without exposing `gilbert/` (where `settings.json` lives).*
+3. **Group KBs now or later?** — **Open.** *Recommend the same code built once,
+   company first; group scope in the phase after.*
+4. **Versioning shape** — **Settled.** A revision is minted at approval, not per
+   save; the single draft is the mutable copy (the Versioning section).
+5. **Retention** — **Settled.** In-force and superseded revisions are kept for
+   ever (the controlled record); there is one draft per article, so nothing else
+   accumulates.
+6. **Restore/revert** — **Settled.** Restoring a superseded revision opens a new
+   draft, by any permitted writer, which an administrator then approves; history
+   is never edited.
+7. **Does "public" include anonymous access?** — **Open.** *Recommend no for v1 —
    installation-wide only; an anonymous surface is a separate trust decision with
    its own ADR if it is ever wanted.*
-8. **Who may publish/approve?** An installation administrator, or a new
-   quality-manager grant? *Recommend administrators for v1; a grant is a separate
-   decision.*
-9. **Is a lifecycle needed** (draft/review/approved/obsolete, author, approver,
-   effective date), or are "version + published flag" enough? *Recommend the full
-   small lifecycle if ISO 9001 is a real requirement; otherwise version +
-   published.*
-10. **Immutability of an approved revision** — never edited in place; superseding
-    creates a new revision and marks the old. *Recommend yes.*
-11. **Attachments of a controlled document** — frozen with the revision, or
-    referenced live? *Recommend frozen with the revision (a controlled document
-    whose annex can change under it is not controlled).*
-12. **Editor** — BlockNote, TipTap or Plate? *Recommend BlockNote.*
-13. **Real-time co-editing now or later?** It needs a CRDT endpoint on the
-    server (Hocuspocus) and a checkpoint design into Stalwart. *Recommend a later
-    phase; v1 saves the whole document under `ifInState` with an honest conflict
-    path.*
-14. **Search index** — rebuild lazily from Stalwart, or cache a serialised Orama
-    index as a document? *Recommend lazy rebuild for v1; cache only if a real KB
-    proves slow.*
-15. **May an agent write the KB, and the company KB?** A group agent acts as the
-    group; the company KB needs the Master door. *Recommend read (lookup) for
-    all, write to the group's own KB from its agent, company-KB writes through
-    the same door the members' writes use (Q1).*
-16. **Does the company KB enter the model's context automatically?** The
-    three-level prose of `docs/adr/0019` and the notebook are the head; the KB is
-    a lookup. *Recommend the KB stays a lookup (the tail), never wholesale — the
+8. **Who may publish/approve?** — **Settled.** Administrators only, with an
+   effective date. No separate quality-manager grant for v1.
+9. **Is a lifecycle needed?** — **Settled.** One shared draft → agent review →
+   administrator approval with an effective date → in force; the previous
+   revision stays as superseded.
+10. **Immutability of an approved revision** — **Settled.** Never edited in
+    place; the next change is a new draft, and the old revision becomes
+    superseded.
+11. **Attachments of a controlled document** — **Open.** Frozen with the revision
+    or referenced live? *Recommend frozen with the revision (a controlled
+    document whose annex can change under it is not controlled).*
+12. **Editor** — **Open.** *Recommend BlockNote.*
+13. **Real-time co-editing now or later?** — **Open**, and now load-bearing: the
+    single shared draft is multi-edited by everyone, so concurrent edits are the
+    normal case, not the exception. It needs a CRDT endpoint on the server
+    (Hocuspocus) and a checkpoint design into Stalwart. *Recommend a later phase;
+    v1 saves the whole draft under `ifInState` with an honest conflict path, and
+    says so on screen.*
+14. **Search index** — **Open.** *Recommend lazy rebuild for v1; cache only if a
+    real KB proves slow.*
+15. **May an agent write the KB?** — **Settled.** Agents read everywhere and
+    write drafts everywhere (company and group); they never approve. A group
+    agent's company-KB draft write goes through the same door the members' does
+    (Q1).
+16. **Does the company KB enter the model's context automatically?** — **Open.**
+    *Recommend the KB stays a lookup (the tail), never wholesale — the
     `docs/adr/0006` two-speed rule.*
-17. **Structure** — tree, tags, backlinks, or a mix? *Recommend tree (FileNode)
-    plus tags; backlinks are a later concern.*
-18. **Are KB pages also visible in Files?** *Recommend no: the KB is its own
-    surface, the way chat is not a folder of messages.*
-19. **Naming** — folder `gilbert/knowledge`, UI label "Knowledge", the four-block
-    vocabulary. *Recommend exactly that; strings go through `gilbert-i18n`.*
-20. **Per-page restrictions inside the company KB** (a restricted annex to an
-    otherwise public policy)? A universal folder share is all-or-nothing, so this
-    would need per-node shares or a client rule. *Recommend out of scope for v1;
-    say so rather than imply a boundary that is not there.*
-21. **What may an agent do to the company KB unattended?** Read only, propose, or
-    edit drafts? *Recommend read and propose everywhere; direct edits to drafts
-    only, and to a controlled document only once approved (Q10).*
+17. **Structure** — **Open.** *Recommend tree (FileNode) plus tags; backlinks are
+    a later concern.*
+18. **Are KB pages also visible in Files?** — **Open.** *Recommend no: the KB is
+    its own surface, the way chat is not a folder of messages.*
+19. **Naming** — **Open.** *Recommend `gilbert/knowledge`, UI label "Knowledge",
+    the four-block vocabulary; strings through `gilbert-i18n`.*
+20. **Per-page restrictions inside the company KB** — **Open.** *Recommend out of
+    scope for v1; say so rather than imply a boundary that is not there.*
+21. **What may an agent do unattended?** — **Settled.** Read and draft, including
+    the reviews; approval is an administrator's alone.
 22. **When does the consistency pass run** — on change, on operator ask, or on a
-    clock? A clock spends the fleet's runs and the installation's model budget
-    (`docs/adr/0012`). *Recommend on change and on ask for v1; a schedule is a
-    separate decision with its own cost.*
+    clock? — **Open.** *Recommend on change and on ask for v1; a schedule is a
+    separate decision with its own cost (`docs/adr/0012`).*
 23. **Where do findings and plans live** — as KB documents (readable, auditable)
-    or as the fleet's job/decision documents (the existing trail)? *Recommend the
-    job/decision trail for provenance, with the plan text also attached to the
-    review item a person sees.*
+    or as the fleet's job/decision documents (the existing trail)? — **Open.**
+    *Recommend the job/decision trail for provenance, with the plan text also
+    attached to the review item a person sees.*
 24. **May one plan touch more than one owner** (the company KB and a group's) in
-    a single request? *Recommend no in v1: a plan is one owner's, so its share and
-    its approval are unambiguous.*
-25. **Does approving a plan publish the new revisions, or only write drafts
-    pending a separate publish?** *Recommend new drafts; publishing stays its own
-    act (Q8), so approval of a change and issue of a revision are not one click.*
-26. **Who may ask the agent for a multi-document change** — any member, or an
-    administrator? *Recommend members for drafts and administrators/quality
-    holders for controlled documents, following whatever Q1 answers for the
-    company KB.*
+    a single request? — **Open.** *Recommend no in v1: a plan is one owner's, so
+    its share and its approval are unambiguous.*
+25. **Does approving a plan publish, or only write drafts?** — **Settled.**
+    Approval is the act that issues the revision, with the effective date; a plan
+    produces draft changes that wait for an administrator's approval.
+26. **Who may ask for a multi-document change** — any member, or an
+    administrator? — **Settled.** Any member and any agent, since both write
+    drafts; issuing the result is an administrator's.
+27. **Is the agents' review a gate before approval, or advisory?** The owner's
+    order is draft → review → approval, which read literally makes the review
+    happen first. *Open: recommend the review informs the administrator rather
+    than blocking the approval, so a slow or failed review never strands a draft;
+    a "review required" flag on the article is the alternative if the process
+    wants it enforced.*
 
 ## What is not in it
 
@@ -483,6 +501,9 @@ this record is Proposed.
   the KB and the fleet.
 - **A second approval system.** A controlled-document change reuses the fleet's
   jobs, decisions and Approvals surface (`docs/adr/0003`).
+- **More than one open draft of an article.** One unapproved draft at a time,
+  edited by everyone; a competing change edits that draft rather than opening a
+  second.
 
 ## Consequences (of the shape as it stands)
 
