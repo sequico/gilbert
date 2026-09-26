@@ -204,6 +204,16 @@ export class AgentStore {
     for (const dir of [AGENT_JOBS_DIR, AGENT_DECISIONS_DIR, AGENT_AUDIT_DIR]) {
       await ensureFolderPath(this.ctx, this.accountId, this.path(dir));
     }
+    /*
+     * The heartbeat directory moved from `agent/workers/` to `agent/agents/`,
+     * and nothing reads the old one: it is removed with its records rather than
+     * left in the account as stale documents.
+     */
+    const legacy = await findAppFileAt(this.ctx, this.accountId, this.path("workers"));
+    if (legacy.file?.id)
+      await destroyAppNode(this.ctx, this.accountId, String(legacy.file.id), {
+        removeChildren: true,
+      });
   }
 
   /**

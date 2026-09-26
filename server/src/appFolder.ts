@@ -898,13 +898,16 @@ export async function destroyAppNode(
   ctx: Ctx,
   accountId: string,
   id: string,
-  opts: { ifInState?: string } = {},
+  opts: { ifInState?: string; removeChildren?: boolean } = {},
 ): Promise<void> {
   await clientOf(ctx).call(
     "FileNode/set",
     {
       accountId,
       ...(opts.ifInState ? { ifInState: opts.ifInState } : {}),
+      // A folder that still holds something is refused without this, and the
+      // folder then goes with everything under it (Stalwart 0.16).
+      ...(opts.removeChildren ? { onDestroyRemoveChildren: true } : {}),
       destroy: [id],
     },
     [FILENODE_CAP],
