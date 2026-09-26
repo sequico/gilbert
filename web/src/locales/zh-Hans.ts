@@ -495,10 +495,6 @@ export const catalog: Catalog = {
     "Time zone": "时区",
     "Week starts on": "每周开始于",
     Monday: "星期一",
-    Tuesday: "星期二",
-    Wednesday: "星期三",
-    Thursday: "星期四",
-    Friday: "星期五",
     Saturday: "星期六",
     Sunday: "星期日",
     "12-hour clock (6:23 PM)": "12 小时制 (6:23 PM)",
@@ -781,7 +777,6 @@ export const catalog: Catalog = {
     "Delete label": "删除标签",
 
     // ── Attachments, dates, search prose ───────────────────────────────
-    PDF: "PDF",
     "Large attachments may be rejected by some servers": "部分服务器可能拒收过大的附件",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
       "图片保存在您的「文件」中（文件夹「gilbert」），并在发送时嵌入邮件。",
@@ -1170,7 +1165,6 @@ export const catalog: Catalog = {
       "浏览器会询问是否用 Gilbert 打开邮件链接",
     "Your message mentions an attachment, but nothing is attached.":
       "您的邮件提到了附件，但没有添加任何附件。",
-    event: "日程",
     "Hide password": "隐藏密码",
     "Show password": "显示密码",
     "Settings reset to defaults": "设置已恢复为默认值",

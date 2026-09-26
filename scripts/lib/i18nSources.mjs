@@ -55,6 +55,56 @@ export function catalogFiles() {
 }
 
 /**
+ * The keys a catalogue file actually defines.
+ *
+ * A catalogue holds its plain keys under `strings` and its counted keys under
+ * `plurals`; only those two objects' own property names are keys. The object
+ * names themselves and the plural form names (`one`, `other`, …) are the shape
+ * of the file, not strings anything asks for, so they are left out by reading
+ * the two objects structurally rather than every property in the file.
+ *
+ * A key may be written as a bare identifier (`Cancel: "Annulla"`) or as a
+ * quoted string (`"Turn on notifications": "…"`), and both mean the same key
+ * to the app. A checker that reads only the quoted form calls every one-word
+ * key missing while its translation sits in the file -- which is what the
+ * catalogue check did, so its coverage figure was wrong by every bare key.
+ */
+export function catalogKeys(src) {
+  const keys = new Set();
+  const objectOf = (node) =>
+    node && ts.isObjectLiteralExpression(node) ? node : null;
+  const nameOf = (name) =>
+    ts.isStringLiteral(name) || ts.isNumericLiteral(name) ? name.text : name.getText(src);
+  const propertiesOf = (obj, name) => {
+    const p = obj.properties.find(
+      (x) => ts.isPropertyAssignment(x) && nameOf(x.name) === name,
+    );
+    return p ? objectOf(p.initializer) : null;
+  };
+  const add = (obj) => {
+    if (!obj) return;
+    for (const p of obj.properties)
+      if (ts.isPropertyAssignment(p) && !ts.isComputedPropertyName(p.name))
+        keys.add(nameOf(p.name));
+  };
+  const visit = (n) => {
+    if (
+      ts.isVariableDeclaration(n) &&
+      ts.isIdentifier(n.name) &&
+      n.name.text === "catalog" &&
+      objectOf(n.initializer)
+    ) {
+      const catalog = n.initializer;
+      add(propertiesOf(catalog, "strings"));
+      add(propertiesOf(catalog, "plurals"));
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return keys;
+}
+
+/**
  * The attributes that carry text a person reads: a title, a label, a hint, the
  * sentence a surface shows beside a control. `className` and `key` are not
  * among them, and `message` is.

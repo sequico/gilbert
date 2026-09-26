@@ -814,10 +814,6 @@ export const catalog: Catalog = {
     "Week starts on": "La settimana inizia di",
     Monday: "Lunedì",
 
-    Tuesday: "Martedì",
-    Wednesday: "Mercoledì",
-    Thursday: "Giovedì",
-    Friday: "Venerdì",
     Saturday: "Sabato",
     Sunday: "Domenica",
     "12-hour clock (6:23 PM)": "Orologio a 12 ore (6:23 PM)",
@@ -1268,7 +1264,6 @@ export const catalog: Catalog = {
       "Forzare una password agisce sull'account di un altro utente: l'essere admin Stalwart non basta — servono anche il permesso Impersonate di Stalwart e una sessione con password, perché le app password sono rifiutate per l'impersonation.",
 
     "Delete label": "Elimina etichetta",
-    PDF: "PDF",
 
     "Large attachments may be rejected by some servers":
       "Alcuni server potrebbero rifiutare allegati di grandi dimensioni",
@@ -1942,7 +1937,6 @@ export const catalog: Catalog = {
     "Your message mentions an attachment, but nothing is attached.":
       "Il messaggio menziona un allegato, ma non c'è nessun allegato.",
 
-    event: "evento",
     "Hide password": "Nascondi la password",
 
     "Show password": "Mostra la password",

@@ -509,10 +509,6 @@ export const catalog: Catalog = {
     "Time zone": "Fuso horário",
     "Week starts on": "A semana começa em",
     Monday: "Segunda-feira",
-    Tuesday: "Terça-feira",
-    Wednesday: "Quarta-feira",
-    Thursday: "Quinta-feira",
-    Friday: "Sexta-feira",
     Saturday: "Sábado",
     Sunday: "Domingo",
     "12-hour clock (6:23 PM)": "Formato de 12 horas (6:23 PM)",
@@ -798,7 +794,6 @@ export const catalog: Catalog = {
     "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
       "Forçar uma senha age sobre a conta de outro usuário: a concessão de admin do Stalwart não basta — também são necessárias a permissão Impersonate do Stalwart e uma sessão com senha, pois senhas de aplicativo são recusadas para impersonação.",
     "Delete label": "Excluir o marcador",
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Anexos grandes podem ser recusados por alguns servidores",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -1211,7 +1206,6 @@ export const catalog: Catalog = {
       "Seu navegador vai perguntar se os links de e-mail devem abrir no Gilbert",
     "Your message mentions an attachment, but nothing is attached.":
       "Sua mensagem menciona um anexo, mas nada foi anexado.",
-    event: "evento",
     "Hide password": "Ocultar a senha",
     "Show password": "Mostrar a senha",
     "Settings reset to defaults": "Configurações restauradas para o padrão",

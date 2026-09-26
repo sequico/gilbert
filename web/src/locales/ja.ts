@@ -504,10 +504,6 @@ export const catalog: Catalog = {
     "Time zone": "タイムゾーン",
     "Week starts on": "週の始まり",
     Monday: "月曜日",
-    Tuesday: "火曜日",
-    Wednesday: "水曜日",
-    Thursday: "木曜日",
-    Friday: "金曜日",
     Saturday: "土曜日",
     Sunday: "日曜日",
     "12-hour clock (6:23 PM)": "12 時間制 (6:23 PM)",
@@ -796,7 +792,6 @@ export const catalog: Catalog = {
     "Delete label": "ラベルを削除",
 
     // ── Attachments, dates, search prose ───────────────────────────────
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "大きな添付ファイルは、サーバーによっては拒否されることがあります",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -1208,7 +1203,6 @@ export const catalog: Catalog = {
       "メールのリンクを Gilbert で開くかどうか、ブラウザーが確認します",
     "Your message mentions an attachment, but nothing is attached.":
       "本文で添付ファイルに触れていますが、何も添付されていません。",
-    event: "予定",
     "Hide password": "パスワードを隠す",
     "Show password": "パスワードを表示",
     "Settings reset to defaults": "設定を既定に戻しました",

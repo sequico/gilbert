@@ -187,11 +187,6 @@ export const catalog: Catalog = {
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
     "Has the words": "Enthält die Wörter",
-    Match: "Übereinstimmung", // The parameters an automation's action takes: the catalogue names each one
-    // by the key the executor reads, the form names it for a person.
-    Label: "Label",
-    Mailbox: "Mailbox",
-    Text: "Text",
     // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
     // carries, the row a grouped filter's condition sits in, and the rotation
     // of the agent's own app password.
@@ -775,7 +770,6 @@ export const catalog: Catalog = {
     "Create “{name}”": "„{name}“ erstellen",
     "Type a name to create your first label.":
       "Geben Sie einen Namen ein, um Ihr erstes Label zu erstellen.",
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Große Anhänge werden von manchen Servern abgelehnt",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -981,10 +975,6 @@ export const catalog: Catalog = {
     // ── Weekdays, schedule presets, rule operators ─────────────────────
     // Header names (List-Id, X-Spam-Status) stay English: they are the actual
     // field names in the message, not words.
-    Tuesday: "Dienstag",
-    Wednesday: "Mittwoch",
-    Thursday: "Donnerstag",
-    Friday: "Freitag",
     "Later today": "Später heute",
     "Tomorrow morning": "Morgen früh",
     "Tomorrow afternoon": "Morgen Nachmittag",
@@ -1246,7 +1236,6 @@ export const catalog: Catalog = {
       "Ihr Browser wird fragen, ob Mail-Links in Gilbert geöffnet werden sollen",
     "Your message mentions an attachment, but nothing is attached.":
       "Ihre Nachricht erwähnt einen Anhang, aber es ist nichts angehängt.",
-    event: "Termin",
     "Hide password": "Passwort verbergen",
     "Show password": "Passwort anzeigen",
     "Settings reset to defaults": "Einstellungen auf Standard zurückgesetzt",

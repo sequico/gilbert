@@ -502,10 +502,6 @@ export const catalog: Catalog = {
     "Time zone": "Tijdzone",
     "Week starts on": "Week begint op",
     Monday: "Maandag",
-    Tuesday: "Dinsdag",
-    Wednesday: "Woensdag",
-    Thursday: "Donderdag",
-    Friday: "Vrijdag",
     Saturday: "Zaterdag",
     Sunday: "Zondag",
     "12-hour clock (6:23 PM)": "12-uursnotatie (6:23 PM)",
@@ -788,7 +784,6 @@ export const catalog: Catalog = {
     "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
       "Een wachtwoord afdwingen grijpt in op het account van een andere gebruiker: de Stalwart-adminrechten alleen volstaan niet — ook Stalwarts Impersonate-machtiging en een wachtwoordsessie zijn nodig, omdat app-wachtwoorden voor impersonatie worden geweigerd.",
     "Delete label": "Label verwijderen",
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Grote bijlagen worden door sommige servers geweigerd",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -1200,7 +1195,6 @@ export const catalog: Catalog = {
       "Uw browser vraagt of e-maillinks in Gilbert moeten worden geopend",
     "Your message mentions an attachment, but nothing is attached.":
       "Uw bericht noemt een bijlage, maar er is niets bijgevoegd.",
-    event: "afspraak",
     "Hide password": "Wachtwoord verbergen",
     "Show password": "Wachtwoord tonen",
     "Settings reset to defaults": "Instellingen teruggezet naar de standaardwaarden",

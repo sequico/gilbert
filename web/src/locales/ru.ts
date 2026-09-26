@@ -506,10 +506,6 @@ export const catalog: Catalog = {
     "Time zone": "Часовой пояс",
     "Week starts on": "Неделя начинается с",
     Monday: "Понедельник",
-    Tuesday: "Вторник",
-    Wednesday: "Среда",
-    Thursday: "Четверг",
-    Friday: "Пятница",
     Saturday: "Суббота",
     Sunday: "Воскресенье",
     "12-hour clock (6:23 PM)": "12-часовой формат (6:23 PM)",
@@ -793,7 +789,6 @@ export const catalog: Catalog = {
     "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
       "Принудительная смена пароля действует на чужую учётную запись: прав администратора Stalwart недостаточно — требуются ещё разрешение Impersonate от Stalwart и сессия с паролем, поскольку пароли приложений для impersonation не принимаются.",
     "Delete label": "Удалить ярлык",
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Некоторые серверы отклоняют большие вложения",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -1201,7 +1196,6 @@ export const catalog: Catalog = {
       "Браузер спросит, открывать ли почтовые ссылки в Gilbert",
     "Your message mentions an attachment, but nothing is attached.":
       "В письме упомянуто вложение, но ничего не приложено.",
-    event: "событие",
     "Hide password": "Скрыть пароль",
     "Show password": "Показать пароль",
     "Settings reset to defaults": "Настройки сброшены к значениям по умолчанию",

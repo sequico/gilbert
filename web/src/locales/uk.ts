@@ -502,10 +502,6 @@ export const catalog: Catalog = {
     "Time zone": "Часовий пояс",
     "Week starts on": "Тиждень починається з",
     Monday: "Понеділок",
-    Tuesday: "Вівторок",
-    Wednesday: "Середа",
-    Thursday: "Четвер",
-    Friday: "П'ятниця",
     Saturday: "Субота",
     Sunday: "Неділя",
     "12-hour clock (6:23 PM)": "12-годинний формат (6:23 PM)",
@@ -788,7 +784,6 @@ export const catalog: Catalog = {
     "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
       "Примусова зміна пароля діє на чужий обліковий запис: прав адміністратора Stalwart недостатньо — потрібні ще дозвіл Impersonate від Stalwart і сесія з паролем, адже паролі застосунків для impersonation не приймаються.",
     "Delete label": "Видалити мітку",
-    PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Деякі сервери відхиляють великі вкладення",
     "Images are stored in your Files (folder “gilbert”) and embedded when you send.":
@@ -1196,7 +1191,6 @@ export const catalog: Catalog = {
       "Браузер запитає, чи відкривати поштові посилання в Gilbert",
     "Your message mentions an attachment, but nothing is attached.":
       "У листі згадано вкладення, але нічого не долучено.",
-    event: "подія",
     "Hide password": "Сховати пароль",
     "Show password": "Показати пароль",
     "Settings reset to defaults": "Налаштування скинуто до типових",

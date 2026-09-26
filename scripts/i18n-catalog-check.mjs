@@ -17,6 +17,7 @@ import ts from "typescript";
 import {
   CONTEXT_CALL,
   catalogFiles,
+  catalogKeys,
   PLURAL_CALL,
   sourceAst,
   sourceFiles,
@@ -53,11 +54,12 @@ for (const file of sourceFiles()) {
       if (n.initializer) walk(n.initializer);
     }
     /*
-     * A keyboard scope entry carries `keys` and a `description` that the
-     * Shortcuts dialog translates where it renders -- t(b.description), a
-     * variable lookup this scan cannot see. Without the rule every such
-     * description looked stale. The `keys` sibling is what marks an object as
-     * a scope entry rather than some other description-bearing shape.
+     * A keyboard scope entry carries `keys`, a `description` and a `group`;
+     * the surfaces that render it look the first two up through t() where they
+     * render -- t(b.description), a variable lookup this scan cannot see -- and
+     * the group heading does the same. Without the rule every group name and
+     * every description looked stale. The `keys` sibling is what marks an
+     * object as a scope entry rather than some other description-bearing shape.
      */
     if (ts.isObjectLiteralExpression(n)) {
       const props = n.properties.filter(ts.isPropertyAssignment);
@@ -65,6 +67,24 @@ for (const file of sourceFiles()) {
       const desc = props.find((p) => p.name.getText(src) === "description");
       if (hasKeys && desc && ts.isStringLiteral(desc.initializer))
         wanted.add(desc.initializer.text);
+      const group = props.find((p) => p.name.getText(src) === "group");
+      if (hasKeys && group && ts.isStringLiteral(group.initializer))
+        wanted.add(group.initializer.text);
+      /*
+       * A palette entry's `name` is translated only when the entry marks it as
+       * prose rather than a proper name ("Classic" against "Dracula"), and the
+       * render site asks t(entry.name) for the marked ones. The `translatable`
+       * flag is what a scan this shape can key on.
+       */
+      const name = props.find((p) => p.name.getText(src) === "name");
+      const translatable = props.find((p) => p.name.getText(src) === "translatable");
+      if (
+        name &&
+        ts.isStringLiteral(name.initializer) &&
+        translatable &&
+        translatable.initializer.kind === ts.SyntaxKind.TrueKeyword
+      )
+        wanted.add(name.initializer.text);
     }
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
       const fn = n.expression.text,
@@ -143,12 +163,7 @@ for (const tag of registered) {
 for (const file of catalogFiles()) {
   const tag = file.split("/").pop().replace(".ts", "");
   const src = sourceAst(file, { kind: ts.ScriptKind.TS });
-  const have = new Set();
-  const visit = (n) => {
-    if (ts.isPropertyAssignment(n) && ts.isStringLiteral(n.name)) have.add(n.name.text);
-    ts.forEachChild(n, visit);
-  };
-  visit(src);
+  const have = catalogKeys(src);
   const stale = [...have].filter(
     (k) => !wanted.has(k) && !["one", "other", "few", "many", "zero", "two"].includes(k),
   );
