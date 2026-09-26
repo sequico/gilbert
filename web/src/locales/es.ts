@@ -1594,6 +1594,974 @@ export const catalog: Catalog = {
     "Edit {name}": "Editar {name}",
     "{own} here, {unread} in subfolders": "{own} aquí, {unread} en subcarpetas",
     attachment: "adjunto",
+    "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.":
+      "¿Activar las notificaciones? El correo nuevo y el chat le llegan aunque Gilbert esté en segundo plano.",
+    "Turn on notifications": "Activar las notificaciones",
+    "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
+      "Añada Gilbert a la pantalla de inicio en Safari y ábralo desde allí: iOS solo ofrece notificaciones a una aplicación web instalada de ese modo.",
+    "Your mail server publishes no push key, so it cannot wake this browser.":
+      "Su servidor de correo no publica ninguna clave push, así que no puede despertar a este navegador.",
+    "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.":
+      "Este navegador no tiene la API Push, así que aquí no se pueden activar las notificaciones con Gilbert cerrado.",
+    "Notifications are blocked for this site in your browser's settings.":
+      "Las notificaciones están bloqueadas para este sitio en la configuración de su navegador.",
+    "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.":
+      "Las notificaciones en segundo plano necesitan un dispositivo que haya marcado como suyo. Vuelva a iniciar sesión con «Este es mi propio dispositivo» marcado.",
+    "Could not subscribe to notifications.":
+      "No se pudieron suscribir las notificaciones.",
+    Policy: "Política",
+    Installation: "Instalación",
+    "Force passwords": "Forzar contraseñas",
+    "Identities and SIP Phone": "Identidades y teléfono SIP",
+    Master: "Master",
+    "Group Agents": "Agentes de grupo",
+    Approvals: "Aprobaciones",
+    "System Sieve": "Sieve del sistema",
+    "Gilbert Mailer": "Gilbert Mailer",
+    "Gilbert Assistant": "Gilbert Assistant",
+    Stalwart: "Stalwart",
+    "Nothing here yet.": "Aquí todavía no hay nada.",
+    Help: "Ayuda",
+    "Mobile app": "Aplicación móvil",
+    "Install mobile app": "Instalar aplicación móvil",
+    "Change your password": "Cambie su contraseña",
+    "Your administrator requires you to choose a new password before you can continue. Signing out is the only other way out of this screen.":
+      "Su administrador exige que elija una contraseña nueva antes de poder continuar. Cerrar sesión es la única otra salida de esta pantalla.",
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbert ya está instalado en este dispositivo. Ábralo desde su icono en la pantalla de inicio para usar la aplicación.",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "Instale Gilbert como aplicación para tener una ventana a pantalla completa y notificaciones.",
+    "Add Gilbert to your Home Screen.": "Añada Gilbert a su pantalla de inicio.",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbert se está instalando. Ábralo desde su icono para terminar de configurarlo.",
+    Install: "Instalar",
+    How: "Cómo",
+    "Gilbert is up to date.": "Gilbert está actualizado.",
+    "Could not check for updates.": "No se pudieron comprobar las actualizaciones.",
+    "Notifications are on for this device.":
+      "Las notificaciones están activadas para este dispositivo.",
+    "Gilbert is installed on this device.": "Gilbert está instalado en este dispositivo.",
+    "Update now": "Actualizar ahora",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "Instale Gilbert en su teléfono para abrirlo desde su propio icono, a pantalla completa, y recibir notificaciones cuando esté cerrado.",
+    "Install app": "Instalar aplicación",
+    "Safari installs a web app from the Share sheet:":
+      "Safari instala una aplicación web desde el menú Compartir:",
+    "Tap the Share button.": "Toque el botón Compartir.",
+    "Choose “Add to Home Screen”.": "Elija «Añadir a pantalla de inicio».",
+    "Open Gilbert from the new icon.": "Abra Gilbert desde el nuevo icono.",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "Este navegador guarda la instalación en su propio menú: busque «Instalar aplicación» o «Añadir a pantalla de inicio».",
+    Notifications: "Notificaciones",
+    "A newer version is on the server.": "Hay una versión más reciente en el servidor.",
+    "You are on the newest version.": "Está en la versión más reciente.",
+    "Checking for updates…": "Comprobando actualizaciones…",
+    "This browser cannot show notifications.":
+      "Este navegador no puede mostrar notificaciones.",
+    "Stay signed in, and keep settings and recent addresses on this computer.":
+      "Mantener la sesión iniciada y conservar la configuración y las direcciones recientes en este ordenador.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.":
+      "Sesión cerrada tras 5 minutos de inactividad y no se conserva nada en este ordenador. Deje esto sin marcar en uno compartido o público.",
+    "Signing in…": "Iniciando sesión…",
+    "Sign in": "Iniciar sesión",
+    "Go to All mail / Archive": "Ir a Todo el correo / Archivo",
+    "Stalwart Mail Server": "Servidor de correo Stalwart",
+    "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
+    "{name} (Beta)": "{name} (Beta)",
+    "Reset all settings?": "¿Restablecer toda la configuración?",
+    "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
+      "Cada ajuste de esta cuenta vuelve a sus valores predeterminados — plantillas, etiquetas, firmantes de confianza, suscripciones de calendario, identidades ocultas — y la copia guardada en el servidor se reemplaza. Esto no se puede deshacer.",
+    Reset: "Restablecer",
+    "Ask again": "Preguntar de nuevo",
+    "Make Gilbert the default mail app":
+      "Convertir Gilbert en la aplicación de correo predeterminada",
+    "Your identities": "Sus identidades",
+    "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
+      "El buzón de este grupo tiene una identidad por miembro, todas con la dirección del grupo. La administración las asigna, así que aquí son de solo lectura.",
+    "You send as the one assigned to you, marked below.":
+      "Envía como la que se le ha asignado, marcada abajo.",
+    "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
+      "Todavía no se le ha asignado ninguna identidad de este grupo, así que el correo que envíe desde este buzón saldrá como el propio grupo.",
+    "Could not read this group's identities: {error}":
+      "No se pudieron leer las identidades de este grupo: {error}",
+    Yours: "Suyas",
+    "replies@example.com": "replies@example.com",
+    "archive@example.com": "archive@example.com",
+    "Pictures belong to the account’s own Files and this surface cannot write them; an over-sized signature is kept there, and this form stores the marker that points at it.":
+      "Las imágenes pertenecen a los Archivos de la propia cuenta y esta superficie no puede escribirlas; una firma sobredimensionada se guarda allí, y este formulario almacena el marcador que apunta a ella.",
+    "Pictures and over-sized signatures live in the account's own Files, which this surface cannot write.":
+      "Las imágenes y las firmas sobredimensionadas viven en los Archivos de la propia cuenta, que esta superficie no puede escribir.",
+    "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
+      "Este navegador ya no guarda una respuesta para las notificaciones en este dispositivo, así que no se puede mostrar ninguna. Apagar y volver a encender un interruptor vuelve a pedir el permiso.",
+    "Gilbert test": "Prueba de Gilbert",
+    "Ask before showing": "Preguntar antes de mostrar",
+    "Added from a message, and removable here.":
+      "Añadido desde un mensaje y se puede quitar aquí.",
+    "example.com": "example.com",
+    "Give the rule a name before it can be saved.":
+      "Ponga un nombre a la regla antes de que se pueda guardar.",
+    "someone@example.com": "someone@example.com",
+    "That is not an email address, so the mail this rule matches would never arrive.":
+      "Eso no es una dirección de correo, así que el correo que capture esta regla nunca llegaría.",
+    "Give the address to forward to.": "Indique la dirección a la que reenviar.",
+    "Password changed": "Contraseña cambiada",
+    "Changing…": "Cambiando…",
+    "Change password": "Cambiar contraseña",
+    "Working…": "Procesando…",
+    "Your current password": "Su contraseña actual",
+    "Creating…": "Creando…",
+    "“Ends” must be after “Starts”.": "«Fin» debe ser posterior a «Inicio».",
+    "Auto-reply is on": "La respuesta automática está activada",
+    "Auto-reply saved": "Respuesta automática guardada",
+    Personal: "Personal",
+    Missed: "Perdidas",
+    Declined: "Rechazadas",
+    Failed: "Fallidas",
+    "Recent calls": "Llamadas recientes",
+    "{n}s": "{n}s",
+    "No calls yet.": "Todavía no hay llamadas.",
+    All: "Todas",
+    Global: "Globales",
+    My: "Mías",
+    "This browser reaches Gilbert: the phone's media path is proven.":
+      "Este navegador llega a Gilbert: la ruta multimedia del teléfono está demostrada.",
+    "The phone's connection to Gilbert is down.":
+      "La conexión del teléfono con Gilbert está caída.",
+    "Gilbert phone connection": "Conexión del teléfono con Gilbert",
+    "Registered with the SIP provider.": "Registrado con el proveedor SIP.",
+    "Not registered with the SIP provider.": "No registrado con el proveedor SIP.",
+    "SIP server connection": "Conexión con el servidor SIP",
+    "No contacts with a number to call.": "Ningún contacto con un número al que llamar.",
+    "Incoming call": "Llamada entrante",
+    "Unknown caller": "Llamante desconocido",
+    Answer: "Responder",
+    Decline: "Rechazar",
+    Call: "Llamar",
+    "Number or address": "Número o dirección",
+    Unmute: "Activar sonido",
+    Mute: "Silenciar",
+    "Hang up": "Colgar",
+    "Actions for {email}": "Acciones para {email}",
+    "Invitation accepted": "Invitación aceptada",
+    "Invitation declined": "Invitación rechazada",
+    "Marked as tentative": "Marcado como provisional",
+    "(untitled event)": "(evento sin título)",
+    "": "",
+    "Open conversation": "Abrir conversación",
+    "Back to list / clear selection": "Volver a la lista / borrar selección",
+    "Select conversation": "Seleccionar conversación",
+    "Next message in conversation": "Mensaje siguiente de la conversación",
+    "Previous message in conversation": "Mensaje anterior de la conversación",
+    "Resize message list": "Redimensionar la lista de mensajes",
+    "Hide from list": "Ocultar de la lista",
+    "Show in list": "Mostrar en la lista",
+    "Stop trusting sender images": "Dejar de confiar en las imágenes del remitente",
+    "Always show images from sender": "Mostrar siempre las imágenes del remitente",
+    "Send receipt": "Enviar acuse",
+    "•••": "•••",
+    "Download all to Files": "Descargar todo a Archivos",
+    "Save to Files": "Guardar en Archivos",
+    "Could not save the attachments.": "No se pudieron guardar los adjuntos.",
+    "Save here": "Guardar aquí",
+    "Save all": "Guardar todo",
+    "There is nowhere to save files to.": "No hay dónde guardar archivos.",
+    "Going to: {where}": "Yendo a: {where}",
+    "Collapse all": "Contraer todo",
+    "Expand all": "Expandir todo",
+    "Contact card": "Ficha de contacto",
+    "Shared folder": "Carpeta compartida",
+    "Shared files": "Archivos compartidos",
+    "All files": "Todos los archivos",
+    "Nothing shared here.": "Aquí no hay nada compartido.",
+    "No folders yet.": "Todavía no hay carpetas.",
+    "Group name": "Nombre del grupo",
+    "Organization name": "Nombre de la organización",
+    "name@example.com": "name@example.com",
+    "https://": "https://",
+    "{name} — shared with everyone": "{name} — compartido con todos",
+    "Edit Global contacts": "Editar contactos globales",
+    "My contacts": "Mis contactos",
+    "Group contacts": "Contactos del grupo",
+    "New address book in {group}": "Nueva libreta de direcciones en {group}",
+    "Nothing added yet.": "Todavía no se ha añadido nada.",
+    "Looking…": "Buscando…",
+    "· organization": "· organización",
+    "From the group {group}": "Del grupo {group}",
+    "Move {name} to…": "Mover {name} a…",
+    "This group keeps no address books.":
+      "Este grupo no mantiene libretas de direcciones.",
+    "There is nowhere else to move it.": "No hay otro sitio al que moverlo.",
+    "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
+      "Una libreta de direcciones que otra cuenta compartió con usted contiene este contacto, así que editarlo y eliminarlo corresponden a esa cuenta — aquí no se ofrece ninguna de las dos cosas.",
+    "Saved.": "Guardado.",
+    "Global contacts": "Contactos globales",
+    "Email addresses": "Direcciones de correo",
+    "One per line.": "Una por línea.",
+    "Phone numbers": "Números de teléfono",
+    "One per line. The phone calls the preferred one.":
+      "Uno por línea. El teléfono llama al preferido.",
+    "The installation's shared directory: every account reads it, and only an administrator writes it here.":
+      "El directorio compartido de la instalación: todas las cuentas lo leen y solo un administrador lo escribe aquí.",
+    "No contacts": "Sin contactos",
+    "Add contact": "Añadir contacto",
+    "Close composer (saves draft)": "Cerrar el redactor (guarda el borrador)",
+    "Save draft": "Guardar borrador",
+    "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
+      "Este grupo todavía no tiene identidad, así que no hay con qué enviar. Un administrador establece una en las identidades del grupo.",
+    "High priority": "Prioridad alta",
+    "Low priority": "Prioridad baja",
+    "Send now instead": "Enviar ahora en su lugar",
+    "Switch to plain text": "Cambiar a texto sin formato",
+    "Switch to rich text": "Cambiar a texto enriquecido",
+    "Attach {n} files": "Adjuntar {n} archivos",
+    Attach: "Adjuntar",
+    "To — {n} people": "Para — {n} personas",
+    "Nobody matches that.": "Nadie coincide con eso.",
+    "No contacts in this address book.":
+      "No hay contactos en esta libreta de direcciones.",
+    "https://…": "https://…",
+    Chat: "Chat",
+    "No longer in this group": "Ya no está en este grupo",
+    "The group's agent": "El agente del grupo",
+    "Search messages": "Buscar mensajes",
+    Conversations: "Conversaciones",
+    "Search in this chat": "Buscar en este chat",
+    "Searching…": "Buscando…",
+    "No matches for {query}": "Sin resultados para {query}",
+    "Could not load the conversation": "No se pudo cargar la conversación",
+    "No messages yet": "Todavía no hay mensajes",
+    "Loading earlier messages…": "Cargando mensajes anteriores…",
+    "Start of the conversation": "Inicio de la conversación",
+    "Go to the message being answered": "Ir al mensaje que se responde",
+    "Pick a conversation": "Elegir una conversación",
+    "Replying to {who}": "Respondiendo a {who}",
+    "Cancel reply": "Cancelar respuesta",
+    "Message {group}": "Mensaje {group}",
+    "No agent is registered for this installation.":
+      "No hay ningún agente registrado para esta instalación.",
+    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
+      "Ningún agente trabaja en este grupo: no se le ha concedido aquí, así que no lleva instrucciones y no hace nada. Esa concesión se hace en la propia administración del servidor de correo, no en el producto.",
+    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
+      "Activo en este grupo como {address}. Solo lectura: lo que sigue se redacta en la administración, y usted le responde en este chat.",
+    "Standing instruction": "Instrucción permanente",
+    "Who its runs stop for": "Para quién se detienen sus ejecuciones",
+    "What it follows": "Lo que sigue",
+    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
+      "El documento de automatizaciones de este grupo no se puede leer, así que sus automatizaciones no se pueden mostrar. Abrir este grupo en la administración lo reemplaza automáticamente.",
+    "No automation is set up for this group.":
+      "No hay ninguna automatización configurada para este grupo.",
+    "Still open": "Todavía abierto",
+    "Nothing is running and nothing is waiting.":
+      "No se está ejecutando nada ni hay nada en espera.",
+    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
+      "Cuando uno de estos espera a una persona, el agente lo pregunta aquí en el chat — ahí es donde usted responde.",
+    "What it has done": "Lo que ha hecho",
+    "It has not done anything yet.": "Todavía no ha hecho nada.",
+    "Last written by {who} on {when}.": "Escrito por última vez por {who} el {when}.",
+    "an administrator": "un administrador",
+    Disabled: "Desactivado",
+    "{message} for this date": "{message} para esta fecha",
+    "Occurrence deleted": "Repetición eliminada",
+    "Event deleted": "Evento eliminado",
+    "Group calendars": "Calendarios de grupo",
+    "New calendar in {group}": "Nuevo calendario en {group}",
+    "This occurrence updated": "Esta repetición actualizada",
+    "Event updated": "Evento actualizado",
+    "Event created and invitations sent": "Evento creado e invitaciones enviadas",
+    "Event created": "Evento creado",
+    "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.":
+      "Editando solo {date} — el resto de la serie no cambia. La repetición, la privacidad y los asistentes de la serie no se muestran, y el calendario permanece con la serie.",
+    "This is a recurring event — changes apply to the whole series.":
+      "Este es un evento recurrente — los cambios se aplican a toda la serie.",
+    "https://meet.example.com/…": "https://meet.example.com/…",
+    "{duration} before": "{duration} antes",
+    "Fewer options": "Menos opciones",
+    "An email arrives": "Llega un correo",
+    "A file or folder changes": "Cambia un archivo o una carpeta",
+    "Someone writes in the chat": "Alguien escribe en el chat",
+    "On a schedule": "Según una programación",
+    "Every run stops here for a person to answer before anything happens.":
+      "Cada ejecución se detiene aquí para que una persona responda antes de que ocurra algo.",
+    "A run at or above the confidence runs unattended; below it, it waits for a person.":
+      "Una ejecución igual o superior a la confianza procede sin supervisión; por debajo, espera a una persona.",
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
+      "Nada espera a una persona — aunque una acción que no se puede deshacer sigue preguntando, y una que sale del grupo pregunta a menos que se suba el umbral de consentimiento.",
+    "Always ask a person first": "Preguntar siempre primero a una persona",
+    "Ask a person below a confidence threshold":
+      "Preguntar a una persona por debajo de un umbral de confianza",
+    "Never ask — run it unattended": "No preguntar nunca — ejecutar sin supervisión",
+    "Waiting to start": "Esperando para empezar",
+    Running: "En ejecución",
+    "Waiting for a person": "Esperando a una persona",
+    Ran: "Ejecutada",
+    Finished: "Finalizada",
+    "Asked for approval": "Aprobación solicitada",
+    Rejected: "Rechazada",
+    Refused: "Denegada",
+    unknown: "desconocido",
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
+      "{runs} ejecuciones · {hit} tokens leídos de caché, {miss} leídos de nuevo, {out} escritos",
+    "{n} of them reported no usage": "{n} de ellos no informaron de uso",
+    "This installation has spent: {meter}": "Esta instalación ha gastado: {meter}",
+    "{agent}: {meter}": "{agent}: {meter}",
+    "no agent named": "ningún agente indicado",
+    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
+      "El registro de auditoría de {groups} no se pudo leer, así que este total es un mínimo: sus ejecuciones no cuentan en ninguna cifra de aquí.",
+    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
+      "Esta instalación no puede listar los miembros de un grupo: el Master no puede leer el registro de cuentas. Concédale los permisos sysAccountGet y sysAccountQuery — una concesión por cuenta, no un rol de administrador — y la @ del chat ofrecerá los miembros del grupo; hasta entonces ofrece a las personas que ya han escrito.",
+    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
+      "El registro de cuentas no respondió, así que los miembros de un grupo no se pueden listar y la @ del chat ofrece a las personas que ya han escrito.",
+    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
+      "No hay ningún agente registrado, así que nada puede leer los miembros de un grupo: la @ del chat ofrece a las personas que ya han escrito.",
+    "every {minutes} minutes": "cada {minutes} minutos",
+    "sending outside the group allowed without a person":
+      "envío fuera del grupo permitido sin una persona",
+    "sending outside the group always waits for a person":
+      "envío fuera del grupo siempre espera a una persona",
+    "Nobody has written here yet.": "Aquí todavía no ha escrito nadie.",
+    Identity: "Identidad",
+    Model: "Modelo",
+    Groups: "Grupos",
+    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
+      "El agente propio de Gilbert actúa dentro del correo y del almacenamiento de archivos: trabaja con eventos de Stalwart y con programaciones de tiempo, en los grupos para los que tiene concesión. Esta instalación ejecuta un agente — así se ve, qué modelo lo sirve y en qué grupos trabaja. Lo que hace dentro de un grupo vive en Agentes de grupo.",
+    "Master sections": "Secciones del Master",
+    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
+      "Lo que vale en todas partes: las reglas que el agente lleva a cada llamada de cada grupo, antes de que algo sea cierto de un grupo o de una automatización. Escritas una vez aquí en lugar de repetidas en la instrucción de cada grupo, y leídas como datos — el permiso de una ejecución es su propia lista de capacidades, y nada escrito aquí la amplía.",
+    "How this installation's agent works": "Cómo trabaja el agente de esta instalación",
+    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
+      "Responda siempre en el idioma en que se escribió el mensaje y no envíe nunca nada fuera del grupo sin una persona.",
+    "the installation's own rules": "las reglas propias de la instalación",
+    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
+      "Esta sección comprueba la concesión del agente, nunca la escribe: la pertenencia a un grupo se concede en la propia administración de Stalwart, junto a las cuentas, igual que la de una persona.",
+    "The Master": "El Master",
+    Operational: "Operativo",
+    "Not operational": "No operativo",
+    "Agent address": "Dirección del agente",
+    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
+      "El despliegue nombra al agente y esto lo lee de vuelta: GILBERT_AGENT_ADDRESS y GILBERT_AGENT_PASSWORD viven en el entorno de quien inicia el servidor y su agente, así que proceden de un único sitio. Nada aquí genera un secreto, lo lee de vuelta ni lo almacena.",
+    "What the fleet has spent": "Lo que ha gastado la flota",
+    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
+      "Los grupos en los que trabaja el agente, leídos de Stalwart: es miembro de un grupo exactamente cuando el grupo aparece aquí, y esta lista sigue el directorio por sí sola. Para darle un grupo, añada el grupo al usuario Gilbert en la propia administración de Stalwart.",
+    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
+      "El agente no está en ningún grupo que esta instalación pueda ver. Añada un grupo al usuario Gilbert en la propia administración de Stalwart y aparecerá aquí.",
+    "Open this group's automations, standing instruction, memory and audit trail":
+      "Abrir las automatizaciones, la instrucción permanente, la memoria y el registro de auditoría de este grupo",
+    "Open in Group Agents": "Abrir en Agentes de grupo",
+    Pending: "Pendiente",
+    Audit: "Auditoría",
+    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
+      "Lo que espera a una persona y lo que ha hecho la flota, en todos los grupos que el agente posee — supervisión de solo lectura. Un operador responde a una ejecución en pausa en el chat del propio grupo, nunca aquí.",
+    "Approvals sections": "Secciones de aprobaciones",
+    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
+      "El registro de auditoría de cada grupo con concesión, combinado y ordenado del más reciente. La pestaña Auditoría propia de un grupo en Agentes de grupo lee el mismo documento con su propia exportación.",
+    "The agent is not in a group this installation can see.":
+      "El agente no está en ningún grupo que esta instalación pueda ver.",
+    "Every group": "Cada grupo",
+    Outcome: "Resultado",
+    "Every outcome": "Todos los resultados",
+    "Reading every group's trail…": "Leyendo el registro de cada grupo…",
+    "The audit of {groups} could not be read, so it is missing from this list.":
+      "El registro de auditoría de {groups} no se pudo leer, así que falta en esta lista.",
+    "Nothing matches here yet.": "Aquí todavía no coincide nada.",
+    Automation: "Automatización",
+    By: "De",
+    Detail: "Detalle",
+    "Installation document": "Documento de instalación",
+    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
+      "La configuración sobre la que se ejecuta esta instalación: un documento JSON en los Archivos propios del Master — la cuenta con la que inicia sesión esta instalación, que el servidor lee una vez al arrancar. Lo que publique aquí es sobre lo que se ejecutará el próximo arranque, y el proceso en curso conserva aquello con lo que arrancó.",
+    "Stored at {where}": "Guardado en {where}",
+    "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
+      "La cuenta propia de la instalación todavía no tiene documento, así que el editor parte de los valores predeterminados de la instalación y de un secreto de aplicación recién generado. Publíquelo tal como está, o edítelo primero.",
+    "A boot would refuse the stored document: {reason}":
+      "Un arranque rechazaría el documento guardado: {reason}",
+    "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
+      "El campo {field} es el secreto de aplicación con el que se sella cada sesión guardada: cualquiera que pueda leer esta página puede leerlo, y una publicación que lo pierda cerraría la sesión de todos. Consérvelo en el documento al que pertenece.",
+    "Publish document": "Publicar documento",
+    "Publishing…": "Publicando…",
+    "Takes effect at the next boot.": "Surtirá efecto en el próximo arranque.",
+    "the account changed while the policy was being written, so nothing was written to it":
+      "la cuenta cambió mientras se escribía la política, así que no se escribió nada en ella",
+    "the server would not act as this account":
+      "el servidor no actuaría como esta cuenta",
+    "the account has no Files account to hold the policy":
+      "la cuenta no tiene una cuenta de Archivos donde guardar la política",
+    "the write was refused": "la escritura fue rechazada",
+    "the directory would not list it": "el directorio no lo listó",
+    "the server did not say why": "el servidor no dijo por qué",
+    "The policy was not published everywhere.":
+      "La política no se publicó en todas partes.",
+    "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
+      "El directorio no se pudo listar, así que no había población a la que publicar más allá de la cuenta del propio publicador.",
+    "That listing was not the whole directory, so any account it did not list was not reached.":
+      "Ese listado no era todo el directorio, así que toda cuenta que no listó no fue alcanzada.",
+    "This publish could not be recorded in your account, so reopening this page will not show it.":
+      "Esta publicación no se pudo registrar en su cuenta, así que reabrir esta página no la mostrará.",
+    "Replace the document with the example? Unsaved edits will be lost.":
+      "¿Reemplazar el documento por el ejemplo? Las ediciones no guardadas se perderán.",
+    "Installation-wide policy": "Política para toda la instalación",
+    "The settings this installation decides for every account. Edit the JSON document and publish: the server validates it, applies it at once, and signs the other clients out so their next sign-in picks it up.":
+      "Los ajustes que esta instalación decide para cada cuenta. Edite el documento JSON y publíquelo: el servidor lo valida, lo aplica de inmediato y cierra la sesión de los demás clientes para que la próxima vez lo recojan.",
+    "The three sections": "Las tres secciones",
+    "seed accounts that have never had settings of their own; readers can change them afterwards.":
+      "siembran cuentas que nunca han tenido ajustes propios; los lectores pueden cambiarlas después.",
+    "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
+      "se aplican en cada carga y no se pueden cambiar en Configuración — los controles siguen visibles y quedan inactivos.",
+    "applied once each, to everyone already signed up; each needs a unique version, and readers may turn it back off afterwards.":
+      "se aplican una vez cada una, a todos los que ya están registrados; cada una necesita una versión única, y los lectores pueden volver a desactivarla después.",
+    "Policy document": "Documento de política",
+    "Publish policy": "Publicar política",
+    "Insert example": "Insertar ejemplo",
+    "That was publish {id}, started {when} by {who}.":
+      "Esa fue la publicación {id}, iniciada el {when} por {who}.",
+    "Type the account address first.": "Escriba primero la dirección de la cuenta.",
+    "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.":
+      "Exija a una cuenta que cambie su contraseña. El requisito vive en la carpeta oculta de la propia cuenta y lo aplica el servidor; los administradores no pueden obligarse unos a otros.",
+    "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.":
+      "Esta sesión no puede actuar sobre cuentas: o usa una contraseña de aplicación (que Stalwart rechaza para la suplantación) o carece del permiso «actuar en nombre de otros usuarios» en Stalwart. Inicie sesión con su contraseña, o pida al administrador de Stalwart que conceda ese permiso.",
+    "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.":
+      "Listar cuentas requiere privilegio de administrador del servidor Stalwart, que esta sesión no tiene — ser administrador de Gilbert no basta. Escriba una dirección abajo en su lugar.",
+    "No accounts found.": "No se encontraron cuentas.",
+    "Password change forced": "Cambio de contraseña forzado",
+    "Not forced": "No forzado",
+    Force: "Forzar",
+    Release: "Liberar",
+    "Or type an address": "O escriba una dirección",
+    "Account address": "Dirección de la cuenta",
+    "user@example.com": "user@example.com",
+    "Forcing…": "Forzando…",
+    "Force password change": "Forzar el cambio de contraseña",
+    "Releasing…": "Liberando…",
+    Behaviour: "Comportamiento",
+    Automations: "Automatizaciones",
+    Memory: "Memoria",
+    Activity: "Actividad",
+    "The agent in this group": "El agente en este grupo",
+    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
+      "El agente, tal como lo ve este grupo: cómo se comporta, qué sigue, qué recuerda y qué ha hecho. Es un único agente para toda la instalación — qué grupos posee, en qué modelo se ejecuta y las reglas que valen en todas partes viven en Master.",
+    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
+      "El agente no está en ningún grupo que esta sesión pueda ver, así que aquí no hay ningún grupo que elegir. Dele un grupo en la propia administración de Stalwart: las pestañas de abajo responden sobre un grupo, y la flota que leen es la propia de la instalación.",
+    "Working in this group as {address}.": "Trabajando en este grupo como {address}.",
+    "Group agent sections": "Secciones del agente de grupo",
+    "The automations document cannot be read.":
+      "El documento de automatizaciones no se puede leer.",
+    "{enabled} of {total} automations enabled":
+      "{enabled} de {total} automatizaciones activadas",
+    "{n} waiting for a person in this group": "{n} esperando a una persona en este grupo",
+    "Nothing waiting for a person here": "Aquí no espera nada a una persona",
+    "{n} agents serving this group": "{n} agentes sirviendo a este grupo",
+    "No agent is serving this group right now":
+      "Ningún agente sirve a este grupo ahora mismo",
+    "Added: {labels}": "Añadidas: {labels}",
+    "This group's label catalogue already has every reserved label.":
+      "El catálogo de etiquetas de este grupo ya tiene todas las etiquetas reservadas.",
+    "This group's agent marks what it has done with a message using four reserved labels.":
+      "El agente de este grupo marca lo que ha hecho con un mensaje usando cuatro etiquetas reservadas.",
+    "Checking…": "Comprobando…",
+    "Make sure they exist": "Asegúrese de que existen",
+    "No group is picked, so there is no group's agents to read here.":
+      "No hay ningún grupo seleccionado, así que aquí no hay agentes de grupo que leer.",
+    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
+      "Los {count} agentes de la instalación están informando y ninguno de ellos posee {group}: nada sirve a este grupo ahora mismo.",
+    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
+      "Ningún agente ha informado. Un agente deja un latido mientras se ejecuta, así que una lista vacía significa que ninguno sirve a esta instalación.",
+    "Agents serving this group": "Agentes que sirven a este grupo",
+    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
+      "Un agente es su propio proceso, no una copia del nivel web: reclama la cuenta que sirve mediante un arrendamiento y escribe un latido mientras se ejecuta. Nada aquí inicia o detiene uno — los agentes se declaran donde se despliega la instalación.",
+    Agent: "Agente",
+    "Last heartbeat": "Último latido",
+    Version: "Versión",
+    State: "Estado",
+    "Not this server's to say": "Este servidor no puede decirlo",
+    Alive: "Activo",
+    "Not reporting": "Sin informar",
+    "Grants withdrawn": "Concesiones retiradas",
+    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
+      "El agente perdió su concesión sobre «{group}» el {when}: nada ha servido a ese grupo desde que la pasada lo notó.",
+    "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
+      "La cuenta propia de este miembro no se puede leer — Stalwart rechazó la suplantación — así que el nombre que escribir en su identidad es desconocido. Aun así se le puede escribir una identidad escribiendo un nombre.",
+    "Delete this identity so the member sends as the group":
+      "Eliminar esta identidad para que el miembro envíe como el grupo",
+    "Open to read their own display name and what they send as.":
+      "Abrir para leer su propio nombre para mostrar y como qué envía.",
+    "Reading this member's own account…": "Leyendo la cuenta propia de este miembro…",
+    "Sends as {identity}": "Envía como {identity}",
+    "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.":
+      "Esa es la identidad propia del grupo, que es también como qué envía el agente — así que el correo de este miembro es indistinguible del del grupo.",
+    "No identity is assigned to this member yet, so they send as the group itself.":
+      "Todavía no se ha asignado ninguna identidad a este miembro, así que envía como el propio grupo.",
+    "Assign identity": "Asignar identidad",
+    "Delete {identity}?": "¿Eliminar {identity}?",
+    "{member} will then send as the group itself.":
+      "{member} enviará entonces como el propio grupo.",
+    "This group holds no identity yet, so nothing can be sent from its mailbox.":
+      "Este grupo todavía no tiene identidad, así que no se puede enviar nada desde su buzón.",
+    "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":
+      "Establezca como qué envía un buzón de grupo. Se escribe como el Master, porque Stalwart rechaza suplantar un buzón de grupo — el Master es el principal que existe para actuar en nombre de un grupo.",
+    "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
+      "Un grupo tiene una identidad por miembro: la dirección propia del grupo, que lleva el nombre para mostrar y la firma de cada miembro. Una identidad alcanza el correo compuesto en Gilbert — por un miembro en el redactor o por el agente del grupo. Un Cco en una copia cada mensaje que envía esa identidad, lo que para el correo de un grupo es todo lo escrito como el grupo.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.":
+      "Listar buzones de grupo requiere privilegio de administrador del servidor Stalwart, que esta sesión no tiene — ser administrador de Gilbert no basta. Escriba una dirección de grupo abajo en su lugar.",
+    "team@example.org": "team@example.org",
+    "Reload identities": "Recargar identidades",
+    "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
+      "El Master no es miembro de este grupo, así que nada aquí puede escribir su identidad. Conceda el agente en ese grupo — la misma concesión que le permite trabajar en el grupo — y vuelva a mirar.",
+    "Identity active — mail sent as this group carries what is set here.":
+      "Identidad activa — el correo enviado como este grupo lleva lo que se establece aquí.",
+    Identities: "Identidades",
+    "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
+      "La lista de miembros de este grupo no se pudo leer, así que no se puede mostrar a qué miembro pertenece cada identidad. Las identidades se listan por sí solas, y no se puede hacer una asignación hasta que el registro vuelva a leerse — todo el orden de quién envía como qué depende de ello.",
+    "Who sends as what": "Quién envía como qué",
+    "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.":
+      "A cada miembro se le asigna una de las identidades de este grupo: la dirección propia del grupo, que lleva el nombre para mostrar y la firma de ese miembro. Abra un miembro para leer el nombre que escribir en la suya — una lectura de esa cuenta, y solo cuando la abra.",
+    "This group's roster is empty: there is no member to assign an identity to.":
+      "La lista de miembros de este grupo está vacía: no hay ningún miembro al que asignar una identidad.",
+    "Not assigned to a member": "No asignada a un miembro",
+    "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
+      "Identidades que ningún miembro tiene asignadas. La propia del grupo está entre ellas, y es como qué envía un miembro sin identidad propia — la misma identidad con la que envía el agente, así que un grupo sin nadie asignado sigue escribiendo como el grupo y no bajo el nombre de alguien.",
+    "Every identity of this group is assigned to a member.":
+      "Todas las identidades de este grupo están asignadas a un miembro.",
+    "Messages already carrying this label lose it for everyone in the group.":
+      "Los mensajes que ya llevan esta etiqueta la pierden para todos en el grupo.",
+    "Bridge status": "Estado del bridge",
+    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
+      "El teléfono no está disponible en este despliegue: {reason}. Abra Estado del bridge para ver qué hay que arreglar.",
+    "Unknown — the status could not be read": "Desconocido — no se pudo leer el estado",
+    "Not running": "No se está ejecutando",
+    "no reason given": "no se indica ningún motivo",
+    Reachable: "Accesible",
+    "Not reachable — open the bridge's ports inbound":
+      "No accesible — abra los puertos del bridge en entrada",
+    "Not checked": "No comprobado",
+    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
+      "El bridge del teléfono es un segundo proceso junto a la aplicación. Así se ve desde el servidor y desde este navegador; una comprobación que falla nombra lo que hay que arreglar.",
+    "Bridge service": "Servicio de bridge",
+    "Janus version": "Versión de Janus",
+    "not installed": "no instalado",
+    "Media range (UDP, inbound)": "Rango multimedia (UDP, entrada)",
+    "STUN port (UDP, inbound)": "Puerto STUN (UDP, entrada)",
+    "Media path from this browser": "Ruta multimedia desde este navegador",
+    "Re-check": "Volver a comprobar",
+    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
+      "El bridge se ejecuta junto a la aplicación y se inicia con ella — el entrypoint del contenedor, o gilbert-janus.service y gilbert-stun.service en un host. GILBERT_BRIDGE=0 lo desactiva. Su API es solo loopback y el tramo hacia el proveedor SIP es saliente, así que el rango multimedia y el puerto STUN de arriba son los puertos que abrir en entrada.",
+    "The theme this build knows: system, light, dark, or Gilbert's own.":
+      "El tema que conoce esta compilación: sistema, claro, oscuro o el propio de Gilbert.",
+    "The colour palette (Gilbert's own or one of the shipped ones).":
+      "La paleta de colores (la propia de Gilbert o una de las incluidas).",
+    "Light, dark, or whatever the system says.":
+      "Claro, oscuro o lo que diga el sistema.",
+    "The accent colour that sits on top of any palette.":
+      "El color de acento que se sitúa sobre cualquier paleta.",
+    "How much fits on screen: comfortable, cozy or compact.":
+      "Cuánto cabe en pantalla: cómodo, acogedor o compacto.",
+    "Interface text size: small, medium or large (device-local).":
+      "Tamaño del texto de la interfaz: pequeño, mediano o grande (local al dispositivo).",
+    "Where the reading pane sits: right, bottom, or off.":
+      "Dónde se sitúa el panel de lectura: a la derecha, abajo o desactivado.",
+    "Message-list width with the pane on the right (px, device-local).":
+      "Ancho de la lista de mensajes con el panel a la derecha (px, local al dispositivo).",
+    "Message-list height with the pane below (px, device-local).":
+      "Alto de la lista de mensajes con el panel abajo (px, local al dispositivo).",
+    "Whether the sidebar is collapsed (device-local).":
+      "Si la barra lateral está contraída (local al dispositivo).",
+    "Show hidden folders in Files (the gilbert app folder and more).":
+      "Mostrar carpetas ocultas en Archivos (la carpeta de la aplicación gilbert y más).",
+    "Let messages follow the app's theme instead of white.":
+      "Dejar que los mensajes sigan el tema de la aplicación en lugar del blanco.",
+    "Thread messages into conversations.": "Agrupar los mensajes en conversaciones.",
+    "Show a preview line under the subject in the list.":
+      "Mostrar una línea de vista previa bajo el asunto en la lista.",
+    "Show avatars in the message list.": "Mostrar avatares en la lista de mensajes.",
+    "Messages per page in the list.": "Mensajes por página en la lista.",
+    "Seconds before an opened message counts as read; -1 never auto.":
+      "Segundos antes de que un mensaje abierto cuente como leído; -1 nunca automático.",
+    "Where the list moves after acting: newer, older, or back to the list.":
+      "Adónde va la lista tras actuar: más nuevos, más antiguos o volver a la lista.",
+    "Archive the original when replying to it.":
+      "Archivar el original al responder a él.",
+    "Message-list order: newest, oldest, unread or starred first.":
+      "Orden de la lista de mensajes: más nuevos, más antiguos, no leídos o destacados primero.",
+    "Secondary sort levels under the preset.":
+      "Niveles de ordenación secundarios bajo el preajuste.",
+    "Which folders the sort covers: inbox only, or all.":
+      "Qué carpetas cubre la ordenación: solo la bandeja de entrada o todas.",
+    "What a left swipe does in the list.":
+      "Qué hace un deslizamiento a la izquierda en la lista.",
+    "What a right swipe does in the list.":
+      "Qué hace un deslizamiento a la derecha en la lista.",
+    "Compose in HTML or plain text.": "Redactar en HTML o texto sin formato.",
+    "Quote the original message when replying.":
+      "Citar el mensaje original al responder.",
+    "Put the signature above the quoted text.": "Poner la firma encima del texto citado.",
+    "Send and archive in one action.": "Enviar y archivar en una sola acción.",
+    "How long Send is undoable, in seconds.":
+      "Cuánto tiempo se puede deshacer Enviar, en segundos.",
+    "Spellcheck the composer.": "Corrector ortográfico en el redactor.",
+    "Compose templates the account saved.":
+      "Plantillas de redacción guardadas por la cuenta.",
+    "Remote images: ask, always load, or only from contacts.":
+      "Imágenes remotas: preguntar, cargar siempre o solo de contactos.",
+    "Senders whose remote images load without asking.":
+      "Remitentes cuyas imágenes remotas se cargan sin preguntar.",
+    "S/MIME signers pinned per address (fingerprint → name).":
+      "Firmantes S/MIME fijados por dirección (huella → nombre).",
+    "Ask senders for a read receipt.": "Pedir a los remitentes un acuse de lectura.",
+    "When a receipt is asked for: ask each time, or never.":
+      "Cuándo se pide un acuse: preguntar cada vez o nunca.",
+    "Ask before deleting.": "Preguntar antes de eliminar.",
+    "Warn when a message mentions an attachment but has none.":
+      "Avisar cuando un mensaje menciona un adjunto pero no tiene ninguno.",
+    "Banner when a sender is outside the account's domains.":
+      "Aviso cuando un remitente está fuera de los dominios de la cuenta.",
+    "Confirm when a recipient is outside the account's domains.":
+      "Confirmar cuando un destinatario está fuera de los dominios de la cuenta.",
+    "Warn before opening links to outside domains.":
+      "Avisar antes de abrir enlaces a dominios externos.",
+    "Domains counted as internal, on top of the account's own.":
+      "Dominios considerados internos, además de los propios de la cuenta.",
+    "Outside domains whose links open without warning.":
+      "Dominios externos cuyos enlaces se abren sin aviso.",
+    "People on a message before Reply-all asks; 0 is off.":
+      "Personas en un mensaje antes de que Responder a todos pregunte; 0 lo desactiva.",
+    "Desktop notifications for new mail (device-local).":
+      "Notificaciones de escritorio para correo nuevo (local al dispositivo).",
+    "Play a sound for new mail (device-local).":
+      "Reproducir un sonido para el correo nuevo (local al dispositivo).",
+    "The calendar view a new open starts on.":
+      "La vista de calendario con la que empieza una nueva apertura.",
+    "Hour the working day starts (calendar grid).":
+      "Hora a la que empieza la jornada laboral (cuadrícula del calendario).",
+    "Hour the working day ends (calendar grid).":
+      "Hora a la que termina la jornada laboral (cuadrícula del calendario).",
+    "Default event length, in minutes.":
+      "Duración predeterminada de un evento, en minutos.",
+    "Default reminder lead, in minutes.":
+      "Antelación predeterminada del recordatorio, en minutos.",
+    "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
+      "Primer día de la semana: 0 domingo, 1 lunes, 6 sábado.",
+    "The calendar time zone; null means the browser's.":
+      "La zona horaria del calendario; null significa la del navegador.",
+    "Show a calendar of birthdays from the address book.":
+      "Mostrar un calendario de cumpleaños de la libreta de direcciones.",
+    "Calendars subscribed to by URL.": "Calendarios suscritos por URL.",
+    "Outlook-style colour categories for calendar events.":
+      "Categorías de color al estilo Outlook para eventos del calendario.",
+    "The mail-server locale; empty means follow the server.":
+      "La configuración regional del servidor de correo; vacío significa seguir al servidor.",
+    "The interface language; empty means English.":
+      "El idioma de la interfaz; vacío significa inglés.",
+    "How dates are written; auto follows the locale.":
+      "Cómo se escriben las fechas; auto sigue la configuración regional.",
+    "12- or 24-hour clock; auto follows the locale.":
+      "Reloj de 12 o 24 horas; auto sigue la configuración regional.",
+    "The account's labels.": "Las etiquetas de la cuenta.",
+    "Show labels in the sidebar.": "Mostrar las etiquetas en la barra lateral.",
+    "Folder colours by mailbox id (device-local).":
+      "Colores de carpeta por id de buzón (local al dispositivo).",
+    "Identities hidden from the compose picker.":
+      "Identidades ocultas del selector del redactor.",
+    "Default sending identity per account.":
+      "Identidad de envío predeterminada por cuenta.",
+    "Address books whose shared writes the reader remembered.":
+      "Libretas de direcciones cuyas escrituras compartidas el lector recordó.",
+    "Appearance and layout": "Apariencia y diseño",
+    "Message list": "Lista de mensajes",
+    "Composing and sending": "Redacción y envío",
+    "Security and privacy": "Seguridad y privacidad",
+    "Calendar and events": "Calendario y eventos",
+    "Language, dates and time": "Idioma, fechas y hora",
+    "Labels and account data": "Etiquetas y datos de la cuenta",
+    "Settings keys": "Claves de configuración",
+    "Each example is the fragment to put under defaults, under enforced, or inside a change's settings.":
+      "Cada ejemplo es el fragmento que se pone bajo defaults, bajo enforced o dentro de los settings de un cambio.",
+    Key: "Clave",
+    "What it does": "Qué hace",
+    Example: "Ejemplo",
+    Unknown: "Desconocido",
+    "New in this build — no description yet.":
+      "Nuevo en esta compilación — todavía sin descripción.",
+    "SIP account": "Cuenta SIP",
+    "User name": "Nombre de usuario",
+    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
+      "La cuenta con la que se registra el teléfono, enviada al proveedor como sip:<user name>@<server>. Una identidad sin servidor ni nombre de usuario no se registra.",
+    "System script saved": "Script del sistema guardado",
+    "Your system Sieve script has changes that have not been saved.":
+      "Su script Sieve del sistema tiene cambios sin guardar.",
+    "Could not load system Sieve scripts.":
+      "No se pudieron cargar los scripts Sieve del sistema.",
+    "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
+      "Scripts Sieve de confianza y para todo el servidor que Stalwart ejecuta para toda la instalación — no los filtros propios de una persona. Puede haber más de uno activo a la vez; cada uno se invoca por nombre desde la propia configuración de Stalwart.",
+    "No system scripts yet": "Todavía no hay scripts del sistema",
+    "Re-read from the server. What you were editing is still open.":
+      "Volver a leer del servidor. Lo que estaba editando sigue abierto.",
+    "Enforced — applied at once, with no sign-in needed.":
+      "Forzado — aplicado de inmediato, sin necesidad de iniciar sesión.",
+    "Released — the account can set its own identities again.":
+      "Liberado — la cuenta puede volver a establecer sus propias identidades.",
+    "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
+      "Establezca las identidades de una persona — nombre para mostrar, dirección, Reply-To, Cco y firma — o asuma la identidad de la cuenta. La escritura actúa como esa persona desde su propia sesión, así que necesita el permiso Impersonate de Stalwart y una sesión con contraseña; las contraseñas de aplicación se rechazan para la suplantación.",
+    "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
+      "Una identidad alcanza el correo compuesto en Gilbert. El correo escrito en otro cliente lleva la firma de ese cliente.",
+    "Choose an account…": "Elija una cuenta…",
+    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.":
+      "Identidad activa — la cuenta envía con lo que se establece aquí. Si además está forzada es desconocido, y los controles Forzar de abajo dicen por qué.",
+    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.":
+      "Identidad activa — esta cuenta envía con lo que se establece aquí, y no se le ofrece ninguna sección Identidades y firmas propia.",
+    "Identity active — the account sends with what is set here.":
+      "Identidad activa — la cuenta envía con lo que se establece aquí.",
+    "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
+      "Esta cuenta no se puede leer: Stalwart rechazó la suplantación. No se escribe nada hasta que responda.",
+    "This account holds no identity yet.": "Esta cuenta todavía no tiene identidad.",
+    "SIP set": "SIP establecido",
+    SIP: "SIP",
+    "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
+      "Se muestra toda la lista de la cuenta y cada entrada es editable: no queda nada atrás como identidad que el redactor siga ofreciendo.",
+    Enforce: "Forzar",
+    "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
+      "A una cuenta forzada no se le ofrece ninguna sección Identidad y firmas, ni una firma propia. Un Cco establecido en una de sus identidades es uno que la persona no puede quitarse, algo que conviene sopesar antes de bloquear la última identidad: la dirección copia cada mensaje que esa identidad envía en Gilbert. El bloqueo es una regla sobre la superficie de este producto, no una frontera: Stalwart no tiene permiso por campo sobre una identidad, así que un cliente que habla JMAP directamente todavía puede escribir una.",
+    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.":
+      "Si esta cuenta está forzada es desconocido: Stalwart rechazó la suplantación que lee su bloqueo, que es un archivo en la carpeta propia de la cuenta. Forzar y Liberar permanecen desactivados hasta que responda.",
+    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
+      "Si esta cuenta está forzada es desconocido: su bloqueo no se pudo leer. Forzar y Liberar permanecen desactivados hasta que responda.",
+    Enforced: "Forzado",
+    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
+      "Una automatización que se pausa publica lo que propone en el chat de su grupo, y un miembro responde allí con palabras. Aprobar ocurre por tanto en el chat, no aquí — esta cola es la supervisión de todos los grupos, y la forma de ver qué ha estado esperando en cualquiera de ellos.",
+    "Nothing is waiting for a person.": "No hay nada esperando a una persona.",
+    "What it proposes": "Lo que propone",
+    Confidence: "Confianza",
+    Raised: "Elevada",
+    "Open {group} and its chat": "Abrir {group} y su chat",
+    "Open the group's mailbox": "Abrir el buzón del grupo",
+    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
+      "El modelo sobre el que se ejecuta cada automatización de esta instalación: un proveedor, un modelo, una clave. Una instalación sin él no tiene automatizaciones — una ejecución no tiene con qué decidir.",
+    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
+      "Todavía no hay ningún agente registrado para esta instalación, así que no hay nada sobre lo que ejecutar el modelo.",
+    "Ceiling on one answer (tokens)": "Límite de una respuesta (tokens)",
+    "What a single model answer may cost. 1 to {max}.":
+      "Lo que puede costar una única respuesta del modelo. 1 a {max}.",
+    "Hops a chain of automations may run":
+      "Saltos que puede dar una cadena de automatizaciones",
+    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
+      "Hasta dónde puede pasar una unidad de trabajo de automatización en automatización antes de que la ejecución posterior se rechace y se avise al grupo.",
+    "Pages one run may hand the model":
+      "Páginas que una ejecución puede entregar al modelo",
+    "A page with no text layer travels as an image, which costs input tokens per page.":
+      "Una página sin capa de texto viaja como imagen, lo que cuesta tokens de entrada por página.",
+    "Model saved": "Modelo guardado",
+    "Remove the model?": "¿Eliminar el modelo?",
+    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
+      "Esta instalación no ejecuta ninguna automatización hasta que se guarde otro modelo, y la clave de API almacenada se elimina con él.",
+    "Model removed": "Modelo eliminado",
+    "The installation's model": "El modelo de la instalación",
+    "A key is stored": "Hay una clave almacenada",
+    "No key stored": "Ninguna clave almacenada",
+    Provider: "Proveedor",
+    openai: "openai",
+    "A model name": "Un nombre de modelo",
+    "Base URL": "URL base",
+    "https://api.example.com/v1": "https://api.example.com/v1",
+    "API key": "Clave de API",
+    "Paste a new key here": "Pegue aquí una clave nueva",
+    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
+      "Solo escritura: la clave almacenada no se vuelve a mostrar, y dejar este campo vacío conserva la clave que ya tiene.",
+    "An installation that sets none gets {n}.":
+      "Una instalación que no establece ninguna obtiene {n}.",
+    "Remove the model": "Eliminar el modelo",
+    "Reading…": "Leyendo…",
+    "Ask the model to read it": "Pedir al modelo que lo lea",
+    "What the model said about this draft:": "Lo que dijo el modelo sobre este borrador:",
+    "Audit trail": "Registro de auditoría",
+    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
+      "Lo que ha hecho el agente de este grupo, del más reciente — el mismo documento que sus propios miembros leen junto al chat. Conservado doce meses, podado mes a mes.",
+    "No group is picked, so there is no audit trail to read here.":
+      "No hay ningún grupo seleccionado, así que aquí no hay registro de auditoría que leer.",
+    "Download every retained month of this group's audit trail as JSON":
+      "Descargar como JSON cada mes conservado del registro de auditoría de este grupo",
+    "Copying…": "Copiando…",
+    "Download every retained month as JSON": "Descargar como JSON cada mes conservado",
+    "This group's audit trail could not be read.":
+      "El registro de auditoría de este grupo no se pudo leer.",
+    "This group's agent has not done anything yet.":
+      "El agente de este grupo todavía no ha hecho nada.",
+    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
+      "Mostrando los {shown} más recientes de {total}. Descargue arriba cada mes conservado para el resto.",
+    "No group is picked, so there is no standing instruction to read here.":
+      "No hay ningún grupo seleccionado, así que aquí no hay instrucción permanente que leer.",
+    "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.":
+      "Escrita una vez para todo el grupo y entregada al modelo en cada llamada, después de las reglas propias de la instalación y antes de la instrucción propia de la automatización. Dice cómo debe trabajar el agente; lo que una automatización puede hacer es su lista de capacidades, y nada escrito aquí la amplía.",
+    "How this group's agent works": "Cómo trabaja el agente de este grupo",
+    "Write to the group in its own language, and always cite the invoice number.":
+      "Escriba al grupo en su propio idioma y cite siempre el número de factura.",
+    "the group's standing instruction": "la instrucción permanente del grupo",
+    "Memory saved": "Memoria guardada",
+    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
+      "Lo que el agente del grupo retiene en cada llamada: los hechos sobre este grupo que sus automatizaciones nunca deberían tener que repetir. Cada línea se lee como datos — orienta, y nunca amplía lo que una automatización tiene permitido hacer.",
+    "No group is picked, so there is no memory to read here.":
+      "No hay ningún grupo seleccionado, así que aquí no hay memoria que leer.",
+    "This group's memory has not been read yet.":
+      "La memoria de este grupo todavía no se ha leído.",
+    "Read it": "Leerla",
+    "This group's agent is holding nothing yet.":
+      "El agente de este grupo todavía no retiene nada.",
+    "Fact {n}": "Hecho {n}",
+    "Remove this fact": "Eliminar este hecho",
+    "Invoices from Ada are filed under the client's name, not the sender's.":
+      "Las facturas de Ada se archivan bajo el nombre del cliente, no el del remitente.",
+    "Add a fact": "Añadir un hecho",
+    "A fact is at most {n} characters, and a notebook holds {m}.":
+      "Un hecho tiene como máximo {n} caracteres, y un cuaderno contiene {m}.",
+    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
+      "Para quién se detienen las ejecuciones de este grupo y si pueden llegar fuera del grupo sin una persona. Una única política para todo el grupo: sus automatizaciones son el trabajo del mismo equipo sobre la misma correspondencia.",
+    "No group is picked, so there is no policy to read here.":
+      "No hay ningún grupo seleccionado, así que aquí no hay política que leer.",
+    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
+      "Este grupo no ha escrito una política, así que una ejecución procede cuando el modelo está seguro y se detiene ante una persona cuando no lo está. Una acción que sale del grupo o no se puede deshacer siempre pregunta.",
+    "When a person has to agree": "Cuándo tiene que aceptar una persona",
+    "Allow sending outside the group without a person — this raises the external-send consent floor.":
+      "Permitir enviar fuera del grupo sin una persona — esto eleva el umbral de consentimiento para el envío externo.",
+    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
+      "Desactivado, una acción que llega fuera del grupo siempre espera a una persona, diga lo que diga la política. Una acción que no se puede deshacer pregunta diga lo que diga cualquiera de los dos ajustes.",
+    "An empty text removes it. At most {max} characters.":
+      "Un texto vacío lo elimina. Como máximo {max} caracteres.",
+    "At most {max} characters.": "Como máximo {max} caracteres.",
+    "This automation cannot run as it stands: {reason}":
+      "Esta automatización no puede ejecutarse tal como está: {reason}",
+    "Automation saved": "Automatización guardada",
+    "Delete the {name}?": "¿Eliminar {name}?",
+    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
+      "El documento de automatización se elimina de los archivos propios del grupo. Un trabajo ya en ejecución conserva la versión con la que empezó.",
+    "Automation deleted": "Automatización eliminada",
+    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
+      "Qué hace el agente en un grupo: cuándo reacciona y qué se le pide que haga con lo que encuentra. La automatización se guarda en la cuenta propia del grupo, para que cada miembro pueda leerla.",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
+      "Una automatización por desencadenante: el agente ejecuta cada automatización activada ante un desencadenante contra todo lo que ese desencadenante produce, así que una segunda sobre el mismo desencadenante respondería dos veces al mismo evento. La ramificación entre un caso y otro pertenece a la instrucción.",
+    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
+      "El agente no está en este grupo, así que aquí no hay nada que redactar: no se ejecuta ninguna automatización y nadie puede mencionarlo en el chat del grupo. Dele el grupo en la propia administración de Stalwart y vuelva después.",
+    "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
+      "Este grupo tiene más de una automatización activada sobre un desencadenante, lo que esta compilación no acepta: {reason}",
+    "This group's automation document could not be read.":
+      "El documento de automatizaciones de este grupo no se pudo leer.",
+    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
+      "El documento de automatizaciones de este grupo estaba escrito en un formato anterior, así que se reemplazó por uno nuevo y vacío. Escriba de nuevo sus automatizaciones abajo.",
+    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
+      "El documento de automatizaciones de este grupo no se puede leer y no se pudo reemplazar automáticamente. Recargue para intentarlo de nuevo.",
+    "Cannot be saved yet: {reason}": "Todavía no se puede guardar: {reason}",
+    "No automation in this group yet.":
+      "Todavía no hay ninguna automatización en este grupo.",
+    "Every trigger already has an automation in this group.":
+      "Cada desencadenante ya tiene una automatización en este grupo.",
+    "New automation": "Nueva automatización",
+    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
+      "Cada desencadenante ya tiene una automatización en este grupo. Elimine o desactive una para escribir otro tipo.",
+    "The {name} cannot be saved as it stands: {reason}":
+      "{name} no se puede guardar tal como está: {reason}",
+    "Run this automation now, on the newest message in the group's inbox":
+      "Ejecutar esta automatización ahora, sobre el mensaje más reciente de la bandeja de entrada del grupo",
+    "Asking…": "Solicitando…",
+    "Run now": "Ejecutar ahora",
+    "Delete automation": "Eliminar automatización",
+    "Next due: {when}": "Próxima vez: {when}",
+    "Not yet scheduled — the agent holding this group arms it on its next pass.":
+      "Todavía no programada — el agente que posee este grupo la armará en su próxima pasada.",
+    "Not scheduled while disabled.": "No programada mientras esté desactivada.",
+    "Asked for: a run is open ({state}).":
+      "Solicitada: hay una ejecución abierta ({state}).",
+    "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.":
+      "Solicitada. El agente que posee este grupo la recoge en su próxima pasada — un minuto por defecto — y el registro de auditoría del grupo es donde se lee lo que hizo.",
+    "the automation “{name}”": "la automatización «{name}»",
+    "Enabled — the agent reacts to this automation":
+      "Activada — el agente reacciona a esta automatización",
+    Trigger: "Desencadenante",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
+      "Una automatización por desencadenante: el agente ejecuta cada automatización activada ante un desencadenante contra todo lo que ese desencadenante produce, así que dos de ellas responderían dos veces al mismo evento.",
+    "How often": "Con qué frecuencia",
+    "Every {minutes} minutes": "Cada {minutes} minutos",
+    Instruction: "Instrucción",
+    "Read the message and say what should happen to it. Useful context, in plain words.":
+      "Lea el mensaje y diga qué debería pasarle. Contexto útil, en palabras sencillas.",
+    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
+      "Esta prosa es todo lo que se le pide a una ejecución: cada ejecución se la entrega al modelo de la instalación, que responde con acciones de las áreas de abajo.",
+    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
+      "Se lee como datos, no se obedece: un mensaje que pide al modelo hacer algo sigue siendo solo un mensaje.",
+    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
+      "Escríbala para los casos tal como llegan: la ramificación entre un tipo de correo y otro pertenece aquí, no a una segunda automatización.",
+    "What it may do": "Qué puede hacer",
+    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
+      "La lista de permitidos: las únicas acciones que esta automatización puede ejecutar. Al modelo se le ofrecen estas y nada más, y una respuesta fuera de ellas se rechaza.",
+    "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.":
+      "El catálogo de capacidades no se ha leído, así que aquí no hay nada que conceder: un servidor que no sabe responder con él es uno contra el que esta compilación no puede redactar. Guardar permanece rechazado hasta que lo haga.",
+    external: "externo",
+    irreversible: "irreversible",
+    "That is not valid JSON — fix the document and publish again.":
+      "Eso no es JSON válido — corrija el documento y publique de nuevo.",
+    "(untitled)": "(sin título)",
+    "Calendar reminder": "Recordatorio de calendario",
+    "Reminder: {title}": "Recordatorio: {title}",
+    "Message not sent — {what}": "Mensaje no enviado — {what}",
+    "Not signed in": "Sesión no iniciada",
+    "The mailbox changed before this message was sent":
+      "El buzón cambió antes de que se enviara este mensaje",
+    "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
+      "Mover un contacto entre sus propias libretas de direcciones y la de un grupo es cosa de un administrador de la instalación, porque la ficha pertenece a la cuenta en la que aterriza. Editarla y archivar contactos nuevos donde están sigue funcionando.",
+    "A file called “{name}” is already here.": "Ya hay aquí un archivo llamado «{name}».",
+    "Its folder could not be created.": "No se pudo crear su carpeta.",
+    "This conversation no longer exists.": "Esta conversación ya no existe.",
+    "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
+      "El correo de un grupo lo termina un administrador de la instalación. Archivar un mensaje en la Papelera del grupo sigue funcionando, igual que volver a sacarlo.",
+    "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
+      "Solo un administrador de la instalación puede vaciar la Papelera o el Spam de un grupo. Archivar correo ahí sigue funcionando, igual que volver a sacarlo.",
+    "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
+      "Una carpeta con correo no se puede eliminar en un grupo, porque su correo se iría con ella. Saque el correo primero, o pregunte a un administrador de la instalación.",
+    "This reading was not counted toward this month's authoring.":
+      "Esta lectura no se contó para la redacción de este mes.",
+    "no-bytes": "no-bytes",
+    "no-right": "no-right",
+    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
+      "Llegar a {need} de un grupo ocurre como el agente de la instalación, y ese agente no es miembro de este grupo: los documentos viven en la cuenta propia del grupo, y solo un miembro llega a ellos — así que añada el agente al grupo en el directorio del servidor de correo.",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert no pudo preguntar al servidor de correo por {need} de este grupo, así que no puede decir si ese agente llega a ello: no se cambió nada ni se leyó nada. Inténtelo de nuevo, y si sigue respondiendo así, el servidor de correo es el que hay que mirar.",
+    "Your settings could not be saved: {error}":
+      "No se pudo guardar su configuración: {error}",
+    "List-Id": "List-Id",
+    "X-Spam-Status": "X-Spam-Status",
+    "Delete all spam": "Eliminar todo el spam",
+    "Empty {name}": "Vaciar {name}",
+    "Delete all spam in “{name}”?": "¿Eliminar todo el spam de «{name}»?",
+    "Empty folder": "Vaciar carpeta",
+    "The phone bridge did not answer.": "El bridge del teléfono no respondió.",
+    "The phone bridge is gone.": "El bridge del teléfono ya no está.",
+    "The phone bridge accepted no session.":
+      "El bridge del teléfono no aceptó ninguna sesión.",
+    "The phone bridge attached no plugin.":
+      "El bridge del teléfono no conectó ningún plugin.",
+    "The phone bridge refused the request.":
+      "El bridge del teléfono rechazó la solicitud.",
+    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
+      "Su navegador está bloqueando el micrófono para este sitio, así que una llamada no puede llevar su voz. Permítalo para este sitio y vuelva a intentarlo.",
+    "No microphone is available on this device, so a call cannot carry your voice.":
+      "No hay ningún micrófono disponible en este dispositivo, así que una llamada no puede llevar su voz.",
+    "This browser cannot reach a microphone, so a call cannot carry your voice.":
+      "Este navegador no puede alcanzar ningún micrófono, así que una llamada no puede llevar su voz.",
+    "Calling…": "Llamando…",
+    "Ringing…": "Sonando…",
+    Connected: "Conectado",
+    "The line is busy": "La línea está ocupada",
+    "no-route": "no-route",
+    "No route to this number": "Sin ruta a este número",
+    "This number is not available": "Este número no está disponible",
+    "The call was declined": "La llamada fue rechazada",
+    "The call could not be completed": "No se pudo completar la llamada",
+    "The phone is not connected.": "El teléfono no está conectado.",
+    "The line is busy.": "La línea está ocupada.",
+    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
+      "El navegador no puede llevar los medios del teléfono a Gilbert: sus puertos multimedia no son accesibles. El problema está entre este navegador y Gilbert, no con el proveedor SIP.",
+    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
+      "La línea no se registró con el servidor SIP. El problema está entre Gilbert y el proveedor SIP, no entre este navegador y Gilbert.",
+    "the server closed the live-updates stream":
+      "el servidor cerró el flujo de actualizaciones en vivo",
+    "the server could not be reached": "no se pudo alcanzar el servidor",
+    "Timed out": "Se agotó el tiempo",
+    "Group identities": "Identidades de grupo",
+    "User identities": "Identidades de usuario",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1773,5 +2741,83 @@ export const catalog: Catalog = {
       one: "Mensaje eliminado definitivamente",
       other: "{n} mensajes eliminados definitivamente",
     },
+    "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.":
+      {
+        one: "{n} identidad está oculta del selector del redactor. Ocultarlas todas no dejaría nada que elegir, así que en ese caso se ofrecen de nuevo todas.",
+        other:
+          "{n} identidades están ocultas del selector del redactor. Ocultarlas todas no dejaría nada que elegir, así que en ese caso se ofrecen de nuevo todas.",
+      },
+    "Password changed. {n} other sessions signed out.": {
+      one: "Contraseña cambiada. {n} sesión más cerrada.",
+      other: "Contraseña cambiada. {n} sesiones más cerradas.",
+    },
+    "{n} attendees": {
+      one: "{n} asistente",
+      other: "{n} asistentes",
+    },
+    "{n} attachments could not be saved to Files.": {
+      one: "No se pudo guardar {n} adjunto en Archivos.",
+      other: "No se pudieron guardar {n} adjuntos en Archivos.",
+    },
+    "{n} files are already in this folder. Nothing was replaced.": {
+      one: "{n} archivo ya está en esta carpeta. No se reemplazó nada.",
+      other: "{n} archivos ya están en esta carpeta. No se reemplazó nada.",
+    },
+    "Saved {n} files to {where}.": {
+      one: "Se guardó {n} archivo en {where}.",
+      other: "Se guardaron {n} archivos en {where}.",
+    },
+    "Save {n} attachments to Files.": {
+      one: "Guardar {n} adjunto en Archivos.",
+      other: "Guardar {n} adjuntos en Archivos.",
+    },
+    "Download {n} files": {
+      one: "Descargar {n} archivo",
+      other: "Descargar {n} archivos",
+    },
+    "{done} of {n} files": {
+      one: "{done} de {n} archivo",
+      other: "{done} de {n} archivos",
+    },
+    "{n} members of {group} have no address and were not added.": {
+      one: "{n} miembro de {group} no tiene dirección y no se añadió.",
+      other: "{n} miembros de {group} no tienen dirección y no se añadieron.",
+    },
+    "group · {n} members": {
+      one: "grupo · {n} miembro",
+      other: "grupo · {n} miembros",
+    },
+    "{n} matches": {
+      one: "{n} coincidencia",
+      other: "{n} coincidencias",
+    },
+    "{n} participants": {
+      one: "{n} participante",
+      other: "{n} participantes",
+    },
+    "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
+      {
+        one: "Publicado. El directorio listó {n} cuenta, y ahora todas llevan esta política; los demás clientes con sesión iniciada volverán a iniciarla.",
+        other:
+          "Publicado. El directorio listó {n} cuentas, y ahora todas llevan esta política; los demás clientes con sesión iniciada volverán a iniciarla.",
+      },
+    "The directory listed {n} accounts.": {
+      one: "El directorio listó {n} cuenta.",
+      other: "El directorio listó {n} cuentas.",
+    },
+    "{n} accounts were not written to:": {
+      one: "No se escribió en {n} cuenta:",
+      other: "No se escribió en {n} cuentas:",
+    },
+    "{n} automations": {
+      one: "{n} automatización",
+      other: "{n} automatizaciones",
+    },
+    "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
+      {
+        one: "{n} mensaje se eliminará de forma permanente. No pasa primero a la Papelera, así que esto no se puede deshacer.",
+        other:
+          "Los {n} mensajes se eliminarán de forma permanente. No pasan primero a la Papelera, así que esto no se puede deshacer.",
+      },
   },
 };
