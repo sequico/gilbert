@@ -1588,6 +1588,951 @@ export const catalog: Catalog = {
     "Edit {name}": "{name} を編集",
     "{own} here, {unread} in subfolders": "ここに {own}、サブフォルダに {unread}",
     attachment: "添付ファイル",
+    "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.":
+      "通知をオンにしますか？新着メールとチャットは、Gilbertがバックグラウンドでも届きます。",
+    "Turn on notifications": "通知をオンにする",
+    "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
+      "SafariでGilbertをホーム画面に追加し、そこから開いてください。iOSが通知を提供するのは、その方法でインストールされたWebアプリだけです。",
+    "Your mail server publishes no push key, so it cannot wake this browser.":
+      "メールサーバーがプッシュキーを公開していないため、このブラウザーを起動できません。",
+    "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.":
+      "このブラウザーにはPush APIがないため、Gilbertを閉じた状態での通知はここではオンにできません。",
+    "Notifications are blocked for this site in your browser's settings.":
+      "このサイトの通知はブラウザーの設定でブロックされています。",
+    "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.":
+      "バックグラウンド通知には、ご自身のものとして登録した端末が必要です。「これは自分の端末です」にチェックを入れて再度サインインしてください。",
+    "Could not subscribe to notifications.": "通知を購読できませんでした。",
+    Policy: "ポリシー",
+    Installation: "インストール",
+    "Force passwords": "パスワードを強制",
+    "Identities and SIP Phone": "差出人とSIP電話",
+    Master: "Master",
+    "Group Agents": "グループエージェント",
+    Approvals: "承認",
+    "System Sieve": "システムSieve",
+    "Gilbert Mailer": "Gilbert Mailer",
+    "Gilbert Assistant": "Gilbert Assistant",
+    Stalwart: "Stalwart",
+    "Nothing here yet.": "ここにはまだ何もありません。",
+    Help: "ヘルプ",
+    "Mobile app": "モバイルアプリ",
+    "Install mobile app": "モバイルアプリをインストール",
+    "Change your password": "パスワードを変更",
+    "Your administrator requires you to choose a new password before you can continue. Signing out is the only other way out of this screen.":
+      "管理者は、続行する前に新しいパスワードを選ぶよう求めています。この画面から出る他の方法はサインアウトだけです。",
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbertはこの端末にすでにインストールされています。ホーム画面のアイコンから開いてアプリを使用してください。",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "Gilbertをアプリとしてインストールすると、全画面ウィンドウと通知が使えます。",
+    "Add Gilbert to your Home Screen.": "Gilbertをホーム画面に追加してください。",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbertをインストールしています。アイコンから開いてセットアップを完了してください。",
+    Install: "インストール",
+    How: "方法",
+    "Gilbert is up to date.": "Gilbertは最新です。",
+    "Could not check for updates.": "更新を確認できませんでした。",
+    "Notifications are on for this device.": "この端末では通知がオンです。",
+    "Gilbert is installed on this device.":
+      "Gilbertはこの端末にインストールされています。",
+    "Update now": "今すぐ更新",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "Gilbertをスマートフォンにインストールすると、専用アイコンから全画面で開き、閉じているときも通知を受け取れます。",
+    "Install app": "アプリをインストール",
+    "Safari installs a web app from the Share sheet:":
+      "Safariは共有シートからWebアプリをインストールします。",
+    "Tap the Share button.": "共有ボタンをタップします。",
+    "Choose “Add to Home Screen”.": "「ホーム画面に追加」を選びます。",
+    "Open Gilbert from the new icon.": "新しいアイコンからGilbertを開きます。",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "このブラウザーはインストールを独自のメニューで行います。「アプリをインストール」または「ホーム画面に追加」を探してください。",
+    Notifications: "通知",
+    "A newer version is on the server.": "サーバーに新しいバージョンがあります。",
+    "You are on the newest version.": "最新バージョンです。",
+    "Checking for updates…": "更新を確認しています…",
+    "This browser cannot show notifications.": "このブラウザーは通知を表示できません。",
+    "Stay signed in, and keep settings and recent addresses on this computer.":
+      "サインインを維持し、設定と最近のアドレスをこのコンピューターに保持します。",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.":
+      "5分間操作がないとサインアウトし、このコンピューターには何も保持しません。共有または公共のコンピューターではチェックを外したままにしてください。",
+    "Signing in…": "サインインしています…",
+    "Sign in": "サインイン",
+    "Go to All mail / Archive": "すべてのメール / アーカイブへ",
+    "Stalwart Mail Server": "Stalwartメールサーバー",
+    "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
+    "{name} (Beta)": "{name} (Beta)",
+    "Reset all settings?": "すべての設定をリセットしますか？",
+    "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
+      "このアカウントのすべての設定が既定値に戻ります — テンプレート、ラベル、信頼する署名者、カレンダー購読、非表示の差出人 — そしてサーバーに保存されたコピーが置き換えられます。これは元に戻せません。",
+    Reset: "リセット",
+    "Ask again": "もう一度確認",
+    "Make Gilbert the default mail app": "Gilbertを既定のメールアプリにする",
+    "Your identities": "差出人",
+    "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
+      "このグループのメールボックスには、メンバーごとに1つの差出人があり、すべてグループのアドレスを持ちます。管理側が割り当てるため、ここでは読み取り専用です。",
+    "You send as the one assigned to you, marked below.":
+      "送信には、あなたに割り当てられたもの（下に印）を使用します。",
+    "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
+      "このグループの差出人はまだあなたに割り当てられていないため、このメールボックスから送信するメールはグループ自身として送られます。",
+    "Could not read this group's identities: {error}":
+      "このグループの差出人を読み取れませんでした: {error}",
+    Yours: "自分のもの",
+    "replies@example.com": "replies@example.com",
+    "archive@example.com": "archive@example.com",
+    "Pictures belong to the account’s own Files and this surface cannot write them; an over-sized signature is kept there, and this form stores the marker that points at it.":
+      "画像はアカウント自身のファイルに属し、この画面からは書き込めません。大きすぎる署名はそこに保存され、このフォームはそれを指すマーカーを保存します。",
+    "Pictures and over-sized signatures live in the account's own Files, which this surface cannot write.":
+      "画像と大きすぎる署名はアカウント自身のファイルにあり、この画面からは書き込めません。",
+    "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
+      "このブラウザーはこの端末の通知に対する回答を保持しなくなったため、表示できません。スイッチをオフにして再びオンにすると、権限を再度求めます。",
+    "Gilbert test": "Gilbertのテスト",
+    "Ask before showing": "表示前に確認",
+    "Added from a message, and removable here.":
+      "メッセージから追加され、ここで削除できます。",
+    "example.com": "example.com",
+    "Give the rule a name before it can be saved.":
+      "保存する前にルールに名前を付けてください。",
+    "someone@example.com": "someone@example.com",
+    "That is not an email address, so the mail this rule matches would never arrive.":
+      "これはメールアドレスではないため、このルールが一致するメールは届きません。",
+    "Give the address to forward to.": "転送先のアドレスを入力してください。",
+    "Password changed": "パスワードを変更しました",
+    "Changing…": "変更しています…",
+    "Change password": "パスワードを変更",
+    "Working…": "処理しています…",
+    "Your current password": "現在のパスワード",
+    "Creating…": "作成しています…",
+    "“Ends” must be after “Starts”.": "「終了」は「開始」より後でなければなりません。",
+    "Auto-reply is on": "自動返信はオンです",
+    "Auto-reply saved": "自動返信を保存しました",
+    Personal: "個人",
+    Missed: "不在",
+    Declined: "拒否",
+    Failed: "失敗",
+    "Recent calls": "最近の通話",
+    "{n}s": "{n}秒",
+    "No calls yet.": "通話はまだありません。",
+    All: "すべて",
+    Global: "グローバル",
+    My: "自分",
+    "This browser reaches Gilbert: the phone's media path is proven.":
+      "このブラウザーはGilbertに到達しています。電話のメディア経路が確認されました。",
+    "The phone's connection to Gilbert is down.": "電話のGilbertへの接続が切れています。",
+    "Gilbert phone connection": "Gilbert電話接続",
+    "Registered with the SIP provider.": "SIPプロバイダーに登録されています。",
+    "Not registered with the SIP provider.": "SIPプロバイダーに登録されていません。",
+    "SIP server connection": "SIPサーバー接続",
+    "No contacts with a number to call.": "発信できる番号を持つ連絡先がありません。",
+    "Incoming call": "着信",
+    "Unknown caller": "不明な発信者",
+    Answer: "応答",
+    Decline: "拒否",
+    Call: "発信",
+    "Number or address": "番号またはアドレス",
+    Unmute: "ミュート解除",
+    Mute: "ミュート",
+    "Hang up": "切断",
+    "Actions for {email}": "{email}の操作",
+    "Invitation accepted": "招待を承諾しました",
+    "Invitation declined": "招待を辞退しました",
+    "Marked as tentative": "仮の予定として登録",
+    "(untitled event)": "（無題の予定）",
+    "": "",
+    "Open conversation": "スレッドを開く",
+    "Back to list / clear selection": "一覧に戻る / 選択を解除",
+    "Select conversation": "スレッドを選択",
+    "Next message in conversation": "スレッドの次のメール",
+    "Previous message in conversation": "スレッドの前のメール",
+    "Resize message list": "メール一覧の幅を変更",
+    "Hide from list": "一覧から隠す",
+    "Show in list": "一覧に表示",
+    "Stop trusting sender images": "差出人の画像を信頼しない",
+    "Always show images from sender": "差出人の画像を常に表示",
+    "Send receipt": "開封確認を送信",
+    "•••": "•••",
+    "Download all to Files": "すべてファイルにダウンロード",
+    "Save to Files": "ファイルに保存",
+    "Could not save the attachments.": "添付ファイルを保存できませんでした。",
+    "Save here": "ここに保存",
+    "Save all": "すべて保存",
+    "There is nowhere to save files to.": "ファイルを保存できる場所がありません。",
+    "Going to: {where}": "移動先: {where}",
+    "Collapse all": "すべて折りたたむ",
+    "Expand all": "すべて展開",
+    "Contact card": "連絡先カード",
+    "Shared folder": "共有フォルダー",
+    "Shared files": "共有ファイル",
+    "All files": "すべてのファイル",
+    "Nothing shared here.": "ここには共有されたものがありません。",
+    "No folders yet.": "フォルダーはまだありません。",
+    "Group name": "グループ名",
+    "Organization name": "組織名",
+    "name@example.com": "name@example.com",
+    "https://": "https://",
+    "{name} — shared with everyone": "{name} — 全員と共有",
+    "Edit Global contacts": "グローバル連絡先を編集",
+    "My contacts": "自分の連絡先",
+    "Group contacts": "グループの連絡先",
+    "New address book in {group}": "{group}の新しいアドレス帳",
+    "Nothing added yet.": "まだ何も追加されていません。",
+    "Looking…": "検索しています…",
+    "· organization": "· 組織",
+    "From the group {group}": "グループ{group}から",
+    "Move {name} to…": "{name}を移動…",
+    "This group keeps no address books.": "このグループはアドレス帳を持ちません。",
+    "There is nowhere else to move it.": "他に移動できる場所がありません。",
+    "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
+      "別のアカウントがあなたと共有したアドレス帳にこの連絡先が含まれるため、編集と削除はそのアカウントの許可次第です — ここではどちらも提供されません。",
+    "Saved.": "保存しました。",
+    "Global contacts": "グローバル連絡先",
+    "Email addresses": "メールアドレス",
+    "One per line.": "1行に1つ。",
+    "Phone numbers": "電話番号",
+    "One per line. The phone calls the preferred one.":
+      "1行に1つ。電話は優先のものに発信します。",
+    "The installation's shared directory: every account reads it, and only an administrator writes it here.":
+      "インストールの共有ディレクトリです。すべてのアカウントが読み取り、ここに書き込むのは管理者だけです。",
+    "No contacts": "連絡先なし",
+    "Add contact": "連絡先を追加",
+    "Close composer (saves draft)": "作成画面を閉じる（下書きを保存）",
+    "Save draft": "下書きを保存",
+    "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
+      "このグループにはまだ差出人がないため、送信元がありません。管理者がグループの差出人で設定します。",
+    "High priority": "優先度 高",
+    "Low priority": "優先度 低",
+    "Send now instead": "代わりに今すぐ送信",
+    "Switch to plain text": "プレーンテキストに切り替え",
+    "Switch to rich text": "リッチテキストに切り替え",
+    "Attach {n} files": "{n}個のファイルを添付",
+    Attach: "添付",
+    "To — {n} people": "宛先 — {n}人",
+    "Nobody matches that.": "一致する相手がいません。",
+    "No contacts in this address book.": "このアドレス帳に連絡先がありません。",
+    "https://…": "https://…",
+    Chat: "チャット",
+    "No longer in this group": "このグループにはいません",
+    "The group's agent": "グループのエージェント",
+    "Search messages": "メールを検索",
+    Conversations: "スレッド",
+    "Search in this chat": "このチャット内を検索",
+    "Searching…": "検索しています…",
+    "No matches for {query}": "{query}に一致するものはありません",
+    "Could not load the conversation": "スレッドを読み込めませんでした",
+    "No messages yet": "メールはまだありません",
+    "Loading earlier messages…": "以前のメールを読み込んでいます…",
+    "Start of the conversation": "スレッドの先頭",
+    "Go to the message being answered": "返信対象のメールへ移動",
+    "Pick a conversation": "スレッドを選ぶ",
+    "Replying to {who}": "{who}への返信",
+    "Cancel reply": "返信をキャンセル",
+    "Message {group}": "メッセージ {group}",
+    "No agent is registered for this installation.":
+      "このインストールにはエージェントが登録されていません。",
+    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
+      "このグループで動くエージェントはありません。ここで権限が付与されていないため、指示を持たず何もしません。その付与は製品ではなくメールサーバー自身の管理側で行います。",
+    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
+      "このグループで{address}として活動しています。読み取り専用です。従う内容は管理側で作成され、あなたはこのチャットで応答します。",
+    "Standing instruction": "常設の指示",
+    "Who its runs stop for": "実行が誰のために止まるか",
+    "What it follows": "従う内容",
+    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
+      "このグループの自動化ドキュメントを読み取れないため、自動化を表示できません。管理側でこのグループを開くと自動的に置き換えられます。",
+    "No automation is set up for this group.":
+      "このグループには自動化が設定されていません。",
+    "Still open": "まだ未解決",
+    "Nothing is running and nothing is waiting.":
+      "実行中のものも、待機中のものもありません。",
+    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
+      "これらのいずれかが人の応答を待つとき、エージェントはここチャットで尋ねます — 応答するのはそこです。",
+    "What it has done": "行ったこと",
+    "It has not done anything yet.": "まだ何も行っていません。",
+    "Last written by {who} on {when}.": "最終書き込み: {who}、{when}。",
+    "an administrator": "管理者",
+    Disabled: "無効",
+    "{message} for this date": "この日付の{message}",
+    "Occurrence deleted": "繰り返しを削除しました",
+    "Event deleted": "予定を削除しました",
+    "Group calendars": "グループのカレンダー",
+    "New calendar in {group}": "{group}の新しいカレンダー",
+    "This occurrence updated": "この繰り返しを更新しました",
+    "Event updated": "予定を更新しました",
+    "Event created and invitations sent": "予定を作成し、招待を送信しました",
+    "Event created": "予定を作成しました",
+    "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.":
+      "{date}のみを編集しています — シリーズの残りは変わりません。繰り返し、プライバシー、シリーズの参加者は表示されず、カレンダーはシリーズに残ります。",
+    "This is a recurring event — changes apply to the whole series.":
+      "これは繰り返しの予定です — 変更はシリーズ全体に適用されます。",
+    "https://meet.example.com/…": "https://meet.example.com/…",
+    "{duration} before": "{duration}前",
+    "Fewer options": "オプションを減らす",
+    "An email arrives": "メールが届いたとき",
+    "A file or folder changes": "ファイルまたはフォルダーが変わったとき",
+    "Someone writes in the chat": "誰かがチャットに書き込んだとき",
+    "On a schedule": "スケジュールで",
+    "Every run stops here for a person to answer before anything happens.":
+      "すべての実行はここで止まり、何かが起きる前に人が応答します。",
+    "A run at or above the confidence runs unattended; below it, it waits for a person.":
+      "信頼度以上の実行は無監督で進みます。それ未満では人を待ちます。",
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
+      "人の応答を待つものはありません — ただし元に戻せない操作はそれでも確認し、グループを離れる操作は同意の下限が引き上げられていない限り確認します。",
+    "Always ask a person first": "常に最初に人へ確認する",
+    "Ask a person below a confidence threshold":
+      "信頼度のしきい値を下回るときに人へ確認する",
+    "Never ask — run it unattended": "決して確認しない — 無監督で実行する",
+    "Waiting to start": "開始待ち",
+    Running: "実行中",
+    "Waiting for a person": "人の応答待ち",
+    Ran: "実行済み",
+    Finished: "完了",
+    "Asked for approval": "承認を求めた",
+    Rejected: "却下",
+    Refused: "拒否",
+    unknown: "不明",
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
+      "{runs}回の実行 · キャッシュから{hit}トークン、新規に{miss}トークン読み取り、{out}書き込み",
+    "{n} of them reported no usage": "このうち{n}件は使用量を報告しませんでした",
+    "This installation has spent: {meter}": "このインストールの支出: {meter}",
+    "{agent}: {meter}": "{agent}: {meter}",
+    "no agent named": "エージェント名なし",
+    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
+      "{groups}の監査を読み取れなかったため、この合計は下限です。それらの実行はここでは一切数えられていません。",
+    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
+      "このインストールはグループのメンバーを一覧できません。Masterがアカウント登録を読むことを許可されていないためです。sysAccountGetとsysAccountQueryの権限 — アカウント単位の付与であり、管理者ロールではありません — を与えると、チャットの@がグループのメンバーを提示します。それまでは、すでに書き込んだ人を提示します。",
+    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
+      "アカウント登録が応答しなかったため、グループのメンバーを一覧できず、チャットの@はすでに書き込んだ人を提示します。",
+    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
+      "エージェントが登録されていないため、グループのメンバーを読むものがありません。チャットの@はすでに書き込んだ人を提示します。",
+    "every {minutes} minutes": "{minutes}分ごと",
+    "sending outside the group allowed without a person":
+      "グループ外への送信を人なしで許可",
+    "sending outside the group always waits for a person":
+      "グループ外への送信は常に人を待つ",
+    "Nobody has written here yet.": "ここにはまだ誰も書き込んでいません。",
+    Identity: "差出人",
+    Model: "モデル",
+    Groups: "グループ",
+    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
+      "Gilbert自身のエージェントはメールとファイルストレージの中で行動します。Stalwartのイベントと時間スケジュールで、権限を与えられたグループの中で働きます。このインストールは1つのエージェントを実行します — その見方、どのモデルが担うか、どのグループで働くかがここです。グループ内で何をするかはグループエージェントにあります。",
+    "Master sections": "Masterのセクション",
+    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
+      "どこでも通用するもの: エージェントがすべてのグループのすべての呼び出しに持ち込むルールで、グループや1つの自動化について何かが真になる前に適用されます。各グループの指示で繰り返さずここに一度書き、データとして読みます — 実行の権限はそれ自身の能力リストであり、ここに書かれたものはそれを広げません。",
+    "How this installation's agent works": "このインストールのエージェントの働き",
+    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
+      "メッセージが書かれた言語で常に応答し、人なしでグループ外へ何も送信しないでください。",
+    "the installation's own rules": "インストール自身のルール",
+    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
+      "このセクションはエージェントの権限を確認するだけで、決して書き込みません。グループのメンバーシップはStalwart自身の管理側で、アカウントの隣で、人と同じように付与されます。",
+    "The Master": "Master",
+    Operational: "稼働中",
+    "Not operational": "稼働していない",
+    "Agent address": "エージェントのアドレス",
+    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
+      "デプロイがエージェントに名前を与え、ここはそれを読み戻します。GILBERT_AGENT_ADDRESSとGILBERT_AGENT_PASSWORDはサーバーとそのエージェントを起動する人の環境にあり、出所は1か所です。ここでは秘密を生成も、読み戻しも、保存もしません。",
+    "What the fleet has spent": "フリートの支出",
+    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
+      "エージェントが働くグループをStalwartから読み取ります。グループがここに表示されるとき、ちょうどそのときエージェントはそのグループのメンバーであり、この一覧はディレクトリに自動的に従います。グループを与えるには、Stalwart自身の管理側でGilbertユーザーにグループを追加してください。",
+    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
+      "エージェントはこのインストールが見られるグループにいません。Stalwart自身の管理側でGilbertユーザーにグループを追加すると、ここに表示されます。",
+    "Open this group's automations, standing instruction, memory and audit trail":
+      "このグループの自動化、常設の指示、メモリー、監査を開く",
+    "Open in Group Agents": "グループエージェントで開く",
+    Pending: "保留中",
+    Audit: "監査",
+    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
+      "人の応答を待っているものと、フリートが行ったこと、エージェントが持つすべてのグループにわたって — 読み取り専用の監督です。一時停止した実行への応答はグループ自身のチャットで行い、ここでは決して行いません。",
+    "Approvals sections": "承認のセクション",
+    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
+      "権限を与えられた各グループの監査を、最新順に結合したもの。グループエージェントの各グループの監査タブは同じドキュメントを独自のエクスポートで読みます。",
+    "The agent is not in a group this installation can see.":
+      "エージェントはこのインストールが見られるグループにいません。",
+    "Every group": "すべてのグループ",
+    Outcome: "結果",
+    "Every outcome": "すべての結果",
+    "Reading every group's trail…": "各グループの記録を読み取っています…",
+    "The audit of {groups} could not be read, so it is missing from this list.":
+      "{groups}の監査を読み取れなかったため、この一覧から欠けています。",
+    "Nothing matches here yet.": "ここに一致するものはまだありません。",
+    Automation: "自動化",
+    By: "実行者",
+    Detail: "詳細",
+    "Installation document": "インストールドキュメント",
+    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
+      "このインストールが動く構成: Master自身のファイルにある1つのJSONドキュメント — このインストールがサインインするアカウントで、サーバーが起動時に一度読みます。ここで公開したものが次回起動で動くもので、現在動いているプロセスは起動時のものを保ちます。",
+    "Stored at {where}": "保存先: {where}",
+    "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
+      "インストール自身のアカウントにはまだドキュメントがないため、エディターはインストールの既定値と新しく生成されたアプリシークレットから始めます。そのまま公開するか、先に編集してください。",
+    "A boot would refuse the stored document: {reason}":
+      "起動は保存されたドキュメントを拒否します: {reason}",
+    "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
+      "{field}フィールドは、保存されたすべてのセッションを封じるアプリシークレットです。このページを読める人はそれを読め、それを失う公開は全員をサインアウトさせます。属するドキュメントに保ってください。",
+    "Publish document": "ドキュメントを公開",
+    "Publishing…": "公開しています…",
+    "Takes effect at the next boot.": "次回起動時に有効になります。",
+    "the account changed while the policy was being written, so nothing was written to it":
+      "ポリシーの書き込み中にアカウントが変わったため、何も書き込まれませんでした",
+    "the server would not act as this account":
+      "サーバーはこのアカウントとして動作しませんでした",
+    "the account has no Files account to hold the policy":
+      "アカウントにポリシーを保持するファイルアカウントがありません",
+    "the write was refused": "書き込みが拒否されました",
+    "the directory would not list it": "ディレクトリが一覧に含めませんでした",
+    "the server did not say why": "サーバーは理由を述べませんでした",
+    "The policy was not published everywhere.":
+      "ポリシーはすべての場所には公開されませんでした。",
+    "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
+      "ディレクトリを一覧できなかったため、公開者自身のアカウント以外に公開する対象がありませんでした。",
+    "That listing was not the whole directory, so any account it did not list was not reached.":
+      "その一覧はディレクトリ全体ではなかったため、含まれなかったアカウントには届きませんでした。",
+    "This publish could not be recorded in your account, so reopening this page will not show it.":
+      "この公開はあなたのアカウントに記録できなかったため、このページを開き直しても表示されません。",
+    "Replace the document with the example? Unsaved edits will be lost.":
+      "ドキュメントを例で置き換えますか？ 保存されていない編集は失われます。",
+    "Installation-wide policy": "インストール全体のポリシー",
+    "The settings this installation decides for every account. Edit the JSON document and publish: the server validates it, applies it at once, and signs the other clients out so their next sign-in picks it up.":
+      "このインストールがすべてのアカウントに対して決める設定。JSONドキュメントを編集して公開してください。サーバーが検証し、すぐに適用し、他のクライアントをサインアウトさせて次のサインインで取り込ませます。",
+    "The three sections": "3つのセクション",
+    "seed accounts that have never had settings of their own; readers can change them afterwards.":
+      "これまで独自の設定を持ったことのないアカウントを初期化します。読者は後から変更できます。",
+    "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
+      "読み込みのたびに適用され、設定では変更できません — コントロールは表示されたまま無効になります。",
+    "applied once each, to everyone already signed up; each needs a unique version, and readers may turn it back off afterwards.":
+      "すでに登録済みの全員にそれぞれ一度適用されます。それぞれ一意のバージョンが必要で、読者は後から再びオフにできます。",
+    "Policy document": "ポリシードキュメント",
+    "Publish policy": "ポリシーを公開",
+    "Insert example": "例を挿入",
+    "That was publish {id}, started {when} by {who}.":
+      "それは公開{id}で、{who}が{when}に開始しました。",
+    "Type the account address first.": "先にアカウントのアドレスを入力してください。",
+    "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.":
+      "アカウントにパスワードの変更を要求します。要件はアカウント自身の隠しフォルダーにあり、サーバーが強制します。管理者同士で強制することはできません。",
+    "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.":
+      "このセッションはアカウントに対して操作できません。アプリパスワードを使用しているか（Stalwartは成り代わりにこれを受け付けません）、Stalwartの「他のユーザーとして操作する」権限がないかのいずれかです。パスワードでサインインするか、Stalwart管理者にその権限の付与を依頼してください。",
+    "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.":
+      "アカウントの一覧にはStalwartサーバー管理者の権限が必要で、このセッションにはありません — Gilbert管理者であるだけでは不十分です。代わりに下にアドレスを入力してください。",
+    "No accounts found.": "アカウントが見つかりません。",
+    "Password change forced": "パスワード変更を強制しました",
+    "Not forced": "強制していない",
+    Force: "強制",
+    Release: "解除",
+    "Or type an address": "またはアドレスを入力",
+    "Account address": "アカウントのアドレス",
+    "user@example.com": "user@example.com",
+    "Forcing…": "強制しています…",
+    "Force password change": "パスワード変更を強制",
+    "Releasing…": "解除しています…",
+    Behaviour: "動作",
+    Automations: "自動化",
+    Memory: "メモリー",
+    Activity: "アクティビティ",
+    "The agent in this group": "このグループのエージェント",
+    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
+      "このグループから見たエージェント: どう振る舞い、何に従い、何を記憶し、何を行ったか。インストール全体で1つのエージェントです — どのグループを持ち、どのモデルで動き、どこでも通用するルールはMasterにあります。",
+    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
+      "エージェントはこのセッションが見られるグループにいないため、ここで選べるグループがありません。Stalwart自身の管理側でグループを与えてください。下のタブは1つのグループについて答え、読むフリートはインストール自身のものです。",
+    "Working in this group as {address}.": "このグループで{address}として働いています。",
+    "Group agent sections": "グループエージェントのセクション",
+    "The automations document cannot be read.": "自動化ドキュメントを読み取れません。",
+    "{enabled} of {total} automations enabled": "{total}件中{enabled}件の自動化が有効",
+    "{n} waiting for a person in this group":
+      "このグループで{n}件が人の応答を待っています",
+    "Nothing waiting for a person here": "ここで人を待っているものはありません",
+    "{n} agents serving this group": "このグループを担当する{n}体のエージェント",
+    "No agent is serving this group right now":
+      "現在このグループを担当するエージェントはいません",
+    "Added: {labels}": "追加: {labels}",
+    "This group's label catalogue already has every reserved label.":
+      "このグループのラベルカタログには予約ラベルがすべてそろっています。",
+    "This group's agent marks what it has done with a message using four reserved labels.":
+      "このグループのエージェントは4つの予約ラベルで、メールに対して行ったことを示します。",
+    "Checking…": "確認しています…",
+    "Make sure they exist": "存在を確認",
+    "No group is picked, so there is no group's agents to read here.":
+      "グループが選ばれていないため、ここで読むグループのエージェントがありません。",
+    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
+      "インストールの{count}体のエージェントが報告中で、そのどれも{group}を持っていません。現在このグループを担当するものはありません。",
+    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
+      "報告したエージェントはありません。エージェントは実行中にハートビートを残すため、空の一覧はこのインストールを担当するものがないことを意味します。",
+    "Agents serving this group": "このグループを担当するエージェント",
+    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
+      "エージェントは独自のプロセスであり、Web層のコピーではありません。リースで担当するアカウントを取得し、実行中にハートビートを書き込みます。ここで開始や停止はできません — エージェントはインストールがデプロイされる場所で宣言されます。",
+    Agent: "エージェント",
+    "Last heartbeat": "最終ハートビート",
+    Version: "バージョン",
+    State: "状態",
+    "Not this server's to say": "このサーバーが言うことではない",
+    Alive: "稼働中",
+    "Not reporting": "報告なし",
+    "Grants withdrawn": "権限を取り消し",
+    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
+      "エージェントは{when}に「{group}」の権限を失いました。パスが気づいてから、そのグループを担当するものはありません。",
+    "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
+      "このメンバー自身のアカウントを読み取れません — Stalwartが成り代わりを拒否しました — そのため差出人に書く名前が不明です。名前を入力すれば差出人は書けます。",
+    "Delete this identity so the member sends as the group":
+      "この差出人を削除して、メンバーがグループとして送信するようにする",
+    "Open to read their own display name and what they send as.":
+      "開いて、本人の表示名と送信元を読む。",
+    "Reading this member's own account…":
+      "このメンバー自身のアカウントを読み取っています…",
+    "Sends as {identity}": "{identity}として送信",
+    "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.":
+      "それはグループ自身の差出人であり、エージェントが送信するものでもあります — そのためこのメンバーのメールはグループのものと区別できません。",
+    "No identity is assigned to this member yet, so they send as the group itself.":
+      "このメンバーにはまだ差出人が割り当てられていないため、グループ自身として送信します。",
+    "Assign identity": "差出人を割り当て",
+    "Delete {identity}?": "{identity}を削除しますか？",
+    "{member} will then send as the group itself.":
+      "{member}は以降、グループ自身として送信します。",
+    "This group holds no identity yet, so nothing can be sent from its mailbox.":
+      "このグループにはまだ差出人がないため、そのメールボックスから何も送信できません。",
+    "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":
+      "グループのメールボックスが何として送信するかを設定します。Stalwartがグループのメールボックスへの成り代わりを拒否するため、Masterとして書き込みます — Masterはグループの代理として行動するために存在するプリンシパルです。",
+    "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
+      "グループはメンバーごとに1つの差出人を持ちます: グループ自身のアドレスで、各メンバー自身の表示名と署名を伴います。差出人はGilbertで作成されたメールに届きます — 作成画面のメンバーか、グループのエージェントによって。Bccを設定すると、その差出人が送るすべてのメッセージがコピーされ、グループのメールではグループとして書かれたすべてが該当します。",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.":
+      "グループのメールボックスの一覧にはStalwartサーバー管理者の権限が必要で、このセッションにはありません — Gilbert管理者であるだけでは不十分です。代わりに下にグループのアドレスを入力してください。",
+    "team@example.org": "team@example.org",
+    "Reload identities": "差出人を再読み込み",
+    "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
+      "Masterはこのグループのメンバーではないため、ここでその差出人を書くものはありません。そのグループでエージェントに権限を与え — グループで働けるようにするのと同じ付与です — もう一度見てください。",
+    "Identity active — mail sent as this group carries what is set here.":
+      "差出人 有効 — このグループとして送られたメールはここで設定されたものを伴います。",
+    Identities: "差出人",
+    "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
+      "このグループの名簿を読み取れなかったため、各差出人がどのメンバーのものかを表示できません。差出人は単独で一覧表示され、登録が再び読めるまで割り当てはできません — 誰が何として送るかの順序全体がそれに依存します。",
+    "Who sends as what": "誰が何として送るか",
+    "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.":
+      "各メンバーにはこのグループの差出人の1つが割り当てられます: グループ自身のアドレスで、そのメンバー自身の表示名と署名を伴います。メンバーを開いて、本人に書く名前を読みます — そのアカウントの読み取りは1回、しかも開いたときだけです。",
+    "This group's roster is empty: there is no member to assign an identity to.":
+      "このグループの名簿は空です。差出人を割り当てるメンバーがいません。",
+    "Not assigned to a member": "メンバーに割り当てられていない",
+    "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
+      "どのメンバーにも割り当てられていない差出人。グループ自身のものも含まれ、独自の差出人を持たないメンバーが送信するのはこれです — エージェントが送信するのと同じ差出人なので、誰も割り当てられていないグループでも誰かの名前ではなくグループとして書きます。",
+    "Every identity of this group is assigned to a member.":
+      "このグループの差出人はすべてメンバーに割り当てられています。",
+    "Messages already carrying this label lose it for everyone in the group.":
+      "すでにこのラベルを持つメールは、グループの全員にとって失われます。",
+    "Bridge status": "ブリッジの状態",
+    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
+      "このデプロイでは電話を利用できません: {reason}。修正すべきことはブリッジの状態で確認してください。",
+    "Unknown — the status could not be read": "不明 — 状態を読み取れませんでした",
+    "Not running": "実行していない",
+    "no reason given": "理由は示されていません",
+    Reachable: "到達可能",
+    "Not reachable — open the bridge's ports inbound":
+      "到達不可 — ブリッジのポートを内向きに開いてください",
+    "Not checked": "未確認",
+    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
+      "電話のブリッジはアプリケーションの隣の2つ目のプロセスです。サーバーからもこのブラウザーからもこう見えます。失敗した確認は、修正すべきものを名指しします。",
+    "Bridge service": "ブリッジサービス",
+    "Janus version": "Janusバージョン",
+    "not installed": "未インストール",
+    "Media range (UDP, inbound)": "メディア範囲 (UDP、内向き)",
+    "STUN port (UDP, inbound)": "STUNポート (UDP、内向き)",
+    "Media path from this browser": "このブラウザーからのメディア経路",
+    "Re-check": "再確認",
+    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
+      "ブリッジはアプリケーションの隣で動き、それとともに起動します — コンテナのエントリーポイント、またはホスト上のgilbert-janus.serviceとgilbert-stun.serviceです。GILBERT_BRIDGE=0で無効になります。そのAPIはループバック限定で、SIPプロバイダーへの区間は外向きなので、上のメディア範囲とSTUNポートが内向きに開くポートです。",
+    "The theme this build knows: system, light, dark, or Gilbert's own.":
+      "このビルドが知るテーマ: システム、ライト、ダーク、またはGilbert自身のもの。",
+    "The colour palette (Gilbert's own or one of the shipped ones).":
+      "カラーパレット (Gilbert自身のもの、または同梱のいずれか)。",
+    "Light, dark, or whatever the system says.":
+      "ライト、ダーク、またはシステムの指示どおり。",
+    "The accent colour that sits on top of any palette.":
+      "どのパレットの上にも置かれるアクセントカラー。",
+    "How much fits on screen: comfortable, cozy or compact.":
+      "画面に収まる量: ゆったり、ほどよい、またはコンパクト。",
+    "Interface text size: small, medium or large (device-local).":
+      "インターフェースの文字サイズ: 小、中、または大 (端末ローカル)。",
+    "Where the reading pane sits: right, bottom, or off.":
+      "閲覧ペインの位置: 右、下、またはオフ。",
+    "Message-list width with the pane on the right (px, device-local).":
+      "ペインを右に置いたときのメール一覧の幅 (px、端末ローカル)。",
+    "Message-list height with the pane below (px, device-local).":
+      "ペインを下に置いたときのメール一覧の高さ (px、端末ローカル)。",
+    "Whether the sidebar is collapsed (device-local).":
+      "サイドバーが折りたたまれているか (端末ローカル)。",
+    "Show hidden folders in Files (the gilbert app folder and more).":
+      "ファイルで隠しフォルダーを表示 (gilbertアプリフォルダーほか)。",
+    "Let messages follow the app's theme instead of white.":
+      "メールを白ではなくアプリのテーマに従わせる。",
+    "Thread messages into conversations.": "メールをスレッドにまとめる。",
+    "Show a preview line under the subject in the list.":
+      "一覧の件名の下にプレビュー行を表示。",
+    "Show avatars in the message list.": "メール一覧にアバターを表示。",
+    "Messages per page in the list.": "一覧の1ページあたりのメール数。",
+    "Seconds before an opened message counts as read; -1 never auto.":
+      "開いたメールが既読になるまでの秒数。-1は自動にしない。",
+    "Where the list moves after acting: newer, older, or back to the list.":
+      "操作後に一覧が移動する先: 新しい方、古い方、または一覧に戻る。",
+    "Archive the original when replying to it.": "返信時に元のメールをアーカイブする。",
+    "Message-list order: newest, oldest, unread or starred first.":
+      "メール一覧の並び順: 新しい順、古い順、未読またはスター付きを先に。",
+    "Secondary sort levels under the preset.": "プリセットの下の二次並べ替え。",
+    "Which folders the sort covers: inbox only, or all.":
+      "並べ替えが対象とするフォルダー: 受信トレイのみ、またはすべて。",
+    "What a left swipe does in the list.": "一覧で左スワイプが行うこと。",
+    "What a right swipe does in the list.": "一覧で右スワイプが行うこと。",
+    "Compose in HTML or plain text.": "HTMLまたはプレーンテキストで作成。",
+    "Quote the original message when replying.": "返信時に元のメールを引用する。",
+    "Put the signature above the quoted text.": "署名を引用テキストの上に置く。",
+    "Send and archive in one action.": "送信とアーカイブを1回の操作で行う。",
+    "How long Send is undoable, in seconds.": "送信を元に戻せる時間 (秒)。",
+    "Spellcheck the composer.": "作成画面のスペルチェック。",
+    "Compose templates the account saved.": "アカウントが保存した作成テンプレート。",
+    "Remote images: ask, always load, or only from contacts.":
+      "リモート画像: 確認する、常に読み込む、または連絡先からのみ。",
+    "Senders whose remote images load without asking.":
+      "確認なしでリモート画像を読み込む差出人。",
+    "S/MIME signers pinned per address (fingerprint → name).":
+      "アドレスごとに固定されたS/MIME署名者 (指紋 → 名前)。",
+    "Ask senders for a read receipt.": "差出人に開封確認を求める。",
+    "When a receipt is asked for: ask each time, or never.":
+      "開封確認を求めるタイミング: 毎回確認する、または決してしない。",
+    "Ask before deleting.": "削除前に確認する。",
+    "Warn when a message mentions an attachment but has none.":
+      "添付ファイルに触れているのに添付がないメールで警告する。",
+    "Banner when a sender is outside the account's domains.":
+      "差出人がアカウントのドメイン外のときのバナー。",
+    "Confirm when a recipient is outside the account's domains.":
+      "宛先がアカウントのドメイン外のときの確認。",
+    "Warn before opening links to outside domains.":
+      "外部ドメインへのリンクを開く前に警告する。",
+    "Domains counted as internal, on top of the account's own.":
+      "アカウント自身のものに加えて内部とみなすドメイン。",
+    "Outside domains whose links open without warning.":
+      "警告なしでリンクを開く外部ドメイン。",
+    "People on a message before Reply-all asks; 0 is off.":
+      "全員に返信が確認するまでのメール上の人数。0はオフ。",
+    "Desktop notifications for new mail (device-local).":
+      "新着メールのデスクトップ通知 (端末ローカル)。",
+    "Play a sound for new mail (device-local).":
+      "新着メールで音を鳴らす (端末ローカル)。",
+    "The calendar view a new open starts on.":
+      "新しく開いたときに開始するカレンダー表示。",
+    "Hour the working day starts (calendar grid).":
+      "就業時間の開始時刻 (カレンダーグリッド)。",
+    "Hour the working day ends (calendar grid).":
+      "就業時間の終了時刻 (カレンダーグリッド)。",
+    "Default event length, in minutes.": "予定の既定の長さ (分)。",
+    "Default reminder lead, in minutes.": "リマインダーの既定の事前通知 (分)。",
+    "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
+      "週の最初の曜日: 0日曜、1月曜、6土曜。",
+    "The calendar time zone; null means the browser's.":
+      "カレンダーのタイムゾーン。nullはブラウザーのもの。",
+    "Show a calendar of birthdays from the address book.":
+      "アドレス帳から誕生日のカレンダーを表示。",
+    "Calendars subscribed to by URL.": "URLで購読するカレンダー。",
+    "Outlook-style colour categories for calendar events.":
+      "カレンダー予定のOutlook風カラーカテゴリ。",
+    "The mail-server locale; empty means follow the server.":
+      "メールサーバーのロケール。空はサーバーに従う。",
+    "The interface language; empty means English.": "インターフェースの言語。空は英語。",
+    "How dates are written; auto follows the locale.":
+      "日付の書き方。autoはロケールに従う。",
+    "12- or 24-hour clock; auto follows the locale.":
+      "12時間制か24時間制か。autoはロケールに従う。",
+    "The account's labels.": "アカウントのラベル。",
+    "Show labels in the sidebar.": "サイドバーにラベルを表示。",
+    "Folder colours by mailbox id (device-local).":
+      "メールボックスIDごとのフォルダー色 (端末ローカル)。",
+    "Identities hidden from the compose picker.": "作成画面の選択肢から隠す差出人。",
+    "Default sending identity per account.": "アカウントごとの既定の送信差出人。",
+    "Address books whose shared writes the reader remembered.":
+      "共有された書き込みを読者が記憶したアドレス帳。",
+    "Appearance and layout": "外観とレイアウト",
+    "Message list": "メール一覧",
+    "Composing and sending": "作成と送信",
+    "Security and privacy": "セキュリティとプライバシー",
+    "Calendar and events": "カレンダーと予定",
+    "Language, dates and time": "言語、日付、時刻",
+    "Labels and account data": "ラベルとアカウントデータ",
+    "Settings keys": "設定キー",
+    "Each example is the fragment to put under defaults, under enforced, or inside a change's settings.":
+      "各例は、defaultsの下、enforcedの下、または変更のsettingsの中に置く断片です。",
+    Key: "キー",
+    "What it does": "何をするか",
+    Example: "例",
+    Unknown: "不明",
+    "New in this build — no description yet.":
+      "このビルドで新規 — 説明はまだありません。",
+    "SIP account": "SIPアカウント",
+    "User name": "ユーザー名",
+    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
+      "電話が登録するアカウントで、sip:<user name>@<server>としてプロバイダーに送られます。サーバーとユーザー名のない差出人は登録されません。",
+    "System script saved": "システムスクリプトを保存しました",
+    "Your system Sieve script has changes that have not been saved.":
+      "システムのSieveスクリプトに保存されていない変更があります。",
+    "Could not load system Sieve scripts.":
+      "システムのSieveスクリプトを読み込めませんでした。",
+    "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
+      "Stalwartがインストール全体に対して実行する、信頼されたサーバー全体のSieveスクリプトです — 個人のフィルターではありません。同時に複数を有効にできます。それぞれStalwart自身の構成から名前で呼び出されます。",
+    "No system scripts yet": "システムスクリプトはまだありません",
+    "Re-read from the server. What you were editing is still open.":
+      "サーバーから再読み込みします。編集していたものは開いたままです。",
+    "Enforced — applied at once, with no sign-in needed.":
+      "強制 — サインインなしで、すぐに適用されます。",
+    "Released — the account can set its own identities again.":
+      "解除 — アカウントは再び自身の差出人を設定できます。",
+    "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
+      "ある人の差出人 — 表示名、アドレス、Reply-To、Bcc、署名 — を設定するか、アカウントの差出人を引き継ぎます。書き込みはあなた自身のセッションからその人として行われるため、StalwartのImpersonate権限とパスワードセッションが必要です。成り代わりにアプリパスワードは拒否されます。",
+    "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
+      "差出人はGilbertで作成されたメールに届きます。別のクライアントで書かれたメールはそのクライアント自身の署名を伴います。",
+    "Choose an account…": "アカウントを選択…",
+    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.":
+      "差出人 有効 — アカウントはここで設定されたもので送信します。強制でもあるかは不明で、下の強制コントロールが理由を述べます。",
+    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.":
+      "差出人 有効 — このアカウントはここで設定されたもので送信し、独自の差出人と署名のセクションは提供されません。",
+    "Identity active — the account sends with what is set here.":
+      "差出人 有効 — アカウントはここで設定されたもので送信します。",
+    "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
+      "このアカウントを読み取れません。Stalwartが成り代わりを拒否しました。応答するまで何も書き込まれません。",
+    "This account holds no identity yet.": "このアカウントにはまだ差出人がありません。",
+    "SIP set": "SIPを設定しました",
+    SIP: "SIP",
+    "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
+      "アカウントの一覧全体が表示され、すべての項目が編集可能です。作成画面がまだ提示する差出人として残るものはありません。",
+    Enforce: "強制",
+    "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
+      "強制されたアカウントには、差出人と署名のセクションも独自の署名も提供されません。その差出人の1つに設定されたBccは本人が外せないもので、最後の差出人をロックする前に検討に値します — そのアドレスはその差出人がGilbertで送るすべてのメッセージをコピーします。ロックはこの製品の画面に関するルールであり、境界ではありません。Stalwartには差出人に対するフィールド単位の権限がなく、JMAPを直接話すクライアントは依然として書き込めます。",
+    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.":
+      "このアカウントが強制されているかは不明です。Stalwartが、そのロック（アカウント自身のフォルダー内のファイル）を読む成り代わりを拒否しました。応答するまで強制と解除はオフのままです。",
+    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
+      "このアカウントが強制されているかは不明です。そのロックを読み取れませんでした。応答するまで強制と解除はオフのままです。",
+    Enforced: "強制",
+    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
+      "一時停止した自動化は、提案する内容をグループのチャットに投稿し、メンバーがそこで言葉で応答します。したがって承認はここではなくチャットで行われます — このキューはすべてのグループにわたる監督であり、いずれかで何が待ってきたかを見る方法です。",
+    "Nothing is waiting for a person.": "人を待っているものはありません。",
+    "What it proposes": "提案する内容",
+    Confidence: "信頼度",
+    Raised: "引き上げ",
+    "Open {group} and its chat": "{group}とそのチャットを開く",
+    "Open the group's mailbox": "グループのメールボックスを開く",
+    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
+      "このインストールのすべての自動化が動くモデル: 1つのプロバイダー、1つのモデル、1つのキー。それのないインストールには自動化がありません — 実行には判断する材料がありません。",
+    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
+      "このインストールにはまだエージェントが登録されていないため、モデルを動かす対象がありません。",
+    "Ceiling on one answer (tokens)": "1つの応答の上限 (トークン)",
+    "What a single model answer may cost. 1 to {max}.":
+      "1回のモデル応答にかけられる上限。1〜{max}。",
+    "Hops a chain of automations may run": "自動化の連鎖が実行できるホップ数",
+    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
+      "ある作業が自動化から自動化へどこまで渡れるか。それを超える実行は拒否され、グループに伝えられます。",
+    "Pages one run may hand the model": "1回の実行がモデルに渡せるページ数",
+    "A page with no text layer travels as an image, which costs input tokens per page.":
+      "テキスト層のないページは画像として扱われ、1ページあたり入力トークンがかかります。",
+    "Model saved": "モデルを保存しました",
+    "Remove the model?": "モデルを削除しますか？",
+    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
+      "このインストールは別のモデルが保存されるまで自動化を実行せず、保存されたAPIキーもそれとともに削除されます。",
+    "Model removed": "モデルを削除しました",
+    "The installation's model": "インストールのモデル",
+    "A key is stored": "キーが保存されています",
+    "No key stored": "キーは保存されていません",
+    Provider: "プロバイダー",
+    openai: "openai",
+    "A model name": "モデル名",
+    "Base URL": "ベースURL",
+    "https://api.example.com/v1": "https://api.example.com/v1",
+    "API key": "APIキー",
+    "Paste a new key here": "ここに新しいキーを貼り付け",
+    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
+      "書き込み専用: 保存されたキーは二度と表示されず、このフィールドを空のままにすると既存のキーが保たれます。",
+    "An installation that sets none gets {n}.":
+      "何も設定しないインストールは{n}を得ます。",
+    "Remove the model": "モデルを削除",
+    "Reading…": "読み取っています…",
+    "Ask the model to read it": "モデルに読ませる",
+    "What the model said about this draft:": "この下書きについてモデルが述べたこと:",
+    "Audit trail": "監査",
+    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
+      "このグループのエージェントが行ったこと、最新順 — チャットの隣でメンバー自身が読むのと同じドキュメント。12か月保持し、1か月ずつ間引きます。",
+    "No group is picked, so there is no audit trail to read here.":
+      "グループが選ばれていないため、ここで読む監査がありません。",
+    "Download every retained month of this group's audit trail as JSON":
+      "このグループの監査の保持された各月をJSONでダウンロード",
+    "Copying…": "コピーしています…",
+    "Download every retained month as JSON": "保持された各月をJSONでダウンロード",
+    "This group's audit trail could not be read.":
+      "このグループの監査を読み取れませんでした。",
+    "This group's agent has not done anything yet.":
+      "このグループのエージェントはまだ何も行っていません。",
+    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
+      "最新の{shown}件を{total}件中表示しています。残りは上で保持された各月をダウンロードしてください。",
+    "No group is picked, so there is no standing instruction to read here.":
+      "グループが選ばれていないため、ここで読む常設の指示がありません。",
+    "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.":
+      "グループ全体のために一度書かれ、呼び出しのたびにモデルへ渡されます。インストール自身のルールの後、自動化自身の指示の前です。エージェントがどう働くべきかを述べ、自動化が何をしてよいかはその能力リストであり、ここに書かれたものはそれを広げません。",
+    "How this group's agent works": "このグループのエージェントの働き",
+    "Write to the group in its own language, and always cite the invoice number.":
+      "グループの言語で書き、常に請求書番号を引用してください。",
+    "the group's standing instruction": "グループの常設の指示",
+    "Memory saved": "メモリーを保存しました",
+    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
+      "グループのエージェントが呼び出しのたびに保持するもの: その自動化が決して繰り返さなくてよい、このグループに関する事実。各行はデータとして読まれ — 方向づけますが、自動化が許されることを決して広げません。",
+    "No group is picked, so there is no memory to read here.":
+      "グループが選ばれていないため、ここで読むメモリーがありません。",
+    "This group's memory has not been read yet.":
+      "このグループのメモリーはまだ読まれていません。",
+    "Read it": "読む",
+    "This group's agent is holding nothing yet.":
+      "このグループのエージェントはまだ何も保持していません。",
+    "Fact {n}": "事実 {n}",
+    "Remove this fact": "この事実を削除",
+    "Invoices from Ada are filed under the client's name, not the sender's.":
+      "Adaからの請求書は、送信者ではなく顧客の名前で保管されます。",
+    "Add a fact": "事実を追加",
+    "A fact is at most {n} characters, and a notebook holds {m}.":
+      "事実は最大{n}文字で、ノートは{m}件まで保持します。",
+    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
+      "このグループの実行が誰のために止まるか、そして人なしでグループ外に届いてよいか。グループ全体で1つのポリシーです — その自動化は同じチームの同じやり取りに対する仕事です。",
+    "No group is picked, so there is no policy to read here.":
+      "グループが選ばれていないため、ここで読むポリシーがありません。",
+    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
+      "このグループはポリシーを書いていないため、モデルが確信しているときは実行が進み、そうでないときは人を待ちます。グループを離れる操作、または元に戻せない操作は常に確認します。",
+    "When a person has to agree": "人が同意しなければならないとき",
+    "Allow sending outside the group without a person — this raises the external-send consent floor.":
+      "グループ外への送信を人なしで許可する — これは外部送信の同意の下限を引き上げます。",
+    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
+      "オフのとき、グループ外に届く操作はポリシーが何と言おうと常に人を待ちます。元に戻せない操作はどちらの設定が何と言おうと確認します。",
+    "An empty text removes it. At most {max} characters.":
+      "空のテキストはそれを削除します。最大{max}文字。",
+    "At most {max} characters.": "最大{max}文字。",
+    "This automation cannot run as it stands: {reason}":
+      "この自動化はこのままでは実行できません: {reason}",
+    "Automation saved": "自動化を保存しました",
+    "Delete the {name}?": "{name}を削除しますか？",
+    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
+      "自動化ドキュメントはグループ自身のファイルから削除されます。すでに実行中のジョブは、開始したバージョンを保ちます。",
+    "Automation deleted": "自動化を削除しました",
+    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
+      "エージェントがグループで行うこと: いつ反応し、見つけたものに対して何をするよう求められるか。自動化はグループ自身のアカウントに保存されるため、すべてのメンバーが読めます。",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
+      "トリガーごとに1つの自動化: エージェントはトリガー上の有効なすべての自動化を、そのトリガーが生み出すすべてに対して実行するため、同じトリガーにもう1つあると同じイベントに二度応答します。あるケースと別のケースの分岐は指示に属します。",
+    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
+      "エージェントはこのグループにいないため、ここに書くものがありません。自動化は実行されず、グループのチャットで誰もそれをメンションできません。Stalwart自身の管理側でグループを与えてから、戻ってください。",
+    "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
+      "このグループは1つのトリガーに複数の有効な自動化を持ち、このビルドはそれを受け付けません: {reason}",
+    "This group's automation document could not be read.":
+      "このグループの自動化ドキュメントを読み取れませんでした。",
+    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
+      "このグループの自動化ドキュメントは古い形式で書かれていたため、新しく空のものに置き換えられました。以下に自動化を書き直してください。",
+    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
+      "このグループの自動化ドキュメントを読み取れず、自動で置き換えることもできませんでした。再読み込みして再試行してください。",
+    "Cannot be saved yet: {reason}": "まだ保存できません: {reason}",
+    "No automation in this group yet.": "このグループにはまだ自動化がありません。",
+    "Every trigger already has an automation in this group.":
+      "すべてのトリガーには、このグループにすでに自動化があります。",
+    "New automation": "新しい自動化",
+    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
+      "すべてのトリガーには、このグループにすでに自動化があります。1つを削除または無効にして、別の種類を書いてください。",
+    "The {name} cannot be saved as it stands: {reason}":
+      "{name}はこのままでは保存できません: {reason}",
+    "Run this automation now, on the newest message in the group's inbox":
+      "この自動化を今すぐ実行、グループの受信トレイの最新メールに対して",
+    "Asking…": "要求しています…",
+    "Run now": "今すぐ実行",
+    "Delete automation": "自動化を削除",
+    "Next due: {when}": "次回予定: {when}",
+    "Not yet scheduled — the agent holding this group arms it on its next pass.":
+      "まだ予定されていません — このグループを持つエージェントが次のパスで有効にします。",
+    "Not scheduled while disabled.": "無効の間は予定されません。",
+    "Asked for: a run is open ({state}).": "要求済み: 実行が開いています ({state})。",
+    "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.":
+      "要求済み。このグループを持つエージェントが次のパス（既定では1分）で取り上げ、行ったことはグループの監査で読みます。",
+    "the automation “{name}”": "自動化「{name}」",
+    "Enabled — the agent reacts to this automation":
+      "有効 — エージェントがこの自動化に反応します",
+    Trigger: "トリガー",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
+      "トリガーごとに1つの自動化: エージェントはトリガー上の有効なすべての自動化を、そのトリガーが生み出すすべてに対して実行するため、2つあると同じイベントに二度応答します。",
+    "How often": "頻度",
+    "Every {minutes} minutes": "{minutes}分ごと",
+    Instruction: "指示",
+    "Read the message and say what should happen to it. Useful context, in plain words.":
+      "メールを読み、それに何が起きるべきかを述べてください。平易な言葉での有用な文脈です。",
+    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
+      "この文章が、実行に求められるすべてです。すべての実行がこれをインストールのモデルへ渡し、モデルは下の領域からの操作で応答します。",
+    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
+      "これはデータとして読まれ、従われません。モデルに何かをさせるよう求めるメールも、依然としてただのメールです。",
+    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
+      "届くケースごとに書いてください。ある種のメールと別の種の分岐はここに属し、2つ目の自動化には属しません。",
+    "What it may do": "何をしてよいか",
+    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
+      "許可リスト: この自動化が実行してよい唯一の操作。モデルにはこれらだけが提示され、それ以外の応答は拒否されます。",
+    "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.":
+      "能力カタログが読み取られていないため、ここで付与するものがありません。それに応答できないサーバーは、このビルドが書けない相手です。応答するまで保存は拒否されたままです。",
+    external: "外部",
+    irreversible: "不可逆",
+    "That is not valid JSON — fix the document and publish again.":
+      "これは有効なJSONではありません — ドキュメントを修正して再公開してください。",
+    "(untitled)": "（無題）",
+    "Calendar reminder": "カレンダーリマインダー",
+    "Reminder: {title}": "リマインダー: {title}",
+    "Message not sent — {what}": "メッセージは送信されませんでした — {what}",
+    "Not signed in": "サインインしていません",
+    "The mailbox changed before this message was sent":
+      "このメッセージの送信前にメールボックスが変わりました",
+    "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
+      "連絡先を自分のアドレス帳とグループの間で移動するのはインストール管理者の仕事です。カードは落ち着く先のアカウントに属するためです。それを編集し、新しい連絡先を現在地に保管するのは引き続き機能します。",
+    "A file called “{name}” is already here.":
+      "「{name}」という名前のファイルがすでにここにあります。",
+    "Its folder could not be created.": "そのフォルダーを作成できませんでした。",
+    "This conversation no longer exists.": "このスレッドはもう存在しません。",
+    "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
+      "グループのメールはインストール管理者が終わらせます。メッセージをグループのゴミ箱に保管するのは引き続き機能し、そこから戻すのも同様です。",
+    "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
+      "グループのゴミ箱や迷惑メールを空にできるのはインストール管理者だけです。そこにメールを保管するのは引き続き機能し、戻すのも同様です。",
+    "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
+      "メールを含むフォルダーはグループでは削除できません。メールも一緒に失われるためです。先にメールを外へ移すか、インストール管理者に依頼してください。",
+    "This reading was not counted toward this month's authoring.":
+      "この読み取りは今月の作成には数えられませんでした。",
+    "no-bytes": "no-bytes",
+    "no-right": "no-right",
+    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
+      "グループの{need}に到達するのはインストールのエージェントとして行われ、そのエージェントはこのグループのメンバーではありません。ドキュメントはグループ自身のアカウントにあり、メンバーだけが到達します — メールサーバーのディレクトリでエージェントをグループに追加してください。",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbertはこのグループの{need}についてメールサーバーに尋ねられず、そのエージェントが到達するかどうかを述べられません。何も変更されず、何も読み取られませんでした。もう一度試し、それでもこう答えるならメールサーバーを見るべきです。",
+    "Your settings could not be saved: {error}": "設定を保存できませんでした: {error}",
+    "List-Id": "List-Id",
+    "X-Spam-Status": "X-Spam-Status",
+    "Delete all spam": "すべての迷惑メールを削除",
+    "Empty {name}": "{name}を空にする",
+    "Delete all spam in “{name}”?": "「{name}」の迷惑メールをすべて削除しますか？",
+    "Empty folder": "フォルダーを空にする",
+    "The phone bridge did not answer.": "電話ブリッジが応答しませんでした。",
+    "The phone bridge is gone.": "電話ブリッジがなくなりました。",
+    "The phone bridge accepted no session.":
+      "電話ブリッジがセッションを受け付けませんでした。",
+    "The phone bridge attached no plugin.":
+      "電話ブリッジがプラグインを接続しませんでした。",
+    "The phone bridge refused the request.": "電話ブリッジが要求を拒否しました。",
+    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
+      "このサイトでブラウザーがマイクをブロックしているため、通話で音声を伝えられません。このサイトで許可し、もう一度試してください。",
+    "No microphone is available on this device, so a call cannot carry your voice.":
+      "この端末に利用できるマイクがないため、通話で音声を伝えられません。",
+    "This browser cannot reach a microphone, so a call cannot carry your voice.":
+      "このブラウザーはマイクに到達できないため、通話で音声を伝えられません。",
+    "Calling…": "発信しています…",
+    "Ringing…": "呼び出しています…",
+    Connected: "接続済み",
+    "The line is busy": "回線が話し中です",
+    "no-route": "no-route",
+    "No route to this number": "この番号への経路がありません",
+    "This number is not available": "この番号は利用できません",
+    "The call was declined": "通話は拒否されました",
+    "The call could not be completed": "通話を完了できませんでした",
+    "The phone is not connected.": "電話が接続されていません。",
+    "The line is busy.": "回線が話し中です。",
+    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
+      "ブラウザーは電話のメディアをGilbertへ伝えられません。メディアポートに到達できないためです。問題はこのブラウザーとGilbertの間にあり、SIPプロバイダーとの間ではありません。",
+    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
+      "回線はSIPサーバーに登録されませんでした。問題はGilbertとSIPプロバイダーの間にあり、このブラウザーとGilbertの間ではありません。",
+    "the server closed the live-updates stream":
+      "サーバーがライブ更新のストリームを閉じました",
+    "the server could not be reached": "サーバーに到達できませんでした",
+    "Timed out": "タイムアウト",
+    "Group identities": "グループの差出人",
+    "User identities": "ユーザーの差出人",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1696,5 +2641,66 @@ export const catalog: Catalog = {
     "{n} messages deleted forever": {
       other: "{n} 件のメッセージを完全に削除しました",
     },
+    "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.":
+      {
+        other:
+          "{n}件の差出人が作成画面の選択肢から隠れています。すべてを隠すと選ぶものがなくなるため、その場合はすべて再び提示されます。",
+      },
+    "Password changed. {n} other sessions signed out.": {
+      other: "パスワードを変更しました。他に{n}件のセッションをサインアウトしました。",
+    },
+    "{n} attendees": {
+      other: "参加者{n}人",
+    },
+    "{n} attachments could not be saved to Files.": {
+      other: "{n}件の添付ファイルをファイルに保存できませんでした。",
+    },
+    "{n} files are already in this folder. Nothing was replaced.": {
+      other:
+        "{n}件のファイルがすでにこのフォルダーにあります。何も置き換えられませんでした。",
+    },
+    "Saved {n} files to {where}.": {
+      other: "{where}に{n}件のファイルを保存しました。",
+    },
+    "Save {n} attachments to Files.": {
+      other: "{n}件の添付ファイルをファイルに保存。",
+    },
+    "Download {n} files": {
+      other: "{n}件のファイルをダウンロード",
+    },
+    "{done} of {n} files": {
+      other: "{n}件中{done}件のファイル",
+    },
+    "{n} members of {group} have no address and were not added.": {
+      other: "{group}の{n}人のメンバーにアドレスがなく、追加されませんでした。",
+    },
+    "group · {n} members": {
+      other: "グループ · {n}人のメンバー",
+    },
+    "{n} matches": {
+      other: "{n}件の一致",
+    },
+    "{n} participants": {
+      other: "参加者{n}人",
+    },
+    "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
+      {
+        other:
+          "公開しました。ディレクトリは{n}件のアカウントを一覧し、それらはすべてこのポリシーを保持します。他のサインイン中のクライアントは再度サインインします。",
+      },
+    "The directory listed {n} accounts.": {
+      other: "ディレクトリは{n}件のアカウントを一覧しました。",
+    },
+    "{n} accounts were not written to:": {
+      other: "{n}件のアカウントに書き込まれませんでした:",
+    },
+    "{n} automations": {
+      other: "{n}件の自動化",
+    },
+    "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
+      {
+        other:
+          "すべての{n}件のメッセージが完全に削除されます。先にゴミ箱へは入らないため、これは元に戻せません。",
+      },
   },
 };
