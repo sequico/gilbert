@@ -1,6 +1,6 @@
 # ADR 0022 — Archive puts a conversation back where it was filed
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. `web/src/lib/archiveTarget.ts` answers which folder a
 conversation already lives in (`filedFolderOf`); `archive` in

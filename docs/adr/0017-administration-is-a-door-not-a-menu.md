@@ -1,6 +1,6 @@
 # ADR 0017 — Administration is a door, not a menu
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. `server/src/adminGate.ts` holds the allowlist
 (`SELF_SERVICE`) and the two rules a session is measured against

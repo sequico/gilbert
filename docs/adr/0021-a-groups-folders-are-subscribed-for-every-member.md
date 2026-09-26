@@ -1,6 +1,6 @@
 # ADR 0021 — A group's folders are subscribed for every member
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. One answer for whose tree is on screen
 (`isOwnMailAccount` in `web/src/lib/mailAccounts.ts`, read by
