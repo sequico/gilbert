@@ -71,8 +71,7 @@ export function catalogFiles() {
  */
 export function catalogKeys(src) {
   const keys = new Set();
-  const objectOf = (node) =>
-    node && ts.isObjectLiteralExpression(node) ? node : null;
+  const objectOf = (node) => (node && ts.isObjectLiteralExpression(node) ? node : null);
   const nameOf = (name) =>
     ts.isStringLiteral(name) || ts.isNumericLiteral(name) ? name.text : name.getText(src);
   const propertiesOf = (obj, name) => {
