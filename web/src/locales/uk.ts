@@ -1576,6 +1576,956 @@ export const catalog: Catalog = {
     "Edit {name}": "Змінити {name}",
     "{own} here, {unread} in subfolders": "{own} тут, {unread} у підтеках",
     attachment: "вкладення",
+    "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.":
+      "Увімкнути сповіщення? Нова пошта й чат доходять до вас, навіть коли Gilbert у фоні.",
+    "Turn on notifications": "Увімкнути сповіщення",
+    "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
+      "Додайте Gilbert на екран «Початковий» у Safari й відкривайте його звідти: iOS дає сповіщення лише вебзастосунку, установленому так.",
+    "Your mail server publishes no push key, so it cannot wake this browser.":
+      "Ваш поштовий сервер не публікує ключ push, тому не може розбудити цей браузер.",
+    "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.":
+      "У цьому браузері немає Push API, тому сповіщення із закритим Gilbert тут увімкнути не можна.",
+    "Notifications are blocked for this site in your browser's settings.":
+      "Сповіщення для цього сайту заблоковані в налаштуваннях браузера.",
+    "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.":
+      "Фонові сповіщення потребують пристрою, який ви позначили як свій. Увійдіть знову з позначкою «Це мій пристрій».",
+    "Could not subscribe to notifications.": "Не вдалося підписатися на сповіщення.",
+    Policy: "Політика",
+    Installation: "Встановлення",
+    "Force passwords": "Примусова зміна паролів",
+    "Identities and SIP Phone": "Профілі та SIP-телефон",
+    Master: "Master",
+    "Group Agents": "Агенти груп",
+    Approvals: "Погодження",
+    "System Sieve": "Системний Sieve",
+    "Gilbert Mailer": "Gilbert Mailer",
+    "Gilbert Assistant": "Gilbert Assistant",
+    Stalwart: "Stalwart",
+    "Nothing here yet.": "Тут поки нічого немає.",
+    Help: "Довідка",
+    "Mobile app": "Мобільний застосунок",
+    "Install mobile app": "Установити мобільний застосунок",
+    "Change your password": "Змініть пароль",
+    "Your administrator requires you to choose a new password before you can continue. Signing out is the only other way out of this screen.":
+      "Адміністратор вимагає вибрати новий пароль, перш ніж продовжити. Вийти — єдиний інший вихід із цього екрана.",
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbert уже встановлено на цьому пристрої. Відкрийте його за значком на початковому екрані, щоб користуватися застосунком.",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "Установіть Gilbert як застосунок для повноекранного вікна та сповіщень.",
+    "Add Gilbert to your Home Screen.": "Додайте Gilbert на початковий екран.",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbert установлюється. Відкрийте його за значком, щоб завершити налаштування.",
+    Install: "Установити",
+    How: "Як",
+    "Gilbert is up to date.": "Gilbert оновлено.",
+    "Could not check for updates.": "Не вдалося перевірити оновлення.",
+    "Notifications are on for this device.": "Сповіщення ввімкнено для цього пристрою.",
+    "Gilbert is installed on this device.": "Gilbert установлено на цьому пристрої.",
+    "Update now": "Оновити зараз",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "Установіть Gilbert на телефон, щоб відкривати його за власним значком, на весь екран, і отримувати сповіщення, коли він закритий.",
+    "Install app": "Установити застосунок",
+    "Safari installs a web app from the Share sheet:":
+      "Safari установлює вебзастосунок через меню «Поділитися»:",
+    "Tap the Share button.": "Торкніться кнопки «Поділитися».",
+    "Choose “Add to Home Screen”.": "Виберіть «На початковий екран».",
+    "Open Gilbert from the new icon.": "Відкрийте Gilbert за новим значком.",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "Цей браузер установлює застосунок через власне меню — шукайте «Установити застосунок» або «Додати на головний екран».",
+    Notifications: "Сповіщення",
+    "A newer version is on the server.": "На сервері є новіша версія.",
+    "You are on the newest version.": "У вас найновіша версія.",
+    "Checking for updates…": "Перевірка оновлень…",
+    "This browser cannot show notifications.":
+      "Цей браузер не може показувати сповіщення.",
+    "Stay signed in, and keep settings and recent addresses on this computer.":
+      "Залишатися в системі й зберігати налаштування та недавні адреси на цьому комп'ютері.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.":
+      "Вихід через 5 хвилин бездіяльності, і на цьому комп'ютері нічого не зберігається. Не позначайте це на спільному чи громадському комп'ютері.",
+    "Signing in…": "Вхід…",
+    "Sign in": "Увійти",
+    "Go to All mail / Archive": "Перейти до «Уся пошта» / «Архів»",
+    "Stalwart Mail Server": "Поштовий сервер Stalwart",
+    "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
+    "{name} (Beta)": "{name} (Beta)",
+    "Reset all settings?": "Скинути всі налаштування?",
+    "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
+      "Кожне налаштування цього облікового запису повертається до типових — шаблони, мітки, довірені підписувачі, підписки на календарі, приховані профілі — а копія, збережена на сервері, замінюється. Це не можна скасувати.",
+    Reset: "Скинути",
+    "Ask again": "Запитати знову",
+    "Make Gilbert the default mail app":
+      "Зробити Gilbert поштовим застосунком за замовчуванням",
+    "Your identities": "Ваші профілі",
+    "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
+      "У поштовій скриньці цієї групи по одному профілю на учасника, усі з адресою групи. Їх призначає адміністрація, тому тут вони лише для читання.",
+    "You send as the one assigned to you, marked below.":
+      "Ви надсилаєте від того, який призначено вам, позначеного нижче.",
+    "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
+      "Жоден профіль цієї групи вам ще не призначено, тому листи, надіслані з цієї скриньки, виходять від самої групи.",
+    "Could not read this group's identities: {error}":
+      "Не вдалося прочитати профілі цієї групи: {error}",
+    Yours: "Ваші",
+    "replies@example.com": "replies@example.com",
+    "archive@example.com": "archive@example.com",
+    "Pictures belong to the account’s own Files and this surface cannot write them; an over-sized signature is kept there, and this form stores the marker that points at it.":
+      "Зображення належать власним Файлам облікового запису, і ця поверхня не може їх записувати; завеликий підпис зберігається там, а ця форма зберігає маркер, що вказує на нього.",
+    "Pictures and over-sized signatures live in the account's own Files, which this surface cannot write.":
+      "Зображення та завеликі підписи містяться у власних Файлах облікового запису, куди ця поверхня писати не може.",
+    "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
+      "Цей браузер більше не зберігає відповідь для сповіщень на цьому пристрої, тому жодне не можна показати. Вимкнення й повторне ввімкнення перемикача знову запитує дозвіл.",
+    "Gilbert test": "Перевірка Gilbert",
+    "Ask before showing": "Запитувати перед показом",
+    "Added from a message, and removable here.": "Додано з листа й видаляється тут.",
+    "example.com": "example.com",
+    "Give the rule a name before it can be saved.":
+      "Дайте правилу ім'я, перш ніж його можна буде зберегти.",
+    "someone@example.com": "someone@example.com",
+    "That is not an email address, so the mail this rule matches would never arrive.":
+      "Це не адреса електронної пошти, тому лист, який перехопить це правило, ніколи не надійде.",
+    "Give the address to forward to.": "Укажіть адресу, на яку пересилати.",
+    "Password changed": "Пароль змінено",
+    "Changing…": "Зміна…",
+    "Change password": "Змінити пароль",
+    "Working…": "Обробка…",
+    "Your current password": "Ваш поточний пароль",
+    "Creating…": "Створення…",
+    "“Ends” must be after “Starts”.": "«Кінець» має бути пізніше «Початку».",
+    "Auto-reply is on": "Автовідповідь увімкнено",
+    "Auto-reply saved": "Автовідповідь збережено",
+    Personal: "Особисте",
+    Missed: "Пропущені",
+    Declined: "Відхилені",
+    Failed: "Невдалі",
+    "Recent calls": "Недавні виклики",
+    "{n}s": "{n} с",
+    "No calls yet.": "Викликів поки немає.",
+    All: "Усі",
+    Global: "Глобальні",
+    My: "Мої",
+    "This browser reaches Gilbert: the phone's media path is proven.":
+      "Цей браузер досягає Gilbert: медіашлях телефона підтверджено.",
+    "The phone's connection to Gilbert is down.": "Зв'язок телефона з Gilbert втрачено.",
+    "Gilbert phone connection": "Зв'язок телефона з Gilbert",
+    "Registered with the SIP provider.": "Зареєстровано в SIP-провайдера.",
+    "Not registered with the SIP provider.": "Не зареєстровано в SIP-провайдера.",
+    "SIP server connection": "Зв'язок із SIP-сервером",
+    "No contacts with a number to call.": "Немає контактів із номером для виклику.",
+    "Incoming call": "Вхідний виклик",
+    "Unknown caller": "Невідомий абонент",
+    Answer: "Відповісти",
+    Decline: "Відхилити",
+    Call: "Зателефонувати",
+    "Number or address": "Номер або адреса",
+    Unmute: "Увімкнути звук",
+    Mute: "Вимкнути звук",
+    "Hang up": "Покласти слухавку",
+    "Actions for {email}": "Дії для {email}",
+    "Invitation accepted": "Запрошення прийнято",
+    "Invitation declined": "Запрошення відхилено",
+    "Marked as tentative": "Позначено як попереднє",
+    "(untitled event)": "(подія без назви)",
+    "": "",
+    "Open conversation": "Відкрити листування",
+    "Back to list / clear selection": "До списку / зняти вибір",
+    "Select conversation": "Вибрати листування",
+    "Next message in conversation": "Наступний лист у листуванні",
+    "Previous message in conversation": "Попередній лист у листуванні",
+    "Resize message list": "Змінити ширину списку листів",
+    "Hide from list": "Сховати зі списку",
+    "Show in list": "Показати у списку",
+    "Stop trusting sender images": "Більше не довіряти зображенням відправника",
+    "Always show images from sender": "Завжди показувати зображення відправника",
+    "Send receipt": "Надіслати повідомлення про прочитання",
+    "•••": "•••",
+    "Download all to Files": "Завантажити все у Файли",
+    "Save to Files": "Зберегти у Файли",
+    "Could not save the attachments.": "Не вдалося зберегти вкладення.",
+    "Save here": "Зберегти тут",
+    "Save all": "Зберегти все",
+    "There is nowhere to save files to.": "Немає куди зберігати файли.",
+    "Going to: {where}": "Перехід: {where}",
+    "Collapse all": "Згорнути все",
+    "Expand all": "Розгорнути все",
+    "Contact card": "Картка контакту",
+    "Shared folder": "Спільна тека",
+    "Shared files": "Спільні файли",
+    "All files": "Усі файли",
+    "Nothing shared here.": "Тут нічого не відкрито спільно.",
+    "No folders yet.": "Тек поки немає.",
+    "Group name": "Назва групи",
+    "Organization name": "Назва організації",
+    "name@example.com": "name@example.com",
+    "https://": "https://",
+    "{name} — shared with everyone": "{name} — доступно всім",
+    "Edit Global contacts": "Змінити глобальні контакти",
+    "My contacts": "Мої контакти",
+    "Group contacts": "Контакти групи",
+    "New address book in {group}": "Нова адресна книга в {group}",
+    "Nothing added yet.": "Поки нічого не додано.",
+    "Looking…": "Пошук…",
+    "· organization": "· організація",
+    "From the group {group}": "З групи {group}",
+    "Move {name} to…": "Перемістити {name} до…",
+    "This group keeps no address books.": "Ця група не веде адресних книг.",
+    "There is nowhere else to move it.": "Більше нікуди його перемістити.",
+    "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
+      "Адресна книга, яку інший обліковий запис відкрив вам, містить цей контакт, тому змінення й видалення — на розсуд того облікового запису; ні те, ні інше тут не пропонується.",
+    "Saved.": "Збережено.",
+    "Global contacts": "Глобальні контакти",
+    "Email addresses": "Адреси електронної пошти",
+    "One per line.": "По одній у рядку.",
+    "Phone numbers": "Номери телефонів",
+    "One per line. The phone calls the preferred one.":
+      "По одному в рядку. Телефон телефонує на бажаний.",
+    "The installation's shared directory: every account reads it, and only an administrator writes it here.":
+      "Спільний каталог установлення: його читає кожен обліковий запис, а пише сюди лише адміністратор.",
+    "No contacts": "Немає контактів",
+    "Add contact": "Додати контакт",
+    "Close composer (saves draft)": "Закрити редактор (збереже чернетку)",
+    "Save draft": "Зберегти чернетку",
+    "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
+      "У цієї групи ще немає профілю, тому надсилати нема від чого. Адміністратор задає його в профілях групи.",
+    "High priority": "Високий пріоритет",
+    "Low priority": "Низький пріоритет",
+    "Send now instead": "Надіслати зараз натомість",
+    "Switch to plain text": "Перейти до звичайного тексту",
+    "Switch to rich text": "Перейти до форматування",
+    "Attach {n} files": "Прикріпити {n} файлів",
+    Attach: "Прикріпити",
+    "To — {n} people": "Кому — {n} осіб",
+    "Nobody matches that.": "Ніхто не відповідає.",
+    "No contacts in this address book.": "У цій адресній книзі немає контактів.",
+    "https://…": "https://…",
+    Chat: "Чат",
+    "No longer in this group": "Більше не в цій групі",
+    "The group's agent": "Агент групи",
+    "Search messages": "Шукати листи",
+    Conversations: "Листування",
+    "Search in this chat": "Шукати в цьому чаті",
+    "Searching…": "Пошук…",
+    "No matches for {query}": "Нічого не знайдено за {query}",
+    "Could not load the conversation": "Не вдалося завантажити листування",
+    "No messages yet": "Листів поки немає",
+    "Loading earlier messages…": "Завантаження попередніх листів…",
+    "Start of the conversation": "Початок листування",
+    "Go to the message being answered": "Перейти до листа, на який відповідають",
+    "Pick a conversation": "Вибрати листування",
+    "Replying to {who}": "Відповідь для {who}",
+    "Cancel reply": "Скасувати відповідь",
+    "Message {group}": "Повідомлення {group}",
+    "No agent is registered for this installation.":
+      "Для цього установлення не зареєстровано жодного агента.",
+    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
+      "У цій групі не працює жоден агент: йому тут не надано дозвіл, тому він не несе інструкцій і нічого не робить. Дозвіл надають в адміністрації самого поштового сервера, а не в продукті.",
+    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
+      "Працює в цій групі як {address}. Лише читання: те, чому він слідує, задають в адміністрації, а ви відповідаєте йому в цьому чаті.",
+    "Standing instruction": "Постійна інструкція",
+    "Who its runs stop for": "Для кого зупиняються його запуски",
+    "What it follows": "Чому він слідує",
+    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
+      "Документ автоматизацій цієї групи не вдається прочитати, тому її автоматизації не можна показати. Відкриття цієї групи в адміністрації замінює його автоматично.",
+    "No automation is set up for this group.":
+      "Для цієї групи не налаштовано жодної автоматизації.",
+    "Still open": "Ще відкрито",
+    "Nothing is running and nothing is waiting.":
+      "Нічого не виконується й нічого не чекає.",
+    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
+      "Коли одна з них чекає на людину, агент питає тут у чаті — там ви й відповідаєте.",
+    "What it has done": "Що він зробив",
+    "It has not done anything yet.": "Він поки нічого не зробив.",
+    "Last written by {who} on {when}.": "Останній запис: {who}, {when}.",
+    "an administrator": "адміністратор",
+    Disabled: "Вимкнено",
+    "{message} for this date": "{message} на цю дату",
+    "Occurrence deleted": "Повтор видалено",
+    "Event deleted": "Подію видалено",
+    "Group calendars": "Календарі групи",
+    "New calendar in {group}": "Новий календар у {group}",
+    "This occurrence updated": "Цей повтор оновлено",
+    "Event updated": "Подію оновлено",
+    "Event created and invitations sent": "Подію створено, запрошення надіслано",
+    "Event created": "Подію створено",
+    "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.":
+      "Змінюється лише {date} — решта серії не змінюється. Повтор, приватність і учасники серії не показуються, а календар залишається при серії.",
+    "This is a recurring event — changes apply to the whole series.":
+      "Це повторювана подія — зміни застосовуються до всієї серії.",
+    "https://meet.example.com/…": "https://meet.example.com/…",
+    "{duration} before": "{duration} до",
+    "Fewer options": "Менше параметрів",
+    "An email arrives": "Надходить лист",
+    "A file or folder changes": "Файл або тека змінюється",
+    "Someone writes in the chat": "Хтось пише в чаті",
+    "On a schedule": "За розкладом",
+    "Every run stops here for a person to answer before anything happens.":
+      "Кожен запуск зупиняється тут, щоб людина відповіла, перш ніж щось станеться.",
+    "A run at or above the confidence runs unattended; below it, it waits for a person.":
+      "Запуск на рівні впевненості або вище йде без нагляду; нижче — чекає на людину.",
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
+      "Ніщо не чекає на людину — але дія, яку не можна скасувати, все одно питає, а дія, що виходить за межі групи, питає, якщо поріг згоди не піднято.",
+    "Always ask a person first": "Завжди спершу питати людину",
+    "Ask a person below a confidence threshold": "Питати людину нижче порогу впевненості",
+    "Never ask — run it unattended": "Ніколи не питати — виконувати без нагляду",
+    "Waiting to start": "Очікування запуску",
+    Running: "Виконується",
+    "Waiting for a person": "Очікування людини",
+    Ran: "Виконано",
+    Finished: "Завершено",
+    "Asked for approval": "Запрошено погодження",
+    Rejected: "Відхилено",
+    Refused: "Відмовлено",
+    unknown: "невідомо",
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
+      "{runs} запусків · {hit} токенів із кешу, {miss} прочитано заново, {out} записано",
+    "{n} of them reported no usage": "{n} із них не повідомили про витрати",
+    "This installation has spent: {meter}": "Це установлення витратило: {meter}",
+    "{agent}: {meter}": "{agent}: {meter}",
+    "no agent named": "агента не вказано",
+    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
+      "Аудит {groups} не вдалося прочитати, тому ця сума — нижня межа: їхні запуски тут ніде не враховано.",
+    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
+      "Це установлення не може перелічити учасників групи: Master не може читати реєстр облікових записів. Дайте йому дозволи sysAccountGet і sysAccountQuery — дозвіл на обліковий запис, а не роль адміністратора — і @ у чаті запропонує учасників групи; доти він пропонує тих, хто вже писав.",
+    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
+      "Реєстр облікових записів не відповів, тому учасників групи не можна перелічити й @ у чаті пропонує тих, хто вже писав.",
+    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
+      "Жодного агента не зареєстровано, тому ніщо не може прочитати учасників групи: @ у чаті пропонує тих, хто вже писав.",
+    "every {minutes} minutes": "кожні {minutes} хвилин",
+    "sending outside the group allowed without a person":
+      "надсилання за межі групи дозволено без людини",
+    "sending outside the group always waits for a person":
+      "надсилання за межі групи завжди чекає на людину",
+    "Nobody has written here yet.": "Тут поки ніхто не писав.",
+    Identity: "Профіль відправника",
+    Model: "Модель",
+    Groups: "Групи",
+    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
+      "Власний агент Gilbert діє всередині пошти та файлового сховища: він працює з подіями Stalwart і за розкладом, у групах, яким надано дозвіл. Це установлення запускає одного агента — ось як його побачити, яка модель його обслуговує та в яких групах він працює. Що він робить усередині групи, описано в «Агентах груп».",
+    "Master sections": "Розділи Master",
+    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
+      "Те, що діє всюди: правила, які агент несе в кожен виклик кожної групи, перш ніж щось стане істинним для групи чи окремої автоматизації. Записані тут один раз замість повторення в інструкції кожної групи й читаються як дані — дозвіл запуску — це його власний список можливостей, і ніщо записане тут його не розширює.",
+    "How this installation's agent works": "Як працює агент цього установлення",
+    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
+      "Завжди відповідайте мовою, якою написано лист, і ніколи не надсилайте нічого за межі групи без людини.",
+    "the installation's own rules": "власні правила установлення",
+    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
+      "Цей розділ перевіряє дозвіл агента й ніколи його не надає: членство в групі надають в адміністрації самого Stalwart, поруч з обліковими записами, так само як людині.",
+    "The Master": "Master",
+    Operational: "Працює",
+    "Not operational": "Не працює",
+    "Agent address": "Адреса агента",
+    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
+      "Розгортання дає агенту ім'я, і це читає його назад: GILBERT_AGENT_ADDRESS і GILBERT_AGENT_PASSWORD містяться в середовищі того, хто запускає сервер і його агента, тому беруться з одного місця. Тут ніщо не створює секрет, не читає його назад і не зберігає.",
+    "What the fleet has spent": "Що витратив флот",
+    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
+      "Групи, у яких працює агент, читаються зі Stalwart: він учасник групи рівно тоді, коли група з'являється тут, і цей список слідує за каталогом сам. Щоб дати йому групу, додайте групу користувачеві Gilbert в адміністрації самого Stalwart.",
+    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
+      "Агент не перебуває в жодній групі, яку бачить це установлення. Додайте групу користувачеві Gilbert в адміністрації самого Stalwart, і вона з'явиться тут.",
+    "Open this group's automations, standing instruction, memory and audit trail":
+      "Відкрити автоматизації, постійну інструкцію, пам'ять і аудит цієї групи",
+    "Open in Group Agents": "Відкрити в «Агентах груп»",
+    Pending: "Очікує",
+    Audit: "Аудит",
+    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
+      "Що чекає на людину і що зробив флот, по всіх групах, які тримає агент — нагляд лише для читання. Оператор відповідає на призупинений запуск у чаті самої групи, ніколи тут.",
+    "Approvals sections": "Розділи погоджень",
+    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
+      "Аудит кожної групи з дозволом, об'єднаний і відсортований від найновішого. Власна вкладка «Аудит» групи в «Агентах груп» читає той самий документ зі своїм експортом.",
+    "The agent is not in a group this installation can see.":
+      "Агент не перебуває в жодній групі, яку бачить це установлення.",
+    "Every group": "Кожна група",
+    Outcome: "Результат",
+    "Every outcome": "Усі результати",
+    "Reading every group's trail…": "Читання аудиту кожної групи…",
+    "The audit of {groups} could not be read, so it is missing from this list.":
+      "Аудит {groups} не вдалося прочитати, тому він відсутній у цьому списку.",
+    "Nothing matches here yet.": "Тут поки нічого не збігається.",
+    Automation: "Автоматизація",
+    By: "Ким",
+    Detail: "Детально",
+    "Installation document": "Документ установлення",
+    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
+      "Конфігурація, на якій працює це установлення: один документ JSON у власних Файлах Master — облікового запису, під яким входить це установлення і який сервер читає один раз під час запуску. Те, що ви публікуєте тут, — це те, на чому пройде наступний запуск, а поточний процес зберігає те, з чим стартував.",
+    "Stored at {where}": "Зберігається в {where}",
+    "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
+      "У власного облікового запису установлення ще немає документа, тому редактор починає з типових значень установлення та щойно створеного секрету застосунку. Опублікуйте його як є або спершу відредагуйте.",
+    "A boot would refuse the stored document: {reason}":
+      "Запуск відхилив би збережений документ: {reason}",
+    "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
+      "Поле {field} — це секрет застосунку, яким запечатано кожен збережений сеанс: будь-хто, хто може прочитати цю сторінку, може прочитати його, а публікація, що його втратить, розлогінила б усіх. Тримайте його в документі, якому він належить.",
+    "Publish document": "Опублікувати документ",
+    "Publishing…": "Публікація…",
+    "Takes effect at the next boot.": "Набуде чинності під час наступного запуску.",
+    "the account changed while the policy was being written, so nothing was written to it":
+      "обліковий запис змінився, поки писалася політика, тому в нього нічого не записано",
+    "the server would not act as this account":
+      "сервер не діяв би як цей обліковий запис",
+    "the account has no Files account to hold the policy":
+      "в облікового запису немає облікового запису Файлів для зберігання політики",
+    "the write was refused": "у записі було відмовлено",
+    "the directory would not list it": "каталог не перелічив його",
+    "the server did not say why": "сервер не назвав причину",
+    "The policy was not published everywhere.": "Політику опубліковано не всюди.",
+    "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
+      "Каталог не вдалося перелічити, тому публікувати не було кому, крім власного облікового запису того, хто публікує.",
+    "That listing was not the whole directory, so any account it did not list was not reached.":
+      "Той список не був усім каталогом, тому кожен не перелічений у ньому обліковий запис не було досягнуто.",
+    "This publish could not be recorded in your account, so reopening this page will not show it.":
+      "Цю публікацію не вдалося записати у ваш обліковий запис, тому повторне відкриття цієї сторінки її не покаже.",
+    "Replace the document with the example? Unsaved edits will be lost.":
+      "Замінити документ прикладом? Незбережені зміни буде втрачено.",
+    "Installation-wide policy": "Політика для всього установлення",
+    "The settings this installation decides for every account. Edit the JSON document and publish: the server validates it, applies it at once, and signs the other clients out so their next sign-in picks it up.":
+      "Налаштування, які це установлення визначає для кожного облікового запису. Відредагуйте документ JSON і опублікуйте: сервер перевірить його, застосує одразу й розлогінить інші клієнти, щоб під час наступного входу вони його підхопили.",
+    "The three sections": "Три розділи",
+    "seed accounts that have never had settings of their own; readers can change them afterwards.":
+      "задають початкові значення обліковим записам, які ніколи не мали власних налаштувань; читачі можуть потім їх змінити.",
+    "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
+      "застосовуються під час кожного завантаження й не можуть бути змінені в «Налаштуваннях» — елементи керування залишаються видимими й стають неактивними.",
+    "applied once each, to everyone already signed up; each needs a unique version, and readers may turn it back off afterwards.":
+      "застосовуються по одному разу до всіх, хто вже зареєстрований; кожному потрібна унікальна версія, і читачі можуть потім знову його вимкнути.",
+    "Policy document": "Документ політики",
+    "Publish policy": "Опублікувати політику",
+    "Insert example": "Вставити приклад",
+    "That was publish {id}, started {when} by {who}.":
+      "Це була публікація {id}, розпочата {when} користувачем {who}.",
+    "Type the account address first.": "Спершу введіть адресу облікового запису.",
+    "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.":
+      "Вимагати від облікового запису зміни пароля. Вимога зберігається у власній прихованій теці облікового запису й забезпечується сервером; адміністратори не можуть примушувати одне одного.",
+    "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.":
+      "Цей сеанс не може діяти на облікові записи: або він використовує пароль застосунку (який Stalwart відхиляє для імперсонації), або йому бракує дозволу «діяти від імені інших користувачів» у Stalwart. Увійдіть зі своїм паролем або попросіть адміністратора Stalwart надати цей дозвіл.",
+    "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.":
+      "Перелічення облікових записів потребує прав адміністратора сервера Stalwart, яких цей сеанс не має — бути адміністратором Gilbert недостатньо. Введіть адресу нижче.",
+    "No accounts found.": "Облікових записів не знайдено.",
+    "Password change forced": "Зміну пароля примусово",
+    "Not forced": "Не примусово",
+    Force: "Примусити",
+    Release: "Зняти",
+    "Or type an address": "Або введіть адресу",
+    "Account address": "Адреса облікового запису",
+    "user@example.com": "user@example.com",
+    "Forcing…": "Примушення…",
+    "Force password change": "Примусити до зміни пароля",
+    "Releasing…": "Зняття…",
+    Behaviour: "Поведінка",
+    Automations: "Автоматизації",
+    Memory: "Пам'ять",
+    Activity: "Активність",
+    "The agent in this group": "Агент у цій групі",
+    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
+      "Агент, яким його бачить ця група: як він поводиться, чому слідує, що пам'ятає і що зробив. Це один агент на все установлення — які групи він тримає, на якій моделі працює і які правила діють всюди, описано в Master.",
+    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
+      "Агент не перебуває в жодній групі, яку бачить цей сеанс, тому тут нічого вибирати. Дайте йому групу в адміністрації самого Stalwart: вкладки нижче відповідають про одну групу, а флот, який вони читають, — власний флот установлення.",
+    "Working in this group as {address}.": "Працює в цій групі як {address}.",
+    "Group agent sections": "Розділи агента групи",
+    "The automations document cannot be read.":
+      "Документ автоматизацій не вдається прочитати.",
+    "{enabled} of {total} automations enabled":
+      "{enabled} з {total} автоматизацій увімкнено",
+    "{n} waiting for a person in this group": "{n} чекають на людину в цій групі",
+    "Nothing waiting for a person here": "Тут ніщо не чекає на людину",
+    "{n} agents serving this group": "{n} агентів обслуговують цю групу",
+    "No agent is serving this group right now":
+      "Зараз цю групу не обслуговує жоден агент",
+    "Added: {labels}": "Додано: {labels}",
+    "This group's label catalogue already has every reserved label.":
+      "У каталозі міток цієї групи вже є всі зарезервовані мітки.",
+    "This group's agent marks what it has done with a message using four reserved labels.":
+      "Агент цієї групи позначає чотирма зарезервованими мітками те, що він зробив із листом.",
+    "Checking…": "Перевірка…",
+    "Make sure they exist": "Переконатися, що вони є",
+    "No group is picked, so there is no group's agents to read here.":
+      "Групу не вибрано, тому тут немає агентів групи для читання.",
+    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
+      "Усі {count} агентів установлення звітують, і жоден із них не тримає {group}: зараз цю групу ніщо не обслуговує.",
+    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
+      "Жоден агент не звітував. Агент залишає сигнал, поки працює, тому порожній список означає, що це установлення ніхто не обслуговує.",
+    "Agents serving this group": "Агенти, що обслуговують цю групу",
+    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
+      "Агент — це власний процес, а не копія вебрівня: він заявляє обслуговуваний обліковий запис через оренду й пише сигнал, поки працює. Тут ніщо його не запускає й не зупиняє — агентів оголошують там, де розгорнуто установлення.",
+    Agent: "Агент",
+    "Last heartbeat": "Останній сигнал",
+    Version: "Версія",
+    State: "Стан",
+    "Not this server's to say": "Не цьому серверу вирішувати",
+    Alive: "Працює",
+    "Not reporting": "Не звітує",
+    "Grants withdrawn": "Дозволи відкликано",
+    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
+      "Агент втратив дозвіл на «{group}» {when}: відтоді, як прохід це помітив, цю групу ніщо не обслуговувало.",
+    "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
+      "Власний обліковий запис цього учасника не вдається прочитати — Stalwart відхилив імперсонацію — тому ім'я для його профілю невідоме. Профіль усе ж можна йому записати, ввівши ім'я.",
+    "Delete this identity so the member sends as the group":
+      "Видалити цей профіль, щоб учасник надсилав від групи",
+    "Open to read their own display name and what they send as.":
+      "Відкрити, щоб прочитати його відображуване ім'я та те, від чого він надсилає.",
+    "Reading this member's own account…":
+      "Читання власного облікового запису цього учасника…",
+    "Sends as {identity}": "Надсилає як {identity}",
+    "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.":
+      "Це власний профіль групи, і саме від нього надсилає агент — тому листи від цього учасника не відрізнити від листів групи.",
+    "No identity is assigned to this member yet, so they send as the group itself.":
+      "Цьому учасникові ще не призначено профіль, тому він надсилає від самої групи.",
+    "Assign identity": "Призначити профіль",
+    "Delete {identity}?": "Видалити {identity}?",
+    "{member} will then send as the group itself.":
+      "{member} після цього надсилатиме від самої групи.",
+    "This group holds no identity yet, so nothing can be sent from its mailbox.":
+      "У цієї групи ще немає профілю, тому з її скриньки нічого не можна надіслати.",
+    "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":
+      "Задайте, від чого надсилає поштова скринька групи. Це записується як Master, бо Stalwart відмовляється імперсонувати скриньку групи — Master це суб'єкт, що існує для дій від імені групи.",
+    "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
+      "У групи по одному профілю на учасника: власна адреса групи, що несе власне відображуване ім'я та підпис кожного учасника. Профіль доходить до листів, створених у Gilbert — учасником у редакторі або агентом групи. Прихована копія на одному з них копіює кожен лист, надісланий цим профілем, а для пошти групи це все, що написано від її імені.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.":
+      "Перелічення скриньок груп потребує прав адміністратора сервера Stalwart, яких цей сеанс не має — бути адміністратором Gilbert недостатньо. Введіть адресу групи нижче.",
+    "team@example.org": "team@example.org",
+    "Reload identities": "Перезавантажити профілі",
+    "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
+      "Master не є учасником цієї групи, тому ніщо тут не може записати її профіль. Надайте агенту дозвіл на цю групу — той самий дозвіл, що взагалі дає йому працювати в групі — і подивіться знову.",
+    "Identity active — mail sent as this group carries what is set here.":
+      "Профіль активний — листи, надіслані від цієї групи, несуть те, що задано тут.",
+    Identities: "Профілі",
+    "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
+      "Список учасників цієї групи не вдалося прочитати, тому не можна показати, якому учасникові належить кожен профіль. Профілі перелічено окремо, і призначення не можна зробити, доки реєстр не прочитається знову — від цього залежить увесь порядок того, хто від чого надсилає.",
+    "Who sends as what": "Хто від чого надсилає",
+    "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.":
+      "Кожному учасникові призначається один із профілів цієї групи: власна адреса групи, що несе відображуване ім'я та підпис того учасника. Відкрийте учасника, щоб прочитати ім'я для запису в його профіль — одне читання того облікового запису, і лише коли ви його відкриваєте.",
+    "This group's roster is empty: there is no member to assign an identity to.":
+      "Список учасників цієї групи порожній: немає учасника, якому можна призначити профіль.",
+    "Not assigned to a member": "Не призначено учасникові",
+    "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
+      "Профілі, не призначені жодному учасникові. Власний профіль групи серед них, і саме від нього надсилає учасник без власного профілю — той самий профіль, від якого надсилає агент, тому група без призначень усе одно пише від групи, а не під чиїмось ім'ям.",
+    "Every identity of this group is assigned to a member.":
+      "Кожен профіль цієї групи призначено учасникові.",
+    "Messages already carrying this label lose it for everyone in the group.":
+      "Листи, що вже несуть цю мітку, втрачають її для всіх у групі.",
+    "Bridge status": "Стан моста",
+    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
+      "Телефон недоступний на цьому розгортанні: {reason}. Відкрийте «Стан моста», щоб дізнатися, що лагодити.",
+    "Unknown — the status could not be read": "Невідомо — стан не вдалося прочитати",
+    "Not running": "Не запущено",
+    "no reason given": "причину не вказано",
+    Reachable: "Досяжний",
+    "Not reachable — open the bridge's ports inbound":
+      "Недосяжний — відкрийте порти моста на вхід",
+    "Not checked": "Не перевірено",
+    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
+      "Міст телефона — другий процес поруч із застосунком. Ось як він виглядає із сервера й із цього браузера; невдала перевірка називає те, що треба полагодити.",
+    "Bridge service": "Служба моста",
+    "Janus version": "Версія Janus",
+    "not installed": "не встановлено",
+    "Media range (UDP, inbound)": "Діапазон медіа (UDP, вхід)",
+    "STUN port (UDP, inbound)": "Порт STUN (UDP, вхід)",
+    "Media path from this browser": "Медіашлях із цього браузера",
+    "Re-check": "Перевірити знову",
+    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
+      "Міст працює поруч із застосунком і стартує разом із ним — entrypoint контейнера або gilbert-janus.service і gilbert-stun.service на хості. GILBERT_BRIDGE=0 вимикає його. Його API лише loopback, а ділянка до SIP-провайдера вихідна, тому діапазон медіа й порт STUN вище — це порти для відкриття на вхід.",
+    "The theme this build knows: system, light, dark, or Gilbert's own.":
+      "Тема, яку знає ця збірка: системна, світла, темна або власна тема Gilbert.",
+    "The colour palette (Gilbert's own or one of the shipped ones).":
+      "Кольорова палітра (власна в Gilbert або одна з наданих).",
+    "Light, dark, or whatever the system says.": "Світла, темна або як скаже система.",
+    "The accent colour that sits on top of any palette.":
+      "Акцентний колір, що лежить поверх будь-якої палітри.",
+    "How much fits on screen: comfortable, cozy or compact.":
+      "Скільки вміщається на екрані: просторо, затишно або компактно.",
+    "Interface text size: small, medium or large (device-local).":
+      "Розмір тексту інтерфейсу: малий, середній або великий (локально для пристрою).",
+    "Where the reading pane sits: right, bottom, or off.":
+      "Де розташовано панель читання: праворуч, знизу або вимкнено.",
+    "Message-list width with the pane on the right (px, device-local).":
+      "Ширина списку листів із панеллю праворуч (px, локально для пристрою).",
+    "Message-list height with the pane below (px, device-local).":
+      "Висота списку листів із панеллю знизу (px, локально для пристрою).",
+    "Whether the sidebar is collapsed (device-local).":
+      "Чи згорнуто бічну панель (локально для пристрою).",
+    "Show hidden folders in Files (the gilbert app folder and more).":
+      "Показувати приховані теки у Файлах (тека застосунку gilbert та інше).",
+    "Let messages follow the app's theme instead of white.":
+      "Нехай листи слідують темі застосунку, а не білому.",
+    "Thread messages into conversations.": "Об'єднувати листи в листування.",
+    "Show a preview line under the subject in the list.":
+      "Показувати рядок попереднього перегляду під темою у списку.",
+    "Show avatars in the message list.": "Показувати аватари у списку листів.",
+    "Messages per page in the list.": "Листів на сторінку у списку.",
+    "Seconds before an opened message counts as read; -1 never auto.":
+      "Секунд до того, як відкритий лист вважається прочитаним; -1 — ніколи автоматично.",
+    "Where the list moves after acting: newer, older, or back to the list.":
+      "Куди переходить список після дії: до новіших, до старіших або назад до списку.",
+    "Archive the original when replying to it.":
+      "Архівувати оригінал під час відповіді на нього.",
+    "Message-list order: newest, oldest, unread or starred first.":
+      "Порядок списку листів: спершу новіші, старіші, непрочитані або позначені.",
+    "Secondary sort levels under the preset.":
+      "Додаткові рівні сортування під настановою.",
+    "Which folders the sort covers: inbox only, or all.":
+      "Які теки охоплює сортування: лише «Вхідні» чи всі.",
+    "What a left swipe does in the list.": "Що робить проведання ліворуч у списку.",
+    "What a right swipe does in the list.": "Що робить проведання праворуч у списку.",
+    "Compose in HTML or plain text.": "Створювати листи в HTML або звичайному тексті.",
+    "Quote the original message when replying.":
+      "Цитувати оригінальний лист під час відповіді.",
+    "Put the signature above the quoted text.":
+      "Розміщувати підпис над цитованим текстом.",
+    "Send and archive in one action.": "Надсилати й архівувати однією дією.",
+    "How long Send is undoable, in seconds.":
+      "Скільки секунд можна скасувати надсилання.",
+    "Spellcheck the composer.": "Перевірка правопису в редакторі.",
+    "Compose templates the account saved.":
+      "Шаблони листів, збережені обліковим записом.",
+    "Remote images: ask, always load, or only from contacts.":
+      "Зовнішні зображення: питати, завжди завантажувати або лише від контактів.",
+    "Senders whose remote images load without asking.":
+      "Відправники, чиї зовнішні зображення завантажуються без запитання.",
+    "S/MIME signers pinned per address (fingerprint → name).":
+      "Підписувачі S/MIME, закріплені за адресою (відбиток → ім'я).",
+    "Ask senders for a read receipt.":
+      "Просити у відправників повідомлення про прочитання.",
+    "When a receipt is asked for: ask each time, or never.":
+      "Коли запитувати повідомлення: щоразу чи ніколи.",
+    "Ask before deleting.": "Питати перед видаленням.",
+    "Warn when a message mentions an attachment but has none.":
+      "Попереджати, коли лист згадує вкладення, але його немає.",
+    "Banner when a sender is outside the account's domains.":
+      "Банер, коли відправник поза доменами облікового запису.",
+    "Confirm when a recipient is outside the account's domains.":
+      "Підтвердження, коли отримувач поза доменами облікового запису.",
+    "Warn before opening links to outside domains.":
+      "Попереджати перед відкриттям посилань на зовнішні домени.",
+    "Domains counted as internal, on top of the account's own.":
+      "Домени, що вважаються внутрішніми, на додачу до власних доменів облікового запису.",
+    "Outside domains whose links open without warning.":
+      "Зовнішні домени, чиї посилання відкриваються без попередження.",
+    "People on a message before Reply-all asks; 0 is off.":
+      "Осіб у листі, перш ніж «Відповісти всім» запитає; 0 вимикає.",
+    "Desktop notifications for new mail (device-local).":
+      "Сповіщення на робочому столі про нову пошту (локально для пристрою).",
+    "Play a sound for new mail (device-local).":
+      "Відтворювати звук для нової пошти (локально для пристрою).",
+    "The calendar view a new open starts on.":
+      "Вигляд календаря, з якого починається нове відкриття.",
+    "Hour the working day starts (calendar grid).":
+      "Година початку робочого дня (сітка календаря).",
+    "Hour the working day ends (calendar grid).":
+      "Година кінця робочого дня (сітка календаря).",
+    "Default event length, in minutes.": "Типова тривалість події, у хвилинах.",
+    "Default reminder lead, in minutes.": "Типове нагадування, за скільки хвилин.",
+    "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
+      "Перший день тижня: 0 неділя, 1 понеділок, 6 субота.",
+    "The calendar time zone; null means the browser's.":
+      "Часовий пояс календаря; null означає пояс браузера.",
+    "Show a calendar of birthdays from the address book.":
+      "Показувати календар днів народження з адресної книги.",
+    "Calendars subscribed to by URL.": "Календарі, підписані за URL.",
+    "Outlook-style colour categories for calendar events.":
+      "Кольорові категорії у стилі Outlook для подій календаря.",
+    "The mail-server locale; empty means follow the server.":
+      "Локаль поштового сервера; порожньо означає слідувати за сервером.",
+    "The interface language; empty means English.":
+      "Мова інтерфейсу; порожньо означає англійську.",
+    "How dates are written; auto follows the locale.":
+      "Як записуються дати; auto слідує за локаллю.",
+    "12- or 24-hour clock; auto follows the locale.":
+      "12- або 24-годинний формат; auto слідує за локаллю.",
+    "The account's labels.": "Мітки облікового запису.",
+    "Show labels in the sidebar.": "Показувати мітки на бічній панелі.",
+    "Folder colours by mailbox id (device-local).":
+      "Кольори тек за id скриньки (локально для пристрою).",
+    "Identities hidden from the compose picker.":
+      "Профілі, приховані з вибору в редакторі.",
+    "Default sending identity per account.":
+      "Типовий профіль надсилання для кожного облікового запису.",
+    "Address books whose shared writes the reader remembered.":
+      "Адресні книги, чиї спільні записи читач запам'ятав.",
+    "Appearance and layout": "Вигляд і розкладка",
+    "Message list": "Список листів",
+    "Composing and sending": "Створення й надсилання",
+    "Security and privacy": "Безпека та приватність",
+    "Calendar and events": "Календар і події",
+    "Language, dates and time": "Мова, дати й час",
+    "Labels and account data": "Мітки та дані облікового запису",
+    "Settings keys": "Ключі налаштувань",
+    "Each example is the fragment to put under defaults, under enforced, or inside a change's settings.":
+      "Кожен приклад — це фрагмент, який треба помістити в defaults, в enforced або всередину settings зміни.",
+    Key: "Ключ",
+    "What it does": "Що він робить",
+    Example: "Приклад",
+    Unknown: "Невідомо",
+    "New in this build — no description yet.": "Нове в цій збірці — опису поки немає.",
+    "SIP account": "Обліковий запис SIP",
+    "User name": "Ім'я користувача",
+    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
+      "Обліковий запис, під яким реєструється телефон, надсилається провайдеру як sip:<user name>@<server>. Профіль без сервера та імені користувача не реєструється.",
+    "System script saved": "Системний скрипт збережено",
+    "Your system Sieve script has changes that have not been saved.":
+      "У вашому системному скрипті Sieve є незбережені зміни.",
+    "Could not load system Sieve scripts.":
+      "Не вдалося завантажити системні скрипти Sieve.",
+    "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
+      "Довірені скрипти Sieve для всього сервера, які Stalwart виконує для всього установлення — не власні фільтри людини. Одночасно може бути активний не один; кожен викликається за іменем із власної конфігурації Stalwart.",
+    "No system scripts yet": "Системних скриптів поки немає",
+    "Re-read from the server. What you were editing is still open.":
+      "Прочитати із сервера знову. Те, що ви редагували, залишається відкритим.",
+    "Enforced — applied at once, with no sign-in needed.":
+      "Примусово — застосовано одразу, без повторного входу.",
+    "Released — the account can set its own identities again.":
+      "Знято — обліковий запис знову може задавати власні профілі.",
+    "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
+      "Задайте профілі людини — відображуване ім'я, адресу, Reply-To, приховану копію та підпис — або прийміть профіль облікового запису. Запис діє від імені цієї людини з вашого сеансу, тому потребує дозволу Stalwart Impersonate і сеансу з паролем; паролі застосунків для імперсонації відхиляються.",
+    "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
+      "Профіль доходить до листів, створених у Gilbert. Листи, написані в іншому клієнті, несуть власний підпис того клієнта.",
+    "Choose an account…": "Виберіть обліковий запис…",
+    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.":
+      "Профіль активний — обліковий запис надсилає з тим, що задано тут. Чи примусово це ще, невідомо, і елементи «Примусити» нижче пояснюють чому.",
+    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.":
+      "Профіль активний — цей обліковий запис надсилає з тим, що задано тут, і йому не пропонується власний розділ «Профілі та підписи».",
+    "Identity active — the account sends with what is set here.":
+      "Профіль активний — обліковий запис надсилає з тим, що задано тут.",
+    "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
+      "Цей обліковий запис не вдається прочитати: Stalwart відхилив імперсонацію. Нічого не записується, доки він не відповість.",
+    "This account holds no identity yet.": "У цього облікового запису ще немає профілю.",
+    "SIP set": "SIP задано",
+    SIP: "SIP",
+    "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
+      "Показано весь список облікового запису, і кожен запис можна редагувати: нічого не залишається позаду як профіль, який редактор ще пропонує.",
+    Enforce: "Примусити",
+    "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
+      "Примусовому обліковому запису взагалі не пропонується розділ «Профілі та підписи», як і власного підпису. Прихована копія, задана на одному з його профілів, — та, яку людина не може зняти, що варто зважити, перш ніж зафіксувати останній профіль: адреса копіює кожен лист, надісланий цим профілем у Gilbert. Фіксація — це правило про поверхню цього продукту, а не межа: у Stalwart немає дозволу на окреме поле профілю, тому клієнт, що говорить напряму JMAP, усе ще може його записати.",
+    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.":
+      "Чи примусовий цей обліковий запис, невідомо: Stalwart відхилив імперсонацію, що читає його фіксацію, а це файл у власній теці облікового запису. «Примусити» й «Зняти» залишаються вимкненими, доки він не відповість.",
+    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
+      "Чи примусовий цей обліковий запис, невідомо: його фіксацію не вдалося прочитати. «Примусити» й «Зняти» залишаються вимкненими, доки він не відповість.",
+    Enforced: "Примусово",
+    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
+      "Автоматизація, що призупиняється, публікує те, що пропонує, у чаті своєї групи, і учасник відповідає там словами. Тому схвалення відбувається в чаті, а не тут — ця черга і є наглядом по всіх групах і способом побачити, що чекало в будь-якій із них.",
+    "Nothing is waiting for a person.": "Ніщо не чекає на людину.",
+    "What it proposes": "Що вона пропонує",
+    Confidence: "Впевненість",
+    Raised: "Піднято",
+    "Open {group} and its chat": "Відкрити {group} і її чат",
+    "Open the group's mailbox": "Відкрити скриньку групи",
+    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
+      "Модель, на якій працює кожна автоматизація цього установлення: один провайдер, одна модель, один ключ. Установлення без неї не має автоматизацій — запуску нема чим вирішувати.",
+    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
+      "Для цього установлення ще не зареєстровано агента, тому моделі нема на чому працювати.",
+    "Ceiling on one answer (tokens)": "Межа на одну відповідь (токени)",
+    "What a single model answer may cost. 1 to {max}.":
+      "Скільки може коштувати одна відповідь моделі. Від 1 до {max}.",
+    "Hops a chain of automations may run":
+      "Скільки переходів може зробити ланцюг автоматизацій",
+    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
+      "Як далеко одна одиниця роботи може пройти від автоматизації до автоматизації, перш ніж запуск за її межами буде відхилено й групі повідомлять.",
+    "Pages one run may hand the model": "Скільки сторінок запуск може передати моделі",
+    "A page with no text layer travels as an image, which costs input tokens per page.":
+      "Сторінка без текстового шару передається як зображення, що коштує вхідних токенів на сторінку.",
+    "Model saved": "Модель збережено",
+    "Remove the model?": "Видалити модель?",
+    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
+      "Це установлення не виконує жодної автоматизації, доки не збережено іншу модель, і збережений ключ API видаляється разом із нею.",
+    "Model removed": "Модель видалено",
+    "The installation's model": "Модель установлення",
+    "A key is stored": "Ключ збережено",
+    "No key stored": "Ключа не збережено",
+    Provider: "Провайдер",
+    openai: "openai",
+    "A model name": "Назва моделі",
+    "Base URL": "Базовий URL",
+    "https://api.example.com/v1": "https://api.example.com/v1",
+    "API key": "Ключ API",
+    "Paste a new key here": "Вставте новий ключ тут",
+    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
+      "Лише запис: збережений ключ більше ніколи не показується, а порожнє це поле зберігає ключ, який у вас уже є.",
+    "An installation that sets none gets {n}.":
+      "Установлення, яке не задає жодного, отримує {n}.",
+    "Remove the model": "Видалити модель",
+    "Reading…": "Читання…",
+    "Ask the model to read it": "Попросити модель прочитати",
+    "What the model said about this draft:": "Що модель сказала про цю чернетку:",
+    "Audit trail": "Аудит",
+    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
+      "Що зробив агент цієї групи, починаючи з найновішого — той самий документ, який її учасники читають поруч із чатом. Зберігається дванадцять місяців, обрізається по місяцю.",
+    "No group is picked, so there is no audit trail to read here.":
+      "Групу не вибрано, тому тут немає аудиту для читання.",
+    "Download every retained month of this group's audit trail as JSON":
+      "Завантажити кожен збережений місяць аудиту цієї групи як JSON",
+    "Copying…": "Копіювання…",
+    "Download every retained month as JSON":
+      "Завантажити кожен збережений місяць як JSON",
+    "This group's audit trail could not be read.":
+      "Аудит цієї групи не вдалося прочитати.",
+    "This group's agent has not done anything yet.":
+      "Агент цієї групи поки нічого не зробив.",
+    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
+      "Показано останні {shown} із {total}. Завантажте вище кожен збережений місяць для решти.",
+    "No group is picked, so there is no standing instruction to read here.":
+      "Групу не вибрано, тому тут немає постійної інструкції для читання.",
+    "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.":
+      "Написана один раз на всю групу й передається моделі при кожному виклику, після власних правил установлення та до власної інструкції автоматизації. Вона каже, як агенту слід працювати; що автоматизації дозволено — це її список можливостей, і ніщо записане тут його не розширює.",
+    "How this group's agent works": "Як працює агент цієї групи",
+    "Write to the group in its own language, and always cite the invoice number.":
+      "Пишіть групі її мовою й завжди вказуйте номер рахунку.",
+    "the group's standing instruction": "постійна інструкція групи",
+    "Memory saved": "Пам'ять збережено",
+    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
+      "Що агент групи тримає при кожному виклику: факти про цю групу, які її автоматизаціям ніколи не потрібно повторювати. Кожен рядок читається як дані — він спрямовує й ніколи не розширює те, що автоматизації дозволено.",
+    "No group is picked, so there is no memory to read here.":
+      "Групу не вибрано, тому тут немає пам'яті для читання.",
+    "This group's memory has not been read yet.": "Пам'ять цієї групи ще не прочитано.",
+    "Read it": "Прочитати",
+    "This group's agent is holding nothing yet.":
+      "Агент цієї групи поки нічого не тримає.",
+    "Fact {n}": "Факт {n}",
+    "Remove this fact": "Видалити цей факт",
+    "Invoices from Ada are filed under the client's name, not the sender's.":
+      "Рахунки від Ada підшиваються під іменем клієнта, а не відправника.",
+    "Add a fact": "Додати факт",
+    "A fact is at most {n} characters, and a notebook holds {m}.":
+      "Факт — не більше {n} символів, а блокнот вміщає {m}.",
+    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
+      "Для кого зупиняються запуски цієї групи і чи можуть вони виходити за її межі без людини. Одна політика на всю групу: її автоматизації — робота однієї команди над одним листуванням.",
+    "No group is picked, so there is no policy to read here.":
+      "Групу не вибрано, тому тут немає політики для читання.",
+    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
+      "Ця група не написала політику, тому запуск іде, коли модель упевнена, і зупиняється для людини, коли ні. Дія, що виходить із групи або є незворотною, питає завжди.",
+    "When a person has to agree": "Коли людина має погодитися",
+    "Allow sending outside the group without a person — this raises the external-send consent floor.":
+      "Дозволити надсилання за межі групи без людини — це піднімає поріг згоди для зовнішнього надсилання.",
+    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
+      "Вимкнено — дія, що виходить за межі групи, завжди чекає на людину, що б не казала політика. Дія, яку не можна скасувати, питає, що б не казало будь-яке з налаштувань.",
+    "An empty text removes it. At most {max} characters.":
+      "Порожній текст видаляє його. Не більше {max} символів.",
+    "At most {max} characters.": "Не більше {max} символів.",
+    "This automation cannot run as it stands: {reason}":
+      "Цю автоматизацію не можна запустити як є: {reason}",
+    "Automation saved": "Автоматизацію збережено",
+    "Delete the {name}?": "Видалити {name}?",
+    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
+      "Документ автоматизації видаляється з власних файлів групи. Уже виконувана задача зберігає версію, з якої почала.",
+    "Automation deleted": "Автоматизацію видалено",
+    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
+      "Що агент робить у групі: коли реагує і що йому доручено робити з тим, що він знаходить. Автоматизація зберігається у власному обліковому записі групи, тому її може прочитати кожен учасник.",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
+      "Одна автоматизація на тригер: агент виконує кожну ввімкнену автоматизацію на тригер проти всього, що цей тригер виробляє, тому друга на тому ж тригері відповість на одну подію двічі. Розгалуження між одним випадком і іншим — в інструкції.",
+    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
+      "Агент не в цій групі, тому тут нічого писати: жодна автоматизація не виконується, і ніхто не може згадати його в чаті групи. Дайте йому групу в адміністрації самого Stalwart і повертайтеся.",
+    "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
+      "Ця група несе більше однієї ввімкненої автоматизації на тригер, чого ця збірка не приймає: {reason}",
+    "This group's automation document could not be read.":
+      "Документ автоматизацій цієї групи не вдалося прочитати.",
+    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
+      "Документ автоматизацій цієї групи було написано в старому форматі, тому його замінено свіжим, порожнім. Напишіть її автоматизації заново нижче.",
+    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
+      "Документ автоматизацій цієї групи не вдається прочитати, і його не вдалося замінити автоматично. Перезавантажте, щоб спробувати знову.",
+    "Cannot be saved yet: {reason}": "Поки не можна зберегти: {reason}",
+    "No automation in this group yet.": "У цій групі поки немає автоматизацій.",
+    "Every trigger already has an automation in this group.":
+      "Кожен тригер у цій групі вже має автоматизацію.",
+    "New automation": "Нова автоматизація",
+    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
+      "Кожен тригер у цій групі вже має автоматизацію. Видаліть або вимкніть одну, щоб написати інший вид.",
+    "The {name} cannot be saved as it stands: {reason}":
+      "{name} не можна зберегти як є: {reason}",
+    "Run this automation now, on the newest message in the group's inbox":
+      "Запустити цю автоматизацію зараз, на найновішому листі в теці «Вхідні» групи",
+    "Asking…": "Запит…",
+    "Run now": "Запустити зараз",
+    "Delete automation": "Видалити автоматизацію",
+    "Next due: {when}": "Наступний запуск: {when}",
+    "Not yet scheduled — the agent holding this group arms it on its next pass.":
+      "Ще не заплановано — агент, що тримає цю групу, зведе її під час наступного проходу.",
+    "Not scheduled while disabled.": "Не заплановано, поки вимкнено.",
+    "Asked for: a run is open ({state}).": "Запрошено: запуск відкрито ({state}).",
+    "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.":
+      "Запрошено. Агент, що тримає цю групу, підхопить її під час наступного проходу — типово за хвилину — а в аудиті групи читається, що він зробив.",
+    "the automation “{name}”": "автоматизація «{name}»",
+    "Enabled — the agent reacts to this automation":
+      "Увімкнено — агент реагує на цю автоматизацію",
+    Trigger: "Тригер",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
+      "Одна автоматизація на тригер: агент виконує кожну ввімкнену автоматизацію на тригер проти всього, що цей тригер виробляє, тому дві з них відповіли б на одну подію двічі.",
+    "How often": "Як часто",
+    "Every {minutes} minutes": "Кожні {minutes} хвилин",
+    Instruction: "Інструкція",
+    "Read the message and say what should happen to it. Useful context, in plain words.":
+      "Прочитайте лист і скажіть, що з ним має статися. Корисний контекст, простими словами.",
+    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
+      "Цей текст — усе, що доручається запуску: кожен запуск передає його моделі установлення, а вона відповідає діями з розділів нижче.",
+    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
+      "Він читається як дані, а не виконується: лист, що просить модель щось зробити, залишається лише листом.",
+    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
+      "Пишіть його для випадків у міру надходження: розгалуження між одним видом пошти та іншим — тут, а не в другій автоматизації.",
+    "What it may do": "Що вона може робити",
+    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
+      "Список дозволеного: єдині дії, які може виконувати ця автоматизація. Моделі пропонуються лише вони, і відповідь за їхніми межами відхиляється.",
+    "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.":
+      "Каталог можливостей не прочитано, тому тут нема чого надавати: сервер, який не може ним відповісти, — той, проти якого ця збірка писати не може. Збереження залишається відхиленим, доки він не відповість.",
+    external: "зовнішнє",
+    irreversible: "незворотне",
+    "That is not valid JSON — fix the document and publish again.":
+      "Це не коректний JSON — виправте документ і опублікуйте знову.",
+    "(untitled)": "(без назви)",
+    "Calendar reminder": "Нагадування календаря",
+    "Reminder: {title}": "Нагадування: {title}",
+    "Message not sent — {what}": "Лист не надіслано — {what}",
+    "Not signed in": "Вхід не виконано",
+    "The mailbox changed before this message was sent":
+      "Скринька змінилася до того, як цей лист було надіслано",
+    "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
+      "Переміщення контакту між вашими адресними книгами та книгою групи — справа адміністратора установлення, бо картка належить обліковому запису, до якого потрапляє. Змінювати її та складати нові контакти там, де вони є, усе ще можна.",
+    "A file called “{name}” is already here.": "Файл з іменем «{name}» уже тут.",
+    "Its folder could not be created.": "Його теку не вдалося створити.",
+    "This conversation no longer exists.": "Цього листування більше не існує.",
+    "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
+      "Пошту групи завершує адміністратор установлення. Покласти лист у «Кошик» групи все ще можна, як і вийняти його назад.",
+    "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
+      "Лише адміністратор установлення може очистити «Кошик» або «Спам» групи. Класти туди пошту все ще можна, як і виймати її назад.",
+    "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
+      "Теку з поштою не можна видалити в групі, бо пошта піде разом із нею. Спершу вийміть пошту, або запитайте адміністратора установлення.",
+    "This reading was not counted toward this month's authoring.":
+      "Це читання не зараховано в написання за цей місяць.",
+    "no-bytes": "no-bytes",
+    "no-right": "no-right",
+    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
+      "Доступ до {need} групи відбувається як у агента установлення, а цей агент не учасник цієї групи: документи лежать у власному обліковому записі групи, і дістатися до них може лише учасник — тому додайте агента до групи в каталозі поштового сервера.",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert не зміг запитати поштовий сервер про {need} цієї групи, тому не може сказати, чи дістається до неї той агент: нічого не змінено й нічого не прочитано. Спробуйте знову, і якщо він і далі так відповідатиме, дивитися треба на поштовий сервер.",
+    "Your settings could not be saved: {error}":
+      "Ваші налаштування не вдалося зберегти: {error}",
+    "List-Id": "List-Id",
+    "X-Spam-Status": "X-Spam-Status",
+    "Delete all spam": "Видалити весь спам",
+    "Empty {name}": "Очистити {name}",
+    "Delete all spam in “{name}”?": "Видалити весь спам у «{name}»?",
+    "Empty folder": "Очистити теку",
+    "The phone bridge did not answer.": "Міст телефона не відповів.",
+    "The phone bridge is gone.": "Міст телефона зник.",
+    "The phone bridge accepted no session.": "Міст телефона не прийняв жодного сеансу.",
+    "The phone bridge attached no plugin.": "Міст телефона не підключив жодного плагіна.",
+    "The phone bridge refused the request.": "Міст телефона відхилив запит.",
+    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
+      "Ваш браузер блокує мікрофон для цього сайту, тому виклик не може передати ваш голос. Дозвольте його для цього сайту й спробуйте знову.",
+    "No microphone is available on this device, so a call cannot carry your voice.":
+      "На цьому пристрої немає доступного мікрофона, тому виклик не може передати ваш голос.",
+    "This browser cannot reach a microphone, so a call cannot carry your voice.":
+      "Цей браузер не може дістатися до мікрофона, тому виклик не може передати ваш голос.",
+    "Calling…": "Виклик…",
+    "Ringing…": "Гудки…",
+    Connected: "З'єднано",
+    "The line is busy": "Лінія зайнята",
+    "no-route": "no-route",
+    "No route to this number": "Немає маршруту до цього номера",
+    "This number is not available": "Цей номер недоступний",
+    "The call was declined": "Виклик відхилено",
+    "The call could not be completed": "Виклик не вдалося завершити",
+    "The phone is not connected.": "Телефон не підключено.",
+    "The line is busy.": "Лінія зайнята.",
+    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
+      "Браузер не може передати медіа телефона до Gilbert: його медіапорти недосяжні. Проблема між цим браузером і Gilbert, а не із SIP-провайдером.",
+    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
+      "Лінія не зареєструвалася на SIP-сервері. Проблема між Gilbert і SIP-провайдером, а не між цим браузером і Gilbert.",
+    "the server closed the live-updates stream": "сервер закрив потік живих оновлень",
+    "the server could not be reached": "не вдалося досягти сервера",
+    "Timed out": "Час вичерпано",
+    "Group identities": "Профілі групи",
+    "User identities": "Профілі користувачів",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1904,5 +2854,118 @@ export const catalog: Catalog = {
       many: "{n} повідомлень видалено назавжди",
       other: "{n} повідомлення видалено назавжди",
     },
+    "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.":
+      {
+        one: "{n} профіль приховано з вибору в редакторі. Приховати всі не залишило б нічого для вибору, тому в цьому разі пропонуються знову всі.",
+        few: "{n} профілі приховано з вибору в редакторі. Приховати всі не залишило б нічого для вибору, тому в цьому разі пропонуються знову всі.",
+        many: "{n} профілів приховано з вибору в редакторі. Приховати всі не залишило б нічого для вибору, тому в цьому разі пропонуються знову всі.",
+        other: "{n} профілі приховано з вибору в редакторі.",
+      },
+    "Password changed. {n} other sessions signed out.": {
+      one: "Пароль змінено. Ще {n} сеанс завершено.",
+      few: "Пароль змінено. Ще {n} сеанси завершено.",
+      many: "Пароль змінено. Ще {n} сеансів завершено.",
+      other: "Пароль змінено. Ще {n} сеанси завершено.",
+    },
+    "{n} attendees": {
+      one: "{n} учасник",
+      few: "{n} учасники",
+      many: "{n} учасників",
+      other: "{n} учасники",
+    },
+    "{n} attachments could not be saved to Files.": {
+      one: "{n} вкладення не вдалося зберегти у Файли.",
+      few: "{n} вкладення не вдалося зберегти у Файли.",
+      many: "{n} вкладень не вдалося зберегти у Файли.",
+      other: "{n} вкладення не вдалося зберегти у Файли.",
+    },
+    "{n} files are already in this folder. Nothing was replaced.": {
+      one: "{n} файл уже в цій теці. Нічого не замінено.",
+      few: "{n} файли уже в цій теці. Нічого не замінено.",
+      many: "{n} файлів уже в цій теці. Нічого не замінено.",
+      other: "{n} файли уже в цій теці. Нічого не замінено.",
+    },
+    "Saved {n} files to {where}.": {
+      one: "{n} файл збережено в {where}.",
+      few: "{n} файли збережено в {where}.",
+      many: "{n} файлів збережено в {where}.",
+      other: "{n} файли збережено в {where}.",
+    },
+    "Save {n} attachments to Files.": {
+      one: "Зберегти {n} вкладення у Файли.",
+      few: "Зберегти {n} вкладення у Файли.",
+      many: "Зберегти {n} вкладень у Файли.",
+      other: "Зберегти {n} вкладення у Файли.",
+    },
+    "Download {n} files": {
+      one: "Завантажити {n} файл",
+      few: "Завантажити {n} файли",
+      many: "Завантажити {n} файлів",
+      other: "Завантажити {n} файли",
+    },
+    "{done} of {n} files": {
+      one: "{done} із {n} файла",
+      few: "{done} із {n} файлів",
+      many: "{done} із {n} файлів",
+      other: "{done} із {n} файла",
+    },
+    "{n} members of {group} have no address and were not added.": {
+      one: "{n} учасник {group} без адреси й не доданий.",
+      few: "{n} учасники {group} без адреси й не додані.",
+      many: "{n} учасників {group} без адреси й не додані.",
+      other: "{n} учасники {group} без адреси й не додані.",
+    },
+    "group · {n} members": {
+      one: "група · {n} учасник",
+      few: "група · {n} учасники",
+      many: "група · {n} учасників",
+      other: "група · {n} учасники",
+    },
+    "{n} matches": {
+      one: "{n} збіг",
+      few: "{n} збіги",
+      many: "{n} збігів",
+      other: "{n} збіги",
+    },
+    "{n} participants": {
+      one: "{n} учасник",
+      few: "{n} учасники",
+      many: "{n} учасників",
+      other: "{n} учасники",
+    },
+    "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
+      {
+        one: "Опубліковано. Каталог перелічив {n} обліковий запис, і тепер усі вони несуть цю політику; інші клієнти, що ввійшли, увійдуть знову.",
+        few: "Опубліковано. Каталог перелічив {n} облікові записи, і тепер усі вони несуть цю політику; інші клієнти, що ввійшли, увійдуть знову.",
+        many: "Опубліковано. Каталог перелічив {n} облікових записів, і тепер усі вони несуть цю політику; інші клієнти, що ввійшли, увійдуть знову.",
+        other:
+          "Опубліковано. Каталог перелічив {n} облікові записи, і тепер усі вони несуть цю політику; інші клієнти, що ввійшли, увійдуть знову.",
+      },
+    "The directory listed {n} accounts.": {
+      one: "Каталог перелічив {n} обліковий запис.",
+      few: "Каталог перелічив {n} облікові записи.",
+      many: "Каталог перелічив {n} облікових записів.",
+      other: "Каталог перелічив {n} облікові записи.",
+    },
+    "{n} accounts were not written to:": {
+      one: "Не записано в {n} обліковий запис:",
+      few: "Не записано в {n} облікові записи:",
+      many: "Не записано в {n} облікових записів:",
+      other: "Не записано в {n} облікові записи:",
+    },
+    "{n} automations": {
+      one: "{n} автоматизація",
+      few: "{n} автоматизації",
+      many: "{n} автоматизацій",
+      other: "{n} автоматизації",
+    },
+    "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
+      {
+        one: "{n} лист буде видалено назавжди. Він не потрапляє спершу в «Кошик», тому це не можна скасувати.",
+        few: "{n} листи буде видалено назавжди. Вони не потрапляють спершу в «Кошик», тому це не можна скасувати.",
+        many: "{n} листів буде видалено назавжди. Вони не потрапляють спершу в «Кошик», тому це не можна скасувати.",
+        other:
+          "{n} листи буде видалено назавжди. Вони не потрапляють спершу в «Кошик», тому це не можна скасувати.",
+      },
   },
 };
