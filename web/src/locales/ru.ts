@@ -1583,6 +1583,955 @@ export const catalog: Catalog = {
     "Edit {name}": "Изменить {name}",
     "{own} here, {unread} in subfolders": "{own} здесь, {unread} в подпапках",
     attachment: "вложение",
+    "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.":
+      "Включить уведомления? Новая почта и чат доходят до вас, даже когда Gilbert в фоне.",
+    "Turn on notifications": "Включить уведомления",
+    "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
+      "Добавьте Gilbert на экран «Домой» в Safari и открывайте его оттуда: iOS даёт уведомления только веб-приложению, установленному так.",
+    "Your mail server publishes no push key, so it cannot wake this browser.":
+      "Ваш почтовый сервер не публикует ключ push, поэтому не может разбудить этот браузер.",
+    "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.":
+      "В этом браузере нет Push API, поэтому уведомления с закрытым Gilbert здесь включить нельзя.",
+    "Notifications are blocked for this site in your browser's settings.":
+      "Уведомления для этого сайта заблокированы в настройках браузера.",
+    "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.":
+      "Фоновые уведомления требуют устройства, которое вы отметили как своё. Войдите снова с отметкой «Это моё устройство».",
+    "Could not subscribe to notifications.": "Не удалось подписаться на уведомления.",
+    Policy: "Политика",
+    Installation: "Установка",
+    "Force passwords": "Принудительная смена паролей",
+    "Identities and SIP Phone": "Профили и SIP-телефон",
+    Master: "Master",
+    "Group Agents": "Агенты групп",
+    Approvals: "Согласования",
+    "System Sieve": "Системный Sieve",
+    "Gilbert Mailer": "Gilbert Mailer",
+    "Gilbert Assistant": "Gilbert Assistant",
+    Stalwart: "Stalwart",
+    "Nothing here yet.": "Здесь пока ничего нет.",
+    Help: "Справка",
+    "Mobile app": "Мобильное приложение",
+    "Install mobile app": "Установить мобильное приложение",
+    "Change your password": "Смените пароль",
+    "Your administrator requires you to choose a new password before you can continue. Signing out is the only other way out of this screen.":
+      "Администратор требует выбрать новый пароль, прежде чем продолжить. Выйти — единственный другой выход с этого экрана.",
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbert уже установлен на этом устройстве. Откройте его по значку на экране «Домой», чтобы пользоваться приложением.",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "Установите Gilbert как приложение для полноэкранного окна и уведомлений.",
+    "Add Gilbert to your Home Screen.": "Добавьте Gilbert на экран «Домой».",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbert устанавливается. Откройте его по значку, чтобы завершить настройку.",
+    Install: "Установить",
+    How: "Как",
+    "Gilbert is up to date.": "Gilbert обновлён.",
+    "Could not check for updates.": "Не удалось проверить обновления.",
+    "Notifications are on for this device.": "Уведомления включены для этого устройства.",
+    "Gilbert is installed on this device.": "Gilbert установлен на этом устройстве.",
+    "Update now": "Обновить сейчас",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "Установите Gilbert на телефон, чтобы открывать его по собственному значку, во весь экран, и получать уведомления, когда он закрыт.",
+    "Install app": "Установить приложение",
+    "Safari installs a web app from the Share sheet:":
+      "Safari устанавливает веб-приложение через меню «Поделиться»:",
+    "Tap the Share button.": "Нажмите кнопку «Поделиться».",
+    "Choose “Add to Home Screen”.": "Выберите «На экран „Домой“».",
+    "Open Gilbert from the new icon.": "Откройте Gilbert по новому значку.",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "Этот браузер устанавливает приложение через собственное меню — ищите «Установить приложение» или «Добавить на главный экран».",
+    Notifications: "Уведомления",
+    "A newer version is on the server.": "На сервере есть более новая версия.",
+    "You are on the newest version.": "У вас самая новая версия.",
+    "Checking for updates…": "Проверка обновлений…",
+    "This browser cannot show notifications.":
+      "Этот браузер не может показывать уведомления.",
+    "Stay signed in, and keep settings and recent addresses on this computer.":
+      "Оставаться в системе и хранить настройки и недавние адреса на этом компьютере.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.":
+      "Выход через 5 минут бездействия, и на этом компьютере ничего не сохраняется. Не отмечайте это на общем или общедоступном компьютере.",
+    "Signing in…": "Вход…",
+    "Sign in": "Войти",
+    "Go to All mail / Archive": "Перейти к «Вся почта» / «Архив»",
+    "Stalwart Mail Server": "Почтовый сервер Stalwart",
+    "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
+    "{name} (Beta)": "{name} (Beta)",
+    "Reset all settings?": "Сбросить все настройки?",
+    "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
+      "Каждая настройка этой учётной записи возвращается к значениям по умолчанию — шаблоны, ярлыки, доверенные подписанты, подписки на календари, скрытые профили — а копия, хранимая на сервере, заменяется. Это нельзя отменить.",
+    Reset: "Сбросить",
+    "Ask again": "Спросить снова",
+    "Make Gilbert the default mail app":
+      "Сделать Gilbert почтовым приложением по умолчанию",
+    "Your identities": "Ваши профили",
+    "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
+      "В почтовом ящике этой группы по одному профилю на участника, все с адресом группы. Их назначает администрация, поэтому здесь они доступны только для чтения.",
+    "You send as the one assigned to you, marked below.":
+      "Вы отправляете от того, который назначен вам, отмеченного ниже.",
+    "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
+      "Ни один профиль этой группы вам пока не назначен, поэтому письма, отправленные из этого ящика, уходят от самой группы.",
+    "Could not read this group's identities: {error}":
+      "Не удалось прочитать профили этой группы: {error}",
+    Yours: "Ваши",
+    "replies@example.com": "replies@example.com",
+    "archive@example.com": "archive@example.com",
+    "Pictures belong to the account’s own Files and this surface cannot write them; an over-sized signature is kept there, and this form stores the marker that points at it.":
+      "Картинки принадлежат собственным Файлам учётной записи, и эта поверхность не может их записывать; слишком большая подпись хранится там, а эта форма хранит маркер, указывающий на неё.",
+    "Pictures and over-sized signatures live in the account's own Files, which this surface cannot write.":
+      "Картинки и слишком большие подписи находятся в собственных Файлах учётной записи, куда эта поверхность писать не может.",
+    "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
+      "Этот браузер больше не хранит ответ для уведомлений на этом устройстве, поэтому ни одно нельзя показать. Выключение и повторное включение переключателя снова запрашивает разрешение.",
+    "Gilbert test": "Проверка Gilbert",
+    "Ask before showing": "Спрашивать перед показом",
+    "Added from a message, and removable here.": "Добавлено из письма и удаляется здесь.",
+    "example.com": "example.com",
+    "Give the rule a name before it can be saved.":
+      "Дайте правилу имя, прежде чем его можно будет сохранить.",
+    "someone@example.com": "someone@example.com",
+    "That is not an email address, so the mail this rule matches would never arrive.":
+      "Это не адрес электронной почты, поэтому письмо, которое поймает это правило, никогда не придёт.",
+    "Give the address to forward to.": "Укажите адрес для пересылки.",
+    "Password changed": "Пароль изменён",
+    "Changing…": "Изменение…",
+    "Change password": "Сменить пароль",
+    "Working…": "Обработка…",
+    "Your current password": "Ваш текущий пароль",
+    "Creating…": "Создание…",
+    "“Ends” must be after “Starts”.": "«Конец» должен быть позже «Начала».",
+    "Auto-reply is on": "Автоответ включён",
+    "Auto-reply saved": "Автоответ сохранён",
+    Personal: "Личное",
+    Missed: "Пропущенные",
+    Declined: "Отклонённые",
+    Failed: "Неудачные",
+    "Recent calls": "Недавние звонки",
+    "{n}s": "{n} с",
+    "No calls yet.": "Звонков пока нет.",
+    All: "Все",
+    Global: "Глобальные",
+    My: "Мои",
+    "This browser reaches Gilbert: the phone's media path is proven.":
+      "Этот браузер достигает Gilbert: медиапуть телефона подтверждён.",
+    "The phone's connection to Gilbert is down.": "Связь телефона с Gilbert потеряна.",
+    "Gilbert phone connection": "Связь телефона с Gilbert",
+    "Registered with the SIP provider.": "Зарегистрирован у SIP-провайдера.",
+    "Not registered with the SIP provider.": "Не зарегистрирован у SIP-провайдера.",
+    "SIP server connection": "Связь с SIP-сервером",
+    "No contacts with a number to call.": "Нет контактов с номером для звонка.",
+    "Incoming call": "Входящий звонок",
+    "Unknown caller": "Неизвестный абонент",
+    Answer: "Ответить",
+    Decline: "Отклонить",
+    Call: "Позвонить",
+    "Number or address": "Номер или адрес",
+    Unmute: "Включить звук",
+    Mute: "Выключить звук",
+    "Hang up": "Положить трубку",
+    "Actions for {email}": "Действия для {email}",
+    "Invitation accepted": "Приглашение принято",
+    "Invitation declined": "Приглашение отклонено",
+    "Marked as tentative": "Отмечено как предварительное",
+    "(untitled event)": "(событие без названия)",
+    "": "",
+    "Open conversation": "Открыть цепочку",
+    "Back to list / clear selection": "К списку / снять выделение",
+    "Select conversation": "Выбрать цепочку",
+    "Next message in conversation": "Следующее письмо в цепочке",
+    "Previous message in conversation": "Предыдущее письмо в цепочке",
+    "Resize message list": "Изменить ширину списка писем",
+    "Hide from list": "Скрыть из списка",
+    "Show in list": "Показать в списке",
+    "Stop trusting sender images": "Больше не доверять изображениям отправителя",
+    "Always show images from sender": "Всегда показывать изображения отправителя",
+    "Send receipt": "Отправить уведомление",
+    "•••": "•••",
+    "Download all to Files": "Скачать всё в Файлы",
+    "Save to Files": "Сохранить в Файлы",
+    "Could not save the attachments.": "Не удалось сохранить вложения.",
+    "Save here": "Сохранить здесь",
+    "Save all": "Сохранить всё",
+    "There is nowhere to save files to.": "Негде сохранять файлы.",
+    "Going to: {where}": "Переход: {where}",
+    "Collapse all": "Свернуть всё",
+    "Expand all": "Развернуть всё",
+    "Contact card": "Карточка контакта",
+    "Shared folder": "Общая папка",
+    "Shared files": "Общие файлы",
+    "All files": "Все файлы",
+    "Nothing shared here.": "Здесь ничего не открыто общего доступа.",
+    "No folders yet.": "Папок пока нет.",
+    "Group name": "Название группы",
+    "Organization name": "Название организации",
+    "name@example.com": "name@example.com",
+    "https://": "https://",
+    "{name} — shared with everyone": "{name} — доступно всем",
+    "Edit Global contacts": "Изменить глобальные контакты",
+    "My contacts": "Мои контакты",
+    "Group contacts": "Контакты группы",
+    "New address book in {group}": "Новая адресная книга в {group}",
+    "Nothing added yet.": "Пока ничего не добавлено.",
+    "Looking…": "Поиск…",
+    "· organization": "· организация",
+    "From the group {group}": "Из группы {group}",
+    "Move {name} to…": "Переместить {name} в…",
+    "This group keeps no address books.": "Эта группа не ведёт адресных книг.",
+    "There is nowhere else to move it.": "Больше некуда его переместить.",
+    "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
+      "Адресная книга, которую другая учётная запись открыла вам, содержит этот контакт, поэтому изменение и удаление — на усмотрение той учётной записи; ни то, ни другое здесь не предлагается.",
+    "Saved.": "Сохранено.",
+    "Global contacts": "Глобальные контакты",
+    "Email addresses": "Адреса электронной почты",
+    "One per line.": "По одному в строке.",
+    "Phone numbers": "Номера телефонов",
+    "One per line. The phone calls the preferred one.":
+      "По одному в строке. Телефон звонит на предпочтительный.",
+    "The installation's shared directory: every account reads it, and only an administrator writes it here.":
+      "Общий каталог установки: его читает каждая учётная запись, а пишет сюда только администратор.",
+    "No contacts": "Нет контактов",
+    "Add contact": "Добавить контакт",
+    "Close composer (saves draft)": "Закрыть редактор (сохранит черновик)",
+    "Save draft": "Сохранить черновик",
+    "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
+      "У этой группы пока нет профиля, поэтому отправлять не от чего. Администратор задаёт его в профилях группы.",
+    "High priority": "Высокий приоритет",
+    "Low priority": "Низкий приоритет",
+    "Send now instead": "Отправить сейчас вместо этого",
+    "Switch to plain text": "Перейти к обычному тексту",
+    "Switch to rich text": "Перейти к форматированному тексту",
+    "Attach {n} files": "Прикрепить {n} файлов",
+    Attach: "Прикрепить",
+    "To — {n} people": "Кому — {n} получателей",
+    "Nobody matches that.": "Никто не подходит.",
+    "No contacts in this address book.": "В этой адресной книге нет контактов.",
+    "https://…": "https://…",
+    Chat: "Чат",
+    "No longer in this group": "Больше не в этой группе",
+    "The group's agent": "Агент группы",
+    "Search messages": "Искать письма",
+    Conversations: "Цепочки",
+    "Search in this chat": "Искать в этом чате",
+    "Searching…": "Поиск…",
+    "No matches for {query}": "Ничего не найдено по запросу {query}",
+    "Could not load the conversation": "Не удалось загрузить цепочку",
+    "No messages yet": "Писем пока нет",
+    "Loading earlier messages…": "Загрузка предыдущих писем…",
+    "Start of the conversation": "Начало цепочки",
+    "Go to the message being answered": "Перейти к письму, на которое отвечают",
+    "Pick a conversation": "Выбрать цепочку",
+    "Replying to {who}": "Ответ для {who}",
+    "Cancel reply": "Отменить ответ",
+    "Message {group}": "Сообщение {group}",
+    "No agent is registered for this installation.":
+      "Для этой установки не зарегистрирован ни один агент.",
+    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
+      "В этой группе не работает ни один агент: ему здесь не дано разрешение, поэтому он не несёт инструкций и ничего не делает. Разрешение выдаётся в самой администрации почтового сервера, а не в продукте.",
+    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
+      "Работает в этой группе как {address}. Только чтение: то, чему он следует, задаётся в администрации, а вы отвечаете ему в этом чате.",
+    "Standing instruction": "Постоянная инструкция",
+    "Who its runs stop for": "Для кого останавливаются его запуски",
+    "What it follows": "Чему он следует",
+    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
+      "Документ автоматизаций этой группы не удаётся прочитать, поэтому её автоматизации нельзя показать. Открытие этой группы в администрации заменяет его автоматически.",
+    "No automation is set up for this group.":
+      "Для этой группы не настроено ни одной автоматизации.",
+    "Still open": "Ещё открыто",
+    "Nothing is running and nothing is waiting.":
+      "Ничего не выполняется и ничего не ждёт.",
+    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
+      "Когда одна из них ждёт человека, агент спрашивает здесь в чате — там вы и отвечаете.",
+    "What it has done": "Что он сделал",
+    "It has not done anything yet.": "Он пока ничего не сделал.",
+    "Last written by {who} on {when}.": "Последняя запись: {who}, {when}.",
+    "an administrator": "администратор",
+    Disabled: "Отключено",
+    "{message} for this date": "{message} на эту дату",
+    "Occurrence deleted": "Повтор удалён",
+    "Event deleted": "Событие удалено",
+    "Group calendars": "Календари группы",
+    "New calendar in {group}": "Новый календарь в {group}",
+    "This occurrence updated": "Этот повтор обновлён",
+    "Event updated": "Событие обновлено",
+    "Event created and invitations sent": "Событие создано, приглашения отправлены",
+    "Event created": "Событие создано",
+    "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.":
+      "Изменяется только {date} — остальная часть серии не меняется. Повтор, приватность и участники серии не показываются, а календарь остаётся у серии.",
+    "This is a recurring event — changes apply to the whole series.":
+      "Это повторяющееся событие — изменения применяются ко всей серии.",
+    "https://meet.example.com/…": "https://meet.example.com/…",
+    "{duration} before": "{duration} до",
+    "Fewer options": "Меньше параметров",
+    "An email arrives": "Приходит письмо",
+    "A file or folder changes": "Файл или папка меняется",
+    "Someone writes in the chat": "Кто-то пишет в чате",
+    "On a schedule": "По расписанию",
+    "Every run stops here for a person to answer before anything happens.":
+      "Каждый запуск останавливается здесь, чтобы человек ответил, прежде чем что-либо произойдёт.",
+    "A run at or above the confidence runs unattended; below it, it waits for a person.":
+      "Запуск на уровне уверенности или выше идёт без присмотра; ниже — ждёт человека.",
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
+      "Ничто не ждёт человека — но действие, которое нельзя отменить, всё равно спрашивает, а действие, выходящее за пределы группы, спрашивает, если порог согласия не поднят.",
+    "Always ask a person first": "Всегда сначала спрашивать человека",
+    "Ask a person below a confidence threshold":
+      "Спрашивать человека ниже порога уверенности",
+    "Never ask — run it unattended": "Никогда не спрашивать — выполнять без присмотра",
+    "Waiting to start": "Ожидание запуска",
+    Running: "Выполняется",
+    "Waiting for a person": "Ожидание человека",
+    Ran: "Выполнено",
+    Finished: "Завершено",
+    "Asked for approval": "Запрошено согласование",
+    Rejected: "Отклонено",
+    Refused: "Отказано",
+    unknown: "неизвестно",
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
+      "{runs} запусков · {hit} токенов из кэша, {miss} прочитано заново, {out} записано",
+    "{n} of them reported no usage": "{n} из них не сообщили о расходе",
+    "This installation has spent: {meter}": "Эта установка потратила: {meter}",
+    "{agent}: {meter}": "{agent}: {meter}",
+    "no agent named": "агент не указан",
+    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
+      "Аудит {groups} не удалось прочитать, поэтому эта сумма — нижняя граница: их запуски здесь нигде не учтены.",
+    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
+      "Эта установка не может перечислить участников группы: Master не может читать реестр учётных записей. Дайте ему разрешения sysAccountGet и sysAccountQuery — разрешение на учётную запись, а не роль администратора — и @ в чате предложит участников группы; до тех пор он предлагает тех, кто уже писал.",
+    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
+      "Реестр учётных записей не ответил, поэтому участников группы нельзя перечислить и @ в чате предлагает тех, кто уже писал.",
+    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
+      "Ни один агент не зарегистрирован, поэтому ничто не может прочитать участников группы: @ в чате предлагает тех, кто уже писал.",
+    "every {minutes} minutes": "каждые {minutes} минут",
+    "sending outside the group allowed without a person":
+      "отправка за пределы группы разрешена без человека",
+    "sending outside the group always waits for a person":
+      "отправка за пределы группы всегда ждёт человека",
+    "Nobody has written here yet.": "Здесь пока никто не писал.",
+    Identity: "Профиль отправителя",
+    Model: "Модель",
+    Groups: "Группы",
+    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
+      "Собственный агент Gilbert действует внутри почты и файлового хранилища: он работает с событиями Stalwart и по расписанию, в группах, которым дано разрешение. Эта установка запускает одного агента — вот как его увидеть, какая модель его обслуживает и в каких группах он работает. Что он делает внутри группы, описано в «Агентах групп».",
+    "Master sections": "Разделы Master",
+    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
+      "То, что действует всюду: правила, которые агент несёт в каждый вызов каждой группы, прежде чем что-либо станет верным для группы или отдельной автоматизации. Записаны здесь один раз вместо повторения в инструкции каждой группы и читаются как данные — разрешение запуска — это его собственный список возможностей, и ничто записанное здесь его не расширяет.",
+    "How this installation's agent works": "Как работает агент этой установки",
+    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
+      "Всегда отвечайте на языке, на котором написано письмо, и никогда не отправляйте ничего за пределы группы без человека.",
+    "the installation's own rules": "собственные правила установки",
+    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
+      "Этот раздел проверяет разрешение агента и никогда его не выдаёт: членство в группе даётся в собственной администрации Stalwart, рядом с учётными записями, так же как человеку.",
+    "The Master": "Master",
+    Operational: "Работает",
+    "Not operational": "Не работает",
+    "Agent address": "Адрес агента",
+    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
+      "Развёртывание даёт агенту имя, и это читает его обратно: GILBERT_AGENT_ADDRESS и GILBERT_AGENT_PASSWORD находятся в окружении того, кто запускает сервер и его агента, поэтому берутся из одного места. Здесь ничто не создаёт секрет, не читает его обратно и не хранит.",
+    "What the fleet has spent": "Что потратил флот",
+    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
+      "Группы, в которых работает агент, читаются из Stalwart: он член группы ровно тогда, когда группа появляется здесь, и этот список следует за каталогом сам. Чтобы дать ему группу, добавьте группу пользователю Gilbert в собственной администрации Stalwart.",
+    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
+      "Агент не состоит ни в одной группе, которую видит эта установка. Добавьте группу пользователю Gilbert в собственной администрации Stalwart, и она появится здесь.",
+    "Open this group's automations, standing instruction, memory and audit trail":
+      "Открыть автоматизации, постоянную инструкцию, память и аудит этой группы",
+    "Open in Group Agents": "Открыть в «Агентах групп»",
+    Pending: "Ожидает",
+    Audit: "Аудит",
+    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
+      "Что ждёт человека и что сделал флот, по всем группам, которые держит агент — надзор только для чтения. Оператор отвечает на приостановленный запуск в чате самой группы, никогда здесь.",
+    "Approvals sections": "Разделы согласований",
+    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
+      "Аудит каждой группы с разрешением, объединённый и отсортированный от новейшего. Собственная вкладка «Аудит» группы в «Агентах групп» читает тот же документ со своим экспортом.",
+    "The agent is not in a group this installation can see.":
+      "Агент не состоит ни в одной группе, которую видит эта установка.",
+    "Every group": "Каждая группа",
+    Outcome: "Результат",
+    "Every outcome": "Все результаты",
+    "Reading every group's trail…": "Чтение аудита каждой группы…",
+    "The audit of {groups} could not be read, so it is missing from this list.":
+      "Аудит {groups} не удалось прочитать, поэтому он отсутствует в этом списке.",
+    "Nothing matches here yet.": "Здесь пока ничего не совпадает.",
+    Automation: "Автоматизация",
+    By: "Кем",
+    Detail: "Подробно",
+    "Installation document": "Документ установки",
+    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
+      "Конфигурация, на которой работает эта установка: один документ JSON в собственных Файлах Master — учётной записи, под которой входит эта установка и которую сервер читает один раз при запуске. То, что вы публикуете здесь, — это то, на чём пройдёт следующий запуск, а текущий процесс сохраняет то, с чем стартовал.",
+    "Stored at {where}": "Хранится в {where}",
+    "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
+      "У собственной учётной записи установки пока нет документа, поэтому редактор начинает со значений по умолчанию установки и только что созданного секрета приложения. Опубликуйте его как есть или сначала отредактируйте.",
+    "A boot would refuse the stored document: {reason}":
+      "Запуск отклонил бы сохранённый документ: {reason}",
+    "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
+      "Поле {field} — это секрет приложения, которым запечатано каждое сохранённое сеансовое состояние: любой, кто может прочитать эту страницу, может прочитать его, а публикация, потерявшая его, разлогинила бы всех. Держите его в документе, которому он принадлежит.",
+    "Publish document": "Опубликовать документ",
+    "Publishing…": "Публикация…",
+    "Takes effect at the next boot.": "Вступит в силу при следующем запуске.",
+    "the account changed while the policy was being written, so nothing was written to it":
+      "учётная запись изменилась, пока писалась политика, поэтому в неё ничего не записано",
+    "the server would not act as this account":
+      "сервер не стал бы действовать как эта учётная запись",
+    "the account has no Files account to hold the policy":
+      "у учётной записи нет учётной записи Файлов для хранения политики",
+    "the write was refused": "в записи было отказано",
+    "the directory would not list it": "каталог не перечислил его",
+    "the server did not say why": "сервер не назвал причину",
+    "The policy was not published everywhere.": "Политика опубликована не везде.",
+    "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
+      "Каталог не удалось перечислить, поэтому публиковать было некому, кроме собственной учётной записи публикующего.",
+    "That listing was not the whole directory, so any account it did not list was not reached.":
+      "Тот список не был всем каталогом, поэтому каждая не перечисленная в нём учётная запись не была достигнута.",
+    "This publish could not be recorded in your account, so reopening this page will not show it.":
+      "Эту публикацию не удалось записать в вашу учётную запись, поэтому повторное открытие этой страницы её не покажет.",
+    "Replace the document with the example? Unsaved edits will be lost.":
+      "Заменить документ примером? Несохранённые изменения будут потеряны.",
+    "Installation-wide policy": "Политика для всей установки",
+    "The settings this installation decides for every account. Edit the JSON document and publish: the server validates it, applies it at once, and signs the other clients out so their next sign-in picks it up.":
+      "Настройки, которые эта установка определяет для каждой учётной записи. Отредактируйте документ JSON и опубликуйте: сервер проверит его, применит сразу и разлогинит остальные клиенты, чтобы при следующем входе они его подхватили.",
+    "The three sections": "Три раздела",
+    "seed accounts that have never had settings of their own; readers can change them afterwards.":
+      "задают начальные значения учётным записям, у которых никогда не было собственных настроек; читатели могут потом их изменить.",
+    "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
+      "применяются при каждой загрузке и не могут быть изменены в «Настройках» — элементы управления остаются видимыми и становятся неактивными.",
+    "applied once each, to everyone already signed up; each needs a unique version, and readers may turn it back off afterwards.":
+      "применяются по одному разу ко всем, кто уже зарегистрирован; каждому нужна уникальная версия, и читатели могут потом снова его отключить.",
+    "Policy document": "Документ политики",
+    "Publish policy": "Опубликовать политику",
+    "Insert example": "Вставить пример",
+    "That was publish {id}, started {when} by {who}.":
+      "Это была публикация {id}, начатая {when} пользователем {who}.",
+    "Type the account address first.": "Сначала введите адрес учётной записи.",
+    "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.":
+      "Требовать от учётной записи смены пароля. Требование хранится в собственной скрытой папке учётной записи и обеспечивается сервером; администраторы не могут принуждать друг друга.",
+    "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.":
+      "Этот сеанс не может действовать на учётные записи: либо он использует пароль приложения (который Stalwart отклоняет для имперсонации), либо ему не хватает разрешения «действовать от имени других пользователей» в Stalwart. Войдите со своим паролем или попросите администратора Stalwart дать это разрешение.",
+    "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.":
+      "Перечисление учётных записей требует прав администратора сервера Stalwart, которых у этого сеанса нет — быть администратором Gilbert недостаточно. Введите адрес ниже.",
+    "No accounts found.": "Учётные записи не найдены.",
+    "Password change forced": "Смена пароля принудительная",
+    "Not forced": "Не принудительная",
+    Force: "Принудить",
+    Release: "Снять",
+    "Or type an address": "Или введите адрес",
+    "Account address": "Адрес учётной записи",
+    "user@example.com": "user@example.com",
+    "Forcing…": "Принуждение…",
+    "Force password change": "Принудить к смене пароля",
+    "Releasing…": "Снятие…",
+    Behaviour: "Поведение",
+    Automations: "Автоматизации",
+    Memory: "Память",
+    Activity: "Активность",
+    "The agent in this group": "Агент в этой группе",
+    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
+      "Агент, каким его видит эта группа: как он себя ведёт, чему следует, что помнит и что сделал. Это один агент на всю установку — какие группы он держит, на какой модели работает и какие правила действуют всюду, описано в Master.",
+    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
+      "Агент не состоит ни в одной группе, которую видит этот сеанс, поэтому здесь нечего выбирать. Дайте ему группу в собственной администрации Stalwart: вкладки ниже отвечают про одну группу, а флот, который они читают, — собственный флот установки.",
+    "Working in this group as {address}.": "Работает в этой группе как {address}.",
+    "Group agent sections": "Разделы агента группы",
+    "The automations document cannot be read.":
+      "Документ автоматизаций не удаётся прочитать.",
+    "{enabled} of {total} automations enabled":
+      "{enabled} из {total} автоматизаций включено",
+    "{n} waiting for a person in this group": "{n} ждут человека в этой группе",
+    "Nothing waiting for a person here": "Здесь ничто не ждёт человека",
+    "{n} agents serving this group": "{n} агентов обслуживают эту группу",
+    "No agent is serving this group right now":
+      "Сейчас эту группу не обслуживает ни один агент",
+    "Added: {labels}": "Добавлено: {labels}",
+    "This group's label catalogue already has every reserved label.":
+      "В каталоге ярлыков этой группы уже есть все зарезервированные ярлыки.",
+    "This group's agent marks what it has done with a message using four reserved labels.":
+      "Агент этой группы отмечает четырьмя зарезервированными ярлыками то, что он сделал с письмом.",
+    "Checking…": "Проверка…",
+    "Make sure they exist": "Убедиться, что они есть",
+    "No group is picked, so there is no group's agents to read here.":
+      "Группа не выбрана, поэтому здесь нет агентов группы для чтения.",
+    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
+      "Все {count} агентов установки сообщают, и ни один из них не держит {group}: сейчас эту группу ничто не обслуживает.",
+    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
+      "Ни один агент не отчитался. Агент оставляет сигнал, пока работает, поэтому пустой список означает, что эту установку никто не обслуживает.",
+    "Agents serving this group": "Агенты, обслуживающие эту группу",
+    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
+      "Агент — это собственный процесс, а не копия веб-слоя: он заявляет обслуживаемую учётную запись через аренду и пишет сигнал, пока работает. Здесь ничто его не запускает и не останавливает — агенты объявляются там, где развёрнута установка.",
+    Agent: "Агент",
+    "Last heartbeat": "Последний сигнал",
+    Version: "Версия",
+    State: "Состояние",
+    "Not this server's to say": "Не этому серверу решать",
+    Alive: "Работает",
+    "Not reporting": "Не сообщает",
+    "Grants withdrawn": "Разрешения отозваны",
+    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
+      "Агент потерял разрешение на «{group}» {when}: с тех пор, как проход это заметил, эту группу ничто не обслуживало.",
+    "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
+      "Собственную учётную запись этого участника не удаётся прочитать — Stalwart отклонил имперсонацию — поэтому имя для его профиля неизвестно. Профиль всё же можно ему записать, введя имя.",
+    "Delete this identity so the member sends as the group":
+      "Удалить этот профиль, чтобы участник отправлял от группы",
+    "Open to read their own display name and what they send as.":
+      "Открыть, чтобы прочитать его отображаемое имя и то, от чего он отправляет.",
+    "Reading this member's own account…":
+      "Чтение собственной учётной записи этого участника…",
+    "Sends as {identity}": "Отправляет как {identity}",
+    "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.":
+      "Это собственный профиль группы, и именно от него отправляет агент — поэтому письма от этого участника неотличимы от писем группы.",
+    "No identity is assigned to this member yet, so they send as the group itself.":
+      "Этому участнику пока не назначен профиль, поэтому он отправляет от самой группы.",
+    "Assign identity": "Назначить профиль",
+    "Delete {identity}?": "Удалить {identity}?",
+    "{member} will then send as the group itself.":
+      "{member} после этого будет отправлять от самой группы.",
+    "This group holds no identity yet, so nothing can be sent from its mailbox.":
+      "У этой группы пока нет профиля, поэтому из её ящика ничего нельзя отправить.",
+    "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":
+      "Задайте, от чего отправляет почтовый ящик группы. Это записывается как Master, потому что Stalwart отказывается имперсонировать ящик группы — Master это субъект, существующий для действий от имени группы.",
+    "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
+      "У группы по одному профилю на участника: собственный адрес группы, несущий собственное отображаемое имя и подпись каждого участника. Профиль доходит до писем, созданных в Gilbert — участником в редакторе или агентом группы. Скрытая копия на одном из них копирует каждое письмо, отправленное этим профилем, а для почты группы это всё, что написано от её имени.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.":
+      "Перечисление ящиков групп требует прав администратора сервера Stalwart, которых у этого сеанса нет — быть администратором Gilbert недостаточно. Введите адрес группы ниже.",
+    "team@example.org": "team@example.org",
+    "Reload identities": "Перезагрузить профили",
+    "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
+      "Master не состоит в этой группе, поэтому ничто здесь не может записать её профиль. Дайте агенту разрешение на эту группу — то же разрешение, что позволяет ему вообще работать в группе — и посмотрите снова.",
+    "Identity active — mail sent as this group carries what is set here.":
+      "Профиль активен — письма, отправленные от этой группы, несут то, что задано здесь.",
+    Identities: "Профили",
+    "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
+      "Список участников этой группы не удалось прочитать, поэтому нельзя показать, какому участнику принадлежит каждый профиль. Профили перечислены сами по себе, и назначение нельзя сделать, пока реестр не прочитается снова — от этого зависит весь порядок того, кто от чего отправляет.",
+    "Who sends as what": "Кто от чего отправляет",
+    "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.":
+      "Каждому участнику назначается один из профилей этой группы: собственный адрес группы, несущий отображаемое имя и подпись того участника. Откройте участника, чтобы прочитать имя для записи в его профиль — одно чтение той учётной записи, и только когда вы её открываете.",
+    "This group's roster is empty: there is no member to assign an identity to.":
+      "Список участников этой группы пуст: нет участника, которому можно назначить профиль.",
+    "Not assigned to a member": "Не назначен участнику",
+    "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
+      "Профили, не назначенные ни одному участнику. Собственный профиль группы среди них, и именно от него отправляет участник без собственного профиля — тот же профиль, от которого отправляет агент, поэтому группа без назначений всё равно пишет от группы, а не под чьим-то именем.",
+    "Every identity of this group is assigned to a member.":
+      "Каждый профиль этой группы назначен участнику.",
+    "Messages already carrying this label lose it for everyone in the group.":
+      "Письма, уже несущие этот ярлык, теряют его для всех в группе.",
+    "Bridge status": "Состояние моста",
+    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
+      "Телефон недоступен на этом развёртывании: {reason}. Откройте «Состояние моста», чтобы узнать, что чинить.",
+    "Unknown — the status could not be read":
+      "Неизвестно — состояние не удалось прочитать",
+    "Not running": "Не запущен",
+    "no reason given": "причина не указана",
+    Reachable: "Достижим",
+    "Not reachable — open the bridge's ports inbound":
+      "Недостижим — откройте порты моста на вход",
+    "Not checked": "Не проверено",
+    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
+      "Мост телефона — второй процесс рядом с приложением. Вот как он выглядит с сервера и из этого браузера; неудачная проверка называет то, что нужно починить.",
+    "Bridge service": "Служба моста",
+    "Janus version": "Версия Janus",
+    "not installed": "не установлен",
+    "Media range (UDP, inbound)": "Диапазон медиа (UDP, вход)",
+    "STUN port (UDP, inbound)": "Порт STUN (UDP, вход)",
+    "Media path from this browser": "Медиапуть из этого браузера",
+    "Re-check": "Проверить снова",
+    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
+      "Мост работает рядом с приложением и стартует вместе с ним — entrypoint контейнера или gilbert-janus.service и gilbert-stun.service на хосте. GILBERT_BRIDGE=0 отключает его. Его API только loopback, а участок к SIP-провайдеру исходящий, поэтому диапазон медиа и порт STUN выше — это порты для открытия на вход.",
+    "The theme this build knows: system, light, dark, or Gilbert's own.":
+      "Тема, которую знает эта сборка: системная, светлая, тёмная или собственная тема Gilbert.",
+    "The colour palette (Gilbert's own or one of the shipped ones).":
+      "Цветовая палитра (собственная у Gilbert или одна из поставляемых).",
+    "Light, dark, or whatever the system says.":
+      "Светлая, тёмная или как скажет система.",
+    "The accent colour that sits on top of any palette.":
+      "Акцентный цвет, который лежит поверх любой палитры.",
+    "How much fits on screen: comfortable, cozy or compact.":
+      "Сколько помещается на экране: просторно, уютно или компактно.",
+    "Interface text size: small, medium or large (device-local).":
+      "Размер текста интерфейса: маленький, средний или большой (локально для устройства).",
+    "Where the reading pane sits: right, bottom, or off.":
+      "Где находится панель чтения: справа, снизу или выключена.",
+    "Message-list width with the pane on the right (px, device-local).":
+      "Ширина списка писем с панелью справа (px, локально для устройства).",
+    "Message-list height with the pane below (px, device-local).":
+      "Высота списка писем с панелью снизу (px, локально для устройства).",
+    "Whether the sidebar is collapsed (device-local).":
+      "Свёрнута ли боковая панель (локально для устройства).",
+    "Show hidden folders in Files (the gilbert app folder and more).":
+      "Показывать скрытые папки в Файлах (папка приложения gilbert и другое).",
+    "Let messages follow the app's theme instead of white.":
+      "Пусть письма следуют теме приложения, а не белому.",
+    "Thread messages into conversations.": "Объединять письма в цепочки.",
+    "Show a preview line under the subject in the list.":
+      "Показывать строку предпросмотра под темой в списке.",
+    "Show avatars in the message list.": "Показывать аватары в списке писем.",
+    "Messages per page in the list.": "Писем на страницу в списке.",
+    "Seconds before an opened message counts as read; -1 never auto.":
+      "Секунд до того, как открытое письмо считается прочитанным; -1 — никогда автоматически.",
+    "Where the list moves after acting: newer, older, or back to the list.":
+      "Куда переходит список после действия: к новым, к старым или назад к списку.",
+    "Archive the original when replying to it.":
+      "Архивировать исходное письмо при ответе на него.",
+    "Message-list order: newest, oldest, unread or starred first.":
+      "Порядок списка писем: сначала новые, старые, непрочитанные или отмеченные.",
+    "Secondary sort levels under the preset.":
+      "Дополнительные уровни сортировки под предустановкой.",
+    "Which folders the sort covers: inbox only, or all.":
+      "Какие папки охватывает сортировка: только «Входящие» или все.",
+    "What a left swipe does in the list.": "Что делает смахивание влево в списке.",
+    "What a right swipe does in the list.": "Что делает смахивание вправо в списке.",
+    "Compose in HTML or plain text.": "Создавать письма в HTML или обычном тексте.",
+    "Quote the original message when replying.": "Цитировать исходное письмо при ответе.",
+    "Put the signature above the quoted text.":
+      "Помещать подпись над цитируемым текстом.",
+    "Send and archive in one action.": "Отправлять и архивировать одним действием.",
+    "How long Send is undoable, in seconds.": "Сколько секунд можно отменить отправку.",
+    "Spellcheck the composer.": "Проверка орфографии в редакторе.",
+    "Compose templates the account saved.": "Шаблоны писем, сохранённые учётной записью.",
+    "Remote images: ask, always load, or only from contacts.":
+      "Внешние изображения: спрашивать, всегда загружать или только от контактов.",
+    "Senders whose remote images load without asking.":
+      "Отправители, чьи внешние изображения загружаются без вопроса.",
+    "S/MIME signers pinned per address (fingerprint → name).":
+      "Подписанты S/MIME, закреплённые по адресу (отпечаток → имя).",
+    "Ask senders for a read receipt.": "Просить у отправителей уведомление о прочтении.",
+    "When a receipt is asked for: ask each time, or never.":
+      "Когда запрашивать уведомление: каждый раз или никогда.",
+    "Ask before deleting.": "Спрашивать перед удалением.",
+    "Warn when a message mentions an attachment but has none.":
+      "Предупреждать, когда письмо упоминает вложение, но его нет.",
+    "Banner when a sender is outside the account's domains.":
+      "Баннер, когда отправитель вне доменов учётной записи.",
+    "Confirm when a recipient is outside the account's domains.":
+      "Подтверждение, когда получатель вне доменов учётной записи.",
+    "Warn before opening links to outside domains.":
+      "Предупреждать перед открытием ссылок на внешние домены.",
+    "Domains counted as internal, on top of the account's own.":
+      "Домены, считающиеся внутренними, вдобавок к собственным доменам учётной записи.",
+    "Outside domains whose links open without warning.":
+      "Внешние домены, чьи ссылки открываются без предупреждения.",
+    "People on a message before Reply-all asks; 0 is off.":
+      "Человек в письме до того, как «Ответить всем» спросит; 0 отключает.",
+    "Desktop notifications for new mail (device-local).":
+      "Уведомления на рабочем столе о новой почте (локально для устройства).",
+    "Play a sound for new mail (device-local).":
+      "Звук для новой почты (локально для устройства).",
+    "The calendar view a new open starts on.":
+      "Вид календаря, с которого начинается новое открытие.",
+    "Hour the working day starts (calendar grid).":
+      "Час начала рабочего дня (сетка календаря).",
+    "Hour the working day ends (calendar grid).":
+      "Час конца рабочего дня (сетка календаря).",
+    "Default event length, in minutes.": "Длительность события по умолчанию, в минутах.",
+    "Default reminder lead, in minutes.": "Напоминание по умолчанию, за сколько минут.",
+    "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
+      "Первый день недели: 0 воскресенье, 1 понедельник, 6 суббота.",
+    "The calendar time zone; null means the browser's.":
+      "Часовой пояс календаря; null означает пояс браузера.",
+    "Show a calendar of birthdays from the address book.":
+      "Показывать календарь дней рождения из адресной книги.",
+    "Calendars subscribed to by URL.": "Календари, подписанные по URL.",
+    "Outlook-style colour categories for calendar events.":
+      "Цветовые категории в стиле Outlook для событий календаря.",
+    "The mail-server locale; empty means follow the server.":
+      "Локаль почтового сервера; пусто означает следовать серверу.",
+    "The interface language; empty means English.":
+      "Язык интерфейса; пусто означает английский.",
+    "How dates are written; auto follows the locale.":
+      "Как записываются даты; auto следует локали.",
+    "12- or 24-hour clock; auto follows the locale.":
+      "12- или 24-часовой формат; auto следует локали.",
+    "The account's labels.": "Ярлыки учётной записи.",
+    "Show labels in the sidebar.": "Показывать ярлыки в боковой панели.",
+    "Folder colours by mailbox id (device-local).":
+      "Цвета папок по id ящика (локально для устройства).",
+    "Identities hidden from the compose picker.":
+      "Профили, скрытые из выбора в редакторе.",
+    "Default sending identity per account.":
+      "Профиль отправки по умолчанию для каждой учётной записи.",
+    "Address books whose shared writes the reader remembered.":
+      "Адресные книги, чьи общие записи читатель запомнил.",
+    "Appearance and layout": "Внешний вид и раскладка",
+    "Message list": "Список писем",
+    "Composing and sending": "Создание и отправка",
+    "Security and privacy": "Безопасность и приватность",
+    "Calendar and events": "Календарь и события",
+    "Language, dates and time": "Язык, даты и время",
+    "Labels and account data": "Ярлыки и данные учётной записи",
+    "Settings keys": "Ключи настроек",
+    "Each example is the fragment to put under defaults, under enforced, or inside a change's settings.":
+      "Каждый пример — фрагмент, который нужно поместить в defaults, в enforced или внутрь settings изменения.",
+    Key: "Ключ",
+    "What it does": "Что он делает",
+    Example: "Пример",
+    Unknown: "Неизвестно",
+    "New in this build — no description yet.": "Новое в этой сборке — описания пока нет.",
+    "SIP account": "Учётная запись SIP",
+    "User name": "Имя пользователя",
+    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
+      "Учётная запись, под которой регистрируется телефон, отправляется провайдеру как sip:<user name>@<server>. Профиль без сервера и имени пользователя не регистрируется.",
+    "System script saved": "Системный скрипт сохранён",
+    "Your system Sieve script has changes that have not been saved.":
+      "В вашем системном скрипте Sieve есть несохранённые изменения.",
+    "Could not load system Sieve scripts.":
+      "Не удалось загрузить системные скрипты Sieve.",
+    "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
+      "Доверенные скрипты Sieve для всего сервера, которые Stalwart выполняет для всей установки — не собственные фильтры человека. Одновременно может быть активен не один; каждый вызывается по имени из собственной конфигурации Stalwart.",
+    "No system scripts yet": "Системных скриптов пока нет",
+    "Re-read from the server. What you were editing is still open.":
+      "Прочитать с сервера заново. То, что вы редактировали, остаётся открытым.",
+    "Enforced — applied at once, with no sign-in needed.":
+      "Принудительно — применяется сразу, без повторного входа.",
+    "Released — the account can set its own identities again.":
+      "Снято — учётная запись снова может задавать собственные профили.",
+    "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
+      "Задайте профили человека — отображаемое имя, адрес, Reply-To, скрытую копию и подпись — или примите профиль учётной записи. Запись действует от имени этого человека из вашего сеанса, поэтому требует разрешения Stalwart Impersonate и сеанса с паролем; пароли приложений для имперсонации отклоняются.",
+    "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
+      "Профиль доходит до писем, созданных в Gilbert. Письма, написанные в другом клиенте, несут собственную подпись того клиента.",
+    "Choose an account…": "Выберите учётную запись…",
+    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.":
+      "Профиль активен — учётная запись отправляет с тем, что задано здесь. Принудительно ли это ещё, неизвестно, и элементы «Принудить» ниже объясняют почему.",
+    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.":
+      "Профиль активен — эта учётная запись отправляет с тем, что задано здесь, и ей не предлагается собственный раздел «Профили и подписи».",
+    "Identity active — the account sends with what is set here.":
+      "Профиль активен — учётная запись отправляет с тем, что задано здесь.",
+    "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
+      "Эту учётную запись не удаётся прочитать: Stalwart отклонил имперсонацию. Ничего не записывается, пока она не ответит.",
+    "This account holds no identity yet.": "У этой учётной записи пока нет профиля.",
+    "SIP set": "SIP задан",
+    SIP: "SIP",
+    "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
+      "Показан весь список учётной записи, и каждая запись редактируема: ничего не остаётся позади как профиль, который редактор ещё предлагает.",
+    Enforce: "Принудить",
+    "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
+      "Принудительной учётной записи вообще не предлагается раздел «Профили и подписи», как и собственной подписи. Скрытая копия, заданная на одном из её профилей, — та, которую человек не может снять, что стоит взвесить, прежде чем зафиксировать последний профиль: адрес копирует каждое письмо, отправленное этим профилем в Gilbert. Фиксация — это правило о поверхности этого продукта, а не граница: у Stalwart нет разрешения на отдельное поле профиля, поэтому клиент, говорящий напрямую по JMAP, всё ещё может его записать.",
+    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.":
+      "Принудительна ли эта учётная запись, неизвестно: Stalwart отклонил имперсонацию, читающую её фиксацию, а это файл в собственной папке учётной записи. «Принудить» и «Снять» остаются выключенными, пока она не ответит.",
+    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
+      "Принудительна ли эта учётная запись, неизвестно: её фиксацию не удалось прочитать. «Принудить» и «Снять» остаются выключенными, пока она не ответит.",
+    Enforced: "Принудительно",
+    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
+      "Автоматизация, которая приостанавливается, публикует то, что предлагает, в чате своей группы, и участник отвечает там словами. Поэтому одобрение происходит в чате, а не здесь — эта очередь и есть надзор по всем группам и способ увидеть, что ждало в любой из них.",
+    "Nothing is waiting for a person.": "Ничто не ждёт человека.",
+    "What it proposes": "Что она предлагает",
+    Confidence: "Уверенность",
+    Raised: "Поднята",
+    "Open {group} and its chat": "Открыть {group} и её чат",
+    "Open the group's mailbox": "Открыть ящик группы",
+    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
+      "Модель, на которой работает каждая автоматизация этой установки: один провайдер, одна модель, один ключ. Установка без неё не имеет автоматизаций — запуску нечем решать.",
+    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
+      "Для этой установки пока не зарегистрирован агент, поэтому модели не на чем работать.",
+    "Ceiling on one answer (tokens)": "Потолок на один ответ (токены)",
+    "What a single model answer may cost. 1 to {max}.":
+      "Сколько может стоить один ответ модели. От 1 до {max}.",
+    "Hops a chain of automations may run":
+      "Сколько переходов может сделать цепочка автоматизаций",
+    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
+      "Как далеко одна единица работы может пройти от автоматизации к автоматизации, прежде чем запуск за её пределами будет отклонён и группе сообщат.",
+    "Pages one run may hand the model": "Сколько страниц запуск может передать модели",
+    "A page with no text layer travels as an image, which costs input tokens per page.":
+      "Страница без текстового слоя передаётся как изображение, что стоит входных токенов на страницу.",
+    "Model saved": "Модель сохранена",
+    "Remove the model?": "Удалить модель?",
+    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
+      "Эта установка не выполняет ни одной автоматизации, пока не сохранена другая модель, и сохранённый ключ API удаляется вместе с ней.",
+    "Model removed": "Модель удалена",
+    "The installation's model": "Модель установки",
+    "A key is stored": "Ключ сохранён",
+    "No key stored": "Ключ не сохранён",
+    Provider: "Провайдер",
+    openai: "openai",
+    "A model name": "Название модели",
+    "Base URL": "Базовый URL",
+    "https://api.example.com/v1": "https://api.example.com/v1",
+    "API key": "Ключ API",
+    "Paste a new key here": "Вставьте новый ключ здесь",
+    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
+      "Только запись: сохранённый ключ больше никогда не показывается, а пустое это поле сохраняет ключ, который у вас уже есть.",
+    "An installation that sets none gets {n}.":
+      "Установка, которая не задаёт ни одного, получает {n}.",
+    "Remove the model": "Удалить модель",
+    "Reading…": "Чтение…",
+    "Ask the model to read it": "Попросить модель прочитать",
+    "What the model said about this draft:": "Что модель сказала об этом черновике:",
+    "Audit trail": "Аудит",
+    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
+      "Что сделал агент этой группы, начиная с новейшего — тот же документ, который её участники читают рядом с чатом. Хранится двенадцать месяцев, обрезается по месяцу.",
+    "No group is picked, so there is no audit trail to read here.":
+      "Группа не выбрана, поэтому здесь нет аудита для чтения.",
+    "Download every retained month of this group's audit trail as JSON":
+      "Скачать каждый сохранённый месяц аудита этой группы как JSON",
+    "Copying…": "Копирование…",
+    "Download every retained month as JSON": "Скачать каждый сохранённый месяц как JSON",
+    "This group's audit trail could not be read.":
+      "Аудит этой группы не удалось прочитать.",
+    "This group's agent has not done anything yet.":
+      "Агент этой группы пока ничего не сделал.",
+    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
+      "Показаны последние {shown} из {total}. Скачайте выше каждый сохранённый месяц для остального.",
+    "No group is picked, so there is no standing instruction to read here.":
+      "Группа не выбрана, поэтому здесь нет постоянной инструкции для чтения.",
+    "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.":
+      "Написана один раз на всю группу и передаётся модели при каждом вызове, после собственных правил установки и до собственной инструкции автоматизации. Она говорит, как агенту следует работать; что автоматизации разрешено — это её список возможностей, и ничто записанное здесь его не расширяет.",
+    "How this group's agent works": "Как работает агент этой группы",
+    "Write to the group in its own language, and always cite the invoice number.":
+      "Пишите группе на её языке и всегда указывайте номер счёта.",
+    "the group's standing instruction": "постоянная инструкция группы",
+    "Memory saved": "Память сохранена",
+    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
+      "Что агент группы держит при каждом вызове: факты об этой группе, которые её автоматизациям никогда не нужно повторять. Каждая строка читается как данные — она направляет и никогда не расширяет то, что автоматизации разрешено.",
+    "No group is picked, so there is no memory to read here.":
+      "Группа не выбрана, поэтому здесь нет памяти для чтения.",
+    "This group's memory has not been read yet.": "Память этой группы ещё не прочитана.",
+    "Read it": "Прочитать",
+    "This group's agent is holding nothing yet.":
+      "Агент этой группы пока ничего не держит.",
+    "Fact {n}": "Факт {n}",
+    "Remove this fact": "Удалить этот факт",
+    "Invoices from Ada are filed under the client's name, not the sender's.":
+      "Счета от Ada подшиваются под именем клиента, а не отправителя.",
+    "Add a fact": "Добавить факт",
+    "A fact is at most {n} characters, and a notebook holds {m}.":
+      "Факт — не более {n} символов, а блокнот вмещает {m}.",
+    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
+      "Для кого останавливаются запуски этой группы и могут ли они выходить за её пределы без человека. Одна политика на всю группу: её автоматизации — работа одной команды над одной перепиской.",
+    "No group is picked, so there is no policy to read here.":
+      "Группа не выбрана, поэтому здесь нет политики для чтения.",
+    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
+      "Эта группа не написала политику, поэтому запуск идёт, когда модель уверена, и останавливается для человека, когда нет. Действие, выходящее из группы или необратимое, спрашивает всегда.",
+    "When a person has to agree": "Когда человек должен согласиться",
+    "Allow sending outside the group without a person — this raises the external-send consent floor.":
+      "Разрешить отправку за пределы группы без человека — это поднимает порог согласия для внешней отправки.",
+    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
+      "Выключено — действие, выходящее за пределы группы, всегда ждёт человека, что бы ни говорила политика. Действие, которое нельзя отменить, спрашивает, что бы ни говорила любая из настроек.",
+    "An empty text removes it. At most {max} characters.":
+      "Пустой текст удаляет его. Не более {max} символов.",
+    "At most {max} characters.": "Не более {max} символов.",
+    "This automation cannot run as it stands: {reason}":
+      "Эту автоматизацию нельзя запустить как есть: {reason}",
+    "Automation saved": "Автоматизация сохранена",
+    "Delete the {name}?": "Удалить {name}?",
+    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
+      "Документ автоматизации удаляется из собственных файлов группы. Уже выполняющаяся задача сохраняет версию, с которой начала.",
+    "Automation deleted": "Автоматизация удалена",
+    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
+      "Что агент делает в группе: когда реагирует и что ему поручено делать с тем, что он находит. Автоматизация хранится в собственной учётной записи группы, поэтому её может прочитать каждый участник.",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
+      "Одна автоматизация на триггер: агент выполняет каждую включённую автоматизацию на триггер против всего, что этот триггер производит, поэтому вторая на том же триггере ответит на одно событие дважды. Ветвление между одним случаем и другим — в инструкции.",
+    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
+      "Агент не в этой группе, поэтому здесь нечего писать: ни одна автоматизация не выполняется, и никто не может упомянуть его в чате группы. Дайте ему группу в собственной администрации Stalwart и возвращайтесь.",
+    "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
+      "Эта группа несёт более одной включённой автоматизации на триггер, чего эта сборка не принимает: {reason}",
+    "This group's automation document could not be read.":
+      "Документ автоматизаций этой группы не удалось прочитать.",
+    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
+      "Документ автоматизаций этой группы был написан в старом формате, поэтому заменён свежим, пустым. Напишите её автоматизации заново ниже.",
+    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
+      "Документ автоматизаций этой группы не удаётся прочитать, и его не удалось заменить автоматически. Перезагрузите, чтобы попробовать снова.",
+    "Cannot be saved yet: {reason}": "Пока нельзя сохранить: {reason}",
+    "No automation in this group yet.": "В этой группе пока нет автоматизаций.",
+    "Every trigger already has an automation in this group.":
+      "У каждого триггера в этой группе уже есть автоматизация.",
+    "New automation": "Новая автоматизация",
+    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
+      "У каждого триггера в этой группе уже есть автоматизация. Удалите или отключите одну, чтобы написать другой вид.",
+    "The {name} cannot be saved as it stands: {reason}":
+      "{name} нельзя сохранить как есть: {reason}",
+    "Run this automation now, on the newest message in the group's inbox":
+      "Запустить эту автоматизацию сейчас, на новейшем письме в папке «Входящие» группы",
+    "Asking…": "Запрос…",
+    "Run now": "Запустить сейчас",
+    "Delete automation": "Удалить автоматизацию",
+    "Next due: {when}": "Следующий запуск: {when}",
+    "Not yet scheduled — the agent holding this group arms it on its next pass.":
+      "Ещё не запланирована — агент, держащий эту группу, взведёт её при следующем проходе.",
+    "Not scheduled while disabled.": "Не запланирована, пока отключена.",
+    "Asked for: a run is open ({state}).": "Запрошена: запуск открыт ({state}).",
+    "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.":
+      "Запрошена. Агент, держащий эту группу, подхватит её при следующем проходе — по умолчанию через минуту — а в аудите группы читается, что он сделал.",
+    "the automation “{name}”": "автоматизация «{name}»",
+    "Enabled — the agent reacts to this automation":
+      "Включена — агент реагирует на эту автоматизацию",
+    Trigger: "Триггер",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
+      "Одна автоматизация на триггер: агент выполняет каждую включённую автоматизацию на триггер против всего, что этот триггер производит, поэтому две из них ответили бы на одно событие дважды.",
+    "How often": "Как часто",
+    "Every {minutes} minutes": "Каждые {minutes} минут",
+    Instruction: "Инструкция",
+    "Read the message and say what should happen to it. Useful context, in plain words.":
+      "Прочитайте письмо и скажите, что с ним должно произойти. Полезный контекст, простыми словами.",
+    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
+      "Этот текст — всё, что поручается запуску: каждый запуск передаёт его модели установки, а она отвечает действиями из разделов ниже.",
+    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
+      "Он читается как данные, а не исполняется: письмо, просящее модель что-то сделать, остаётся всего лишь письмом.",
+    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
+      "Пишите его для случаев по мере поступления: ветвление между одним видом почты и другим — здесь, а не во второй автоматизации.",
+    "What it may do": "Что она может делать",
+    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
+      "Список разрешённого: единственные действия, которые может выполнять эта автоматизация. Модели предлагаются только они, и ответ за их пределами отклоняется.",
+    "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.":
+      "Каталог возможностей не прочитан, поэтому здесь нечего предоставлять: сервер, который не может им ответить, — тот, против которого эта сборка писать не может. Сохранение остаётся отклонённым, пока он не ответит.",
+    external: "внешнее",
+    irreversible: "необратимое",
+    "That is not valid JSON — fix the document and publish again.":
+      "Это не корректный JSON — исправьте документ и опубликуйте снова.",
+    "(untitled)": "(без названия)",
+    "Calendar reminder": "Напоминание календаря",
+    "Reminder: {title}": "Напоминание: {title}",
+    "Message not sent — {what}": "Письмо не отправлено — {what}",
+    "Not signed in": "Вход не выполнен",
+    "The mailbox changed before this message was sent":
+      "Ящик изменился до того, как это письмо было отправлено",
+    "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
+      "Перемещение контакта между вашими адресными книгами и книгой группы — дело администратора установки, потому что карточка принадлежит учётной записи, в которую попадает. Изменять её и складывать новые контакты там, где они есть, по-прежнему можно.",
+    "A file called “{name}” is already here.": "Файл с именем «{name}» уже здесь.",
+    "Its folder could not be created.": "Его папку не удалось создать.",
+    "This conversation no longer exists.": "Этой цепочки больше не существует.",
+    "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
+      "Почту группы завершает администратор установки. Положить письмо в «Корзину» группы по-прежнему можно, как и вынуть его обратно.",
+    "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
+      "Только администратор установки может очистить «Корзину» или «Спам» группы. Класть туда почту по-прежнему можно, как и вынимать её обратно.",
+    "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
+      "Папку с почтой нельзя удалить в группе, потому что почта уйдёт вместе с ней. Сначала выньте почту, или спросите администратора установки.",
+    "This reading was not counted toward this month's authoring.":
+      "Это чтение не засчитано в написание за этот месяц.",
+    "no-bytes": "no-bytes",
+    "no-right": "no-right",
+    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
+      "Доступ к {need} группы происходит как у агента установки, а этот агент не участник этой группы: документы лежат в собственной учётной записи группы, и добраться до них может только участник — поэтому добавьте агента в группу в каталоге почтового сервера.",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert не смог спросить почтовый сервер о {need} этой группы, поэтому не может сказать, добирается ли до неё тот агент: ничего не изменено и ничего не прочитано. Попробуйте снова, и если он продолжит так отвечать, смотреть нужно на почтовый сервер.",
+    "Your settings could not be saved: {error}":
+      "Ваши настройки не удалось сохранить: {error}",
+    "List-Id": "List-Id",
+    "X-Spam-Status": "X-Spam-Status",
+    "Delete all spam": "Удалить весь спам",
+    "Empty {name}": "Очистить {name}",
+    "Delete all spam in “{name}”?": "Удалить весь спам в «{name}»?",
+    "Empty folder": "Очистить папку",
+    "The phone bridge did not answer.": "Мост телефона не ответил.",
+    "The phone bridge is gone.": "Мост телефона исчез.",
+    "The phone bridge accepted no session.": "Мост телефона не принял ни одного сеанса.",
+    "The phone bridge attached no plugin.":
+      "Мост телефона не подключил ни одного плагина.",
+    "The phone bridge refused the request.": "Мост телефона отклонил запрос.",
+    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
+      "Ваш браузер блокирует микрофон для этого сайта, поэтому звонок не может передать ваш голос. Разрешите его для этого сайта и попробуйте снова.",
+    "No microphone is available on this device, so a call cannot carry your voice.":
+      "На этом устройстве нет доступного микрофона, поэтому звонок не может передать ваш голос.",
+    "This browser cannot reach a microphone, so a call cannot carry your voice.":
+      "Этот браузер не может добраться до микрофона, поэтому звонок не может передать ваш голос.",
+    "Calling…": "Звонок…",
+    "Ringing…": "Гудки…",
+    Connected: "Соединено",
+    "The line is busy": "Линия занята",
+    "no-route": "no-route",
+    "No route to this number": "Нет маршрута к этому номеру",
+    "This number is not available": "Этот номер недоступен",
+    "The call was declined": "Звонок отклонён",
+    "The call could not be completed": "Звонок не удалось завершить",
+    "The phone is not connected.": "Телефон не подключён.",
+    "The line is busy.": "Линия занята.",
+    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
+      "Браузер не может передать медиа телефона в Gilbert: его медиапорты недостижимы. Проблема между этим браузером и Gilbert, а не с SIP-провайдером.",
+    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
+      "Линия не зарегистрировалась на SIP-сервере. Проблема между Gilbert и SIP-провайдером, а не между этим браузером и Gilbert.",
+    "the server closed the live-updates stream": "сервер закрыл поток живых обновлений",
+    "the server could not be reached": "не удалось достичь сервера",
+    "Timed out": "Время истекло",
+    "Group identities": "Профили группы",
+    "User identities": "Профили пользователей",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1913,5 +2862,117 @@ export const catalog: Catalog = {
       many: "{n} сообщений удалено навсегда",
       other: "{n} сообщения удалено навсегда",
     },
+    "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.":
+      {
+        one: "{n} профиль скрыт из выбора в редакторе. Скрыть все не оставило бы ничего для выбора, поэтому в этом случае предлагаются снова все.",
+        few: "{n} профиля скрыты из выбора в редакторе. Скрыть все не оставило бы ничего для выбора, поэтому в этом случае предлагаются снова все.",
+        many: "{n} профилей скрыты из выбора в редакторе. Скрыть все не оставило бы ничего для выбора, поэтому в этом случае предлагаются снова все.",
+        other: "{n} профиля скрыты из выбора в редакторе.",
+      },
+    "Password changed. {n} other sessions signed out.": {
+      one: "Пароль изменён. Ещё {n} сеанс завершён.",
+      few: "Пароль изменён. Ещё {n} сеанса завершены.",
+      many: "Пароль изменён. Ещё {n} сеансов завершено.",
+      other: "Пароль изменён. Ещё {n} сеанса завершены.",
+    },
+    "{n} attendees": {
+      one: "{n} участник",
+      few: "{n} участника",
+      many: "{n} участников",
+      other: "{n} участника",
+    },
+    "{n} attachments could not be saved to Files.": {
+      one: "{n} вложение не удалось сохранить в Файлы.",
+      few: "{n} вложения не удалось сохранить в Файлы.",
+      many: "{n} вложений не удалось сохранить в Файлы.",
+      other: "{n} вложения не удалось сохранить в Файлы.",
+    },
+    "{n} files are already in this folder. Nothing was replaced.": {
+      one: "{n} файл уже в этой папке. Ничего не заменено.",
+      few: "{n} файла уже в этой папке. Ничего не заменено.",
+      many: "{n} файлов уже в этой папке. Ничего не заменено.",
+      other: "{n} файла уже в этой папке. Ничего не заменено.",
+    },
+    "Saved {n} files to {where}.": {
+      one: "{n} файл сохранён в {where}.",
+      few: "{n} файла сохранено в {where}.",
+      many: "{n} файлов сохранено в {where}.",
+      other: "{n} файла сохранено в {where}.",
+    },
+    "Save {n} attachments to Files.": {
+      one: "Сохранить {n} вложение в Файлы.",
+      few: "Сохранить {n} вложения в Файлы.",
+      many: "Сохранить {n} вложений в Файлы.",
+      other: "Сохранить {n} вложения в Файлы.",
+    },
+    "Download {n} files": {
+      one: "Скачать {n} файл",
+      few: "Скачать {n} файла",
+      many: "Скачать {n} файлов",
+      other: "Скачать {n} файла",
+    },
+    "{done} of {n} files": {
+      one: "{done} из {n} файла",
+      few: "{done} из {n} файлов",
+      many: "{done} из {n} файлов",
+      other: "{done} из {n} файла",
+    },
+    "{n} members of {group} have no address and were not added.": {
+      one: "{n} участник {group} без адреса и не добавлен.",
+      few: "{n} участника {group} без адреса и не добавлены.",
+      many: "{n} участников {group} без адреса и не добавлены.",
+      other: "{n} участника {group} без адреса и не добавлены.",
+    },
+    "group · {n} members": {
+      one: "группа · {n} участник",
+      few: "группа · {n} участника",
+      many: "группа · {n} участников",
+      other: "группа · {n} участника",
+    },
+    "{n} matches": {
+      one: "{n} совпадение",
+      few: "{n} совпадения",
+      many: "{n} совпадений",
+      other: "{n} совпадения",
+    },
+    "{n} participants": {
+      one: "{n} участник",
+      few: "{n} участника",
+      many: "{n} участников",
+      other: "{n} участника",
+    },
+    "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
+      {
+        one: "Опубликовано. Каталог перечислил {n} учётную запись, и теперь все они несут эту политику; остальные вошедшие клиенты войдут снова.",
+        few: "Опубликовано. Каталог перечислил {n} учётные записи, и теперь все они несут эту политику; остальные вошедшие клиенты войдут снова.",
+        many: "Опубликовано. Каталог перечислил {n} учётных записей, и теперь все они несут эту политику; остальные вошедшие клиенты войдут снова.",
+        other:
+          "Опубликовано. Каталог перечислил {n} учётные записи, и теперь все они несут эту политику; остальные вошедшие клиенты войдут снова.",
+      },
+    "The directory listed {n} accounts.": {
+      one: "Каталог перечислил {n} учётную запись.",
+      few: "Каталог перечислил {n} учётные записи.",
+      many: "Каталог перечислил {n} учётных записей.",
+      other: "Каталог перечислил {n} учётные записи.",
+    },
+    "{n} accounts were not written to:": {
+      one: "Не записано в {n} учётную запись:",
+      few: "Не записано в {n} учётные записи:",
+      many: "Не записано в {n} учётных записей:",
+      other: "Не записано в {n} учётные записи:",
+    },
+    "{n} automations": {
+      one: "{n} автоматизация",
+      few: "{n} автоматизации",
+      many: "{n} автоматизаций",
+      other: "{n} автоматизации",
+    },
+    "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
+      {
+        one: "{n} письмо будет удалено навсегда. Оно не попадает сначала в «Корзину», поэтому это нельзя отменить.",
+        few: "{n} письма будут удалены навсегда. Они не попадают сначала в «Корзину», поэтому это нельзя отменить.",
+        many: "{n} писем будут удалены навсегда. Они не попадают сначала в «Корзину», поэтому это нельзя отменить.",
+        other: "{n} письма будут удалены навсегда.",
+      },
   },
 };
