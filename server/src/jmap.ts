@@ -166,7 +166,7 @@ async function refusalDetail(res: Response): Promise<string> {
  * Leases are compared against a clock, and two processes comparing their own
  * clocks is how one of them decides a live lease has expired. Every JMAP
  * response carries the server's date; this keeps the most recent one, so the
- * answer to "has this lease lapsed" comes from the machine both workers already
+ * answer to "has this lease lapsed" comes from the machine both agents already
  * agree on rather than from whichever laptop has the wrong time. It is the
  * anchor `serverNow()` hands out, and it is only as fresh as the last call.
  */

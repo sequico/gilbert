@@ -192,7 +192,7 @@ async function ensureChildFolder(
    *
    * Creating a folder is a read-then-write that cannot be made conditional (the
    * state a create would carry is the state of the account, which any other
-   * write invalidates), so two workers can both find the folder missing and both
+   * write invalidates), so two agents can both find the folder missing and both
    * ask for it. Stalwart refuses the second with `alreadyExists` and names the
    * folder that is there in `existingId` — the one this call was trying to
    * reach. Taking it is the whole answer; the folder a caller asked for exists,

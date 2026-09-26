@@ -29,7 +29,7 @@ const {
   releaseClaim,
   releaseStreamClaim,
   saveClaimStates,
-  workerId,
+  agentId,
 } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 const { claimEpoch } = await import("./documents.js");
@@ -166,7 +166,7 @@ test("a claim taken after this process started stays with its holder", async () 
 
 test("a claim whose take time cannot be read is nobody's to take over", async () => {
   // An unreadable instant means the answer is unknown, and taking over on an
-  // unknown is how two workers end up on one unit. Read as held, which is the
+  // unknown is how two agents end up on one unit. Read as held, which is the
   // safe way to be wrong: the holder serves it and the next process that starts
   // reads it again.
   await freeUnit();
@@ -233,8 +233,8 @@ test("the stream claim is exclusive, in the agent's own account", async () => {
 });
 
 test("an agent id is stable for the process and names the agent", () => {
-  const id = workerId("gilbert@example.com");
-  assert.equal(id, workerId("gilbert@example.com"));
+  const id = agentId("gilbert@example.com");
+  assert.equal(id, agentId("gilbert@example.com"));
   assert.match(id, /^gilbert@example\.com#[0-9]+-/);
 });
 
@@ -292,7 +292,7 @@ test("two agents racing for one unit: exactly one wins", async () => {
   assert.equal(
     [one, two].filter(Boolean).length,
     1,
-    "two workers must never both believe they hold the same unit (ADR 0003)",
+    "two agents must never both believe they hold the same unit (ADR 0003)",
   );
   const held = await store.readClaim();
   assert.ok(held);

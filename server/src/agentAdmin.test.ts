@@ -330,7 +330,7 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // No group was walked, so there is no use to report: the reason below says
     // why, and a fleet that is not running spent nothing.
     meter: { total: EMPTY_METER, byAgent: [], unreadable: [] },
-    workers: [],
+    agents: [],
     // No worker has reported a grant lost, because no worker is serving this
     // installation (ADR 0003 resolution 21).
     withdrawals: [],
@@ -361,7 +361,7 @@ test("a worker's liveness is the process that runs it, not a stamp in a document
     username: mock.AGENT_ADDRESS,
   };
   const master = new AgentStore(agentCtx, filesAccountId(agentCtx));
-  await master.writeWorker({
+  await master.writeAgent({
     v: 1,
     id: "w-elsewhere",
     address: mock.AGENT_ADDRESS,
@@ -372,7 +372,7 @@ test("a worker's liveness is the process that runs it, not a stamp in a document
   });
   try {
     const body = (await call("/api/admin/agents")).body as {
-      workers: Array<{
+      agents: Array<{
         id: string;
         address: string;
         heartbeatAt: string;
@@ -380,7 +380,7 @@ test("a worker's liveness is the process that runs it, not a stamp in a document
         groups: string[];
       }>;
     };
-    const row = body.workers.find((w) => w.id === "w-elsewhere");
+    const row = body.agents.find((w) => w.id === "w-elsewhere");
     assert.ok(row, "the record the agent's account holds is read");
     assert.equal(row.address, mock.AGENT_ADDRESS);
     assert.equal(
@@ -395,7 +395,7 @@ test("a worker's liveness is the process that runs it, not a stamp in a document
     );
     assert.deepEqual(row.groups, [TEAM], "and which groups that record names");
   } finally {
-    await master.destroyWorker("w-elsewhere");
+    await master.destroyAgent("w-elsewhere");
   }
 });
 
@@ -418,12 +418,12 @@ test("an agent that cannot be reached is reported, never guessed at", async () =
     operational: boolean;
     address: string;
     groups: unknown[];
-    workers: unknown[];
+    agents: unknown[];
     reason?: { code?: string; detail?: string };
   };
   assert.equal(body.operational, false);
   assert.equal(body.address, mock.AGENT_ADDRESS);
-  assert.deepEqual(body.workers, []);
+  assert.deepEqual(body.agents, []);
   assert.deepEqual(
     body.groups,
     [],
@@ -1759,7 +1759,7 @@ test("a reading past the month's ceiling is refused before it is made", async ()
  * The other deployment: the server serves the administration and something else
  * runs the fleet.
  *
- * The registry of running workers is a fact about the process that holds it, so
+ * The registry of running agents is a fact about the process that holds it, so
  * a server that does not run the fleet has nothing to read it from — and
  * answering "not reporting" about a worker that is serving in another container
  * is the surface inventing an answer. It says the one thing it knows.
@@ -1775,7 +1775,7 @@ test("a server that does not run the fleet says so instead of reporting it gone"
   };
   const master = new AgentStore(fleet, filesAccountId(fleet));
   const was = config.agent.inprocess;
-  await master.writeWorker({
+  await master.writeAgent({
     v: 1,
     id: "w-elsewhere-inprocess-off",
     address: mock.AGENT_ADDRESS,
@@ -1787,14 +1787,14 @@ test("a server that does not run the fleet says so instead of reporting it gone"
   try {
     config.agent.inprocess = false;
     const body = (await call("/api/admin/agents")).body as {
-      workers: Array<{ id: string; alive: boolean | null }>;
+      agents: Array<{ id: string; alive: boolean | null }>;
     };
-    const row = body.workers.find((w) => w.id === "w-elsewhere-inprocess-off");
+    const row = body.agents.find((w) => w.id === "w-elsewhere-inprocess-off");
     assert.ok(row, "the record is still read: what it is doing is a document");
     assert.equal(row.alive, null, "and whether it is up is not this process's to say");
   } finally {
     config.agent.inprocess = was;
-    await master.destroyWorker("w-elsewhere-inprocess-off");
+    await master.destroyAgent("w-elsewhere-inprocess-off");
   }
 });
 

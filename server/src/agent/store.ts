@@ -52,13 +52,13 @@ import {
   type AgentNotebookDoc,
   type AgentNotebookFact,
   type AgentProseDoc,
+  type AgentRecord,
   type AgentRule,
   type AgentRulesDoc,
   type AgentScheduleDoc,
   type AgentScheduleEntry,
   type AgentStreamClaim,
   type AgentUsage,
-  type AgentWorkerRecord,
   agentDocName,
   auditDocName,
   isAgentAuditDoc,
@@ -70,10 +70,10 @@ import {
   isAgentJob,
   isAgentNotebookDoc,
   isAgentProseDoc,
+  isAgentRecord,
   isAgentRulesDoc,
   isAgentScheduleDoc,
   isAgentStreamClaim,
-  isAgentWorkerRecord,
   monthOf,
 } from "./documents.js";
 
@@ -899,17 +899,17 @@ export class AgentStore {
     return 0;
   }
 
-  /* ---------------- workers (agent account) ---------------- */
+  /* ---------------- agents (agent account) ---------------- */
 
-  async listWorkers(): Promise<AgentWorkerRecord[]> {
-    const found = await this.listDocs<AgentWorkerRecord>(
+  async listAgents(): Promise<AgentRecord[]> {
+    const found = await this.listDocs<AgentRecord>(
       this.path(AGENT_WORKERS_DIR),
-      isAgentWorkerRecord,
+      isAgentRecord,
     );
     return found.map((w) => w.doc);
   }
 
-  async writeWorker(record: AgentWorkerRecord): Promise<void> {
+  async writeAgent(record: AgentRecord): Promise<void> {
     await writeAppFileAt(
       this.ctx,
       this.accountId,
@@ -918,7 +918,7 @@ export class AgentStore {
     );
   }
 
-  async destroyWorker(id: string): Promise<void> {
+  async destroyAgent(id: string): Promise<void> {
     await this.destroyDoc(this.path(AGENT_WORKERS_DIR, agentDocName(id)));
   }
 }

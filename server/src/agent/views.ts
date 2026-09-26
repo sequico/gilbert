@@ -55,7 +55,7 @@ export interface AgentStatusMeter {
 }
 
 /** One running worker, with freshness judged at read time rather than stored. */
-export interface AgentStatusWorker {
+export interface AgentStatusRow {
   id: string;
   address: string;
   heartbeatAt: string;
@@ -64,7 +64,7 @@ export interface AgentStatusWorker {
    * Whether this worker is up — as far as the server answering can tell.
    *
    * `true` and `false` are the answer of a deployment whose server runs the
-   * fleet itself (ADR 0003, `agent.inProcess`): the registry of running workers
+   * fleet itself (ADR 0003, `agent.inProcess`): the registry of running agents
    * is that process's own fact, and a record it is not running is a worker that
    * stopped, died, or was never its own.
    *
@@ -78,7 +78,7 @@ export interface AgentStatusWorker {
    * The groups this worker is holding, as its last heartbeat named them.
    *
    * A claim is per account, so this is what one worker is serving and the
-   * surface reads one group's workers off it. Empty is a worker that is up and
+   * surface reads one group's agents off it. Empty is a worker that is up and
    * holding nothing — a state a person is meant to see, not a missing answer.
    */
   groups: string[];
@@ -146,8 +146,8 @@ export interface AgentStatus {
   roster: RosterReadability;
   /** The installation's use, and the split per agent (ADR 0003). */
   meter: AgentStatusMeter;
-  workers: AgentStatusWorker[];
-  /** Grants the fleet has lost, newest first, as its workers reported them. */
+  agents: AgentStatusRow[];
+  /** Grants the fleet has lost, newest first, as its agents reported them. */
   withdrawals: AgentWithdrawal[];
   /**
    * Why the fleet is not operational, when it is not: the deployment names no

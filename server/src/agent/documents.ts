@@ -21,7 +21,7 @@
  *   agent/audit/<YYYY-MM>.json  one audit document per month, in the group's account
  *   agent/config.json           provider keys + registration, in the agent's account
  *   agent/stream.json           the stream claim, in the agent's account
- *   agent/workers/<id>.json     worker heartbeats, in the agent's account
+ *   agent/workers/<id>.json     agent heartbeats, in the agent's account
  */
 
 import { type Schema, Validator } from "@cfworker/json-schema";
@@ -1588,7 +1588,7 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
  * `lease.ts` against the instant the taking process started. A heartbeat that
  * cannot be read is **not** a free lease either: a document whose time is
  * unreadable means the truthful answer is unknown, and taking over on an
- * unknown is how two workers end up on the same job. It throws instead, which
+ * unknown is how two agents end up on the same job. It throws instead, which
  * the worker reports as a failure of its pass — loudly, once, rather than
  * silently running the account's work twice.
  */
@@ -2232,7 +2232,7 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
  * can answer: that is a fact of the process that hosts it, kept in memory, and
  * this record is what it is doing and what it last changed.
  */
-export interface AgentWorkerRecord {
+export interface AgentRecord {
   v: 1;
   id: string;
   address: string;
@@ -2245,7 +2245,7 @@ export interface AgentWorkerRecord {
    * The groups this worker is holding as this record was written, by name —
    * the accounts it has claimed. A worker claims per account, so this is what
    * the fleet is spread over, and it is how the admin surface can say which
-   * workers are serving one group.
+   * agents are serving one group.
    *
    * Empty when the worker is up and holding nothing, which is a state the
    * surface shows rather than hides. Absent on records written before the field
@@ -2254,7 +2254,7 @@ export interface AgentWorkerRecord {
   serves?: string[];
 }
 
-export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
+export function isAgentRecord(x: unknown): x is AgentRecord {
   if (!x || typeof x !== "object") return false;
   const w = x as Record<string, unknown>;
   return (

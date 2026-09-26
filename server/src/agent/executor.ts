@@ -235,7 +235,7 @@ export interface ExecutorDeps {
   /** The agent's address, which chat posts are written as. */
   address: string;
   /** The worker holding this executor, recorded on every lease it takes. */
-  workerId: string;
+  agentId: string;
   now: () => Date;
   log: (line: string) => void;
 }
@@ -863,7 +863,7 @@ export class Executor {
     const lease = current.lease;
     if (
       lease &&
-      lease.owner !== this.deps.workerId &&
+      lease.owner !== this.deps.agentId &&
       !leaseExpired(lease.heartbeatAt, now.getTime(), config.agent.leaseMs)
     )
       return;
@@ -881,7 +881,7 @@ export class Executor {
       ...current,
       state: "running",
       attempts: current.attempts + 1,
-      lease: { owner: this.deps.workerId, heartbeatAt: now.toISOString() },
+      lease: { owner: this.deps.agentId, heartbeatAt: now.toISOString() },
     };
     delete running.error;
     try {
@@ -911,7 +911,7 @@ export class Executor {
       // whose unit was taken over while it was deciding has had its lease
       // lapse, and what it is about to do — send, post, file — would be done a
       // second time by the worker that replaced it.
-      if (!(await claimStillMine(store, this.deps.workerId, claimEpoch(claim)))) {
+      if (!(await claimStillMine(store, this.deps.agentId, claimEpoch(claim)))) {
         this.deps.log(
           `${automationLabel(rule)}: ${job.id} was taken over while it was deciding, so nothing is run`,
         );
@@ -970,9 +970,9 @@ export class Executor {
     // combined looks abandoned to a peer that takes this account over mid-run,
     // which would then start the same job a second time believing the first
     // worker is gone rather than merely slow.
-    if (next.state === "running" && next.lease?.owner === this.deps.workerId) {
+    if (next.state === "running" && next.lease?.owner === this.deps.agentId) {
       next.lease = {
-        owner: this.deps.workerId,
+        owner: this.deps.agentId,
         heartbeatAt: this.deps.now().toISOString(),
       };
     }
@@ -1442,7 +1442,7 @@ export class Executor {
   ): (action: AgentAction) => Promise<void> {
     return async (action: AgentAction) => {
       if (!leavesTheProcess(action)) return;
-      const mine = await claimStillMine(store, this.deps.workerId, claimEpoch(claim));
+      const mine = await claimStillMine(store, this.deps.agentId, claimEpoch(claim));
       if (!mine)
         throw new RefusedError(
           "the unit was taken over while this run was working: nothing more is run",
@@ -2183,7 +2183,7 @@ export class Executor {
           state: "running",
           proposal: approvedPlan,
           lease: {
-            owner: this.deps.workerId,
+            owner: this.deps.agentId,
             heartbeatAt: this.deps.now().toISOString(),
           },
         }));
@@ -2680,7 +2680,7 @@ export class Executor {
   ): Promise<Set<string>> {
     const mine = new Set<string>();
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.workerId) return mine;
+    if (claim?.worker !== this.deps.agentId) return mine;
     for (const rule of rules) mine.add(rule.id);
     return mine;
   }
@@ -2762,7 +2762,7 @@ export class Executor {
       // that chose the entry and this one, and a unit that is not this worker's
       // is not this worker's to start.
       const claim = (await store.readClaim())?.doc;
-      if (claim?.worker !== this.deps.workerId) {
+      if (claim?.worker !== this.deps.agentId) {
         this.deps.log(
           `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is not started`,
         );
@@ -2813,7 +2813,7 @@ export class Executor {
     // not start a run nobody can fence, and it does not consume the entry
     // either — its holder fires it.
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.workerId) {
+    if (claim?.worker !== this.deps.agentId) {
       this.deps.log(
         `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is left to its holder`,
       );
@@ -2929,7 +2929,7 @@ export class Executor {
      * account has no business doing that.
      */
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.workerId) {
+    if (claim?.worker !== this.deps.agentId) {
       this.deps.log(
         `${accountId}: the account's automation is held by another worker, so the pending sweep leaves it`,
       );

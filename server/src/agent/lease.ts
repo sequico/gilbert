@@ -5,7 +5,7 @@
  * holds the agent's event stream. There is no lock to take and no coordinator
  * to ask: a claim is a document, its owner and the instant it was taken are the
  * truth, and a claim taken before this process started is free to take over.
- * Every write passes the state it read as `ifInState`, so the two workers that
+ * Every write passes the state it read as `ifInState`, so the two agents that
  * race for the same claim cannot both believe they won — the loser's write is
  * refused and retried against what the winner left behind.
  *
@@ -92,7 +92,7 @@ function verdict(
   if (!held) return "free";
   if (held.worker === worker) return "mine";
   // An unreadable take time is unknown, and taking over on an unknown is how
-  // two workers end up on one unit: it is read as held, which is safe (the
+  // two agents end up on one unit: it is read as held, which is safe (the
   // holder serves it) rather than greedy.
   const taken = Date.parse(held.takenAt);
   if (!Number.isFinite(taken)) return "held";
@@ -114,7 +114,7 @@ function verdict(
  *
  * The compare-and-set is unchanged and it is what makes this safe: a stale
  * holder whose fence has moved on has its next write refused, so a rolling
- * restart is a brief overlap in reads and never two workers writing one unit.
+ * restart is a brief overlap in reads and never two agents writing one unit.
  * The epoch is what a run is fenced on (`claimStillMine`), so a holder that
  * lost the unit mid-run stops before it writes what its successor will write
  * again.
@@ -141,7 +141,7 @@ export async function claimAccount(
     // The token is read **before** the document, and that order is the whole
     // guard: read the other way round, a claim written by another worker in
     // between is invisible to the comparison — the token already reflects it,
-    // the write is an ordinary update, and both workers walk away believing
+    // the write is an ordinary update, and both agents walk away believing
     // they hold the unit. Read this way, any write in that window advances the
     // state past the token, so the conditional write is refused and the loser
     // comes back next pass.
@@ -352,6 +352,6 @@ const PROCESS_STARTED = Date.now().toString(36);
  * start — it takes that process's claims over at once rather than waiting
  * anything out.
  */
-export function workerId(address: string): string {
+export function agentId(address: string): string {
   return `${address}#${process.pid}-${PROCESS_STARTED}`;
 }

@@ -31,7 +31,7 @@ import {
 // Liveness is the process's own fact, and the fleet this server hosts is the one
 // that answers for it (ADR 0003: the server starts the fleet and its shutdown
 // stops it).
-import { liveWorkers } from "./agent/agent.js";
+import { liveAgents } from "./agent/agent.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_CHAIN_HOPS_CEILING,
@@ -48,11 +48,11 @@ import {
   type AgentJob,
   type AgentNotebookFact,
   type AgentProvider,
+  type AgentRecord,
   type AgentReviewMode,
   type AgentRule,
   type AgentScheduleEntry,
   type AgentTriggerOn,
-  type AgentWorkerRecord,
   automationLabel,
   EMPTY_METER,
   isAgentBound,
@@ -97,7 +97,7 @@ import type {
   AgentStatusGroup,
   AgentStatusMeter,
   AgentStatusReason,
-  AgentStatusWorker,
+  AgentStatusRow,
   AgentWithdrawal,
   GroupAccessDenied,
   GroupMembersView,
@@ -442,7 +442,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   /*
    * Both halves or nothing to run. With no address the deployment names no
    * agent; with an address and no password behind it, nobody can sign in as
-   * one — the fleet has no key, and the workers that would run it have none
+   * one — the fleet has no key, and the agents that would run it have none
    * either. Either way it is a state an operator fixes in the deployment, and
    * the surface says so rather than offering a fleet that can never wake.
    */
@@ -452,7 +452,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address,
       groups: [],
       meter: noMeter(),
-      workers: [],
+      agents: [],
       withdrawals: [],
       roster: "unknown",
       reason: { code: "agent_not_configured" },
@@ -465,7 +465,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address,
       groups: [],
       meter: noMeter(),
-      workers: [],
+      agents: [],
       withdrawals: [],
       roster: "unknown",
       reason: { code: agent.code, detail: agent.detail },
@@ -481,10 +481,10 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       reach.unreadable.join(", "),
     );
   const meter = await fleetMeter(agent.ctx, reach.groups);
-  let workers: AgentStatusWorker[] = [];
+  let agents: AgentStatusRow[] = [];
   let reason: AgentStatusReason | undefined;
   try {
-    workers = await readWorkers(agent.ctx);
+    agents = await readAgents(agent.ctx);
   } catch (err) {
     // The agent's session is open; only its own records failed. That is a
     // partial answer, and it says so rather than reporting a still fleet.
@@ -499,7 +499,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     address,
     groups,
     meter,
-    workers,
+    agents,
     withdrawals: await readWithdrawals(agent.ctx),
     // Asked here rather than beside the roster's own read: this is the one
     // place an operator looks when the picker is not offering the group's
@@ -569,21 +569,21 @@ async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
 }
 
 /**
- * The agent's workers, with liveness read from the process that runs them.
+ * The agent's agents, with liveness read from the process that runs them.
  *
  * A worker's record is written on change — when it starts, when the set of
  * accounts it serves changes, when it stops — so the record says what a worker
  * is **doing** and never whether it is up; a durable stamp cannot answer a
  * question about a process anyway. The answer is in memory, where the process
  * is: this server hosts the fleet (ADR 0003), so the worker it is running right
- * now is the one `liveWorkers()` names, and a record nobody here is running is
+ * now is the one `liveAgents()` names, and a record nobody here is running is
  * a worker that stopped, died, or was never this server's.
  */
-async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
+async function readAgents(ctx: Ctx): Promise<AgentStatusRow[]> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return [];
-  const records: AgentWorkerRecord[] = await new AgentStore(ctx, accountId).listWorkers();
-  const running = new Map(liveWorkers().map((worker) => [worker.id, worker]));
+  const records: AgentRecord[] = await new AgentStore(ctx, accountId).listAgents();
+  const running = new Map(liveAgents().map((worker) => [worker.id, worker]));
   return records.map((w) => {
     const live = running.get(w.id);
     return {

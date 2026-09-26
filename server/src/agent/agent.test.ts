@@ -22,8 +22,8 @@ const {
   basicAuth,
   candidateAccounts,
   groupNameOf,
-  liveWorkers,
-  startWorker,
+  liveAgents,
+  startAgent,
   withdrawnAccounts,
 } = await import("./agent.js");
 const { AgentStore } = await import("./store.js");
@@ -83,10 +83,10 @@ test("the authorization header an agent derives its session with", () => {
 
 test("one pass claims its units, records what it serves, and gives everything back on stop", async () => {
   const lines: string[] = [];
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-worker-test",
+    agentId: "w-worker-test",
     log: (line) => lines.push(line),
     timers: false,
   });
@@ -102,11 +102,11 @@ test("one pass claims its units, records what it serves, and gives everything ba
     );
   }
 
-  const record = (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test");
+  const record = (await agentStore.listAgents()).find((w) => w.id === "w-worker-test");
   assert.ok(record, "the worker says what it is doing, in the agent's own account");
   assert.equal(record.address, AGENT);
   // The groups it holds, by the names the session gave those accounts: the
-  // admin surface reads one group's workers off this and has nothing else to
+  // admin surface reads one group's agents off this and has nothing else to
   // read them from — the claim lives in the group's own account, not here.
   assert.deepEqual(
     [...(record.serves ?? [])].sort(),
@@ -129,7 +129,7 @@ test("one pass claims its units, records what it serves, and gives everything ba
   const again = await new AgentStore(ctx, GROUP).readClaim();
   assert.equal(again?.doc.worker, "w-worker-test");
   assert.equal(
-    (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test")?.updatedAt,
+    (await agentStore.listAgents()).find((w) => w.id === "w-worker-test")?.updatedAt,
     record.updatedAt,
     "a pass that changes nothing writes nothing",
   );
@@ -145,7 +145,7 @@ test("one pass claims its units, records what it serves, and gives everything ba
   }
   assert.equal(worker.served().length, 0);
   assert.equal(
-    (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test"),
+    (await agentStore.listAgents()).find((w) => w.id === "w-worker-test"),
     undefined,
     "a worker that stopped leaves no record behind to be read as a live one",
   );
@@ -160,15 +160,15 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
   // answer: a running worker is one this process is running (ADR 0003: the
   // server starts the fleet and its shutdown stops it). Nothing durable is
   // consulted, so a record on disk can never make a stopped worker look alive.
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-live",
+    agentId: "w-live",
     log: () => {},
     timers: false,
   });
   try {
-    const started = liveWorkers().find((w) => w.id === "w-live");
+    const started = liveAgents().find((w) => w.id === "w-live");
     assert.ok(started, "a worker that started is alive before it has claimed anything");
     assert.equal(started.address, AGENT);
     assert.deepEqual(
@@ -178,7 +178,7 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
     );
 
     const served = await worker.pass();
-    const live = liveWorkers().find((w) => w.id === "w-live");
+    const live = liveAgents().find((w) => w.id === "w-live");
     assert.ok(live);
     assert.deepEqual(
       [...live.groups].sort(),
@@ -193,7 +193,7 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
     await worker.stop();
   }
   assert.equal(
-    liveWorkers().find((w) => w.id === "w-live"),
+    liveAgents().find((w) => w.id === "w-live"),
     undefined,
     "and a worker that stopped is not alive, with nothing written down to say so",
   );
@@ -243,10 +243,10 @@ test("a process that starts later takes the claim over, and the older one gives 
   const later = (ms: number) => () => new Date(start.getTime() + ms);
   const lines: string[] = [];
 
-  const first = await startWorker({
+  const first = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-first",
+    agentId: "w-first",
     log: (line) => lines.push(line),
     timers: false,
     now: later(0),
@@ -267,10 +267,10 @@ test("a process that starts later takes the claim over, and the older one gives 
   // it, so catch-up continues where it stopped rather than from nothing.
   const states = { Email: "s-42" };
   await store.writeClaim({ ...(await store.readClaim())!.doc, states });
-  const second = await startWorker({
+  const second = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-second",
+    agentId: "w-second",
     log: () => {},
     timers: false,
     now: later(30_000),
@@ -313,10 +313,10 @@ test("a process that starts later takes the claim over, and the older one gives 
 
   // A third process, starting long after, takes it over in turn: what makes a
   // claim free is the process that reads it starting later, and nothing else.
-  const third = await startWorker({
+  const third = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-third",
+    agentId: "w-third",
     log: () => {},
     timers: false,
     now: later(10 * 60_000),
@@ -374,10 +374,10 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     username: "demo@example.com",
   };
   const start = new Date("2026-09-11T09:00:00Z");
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx: own,
     address: AGENT,
-    workerId: "w-withdrawal",
+    agentId: "w-withdrawal",
     log: () => {},
     timers: false,
     now: () => new Date(start.getTime()),

@@ -198,7 +198,7 @@ const executor = new Executor({
   ctx,
   client,
   address: AGENT,
-  workerId: WORKER,
+  agentId: WORKER,
   now: () => new Date(),
   log: (line) => logLines.push(line),
 });

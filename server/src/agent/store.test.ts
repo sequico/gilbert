@@ -228,7 +228,7 @@ test("a claim carries the states its agent has reconciled up to", async () => {
 });
 
 test("the worker record is a document like any other", async () => {
-  await store.writeWorker({
+  await store.writeAgent({
     v: 1,
     id: "w1",
     address: "gilbert@example.com",
@@ -236,11 +236,11 @@ test("the worker record is a document like any other", async () => {
     startedAt: "2026-09-10T08:00:00Z",
     updatedAt: "2026-09-10T08:00:00Z",
   });
-  const workers = await store.listWorkers();
-  assert.equal(workers.length, 1);
-  assert.equal(workers[0]?.address, "gilbert@example.com");
-  await store.destroyWorker("w1");
-  assert.deepEqual(await store.listWorkers(), []);
+  const agents = await store.listAgents();
+  assert.equal(agents.length, 1);
+  assert.equal(agents[0]?.address, "gilbert@example.com");
+  await store.destroyAgent("w1");
+  assert.deepEqual(await store.listAgents(), []);
 });
 
 test("a conditional write is refused when the document moved under it", async () => {

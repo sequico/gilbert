@@ -41,28 +41,26 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
   Worth doing when a measurement says the bottleneck is inside one group. Nothing in the product is slow because of this yet, and the failure it can cause (two effects on the same message) is the one the current design spends a whole document on preventing. What it buys is a bounded fan-out over units that hold their own claim — never a pool of child processes inside one process, which would contend for the same account claim and buy nothing (ADR 0003).
 
-- **The code says "worker" where the product says "agent".** The vocabulary is
-  one **master**, its **agents**, its **automations**, and "worker" for the
-  browser's service worker. The surface and the prose follow it, and the fleet's
-  own file does: its entrypoint is `server/src/agent/agent.ts` and its built path
-  `server/dist/agent/agent.js`, and every reader of that path names the same
-  file — the package script, the two imports, the deployment's own command in
-  `docker-compose.yml`, `.env.example`, the README and the ADRs. What still says
-  worker is the rest of the names, inside this codebase — `WorkerHandle`,
-  `WorkerDeps`, `startWorker`, `startFleet`, `AgentWorkerRecord`,
-  `AgentStatusWorker`, `LiveWorker`, the worker-named tests, the mock.
-- **What moves only with its readers.** The names that are contracts rather than
-  code: the `workers` field of the admin status answer, which the client reads;
-  `workers_unreadable`, a refusal code a client composes a sentence from; the
-  `worker` field of a claim document, written in every group's account by every
-  installation that has run an agent, so a successor has to recognise a holder
-  named under either spelling; and the `agent/workers/<id>.json` path the
-  heartbeats live at. One direction per change: a wire field moves with both
-  sides of the wire in one commit, and a durable field moves only with a reader
-  that accepts both spellings until the last installation has re-written it.
-  **The environment variables stay as they are** (owner decision 2026-09-12):
-  `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and
-  a rename is a change to somebody's deployment file rather than to a codebase.
+- **The prose still says "worker" where the product says "agent".** The
+  vocabulary is one **master**, its **agents**, its **automations**, and
+  "worker" for the browser's service worker. The identifiers and the wire
+  follow it: the fleet's entrypoint is `server/src/agent/agent.ts` and its built
+  path `server/dist/agent/agent.js`, named the same way by the package script,
+  the two imports, the deployment's own command in `docker-compose.yml`,
+  `.env.example`, the README and the ADRs; `AgentHandle`, `AgentDeps`,
+  `startAgent`/`startAgents`, `AgentRecord`, `AgentStatusRow` and `LiveAgent`
+  are the code's own names; and the admin status answer carries `agents`, which
+  the client reads. What still says worker is the prose: the comments and test
+  titles inside the fleet's own code.
+- **What moves only with its readers.** The `worker` field of a claim document,
+  written in every group's account by every installation that has run an agent,
+  so a successor has to recognise a holder named under either spelling; and the
+  `agent/workers/<id>.json` path the heartbeats live at (`AGENT_WORKERS_DIR`).
+  A durable field moves only with a reader that accepts both spellings until the
+  last installation has re-written it. **The environment variables stay as they
+  are** (owner decision 2026-09-12): `GILBERT_AGENT_ADDRESS` and its neighbours
+  name the master's credentials, and a rename is a change to somebody's
+  deployment file rather than to a codebase.
 
 - **The web's test suites still fake the JMAP envelope for themselves.** Thirty
   of them wrote the same loop out: parse `methodCalls`, answer one

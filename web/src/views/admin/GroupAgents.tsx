@@ -128,7 +128,7 @@ export function GroupAgents() {
   const rulesEnabled = view?.granted ? view.rules.filter((r) => r.enabled).length : 0;
   const rulesTotal = view?.granted ? view.rules.length : 0;
   const pendingHere = approvals.filter((a) => a.group === group).length;
-  const servingHere = (status?.workers ?? []).filter((w) =>
+  const servingHere = (status?.agents ?? []).filter((w) =>
     w.groups.includes(group),
   ).length;
 
@@ -383,16 +383,16 @@ function Fleet({ status, group }: { status: AgentStatus | null; group: string })
    * picker cuts the fleet to the group being asked about, and an agent holding
    * somebody else's group is simply not on this list.
    */
-  const serving = (status?.workers ?? []).filter((w) => w.groups.includes(group));
+  const serving = (status?.agents ?? []).filter((w) => w.groups.includes(group));
   // The grants withdrawn in this group: the withdrawal names the group it
   // happened in, so it follows the picker the same way the agents do.
   const withdrawals = (status?.withdrawals ?? []).filter((w) => w.group === group);
   const nothingServing = !group
     ? t("No group is picked, so there is no group's agents to read here.")
-    : status && status.workers.length > 0
+    : status && status.agents.length > 0
       ? t(
           "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.",
-          { count: status.workers.length, group },
+          { count: status.agents.length, group },
         )
       : t(
           "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.",

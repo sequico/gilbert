@@ -119,7 +119,7 @@ export function openEventStream(
   const after = (err: Error) => {
     if (stopped) return;
     onError(err);
-    // Exponential, capped, and jittered: a fleet of workers that all lost the
+    // Exponential, capped, and jittered: a fleet of agents that all lost the
     // same server would otherwise come back in lockstep, at the same millisecond,
     // and knock it over again. The jitter is what turns one herd into a queue.
     const base = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);

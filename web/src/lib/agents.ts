@@ -61,7 +61,7 @@ export type {
   AgentRulesRead,
   AgentStatus,
   AgentStatusGroup,
-  AgentStatusWorker,
+  AgentStatusRow,
   GroupMembersView,
   GroupNotebookView,
   GroupPolicyView,

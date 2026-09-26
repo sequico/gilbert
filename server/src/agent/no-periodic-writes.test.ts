@@ -25,7 +25,7 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { startWorker, groupNameOf } = await import("./agent.js");
+const { startAgent, groupNameOf } = await import("./agent.js");
 const { AgentStore } = await import("./store.js");
 const { writeAppFileAt, writeBytesIntoVisibleFolder } = await import("../appFolder.js");
 
@@ -51,10 +51,10 @@ after(() => {
 
 test("an idle worker buys no blob, however many passes it runs", async () => {
   await clearClaims();
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-idle",
+    agentId: "w-idle",
     log: () => {},
     timers: false,
   });
@@ -65,7 +65,7 @@ test("an idle worker buys no blob, however many passes it runs", async () => {
   );
   const uploads = mock.uploads.count;
   const claim = await new AgentStore(ctx, "a3").readClaim();
-  const record = (await agentStore.listWorkers()).find((w) => w.id === "w-idle");
+  const record = (await agentStore.listAgents()).find((w) => w.id === "w-idle");
   assert.ok(claim && record, "the claim and the record the pass wrote are readable");
 
   // Twenty-five more passes: a heartbeat interval spends at least this many
@@ -83,7 +83,7 @@ test("an idle worker buys no blob, however many passes it runs", async () => {
     "and the claim it holds is untouched: holding a fence is not an event",
   );
   assert.equal(
-    (await agentStore.listWorkers()).find((w) => w.id === "w-idle")?.updatedAt,
+    (await agentStore.listAgents()).find((w) => w.id === "w-idle")?.updatedAt,
     record.updatedAt,
     "and neither is the record it wrote: a pass that changes nothing writes nothing",
   );
@@ -93,10 +93,10 @@ test("an idle worker buys no blob, however many passes it runs", async () => {
 test("work still writes what it must, and the documents are readable", async () => {
   await clearClaims();
   const before = mock.uploads.count;
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-work",
+    agentId: "w-work",
     log: () => {},
     timers: false,
   });
@@ -117,7 +117,7 @@ test("work still writes what it must, and the documents are readable", async () 
       "with the instant it was taken",
     );
   }
-  const record = (await agentStore.listWorkers()).find((w) => w.id === "w-work");
+  const record = (await agentStore.listAgents()).find((w) => w.id === "w-work");
   assert.ok(record, "the worker record is a document in the agent's own account");
   assert.deepEqual(
     [...(record.serves ?? [])].sort(),
@@ -133,10 +133,10 @@ test("work still writes what it must, and the documents are readable", async () 
   // A change in the work is what a write is for: a process that starts later
   // takes the unit over, and that is a blob — not a clock.
   const taken = mock.uploads.count;
-  const successor = await startWorker({
+  const successor = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-successor",
+    agentId: "w-successor",
     log: () => {},
     timers: false,
     now: () => new Date(Date.now() + 60_000),
@@ -166,10 +166,10 @@ test("work still writes what it must, and the documents are readable", async () 
  */
 test("a change of our own does not anchor, and the group's own does", async () => {
   await clearClaims();
-  const worker = await startWorker({
+  const worker = await startAgent({
     ctx,
     address: AGENT,
-    workerId: "w-anchor",
+    agentId: "w-anchor",
     log: () => {},
     timers: false,
   });

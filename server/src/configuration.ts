@@ -169,7 +169,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
    * and the environment cannot change under a running process, so they are read
    * once.
    */
-  const agentWorkerSettings = {
+  const agentSettings = {
     /*
      * How often a worker re-reads an account it could not be pushed about.
      * Push is the wake-up and polling is the fallback after a lost stream, so
@@ -300,7 +300,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
    * once and never re-read: an operator who names a different agent, or gives it
    * a different secret, says so in the deployment and restarts it.
    */
-  const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
+  const agent = { ...resolveAgentBootstrap(), ...agentSettings };
   return {
     production,
     appName: readEnv(environment, "APP_NAME", defaults.branding.appName),

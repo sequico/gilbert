@@ -26,7 +26,7 @@ import {
 } from "../upstream.js";
 import { groupAccountsDetailed } from "./actions.js";
 import { greetUnspoken, readChat } from "./chat.js";
-import type { AgentClaim, AgentStreamClaim, AgentWorkerRecord } from "./documents.js";
+import type { AgentClaim, AgentRecord, AgentStreamClaim } from "./documents.js";
 import {
   AUDIT_RETENTION_MS,
   type ChangeType,
@@ -35,12 +35,12 @@ import {
   type GuardOutcome,
 } from "./executor.js";
 import {
+  agentId as agentIdOf,
   type ClaimRefusal,
   claimAccount,
   claimStream,
   releaseClaim,
   releaseStreamClaim,
-  workerId as workerIdOf,
 } from "./lease.js";
 import { AgentStore } from "./store.js";
 import { type AgentWithdrawal, WITHDRAWALS_PATH } from "./views.js";
@@ -49,7 +49,7 @@ import { openEventStream, pollLoop } from "./wake.js";
 /** The JMAP change types one account's pass reconciles. */
 const RECONCILED_TYPES: ReadonlyArray<ChangeType> = ["Email", "FileNode"];
 
-export interface WorkerDeps {
+export interface AgentDeps {
   /** The agent's own session context, derived from its app password. */
   ctx: Ctx;
   /** The agent's address: the identity of everything it writes. */
@@ -57,7 +57,7 @@ export interface WorkerDeps {
   /** Defaults to a `[gilbert]`-prefixed console line. */
   log?: (line: string) => void;
   /** Defaults to an id derived from the address and this process. */
-  workerId?: string;
+  agentId?: string;
   now?: () => Date;
   pollMs?: number;
   heartbeatMs?: number;
@@ -68,13 +68,13 @@ export interface WorkerDeps {
   timers?: boolean;
 }
 
-export interface WorkerHandle {
+export interface AgentHandle {
   /** One pass: claim, reconcile, retry, answer, prune. Returns the accounts served. */
   pass(): Promise<ReadonlyArray<string>>;
   /** The accounts this worker holds a claim on. */
   served(): ReadonlyArray<string>;
   /** What a health endpoint and an operator read: this worker, right now. */
-  health(): WorkerHealth;
+  health(): AgentHealth;
   /** Release everything and stop: the stream claim first, so a peer can take it. */
   stop(): Promise<void>;
 }
@@ -88,7 +88,7 @@ export interface WorkerHandle {
  * group's account and belongs in the audit, not in a liveness probe that a
  * restart would answer by starting the work over.
  */
-export interface WorkerHealth {
+export interface AgentHealth {
   status: "ok";
   worker: string;
   address: string;
@@ -161,7 +161,7 @@ export function groupNameOf(session: UpstreamSession, accountId: string): string
 }
 
 /**
- * The workers this process is running, in memory.
+ * The agents this process is running, in memory.
  *
  * Liveness is a process fact and it is kept where the process is. A deployment's
  * server and its agents share a fate (ADR 0003: the fleet runs beside the web
@@ -174,7 +174,7 @@ export function groupNameOf(session: UpstreamSession, accountId: string): string
  * that dies takes its own liveness with it, which is the whole of what a restart
  * policy or an operator needs to know.
  */
-export interface LiveWorker {
+export interface LiveAgent {
   id: string;
   address: string;
   version: string;
@@ -193,15 +193,15 @@ export interface LiveWorker {
 /**
  * The fleet this process runs, keyed by worker id.
  *
- * A handout rather than a service: `startWorker` registers what it is when it
+ * A handout rather than a service: `startAgent` registers what it is when it
  * starts and whenever the set of accounts it serves changes, and removes itself
  * when it stops, so "is this worker alive" is answered by whether it is here and
  * not by anything written to Stalwart.
  */
-const live = new Map<string, LiveWorker>();
+const live = new Map<string, LiveAgent>();
 
-/** The workers this process is running right now. */
-export function liveWorkers(): LiveWorker[] {
+/** The agents this process is running right now. */
+export function liveAgents(): LiveAgent[] {
   return [...live.values()];
 }
 
@@ -212,7 +212,7 @@ export function liveWorkers(): LiveWorker[] {
  * is exactly "is this process running it", and a row that survived the stop
  * would be the durable lie this exists to remove.
  */
-function remember(worker: LiveWorker): void {
+function remember(worker: LiveAgent): void {
   live.set(worker.id, worker);
 }
 
@@ -224,7 +224,7 @@ function forget(id: string): void {
  * Start serving. The handle is the seam a test drives: `pass()` runs one full
  * round, `stop()` releases the claims and the stream.
  */
-export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
+export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   const log = deps.log ?? ((line: string) => console.log(`[gilbert] ${line}`));
   // The clock the fleet agrees on: the mail server's own, as its responses
   // report it (`serverNow`). A lease is about whether another process is still
@@ -233,7 +233,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const now = deps.now ?? serverNow;
   const pollMs = deps.pollMs ?? config.agent.pollMs;
   const heartbeatMs = deps.heartbeatMs ?? config.agent.heartbeatMs;
-  const id = deps.workerId ?? workerIdOf(deps.address);
+  const id = deps.agentId ?? agentIdOf(deps.address);
   const timers = deps.timers !== false;
 
   const client = new JmapClient(deps.ctx);
@@ -241,7 +241,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     ctx: deps.ctx,
     client,
     address: deps.address,
-    workerId: id,
+    agentId: id,
     now,
     log,
   });
@@ -440,7 +440,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     const serves = servesNow();
     const asWritten = JSON.stringify(serves);
     if (asWritten !== publishedServes) {
-      const record: AgentWorkerRecord = {
+      const record: AgentRecord = {
         v: 1,
         id,
         address: deps.address,
@@ -449,7 +449,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         updatedAt: now().toISOString(),
         serves,
       };
-      await agentStore.writeWorker(record);
+      await agentStore.writeAgent(record);
       publishedServes = asWritten;
       publishedAt = record.updatedAt;
     }
@@ -769,7 +769,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       // worker is **doing** and not a claim about it being up: the process this
       // answer came from is the only thing that could say that, and it is on its
       // way out.
-      await agentStore.destroyWorker(id);
+      await agentStore.destroyAgent(id);
       forget(id);
     },
   };
@@ -819,7 +819,7 @@ async function openSession(
  */
 export function startHealthServer(opts: {
   port: number;
-  health: () => WorkerHealth;
+  health: () => AgentHealth;
 }): () => void {
   const server = createServer((req, res) => {
     if ((req.url ?? "/").split("?")[0] !== "/health") {
@@ -921,14 +921,14 @@ export async function identityToFollow(
 }
 
 /** Start serving one identity: sign in as it, then start a fleet on that. */
-async function startFleet(identity: AgentIdentity): Promise<WorkerHandle> {
+async function startAgents(identity: AgentIdentity): Promise<AgentHandle> {
   const { authorization, session } = await signInAs(identity);
   const ctx: Ctx = { authorization, session, username: identity.address };
-  return startWorker({ ctx, address: identity.address });
+  return startAgent({ ctx, address: identity.address });
 }
 
 /** The health an idle worker reports: up, answering, serving nothing. */
-function idleHealth(identity: AgentIdentity, startedAt: number): WorkerHealth {
+function idleHealth(identity: AgentIdentity, startedAt: number): AgentHealth {
   return {
     status: "ok",
     worker: "idle",
@@ -975,7 +975,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
     console.warn(line);
   };
 
-  const start = async (): Promise<WorkerHandle | null> => {
+  const start = async (): Promise<AgentHandle | null> => {
     if (!identity.address || !identity.password) {
       notice(
         "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
@@ -985,7 +985,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
       return null;
     }
     try {
-      const fleet = await startFleet(identity);
+      const fleet = await startAgents(identity);
       lastNotice = "";
       console.log(`[gilbert] agent worker for ${identity.address}`);
       return fleet;
@@ -1025,7 +1025,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
       const next = await identityToFollow(identity);
       if (!next) return;
       await current.stop();
-      worker = await startFleet(next.identity);
+      worker = await startAgents(next.identity);
       identity = next.identity;
       console.log(`[gilbert] the agent is now ${identity.address}`);
     })();
