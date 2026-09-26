@@ -69,8 +69,8 @@ test("a claim nobody holds is taken", async () => {
     now: new Date(),
     startedAt: startedBefore(),
   });
-  assert.ok(claim, "the first worker takes the free unit");
-  assert.equal(claim.worker, "w1");
+  assert.ok(claim, "the first agent takes the free unit");
+  assert.equal(claim.agent, "w1");
   assert.equal(claim.accountId, GROUP);
   assert.equal(claim.epoch, 0, "a fresh ownership, so the fence starts at zero");
   assert.ok(
@@ -134,7 +134,7 @@ test("a claim taken before this process started is taken over, keeping the state
     taken,
     "a peer that was here before us is a peer that cannot have been waiting for us",
   );
-  assert.equal(taken.worker, "w3");
+  assert.equal(taken.agent, "w3");
   assert.equal(
     claimEpoch(taken),
     claimEpoch(held.doc) + 1,
@@ -173,7 +173,7 @@ test("a claim whose take time cannot be read is nobody's to take over", async ()
   await store.writeClaim({
     v: 1,
     accountId: GROUP,
-    worker: "w-broken-clock",
+    agent: "w-broken-clock",
     takenAt: "not a time",
     epoch: 3,
     states: {},
@@ -186,7 +186,7 @@ test("a claim whose take time cannot be read is nobody's to take over", async ()
   });
   assert.equal(claim, null);
   assert.deepEqual(refused, ["held"], "unknown is held, not free");
-  assert.equal((await store.readClaim())?.doc.worker, "w-broken-clock");
+  assert.equal((await store.readClaim())?.doc.agent, "w-broken-clock");
   await freeUnit();
 });
 
@@ -202,7 +202,7 @@ test("the stream claim is exclusive, in the agent's own account", async () => {
       startedAt: startedBefore(),
     }),
     null,
-    "one worker holds the agent's EventSource",
+    "one agent holds the agent's EventSource",
   );
   // Its holder holding it is not an event either.
   const uploads = mock.uploads.count;
@@ -296,7 +296,7 @@ test("two agents racing for one unit: exactly one wins", async () => {
   );
   const held = await store.readClaim();
   assert.ok(held);
-  assert.equal(held.doc.worker, (one ?? two)?.worker);
+  assert.equal(held.doc.agent, (one ?? two)?.agent);
 });
 
 test("a released claim is not resurrected by saving states into it", async () => {
@@ -317,7 +317,7 @@ test("a released claim is not resurrected by saving states into it", async () =>
   assert.equal(
     await store.readClaim(),
     null,
-    "the unit must not come back held by a worker that already gave it away",
+    "the unit must not come back held by a agent that already gave it away",
   );
 });
 
@@ -339,7 +339,7 @@ test("a refusal says whether a peer holds the unit or the write kept losing", as
   assert.deepEqual(
     reasons,
     ["held"],
-    "another worker's claim is ownership, not contention",
+    "another agent's claim is ownership, not contention",
   );
   // Free again, so the only thing that can refuse the next attempt is losing
   // the write rather than finding an owner.

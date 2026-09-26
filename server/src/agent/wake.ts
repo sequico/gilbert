@@ -100,7 +100,7 @@ export function openEventStream(
   });
   // A session whose URL carries no template (or none for the type filter) still
   // has to be asked for the narrow stream: without it Stalwart sends every
-  // change of every type the principal can see, including what the worker does
+  // change of every type the principal can see, including what the agent does
   // not serve.
   const url = absoluteUpstream(
     expanded.includes("types=")
@@ -155,14 +155,14 @@ export function openEventStream(
           if (frame.event !== "state") continue;
           const changes = stateChanges(frame.data);
           if (changes === null) {
-            onError(new Error(`the event stream sent a frame this worker cannot read`));
+            onError(new Error(`the event stream sent a frame this agent cannot read`));
             continue;
           }
           delivered = true;
           for (const change of changes) {
             // A handler that throws must not take the stream down with it: the
-            // frame is reported, the next one still arrives, and the worker
-            // keeps hearing about changes — a lost stream is how a worker goes
+            // frame is reported, the next one still arrives, and the agent
+            // keeps hearing about changes — a lost stream is how a agent goes
             // quiet without anybody noticing.
             try {
               onEvent(change.accountId, change.type);
@@ -177,7 +177,7 @@ export function openEventStream(
         // its backoff from the beginning; one that ended before any frame did
         // not, and keeps backing off — the other way round, a server that
         // accepts and closes immediately would be reconnected to once a second,
-        // forever, by every worker at once.
+        // forever, by every agent at once.
         if (delivered) attempt = 0;
         after(new Error("the event stream ended"));
       }

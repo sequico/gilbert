@@ -30,7 +30,7 @@ process.env.GILBERT_AGENT_ADDRESS = "gilbert@example.com";
 process.env.GILBERT_AGENT_PASSWORD = "gilbert-password";
 process.env.GILBERT_AGENT_POLL_MS = "2000";
 process.env.GILBERT_AGENT_HEARTBEAT_MS = "60000";
-// The worker's own socket belongs to a deployment that asks for one; a server
+// The agent's own socket belongs to a deployment that asks for one; a server
 // process has its own health route, and a test that opened a second would be
 // asserting on the wrong endpoint.
 delete process.env.GILBERT_AGENT_HEALTH_PORT;
@@ -72,14 +72,14 @@ test("starting the fleet claims the agent's group, and stopping gives it back", 
     const claim = await new AgentStore(ctx, GROUP).readClaim();
     assert.ok(claim, "the fleet holds the group with nobody having asked a pass for it");
     assert.ok(
-      claim.doc.worker.length > 0,
-      "and the claim names the worker that holds it, which is how a peer knows",
+      claim.doc.agent.length > 0,
+      "and the claim names the agent that holds it, which is how a peer knows",
     );
   } finally {
     // Released before the next pass comes round: a pass renews the claim it
     // finds, and the release is conditional on the state it read. An in-flight
     // pass that outlives the stop is the one case this test does not pin, and
-    // it is recorded in ROADMAP.md with the rest of the worker diagnosis work.
+    // it is recorded in ROADMAP.md with the rest of the agent diagnosis work.
     await fleet.stop();
   }
   assert.equal(

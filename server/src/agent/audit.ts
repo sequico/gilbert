@@ -63,7 +63,7 @@ function subjectOf(job: AgentJob): AuditSubject {
 
 /**
  * The subject of a decision, for the case the audit has to answer without a
- * job document: a decision outlives the job document the worker pruned, and a
+ * job document: a decision outlives the job document the agent pruned, and a
  * person's approval still belongs in the trail.
  */
 function subjectOfDecision(decision: AgentDecision): AuditSubject {
@@ -152,10 +152,10 @@ function unstartedRunId(ruleId: string, what: string): string {
 }
 
 /**
- * A run the schedule moved past while no worker was serving the group.
+ * A run the schedule moved past while no agent was serving the group.
  *
  * There is no job to name — nobody ever started one — so the entry names the
- * rule and the instant the run was due for. Without it, a worker that was away
+ * rule and the instant the run was due for. Without it, a agent that was away
  * across a scheduled run leaves a group whose automation simply did not happen,
  * and nothing anywhere says so.
  */
@@ -179,7 +179,7 @@ export function missedAuditEntry(
  * A refusal has no job to name — nothing was started — and what it is about is
  * the change, not the pass that read it: the same change read twice is one
  * refusal. An id built from the instant of the pass would put a second entry in
- * the trail for a change the worker read again.
+ * the trail for a change the agent read again.
  */
 export function refusedSubject(ruleId: string, trigger: AgentTriggerRecord): string {
   return unstartedRunId(ruleId, changeIdOf(trigger));

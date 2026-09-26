@@ -213,12 +213,12 @@ test("a claim carries the states its agent has reconciled up to", async () => {
   await store.writeClaim({
     v: 1,
     accountId: store.accountId,
-    worker: "w1",
+    agent: "w1",
     takenAt: "2026-09-10T08:00:00Z",
     states: { Email: "s1" },
   });
   const read = await store.readClaim();
-  assert.equal(read?.doc.worker, "w1");
+  assert.equal(read?.doc.agent, "w1");
   assert.equal(read?.doc.states.Email, "s1");
 
   await store.writeClaim({ ...read!.doc, states: { Email: "s2", FileNode: "f2" } });
@@ -227,7 +227,7 @@ test("a claim carries the states its agent has reconciled up to", async () => {
   assert.equal(updated?.doc.accountId, store.accountId);
 });
 
-test("the worker record is a document like any other", async () => {
+test("the agent record is a document like any other", async () => {
   await store.writeAgent({
     v: 1,
     id: "w1",
@@ -311,7 +311,7 @@ test("a claim in an older shape is a free unit", async () => {
   // build's and is removed, so it reads as a unit nobody holds and the next
   // taker writes a fresh claim in the current shape.
   await writeAppFileAt(ctx, store.accountId, "agent/claim.json", {
-    worker: "w1",
+    agent: "w1",
     heartbeatAt: "2026-09-10T08:00:00Z",
   });
 

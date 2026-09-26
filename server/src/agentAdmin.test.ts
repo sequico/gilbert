@@ -183,7 +183,7 @@ after(() => {
  * It is therefore stale for two reasons that have nothing to do with the
  * document being written. The first save creates the folder tree, and creating
  * a folder moves the state — so the first save of all loses its own
- * compare-and-set. And the agent's own worker writes its heartbeat and its
+ * compare-and-set. And the agent's own agent writes its heartbeat and its
  * audit in that same account every 30 s, so on a running installation the state
  * moves from under a save that happens to overlap. Either way the administrator
  * is shown Stalwart's raw refusal — `stateMismatch`, "An ifInState argument was
@@ -278,7 +278,7 @@ test("a save that loses the account-wide compare-and-set is retried, not shown",
 
   /*
    * A foreign write into the same account, landed between the read of the state
-   * and the conditional write: exactly what the worker's heartbeat does to a
+   * and the conditional write: exactly what the agent's heartbeat does to a
    * running installation. It is injected once, so the retry the fix owes has a
    * clear account to write into.
    */
@@ -331,7 +331,7 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // why, and a fleet that is not running spent nothing.
     meter: { total: EMPTY_METER, byAgent: [], unreadable: [] },
     agents: [],
-    // No worker has reported a grant lost, because no worker is serving this
+    // No agent has reported a grant lost, because no agent is serving this
     // installation (ADR 0003 resolution 21).
     withdrawals: [],
     // Nothing can read a group's roster either: there is no Master to ask
@@ -345,11 +345,11 @@ test("an installation with no agent says so plainly, and never 500s", async () =
   });
 });
 
-test("a worker's liveness is the process that runs it, not a stamp in a document", async () => {
+test("a agent's liveness is the process that runs it, not a stamp in a document", async () => {
   // The record is written on change — start, a change in what it serves, stop —
-  // so it can say what a worker is doing and never whether it is up. This
-  // server hosts the fleet, so the worker it is running is the one it can call
-  // alive, and a record with nobody running it here is a worker that stopped or
+  // so it can say what a agent is doing and never whether it is up. This
+  // server hosts the fleet, so the agent it is running is the one it can call
+  // alive, and a record with nobody running it here is a agent that stopped or
   // died: showing its last change as freshness is the lie this refuses.
   configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
   const agentAuth = `Basic ${Buffer.from(
@@ -391,7 +391,7 @@ test("a worker's liveness is the process that runs it, not a stamp in a document
     assert.equal(
       row.heartbeatAt,
       "2026-09-10T08:00:00Z",
-      "what the surface shows is when the worker last changed, honestly named",
+      "what the surface shows is when the agent last changed, honestly named",
     );
     assert.deepEqual(row.groups, [TEAM], "and which groups that record names");
   } finally {
@@ -1273,7 +1273,7 @@ test("the audit copy is refused for a group the agent does not hold", async () =
  *
  * The two halves worth pinning are the ones a surface cannot fake: an ask that
  * can run leaves a `pending` job in the group's own account whose provenance
- * says a person asked for it — the worker's sweep is what runs it, and that is
+ * says a person asked for it — the agent's sweep is what runs it, and that is
  * a different process — and an ask that cannot run is answered without writing
  * anything into the group's trail, because no run happened.
  */
@@ -1290,7 +1290,7 @@ test("an automation can be asked for, and the ask is a job", async () => {
   });
   assert.equal(asked.status, 200);
   const job = (asked.body as { job: Record<string, unknown> }).job;
-  assert.equal(job.state, "pending", "the worker runs it, not the request");
+  assert.equal(job.state, "pending", "the agent runs it, not the request");
   assert.equal(job.ruleId, "manual-1");
   const trigger = job.trigger as Record<string, unknown>;
   assert.equal(trigger.on, "manual", "the record says a person asked for it");
@@ -1747,7 +1747,7 @@ test("a reading past the month's ceiling is refused before it is made", async ()
  *
  * The registry of running agents is a fact about the process that holds it, so
  * a server that does not run the fleet has nothing to read it from — and
- * answering "not reporting" about a worker that is serving in another container
+ * answering "not reporting" about a agent that is serving in another container
  * is the surface inventing an answer. It says the one thing it knows.
  */
 test("a server that does not run the fleet says so instead of reporting it gone", async () => {

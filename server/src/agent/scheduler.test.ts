@@ -233,7 +233,7 @@ test("the disposer stops every timer, including a pending re-check", () => {
 });
 
 test("a due run no rule can run is the same entry for the record and for the writer", () => {
-  // A due entry is normally fired late rather than dropped — a worker that was
+  // A due entry is normally fired late rather than dropped — a agent that was
   // away catches up — so what vanishes is the entry no rule can run: disabled,
   // gone, or a rule the clock no longer wakes. One predicate answers that
   // question for both readers, so an entry cannot be dropped by the writer that
@@ -308,7 +308,7 @@ test("an entry this agent does not own keeps its instant instead of being re-pla
   const now = new Date("2026-09-10T10:00:00.000Z");
   const rules = [rule(), rule({ id: "filing", name: "File it" })];
   // The document as the account holds it: both entries are due at once, and
-  // this worker owns only the first of them.
+  // this agent owns only the first of them.
   const stored: AgentScheduleEntry[] = [
     { ruleId: "r1", at: "2026-09-10T10:00:00.000Z" },
     { ruleId: "filing", at: "2026-09-10T10:00:00.000Z" },
@@ -323,10 +323,10 @@ test("an entry this agent does not own keeps its instant instead of being re-pla
   assert.equal(
     byRule.get("filing"),
     "2026-09-10T10:00:00.000Z",
-    "an entry this worker does not own keeps the instant its owner fires",
+    "an entry this agent does not own keeps the instant its owner fires",
   );
   assert.ok(
     Date.parse(byRule.get("r1") ?? "") > now.getTime(),
-    "and the entry this worker did fire moved on to its next occurrence",
+    "and the entry this agent did fire moved on to its next occurrence",
   );
 });

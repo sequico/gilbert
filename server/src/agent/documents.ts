@@ -1,15 +1,15 @@
 /**
- * The agent worker fleet's durable documents (ADR 0003) — one definition.
+ * The agent agent fleet's durable documents (ADR 0003) — one definition.
  *
  * Everything the fleet needs to survive a crash is a document in Stalwart:
  * rules, jobs, decisions, claims, the schedule and the audit trail, in the
  * group's own app folder (v1 scope: the group's account is what members can
  * read), plus the installation-wide configuration and the stream claim in the
- * agent's own account. Nothing durable lives on the worker.
+ * agent's own account. Nothing durable lives on the agent.
  *
  * This module is the schema's single home: the shapes, their validators, the
  * action catalogue, the rule matcher and the review gate. The executor, the
- * admin API and the worker all import it; none of them re-declares a field.
+ * admin API and the agent all import it; none of them re-declares a field.
  *
  * Document layout, under an account's `gilbert` app folder:
  *
@@ -21,7 +21,7 @@
  *   agent/audit/<YYYY-MM>.json  one audit document per month, in the group's account
  *   agent/config.json           provider keys + registration, in the agent's account
  *   agent/stream.json           the stream claim, in the agent's account
- *   agent/workers/<id>.json     agent heartbeats, in the agent's account
+ *   agent/agents/<id>.json     agent heartbeats, in the agent's account
  */
 
 import { type Schema, Validator } from "@cfworker/json-schema";
@@ -43,7 +43,7 @@ export const AGENT_JOBS_DIR = "jobs";
 export const AGENT_DECISIONS_DIR = "decisions";
 export const AGENT_CLAIM_FILE = "claim.json";
 export const AGENT_AUDIT_DIR = "audit";
-export const AGENT_WORKERS_DIR = "workers";
+export const AGENT_HEARTBEATS_DIR = "agents";
 /**
  * Where the installation's own authoring calls are counted, in the Master's
  * account: one document a month, beside the runs' audit rather than in it
@@ -1120,9 +1120,9 @@ export const AGENT_JOB_OPEN_STATES: ReadonlyArray<AgentJobState> = [
 ];
 
 export interface AgentLease {
-  /** The worker holding it. */
+  /** The agent holding it. */
   owner: string;
-  /** When that worker last said it was alive. */
+  /** When that agent last said it was alive. */
   heartbeatAt: string;
 }
 
@@ -1270,7 +1270,7 @@ export interface AgentEffect {
   type: "Email" | "FileNode";
   id: string;
   /**
-   * When the write landed, as the worker's clock read it when the action
+   * When the write landed, as the agent's clock read it when the action
    * returned.
    *
    * A change says nothing about when the record it names moved, so this is what
@@ -1489,18 +1489,18 @@ export function newDecision(job: AgentJob, chatId?: string): AgentDecision {
 /* ------------------------------------------------------------------ */
 
 /**
- * One worker's claim on an account, with the change states it has reconciled
+ * One agent's claim on an account, with the change states it has reconciled
  * up to. The state map lives here because it is the same kind of fact as the
- * claim: whoever holds the claim owns the catch-up anchor, and a worker taking
+ * claim: whoever holds the claim owns the catch-up anchor, and a agent taking
  * over a stale claim re-reads from what the previous one recorded instead of
  * from nothing.
  */
 export interface AgentClaim {
   v: 1;
   accountId: string;
-  worker: string;
+  agent: string;
   /**
-   * When this worker **took** the unit. The claim is a fence, taken and
+   * When this agent **took** the unit. The claim is a fence, taken and
    * released, not a lease renewed on a clock: nothing rewrites this field while
    * the holder holds the unit, so it is the instant ownership began and the
    * only thing a peer reads to decide whether the holder can still be running.
@@ -1508,7 +1508,7 @@ export interface AgentClaim {
   takenAt: string;
   /**
    * Which ownership of this unit the holder is. Incremented on every takeover,
-   * never while a claim is held, so a worker whose fence was taken over
+   * never while a claim is held, so a agent whose fence was taken over
    * mid-pass can be told apart from the one that replaced it: the epoch it
    * holds is behind, and its late writes are refused rather than landing on the
    * new owner's run.
@@ -1516,12 +1516,12 @@ export interface AgentClaim {
    * Absent on claims written before the epoch existed, and read as 0.
    */
   epoch?: number;
-  /** JMAP data type → the state the worker has reconciled up to. */
+  /** JMAP data type → the state the agent has reconciled up to. */
   states: Record<string, string>;
   /**
    * When each of those states was observed, by the same keys.
    *
-   * The states say what a worker has read up to; these say when, which is the
+   * The states say what a agent has read up to; these say when, which is the
    * only thing that tells a change a run's own effect caused from a change
    * somebody else made to the same record afterwards. A type with no instant is
    * a state of unknown age, and a wake is then not attributed to any run.
@@ -1543,7 +1543,7 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
   const c = x as Record<string, unknown>;
   if (c.v !== 1) return false;
   if (typeof c.accountId !== "string") return false;
-  if (typeof c.worker !== "string" || !c.worker) return false;
+  if (typeof c.agent !== "string" || !c.agent) return false;
   if (typeof c.takenAt !== "string") return false;
   if (c.epoch !== undefined && (!Number.isInteger(c.epoch) || (c.epoch as number) < 0))
     return false;
@@ -1559,11 +1559,11 @@ function isStringMap(x: unknown): x is Record<string, string> {
   );
 }
 
-/** The stream claim: exactly one worker holds the agent's EventSource (ADR 0003). */
+/** The stream claim: exactly one agent holds the agent's EventSource (ADR 0003). */
 export interface AgentStreamClaim {
   v: 1;
-  worker: string;
-  /** As `AgentClaim.takenAt`: when this worker took the stream. */
+  agent: string;
+  /** As `AgentClaim.takenAt`: when this agent took the stream. */
   takenAt: string;
   /** As `AgentClaim.epoch`: the ownership a held stream belongs to. */
   epoch?: number;
@@ -1574,7 +1574,7 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
   const c = x as Record<string, unknown>;
   return (
     c.v === 1 &&
-    typeof c.worker === "string" &&
+    typeof c.agent === "string" &&
     typeof c.takenAt === "string" &&
     (c.epoch === undefined || (Number.isInteger(c.epoch) && (c.epoch as number) >= 0))
   );
@@ -1589,7 +1589,7 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
  * cannot be read is **not** a free lease either: a document whose time is
  * unreadable means the truthful answer is unknown, and taking over on an
  * unknown is how two agents end up on the same job. It throws instead, which
- * the worker reports as a failure of its pass — loudly, once, rather than
+ * the agent reports as a failure of its pass — loudly, once, rather than
  * silently running the account's work twice.
  */
 export function leaseExpired(
@@ -1800,7 +1800,7 @@ export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
   "rejected",
   "missed",
   /**
-   * A run whose worker stopped holding it: the lease expired with the job still
+   * A run whose agent stopped holding it: the lease expired with the job still
    * `running`, nobody came back for it, and the attempts it had are spent. It is
    * an outcome of its own rather than `failed`, because nothing reported a
    * failure — the process that would have done so is gone, and a reader of the
@@ -2223,12 +2223,12 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
 }
 
 /**
- * What a running worker has last said about itself, in the agent's own account.
+ * What a running agent has last said about itself, in the agent's own account.
  *
- * Written when the worker starts, when the set of accounts it serves changes and
+ * Written when the agent starts, when the set of accounts it serves changes and
  * when it stops — never on a clock, because a heartbeat is a durable write and
  * Stalwart charges the account for every one of them (and never gives the blob
- * back). Whether a worker is **up** is therefore not a question this document
+ * back). Whether a agent is **up** is therefore not a question this document
  * can answer: that is a fact of the process that hosts it, kept in memory, and
  * this record is what it is doing and what it last changed.
  */
@@ -2236,18 +2236,18 @@ export interface AgentRecord {
   v: 1;
   id: string;
   address: string;
-  /** The version the worker runs, for the status surface. */
+  /** The version the agent runs, for the status surface. */
   version: string;
   startedAt: string;
-  /** When this worker last changed what it is doing: the instant this record did. */
+  /** When this agent last changed what it is doing: the instant this record did. */
   updatedAt: string;
   /**
-   * The groups this worker is holding as this record was written, by name —
-   * the accounts it has claimed. A worker claims per account, so this is what
+   * The groups this agent is holding as this record was written, by name —
+   * the accounts it has claimed. A agent claims per account, so this is what
    * the fleet is spread over, and it is how the admin surface can say which
    * agents are serving one group.
    *
-   * Empty when the worker is up and holding nothing, which is a state the
+   * Empty when the agent is up and holding nothing, which is a state the
    * surface shows rather than hides. Absent on records written before the field
    * existed, and read as none.
    */

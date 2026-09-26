@@ -154,7 +154,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
 
   interface AgentBootstrap {
     address: string;
-    /** The account password the worker signs in with. Empty = no agent named. */
+    /** The account password the agent signs in with. Empty = no agent named. */
     password: string;
   }
 
@@ -165,35 +165,35 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
   }
 
   /**
-   * The agent worker's timing and health: the environment is what carries them,
+   * The agent agent's timing and health: the environment is what carries them,
    * and the environment cannot change under a running process, so they are read
    * once.
    */
   const agentSettings = {
     /*
-     * How often a worker re-reads an account it could not be pushed about.
+     * How often a agent re-reads an account it could not be pushed about.
      * Push is the wake-up and polling is the fallback after a lost stream, so
      * this is deliberately unhurried: a minute of latency on a lost stream is
      * far cheaper than a minute of hammering Stalwart.
      */
     pollMs: readInt(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll),
-    /* How often a working worker says it is alive, in its claims and heartbeat. */
+    /* How often a working agent says it is alive, in its claims and heartbeat. */
     heartbeatMs: readInt(
       environment,
       "GILBERT_AGENT_HEARTBEAT_MS",
       defaults.agent.heartbeat,
     ),
     /*
-     * How long a claim may go un-renewed before another worker takes it over.
+     * How long a claim may go un-renewed before another agent takes it over.
      * Longer than a few heartbeats on purpose: an agent's work can sit in a
      * model call or wait on a person, and a takeover that fires during a
      * legitimate pause would run the same job twice.
      */
     leaseMs: readInt(environment, "GILBERT_AGENT_LEASE_MS", defaults.agent.lease),
     /*
-     * Where the worker answers a health probe, or 0 for no endpoint at all.
+     * Where the agent answers a health probe, or 0 for no endpoint at all.
      * A deployment with a restart policy wants this (ADR 0003 resolution 8);
-     * a worker nobody asks anything needs no listening socket.
+     * a agent nobody asks anything needs no listening socket.
      */
     healthPort: readInt(
       environment,
@@ -457,7 +457,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * stays on the relay.
      */
     /*
-     * The agent worker (ADR 0003). Everything here is read-only configuration:
+     * The agent agent (ADR 0003). Everything here is read-only configuration:
      * the documents the fleet works from live in Stalwart, in the agent's own
      * account and in each group's.
      */

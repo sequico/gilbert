@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 /**
- * The worker's second entrypoint against the mock (ADR 0003, v1 scope).
+ * The agent's second entrypoint against the mock (ADR 0003, v1 scope).
  *
  * The process-level half — the poll loop, the event stream, signals — is driven
  * through the same seam with `timers: false`, so one pass is exercised without
@@ -83,27 +83,23 @@ test("the authorization header an agent derives its session with", () => {
 
 test("one pass claims its units, records what it serves, and gives everything back on stop", async () => {
   const lines: string[] = [];
-  const worker = await startAgent({
+  const agent = await startAgent({
     ctx,
     address: AGENT,
-    agentId: "w-worker-test",
+    agentId: "w-agent-test",
     log: (line) => lines.push(line),
     timers: false,
   });
 
-  const served = await worker.pass();
+  const served = await agent.pass();
   assert.deepEqual([...served].sort(), [...(await candidateAccounts(ctx))].sort());
   for (const accountId of served) {
     const claim = await new AgentStore(ctx, accountId).readClaim();
-    assert.equal(
-      claim?.doc.worker,
-      "w-worker-test",
-      `${accountId}/mail is this worker's`,
-    );
+    assert.equal(claim?.doc.agent, "w-agent-test", `${accountId}/mail is this agent's`);
   }
 
-  const record = (await agentStore.listAgents()).find((w) => w.id === "w-worker-test");
-  assert.ok(record, "the worker says what it is doing, in the agent's own account");
+  const record = (await agentStore.listAgents()).find((w) => w.id === "w-agent-test");
+  assert.ok(record, "the agent says what it is doing, in the agent's own account");
   assert.equal(record.address, AGENT);
   // The groups it holds, by the names the session gave those accounts: the
   // admin surface reads one group's agents off this and has nothing else to
@@ -118,23 +114,23 @@ test("one pass claims its units, records what it serves, and gives everything ba
     "and when it last changed, which is the only stamp a record carries",
   );
   assert.equal(
-    (await agentStore.readStreamClaim())?.doc.worker,
-    "w-worker-test",
-    "exactly one worker holds the agent's event stream",
+    (await agentStore.readStreamClaim())?.doc.agent,
+    "w-agent-test",
+    "exactly one agent holds the agent's event stream",
   );
 
   // A second pass is the same pass: the claim is held, not re-taken, and the
   // record it wrote is still the record.
-  await worker.pass();
+  await agent.pass();
   const again = await new AgentStore(ctx, GROUP).readClaim();
-  assert.equal(again?.doc.worker, "w-worker-test");
+  assert.equal(again?.doc.agent, "w-agent-test");
   assert.equal(
-    (await agentStore.listAgents()).find((w) => w.id === "w-worker-test")?.updatedAt,
+    (await agentStore.listAgents()).find((w) => w.id === "w-agent-test")?.updatedAt,
     record.updatedAt,
     "a pass that changes nothing writes nothing",
   );
 
-  await worker.stop();
+  await agent.stop();
   assert.equal(await agentStore.readStreamClaim(), null, "the stream claim is released");
   for (const accountId of served) {
     assert.equal(
@@ -143,11 +139,11 @@ test("one pass claims its units, records what it serves, and gives everything ba
       "and so are the claims, so a replacement serves at once",
     );
   }
-  assert.equal(worker.served().length, 0);
+  assert.equal(agent.served().length, 0);
   assert.equal(
-    (await agentStore.listAgents()).find((w) => w.id === "w-worker-test"),
+    (await agentStore.listAgents()).find((w) => w.id === "w-agent-test"),
     undefined,
-    "a worker that stopped leaves no record behind to be read as a live one",
+    "a agent that stopped leaves no record behind to be read as a live one",
   );
   assert.ok(
     lines.some((line) => line.includes(`claimed ${GROUP}`)),
@@ -155,12 +151,12 @@ test("one pass claims its units, records what it serves, and gives everything ba
   );
 });
 
-test("liveness is the process's own fact, and it goes with the worker", async () => {
-  // The status surface asks the server that hosts the worker, and this is the
-  // answer: a running worker is one this process is running (ADR 0003: the
+test("liveness is the process's own fact, and it goes with the agent", async () => {
+  // The status surface asks the server that hosts the agent, and this is the
+  // answer: a running agent is one this process is running (ADR 0003: the
   // server starts the fleet and its shutdown stops it). Nothing durable is
-  // consulted, so a record on disk can never make a stopped worker look alive.
-  const worker = await startAgent({
+  // consulted, so a record on disk can never make a stopped agent look alive.
+  const agent = await startAgent({
     ctx,
     address: AGENT,
     agentId: "w-live",
@@ -169,7 +165,7 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
   });
   try {
     const started = liveAgents().find((w) => w.id === "w-live");
-    assert.ok(started, "a worker that started is alive before it has claimed anything");
+    assert.ok(started, "a agent that started is alive before it has claimed anything");
     assert.equal(started.address, AGENT);
     assert.deepEqual(
       started.groups,
@@ -177,7 +173,7 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
       "holding nothing is a state, not a missing answer",
     );
 
-    const served = await worker.pass();
+    const served = await agent.pass();
     const live = liveAgents().find((w) => w.id === "w-live");
     assert.ok(live);
     assert.deepEqual(
@@ -185,17 +181,17 @@ test("liveness is the process's own fact, and it goes with the worker", async ()
       served.map((id) => groupNameOf(session, id)).sort(),
       "and what it is serving right now is what the surface reads",
     );
-    assert.equal(live.streaming, true, "the stream claim is part of what this worker is");
+    assert.equal(live.streaming, true, "the stream claim is part of what this agent is");
   } finally {
     // A test that leaves a claim behind decides the tests after it: the injected
     // clocks of the ones below are in the past, and a claim taken in real time
     // is not theirs to take over.
-    await worker.stop();
+    await agent.stop();
   }
   assert.equal(
     liveAgents().find((w) => w.id === "w-live"),
     undefined,
-    "and a worker that stopped is not alive, with nothing written down to say so",
+    "and a agent that stopped is not alive, with nothing written down to say so",
   );
 });
 
@@ -209,7 +205,7 @@ test("the health endpoint answers a probe and nothing else", async () => {
     port: healthPort,
     health: () => ({
       status: "ok",
-      worker: "w1",
+      agent: "w1",
       address: AGENT,
       accounts: [GROUP],
       streaming: true,
@@ -253,7 +249,7 @@ test("a process that starts later takes the claim over, and the older one gives 
   });
   await first.pass();
   const claimed = await store.readClaim();
-  assert.equal(claimed?.doc.worker, "w-first");
+  assert.equal(claimed?.doc.agent, "w-first");
   assert.equal(
     claimed?.doc.takenAt,
     start.toISOString(),
@@ -277,7 +273,7 @@ test("a process that starts later takes the claim over, and the older one gives 
   });
   await second.pass();
   const taken = await store.readClaim();
-  assert.equal(taken?.doc.worker, "w-second");
+  assert.equal(taken?.doc.agent, "w-second");
   assert.equal(taken?.doc.epoch, 1, "a takeover is a new ownership");
   assert.ok(second.served().includes(GROUP), "the successor serves the unit");
   assert.equal(
@@ -297,7 +293,7 @@ test("a process that starts later takes the claim over, and the older one gives 
     "a claim taken after we started is not ours to take back",
   );
   assert.equal(
-    (await store.readClaim())?.doc.worker,
+    (await store.readClaim())?.doc.agent,
     "w-second",
     "and it stays the peer's",
   );
@@ -322,7 +318,7 @@ test("a process that starts later takes the claim over, and the older one gives 
     now: later(10 * 60_000),
   });
   await third.pass();
-  assert.equal((await store.readClaim())?.doc.worker, "w-third");
+  assert.equal((await store.readClaim())?.doc.agent, "w-third");
   await first.stop();
   await second.stop();
   await third.stop();
@@ -374,7 +370,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     username: "demo@example.com",
   };
   const start = new Date("2026-09-11T09:00:00Z");
-  const worker = await startAgent({
+  const agent = await startAgent({
     ctx: own,
     address: AGENT,
     agentId: "w-withdrawal",
@@ -383,7 +379,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     now: () => new Date(start.getTime()),
   });
 
-  assert.ok((await worker.pass()).includes(GROUP), "the group is served to begin with");
+  assert.ok((await agent.pass()).includes(GROUP), "the group is served to begin with");
   assert.equal(
     await readAppJsonAt(own, filesAccountId(own), WITHDRAWALS_PATH),
     null,
@@ -393,7 +389,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
   const accounts = own.session.accounts as Record<string, unknown>;
   delete accounts[GROUP];
 
-  const after = await worker.pass();
+  const after = await agent.pass();
   assert.ok(!after.includes(GROUP), "the withdrawn account is not served any more");
   const report = (await readAppJsonAt(
     own,
@@ -410,13 +406,13 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
   assert.equal(report[0].at, start.toISOString());
 
   // The claim it held is left where it is: a withdrawal is not a release, and a
-  // worker that deleted another account's documents on its way out would be
+  // agent that deleted another account's documents on its way out would be
   // taking a trust it was never given. The claim stays in the group's own
   // account, un-renewed, and the next process to start takes it over.
   assert.equal(
-    (await new AgentStore(own, GROUP).readClaim())?.doc.worker,
+    (await new AgentStore(own, GROUP).readClaim())?.doc.agent,
     "w-withdrawal",
     "the claim is left for the next process that starts to take over",
   );
-  await worker.stop();
+  await agent.stop();
 });

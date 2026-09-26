@@ -43,24 +43,20 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
 - **The prose still says "worker" where the product says "agent".** The
   vocabulary is one **master**, its **agents**, its **automations**, and
-  "worker" for the browser's service worker. The identifiers and the wire
-  follow it: the fleet's entrypoint is `server/src/agent/agent.ts` and its built
-  path `server/dist/agent/agent.js`, named the same way by the package script,
-  the two imports, the deployment's own command in `docker-compose.yml`,
-  `.env.example`, the README and the ADRs; `AgentHandle`, `AgentDeps`,
-  `startAgent`/`startAgents`, `AgentRecord`, `AgentStatusRow` and `LiveAgent`
-  are the code's own names; and the admin status answer carries `agents`, which
-  the client reads. What still says worker is the prose: the comments and test
-  titles inside the fleet's own code.
-- **What moves only with its readers.** The `worker` field of a claim document,
-  written in every group's account by every installation that has run an agent,
-  so a successor has to recognise a holder named under either spelling; and the
-  `agent/workers/<id>.json` path the heartbeats live at (`AGENT_WORKERS_DIR`).
-  A durable field moves only with a reader that accepts both spellings until the
-  last installation has re-written it. **The environment variables stay as they
-  are** (owner decision 2026-09-12): `GILBERT_AGENT_ADDRESS` and its neighbours
-  name the master's credentials, and a rename is a change to somebody's
-  deployment file rather than to a codebase.
+  "worker" for the browser's service worker. The identifiers, the wire and the
+  stored documents follow it: the fleet's entrypoint is
+  `server/src/agent/agent.ts` and its built path `server/dist/agent/agent.js`,
+  named the same way by the package script, the two imports, the deployment's
+  own command in `docker-compose.yml`, `.env.example`, the README and the ADRs;
+  `AgentHandle`, `AgentDeps`, `startAgent`/`startAgents`, `AgentRecord`,
+  `AgentStatusRow` and `LiveAgent` are the code's own names; the admin status
+  answer carries `agents`, which the client reads; and a claim names its holder
+  in `agent`, its stream claim too, with the heartbeats under `agent/agents/`
+  (`AGENT_HEARTBEATS_DIR`). What still says worker is the prose in comments
+  outside the fleet's own directory.
+- **The environment variables stay as they are** (owner decision 2026-09-12):
+  `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and
+  a rename is a change to somebody's deployment file rather than to a codebase.
 
 - **The web's test suites still fake the JMAP envelope for themselves.** Thirty
   of them wrote the same loop out: parse `methodCalls`, answer one

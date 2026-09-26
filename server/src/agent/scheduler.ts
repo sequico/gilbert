@@ -3,7 +3,7 @@
  *
  * The schedule is a document in the group's own account (`agent/schedule.json`)
  * holding the next run instant of every `schedule` rule, so no container has to
- * live for a run to happen: a replacement worker re-plans from Stalwart and
+ * live for a run to happen: a replacement agent re-plans from Stalwart and
  * re-arms its timers. The planning, the due check and the advance are pure
  * functions, testable without a clock; `armTimers` is the only part that
  * touches a timer, and it takes the clock and the timers from its options (the
@@ -57,7 +57,7 @@ export type OnDue = (entry: AgentScheduleEntry) => void;
 /**
  * Whether an entry is one no rule can run any more.
  *
- * A due entry is normally fired late rather than dropped — a worker that was
+ * A due entry is normally fired late rather than dropped — a agent that was
  * away catches up — so what cannot run is the entry whose rule is disabled,
  * gone, or no longer a rule the clock wakes: its instant has arrived, nothing
  * will run it, and the schedule moves on with nothing anywhere saying the
@@ -141,11 +141,11 @@ export function advance(
 }
 
 /**
- * The schedule document as one worker may write it.
+ * The schedule document as one agent may write it.
  *
- * `next` is what a worker holding the account's claim would write, and `stored`
+ * `next` is what a agent holding the account's claim would write, and `stored`
  * is what the document holds. A claim is the account's, and so is the schedule:
- * a worker that does not hold it owns none of the entries, and each is carried
+ * a agent that does not hold it owns none of the entries, and each is carried
  * over exactly as it was found — still due, if it was due. Re-planning one here
  * would move its instant past the run its holder is about to start, and the run
  * would be lost with no line anywhere saying the group's automation did not
@@ -223,7 +223,7 @@ export function armTimers(
       timers.delete(timer);
       if (stopped) return;
       if (now() >= due) {
-        // One entry's handler must not be able to kill the worker: a throw that
+        // One entry's handler must not be able to kill the agent: a throw that
         // escaped here would be an uncaught exception in a timer callback. It is
         // reported and the entry is **not** re-armed: the instant has already
         // arrived, so re-arming would fire again at the shortest wait for as long

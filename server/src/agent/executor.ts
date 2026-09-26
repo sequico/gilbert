@@ -4,8 +4,8 @@
  * Everything here is derived from documents, so a crash costs only the work in
  * flight: the trigger is a job document, the pinned rule version is on it, the
  * pause is a decision document, and the lease is an owner plus a heartbeat. A
- * worker that dies mid-run leaves the job where the next worker finds it, and
- * the next worker reaches the same conclusion from the same state.
+ * agent that dies mid-run leaves the job where the next agent finds it, and
+ * the next agent reaches the same conclusion from the same state.
  *
  * The model's role (ADR 0003 resolution 7) is bounded twice: it decides only
  * inside the rule's own capability list, and every decision passes the review
@@ -169,9 +169,9 @@ export type ScheduleGuard = (work: () => Promise<void>) => Promise<GuardOutcome>
 /**
  * What a fire runs inside when its caller gives no guard: the work itself.
  *
- * A worker always gives one — the account's lock, so a fire and a reconcile
+ * A agent always gives one — the account's lock, so a fire and a reconcile
  * cannot run this account at once — and running it directly is what a test that
- * arms a schedule without a live worker around it wants.
+ * arms a schedule without a live agent around it wants.
  */
 const runUnguarded: ScheduleGuard = async (work) => {
   await work();
@@ -186,7 +186,7 @@ const runUnguarded: ScheduleGuard = async (work) => {
 export const JOB_MAX_ATTEMPTS = 3;
 
 /**
- * How long a finished job or a decided decision is kept before the worker
+ * How long a finished job or a decided decision is kept before the agent
  * prunes it. The audit is the record that lasts (12 months, ADR 0003); a job
  * document is working state and does not need to outlive an operator's look at
  * yesterday's run.
@@ -229,12 +229,12 @@ interface RunPlan {
 const DECISION_SETTLE_ATTEMPTS = 3;
 
 export interface ExecutorDeps {
-  /** The agent's own session context: the worker's, never a member's. */
+  /** The agent's own session context: the agent's, never a member's. */
   ctx: Ctx;
   client: JmapClient;
   /** The agent's address, which chat posts are written as. */
   address: string;
-  /** The worker holding this executor, recorded on every lease it takes. */
+  /** The agent holding this executor, recorded on every lease it takes. */
   agentId: string;
   now: () => Date;
   log: (line: string) => void;
@@ -324,7 +324,7 @@ export class Executor {
       if (type === "Email")
         await this.emailRecords(store, accountId, ids, rules, pass, claim);
       else await this.fileRecords(store, accountId, ids, rules, pass, claim);
-      // Only this worker's own bookkeeping moved: the anchor stays where it is,
+      // Only this agent's own bookkeeping moved: the anchor stays where it is,
       // so the next pass reads the same nothing-to-do and writes nothing again.
       // See `onlyBookkeeping` for why writing it would be a loop.
       if (await this.onlyBookkeeping(accountId, type, ids)) return;
@@ -333,7 +333,7 @@ export class Executor {
   }
 
   /**
-   * Whether everything this pass read is a document the worker wrote itself.
+   * Whether everything this pass read is a document the agent wrote itself.
    *
    * The claim, the jobs, the decisions and the audit are files in the very
    * account whose state they report, so writing the anchor **is** the next
@@ -799,7 +799,7 @@ export class Executor {
    * the same line about the same refusal.
    *
    * A refusal that is already in the trail is not made twice: nothing but the
-   * trail remembers one, so a change the worker reads again would otherwise
+   * trail remembers one, so a change the agent reads again would otherwise
    * refuse again, with a second entry and the same sentence in the group's chat.
    *
    * The trail is checked in both this month's document and last month's: a
@@ -856,7 +856,7 @@ export class Executor {
     const found = await store.readJob(job.id);
     if (!found) return;
     const current = found.doc;
-    // Only work that is waiting for a worker: a finished job is finished, and a
+    // Only work that is waiting for a agent: a finished job is finished, and a
     // job paused on a person waits for that person, never for a lease timeout.
     if (current.state !== "pending" && current.state !== "running") return;
     const now = this.deps.now();
@@ -910,7 +910,7 @@ export class Executor {
       // Fencing, at the last moment before anything leaves the process: a run
       // whose unit was taken over while it was deciding has had its lease
       // lapse, and what it is about to do — send, post, file — would be done a
-      // second time by the worker that replaced it.
+      // second time by the agent that replaced it.
       if (!(await claimStillMine(store, this.deps.agentId, claimEpoch(claim)))) {
         this.deps.log(
           `${automationLabel(rule)}: ${job.id} was taken over while it was deciding, so nothing is run`,
@@ -947,7 +947,7 @@ export class Executor {
    * action that just landed included — so the state is read here, immediately
    * before the write it guards. The change is applied to the document as it is
    * read rather than to the copy a run has carried since it claimed the job,
-   * because a write onto that copy would put a lapsed worker's `applied` and
+   * because a write onto that copy would put a lapsed agent's `applied` and
    * `attempts` over the view its successor is working on. A refusal means the
    * document moved in that window, and the answer is to write nothing: `null`
    * says so, and a job document that is no longer there answers the same way.
@@ -969,7 +969,7 @@ export class Executor {
     // enters `running`, and a run whose actions take longer than `leaseMs`
     // combined looks abandoned to a peer that takes this account over mid-run,
     // which would then start the same job a second time believing the first
-    // worker is gone rather than merely slow.
+    // agent is gone rather than merely slow.
     if (next.state === "running" && next.lease?.owner === this.deps.agentId) {
       next.lease = {
         owner: this.deps.agentId,
@@ -1574,7 +1574,7 @@ export class Executor {
     // that exist. The id comes from the decision itself, so the job names the
     // document that was actually written.
     const decision = newDecision(opening);
-    // A paused job belongs to a person now, not to a worker: clearing the lease
+    // A paused job belongs to a person now, not to a agent: clearing the lease
     // keeps it out of the takeover path while it waits. A refused write stops
     // the pause before a decision a person could answer exists.
     const paused = await this.writeJobIfCurrent(store, job.id, (latest) => {
@@ -2174,7 +2174,7 @@ export class Executor {
       };
       if (job) {
         // The lease goes in the same write as the state, so the run a person
-        // approved is this worker's from the instant it is in flight: a job
+        // approved is this agent's from the instant it is in flight: a job
         // marked `running` with no lease is one the next pass would take for
         // abandoned and start again, which is how the same mail would leave
         // twice (ADR 0003).
@@ -2277,7 +2277,7 @@ export class Executor {
       /*
        * A decision is settled under a conditional write, and a lost
        * compare-and-set is not a rival: the account this reads is the same one
-       * the worker writes its own bookkeeping into — a schedule armed, a job
+       * the agent writes its own bookkeeping into — a schedule armed, a job
        * closed, an anchor advanced — so the document moves under a read for
        * reasons that have nothing to do with the decision. Every other
        * read-modify-write here retries on that (see `saveRules` in
@@ -2535,7 +2535,7 @@ export class Executor {
   /* ---------------------------------------------------------------- */
 
   /**
-   * Plan the account's time triggers and arm the timers. The worker holds the
+   * Plan the account's time triggers and arm the timers. The agent holds the
    * disposer; the entries are re-planned from the document every time, so a
    * crash costs only the wait until the next pass.
    *
@@ -2556,7 +2556,7 @@ export class Executor {
        * `startJob` concurrently with it, a second unfenced way to the same
        * duplicate-execution risk `reconciling` exists to close in `agent.ts`.
        * Defaults to running the work directly, which is what a test that arms
-       * a schedule without a live worker around it wants.
+       * a schedule without a live agent around it wants.
        *
        * Its answer is read, never discarded: a fire the lock deferred arms no
        * successor, because the reconcile that owns the account runs the entry
@@ -2567,7 +2567,7 @@ export class Executor {
        * The clock and the timers the entries are armed with, in the shape
        * `armTimers` takes them in. Injected so a test drives the arming, the
        * cap and a fire without waiting out a rule's own minute; the globals by
-       * default, which is what a worker runs on.
+       * default, which is what a agent runs on.
        */
       timers?: Omit<ArmTimersOpts, "maxDelayMs">;
     },
@@ -2590,8 +2590,8 @@ export class Executor {
       if (stopped) return;
       // The rules and the document are read again at every arming, the same
       // pass-shaped read the catch-up does, so a schedule edited while the
-      // worker waited is armed as it now is — and only the entries of the
-      // account this worker holds are armed: nothing else is its own to fire.
+      // agent waited is armed as it now is — and only the entries of the
+      // account this agent holds are armed: nothing else is its own to fire.
       dispose?.();
       const current = (await store.readRules())?.doc ?? [];
       const doc = await store.readSchedule();
@@ -2625,7 +2625,7 @@ export class Executor {
           maxDelayMs: opts.maxDelayMs,
           ...opts.timers,
           // A fire whose handler threw synchronously is reported here rather
-          // than escaping a timer callback: one entry must not take the worker
+          // than escaping a timer callback: one entry must not take the agent
           // down or vanish un-armed.
           onError: (err: unknown) =>
             this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
@@ -2666,12 +2666,12 @@ export class Executor {
   }
 
   /**
-   * The schedule rules this worker holds.
+   * The schedule rules this agent holds.
    *
    * A claim is the account's and the schedule is one document per account, so
-   * the worker that holds the account holds every entry of its schedule.
+   * the agent that holds the account holds every entry of its schedule.
    * Planning, firing or advancing an entry it does not hold would take a run
-   * away from the worker that does — and leave nothing anywhere saying the
+   * away from the agent that does — and leave nothing anywhere saying the
    * group's automation did not happen.
    */
   private async ownScheduleRules(
@@ -2680,7 +2680,7 @@ export class Executor {
   ): Promise<Set<string>> {
     const mine = new Set<string>();
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.agentId) return mine;
+    if (claim?.agent !== this.deps.agentId) return mine;
     for (const rule of rules) mine.add(rule.id);
     return mine;
   }
@@ -2715,10 +2715,10 @@ export class Executor {
   }
 
   /**
-   * The entries that are already due: catch-up after a worker was away.
+   * The entries that are already due: catch-up after a agent was away.
    *
    * A pass is what reaches it — a time trigger is not a change, so nothing
-   * wakes the worker for one — and each due run is started with the claim on
+   * wakes the agent for one — and each due run is started with the claim on
    * its own account's claim, because the schedule is the account's.
    */
   async runDueSchedules(accountId: string): Promise<number> {
@@ -2739,8 +2739,8 @@ export class Executor {
       return 0;
     }
     const owned = await this.ownScheduleRules(store, rules);
-    // Only the entries this worker holds are fired from here: a due entry it does
-    // not hold keeps its instant for the worker that does, rather than being
+    // Only the entries this agent holds are fired from here: a due entry it does
+    // not hold keeps its instant for the agent that does, rather than being
     // moved on and run nowhere.
     const mine = due.filter((entry) => owned.has(entry.ruleId));
     const next = carryingForeign(
@@ -2759,12 +2759,12 @@ export class Executor {
       // the clock no longer wakes (see `unrunEntry`).
       if (!rule || unrunEntry(entry, rules)) continue;
       // Read again where the run starts: the lease can lapse between the read
-      // that chose the entry and this one, and a unit that is not this worker's
-      // is not this worker's to start.
+      // that chose the entry and this one, and a unit that is not this agent's
+      // is not this agent's to start.
       const claim = (await store.readClaim())?.doc;
-      if (claim?.worker !== this.deps.agentId) {
+      if (claim?.agent !== this.deps.agentId) {
         this.deps.log(
-          `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is not started`,
+          `${automationLabel(rule)}: the account's automation is not held by this agent, so the run due at ${entry.at} is not started`,
         );
         continue;
       }
@@ -2791,8 +2791,8 @@ export class Executor {
   /**
    * One entry fired by its timer: run the rule and move the entry on.
    *
-   * The entry is moved on only by the worker that holds the account. One
-   * that does not is left where it is, still due, for the worker that does —
+   * The entry is moved on only by the agent that holds the account. One
+   * that does not is left where it is, still due, for the agent that does —
    * and one whose rule can no longer run is left for the pass, which drops it
    * and records it as a missed run.
    */
@@ -2809,13 +2809,13 @@ export class Executor {
     // run; nothing here consumes it.
     if (!rule || unrunEntry(entry, rules)) return;
     // A timer fires outside any reconcile, so the unit is read where the
-    // worker's claim lives: a schedule that outlived the worker's lease does
+    // agent's claim lives: a schedule that outlived the agent's lease does
     // not start a run nobody can fence, and it does not consume the entry
     // either — its holder fires it.
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.agentId) {
+    if (claim?.agent !== this.deps.agentId) {
       this.deps.log(
-        `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is left to its holder`,
+        `${automationLabel(rule)}: the account's automation is not held by this agent, so the run due at ${entry.at} is left to its holder`,
       );
       return;
     }
@@ -2892,7 +2892,7 @@ export class Executor {
       // A job that is gone has nothing left to close: the documents a finished
       // run leaves are pruned together, decision and job alike.
       if (!job) continue;
-      // A closed job is a run that happened, and a `running` one is a worker's:
+      // A closed job is a run that happened, and a `running` one is a agent's:
       // the sweep resumes that, and the outcome it writes is the one to read.
       if (job.state === "done" || job.state === "failed") continue;
       if (job.state === "running") continue;
@@ -2922,16 +2922,16 @@ export class Executor {
   async runPending(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
     /*
-     * The fence is the worker's claim on the unit, so nothing here — not the
-     * spent-approval sweep, not one job — may touch an account this worker does
+     * The fence is the agent's claim on the unit, so nothing here — not the
+     * spent-approval sweep, not one job — may touch an account this agent does
      * not hold. It is asked once, before anything writes: `recoverSpentApprovals`
-     * writes job state and audit rows, and a worker that does not hold the
+     * writes job state and audit rows, and a agent that does not hold the
      * account has no business doing that.
      */
     const claim = (await store.readClaim())?.doc;
-    if (claim?.worker !== this.deps.agentId) {
+    if (claim?.agent !== this.deps.agentId) {
       this.deps.log(
-        `${accountId}: the account's automation is held by another worker, so the pending sweep leaves it`,
+        `${accountId}: the account's automation is held by another agent, so the pending sweep leaves it`,
       );
       return 0;
     }
@@ -2945,7 +2945,7 @@ export class Executor {
       const job = entry.doc;
       const rule = rules.find((candidate) => candidate.id === job.ruleId);
       if (job.state === "running") {
-        // A job still `running` belongs to the worker that wrote that state.
+        // A job still `running` belongs to the agent that wrote that state.
         // Only when its heartbeat is older than the tolerance is it anybody
         // else's — and then it is picked up here, which is what makes a crash
         // mid-run recoverable instead of a document nobody ever closes (it
@@ -2991,7 +2991,7 @@ export class Executor {
       // goes on, so a job that cannot be recorded — a rule document nobody can
       // read, a store that refused a write — does not hold back the ones behind
       // it in the list. The claim was asked once at the top, before anything
-      // wrote: every job reached here belongs to a worker that holds the account.
+      // wrote: every job reached here belongs to a agent that holds the account.
       try {
         await this.runJob(accountId, job, rule, claim);
         ran += 1;
@@ -3005,9 +3005,9 @@ export class Executor {
   }
 
   /**
-   * Whether a `running` job has lost the worker that wrote that state.
+   * Whether a `running` job has lost the agent that wrote that state.
    *
-   * The heartbeat is the only witness: a worker that crashed leaves no note,
+   * The heartbeat is the only witness: a agent that crashed leaves no note,
    * and a lease that has not been renewed for longer than the tolerance means
    * nobody is holding the unit it belonged to.
    */
@@ -3024,7 +3024,7 @@ export class Executor {
   /**
    * Whether the rest of a crashed run's plan would leave the process.
    *
-   * A `running` job an abandoned worker left behind is resumed from the prefix
+   * A `running` job an abandoned agent left behind is resumed from the prefix
    * its `applied` ledger recorded. The gap that ledger cannot close is between
    * an action landing and its checkpoint — a send, a post or a file may have
    * happened and the document does not say — so the remainder is only safe to
@@ -3054,7 +3054,7 @@ export class Executor {
     rule: AgentRule | undefined,
   ): Promise<void> {
     const why = rule
-      ? `no worker came back for this run (attempt ${job.attempts || 1} of ${JOB_MAX_ATTEMPTS})`
+      ? `no agent came back for this run (attempt ${job.attempts || 1} of ${JOB_MAX_ATTEMPTS})`
       : `the automation this run belongs to is gone, so nothing will resume it`;
     await this.failLoudly(
       store,
@@ -3205,7 +3205,7 @@ function producerKey(type: AgentEffect["type"], id: string): string {
  * have written the same record — two automations reacting to one message both
  * label it — so among the writes that could explain a wake, the deepest one
  * wins, and two at the same depth are ordered by time and then by the job,
- * which makes the answer the same one on every worker that reads the same
+ * which makes the answer the same one on every agent that reads the same
  * documents.
  *
  * The deepest write wins rather than the latest one because "latest" let an

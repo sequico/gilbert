@@ -187,7 +187,7 @@ export function conversationContext(
   const anchor = anchorId ? byId.get(anchorId) : before[before.length - 1];
   if (anchorId && !anchor) {
     throw new Error(
-      `the message this run answers (${anchorId}) is not in the transcript the worker read, ` +
+      `the message this run answers (${anchorId}) is not in the transcript the agent read, ` +
         "so there is no conversation to answer in",
     );
   }

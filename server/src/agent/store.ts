@@ -3,7 +3,7 @@
  *
  * ADR 0003 puts every durable byte of the fleet in the group's own account
  * (rules, jobs, decisions, claims, schedule, audit) and the installation-wide
- * facts in the agent's own account (configuration, the stream claim, worker
+ * facts in the agent's own account (configuration, the stream claim, agent
  * heartbeats). This class is the one place those documents are addressed:
  * one path per document, one validator per shape, one conditional write.
  *
@@ -33,13 +33,13 @@ import {
   AGENT_CONFIG_FILE,
   AGENT_DECISIONS_DIR,
   AGENT_DIR,
+  AGENT_HEARTBEATS_DIR,
   AGENT_JOBS_DIR,
   AGENT_NOTEBOOK_FILE,
   AGENT_POLICY_FILE,
   AGENT_RULES_FILE,
   AGENT_SCHEDULE_FILE,
   AGENT_STREAM_FILE,
-  AGENT_WORKERS_DIR,
   type AgentAuditDoc,
   type AgentAuditEntry,
   type AgentAuthoringDoc,
@@ -192,7 +192,7 @@ export class AgentStore {
   /**
    * Create the folder tree the agent's documents live in, once per account.
    *
-   * Worth calling when a worker takes an account rather than leaving it to
+   * Worth calling when a agent takes an account rather than leaving it to
    * the first write: creating a folder moves the account's FileNode state, so
    * a conditional write that had read the state before the folder existed
    * loses its compare-and-set for a reason that has nothing to do with the
@@ -817,7 +817,7 @@ export class AgentStore {
    *   them: four back-to-back retries all land inside the same collision;
    * - on a loss that survives them, the entry is **queued** (see
    *   `pendingAudits`) and the next write for this account tries it again;
-   * - the queue is drained by the worker each pass, which also means an entry
+   * - the queue is drained by the agent each pass, which also means an entry
    *   can be reported as pending rather than silently gone.
    *
    * What is not solved here is size: the document holds a whole month, so the
@@ -888,7 +888,7 @@ export class AgentStore {
 
   async listAgents(): Promise<AgentRecord[]> {
     const found = await this.listDocs<AgentRecord>(
-      this.path(AGENT_WORKERS_DIR),
+      this.path(AGENT_HEARTBEATS_DIR),
       isAgentRecord,
     );
     return found.map((w) => w.doc);
@@ -898,12 +898,12 @@ export class AgentStore {
     await writeAppFileAt(
       this.ctx,
       this.accountId,
-      this.path(AGENT_WORKERS_DIR, agentDocName(record.id)),
+      this.path(AGENT_HEARTBEATS_DIR, agentDocName(record.id)),
       record,
     );
   }
 
   async destroyAgent(id: string): Promise<void> {
-    await this.destroyDoc(this.path(AGENT_WORKERS_DIR, agentDocName(id)));
+    await this.destroyDoc(this.path(AGENT_HEARTBEATS_DIR, agentDocName(id)));
   }
 }

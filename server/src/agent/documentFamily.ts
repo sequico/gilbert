@@ -402,7 +402,7 @@ async function pdfPageTexts(
   } catch (err) {
     throw unreadable("this PDF", err);
   } finally {
-    // The worker behind the task is not the caller's to leave running.
+    // The agent behind the task is not the caller's to leave running.
     await task.destroy().catch(() => undefined);
   }
 }

@@ -1,5 +1,5 @@
 /**
- * The agent worker fleet's surfaces (ADR 0003): what the admin sees and
+ * The agent agent fleet's surfaces (ADR 0003): what the admin sees and
  * changes, and what a group member reads.
  *
  * The durable documents live in Stalwart — `agent/documents.ts` is their
@@ -555,7 +555,7 @@ async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
   if (!accountId) return [];
   try {
     const raw = await readAppJsonAt(ctx, accountId, WITHDRAWALS_PATH);
-    // The worker appends, so the last one in the document is the last one that
+    // The agent appends, so the last one in the document is the last one that
     // happened: reversed here, the surface reads them newest first.
     return Array.isArray(raw) ? (raw as AgentWithdrawal[]).reverse() : [];
   } catch (err) {
@@ -570,35 +570,35 @@ async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
 /**
  * The agent's agents, with liveness read from the process that runs them.
  *
- * A worker's record is written on change — when it starts, when the set of
- * accounts it serves changes, when it stops — so the record says what a worker
+ * A agent's record is written on change — when it starts, when the set of
+ * accounts it serves changes, when it stops — so the record says what a agent
  * is **doing** and never whether it is up; a durable stamp cannot answer a
  * question about a process anyway. The answer is in memory, where the process
- * is: this server hosts the fleet (ADR 0003), so the worker it is running right
+ * is: this server hosts the fleet (ADR 0003), so the agent it is running right
  * now is the one `liveAgents()` names, and a record nobody here is running is
- * a worker that stopped, died, or was never this server's.
+ * a agent that stopped, died, or was never this server's.
  */
 async function readAgents(ctx: Ctx): Promise<AgentStatusRow[]> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return [];
   const records: AgentRecord[] = await new AgentStore(ctx, accountId).listAgents();
-  const running = new Map(liveAgents().map((worker) => [worker.id, worker]));
+  const running = new Map(liveAgents().map((agent) => [agent.id, agent]));
   return records.map((w) => {
     const live = running.get(w.id);
     return {
       id: w.id,
       address: w.address,
-      // When this worker last changed what it does, or when the process that
-      // runs it started answering for it: both are the worker's own fact, and
+      // When this agent last changed what it does, or when the process that
+      // runs it started answering for it: both are the agent's own fact, and
       // neither is a clock this surface reads on its behalf.
       heartbeatAt: live ? live.since : w.updatedAt,
       version: w.version,
       // Only a server that runs the fleet can answer this. One that does not
-      // says so, rather than reporting every worker as gone.
+      // says so, rather than reporting every agent as gone.
       alive: config.agent.inprocess ? live !== undefined : null,
-      // A record written before the field existed names no group, and a worker
+      // A record written before the field existed names no group, and a agent
       // holding nothing names none either: both read as "serves nothing here".
-      // A running worker answers with what it holds now, which is why the
+      // A running agent answers with what it holds now, which is why the
       // registry is read at all rather than the record alone.
       groups: live ? [...live.groups] : (w.serves ?? []),
     };
@@ -834,7 +834,7 @@ export async function saveRules(
  * The person-shaped door into the one trigger that has no other way in: a chat
  * automation is asked for by talking to the agent in the group's chat and a
  * time one by its own clock, while mail arrives when it likes. What this writes
- * is a job — the same document, the same states, the same sweep — so the worker
+ * is a job — the same document, the same states, the same sweep — so the agent
  * that holds the group's claim runs it exactly as it runs an arrival. The
  * capability allowlist, the review policy, the version pin and the audit are
  * the ones already in force: a run asked for by a person meets the rule it
@@ -1044,7 +1044,7 @@ function providerView(provider: AgentProvider | undefined): AgentProviderView | 
  * and who registered it.
  *
  * A lost compare-and-set is retried once, because the token is the account's
- * whole FileNode state (ADR 0003) and this is the account the worker writes
+ * whole FileNode state (ADR 0003) and this is the account the agent writes
  * its heartbeat and its audit in: the agent's own bookkeeping invalidates a
  * save that overlaps it, for no reason to do with this document.
  */
@@ -1197,11 +1197,11 @@ function providerEntry(
 }
 
 /**
- * Refuse a base URL the worker should not be pointed at.
+ * Refuse a base URL the agent should not be pointed at.
  *
- * The worker sends the group's API key to whatever this names, from inside the
+ * The agent sends the group's API key to whatever this names, from inside the
  * deployment's own network. A plaintext URL sends the key in the clear, and an
- * address inside the network turns the worker into a way to reach services that
+ * address inside the network turns the agent into a way to reach services that
  * are not on the internet — so both are refused here, where an administrator
  * gets a sentence, rather than at the call, where a 30-second timeout would be
  * the whole diagnosis.
@@ -1387,7 +1387,7 @@ export async function saveGroupPolicy(
  *
  * It is **not a run**. Nothing is compiled, no document is produced, no job is
  * written and no claim is taken — it is a call from the web tier with a timeout
- * and no lease, which is why neither the executor nor a worker is anywhere in
+ * and no lease, which is why neither the executor nor a agent is anywhere in
  * this path. Thinking is off: "is this prose coherent" is a question about
  * text, and its answer is a sentence rather than a chain of thought.
  *

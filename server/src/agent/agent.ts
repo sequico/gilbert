@@ -1,12 +1,12 @@
 /**
- * The worker: the agent's own process (ADR 0003, v1 scope).
+ * The agent: the agent's own process (ADR 0003, v1 scope).
  *
  * Same codebase, second entrypoint. It authenticates as the one structure agent
  * the installation registered, claims the group accounts it will serve, and
  * holds the agent's event stream when it wins that claim. Nothing durable
  * lives in it: the claims, the jobs and the decisions are documents, so a
  * restart re-derives the session, re-claims what is free and carries on from
- * the state the last worker recorded. A second worker on the same installation
+ * the state the last agent recorded. A second agent on the same installation
  * keeps the claims it can and polls for the rest — which is why the default
  * deployment is one.
  */
@@ -71,16 +71,16 @@ export interface AgentDeps {
 export interface AgentHandle {
   /** One pass: claim, reconcile, retry, answer, prune. Returns the accounts served. */
   pass(): Promise<ReadonlyArray<string>>;
-  /** The accounts this worker holds a claim on. */
+  /** The accounts this agent holds a claim on. */
   served(): ReadonlyArray<string>;
-  /** What a health endpoint and an operator read: this worker, right now. */
+  /** What a health endpoint and an operator read: this agent, right now. */
   health(): AgentHealth;
   /** Release everything and stop: the stream claim first, so a peer can take it. */
   stop(): Promise<void>;
 }
 
 /**
- * What a running worker reports about itself.
+ * What a running agent reports about itself.
  *
  * Deployment's restart policy needs one thing to ask: is this process serving
  * what it claimed (ADR 0003 resolution 8). What it does *not* report is
@@ -90,11 +90,11 @@ export interface AgentHandle {
  */
 export interface AgentHealth {
   status: "ok";
-  worker: string;
+  agent: string;
   address: string;
-  /** The accounts the worker holds a claim on right now. */
+  /** The accounts the agent holds a claim on right now. */
   accounts: ReadonlyArray<string>;
-  /** Whether this worker holds the agent's event stream. */
+  /** Whether this agent holds the agent's event stream. */
   streaming: boolean;
   startedAt: string;
   uptimeSeconds: number;
@@ -105,7 +105,7 @@ export interface AgentHealth {
  * one classifier rather than a second spelling of it.
  *
  * v1 is group agents only (ADR resolution 4): a person's own mailbox is not
- * this worker's work, whatever the principal can reach, and neither is a share
+ * this agent's work, whatever the principal can reach, and neither is a share
  * that happens to carry an address. `groupAccounts` answers with the accounts
  * that answer as mail stores, which is what a group is.
  */
@@ -127,14 +127,14 @@ export async function candidateAccounts(ctx: Ctx): Promise<string[]> {
 
 /* The Authorization header a plain principal authenticates with is
    `shared/basicAuth.ts`'s one implementation, re-exported here because this
-   module's callers (and its tests) name it through the worker. */
+   module's callers (and its tests) name it through the agent. */
 export { basicAuth };
 
 /**
  * The accounts the session listed and no longer does, with the names they had.
  *
  * A grant withdrawn in Stalwart's own administration removes the group from the
- * agent's session — that is what a grant *is* — so the accounts the worker was
+ * agent's session — that is what a grant *is* — so the accounts the agent was
  * serving and the accounts the session still lists are the whole of the
  * detection. The names travel with it because the session is exactly what stops
  * carrying them: after the withdrawal there is nowhere left to ask.
@@ -165,10 +165,10 @@ export function groupNameOf(session: UpstreamSession, accountId: string): string
  *
  * Liveness is a process fact and it is kept where the process is. A deployment's
  * server and its agents share a fate (ADR 0003: the fleet runs beside the web
- * tier, and the server's shutdown stops it), so a worker that is alive is a
- * worker this process is running — while the record in the agent's own account
+ * tier, and the server's shutdown stops it), so a agent that is alive is a
+ * agent this process is running — while the record in the agent's own account
  * is written when the work changes, never on a clock. The status surface asks
- * the server that hosts the worker, and this is what it reads.
+ * the server that hosts the agent, and this is what it reads.
  *
  * Nothing here is durable and nothing here asks the store anything: a process
  * that dies takes its own liveness with it, which is the whole of what a restart
@@ -178,7 +178,7 @@ export interface LiveAgent {
   id: string;
   address: string;
   version: string;
-  /** When this process started serving as this worker. */
+  /** When this process started serving as this agent. */
   since: string;
   /** The accounts it holds a claim on right now. */
   accounts: ReadonlyArray<string>;
@@ -191,11 +191,11 @@ export interface LiveAgent {
 }
 
 /**
- * The fleet this process runs, keyed by worker id.
+ * The fleet this process runs, keyed by agent id.
  *
  * A handout rather than a service: `startAgent` registers what it is when it
  * starts and whenever the set of accounts it serves changes, and removes itself
- * when it stops, so "is this worker alive" is answered by whether it is here and
+ * when it stops, so "is this agent alive" is answered by whether it is here and
  * not by anything written to Stalwart.
  */
 const live = new Map<string, LiveAgent>();
@@ -206,14 +206,14 @@ export function liveAgents(): LiveAgent[] {
 }
 
 /**
- * What a running worker is, as the fleet surface reads it.
+ * What a running agent is, as the fleet surface reads it.
  *
- * A worker that stopped is removed rather than left behind: in-memory liveness
+ * A agent that stopped is removed rather than left behind: in-memory liveness
  * is exactly "is this process running it", and a row that survived the stop
  * would be the durable lie this exists to remove.
  */
-function remember(worker: LiveAgent): void {
-  live.set(worker.id, worker);
+function remember(agent: LiveAgent): void {
+  live.set(agent.id, agent);
 }
 
 function forget(id: string): void {
@@ -263,7 +263,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   const dirty = new Set<string>();
   const reconciling = new Set<string>();
 
-  /** The types this worker has to reconcile for one account. */
+  /** The types this agent has to reconcile for one account. */
   const typesOf = (accountId: string): ChangeType[] =>
     servedAccounts.has(accountId) ? [...RECONCILED_TYPES] : [];
 
@@ -276,15 +276,15 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       try {
         await executor.reconcile(accountId, type, claim);
       } catch (err) {
-        // A lost reconcile is not a lost worker: the state stays where it was,
+        // A lost reconcile is not a lost agent: the state stays where it was,
         // so the next pass re-reads the same range.
         log(
           `${accountId}: ${type} reconcile failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
-    // Nothing wakes the worker for a time trigger — it is not a change — so the
-    // pass asks. This is the catch-up for the runs a worker was away for, and
+    // Nothing wakes the agent for a time trigger — it is not a change — so the
+    // pass asks. This is the catch-up for the runs a agent was away for, and
     // it reads the due entries back out of the document on every round.
     const due = await executor.runDueSchedules(accountId);
     if (due) log(`${accountId}: ${due} scheduled run(s) due`);
@@ -410,9 +410,9 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   };
 
   /**
-   * What this worker is holding, by the names the session gave those accounts.
+   * What this agent is holding, by the names the session gave those accounts.
    *
-   * The claims are per account and the group's own surface reads a worker's
+   * The claims are per account and the group's own surface reads a agent's
    * groups off this, so it is derived in one place and read by both the record
    * and the in-memory registry.
    */
@@ -422,17 +422,17 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       .filter(Boolean)
       .sort();
 
-  /** What the last written record says this worker serves, and when it was written. */
+  /** What the last written record says this agent serves, and when it was written. */
   let publishedServes: string | null = null;
   let publishedAt: string | null = null;
 
   /**
-   * Say what this worker is, in memory and — when it has changed — on disk.
+   * Say what this agent is, in memory and — when it has changed — on disk.
    *
-   * The record is written on **change**, never on a clock: when the worker
+   * The record is written on **change**, never on a clock: when the agent
    * starts, when the set of accounts it serves changes, and (in `stop`) when it
    * goes away. The three are the same three things that are true of it, and
-   * nothing else about a worker is a fact worth an upload — Stalwart charges
+   * nothing else about a agent is a fact worth an upload — Stalwart charges
    * the account for every one, and never gives the blob back. Liveness is not
    * one of them: that is a fact of this process and lives in `live`.
    */
@@ -466,7 +466,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   };
 
   /**
-   * Retention, on the one timer left in the worker's own machinery.
+   * Retention, on the one timer left in the agent's own machinery.
    *
    * A sweep is a read until it finds something past its retention, and what it
    * removes is work that has finished — a change in the work, not a clock. The
@@ -500,11 +500,11 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   };
 
   /**
-   * Whether the units this worker believes it holds are still its own.
+   * Whether the units this agent believes it holds are still its own.
    *
    * A fence that is never renewed is a fence a peer can take over without this
-   * worker noticing, so the pass asks — with a **read**, which costs the account
-   * nothing, and never with a write. What the answer changes is what this worker
+   * agent noticing, so the pass asks — with a **read**, which costs the account
+   * nothing, and never with a write. What the answer changes is what this agent
    * serves: an account whose claim has moved on is dropped, and the drop is a
    * change in the work, so the record is written once for it (`publish`).
    */
@@ -532,7 +532,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
         closeStream();
         closeStream = null;
         streamClaim = null;
-        log("the event stream claim moved to another worker; polling");
+        log("the event stream claim moved to another agent; polling");
       }
     }
   };
@@ -559,7 +559,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
    * the agent's session — that is what a grant is — and nothing announces it:
    * the account simply stops being listed. Re-reading on a timer is what turns
    * that into a fact the pass can act on, and the interval is the poll interval
-   * the worker already runs on, a third of a lease, so no new knob arrives with
+   * the agent already runs on, a third of a lease, so no new knob arrives with
    * it. A refresh that fails is not a withdrawal: the session in force stays in
    * force and the next pass tries again.
    *
@@ -589,7 +589,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
    *
    * In the agent's **own** account, because it is the only place it can still
    * write: the moment the grant is gone, the group's own documents are refused
-   * to it. So the report is the group and when the worker noticed — the work a
+   * to it. So the report is the group and when the agent noticed — the work a
    * withdrawal leaves behind is in the group's audit, unreadable from here, and
    * saying more than this would be inventing it.
    */
@@ -615,10 +615,10 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     if (stopped) return [...servedAccounts];
     await refreshSession();
     const accounts = await candidateAccounts(deps.ctx);
-    // An account the worker was serving and the session no longer lists is a
+    // An account the agent was serving and the session no longer lists is a
     // grant that has been withdrawn. It stops being served here and is reported
     // once, rather than failing against it on every pass for as long as the
-    // worker runs — and nothing here writes or touches a claim: the claim it
+    // agent runs — and nothing here writes or touches a claim: the claim it
     // held is left where it is, un-renewed and un-released, which is how a
     // withdrawal is meant to end (ADR 0003).
     const gone = withdrawnAccounts(knownAccounts, accounts);
@@ -656,7 +656,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
         }
       });
     }
-    // What this worker holds is asked, not renewed: holding a fence is not an
+    // What this agent holds is asked, not renewed: holding a fence is not an
     // event, so the pass reads (which costs nothing) and writes only if the
     // answer changed. Nothing here is on a clock — the record goes to disk when
     // this list changes, and never because a pass came round again.
@@ -689,7 +689,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
    *
    * A pass may claim a unit and write the record, and either recreates what the
    * release has just removed: a `stop()` that raced one would hand the account
-   * back and have it taken again by the same worker, held with nobody to release
+   * back and have it taken again by the same agent, held with nobody to release
    * it. So the writers are tracked, and `stop()` waits for them before it
    * releases anything.
    */
@@ -720,7 +720,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     );
   }
 
-  // What this process is, before it has asked anybody anything: a worker that
+  // What this process is, before it has asked anybody anything: a agent that
   // is up and serving nothing is a state the records make visible, and the
   // registry is what the status surface reads liveness from.
   await publish();
@@ -730,7 +730,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     served: () => [...servedAccounts],
     health: () => ({
       status: "ok",
-      worker: id,
+      agent: id,
       address: deps.address,
       accounts: [...servedAccounts],
       streaming: streamClaim !== null,
@@ -766,7 +766,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       }
       servedAccounts.clear();
       // And the record goes, so the agent's own account carries what this
-      // worker is **doing** and not a claim about it being up: the process this
+      // agent is **doing** and not a claim about it being up: the process this
       // answer came from is the only thing that could say that, and it is on its
       // way out.
       await agentStore.destroyAgent(id);
@@ -775,7 +775,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   };
 }
 
-/** How long a worker waits for an upstream that has not opened its door yet. */
+/** How long a agent waits for an upstream that has not opened its door yet. */
 const BOOT_ATTEMPTS = 6;
 const BOOT_DELAY_MS = 1000;
 
@@ -783,11 +783,11 @@ const BOOT_DELAY_MS = 1000;
  * Open the agent's session, waiting out an upstream that is not there yet.
  *
  * A missing configuration never reaches here — `main` warns and waits — so
- * what is left is the server side: a container orchestrator replaces a worker
+ * what is left is the server side: a container orchestrator replaces a agent
  * that cannot reach Stalwart, but a development stack starts the mock and the
- * worker together and a worker that dies in that first second is a papercut,
+ * agent together and a agent that dies in that first second is a papercut,
  * not a diagnosis. A refused credential is not a race either: the attempt
- * fails once, `main` says why and keeps the worker up and idle, and the fleet
+ * fails once, `main` says why and keeps the agent up and idle, and the fleet
  * is retried when the deployment names an agent it can sign in as.
  */
 async function openSession(
@@ -808,13 +808,13 @@ async function openSession(
 }
 
 /**
- * The worker's health endpoint (ADR 0003 resolution 8).
+ * The agent's health endpoint (ADR 0003 resolution 8).
  *
- * A restart policy can only act on an answer, and a worker that is up but
+ * A restart policy can only act on an answer, and a agent that is up but
  * holds no claim is not serving anything: the endpoint reports which accounts
  * this process is actually working, so a deployment can tell "running" from
  * "running and useless". It is started only when the deployment names a port
- * (`GILBERT_AGENT_HEALTH_PORT`) — a worker otherwise needs no inbound surface
+ * (`GILBERT_AGENT_HEALTH_PORT`) — a agent otherwise needs no inbound surface
  * at all, and a port nobody asked for is surface for nothing.
  */
 export function startHealthServer(opts: {
@@ -834,7 +834,7 @@ export function startHealthServer(opts: {
 }
 
 /**
- * The agent the deployment names, as the worker needs it.
+ * The agent the deployment names, as the agent needs it.
  *
  * `config.agent` is bootstrap configuration, resolved when the module loaded:
  * the environment cannot change under a running process, so this is the word
@@ -867,7 +867,7 @@ export function sameIdentity(a: AgentIdentity, b: AgentIdentity): boolean {
   return a.address === b.address && a.password === b.password;
 }
 
-/** Sign in as an identity, the way the worker does at boot. */
+/** Sign in as an identity, the way the agent does at boot. */
 async function signInAs(
   identity: AgentIdentity,
 ): Promise<{ authorization: string; session: UpstreamSession }> {
@@ -927,11 +927,11 @@ async function startAgents(identity: AgentIdentity): Promise<AgentHandle> {
   return startAgent({ ctx, address: identity.address });
 }
 
-/** The health an idle worker reports: up, answering, serving nothing. */
+/** The health an idle agent reports: up, answering, serving nothing. */
 function idleHealth(identity: AgentIdentity, startedAt: number): AgentHealth {
   return {
     status: "ok",
-    worker: "idle",
+    agent: "idle",
     address: identity.address,
     accounts: [],
     streaming: false,
@@ -943,7 +943,7 @@ function idleHealth(identity: AgentIdentity, startedAt: number): AgentHealth {
 /**
  * A running fleet, and the only way to stop it.
  *
- * The seam the two entrypoints share — the worker's own process, and the server
+ * The seam the two entrypoints share — the agent's own process, and the server
  * that runs one beside itself (ADR 0003) — so the boot retry, the identity
  * watch and the stop are written once. Nothing here owns the process: the
  * caller wires the signals it cares about, and `stop()` is what releases the
@@ -978,16 +978,16 @@ export async function startAgentFleet(): Promise<AgentFleet> {
   const start = async (): Promise<AgentHandle | null> => {
     if (!identity.address || !identity.password) {
       notice(
-        "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
+        "[gilbert] the agent agent is not configured: set GILBERT_AGENT_ADDRESS and " +
           "GILBERT_AGENT_PASSWORD in the environment that starts this process; " +
-          "the worker keeps running and serves nothing until both are there",
+          "the agent keeps running and serves nothing until both are there",
       );
       return null;
     }
     try {
       const fleet = await startAgents(identity);
       lastNotice = "";
-      console.log(`[gilbert] agent worker for ${identity.address}`);
+      console.log(`[gilbert] agent agent for ${identity.address}`);
       return fleet;
     } catch (err) {
       notice(
@@ -998,12 +998,12 @@ export async function startAgentFleet(): Promise<AgentFleet> {
     }
   };
 
-  let worker = await start();
+  let agent = await start();
   const closeHealth =
     config.agent.healthPort > 0
       ? startHealthServer({
           port: config.agent.healthPort,
-          health: () => worker?.health() ?? idleHealth(identity, startedAt),
+          health: () => agent?.health() ?? idleHealth(identity, startedAt),
         })
       : null;
   if (closeHealth)
@@ -1016,16 +1016,16 @@ export async function startAgentFleet(): Promise<AgentFleet> {
   // as the agent the installation now names before anything is stopped.
   const watch = setInterval(() => {
     void (async () => {
-      if (!worker) {
+      if (!agent) {
         identity = currentIdentity();
-        worker = await start();
+        agent = await start();
         return;
       }
-      const current = worker;
+      const current = agent;
       const next = await identityToFollow(identity);
       if (!next) return;
       await current.stop();
-      worker = await startAgents(next.identity);
+      agent = await startAgents(next.identity);
       identity = next.identity;
       console.log(`[gilbert] the agent is now ${identity.address}`);
     })();
@@ -1035,13 +1035,13 @@ export async function startAgentFleet(): Promise<AgentFleet> {
     stop: async () => {
       clearInterval(watch);
       closeHealth?.();
-      await worker?.stop();
+      await agent?.stop();
     },
   };
 }
 
 /**
- * The worker's own entrypoint: a fleet, and the signals that end it.
+ * The agent's own entrypoint: a fleet, and the signals that end it.
  *
  * The server starts the same fleet beside itself and stops it in its own
  * shutdown instead (ADR 0003); this is the process a deployment runs on its own
@@ -1050,7 +1050,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
 export async function main(): Promise<void> {
   const fleet = await startAgentFleet();
   const shutdown = async (signal: string) => {
-    console.log(`[gilbert] ${signal} received, stopping the agent worker`);
+    console.log(`[gilbert] ${signal} received, stopping the agent agent`);
     await fleet.stop();
     process.exit(0);
   };

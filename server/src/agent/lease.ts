@@ -1,7 +1,7 @@
 /**
  * Coordination without a coordinator (ADR 0003).
  *
- * A worker serves the accounts it wins, and exactly one worker
+ * A agent serves the accounts it wins, and exactly one agent
  * holds the agent's event stream. There is no lock to take and no coordinator
  * to ask: a claim is a document, its owner and the instant it was taken are the
  * truth, and a claim taken before this process started is free to take over.
@@ -40,7 +40,7 @@ export interface ClaimOpts {
   /**
    * Why the claim was refused, when it was: the caller logs the anomaly and
    * stays quiet about the ordinary answer. A bare `null` cannot tell "another
-   * worker is serving this unit" — which is the design working — from "nobody
+   * agent is serving this unit" — which is the design working — from "nobody
    * is serving it and my write kept losing", which is the fleet quietly
    * stopping.
    */
@@ -56,7 +56,7 @@ export type ClaimRefusal =
 
 /**
  * How many times a read-modify-write retries after losing a compare-and-set.
- * Four attempts cover the ordinary race (another worker taking the same free
+ * Four attempts cover the ordinary race (another agent taking the same free
  * unit between the read and the write); a longer fight means somebody else owns
  * the unit now, and giving up is the correct answer.
  */
@@ -67,13 +67,13 @@ const CAS_ATTEMPTS = 4;
  *
  * Three answers, and the middle one is the whole design of a fence:
  *
- * - `mine`: this very worker holds it — the fence is held, and holding it is
+ * - `mine`: this very agent holds it — the fence is held, and holding it is
  *   not an event, so nothing is written;
  * - `free`: nobody holds it, or the holder took it before this process started;
- * - `held`: another worker took it after this process started.
+ * - `held`: another agent took it after this process started.
  *
  * The takeover rule is decided on the work's own facts, never on time passing.
- * A worker that reads a claim taken **before** it started knows the peer cannot
+ * A agent that reads a claim taken **before** it started knows the peer cannot
  * have been waiting for it to arrive — the peer was there first, so it either
  * died holding the fence or was replaced, and the unit is ours to serve. A
  * claim taken **after** we started is a peer that was already running when we
@@ -85,12 +85,12 @@ const CAS_ATTEMPTS = 4;
  * its next pass.
  */
 function verdict(
-  held: { worker: string; takenAt: string } | undefined,
-  worker: string,
+  held: { agent: string; takenAt: string } | undefined,
+  agent: string,
   startedAt: Date,
 ): "mine" | "free" | "held" {
   if (!held) return "free";
-  if (held.worker === worker) return "mine";
+  if (held.agent === agent) return "mine";
   // An unreadable take time is unknown, and taking over on an unknown is how
   // two agents end up on one unit: it is read as held, which is safe (the
   // holder serves it) rather than greedy.
@@ -106,8 +106,8 @@ function verdict(
  * - I hold it → **no write at all**: the fence is held, the take time and the
  *   catch-up states are already the truth, and a renewal would be a durable
  *   write caused by nothing but the clock;
- * - another worker holds it, and started after us → null, it is theirs;
- * - another worker holds it, and took it before we started → take it over with
+ * - another agent holds it, and started after us → null, it is theirs;
+ * - another agent holds it, and took it before we started → take it over with
  *   `epoch + 1`, **keeping the states it recorded**, so catch-up continues where
  *   the process that was here before us stopped instead of starting from
  *   nothing.
@@ -121,7 +121,7 @@ function verdict(
  */
 export async function claimAccount(
   store: AgentStore,
-  worker: string,
+  agent: string,
   opts: ClaimOpts,
 ): Promise<AgentClaim | null> {
   // The cheap answer first, without a token read and without a write: the unit
@@ -130,7 +130,7 @@ export async function claimAccount(
   // all — and the pass that knows from memory which units it holds does not
   // even ask (see `pass` in agent.ts).
   const opened = await store.readClaim();
-  const answer = verdict(opened?.doc, worker, opts.startedAt);
+  const answer = verdict(opened?.doc, agent, opts.startedAt);
   if (answer === "mine" && opened) return opened.doc;
   if (answer === "held") {
     opts.onRefused?.("held");
@@ -139,7 +139,7 @@ export async function claimAccount(
   const takenAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
     // The token is read **before** the document, and that order is the whole
-    // guard: read the other way round, a claim written by another worker in
+    // guard: read the other way round, a claim written by another agent in
     // between is invisible to the comparison — the token already reflects it,
     // the write is an ordinary update, and both agents walk away believing
     // they hold the unit. Read this way, any write in that window advances the
@@ -148,7 +148,7 @@ export async function claimAccount(
     const token = await store.state();
     const found = await store.readClaim();
     const held = found?.doc;
-    const answer = verdict(held, worker, opts.startedAt);
+    const answer = verdict(held, agent, opts.startedAt);
     if (answer === "mine") return held ?? null;
     if (answer === "held") {
       opts.onRefused?.("held");
@@ -157,14 +157,14 @@ export async function claimAccount(
     const claim: AgentClaim = held
       ? {
           ...held,
-          worker,
+          agent,
           epoch: claimEpoch(held) + 1,
           takenAt,
         }
       : {
           v: 1,
           accountId: store.accountId,
-          worker,
+          agent,
           epoch: 0,
           takenAt,
           states: {},
@@ -185,18 +185,18 @@ export async function claimAccount(
  *
  * Both halves matter. The owner check alone is not enough: between reading the
  * claim and removing it, the lease can lapse and a successor can take the unit
- * over — destroying then would delete the **live** claim of the worker that
+ * over — destroying then would delete the **live** claim of the agent that
  * replaced me, and a third one would find the unit free while two are running
  * it. The removal therefore carries the state it was read against, and a
  * mismatch means the answer is "not mine any more", not "try again".
  */
 export async function releaseClaim(
   store: AgentStore,
-  worker: string,
+  agent: string,
   epoch?: number,
 ): Promise<boolean> {
   const found = await store.readClaim();
-  if (!found || found.doc.worker !== worker) return false;
+  if (!found || found.doc.agent !== agent) return false;
   if (epoch !== undefined && claimEpoch(found.doc) !== epoch) return false;
   try {
     await store.destroyClaim({ ifInState: found.state });
@@ -208,7 +208,7 @@ export async function releaseClaim(
 }
 
 /**
- * Whether this worker still holds the account, in the epoch it was granted.
+ * Whether this agent still holds the account, in the epoch it was granted.
  *
  * What the executor asks before each effect that leaves the process — sending
  * mail, posting to a chat, writing a file — so a run whose lease lapsed and was
@@ -216,19 +216,19 @@ export async function releaseClaim(
  */
 export async function claimStillMine(
   store: AgentStore,
-  worker: string,
+  agent: string,
   epoch: number,
 ): Promise<boolean> {
   const found = await store.readClaim();
-  return Boolean(found && found.doc.worker === worker && claimEpoch(found.doc) === epoch);
+  return Boolean(found && found.doc.agent === agent && claimEpoch(found.doc) === epoch);
 }
 
 /**
  * Record what a claim has reconciled up to, and when it was observed.
  *
  * The new state is written together with the claim so that a takeover can
- * catch up: a worker that dies mid-pass leaves the anchor at the last thing it
- * finished, and the next worker re-reads from there rather than from nothing.
+ * catch up: a agent that dies mid-pass leaves the anchor at the last thing it
+ * finished, and the next agent re-reads from there rather than from nothing.
  *
  * `statesAt` carries the instant each state was read, so a later pass can tell
  * the write it is reporting from a write to the same record that came earlier.
@@ -250,14 +250,14 @@ export async function saveClaimStates(
     const token = await store.state();
     const found = await store.readClaim();
     // A claim that is not there is not mine to write into: it was released, and
-    // recreating it here would put the unit back under a worker that has already
+    // recreating it here would put the unit back under a agent that has already
     // given it away — held by nobody, for as long as it takes to notice. The next
     // pass claims the unit again through `claimAccount`, which is the one place a
     // claim is born.
     if (!found) return null;
-    if (found.doc.worker !== claim.worker) return null;
+    if (found.doc.agent !== claim.agent) return null;
     // A claim that has moved to a new epoch is somebody else's run: the anchor
-    // this worker is saving belongs to an ownership that is over.
+    // this agent is saving belongs to an ownership that is over.
     if (claimEpoch(found.doc) !== claimEpoch(claim)) return null;
     const moved = Object.entries(states).some(
       ([type, state]) => found.doc.states[type] !== state,
@@ -280,23 +280,23 @@ export async function saveClaimStates(
 
 /**
  * Claim the agent's event stream, in the agent's own account. Exactly one
- * worker holds it (ADR 0003): the others poll, which is why the default
- * deployment is one worker and a second one is a deliberate choice.
+ * agent holds it (ADR 0003): the others poll, which is why the default
+ * deployment is one agent and a second one is a deliberate choice.
  *
- * The rule is the accounts' rule (`verdict`): held by another worker that
+ * The rule is the accounts' rule (`verdict`): held by another agent that
  * started after us means theirs, and a stream taken before this process started
  * is free to take over — one write, at the moment it is taken, and none while it
  * is held.
  */
 export async function claimStream(
   store: AgentStore,
-  worker: string,
+  agent: string,
   opts: ClaimOpts,
 ): Promise<AgentStreamClaim | null> {
   // Mine already: no write, and no token read either. The stream is a fence
   // like an account's claim, and holding it is not an event.
   const opened = await store.readStreamClaim();
-  const answer = verdict(opened?.doc, worker, opts.startedAt);
+  const answer = verdict(opened?.doc, agent, opts.startedAt);
   if (answer === "mine" && opened) return opened.doc;
   if (answer === "held") return null;
   const takenAt = opts.now.toISOString();
@@ -305,12 +305,12 @@ export async function claimStream(
     const token = await store.state();
     const found = await store.readStreamClaim();
     const held = found?.doc;
-    const current = verdict(held, worker, opts.startedAt);
+    const current = verdict(held, agent, opts.startedAt);
     if (current === "mine") return held ?? null;
     if (current === "held") return null;
     const claim: AgentStreamClaim = {
       v: 1,
-      worker,
+      agent,
       epoch: held ? claimEpoch(held) + 1 : 0,
       takenAt,
     };
@@ -324,14 +324,14 @@ export async function claimStream(
   return null;
 }
 
-/** Give the stream back, so a replacement worker opens it at once. */
+/** Give the stream back, so a replacement agent opens it at once. */
 export async function releaseStreamClaim(
   store: AgentStore,
-  worker: string,
+  agent: string,
   epoch?: number,
 ): Promise<boolean> {
   const found = await store.readStreamClaim();
-  if (!found || found.doc.worker !== worker) return false;
+  if (!found || found.doc.agent !== agent) return false;
   if (epoch !== undefined && claimEpoch(found.doc) !== epoch) return false;
   try {
     await store.destroyStreamClaim({ ifInState: found.state });
@@ -346,8 +346,8 @@ export async function releaseStreamClaim(
 const PROCESS_STARTED = Date.now().toString(36);
 
 /**
- * How someone is the same worker again: stable for the process, different for
- * every run. A restarted worker therefore never mistakes the process it
+ * How someone is the same agent again: stable for the process, different for
+ * every run. A restarted agent therefore never mistakes the process it
  * replaced for itself, and — with takeover decided against this process's own
  * start — it takes that process's claims over at once rather than waiting
  * anything out.

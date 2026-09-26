@@ -54,31 +54,31 @@ export interface AgentStatusMeter {
   unreadable: string[];
 }
 
-/** One running worker, with freshness judged at read time rather than stored. */
+/** One running agent, with freshness judged at read time rather than stored. */
 export interface AgentStatusRow {
   id: string;
   address: string;
   heartbeatAt: string;
   version: string;
   /**
-   * Whether this worker is up — as far as the server answering can tell.
+   * Whether this agent is up — as far as the server answering can tell.
    *
    * `true` and `false` are the answer of a deployment whose server runs the
    * fleet itself (ADR 0003, `agent.inProcess`): the registry of running agents
-   * is that process's own fact, and a record it is not running is a worker that
+   * is that process's own fact, and a record it is not running is a agent that
    * stopped, died, or was never its own.
    *
-   * `null` is a deployment that runs its agents somewhere else: a worker in a
+   * `null` is a deployment that runs its agents somewhere else: a agent in a
    * container of its own is not this process's to observe, and saying "not
    * reporting" about one that is serving would be the surface inventing an
    * answer. The record still says what it is doing, and when.
    */
   alive: boolean | null;
   /**
-   * The groups this worker is holding, as its last heartbeat named them.
+   * The groups this agent is holding, as its last heartbeat named them.
    *
-   * A claim is per account, so this is what one worker is serving and the
-   * surface reads one group's agents off it. Empty is a worker that is up and
+   * A claim is per account, so this is what one agent is serving and the
+   * surface reads one group's agents off it. Empty is a agent that is up and
    * holding nothing — a state a person is meant to see, not a missing answer.
    */
   groups: string[];
@@ -233,7 +233,7 @@ export type AgentErrorReason =
 /**
  * A grant the agent had and no longer does, with what it was serving.
  *
- * Written by the worker the pass after the group leaves its session, into the
+ * Written by the agent the pass after the group leaves its session, into the
  * agent's **own** account: from that moment the group's trail is not readable
  * by the agent any more, so what is left to say is what it held and when it
  * noticed — never what the group went on doing. Read back by the status route,
@@ -250,7 +250,7 @@ export interface AgentWithdrawal {
 }
 
 /**
- * Where a worker keeps its withdrawal report, in its own account.
+ * Where a agent keeps its withdrawal report, in its own account.
  *
  * Declared here rather than beside the writer because the reader is a different
  * tier's route: one path, one constant, no second spelling of it to drift.

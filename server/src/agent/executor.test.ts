@@ -273,7 +273,7 @@ async function claimFor() {
     now: new Date(),
     startedAt: new Date(Date.now() - LEASE),
   });
-  assert.ok(claim, "the worker holds the account");
+  assert.ok(claim, "the agent holds the account");
   return claim;
 }
 
@@ -281,10 +281,10 @@ async function claimFor() {
  * A claim that has already reconciled the account up to where it is now.
  *
  * A test that is about what a run's *own* effect wakes starts from "the state
- * the worker has reconciled up to" — the anchor that tells a change this run
+ * the agent has reconciled up to" — the anchor that tells a change this run
  * caused from a change somebody else made after it (ADR 0003). That anchor is a
  * fact about the claim **document**, and a pass cannot be relied on to leave
- * one: a reconcile whose changes were all the worker's own bookkeeping
+ * one: a reconcile whose changes were all the agent's own bookkeeping
  * deliberately does not advance it (`onlyBookkeeping` — advancing it would be a
  * write that is itself the next change, for ever). And it is not only the
  * bookkeeping: this suite runs against one account, so a claim left where an
@@ -292,7 +292,7 @@ async function claimFor() {
  *
  * Stating both anchors is therefore what makes such a test about its own work:
  * the changes the passes below see are the ones this test made, and nothing
- * else. `claimFor()` is what a worker's own claim is; this is the same claim
+ * else. `claimFor()` is what a agent's own claim is; this is the same claim
  * with the reading it would have had after a reconcile of everything so far.
  */
 async function claimAnchoredOnTheAccount(): Promise<AgentClaim> {
@@ -311,7 +311,7 @@ async function claimAnchoredOnTheAccount(): Promise<AgentClaim> {
     Email: at,
     FileNode: at,
   });
-  assert.ok(saved, "the anchors are written into the claim the worker holds");
+  assert.ok(saved, "the anchors are written into the claim the agent holds");
   return saved;
 }
 
@@ -1029,7 +1029,7 @@ test("a fire the lock defers arms no timer, and the catch-up runs it", async () 
     attempts += 1;
     return "deferred";
   };
-  // The clock the armer reads stands an hour past the plan's own: a worker plans
+  // The clock the armer reads stands an hour past the plan's own: a agent plans
   // from the mail server's clock and arms its timers from this process's, so the
   // instant a plan was made against can have arrived by the time one is armed.
   const arming = { now: (): number => Date.now() + 60 * 60_000 };
@@ -1402,7 +1402,7 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
     state: "running",
     attempts: JOB_MAX_ATTEMPTS,
     lease: {
-      owner: "a-worker-that-died",
+      owner: "a-agent-that-died",
       heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
     },
   });
@@ -1417,7 +1417,7 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
   );
   assert.match(
     String(closed?.doc.error),
-    /no worker came back/,
+    /no agent came back/,
     "the reason names what happened: nobody reported a failure",
   );
   const audit = await store.readAuditAt(new Date());
@@ -1442,7 +1442,7 @@ test("a run whose agent died is taken up again by the next pass", async () => {
     state: "running",
     attempts: 1,
     lease: {
-      owner: "the-worker-that-died",
+      owner: "the-agent-that-died",
       heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
     },
   });
@@ -1467,7 +1467,7 @@ test("a run whose agent died is taken up again by the next pass", async () => {
 test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   const fenced = rule({ id: "fenced" });
   await store.writeRules([fenced]);
-  const emailId = await createMessage("An invoice only one worker may run");
+  const emailId = await createMessage("An invoice only one agent may run");
   const job = newJob({
     id: "fenced-job",
     accountId: GROUP,
@@ -1479,20 +1479,20 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
     state: "running",
     attempts: 1,
     lease: {
-      owner: "the-worker-that-died",
+      owner: "the-agent-that-died",
       heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
     },
   });
-  // The sweep may take up what a dead worker left **only** for a unit this
-  // worker holds: with the claim in another worker's hands, the run is the
+  // The sweep may take up what a dead agent left **only** for a unit this
+  // agent holds: with the claim in another agent's hands, the run is the
   // double execution the fence exists to stop (resolution 18). The takeover is
   // a process starting after the claim was taken, which is how a successor
   // arrives.
-  const taken = await claimAccount(store, "another-worker", {
+  const taken = await claimAccount(store, "another-agent", {
     now: new Date(Date.now() + 10 * LEASE),
     startedAt: new Date(Date.now() + 10 * LEASE),
   });
-  assert.ok(taken, "another worker holds mail now");
+  assert.ok(taken, "another agent holds mail now");
 
   await executor.runPending(GROUP, ["mail"]);
 
@@ -1500,7 +1500,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   assert.equal(
     untouched?.doc.state,
     "running",
-    "a worker that does not hold the unit does not run its jobs",
+    "a agent that does not hold the unit does not run its jobs",
   );
   const marked = await fetchEmailRecord(client, GROUP, emailId, {});
   assert.equal(
@@ -1509,7 +1509,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
     "and nothing left the process",
   );
 
-  // The claim is a fixture: a test that leaves the unit in another worker's
+  // The claim is a fixture: a test that leaves the unit in another agent's
   // hands would decide the tests that come after it.
   await claimAccount(store, WORKER, {
     now: new Date(Date.now() + 20 * LEASE),
@@ -1667,8 +1667,8 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
 
   const before = await draftsInDrafts();
   // The unit moves to a successor after the fence every run passes before it
-  // starts working: the first read is this worker's, everything read after it
-  // belongs to the worker that took over.
+  // starts working: the first read is this agent's, everything read after it
+  // belongs to the agent that took over.
   const real = AgentStore.prototype.readClaim;
   let reads = 0;
   AgentStore.prototype.readClaim = async function (
@@ -1676,7 +1676,7 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
   ) {
     reads += 1;
     const held = await real.call(this);
-    if (reads > 1 && held) return { ...held, doc: { ...held.doc, worker: "successor" } };
+    if (reads > 1 && held) return { ...held, doc: { ...held.doc, agent: "successor" } };
     return held;
   };
   try {
@@ -1943,7 +1943,7 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   answerFor("Mail automation", writes("first.txt"));
   answerFor("File automation", writes("again.txt"));
 
-  // Where the worker has reconciled up to, anchored before this test's own mail
+  // Where the agent has reconciled up to, anchored before this test's own mail
   // and files exist: what the passes below read is the chain this test made.
   const claim = await claimAnchoredOnTheAccount();
   await executor.reconcile(GROUP, "FileNode", claim);
