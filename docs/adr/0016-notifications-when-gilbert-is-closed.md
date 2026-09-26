@@ -248,7 +248,7 @@ it.
 
 A change does not mean different things depending on whether a window is
 visible. Mail arriving in a group mailbox and a chat message notify from the
-same store changes (`notifyNewMail` in `web/src/store/mail.ts`, chat's
+same store changes (`notifyNewMail` in `web/src/store/mail/`, chat's
 `applyChanges` in `web/src/store/chat.ts`) with the same suppression rule, so a
 reader who keeps Gilbert open on a group does not go quiet at the exact moment
 they are using it.
@@ -492,7 +492,7 @@ implementation marks them where the code owes them (the repository's
   alone with no `emailPush` entry)
 - `web/src/lib/swFacts.ts`, `web/public/sw.js` — the briefing, the push handler,
   the `VERIFY_KEY` handshake, `runAction`
-- `web/src/store/mail.ts` — `notifyNewMail()`, the per-account folder trees
+- `web/src/store/mail/` — `notifyNewMail()`, the per-account folder trees
 - `web/src/store/chat.ts`, `web/src/lib/chat.ts`, `server/src/shared/chat.ts` —
   the chat node and its marker
 - `web/src/views/settings/NotificationsSettings.tsx` — the door

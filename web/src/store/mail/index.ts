@@ -3,7 +3,6 @@ import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   ChangesResponse,
-  Comparator,
   Email,
   EmailFilter,
   GetResponse,
@@ -11,19 +10,14 @@ import type {
   Identity,
   Invocation,
   Mailbox,
-  MailboxRole,
   QueryResponse,
   Quota,
-  SetError,
   SetResponse,
   Thread,
   VacationResponse,
 } from "@/jmap/types";
-import { EMAIL_FULL_HEADER_PROPS } from "@/jmap/types";
-import { type ArchiveGranularity, groupByArchivePath } from "@/lib/archiveDate";
-import { type ConversedMessage, filedFolderOf } from "@/lib/archiveTarget";
-import { withBase } from "@/lib/basePath";
-import { unsubscribedFolders } from "@/lib/groupSubscriptions";
+import { groupByArchivePath } from "@/lib/archiveDate";
+import { filedFolderOf } from "@/lib/archiveTarget";
 import { plural, t } from "@/lib/i18n";
 import {
   countedKeywords,
@@ -32,11 +26,10 @@ import {
   keywordCountDelta,
   SEEN_KEYWORD,
 } from "@/lib/keywordCounts";
-import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
+import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
   isGroupMailboxAccount,
-  isOwnMailAccount,
   type MailAccountInfo,
   mailAccountAddress,
   mailAccountCandidates,
@@ -46,342 +39,50 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import {
   type DeleteContext,
   type DeleteFailure,
-  type DeleteOutcome,
-  type DeleteRefusal,
   destroyRefusal,
   FINAL_FOLDER_ROLES,
   folderDestroyTakesMail,
   mayDestroy,
 } from "@/lib/mailDelete";
-import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
-import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
 import { toast } from "@/ui/toast";
-import { labelsForAccount } from "./groupLabels";
-import { useSession } from "./session";
-import { settings, useSettings } from "./settings";
-import { useSieve } from "./sieve";
-
-/*
- * Named explicitly so `shareWith` comes back, which a mailbox does not
- * otherwise return -- not on 0.16.19 and not on 0.16.21, where `Calendar/get`
- * and `AddressBook/get` do hand over every property unasked. See the note on
- * CALENDAR_PROPS and the KNOWN-ISSUES entry. So does `Files`, which names its
- * own properties.
- *
- * It matters here for one narrow but real case. Sharing a mail folder is
- * withdrawn because Stalwart stores the share and never delivers it, and the
- * only way left to clear one already made is the "Stop sharing" entry, which
- * appears only when a folder looks shared. Without this it never looked shared,
- * so the escape hatch for the exact situation it was built for was invisible.
- */
-export const MAILBOX_PROPS = [
-  "id",
-  "name",
-  "parentId",
-  "role",
-  "sortOrder",
-  "totalEmails",
-  "unreadEmails",
-  "totalThreads",
-  "unreadThreads",
-  "myRights",
-  "isSubscribed",
-  "shareWith",
-];
-
-export const LIST_PROPS = [
-  "id",
-  "blobId",
-  "threadId",
-  "mailboxIds",
-  "keywords",
-  "hasAttachment",
-  "from",
-  "to",
-  "subject",
-  "receivedAt",
-  "sentAt",
-  "size",
-  "preview",
-];
-
-export const FULL_PROPS = [
-  ...LIST_PROPS,
-  "messageId",
-  "inReplyTo",
-  "references",
-  "sender",
-  "cc",
-  "bcc",
-  "replyTo",
-  "bodyStructure",
-  "bodyValues",
-  "textBody",
-  "htmlBody",
-  "attachments",
-  ...EMAIL_FULL_HEADER_PROPS,
-  ...SPAM_HEADER_PROPS,
-];
-
-export const BODY_PROPS = [
-  "partId",
-  "blobId",
-  "size",
-  "name",
-  "type",
-  "charset",
-  "disposition",
-  "cid",
-  "language",
-  "location",
-  "subParts",
-  "headers",
-];
-
-export interface ListQuery {
-  key: string;
-  filter: EmailFilter;
-  sort: Comparator[];
-  collapseThreads: boolean;
-  mailboxId: string | null;
-  label?: string;
-}
-
-export interface ListState extends ListQuery {
-  ids: Id[];
-  total: number;
-  queryState: string | null;
-  loading: boolean;
-  loadingMore: boolean;
-  error: string | null;
-  exhausted: boolean;
-}
-
-export interface MailState {
-  accountId: Id | null;
-  /** The reader's own mail account. Group mailboxes open without moving it. */
-  ownAccountId: Id | null;
-  /** Mailbox accounts the sidebar can open: own first, then groups. */
-  mailAccounts: MailAccountInfo[];
-  /** Folder trees per account, so the sidebar can show every box at once. */
-  accountTrees: Record<Id, Record<Id, Mailbox>>;
-  mailboxes: Record<Id, Mailbox>;
-  mailboxState: string | null;
-  mailboxesLoaded: boolean;
-  emails: Record<Id, Email>;
-  fullIds: Record<Id, true>;
-  emailState: string | null;
-  threads: Record<Id, Thread>;
-  identities: Identity[];
-  /**
-   * Identity/get per account, cached by account id.
-   *
-   * `identities` below is one *view* of this: the account on screen. Settings
-   * needs a second view at the same time -- the reader's own list, which lives
-   * in the account that sends for them and is rarely the account they are
-   * browsing -- and both are read from this one cache, so the two surfaces
-   * cannot disagree about what an account's identities are (ADR 0007).
-   */
-  identitiesByAccount: Record<Id, Identity[]>;
-  /**
-   * What a group mailbox has **assigned to the reader**, by account id
-   * (ADR 0007): the identity that is theirs there.
-   *
-   * Only the assignment is kept, because it is the one thing the client cannot
-   * work out: which of the group's identities an administrator gave this member
-   * is a fact the group's account records. The group's **own** identity — what
-   * an unassigned member sends as — is not a second fact, it is step 2 of the
-   * cascade, derived where the cascade is applied from the address the session
-   * calls the account, by the one function both tiers share.
-   *
-   * A missing entry is "not read yet", which is not the same as
-   * `assignedId: null` — "read, and nothing is assigned". Both are applied by
-   * the one cascade, and an entry that has not landed yet is no assignment:
-   * the view offers the group's own identity until the answer arrives rather
-   * than an empty From, which the composer reports as a group that holds no
-   * identity at all.
-   */
-  assignmentByAccount: Record<Id, { assignedId: string | null }>;
-  quotas: Quota[];
-  /**
-   * The account `quotas` is the storage of. The sidebar bar follows the account
-   * on screen, so it asks again when this is not the active one; a group's
-   * quota is the group's own (ADR 0023, RFC 9425).
-   */
-  quotaAccountId: Id | null;
-  vacation: VacationResponse | null;
-  list: ListState | null;
-  selected: Record<Id, true>;
-  /** How much mail each counted keyword holds, for the sidebar. */
-  labelCounts: Record<string, KeywordCounts>;
-  /**
-   * The selection means "everything the current query matches", not the rows
-   * that happen to be loaded. Ticking the header box selects the loaded page;
-   * this is the deliberate second step past it.
-   */
-  selectedAll: boolean;
-  anchorId: Id | null;
-  loadingThreads: Record<Id, true>;
-  lastSeenInboxEmailIds: Id[] | null;
-  /** Ids of the last conversation that finished loading (for the reading pane). */
-  lastThreadEmailIds: Id[];
-  openThreadId: Id | null;
-  setOpenThread(id: Id | null): void;
-
-  setAccount(accountId: Id | null): void;
-  /** Discover group mailboxes and fetch their folder trees. */
-  discoverMailAccounts(): Promise<void>;
-  /** Re-fetch one account's folder tree (a group mailbox changed elsewhere). */
-  refreshAccountTree(accountId: Id): Promise<void>;
-  /** Switch the active account to `accountId`, loading its mail and identities. */
-  openAccount(accountId: Id): Promise<void>;
-  loadMailboxes(): Promise<void>;
-  roleId(role: MailboxRole): Id | null;
-  /**
-   * The account whose folder tree holds `mailboxId`, or null when no cached
-   * tree does. A route names a folder and not the account it lives in; on a
-   * cold load this is how that folder is resolved back to its owner.
-   */
-  accountOfMailbox(mailboxId: Id): Id | null;
-  /**
-   * ADR 0015: whether a destroy may be taken in the account on screen at all.
-   *
-   * The rule itself is `@/lib/mailDelete`, and this is the store's read of the
-   * two inputs it needs — the account on screen, and the session's `isAdmin`
-   * with the question `isOwnMailAccount` answers. Exposed so that a surface
-   * asks once instead of each of them assembling the same three values, and
-   * reads the same answer the guards on the effects use.
-   */
-  mayDestroyHere(): boolean;
-  mailboxPath(id: Id): string;
-  childrenOf(parentId: Id | null): Mailbox[];
-
-  query(q: ListQuery, opts?: { reset?: boolean }): Promise<void>;
-  loadMore(): Promise<void>;
-  refreshList(): Promise<void>;
-
-  getEmails(ids: Id[], full?: boolean): Promise<Email[]>;
-  loadThread(threadId: Id): Promise<Email[]>;
-  threadEmails(threadId: Id): Email[];
-  threadIdsIn(threadId: Id, mailboxId: Id | null): Id[];
-
-  setKeyword(ids: Id[], keyword: string, value: boolean): Promise<void>;
-  markRead(ids: Id[], read: boolean): Promise<void>;
-  star(ids: Id[], on: boolean): Promise<void>;
-  move(
-    ids: Id[],
-    toMailboxId: Id,
-    opts?: { fromMailboxId?: Id | null; silent?: boolean; label?: string },
-  ): Promise<void>;
-  addToMailbox(ids: Id[], mailboxId: Id, add: boolean): Promise<void>;
-  trash(ids: Id[]): Promise<DeleteOutcome>;
-  destroy(ids: Id[]): Promise<DeleteOutcome>;
-  archive(ids: Id[]): Promise<void>;
-  /** Archive into a dated subfolder of Archive, creating the folders as needed. */
-  archiveByDate(ids: Id[], granularity: ArchiveGranularity): Promise<void>;
-  spam(ids: Id[], isSpam: boolean): Promise<void>;
-  emptyMailbox(mailboxId: Id): Promise<DeleteOutcome>;
-  /** Mark every unread message in a mailbox read; optionally its subfolders too. */
-  markMailboxRead(mailboxId: Id, includeChildren?: boolean): Promise<void>;
-  /** The mailbox plus all of its descendants. */
-  descendantMailboxIds(mailboxId: Id): Id[];
-
-  createMailbox(name: string, parentId: Id | null, role?: MailboxRole): Promise<Id>;
-  /** Give something the Archive role -- adopting a folder already named for it, or making one. */
-  ensureArchiveFolder(): Promise<Id>;
-  updateMailbox(id: Id, patch: Partial<Mailbox>): Promise<void>;
-  destroyMailbox(id: Id, removeEmails?: boolean): Promise<DeleteOutcome>;
-
-  loadIdentities(): Promise<Identity[]>;
-  /** Read one account's identities: the one fetch behind both views. */
-  loadIdentitiesFor(accountId: Id): Promise<Identity[]>;
-  /**
-   * Read which identity a group mailbox has assigned to the reader (ADR 0007).
-   *
-   * Answered as the member, because it is their own assignment: the group's own
-   * document, read through the group's access rule. Only a group mailbox has
-   * one, and only the account on screen needs it.
-   *
-   * `force` is for the surfaces that show the assignment rather than act on it:
-   * the administration writes it from another session, so a page that reads only
-   * a missing entry would go on showing "nothing assigned" for the rest of the
-   * session — the same rule the person's own identity section follows when it
-   * reads its list again as it opens.
-   */
-  loadAssignmentFor(accountId: Id, opts?: { force?: boolean }): Promise<void>;
-  /** The user's preferred identity (falls back to the first one). */
-  defaultIdentity(): Identity | undefined;
-  /** One account's preferred identity, whether or not it is the one on screen. */
-  defaultIdentityFor(accountId: Id | null): Identity | undefined;
-  /**
-   * The identities of the account that **sends for the reader**, from the cache.
-   *
-   * `identities` is the account on screen, and in a group mailbox it is one
-   * identity -- the reader's, or none at all until the administration has set
-   * one. Anything asking "which addresses are mine?" wants this instead: the
-   * account the session names for submission, whole. Empty until its list has
-   * landed, which is a real answer -- an account with no identity has no address
-   * to call its own.
-   */
-  ownIdentities(): Identity[];
-  setDefaultIdentity(id: Id): void;
-  saveIdentity(id: Id | null, patch: Partial<Identity>): Promise<void>;
-  destroyIdentity(id: Id): Promise<void>;
-  /**
-   * Re-read every identity list this session holds.
-   *
-   * The administration writes identities through its own routes, not through
-   * this store's client -- the server does it by impersonating the account
-   * (ADR 0007) -- so the session that asked for the write is the one thing that
-   * never hears about it. A list read before it is what Settings would go on
-   * showing and what a reply would go on offering as a sender, so the writes
-   * themselves ask for this once the server has accepted the change.
-   */
-  refreshIdentities(): Promise<void>;
-  loadVacation(): Promise<void>;
-  saveVacation(patch: Partial<VacationResponse>): Promise<void>;
-  loadQuota(): Promise<void>;
-
-  select(ids: Id[], on: boolean): void;
-  clearSelection(): void;
-  /** Refresh the per-label unread counts, in one request. */
-  loadLabelCounts(): Promise<void>;
-  selectAll(): void;
-  /** Extend the selection from the loaded rows to everything the query matches. */
-  selectAllMatching(): void;
-  /** Every id the current query matches, walked a page at a time. */
-  queryAllIds(): Promise<Id[]>;
-  setAnchor(id: Id | null): void;
-
-  applyChanges(types: Set<string>, signal?: AbortSignal): Promise<void>;
-  /**
-   * Route one account's push change: the active account's own flow, or a group
-   * mailbox's -- which refreshes its tree and announces the mail it received.
-   */
-  applyAccountChanges(
-    accountId: Id,
-    types: Set<string>,
-    signal?: AbortSignal,
-  ): Promise<void>;
-  importEml(
-    blobId: Id,
-    mailboxId: Id,
-    keywords?: Record<string, boolean>,
-  ): Promise<Id | null>;
-}
-
-function listKey(q: {
-  filter: EmailFilter;
-  sort: Comparator[];
-  collapseThreads: boolean;
-}): string {
-  return JSON.stringify([q.filter, q.sort, q.collapseThreads]);
-}
-
-export const DEFAULT_SORT: Comparator[] = [
-  { property: "receivedAt", isAscending: false },
-];
+import { labelsForAccount } from "../groupLabels";
+import { useSession } from "../session";
+import { settings, useSettings } from "../settings";
+import { useSieve } from "../sieve";
+import { releaseBodies, resetBodyOrder, touchBodies } from "./bodies";
+import { ensureFolderPath, folderRefs, rememberedMailAccount } from "./folders";
+import {
+  EMPTY_IDENTITIES,
+  identitiesLoading,
+  identitiesReads,
+  overtakeIdentities,
+  sortIdentities,
+} from "./identities";
+import { countRows, listKey, mergeEmail, pick } from "./list";
+import {
+  adoptMailboxes,
+  moveToDestinations,
+  moveUndo,
+  threadMessagesFor,
+} from "./mailboxes";
+import {
+  destroyEmails,
+  moveMailboxPatch,
+  patchMailboxIds,
+  refusalSentence,
+  removeFromList,
+  setEmails,
+} from "./mutations";
+import { notifyGroupMail, notifyNewMail } from "./notify";
+import {
+  BODY_PROPS,
+  FULL_PROPS,
+  LIST_PROPS,
+  type ListQuery,
+  MAILBOX_PROPS,
+  type MailState,
+} from "./types";
 
 /**
  * Nothing carries the Archive role, so offer to fix it rather than explain it.
@@ -413,243 +114,6 @@ function offerArchiveFolder(retry: () => Promise<void>): void {
       },
     },
   });
-}
-
-/**
- * A `Mailbox/get` answer as the map every reader of the tree uses.
- *
- * One builder, because three read paths answer this question -- the probe, an
- * account's tree on its own beat, and the active account's -- and a tree that
- * was assembled slightly differently in each is a difference nothing notices
- * until two of them disagree on screen.
- */
-function mailboxMap(list: Mailbox[]): Record<Id, Mailbox> {
-  const tree: Record<Id, Mailbox> = {};
-  for (const m of list) tree[m.id] = m;
-  return tree;
-}
-
-/**
- * A `Mailbox/get` answer adopted: the tree, and -- on an account that is not
- * the reader's own -- the subscriptions membership owes on it.
- *
- * Which account is the reader's own is asked of the session, never of the
- * group classifier: that one answers nothing until the probe has listed the
- * account, and a folder the reader is owed a subscription to is not something
- * to decide on an answer that is still on its way.
- */
-/**
- * The sentence a move says: how many conversations went to which folder.
- *
- * Two paths build it -- a move that names one destination folder and one that
- * names several -- so it is built once here, and `plural()` is what lets a
- * language with more than two forms pick the right one (ru, uk).
- */
-function movedTo(count: number, where: string): string {
-  return plural(
-    count,
-    {
-      one: "Conversation moved to {folder}",
-      other: "{n} conversations moved to {folder}",
-    },
-    { folder: where },
-  );
-}
-
-function adoptMailboxes(accountId: Id, list: Mailbox[]): Record<Id, Mailbox> {
-  const tree = mailboxMap(list);
-  if (!isOwnMailAccount(useSession.getState().session, accountId))
-    ensureSubscribed(accountId, tree);
-  return tree;
-}
-
-/** Reconciles in flight, one per account, so overlapping reads share one write. */
-const subscribing = new Map<Id, Promise<void>>();
-
-/**
- * Accounts whose subscription write was refused, for this session.
- *
- * A member may write `isSubscribed` on a folder of their group (ADR 0021,
- * confirmed live on 0.16.23, 2026-09-24), but Stalwart is of two minds about the
- * field elsewhere -- it accepts the write on a calendar shared read-only and
- * refuses it on an address book -- so a refusal is still remembered rather than
- * repeated: a member on a server that refused would otherwise have a failing
- * request on every read of the tree, and the tree itself is drawn whole either
- * way.
- */
-const subscriptionsRefused = new Set<Id>();
-
-/**
- * The folders of a group the member is owed a subscription to, written once.
- *
- * Stalwart hands a freshly added member every folder unsubscribed and keeps
- * doing it for folders created since, so the reader's own record has to be
- * brought up to what membership means -- otherwise the group is unreadable
- * from every client that honours subscriptions, which is every client but
- * this one. Nothing is sent when nothing is missing, and one reconciliation
- * is in flight per account: this sits on every read of a group's folder list,
- * which is also what makes it cover a folder that appeared a moment ago.
- */
-function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
-  if (subscriptionsRefused.has(accountId) || subscribing.has(accountId)) return;
-  const missing = unsubscribedFolders(tree);
-  if (!missing.length) return;
-  const run = (async () => {
-    try {
-      for (const part of chunk(missing, client.maxObjectsInSet)) {
-        const update: Record<Id, { isSubscribed: true }> = {};
-        for (const id of part) update[id] = { isSubscribed: true };
-        await client.call<SetResponse>("Mailbox/set", { accountId, update });
-      }
-    } catch (err) {
-      subscriptionsRefused.add(accountId);
-      console.warn(
-        `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
-      );
-    } finally {
-      subscribing.delete(accountId);
-    }
-  })();
-  subscribing.set(accountId, run);
-}
-
-/**
- * Every message of these threads, read from the server when the client does not
- * hold them.
- *
- * The ones that matter are exactly the ones the list is not showing: a
- * conversation that has come back to the Inbox has its older messages in the
- * folder it was filed under, and those are not in the page on screen. Threads
- * are the account's own -- two accounts may each hold a copy of one
- * conversation, and each copy is filed on its own -- so this reads only the
- * account the action is aimed at, and a copy elsewhere is never consulted.
- */
-async function threadMessagesFor(
-  accountId: Id,
-  threadIds: Id[],
-  get: () => MailState,
-): Promise<Record<Id, ConversedMessage[]>> {
-  const idsByThread: Record<Id, Id[]> = {};
-  const unheld: Id[] = [];
-  for (const threadId of threadIds) {
-    const held = get().threads[threadId];
-    if (held?.emailIds?.length) idsByThread[threadId] = held.emailIds;
-    else unheld.push(threadId);
-  }
-  if (unheld.length) {
-    const res = await client.call<GetResponse<Thread>>("Thread/get", {
-      accountId,
-      ids: unheld,
-    });
-    for (const thread of res.list) idsByThread[thread.id] = thread.emailIds;
-  }
-  const missing = [
-    ...new Set(
-      Object.values(idsByThread)
-        .flat()
-        .filter((id) => !get().emails[id]),
-    ),
-  ];
-  const read: Record<Id, ConversedMessage> = {};
-  if (missing.length) {
-    const res = await client.call<GetResponse<Email>>("Email/get", {
-      accountId,
-      ids: missing,
-      properties: ["id", "mailboxIds", "receivedAt"],
-    });
-    for (const email of res.list) read[email.id] = email;
-  }
-  const out: Record<Id, ConversedMessage[]> = {};
-  for (const [threadId, ids] of Object.entries(idsByThread))
-    out[threadId] = ids.map((id) => get().emails[id] ?? read[id] ?? {});
-  return out;
-}
-
-/**
- * Move a selection to one folder or to several, saying so once.
- *
- * A selection can split across destinations -- by date, and by the folder each
- * conversation already lives in -- and a toast per destination would be a queue
- * of messages about one action, each with an Undo that puts back a third of it.
- * So every move is silent and the report is one sentence, with one Undo built
- * from where each message was before any of them moved.
- *
- * A failure is not reported here, because it is already reported where it
- * happens: `move` says what the server refused, and the caller that has to
- * create folders first says that in its own words.
- */
-async function moveToDestinations(
-  ids: Id[],
-  targets: Map<Id, Id[]>,
-  set: (fn: (s: MailState) => Partial<MailState>) => void,
-  get: () => MailState,
-  nameOf: (mailboxId: Id) => string,
-): Promise<void> {
-  const accountId = get().accountId;
-  if (!accountId || !ids.length || !targets.size) return;
-  /*
-   * Where everything came from, captured before anything moves, so one Undo can
-   * put back a selection that went to several folders. See the note in `move`:
-   * an Undo for a message we never loaded would write an empty `mailboxIds`, so
-   * it is not offered at all.
-   */
-  const prev: Record<Id, Record<Id, boolean>> = {};
-  let undoable = true;
-  for (const id of ids) {
-    if (!get().emails[id]) undoable = false;
-    prev[id] = get().emails[id]?.mailboxIds ?? {};
-  }
-
-  const names: string[] = [];
-  for (const [target, group] of targets) {
-    await get().move(group, target, { silent: true });
-    names.push(nameOf(target));
-  }
-
-  const where =
-    names.length === 1
-      ? names[0]!
-      : t("{count} folders", { count: String(names.length) });
-  toast.show(movedTo(ids.length, where), {
-    action: !undoable
-      ? undefined
-      : { label: "Undo", onClick: moveUndo(ids, prev, accountId, set, get) },
-  });
-  void get().loadMailboxes();
-}
-
-/**
- * The Undo a move offers, once.
- *
- * `move` and `moveToDestinations` each end by putting every message back in the
- * folders it was in and refreshing what the list and the sidebar show; a change
- * to the Undo has to reach both, so it is one function rather than two copies
- * that agree today.
- */
-function moveUndo(
-  ids: Id[],
-  prev: Record<Id, Record<Id, boolean>>,
-  accountId: Id,
-  set: (fn: (s: MailState) => Partial<MailState>) => void,
-  get: () => MailState,
-): () => Promise<void> {
-  return async () => {
-    const undo: Record<Id, Record<string, unknown>> = {};
-    for (const id of ids)
-      undo[id] = restoreMailboxPatch(prev[id]!, get().emails[id]?.mailboxIds ?? {});
-    await setEmails(accountId, undo);
-    set((s) => {
-      const next = { ...s.emails };
-      for (const id of ids) {
-        const e = next[id];
-        if (!e) continue;
-        next[id] = { ...e, mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!) };
-      }
-      return { emails: next };
-    });
-    void get().refreshList();
-    void get().loadMailboxes();
-  };
 }
 
 export const useMail = create<MailState>((set, get) => ({
@@ -2417,41 +1881,6 @@ export const useMail = create<MailState>((set, get) => ({
 }));
 
 /**
- * The identity reads already on their way, by account, so two callers share
- * one request and the fire-and-forget at the foot of this file cannot ask
- * twice for the same list.
- */
-const identitiesLoading = new Map<Id, Promise<Identity[]>>();
-
-/**
- * What an account's list is before it has been read.
- *
- * One constant rather than a fresh `[]` per call, because `ownIdentities` is
- * read through a store selector: a new array every render would tell every
- * subscriber the answer had changed.
- */
-const EMPTY_IDENTITIES: Identity[] = [];
-
-/**
- * How many reads each account has been through, so a read can be spent.
- *
- * `identitiesLoading` is the half that joins two callers to one request; this
- * is the half that tells a request its answer is no longer wanted. Dropping
- * the entry starts a fresh read and does nothing about the one already on its
- * way: its `Identity/get` was asked before the write and answers with the list
- * from before it, which it would then put back under the account when it
- * landed. A read takes the number it was started under, and a read whose
- * number has moved keeps what it got to itself.
- */
-const identitiesReads = new Map<Id, number>();
-
-/** Spend the read on screen -- if any -- and open the way for the next one. */
-function overtakeIdentities(accountId: Id): void {
-  identitiesReads.set(accountId, (identitiesReads.get(accountId) ?? 0) + 1);
-  identitiesLoading.delete(accountId);
-}
-
-/**
  * The active account's From list, as `identities`.
  *
  * `identities` is one *view* of `identitiesByAccount`, and this is what makes
@@ -2510,13 +1939,6 @@ function identitiesChanged(accountId: Id): void {
     applyIdentities(active);
 }
 
-function sortIdentities(list: Identity[], accountId: Id): Identity[] {
-  const pref = settings().defaultIdentityByAccount[accountId];
-  return [...list].sort((a, b) =>
-    a.id === pref ? -1 : b.id === pref ? 1 : a.email.localeCompare(b.email),
-  );
-}
-
 /**
  * Sort properties a server has already refused, so it is asked once and not
  * once per folder for the rest of the session.
@@ -2524,119 +1946,6 @@ function sortIdentities(list: Identity[], accountId: Id): Identity[] {
  * Keyed by nothing: a refusal is about the server, and there is only one.
  */
 let sortRefused = false;
-
-/*
- * How many messages are held with their bodies.
- *
- * Every message opened kept its full copy -- a body of up to 2 MB, parsed
- * headers, the attachment list -- for as long as the tab was open, so a long
- * session's memory grew with every message read. Past this many, the ones read
- * longest ago go back to what the list needs, and are fetched in full again if
- * they are opened again.
- */
-export const BODIES_KEPT = 40;
-
-/** Messages held in full, least recently wanted first. */
-const bodyOrder: Id[] = [];
-const LIST_KEYS = new Set<string>(LIST_PROPS);
-
-function touchBodies(ids: Id[]): void {
-  for (const id of ids) {
-    const at = bodyOrder.indexOf(id);
-    if (at >= 0) bodyOrder.splice(at, 1);
-    bodyOrder.push(id);
-  }
-}
-
-/**
- * Let go of the bodies of the messages read longest ago, past `BODIES_KEPT`.
- *
- * The open conversation is never touched: its messages are what the reading
- * pane is showing, and releasing one takes it out of the pane until the refetch
- * puts it back -- the pane empties and refills, which is a flash the reader sees
- * for no gain. Everything else goes back to the properties the list draws, so
- * the row it belongs to is unaffected.
- */
-export function releaseBodies(s: MailState): MailState | Partial<MailState> {
-  if (bodyOrder.length <= BODIES_KEPT) return s;
-  const open = new Set(s.openThreadId ? (s.threads[s.openThreadId]?.emailIds ?? []) : []);
-  const emails = { ...s.emails };
-  const fullIds = { ...s.fullIds };
-  let over = bodyOrder.length - BODIES_KEPT;
-  for (let i = 0; i < bodyOrder.length && over > 0; ) {
-    const id = bodyOrder[i]!;
-    if (open.has(id) || s.emails[id]?.threadId === s.openThreadId) {
-      i++;
-      continue;
-    }
-    bodyOrder.splice(i, 1);
-    over--;
-    delete fullIds[id];
-    const e = emails[id];
-    if (e)
-      emails[id] = Object.fromEntries(
-        Object.entries(e).filter(([k]) => LIST_KEYS.has(k)),
-      ) as unknown as Email;
-  }
-  return { emails, fullIds };
-}
-
-/** Forget what is held: for an account switch, where none of it applies. */
-export function resetBodyOrder(): void {
-  bodyOrder.length = 0;
-}
-
-/**
- * Fold freshly fetched properties into the copy already held.
- *
- * Returns the held object itself when nothing in `next` differs from it, which
- * is the whole point: a refresh fetches every listed message again, and handing
- * the store a new object for each one -- same data, new identity -- defeats the
- * memo on every row of the list. One message changing would then re-render the
- * whole visible list, and so would any store write that refreshed it.
- *
- * Compared property by property, because identity is compared per property and
- * a shallow compare on the message alone cannot see that `keywords` is a new
- * object holding the same flags. The comparison is shallow on each property
- * with a serialized fallback, which is enough for every field a refresh brings
- * back -- and a field that cannot be serialized simply reads as changed.
- */
-function mergeEmail(prev: Email | undefined, next: Email): Email {
-  if (!prev) return next;
-  for (const key of Object.keys(next) as (keyof Email)[]) {
-    const a = prev[key];
-    const b = next[key];
-    if (a === b) continue;
-    if (a && b && typeof a === "object" && sameJson(a, b)) continue;
-    return { ...prev, ...next };
-  }
-  return prev;
-}
-
-/**
- * Whether two values serialize to the same JSON whatever order their keys are
- * in.
- *
- * `JSON.stringify` alone is not enough here, and the case is the common one:
- * `keywords` and `mailboxIds` are maps of arbitrary names, and the server is
- * free to answer them in any order -- so a shallow `JSON.stringify` comparison
- * reports a change whenever the order moves, which is exactly the wasted render
- * this is here to prevent.
- */
-function sameJson(a: unknown, b: unknown): boolean {
-  return stableJson(a) === stableJson(b);
-}
-
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([x], [y]) =>
-      x < y ? -1 : x > y ? 1 : 0,
-    );
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "undefined";
-}
 
 /** The discovery run already on its way, shared by every caller that joins it. */
 let discoverInFlight: Promise<void> | null = null;
@@ -2674,57 +1983,6 @@ function isUnsupportedSort(err: unknown): boolean {
   const type = (err as { type?: string } | null)?.type;
   const message = String((err as Error | null)?.message ?? "");
   return type === "unsupportedSort" || /unsupportedSort/i.test(message);
-}
-
-/** The messages of these ids that the map holds. */
-function pick(emails: Record<Id, Email>, ids: Id[]): Email[] {
-  return ids.map((id) => emails[id]).filter((e): e is Email => Boolean(e));
-}
-
-/**
- * The rows a keyword write is counted over: what the sidebar counts, for the
- * messages the write names.
- *
- * The unit is the row's and not the message's (`countsConversations`, which the
- * count itself is read with), so with conversation view on a conversation is
- * one number however many of its messages are being written, and with it off
- * every message counts for itself. Grouping is what makes the optimistic move
- * exact: moving the number once per message raised it by the size of the
- * conversation and left the next read to take it back down.
- *
- * A conversation is taken whole — every message of its thread the client holds
- * — because that is what the count asks about. The server's total is over the
- * account and not over the folder on screen, so a reply filed elsewhere belongs
- * to the same number, and a message of the row still carrying the keyword is
- * what keeps the number where it is when one message loses it. The thread comes
- * with the list (the collapsed query fetches its messages) and with
- * `loadThread`; the messages the write names are kept in the row even so, for a
- * thread the client has not read or has read before the newest reply landed.
- */
-function countRows(
-  ids: Id[],
-  emails: Record<Id, Email>,
-  threads: Record<Id, Thread>,
-): Id[][] {
-  const perConversation = countsConversations();
-  const rows = new Map<string, Id[]>();
-  for (const id of ids) {
-    const e = emails[id];
-    if (!e) continue;
-    // With conversations counted, the thread is the row; without it, each
-    // message is its own row.
-    const key = perConversation ? e.threadId : id;
-    const row = rows.get(key);
-    if (row) row.push(id);
-    else rows.set(key, [id]);
-  }
-  return [...rows].map(([key, row]) => {
-    const thread = perConversation ? threads[key] : undefined;
-    if (!thread) return row;
-    const members = thread.emailIds.filter((id) => emails[id]);
-    for (const id of row) if (!members.includes(id)) members.push(id);
-    return members;
-  });
 }
 
 async function runQueryOnce(
@@ -2815,278 +2073,6 @@ function deleteContext(): DeleteContext {
 }
 
 /**
- * What a refused destroy says, in the reader's language.
- *
- * The rule answers a code and the sentence is composed where it shows, which is
- * here for the actions the store performs: a string held in a library is a
- * string no catalogue can translate. Each sentence says what still works rather
- * than only what does not, because the reader's next move is the point.
- */
-function refusalSentence(code: DeleteRefusal): string {
-  switch (code) {
-    case "group_mail_final":
-      /*
-       * Deliberately not "your delete filed it in Deleted Items": a selection
-       * can hold messages that were already in Deleted Items or Junk Mail, and
-       * those are not filed — they are the ones the rule refused. The sentence
-       * states the rule and what still works, which is true of every case.
-       */
-      return t(
-        "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.",
-      );
-    case "group_mail_empty":
-      return t(
-        "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.",
-      );
-    case "group_mail_folder":
-      return t(
-        "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.",
-      );
-  }
-}
-
-/**
- * Destroy emails in batches the server will accept.
- *
- * Handing Email/set more ids than `maxObjectsInSet` fails the whole call with
- * requestTooLarge — nothing is deleted — so split first and merge the results.
- * Every final delete the client makes funnels through here, which is why the
- * group rule's guard sits on the callers above rather than on this: a guard
- * here would refuse the batches a caller had already promised.
- */
-async function destroyEmails(
-  accountId: Id,
-  ids: Id[],
-): Promise<{ destroyed: Id[]; notDestroyed: Record<Id, SetError> }> {
-  const destroyed: Id[] = [];
-  const notDestroyed: Record<Id, SetError> = {};
-  for (const part of chunk(ids, client.maxObjectsInSet)) {
-    const res = await client.call<SetResponse>("Email/set", { accountId, destroy: part });
-    destroyed.push(...(res.destroyed ?? []));
-    Object.assign(notDestroyed, res.notDestroyed ?? {});
-  }
-  return { destroyed, notDestroyed };
-}
-
-async function setEmails(accountId: Id, update: Record<Id, Record<string, unknown>>) {
-  const ids = Object.keys(update);
-  for (const part of chunk(ids, client.maxObjectsInSet)) {
-    const sub: Record<Id, Record<string, unknown>> = {};
-    for (const id of part) sub[id] = update[id]!;
-    const res = await client.call<SetResponse>("Email/set", { accountId, update: sub });
-    const failed = Object.entries(res.notUpdated ?? {});
-    if (failed.length) {
-      const [, err] = failed[0]!;
-      throw new Error(
-        `${err.type}${err.description ? `: ${err.description}` : ""}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ""}`,
-      );
-    }
-  }
-}
-
-/**
- * Folders a move takes a message out of and puts it into, as per-folder patch
- * paths (`mailboxIds/<id>`), never a replacement of the whole map.
- *
- * A message can genuinely sit in several folders at once — a server-side copy
- * rule, a filter set to “keep a copy” — and replacing the whole `mailboxIds`
- * map throws every folder but the target away. Patching one entry leaves the
- * rest alone; the mock's `applyPatch` applies these paths the same way a real
- * server does.
- *
- * `from` is the folder the action is moving out of: the list whose rows it is
- * acting on (or the explicit opt). Without one — a search result, a deep link
- * — every folder the message is known to sit in is the source, which is the
- * only reading “move” has without one.
- */
-function moveMailboxPatch(
-  mb: Record<Id, boolean>,
-  to: Id,
-  from: Id | null,
-): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  if (from) {
-    if (from !== to) patch[`mailboxIds/${from}`] = null;
-  } else {
-    for (const f of Object.keys(mb)) if (f !== to) patch[`mailboxIds/${f}`] = null;
-  }
-  patch[`mailboxIds/${to}`] = true;
-  return patch;
-}
-
-/** Apply per-folder patch paths to the optimistic copy of an Email. */
-function patchMailboxIds(
-  mb: Record<Id, boolean>,
-  patch: Record<string, unknown>,
-): Record<Id, boolean> {
-  const next = { ...mb };
-  for (const [k, v] of Object.entries(patch)) {
-    if (!k.startsWith("mailboxIds/")) continue;
-    const folder = k.slice("mailboxIds/".length);
-    if (v === null) delete next[folder];
-    else next[folder] = true;
-  }
-  return next;
-}
-
-/**
- * The per-folder patch that puts a message back in exactly the folders it had
- * before (`prev`), undoing a move's per-folder patch over whatever it sits in
- * now. Written as patch paths like every other writer, so the undo cannot
- * drop a folder the move never touched.
- */
-function restoreMailboxPatch(
-  prev: Record<Id, boolean>,
-  cur: Record<Id, boolean>,
-): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  for (const f of new Set([...Object.keys(prev), ...Object.keys(cur)]))
-    patch[`mailboxIds/${f}`] = prev[f] ? true : null;
-  return patch;
-}
-
-/** Remove given email ids (and threads they represent) from the current list optimistically. */
-function removeFromList(
-  ids: Id[],
-  set: (fn: (s: MailState) => Partial<MailState>) => void,
-  get: () => MailState,
-  targetMailboxId: Id | null,
-) {
-  const l = get().list;
-  if (!l) return;
-  // If the list is showing the mailbox we're moving into, don't remove.
-  if (targetMailboxId && l.mailboxId === targetMailboxId) return;
-  const idSet = new Set(ids);
-  const { emails, threads } = get();
-  const removeRow = (rowId: Id): boolean => {
-    if (idSet.has(rowId)) return true;
-    if (!l.collapseThreads) return false;
-    const e = emails[rowId];
-    if (!e) return false;
-    const t = threads[e.threadId];
-    if (!t) return false;
-    // Row goes away if no email of the thread remains in this mailbox after the move.
-    if (l.mailboxId) {
-      const remaining = t.emailIds.filter(
-        (id) => !idSet.has(id) && emails[id]?.mailboxIds[l.mailboxId!],
-      );
-      return remaining.length === 0;
-    }
-    return t.emailIds.every((id) => idSet.has(id));
-  };
-  const nextIds = l.ids.filter((id) => !removeRow(id));
-  if (nextIds.length !== l.ids.length) {
-    set((s) => ({
-      list: s.list
-        ? {
-            ...s.list,
-            ids: nextIds,
-            total: Math.max(0, s.list.total - (l.ids.length - nextIds.length)),
-          }
-        : s.list,
-    }));
-  }
-}
-
-/** The sender's name for a message, or a generic one when it names none. */
-function senderName(email: Pick<Email, "from">): string {
-  const from = email.from?.[0];
-  return from?.name || from?.email || "New message";
-}
-
-/**
- * One mail notification: the sender as its title, the subject and preview as
- * its body, and a tap that opens the message where it lives. One renderer, so
- * the reader's own account and a group cannot show the same arrival two ways.
- */
-function announceMail(
-  email: Pick<Email, "id" | "threadId" | "from" | "subject" | "preview">,
-  inboxId: Id,
-  title: string,
-): void {
-  showNotification(title, {
-    body: `${email.subject || "(no subject)"}\n${email.preview ?? ""}`.trim(),
-    tag: `gilbert-${email.id}`,
-    onClick: () => {
-      window.location.hash = "";
-      // The one navigation that does not go through wouter -- it is synthesising
-      // a popstate so the router picks the address up -- so it is also the one
-      // that has to add the mount prefix itself.
-      window.history.pushState({}, "", withBase(`/mail/${inboxId}/${email.threadId}`));
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    },
-  });
-}
-
-async function notifyNewMail(created: Id[], get: () => MailState) {
-  const s = settings();
-  const inbox = get().roleId("inbox");
-  if (!inbox) return;
-  const emails = await get().getEmails(created);
-  const fresh = emails.filter(
-    (e) => e.mailboxIds[inbox] && !e.keywords.$seen && !e.keywords.$draft,
-  );
-  if (!fresh.length) return;
-  if (s.notificationSound) playNewMailSound();
-  if (!s.desktopNotifications) return;
-  for (const e of fresh.slice(0, 3)) announceMail(e, inbox, senderName(e));
-}
-
-/**
- * Announce the mail a group mailbox received, while a tab is open.
- *
- * The closed client is woken by the same delivery (ADR 0016); a reader who
- * keeps Gilbert open on a group must not go quiet. `notifyNewMail` is the
- * reader's own account and this is its group sibling: the same two switches and
- * the same suppression, with a title that names the group as well as the
- * sender.
- *
- * Only what arrived after this page was opened is announced. A group's Inbox
- * may hold a backlog a tab has never shown, and announcing it on the first
- * change is the noise the watermark avoids on the closed path; a set of ids
- * keeps one message from being announced twice.
- */
-const MAIL_OPENED_AT = Date.now();
-const announcedGroupMail = new Set<Id>();
-
-export async function notifyGroupMail(
-  accountId: Id,
-  get: () => MailState,
-): Promise<void> {
-  const s = settings();
-  if (!s.desktopNotifications && !s.notificationSound) return;
-  const inbox = Object.values(get().accountTrees[accountId] ?? {}).find(
-    (m) => m.role === "inbox",
-  )?.id;
-  if (!inbox) return;
-  const q = await client.call<{ ids?: Id[] }>("Email/query", {
-    accountId,
-    filter: { inMailbox: inbox, notKeyword: "$seen" },
-    sort: [{ property: "receivedAt", isAscending: false }],
-    limit: 3,
-  });
-  const ids = q.ids ?? [];
-  if (!ids.length) return;
-  const got = await client.call<GetResponse<Email>>("Email/get", {
-    accountId,
-    ids,
-    properties: ["id", "threadId", "from", "subject", "preview", "receivedAt"],
-  });
-  const fresh = got.list.filter((e) => {
-    if (announcedGroupMail.has(e.id)) return false;
-    const at = e.receivedAt ? Date.parse(e.receivedAt) : Number.NaN;
-    return Number.isFinite(at) && at >= MAIL_OPENED_AT;
-  });
-  if (!fresh.length) return;
-  for (const e of fresh) announcedGroupMail.add(e.id);
-  if (s.notificationSound) playNewMailSound();
-  if (!s.desktopNotifications) return;
-  const name =
-    get().mailAccounts.find((a) => a.accountId === accountId)?.name ?? accountId;
-  for (const e of fresh) announceMail(e, inbox, `${senderName(e)} · ${name}`);
-}
-
-/**
  * The store's account is its own. Group mailboxes open without moving the
  * session's selected account, which the other stores read to stay on the
  * reader's own data (settings, Sieve) -- the mistake a whole-app account
@@ -3105,106 +2091,6 @@ useSession.subscribe((s, prev) => {
   mail.setAccount(own?.accountId ?? null);
   void mail.discoverMailAccounts();
 });
-
-/**
- * The mail account to open at boot: the one this device was last on, when it
- * is still one of the reader's.
- *
- * Asked after discovery rather than at sign-in, because a remembered group
- * mailbox has nothing to be compared against until the probe has named the
- * accounts that exist.
- */
-export function rememberedMailAccount(
-  accounts: readonly MailAccountInfo[],
-): string | null {
-  const remembered = loadPlace(placeOwnerFrom(useSession.getState())).mailAccountId;
-  return remembered && accounts.some((a) => a.accountId === remembered)
-    ? remembered
-    : null;
-}
-
-export function mailboxIcon(role: MailboxRole): string {
-  switch (role) {
-    case "inbox":
-      return "inbox";
-    case "drafts":
-      return "file";
-    case "sent":
-      return "send";
-    case "trash":
-      return "trash";
-    case "junk":
-      return "alert";
-    case "archive":
-      return "archive";
-    case "all":
-      return "mail";
-    case "flagged":
-      return "star";
-    case "important":
-      return "tag";
-    default:
-      return "folder";
-  }
-}
-
-export const ROLE_ORDER: Record<string, number> = {
-  inbox: 0,
-  flagged: 1,
-  important: 2,
-  drafts: 3,
-  sent: 4,
-  archive: 5,
-  all: 6,
-  junk: 7,
-  trash: 8,
-};
-
-/**
- * Resolve `parentId/segments...` to a mailbox id, creating what is missing.
- *
- * Reuses a folder that is already there rather than making a second one beside
- * it, so archiving by month twice in the same month files into the same place
- * -- including a folder somebody made by hand, or one another client made
- * first, which is the usual way `Archive/2026` already exists.
- *
- * Sequential on purpose: each level is the next level's parent, and
- * `createMailbox` reloads the tree, so the lookup for `09` can see the `2026`
- * that was just created.
- */
-async function ensureFolderPath(
-  state: () => MailState,
-  parentId: Id,
-  segments: string[],
-): Promise<Id> {
-  let current = parentId;
-  for (const name of segments) {
-    const existing = Object.values(state().mailboxes).find(
-      (m) => m.parentId === current && m.name === name,
-    );
-    current = existing ? existing.id : await state().createMailbox(name, current);
-  }
-  return current;
-}
-
-/**
- * A folder and everything under it, with the paths they have right now.
- *
- * Taken before a rename or a move, because renaming a parent silently rewrites
- * the path of every folder beneath it, and the rules filing into those children
- * name the old path just as much as the rules filing into the folder itself.
- */
-function folderRefs(state: MailState, id: Id): FolderRef[] {
-  const all = Object.values(state.mailboxes);
-  const ids = new Set<Id>([id]);
-  // Walk down as far as the tree goes; depth is small and bounded by the server.
-  for (let pass = 0; pass < 20; pass++) {
-    const before = ids.size;
-    for (const m of all) if (m.parentId && ids.has(m.parentId)) ids.add(m.id);
-    if (ids.size === before) break;
-  }
-  return [...ids].map((i) => ({ id: i, path: state.mailboxPath(i) }));
-}
 
 /**
  * Keeps the Sieve rules pointing at the folders they were aimed at.
@@ -3272,3 +2158,10 @@ async function followFolders(accountId: Id, before: FolderRef[]): Promise<void> 
     );
   }
 }
+
+export { BODIES_KEPT, releaseBodies, resetBodyOrder } from "./bodies";
+export { mailboxIcon, ROLE_ORDER, rememberedMailAccount } from "./folders";
+export { DEFAULT_SORT } from "./list";
+export { notifyGroupMail } from "./notify";
+export type { ListQuery, ListState, MailState } from "./types";
+export { BODY_PROPS, FULL_PROPS, LIST_PROPS, MAILBOX_PROPS } from "./types";

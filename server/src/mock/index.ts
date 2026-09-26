@@ -1131,7 +1131,7 @@ const sharedEvents: Obj[] = [];
    Every folder arrives **unsubscribed**, as a real server hands them to a
    member: subscription is per-principal state, and being added to the group
    writes none of it. The client is what subscribes them (`adoptMailboxes` in
-   `web/src/store/mail.ts`), so the mock models the state that write exists for
+   `web/src/store/mail/`), so the mock models the state that write exists for
    -- and the sidebar, which draws a shared tree whole, has a tree that would
    otherwise be Inbox alone. */
 const groupMailboxes: Obj[] = [

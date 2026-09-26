@@ -312,7 +312,7 @@ the directory's `type` vocabulary beyond `individual` and `group`.
 ### `scripts/probe-group-subscriptions.mjs` — a member's own subscription
 
 Confirmed live on 0.16.23 (2026-09-24), for `ensureSubscribed` in
-`web/src/store/mail.ts` and the decision in ADR 0021: a **member may** write
+`web/src/store/mail/` and the decision in ADR 0021: a **member may** write
 `isSubscribed` on a folder of their group. `Mailbox/set` with
 `update: {<folder id>: {isSubscribed: true}}` on a folder of a group the
 credential is a member of answers `updated`, and the folder reads back

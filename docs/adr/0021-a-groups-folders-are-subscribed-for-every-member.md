@@ -8,7 +8,7 @@ Implementation: Built. One answer for whose tree is on screen
 sections below it and for the folder menu's own entry), one write for the
 subscriptions membership owes (`unsubscribedFolders` in
 `web/src/lib/groupSubscriptions.ts`, applied by `adoptMailboxes` in
-`web/src/store/mail.ts` wherever a mailbox tree is read). The invariants are
+`web/src/store/mail/` wherever a mailbox tree is read). The invariants are
 pinned in `web/src/store/__tests__/mail-group-subscriptions.test.ts`,
 `web/src/views/mail/__tests__/group-tree.test.tsx` and
 `web/src/lib/__tests__/groupSubscriptions.test.ts`, and the mock hands a member
@@ -55,7 +55,7 @@ subscribed, and a tree that is not the reader's own is drawn whole whatever
 that write does.**
 
 - **One read, one rule, one write.** Every read of a mailbox tree goes through
-  one adoption (`adoptMailboxes` in `web/src/store/mail.ts`), and the answer to
+  one adoption (`adoptMailboxes` in `web/src/store/mail/`), and the answer to
   *what is missing* comes from one module
   (`web/src/lib/groupSubscriptions.ts`), never from the surfaces that draw a
   tree. The three reads that exist — the probe that discovers which accounts are
@@ -162,7 +162,7 @@ the way the other probes are.
 - `web/src/lib/mailAccounts.ts` — `isOwnMailAccount`, the question that decides
   whether the rule applies at all; `isGroupMailboxAccount`, the classifier the
   group-owned creation surfaces keep asking
-- `web/src/store/mail.ts` — `mailboxMap`, `adoptMailboxes` and
+- `web/src/store/mail/` — `mailboxMap`, `adoptMailboxes` and
   `ensureSubscribed`: the one builder, the one guard and the one write, read by
   `loadMailboxes`, `refreshAccountTree` and `discoverMailAccounts`
 - `web/src/views/mail/MailboxTree.tsx` — the tree rule and the folder menu, both

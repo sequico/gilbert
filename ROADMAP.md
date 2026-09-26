@@ -82,16 +82,6 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   instead of at a fetch stub is the change that would make "one Stalwart" literal
   rather than rhetorical, and it is a bigger change than this file's shape:
   the mock is a Node server, and the suites stub `fetch`.
-- **The mail store's own shape.** `web/src/store/mail.ts` is one file of 3,123
-  lines — the list, the thread, the held bodies, the moves and the refresh —
-  and it is the file opened most often in this tree. Splitting it into a
-  `store/mail/index.ts` that re-exports the modules beside it, so `@/store/mail`
-  stays the one import path, is a change of shape alone: no call site moves and
-  no behaviour changes. It is our own work rather than a merge —
-  upstream's split is against a file half this size and a store this tree has
-  replaced — and it is worth doing when the mail area is otherwise quiet,
-  because a shape change re-points every path-scoped reading of the tree, the
-  collision maps a merge is read against included.
 
 - **SIP over TLS toward the provider.** The bridge reaches the provider over the
   transport the provider's own record names, which is **UDP/5060** today. The

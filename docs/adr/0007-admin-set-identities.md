@@ -251,7 +251,7 @@ wire.
 - `web/src/lib/identityVisibility.ts` — `ownIdentity`, the one rule for which
   of a person's identities is theirs, and the display name it reads for the
   identity the administration writes
-- `web/src/store/mail.ts` — the per-account identity lists, the assignment a
+- `web/src/store/mail/` — the per-account identity lists, the assignment a
   group mailbox narrows to and reads again when a surface asks it to, the write
   that spends a read already on its way, and `refreshIdentities`
 - `web/src/store/compose.ts` — `identityBcc`, the one place an identity's Bcc

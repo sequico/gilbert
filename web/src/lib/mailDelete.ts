@@ -124,7 +124,7 @@ export function destroyRefusal(
  *
  * One list, three readers: `isFinalFolderRole` below is built from it, the
  * pair `finalFoldersOf` returns is keyed by `FinalFolderRole`, and the guard in
- * `store/mail.ts` maps the roles to the ids an action may name. A third final
+ * `store/mail/` maps the roles to the ids an action may name. A third final
  * folder is one edit here, and the pair below does not compile without it.
  */
 export const FINAL_FOLDER_ROLES = ["trash", "junk"] as const;
@@ -138,7 +138,7 @@ const FINAL_ROLE_SET: ReadonlySet<string> = new Set(FINAL_FOLDER_ROLES);
  * Whether this role is one of the two final folders.
  *
  * The question the surfaces ask about a folder they are drawing: `canEmpty`
- * (`lib/emptyFolder.tsx`) and `store/mail.ts`'s `emptyMailbox` guard both put
+ * (`lib/emptyFolder.tsx`) and `store/mail/`'s `emptyMailbox` guard both put
  * it to the folder they were given, so "which folders are final" is one
  * sentence for every reader of it.
  */

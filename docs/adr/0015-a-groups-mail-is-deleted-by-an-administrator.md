@@ -6,7 +6,7 @@ Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`),
 which also holds the two final folders as one predicate (`FINAL_FOLDER_ROLES`,
 `isFinalFolderRole`) that `canEmpty` and the store's `emptyMailbox` guard ask,
 and its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
-`destroyMailbox` in `web/src/store/mail.ts` — each answering a `DeleteOutcome` so
+`destroyMailbox` in `web/src/store/mail/` — each answering a `DeleteOutcome` so
 a caller can tell a refusal from work done, the rule's own refusals and the mail
 server's told apart by their code. The surfaces read the same answer
 before drawing an entry, through `deleteEntryOffered` and its two per-target
@@ -242,12 +242,12 @@ with; a group that wants the switch can be given one over it.
   answers, and the two final folders as one predicate (`FINAL_FOLDER_ROLES`,
   `isFinalFolderRole`, and `finalFoldersOf` which finds them by it) that
   `canEmpty` in `web/src/lib/emptyFolder.tsx` and the `emptyMailbox` guard in
-  `web/src/store/mail.ts` both ask, and the three questions the surfaces ask
+  `web/src/store/mail/` both ask, and the three questions the surfaces ask
   (`deleteEffect`, `deleteEntryOffered`, `messageDeleteOffered` /
   `folderDeleteOffered`)
 - `web/src/lib/useMayDestroy.ts` — the one hook every surface reads it through,
   so the drawn answer re-renders when the admin flag or the account set moves
-- `web/src/store/mail.ts` — the guards on `destroy`, `emptyMailbox` and
+- `web/src/store/mail/` — the guards on `destroy`, `emptyMailbox` and
   `destroyMailbox`, each answering a `DeleteOutcome` in which the rule's refusal
   and the server's own are different codes, and the module-private
   `destroyEmails` the guarded paths funnel through

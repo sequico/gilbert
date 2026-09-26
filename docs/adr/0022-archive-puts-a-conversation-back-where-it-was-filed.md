@@ -4,7 +4,7 @@ Status: Accepted
 
 Implementation: Built. `web/src/lib/archiveTarget.ts` answers which folder a
 conversation already lives in (`filedFolderOf`); `archive` in
-`web/src/store/mail.ts` reads the thread's messages (`threadMessagesFor` —
+`web/src/store/mail/` reads the thread's messages (`threadMessagesFor` —
 `Thread/get`, then `Email/get` for the ones the page is not showing) and moves
 the selection through one shared `moveToDestinations`, which is also what
 `archiveByDate` now uses, so a selection that splits across destinations is
@@ -113,7 +113,7 @@ the plain Archive button, which now does exactly that.
 
 - `web/src/lib/archiveTarget.ts` — `filedFolderOf`, the whole rule: which folder
   a conversation is filed in, and `null` when it is in none
-- `web/src/store/mail.ts` — `archive`, `archiveByDate`, `threadMessagesFor` and
+- `web/src/store/mail/` — `archive`, `archiveByDate`, `threadMessagesFor` and
   `moveToDestinations`
 - `web/src/lib/__tests__/archiveTarget.test.ts` — the rule: the newest filed
   message decides, structural folders do not count, an unknown folder is not a

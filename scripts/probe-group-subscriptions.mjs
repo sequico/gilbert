@@ -6,7 +6,7 @@
  * the grant: `isSubscribed` is read state kept for one principal, and a newly
  * added member is handed every folder of the group unsubscribed. The client
  * writes it back for every folder that lacks it (`ensureSubscribed` in
- * `web/src/store/mail.ts`, on every read of the tree), and whether a member
+ * `web/src/store/mail/`, on every read of the tree), and whether a member
  * **may** write that field is read rather than confirmed — the folder grants
  * them rename and delete, and the same tree has read the server refuse that
  * field on an address book shared read-only while accepting it on a shared

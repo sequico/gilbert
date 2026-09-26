@@ -32,7 +32,7 @@ group.** Concretely:
 
 Session capabilities lie: Stalwart advertises the full set on every listed
 account. The working classifier is the **mail store's probe**
-(`store/mail.ts` `discoverMailAccounts`): candidates from the session that
+(`store/mail/` `discoverMailAccounts`): candidates from the session that
 answer `Mailbox/get` with a folder tree are `kind: "group"` in
 `useMail((s) => s.mailAccounts)`; accounts that share only calendars/books/
 files answer with none and are not listed. `mailAccounts` is set **once at
@@ -80,7 +80,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   end a message for good — a destroy out of Deleted Items or Junk Mail,
   `emptyMailbox`, and `destroyMailbox` **with** its mail — are refused for
   everybody but an installation administrator (`session.gilbert.isAdmin`), and
-  the guards sit on those effects in `store/mail.ts` rather than on the menus,
+  the guards sit on those effects in `store/mail/` rather than on the menus,
   because `trash()` destroys a message already in Deleted Items or Junk Mail by
   calling `destroy`. Everything else stays: filing into the group's Deleted
   Items, archiving, labelling, replying — so both folders are real folders
