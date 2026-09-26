@@ -1541,6 +1541,912 @@ export const catalog: Catalog = {
     "Edit {name}": "编辑 {name}",
     "{own} here, {unread} in subfolders": "{own} 在此，{unread} 在子文件夹中",
     attachment: "附件",
+    "Turn on notifications? New mail and chat reach you even when Gilbert is in the background.":
+      "开启通知？即使 Gilbert 在后台，新邮件和聊天也能送达您。",
+    "Turn on notifications": "开启通知",
+    "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
+      "在 Safari 中把 Gilbert 添加到主屏幕并从那里打开：iOS 只向这样安装的网页应用提供通知。",
+    "Your mail server publishes no push key, so it cannot wake this browser.":
+      "您的邮件服务器未发布推送密钥，因此无法唤醒此浏览器。",
+    "This browser has no Push API, so notifications with Gilbert closed cannot be turned on here.":
+      "此浏览器没有 Push API，因此无法在这里开启 Gilbert 关闭时的通知。",
+    "Notifications are blocked for this site in your browser's settings.":
+      "此网站的通知已在您的浏览器设置中被阻止。",
+    "Background notifications need a device you have marked as your own. Sign in again with “This is my own device” ticked.":
+      "后台通知需要一台您标记为自己的设备。请勾选“这是我的设备”后重新登录。",
+    "Could not subscribe to notifications.": "无法订阅通知。",
+    Policy: "策略",
+    Installation: "安装",
+    "Force passwords": "强制密码",
+    "Identities and SIP Phone": "发件身份与 SIP 电话",
+    Master: "Master",
+    "Group Agents": "群组代理",
+    Approvals: "审批",
+    "System Sieve": "系统 Sieve",
+    "Gilbert Mailer": "Gilbert Mailer",
+    "Gilbert Assistant": "Gilbert Assistant",
+    Stalwart: "Stalwart",
+    "Nothing here yet.": "这里还没有任何内容。",
+    Help: "帮助",
+    "Mobile app": "移动应用",
+    "Install mobile app": "安装移动应用",
+    "Change your password": "更改您的密码",
+    "Your administrator requires you to choose a new password before you can continue. Signing out is the only other way out of this screen.":
+      "管理员要求您必须先选择一个新密码才能继续。退出是离开此屏幕的唯一其他方式。",
+    "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
+      "Gilbert 已安装在此设备上。请从主屏幕上的图标打开以使用该应用。",
+    "Install Gilbert as an app for a full-screen window and notifications.":
+      "将 Gilbert 安装为应用，以获得全屏窗口和通知。",
+    "Add Gilbert to your Home Screen.": "将 Gilbert 添加到您的主屏幕。",
+    "Gilbert is installing. Open it from its icon to finish setting it up.":
+      "Gilbert 正在安装。请从其图标打开以完成设置。",
+    Install: "安装",
+    How: "如何",
+    "Gilbert is up to date.": "Gilbert 已是最新版本。",
+    "Could not check for updates.": "无法检查更新。",
+    "Notifications are on for this device.": "此设备的通知已开启。",
+    "Gilbert is installed on this device.": "Gilbert 已安装在此设备上。",
+    "Update now": "立即更新",
+    "Install Gilbert on your phone to open it from its own icon, full screen, and to be notified when it is closed.":
+      "在手机上安装 Gilbert，即可从自己的图标全屏打开，并在其关闭时收到通知。",
+    "Install app": "安装应用",
+    "Safari installs a web app from the Share sheet:":
+      "Safari 通过共享面板安装网页应用：",
+    "Tap the Share button.": "轻点“共享”按钮。",
+    "Choose “Add to Home Screen”.": "选取“添加到主屏幕”。",
+    "Open Gilbert from the new icon.": "从新图标打开 Gilbert。",
+    "This browser keeps install in its own menu — look for “Install app” or “Add to Home screen”.":
+      "此浏览器在自己的菜单中安装 — 请查找“安装应用”或“添加到主屏幕”。",
+    Notifications: "通知",
+    "A newer version is on the server.": "服务器上有较新的版本。",
+    "You are on the newest version.": "您已是最新版本。",
+    "Checking for updates…": "正在检查更新…",
+    "This browser cannot show notifications.": "此浏览器无法显示通知。",
+    "Stay signed in, and keep settings and recent addresses on this computer.":
+      "保持登录，并在此计算机上保留设置和最近使用的地址。",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.":
+      "闲置 5 分钟后退出登录，此计算机上不保留任何内容。在共享或公共计算机上请勿勾选。",
+    "Signing in…": "正在登录…",
+    "Sign in": "登录",
+    "Go to All mail / Archive": "前往“所有邮件 / 归档”",
+    "Stalwart Mail Server": "Stalwart 邮件服务器",
+    "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
+    "{name} (Beta)": "{name} (Beta)",
+    "Reset all settings?": "重置所有设置？",
+    "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
+      "此账户的每项设置都会恢复默认值 — 模板、标签、受信任的签名者、日历订阅、隐藏的发件身份 — 服务器上保存的副本也会被替换。此操作无法撤销。",
+    Reset: "重置",
+    "Ask again": "再次询问",
+    "Make Gilbert the default mail app": "将 Gilbert 设为默认邮件应用",
+    "Your identities": "您的发件身份",
+    "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
+      "此群组的邮箱每个成员一个发件身份，都使用群组地址。由管理端分配，因此在这里为只读。",
+    "You send as the one assigned to you, marked below.":
+      "您以分配给您的那一个（已在下方标记）发件。",
+    "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
+      "尚未向您分配此群组的任何发件身份，因此您从此邮箱发出的邮件将以群组本身的名义发出。",
+    "Could not read this group's identities: {error}":
+      "无法读取此群组的发件身份：{error}",
+    Yours: "您的",
+    "replies@example.com": "replies@example.com",
+    "archive@example.com": "archive@example.com",
+    "Pictures belong to the account’s own Files and this surface cannot write them; an over-sized signature is kept there, and this form stores the marker that points at it.":
+      "图片属于账户自己的文件，而此界面无法写入；过大的签名会保存在那里，而此表单会存储指向它的标记。",
+    "Pictures and over-sized signatures live in the account's own Files, which this surface cannot write.":
+      "图片和过大的签名位于账户自己的文件中，此界面无法写入。",
+    "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.":
+      "此浏览器不再保存此设备上通知的答复，因此无法显示任何通知。关闭再开启开关会重新请求权限。",
+    "Gilbert test": "Gilbert 测试",
+    "Ask before showing": "显示前询问",
+    "Added from a message, and removable here.": "从邮件添加，可在此移除。",
+    "example.com": "example.com",
+    "Give the rule a name before it can be saved.": "在规则可以保存之前，请先为其命名。",
+    "someone@example.com": "someone@example.com",
+    "That is not an email address, so the mail this rule matches would never arrive.":
+      "那不是电子邮件地址，因此此规则匹配的邮件永远不会到达。",
+    "Give the address to forward to.": "请填写要转发到的地址。",
+    "Password changed": "密码已更改",
+    "Changing…": "正在更改…",
+    "Change password": "更改密码",
+    "Working…": "正在处理…",
+    "Your current password": "您的当前密码",
+    "Creating…": "正在创建…",
+    "“Ends” must be after “Starts”.": "“结束”必须晚于“开始”。",
+    "Auto-reply is on": "自动回复已开启",
+    "Auto-reply saved": "自动回复已保存",
+    Personal: "个人",
+    Missed: "未接",
+    Declined: "已拒绝",
+    Failed: "失败",
+    "Recent calls": "最近通话",
+    "{n}s": "{n} 秒",
+    "No calls yet.": "还没有通话。",
+    All: "全部",
+    Global: "全局",
+    My: "我的",
+    "This browser reaches Gilbert: the phone's media path is proven.":
+      "此浏览器可到达 Gilbert：电话的媒体路径已验证。",
+    "The phone's connection to Gilbert is down.": "电话与 Gilbert 的连接已断开。",
+    "Gilbert phone connection": "Gilbert 电话连接",
+    "Registered with the SIP provider.": "已向 SIP 提供商注册。",
+    "Not registered with the SIP provider.": "未向 SIP 提供商注册。",
+    "SIP server connection": "SIP 服务器连接",
+    "No contacts with a number to call.": "没有可拨打号码的联系人。",
+    "Incoming call": "来电",
+    "Unknown caller": "未知来电",
+    Answer: "接听",
+    Decline: "拒绝",
+    Call: "拨打",
+    "Number or address": "号码或地址",
+    Unmute: "取消静音",
+    Mute: "静音",
+    "Hang up": "挂断",
+    "Actions for {email}": "{email} 的操作",
+    "Invitation accepted": "已接受邀请",
+    "Invitation declined": "已拒绝邀请",
+    "Marked as tentative": "已标记为暂定",
+    "(untitled event)": "（无标题事件）",
+    "": "",
+    "Open conversation": "打开会话",
+    "Back to list / clear selection": "返回列表 / 清除选择",
+    "Select conversation": "选择会话",
+    "Next message in conversation": "会话中的下一封邮件",
+    "Previous message in conversation": "会话中的上一封邮件",
+    "Resize message list": "调整邮件列表大小",
+    "Hide from list": "从列表中隐藏",
+    "Show in list": "在列表中显示",
+    "Stop trusting sender images": "不再信任发件人的图片",
+    "Always show images from sender": "始终显示发件人的图片",
+    "Send receipt": "发送回执",
+    "•••": "•••",
+    "Download all to Files": "全部下载到文件",
+    "Save to Files": "保存到文件",
+    "Could not save the attachments.": "无法保存附件。",
+    "Save here": "保存到此处",
+    "Save all": "全部保存",
+    "There is nowhere to save files to.": "没有可保存文件的位置。",
+    "Going to: {where}": "前往：{where}",
+    "Collapse all": "全部折叠",
+    "Expand all": "全部展开",
+    "Contact card": "联系人卡片",
+    "Shared folder": "共享文件夹",
+    "Shared files": "共享文件",
+    "All files": "所有文件",
+    "Nothing shared here.": "这里没有共享内容。",
+    "No folders yet.": "还没有文件夹。",
+    "Group name": "群组名称",
+    "Organization name": "组织名称",
+    "name@example.com": "name@example.com",
+    "https://": "https://",
+    "{name} — shared with everyone": "{name} — 与所有人共享",
+    "Edit Global contacts": "编辑全局联系人",
+    "My contacts": "我的联系人",
+    "Group contacts": "群组联系人",
+    "New address book in {group}": "{group} 中的新通讯录",
+    "Nothing added yet.": "尚未添加任何内容。",
+    "Looking…": "正在查找…",
+    "· organization": "· 组织",
+    "From the group {group}": "来自群组 {group}",
+    "Move {name} to…": "将 {name} 移动到…",
+    "This group keeps no address books.": "此群组不保留通讯录。",
+    "There is nowhere else to move it.": "没有其他地方可以移动它。",
+    "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
+      "另一个账户与您共享的通讯录包含此联系人，因此编辑和删除由该账户决定 — 这里两者都不提供。",
+    "Saved.": "已保存。",
+    "Global contacts": "全局联系人",
+    "Email addresses": "电子邮件地址",
+    "One per line.": "每行一个。",
+    "Phone numbers": "电话号码",
+    "One per line. The phone calls the preferred one.": "每行一个。电话拨打首选的那个。",
+    "The installation's shared directory: every account reads it, and only an administrator writes it here.":
+      "安装的共享目录：每个账户都可读取，只有管理员在此写入。",
+    "No contacts": "没有联系人",
+    "Add contact": "添加联系人",
+    "Close composer (saves draft)": "关闭撰写（保存草稿）",
+    "Save draft": "保存草稿",
+    "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
+      "此群组还没有发件身份，因此没有可用于发件的内容。管理员在群组的发件身份中设置一个。",
+    "High priority": "高优先级",
+    "Low priority": "低优先级",
+    "Send now instead": "改为立即发送",
+    "Switch to plain text": "切换为纯文本",
+    "Switch to rich text": "切换为富文本",
+    "Attach {n} files": "附加 {n} 个文件",
+    Attach: "附加",
+    "To — {n} people": "收件人 — {n} 人",
+    "Nobody matches that.": "没有匹配项。",
+    "No contacts in this address book.": "此通讯录中没有联系人。",
+    "https://…": "https://…",
+    Chat: "聊天",
+    "No longer in this group": "已不在此群组",
+    "The group's agent": "群组的代理",
+    "Search messages": "搜索邮件",
+    Conversations: "会话",
+    "Search in this chat": "在此聊天中搜索",
+    "Searching…": "正在搜索…",
+    "No matches for {query}": "没有匹配 {query} 的结果",
+    "Could not load the conversation": "无法加载会话",
+    "No messages yet": "还没有邮件",
+    "Loading earlier messages…": "正在加载更早的邮件…",
+    "Start of the conversation": "会话开始",
+    "Go to the message being answered": "前往所回复的邮件",
+    "Pick a conversation": "选择一个会话",
+    "Replying to {who}": "回复 {who}",
+    "Cancel reply": "取消回复",
+    "Message {group}": "邮件 {group}",
+    "No agent is registered for this installation.": "此安装没有注册任何代理。",
+    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
+      "没有代理在此群组工作：它在这里未被授权，因此不携带任何指令，也不做任何事。授权在邮件服务器自己的管理端进行，而非在本产品中。",
+    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
+      "在此群组以 {address} 身份活动。只读：它所遵循的内容在管理端编写，您在聊天中回复它。",
+    "Standing instruction": "常驻指令",
+    "Who its runs stop for": "其运行会为谁停止",
+    "What it follows": "它所遵循的内容",
+    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
+      "无法读取此群组的自动化文档，因此无法显示其自动化。在管理端打开此群组会自动替换它。",
+    "No automation is set up for this group.": "此群组未设置任何自动化。",
+    "Still open": "仍未关闭",
+    "Nothing is running and nothing is waiting.": "没有任何运行，也没有任何等待。",
+    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
+      "当其中一项等待某人时，代理会在此聊天中询问 — 您就在那里回复。",
+    "What it has done": "它做过什么",
+    "It has not done anything yet.": "它还没有做任何事。",
+    "Last written by {who} on {when}.": "最后由 {who} 于 {when} 写入。",
+    "an administrator": "管理员",
+    Disabled: "已停用",
+    "{message} for this date": "此日期的 {message}",
+    "Occurrence deleted": "重复项已删除",
+    "Event deleted": "事件已删除",
+    "Group calendars": "群组日历",
+    "New calendar in {group}": "{group} 中的新日历",
+    "This occurrence updated": "此重复项已更新",
+    "Event updated": "事件已更新",
+    "Event created and invitations sent": "事件已创建并已发送邀请",
+    "Event created": "事件已创建",
+    "Editing {date} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.":
+      "仅编辑 {date} — 系列其余部分不变。系列的重复、隐私和参与者不显示，日历仍随系列。",
+    "This is a recurring event — changes apply to the whole series.":
+      "这是重复事件 — 更改适用于整个系列。",
+    "https://meet.example.com/…": "https://meet.example.com/…",
+    "{duration} before": "{duration}前",
+    "Fewer options": "更少选项",
+    "An email arrives": "有新邮件到达",
+    "A file or folder changes": "文件或文件夹发生变化",
+    "Someone writes in the chat": "有人在聊天中发言",
+    "On a schedule": "按计划",
+    "Every run stops here for a person to answer before anything happens.":
+      "每次运行都在此停止，等待某人回复后才会发生任何事。",
+    "A run at or above the confidence runs unattended; below it, it waits for a person.":
+      "达到或高于置信度的运行无人值守进行；低于则等待某人。",
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
+      "没有等待某人的项 — 但无法撤销的操作仍会询问，离开群组的操作也会询问，除非同意门槛已提高。",
+    "Always ask a person first": "始终先询问某人",
+    "Ask a person below a confidence threshold": "低于置信度阈值时询问某人",
+    "Never ask — run it unattended": "从不询问 — 无人值守运行",
+    "Waiting to start": "等待开始",
+    Running: "运行中",
+    "Waiting for a person": "等待某人",
+    Ran: "已运行",
+    Finished: "已完成",
+    "Asked for approval": "已请求审批",
+    Rejected: "已驳回",
+    Refused: "已拒绝",
+    unknown: "未知",
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
+      "{runs} 次运行 · 从缓存读取 {hit} 个 token，重新读取 {miss} 个，写入 {out} 个",
+    "{n} of them reported no usage": "其中 {n} 次未报告用量",
+    "This installation has spent: {meter}": "此安装已花费：{meter}",
+    "{agent}: {meter}": "{agent}：{meter}",
+    "no agent named": "未指定代理",
+    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
+      "无法读取 {groups} 的审计，因此此合计只是下限：它们的运行在这里不计入任何统计。",
+    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
+      "此安装无法列出群组成员：Master 可能无法读取账户注册表。为它授予 sysAccountGet 和 sysAccountQuery 权限 — 这是按账户的授权，而非管理员角色 — 聊天中的 @ 就会提供群组成员；在此之前，它提供已经发言过的人。",
+    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
+      "账户注册表未响应，因此无法列出群组成员，聊天中的 @ 会提供已经发言过的人。",
+    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
+      "没有注册任何代理，因此没有东西能读取群组成员：聊天中的 @ 会提供已经发言过的人。",
+    "every {minutes} minutes": "每 {minutes} 分钟",
+    "sending outside the group allowed without a person": "允许无人在场时向群组外发送",
+    "sending outside the group always waits for a person": "向群组外发送始终等待某人",
+    "Nobody has written here yet.": "这里还没有人发言。",
+    Identity: "发件身份",
+    Model: "模型",
+    Groups: "群组",
+    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
+      "Gilbert 自己的代理在邮件和文件存储内活动：它处理 Stalwart 事件和按时间的计划，在已获授权的群组中进行。此安装运行一个代理 — 这里可以看到它、哪个模型为它服务，以及它在哪些群组中工作。它在群组内做什么，位于“群组代理”。",
+    "Master sections": "Master 的各个区段",
+    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
+      "处处适用的内容：代理带入每个群组每次调用的规则，先于群组或单个自动化的任何具体内容。在此写入一次，而非在每组的指令中重复，并作为数据读取 — 一次运行的权限是它自己的能力清单，此处所写的内容不会扩大它。",
+    "How this installation's agent works": "此安装的代理如何工作",
+    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
+      "始终用邮件所用的语言回复，且绝无人在场时向群组外发送任何内容。",
+    "the installation's own rules": "安装自身的规则",
+    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
+      "此区段检查代理的授权，从不写入它：群组成员资格在 Stalwart 自己的管理端、账户旁边授予，与授予一个人相同。",
+    "The Master": "Master",
+    Operational: "运行中",
+    "Not operational": "未运行",
+    "Agent address": "代理地址",
+    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
+      "部署为代理命名，而这里读回它：GILBERT_AGENT_ADDRESS 和 GILBERT_AGENT_PASSWORD 位于启动服务器及其代理之人的环境中，因此只有一个来源。此处不生成、不读回、也不存储任何密钥。",
+    "What the fleet has spent": "整个代理群的支出",
+    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
+      "代理工作的群组从 Stalwart 读取：当群组出现在这里时，它正是该群组的成员，此列表自动跟随目录。要给它一个群组，请在 Stalwart 自己的管理端把该群组添加到 Gilbert 用户。",
+    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
+      "代理不在此安装可见的任何群组中。在 Stalwart 自己的管理端把群组添加到 Gilbert 用户，它就会出现在这里。",
+    "Open this group's automations, standing instruction, memory and audit trail":
+      "打开此群组的自动化、常驻指令、记忆和审计",
+    "Open in Group Agents": "在“群组代理”中打开",
+    Pending: "待处理",
+    Audit: "审计",
+    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
+      "等待某人的内容，以及整个代理群做过的事，涵盖代理持有的每个群组 — 只读监督。操作员在群组自己的聊天中回复暂停的运行，绝不在此处。",
+    "Approvals sections": "审批的各个区段",
+    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
+      "每个已授权群组的审计，合并并按最新在前排序。群组在“群组代理”中自己的“审计”标签读取同一文档，并有自己的导出。",
+    "The agent is not in a group this installation can see.":
+      "代理不在此安装可见的任何群组中。",
+    "Every group": "每个群组",
+    Outcome: "结果",
+    "Every outcome": "所有结果",
+    "Reading every group's trail…": "正在读取每个群组的记录…",
+    "The audit of {groups} could not be read, so it is missing from this list.":
+      "无法读取 {groups} 的审计，因此它不在此列表中。",
+    "Nothing matches here yet.": "这里还没有匹配项。",
+    Automation: "自动化",
+    By: "操作者",
+    Detail: "详情",
+    "Installation document": "安装文档",
+    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
+      "此安装所运行的配置：Master 自己文件中的一个 JSON 文档 — 此安装登录所用的账户，服务器在启动时读取一次。您在此发布的内容就是下次启动所运行的内容，而当前运行的进程保留其启动时的内容。",
+    "Stored at {where}": "存储在 {where}",
+    "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
+      "安装自己的账户还没有文档，因此编辑器从安装的默认值和新生成的应用密钥开始。按原样发布，或先编辑它。",
+    "A boot would refuse the stored document: {reason}":
+      "启动会拒绝已存储的文档：{reason}",
+    "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
+      "{field} 字段是用于封装每个已存储会话的应用密钥：任何能读取此页面的人都能读取它，而丢失它的发布会令所有人退出登录。请将它保留在所属的文档中。",
+    "Publish document": "发布文档",
+    "Publishing…": "正在发布…",
+    "Takes effect at the next boot.": "在下次启动时生效。",
+    "the account changed while the policy was being written, so nothing was written to it":
+      "写入策略期间账户发生了变化，因此未向其写入任何内容",
+    "the server would not act as this account": "服务器不会以此账户身份行事",
+    "the account has no Files account to hold the policy":
+      "该账户没有可保存策略的文件账户",
+    "the write was refused": "写入被拒绝",
+    "the directory would not list it": "目录未列出它",
+    "the server did not say why": "服务器未说明原因",
+    "The policy was not published everywhere.": "策略未在所有位置发布。",
+    "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
+      "无法列出目录，因此除发布者自己的账户外，没有可发布的对象。",
+    "That listing was not the whole directory, so any account it did not list was not reached.":
+      "该列表不是整个目录，因此未列出的任何账户都未被触及。",
+    "This publish could not be recorded in your account, so reopening this page will not show it.":
+      "此发布无法记录在您的账户中，因此重新打开此页面不会显示它。",
+    "Replace the document with the example? Unsaved edits will be lost.":
+      "用示例替换文档？未保存的编辑将丢失。",
+    "Installation-wide policy": "全安装范围的策略",
+    "The settings this installation decides for every account. Edit the JSON document and publish: the server validates it, applies it at once, and signs the other clients out so their next sign-in picks it up.":
+      "此安装为每个账户决定的设置。编辑 JSON 文档并发布：服务器会校验它、立即应用，并让其他客户端退出登录，以便它们下次登录时获取它。",
+    "The three sections": "三个区段",
+    "seed accounts that have never had settings of their own; readers can change them afterwards.":
+      "为从未有过自己设置的账户提供初始值；读者随后可以更改它们。",
+    "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
+      "在每次加载时应用，且无法在“设置”中更改 — 控件保持可见并变为不可用。",
+    "applied once each, to everyone already signed up; each needs a unique version, and readers may turn it back off afterwards.":
+      "对已注册的每个人各应用一次；每个都需要唯一版本，读者随后可以再次关闭它。",
+    "Policy document": "策略文档",
+    "Publish policy": "发布策略",
+    "Insert example": "插入示例",
+    "That was publish {id}, started {when} by {who}.":
+      "那是发布 {id}，由 {who} 于 {when} 启动。",
+    "Type the account address first.": "请先输入账户地址。",
+    "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.":
+      "要求账户更改其密码。该要求位于账户自己的隐藏文件夹中，由服务器强制执行；管理员之间不能互相强制。",
+    "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.":
+      "此会话无法对账户操作：要么它使用应用密码（Stalwart 拒绝将其用于模拟），要么它在 Stalwart 中缺少“代表其他用户操作”权限。请用您的密码登录，或请 Stalwart 管理员授予该权限。",
+    "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.":
+      "列出账户需要 Stalwart 服务器管理员权限，而此会话没有 — 身为 Gilbert 管理员并不够。请在下方输入地址。",
+    "No accounts found.": "未找到账户。",
+    "Password change forced": "已强制更改密码",
+    "Not forced": "未强制",
+    Force: "强制",
+    Release: "解除",
+    "Or type an address": "或输入地址",
+    "Account address": "账户地址",
+    "user@example.com": "user@example.com",
+    "Forcing…": "正在强制…",
+    "Force password change": "强制更改密码",
+    "Releasing…": "正在解除…",
+    Behaviour: "行为",
+    Automations: "自动化",
+    Memory: "记忆",
+    Activity: "活动",
+    "The agent in this group": "此群组中的代理",
+    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
+      "代理在此群组眼中的样子：它如何行事、遵循什么、记住什么，以及做过什么。整个安装只有一个代理 — 它持有哪些群组、运行在哪个模型上，以及处处适用的规则，都位于 Master。",
+    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
+      "代理不在此会话可见的任何群组中，因此这里没有群组可选。在 Stalwart 自己的管理端给它一个群组：下面的标签针对一个群组作答，它们读取的代理群是安装自己的。",
+    "Working in this group as {address}.": "在此群组以 {address} 身份工作。",
+    "Group agent sections": "群组代理的各个区段",
+    "The automations document cannot be read.": "无法读取自动化文档。",
+    "{enabled} of {total} automations enabled": "{total} 个自动化中已启用 {enabled} 个",
+    "{n} waiting for a person in this group": "{n} 项在此群组中等待某人",
+    "Nothing waiting for a person here": "这里没有等待某人的项",
+    "{n} agents serving this group": "{n} 个代理为此群组服务",
+    "No agent is serving this group right now": "目前没有代理为此群组服务",
+    "Added: {labels}": "已添加：{labels}",
+    "This group's label catalogue already has every reserved label.":
+      "此群组的标签目录已包含所有保留标签。",
+    "This group's agent marks what it has done with a message using four reserved labels.":
+      "此群组的代理用四个保留标签标记它对邮件做过的事。",
+    "Checking…": "正在检查…",
+    "Make sure they exist": "确保它们存在",
+    "No group is picked, so there is no group's agents to read here.":
+      "未选择群组，因此这里没有群组代理可读。",
+    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
+      "此安装的 {count} 个代理正在报告，且没有一个持有 {group}：目前没有东西为此群组服务。",
+    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
+      "没有代理报告。代理在运行时留下心跳，因此空列表意味着没有东西为此安装服务。",
+    "Agents serving this group": "为此群组服务的代理",
+    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
+      "代理是它自己的进程，而非 Web 层的副本：它通过租约声明所服务的账户，并在运行时写入心跳。此处不会启动或停止任何代理 — 代理在部署安装的地方声明。",
+    Agent: "代理",
+    "Last heartbeat": "最后心跳",
+    Version: "版本",
+    State: "状态",
+    "Not this server's to say": "这并非此服务器所能说明",
+    Alive: "存活",
+    "Not reporting": "未报告",
+    "Grants withdrawn": "授权已撤回",
+    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
+      "代理于 {when} 失去了对“{group}”的授权：自巡检发现以来，没有东西为该群组服务。",
+    "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
+      "无法读取此成员自己的账户 — Stalwart 拒绝了模拟 — 因此要写入其发件身份的姓名未知。仍可通过输入姓名来为其写入发件身份。",
+    "Delete this identity so the member sends as the group":
+      "删除此发件身份，使该成员以群组名义发件",
+    "Open to read their own display name and what they send as.":
+      "打开以读取其自己的显示名称和发件身份。",
+    "Reading this member's own account…": "正在读取此成员自己的账户…",
+    "Sends as {identity}": "以 {identity} 发件",
+    "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.":
+      "那是群组自己的发件身份，也是代理发件所用的那一个 — 因此此成员发出的邮件与群组的无法区分。",
+    "No identity is assigned to this member yet, so they send as the group itself.":
+      "尚未向此成员分配发件身份，因此它以群组本身的名义发件。",
+    "Assign identity": "分配发件身份",
+    "Delete {identity}?": "删除 {identity}？",
+    "{member} will then send as the group itself.":
+      "{member} 之后将以群组本身的名义发件。",
+    "This group holds no identity yet, so nothing can be sent from its mailbox.":
+      "此群组还没有发件身份，因此无法从其邮箱发送任何内容。",
+    "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":
+      "设置群组邮箱以什么发件。它作为 Master 写入，因为 Stalwart 拒绝模拟群组邮箱 — Master 是为代表群组行事而存在的主体。",
+    "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
+      "群组每个成员一个发件身份：群组自己的地址，携带每个成员自己的显示名称和签名。发件身份会作用于在 Gilbert 中撰写的邮件 — 由成员在撰写界面，或由群组的代理。对其设置密送会复制该发件身份发送的每封邮件，对于群组的邮件而言，就是以群组名义写下的全部内容。",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.":
+      "列出群组邮箱需要 Stalwart 服务器管理员权限，而此会话没有 — 身为 Gilbert 管理员并不够。请在下方输入群组地址。",
+    "team@example.org": "team@example.org",
+    "Reload identities": "重新加载发件身份",
+    "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
+      "Master 不是此群组的成员，因此这里无法写入其发件身份。为该群组授权代理 — 与让它在群组中工作相同的授权 — 然后再次查看。",
+    "Identity active — mail sent as this group carries what is set here.":
+      "发件身份已启用 — 以群组名义发送的邮件携带此处设置的内容。",
+    Identities: "发件身份",
+    "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
+      "无法读取此群组的成员名单，因此无法显示每个发件身份属于哪个成员。发件身份单独列出，且在注册表再次读取之前无法进行分配 — 谁以什么发件，整个顺序都取决于它。",
+    "Who sends as what": "谁以什么发件",
+    "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.":
+      "每个成员被分配此群组的一个发件身份：群组自己的地址，携带该成员自己的显示名称和签名。打开一个成员以读取要写入其发件身份的姓名 — 对该账户的一次读取，且仅在您打开时。",
+    "This group's roster is empty: there is no member to assign an identity to.":
+      "此群组的成员名单为空：没有成员可分配发件身份。",
+    "Not assigned to a member": "未分配给成员",
+    "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
+      "未分配给任何成员的发件身份。群组自己的那个也在其中，它是没有自己发件身份的成员发件所用的 — 也是代理发件所用的同一身份，因此没有分配任何人的群组仍以群组名义写入，而非某个人的名义。",
+    "Every identity of this group is assigned to a member.":
+      "此群组的每个发件身份都已分配给成员。",
+    "Messages already carrying this label lose it for everyone in the group.":
+      "已携带此标签的邮件会为群组中的所有人丢失它。",
+    "Bridge status": "桥接状态",
+    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
+      "此部署上电话不可用：{reason}。打开“桥接状态”查看需要修复的内容。",
+    "Unknown — the status could not be read": "未知 — 无法读取状态",
+    "Not running": "未运行",
+    "no reason given": "未给出原因",
+    Reachable: "可到达",
+    "Not reachable — open the bridge's ports inbound":
+      "不可到达 — 请将桥接的端口向内开放",
+    "Not checked": "未检查",
+    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
+      "电话的桥接是应用旁边的第二个进程。这是从服务器和从此浏览器看到的样子；失败的检查会指明要修复的内容。",
+    "Bridge service": "桥接服务",
+    "Janus version": "Janus 版本",
+    "not installed": "未安装",
+    "Media range (UDP, inbound)": "媒体范围（UDP，入站）",
+    "STUN port (UDP, inbound)": "STUN 端口（UDP，入站）",
+    "Media path from this browser": "从此浏览器的媒体路径",
+    "Re-check": "重新检查",
+    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
+      "桥接在应用旁边运行并与之一起启动 — 容器的 entrypoint，或主机上的 gilbert-janus.service 和 gilbert-stun.service。GILBERT_BRIDGE=0 将其关闭。其 API 仅限回环，到 SIP 提供商的一段为出站，因此上方的媒体范围和 STUN 端口是需要向内开放的端口。",
+    "The theme this build knows: system, light, dark, or Gilbert's own.":
+      "此构建所知的主题：系统、浅色、深色，或 Gilbert 自己的。",
+    "The colour palette (Gilbert's own or one of the shipped ones).":
+      "调色板（Gilbert 自己的或随附的其中之一）。",
+    "Light, dark, or whatever the system says.": "浅色、深色，或系统所说的。",
+    "The accent colour that sits on top of any palette.":
+      "叠加在任何调色板之上的强调色。",
+    "How much fits on screen: comfortable, cozy or compact.":
+      "屏幕上能容纳多少：舒适、紧凑或极简。",
+    "Interface text size: small, medium or large (device-local).":
+      "界面文字大小：小、中或大（设备本地）。",
+    "Where the reading pane sits: right, bottom, or off.":
+      "阅读窗格的位置：右侧、底部或关闭。",
+    "Message-list width with the pane on the right (px, device-local).":
+      "阅读窗格在右侧时的邮件列表宽度（px，设备本地）。",
+    "Message-list height with the pane below (px, device-local).":
+      "阅读窗格在底部时的邮件列表高度（px，设备本地）。",
+    "Whether the sidebar is collapsed (device-local).": "侧边栏是否折叠（设备本地）。",
+    "Show hidden folders in Files (the gilbert app folder and more).":
+      "在文件中显示隐藏文件夹（gilbert 应用文件夹等）。",
+    "Let messages follow the app's theme instead of white.":
+      "让邮件跟随应用主题，而非白色。",
+    "Thread messages into conversations.": "将邮件归入会话。",
+    "Show a preview line under the subject in the list.":
+      "在列表中的主题下显示一行预览。",
+    "Show avatars in the message list.": "在邮件列表中显示头像。",
+    "Messages per page in the list.": "列表中每页的邮件数。",
+    "Seconds before an opened message counts as read; -1 never auto.":
+      "打开的邮件算作已读前的秒数；-1 表示从不自动。",
+    "Where the list moves after acting: newer, older, or back to the list.":
+      "操作后列表移到何处：更新、更旧，或返回列表。",
+    "Archive the original when replying to it.": "回复时归档原邮件。",
+    "Message-list order: newest, oldest, unread or starred first.":
+      "邮件列表顺序：最新、最旧、未读或标星优先。",
+    "Secondary sort levels under the preset.": "预设下的次级排序层级。",
+    "Which folders the sort covers: inbox only, or all.":
+      "排序涵盖哪些文件夹：仅收件箱，或全部。",
+    "What a left swipe does in the list.": "在列表中左滑会做什么。",
+    "What a right swipe does in the list.": "在列表中右滑会做什么。",
+    "Compose in HTML or plain text.": "以 HTML 或纯文本撰写。",
+    "Quote the original message when replying.": "回复时引用原邮件。",
+    "Put the signature above the quoted text.": "将签名放在引用文本上方。",
+    "Send and archive in one action.": "一次操作完成发送并归档。",
+    "How long Send is undoable, in seconds.": "发送可撤销的时长，以秒计。",
+    "Spellcheck the composer.": "撰写时拼写检查。",
+    "Compose templates the account saved.": "账户保存的撰写模板。",
+    "Remote images: ask, always load, or only from contacts.":
+      "远程图片：询问、始终加载，或仅来自联系人。",
+    "Senders whose remote images load without asking.":
+      "无需询问即加载远程图片的发件人。",
+    "S/MIME signers pinned per address (fingerprint → name).":
+      "按地址固定的 S/MIME 签名者（指纹 → 名称）。",
+    "Ask senders for a read receipt.": "向发件人请求已读回执。",
+    "When a receipt is asked for: ask each time, or never.":
+      "何时请求回执：每次都询问，或从不。",
+    "Ask before deleting.": "删除前询问。",
+    "Warn when a message mentions an attachment but has none.":
+      "当邮件提到附件但没有附件时警告。",
+    "Banner when a sender is outside the account's domains.":
+      "发件人在账户域之外时的横幅。",
+    "Confirm when a recipient is outside the account's domains.":
+      "收件人在账户域之外时的确认。",
+    "Warn before opening links to outside domains.": "打开外部域链接前警告。",
+    "Domains counted as internal, on top of the account's own.":
+      "除账户自身域之外，被视为内部的域。",
+    "Outside domains whose links open without warning.": "无需警告即可打开链接的外部域。",
+    "People on a message before Reply-all asks; 0 is off.":
+      "邮件上的收件人数超过多少时“全部回复”会询问；0 表示关闭。",
+    "Desktop notifications for new mail (device-local).":
+      "新邮件的桌面通知（设备本地）。",
+    "Play a sound for new mail (device-local).": "新邮件播放声音（设备本地）。",
+    "The calendar view a new open starts on.": "新打开时进入的日历视图。",
+    "Hour the working day starts (calendar grid).": "工作日开始的时刻（日历网格）。",
+    "Hour the working day ends (calendar grid).": "工作日结束的时刻（日历网格）。",
+    "Default event length, in minutes.": "默认事件时长，以分钟计。",
+    "Default reminder lead, in minutes.": "默认提醒提前量，以分钟计。",
+    "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
+      "一周的第一天：0 周日，1 周一，6 周六。",
+    "The calendar time zone; null means the browser's.":
+      "日历时区；null 表示浏览器的时区。",
+    "Show a calendar of birthdays from the address book.": "显示来自通讯录的生日日历。",
+    "Calendars subscribed to by URL.": "通过 URL 订阅的日历。",
+    "Outlook-style colour categories for calendar events.":
+      "日历事件的 Outlook 风格颜色分类。",
+    "The mail-server locale; empty means follow the server.":
+      "邮件服务器的区域设置；留空表示跟随服务器。",
+    "The interface language; empty means English.": "界面语言；留空表示英语。",
+    "How dates are written; auto follows the locale.": "日期的写法；auto 跟随区域设置。",
+    "12- or 24-hour clock; auto follows the locale.":
+      "12 或 24 小时制；auto 跟随区域设置。",
+    "The account's labels.": "账户的标签。",
+    "Show labels in the sidebar.": "在侧边栏中显示标签。",
+    "Folder colours by mailbox id (device-local).":
+      "按邮箱 id 的文件夹颜色（设备本地）。",
+    "Identities hidden from the compose picker.": "从撰写选择器中隐藏的发件身份。",
+    "Default sending identity per account.": "每个账户的默认发件身份。",
+    "Address books whose shared writes the reader remembered.":
+      "读者已记住其共享写入的通讯录。",
+    "Appearance and layout": "外观与布局",
+    "Message list": "邮件列表",
+    "Composing and sending": "撰写与发送",
+    "Security and privacy": "安全与隐私",
+    "Calendar and events": "日历与事件",
+    "Language, dates and time": "语言、日期与时间",
+    "Labels and account data": "标签与账户数据",
+    "Settings keys": "设置键",
+    "Each example is the fragment to put under defaults, under enforced, or inside a change's settings.":
+      "每个示例都是要放在 defaults 下、enforced 下，或某个更改的 settings 内的片段。",
+    Key: "键",
+    "What it does": "它的作用",
+    Example: "示例",
+    Unknown: "未知",
+    "New in this build — no description yet.": "此构建中新增 — 尚无说明。",
+    "SIP account": "SIP 账户",
+    "User name": "用户名",
+    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
+      "电话注册所用的账户，以 sip:<user name>@<server> 发送给提供商。没有服务器和用户名的发件身份不会被注册。",
+    "System script saved": "系统脚本已保存",
+    "Your system Sieve script has changes that have not been saved.":
+      "您的系统 Sieve 脚本有未保存的更改。",
+    "Could not load system Sieve scripts.": "无法加载系统 Sieve 脚本。",
+    "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
+      "Stalwart 为整个安装运行的受信任、全服务器范围的 Sieve 脚本 — 不是某个人的过滤器。可以同时启用多个；每个都通过 Stalwart 自己的配置按名称调用。",
+    "No system scripts yet": "还没有系统脚本",
+    "Re-read from the server. What you were editing is still open.":
+      "从服务器重新读取。您正在编辑的内容仍保持打开。",
+    "Enforced — applied at once, with no sign-in needed.":
+      "已强制 — 立即应用，无需重新登录。",
+    "Released — the account can set its own identities again.":
+      "已解除 — 账户可以再次设置自己的发件身份。",
+    "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
+      "设置某人的发件身份 — 显示名称、地址、Reply-To、密送和签名 — 或接管账户的发件身份。写入会从您自己的会话以该人的身份行事，因此需要 Stalwart 的 Impersonate 权限和密码会话；应用密码被拒绝用于模拟。",
+    "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
+      "发件身份会作用于在 Gilbert 中撰写的邮件。在其他客户端中写的邮件携带该客户端自己的签名。",
+    "Choose an account…": "选择账户…",
+    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.":
+      "发件身份已启用 — 账户以此处设置的内容发件。它是否也被强制未知，下方的“强制”控件说明了原因。",
+    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.":
+      "发件身份已启用 — 此账户以此处设置的内容发件，且不向它提供自己的“发件身份与签名”区段。",
+    "Identity active — the account sends with what is set here.":
+      "发件身份已启用 — 账户以此处设置的内容发件。",
+    "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
+      "无法读取此账户：Stalwart 拒绝了模拟。在它响应之前不会写入任何内容。",
+    "This account holds no identity yet.": "此账户还没有发件身份。",
+    "SIP set": "SIP 已设置",
+    SIP: "SIP",
+    "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
+      "显示账户的完整列表，且每个条目都可编辑：不会有任何内容作为撰写界面仍提供的发件身份而残留。",
+    Enforce: "强制",
+    "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
+      "被强制的账户完全不提供“发件身份与签名”区段，也没有自己的签名。在其某个发件身份上设置的密送是本人无法移除的，这在锁定最后一个发件身份前值得权衡：该地址会复制该发件身份在 Gilbert 中发送的每封邮件。锁定是关于本产品界面的规则，而非边界：Stalwart 对发件身份没有按字段的权限，因此直接讲 JMAP 的客户端仍能写入。",
+    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.":
+      "此账户是否被强制未知：Stalwart 拒绝了读取其锁定的模拟，那是账户自己文件夹中的一个文件。在它响应之前，“强制”和“解除”保持关闭。",
+    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
+      "此账户是否被强制未知：无法读取其锁定。在它响应之前，“强制”和“解除”保持关闭。",
+    Enforced: "已强制",
+    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
+      "暂停的自动化会在其群组的聊天中发布它提议的内容，成员在那里用文字回复。因此审批发生在聊天中，而非此处 — 此队列是跨每个群组的监督，也是查看其中任何一个一直在等待什么的方式。",
+    "Nothing is waiting for a person.": "没有等待某人的项。",
+    "What it proposes": "它提议的内容",
+    Confidence: "置信度",
+    Raised: "已提高",
+    "Open {group} and its chat": "打开 {group} 及其聊天",
+    "Open the group's mailbox": "打开群组邮箱",
+    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
+      "此安装每个自动化所运行的模型：一个提供商、一个模型、一个密钥。没有它的安装就没有自动化 — 运行没有可据以决定的东西。",
+    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
+      "此安装还没有注册代理，因此模型没有可运行的对象。",
+    "Ceiling on one answer (tokens)": "单个答复的上限（token）",
+    "What a single model answer may cost. 1 to {max}.":
+      "单次模型答复最多可花费多少。1 到 {max}。",
+    "Hops a chain of automations may run": "自动化链可运行的跳数",
+    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
+      "一项工作可在自动化之间传递多远，超过之后的运行会被拒绝并告知群组。",
+    "Pages one run may hand the model": "一次运行可交给模型的页数",
+    "A page with no text layer travels as an image, which costs input tokens per page.":
+      "没有文字层的页面以图像传输，每页会消耗输入 token。",
+    "Model saved": "模型已保存",
+    "Remove the model?": "移除模型？",
+    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
+      "在保存另一个模型之前，此安装不运行任何自动化，已存储的 API 密钥也随之被移除。",
+    "Model removed": "模型已移除",
+    "The installation's model": "安装的模型",
+    "A key is stored": "已存储密钥",
+    "No key stored": "未存储密钥",
+    Provider: "提供商",
+    openai: "openai",
+    "A model name": "模型名称",
+    "Base URL": "基础 URL",
+    "https://api.example.com/v1": "https://api.example.com/v1",
+    "API key": "API 密钥",
+    "Paste a new key here": "在此粘贴新密钥",
+    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
+      "只写：已存储的密钥不会再显示，将此字段留空会保留您已有的密钥。",
+    "An installation that sets none gets {n}.": "不设置任何密钥的安装会得到 {n}。",
+    "Remove the model": "移除模型",
+    "Reading…": "正在读取…",
+    "Ask the model to read it": "让模型读取它",
+    "What the model said about this draft:": "模型对这份草稿的看法：",
+    "Audit trail": "审计",
+    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
+      "此群组代理做过的事，最新在前 — 其成员在聊天旁读取的同一文档。保留十二个月，每次修剪一个月。",
+    "No group is picked, so there is no audit trail to read here.":
+      "未选择群组，因此这里没有可读的审计。",
+    "Download every retained month of this group's audit trail as JSON":
+      "将此群组审计中每个保留的月份下载为 JSON",
+    "Copying…": "正在复制…",
+    "Download every retained month as JSON": "将每个保留的月份下载为 JSON",
+    "This group's audit trail could not be read.": "无法读取此群组的审计。",
+    "This group's agent has not done anything yet.": "此群组的代理还没有做任何事。",
+    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
+      "显示 {total} 项中最近的 {shown} 项。其余请在上方下载每个保留的月份。",
+    "No group is picked, so there is no standing instruction to read here.":
+      "未选择群组，因此这里没有可读的常驻指令。",
+    "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.":
+      "为整个群组编写一次，并在每次调用时交给模型，位于安装自身规则之后、自动化自身指令之前。它说明代理应如何工作；自动化可以做什么是它的能力清单，此处所写的内容不会扩大它。",
+    "How this group's agent works": "此群组的代理如何工作",
+    "Write to the group in its own language, and always cite the invoice number.":
+      "用群组自己的语言写给群组，并始终引用发票号。",
+    "the group's standing instruction": "群组的常驻指令",
+    "Memory saved": "记忆已保存",
+    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
+      "群组代理在每次调用时保留的内容：关于此群组、其自动化永远不必重复的事实。每一行都作为数据读取 — 它引导，且绝不扩大自动化被允许做的事。",
+    "No group is picked, so there is no memory to read here.":
+      "未选择群组，因此这里没有可读的记忆。",
+    "This group's memory has not been read yet.": "此群组的记忆尚未读取。",
+    "Read it": "读取",
+    "This group's agent is holding nothing yet.": "此群组的代理还没有保留任何内容。",
+    "Fact {n}": "事实 {n}",
+    "Remove this fact": "移除此事实",
+    "Invoices from Ada are filed under the client's name, not the sender's.":
+      "来自 Ada 的发票按客户名称归档，而非发件人名称。",
+    "Add a fact": "添加事实",
+    "A fact is at most {n} characters, and a notebook holds {m}.":
+      "一条事实最多 {n} 个字符，一个笔记本可容纳 {m} 条。",
+    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
+      "此群组的运行会为谁停止，以及它们是否可以在无人时到达群组之外。整个群组一个策略：其自动化是同一团队在同一通信上的工作。",
+    "No group is picked, so there is no policy to read here.":
+      "未选择群组，因此这里没有可读的策略。",
+    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
+      "此群组未编写策略，因此模型有信心时运行会继续，没有信心时为某人停止。离开群组或无法撤销的操作总是询问。",
+    "When a person has to agree": "何时必须由某人同意",
+    "Allow sending outside the group without a person — this raises the external-send consent floor.":
+      "允许无人时向群组外发送 — 这会提高外部发送的同意门槛。",
+    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
+      "关闭时，到达群组之外的操作总是等待某人，无论策略怎么说。无法撤销的操作无论任一设置怎么说都会询问。",
+    "An empty text removes it. At most {max} characters.":
+      "空文本会移除它。最多 {max} 个字符。",
+    "At most {max} characters.": "最多 {max} 个字符。",
+    "This automation cannot run as it stands: {reason}":
+      "此自动化无法按现状运行：{reason}",
+    "Automation saved": "自动化已保存",
+    "Delete the {name}?": "删除 {name}？",
+    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
+      "自动化文档会从群组自己的文件中移除。已在运行的作业保留其启动时的版本。",
+    "Automation deleted": "自动化已删除",
+    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
+      "代理在群组中做什么：何时反应，以及针对所发现的内容被要求做什么。自动化存储在群组自己的账户中，因此每个成员都能读取它。",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
+      "每个触发条件一个自动化：代理会对触发条件上每个已启用的自动化运行该触发条件产生的一切，因此同一触发条件上的第二个会对同一事件应答两次。一种情况与另一种情况之间的分支属于指令。",
+    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
+      "代理不在此群组中，因此这里没有可编写的内容：没有自动化运行，也没有人能在群组聊天中提到它。在 Stalwart 自己的管理端给它该群组，然后回来。",
+    "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
+      "此群组在一个触发条件上携带多个已启用的自动化，此构建不接受：{reason}",
+    "This group's automation document could not be read.": "无法读取此群组的自动化文档。",
+    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
+      "此群组的自动化文档以较旧格式写入，因此已替换为一份全新的空文档。请在下方重新编写其自动化。",
+    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
+      "无法读取此群组的自动化文档，且无法自动替换它。请重新加载以重试。",
+    "Cannot be saved yet: {reason}": "尚无法保存：{reason}",
+    "No automation in this group yet.": "此群组还没有自动化。",
+    "Every trigger already has an automation in this group.":
+      "此群组中每个触发条件都已有自动化。",
+    "New automation": "新建自动化",
+    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
+      "此群组中每个触发条件都已有自动化。删除或停用一个，以编写另一种。",
+    "The {name} cannot be saved as it stands: {reason}":
+      "{name} 无法按现状保存：{reason}",
+    "Run this automation now, on the newest message in the group's inbox":
+      "立即运行此自动化，针对群组收件箱中最新的邮件",
+    "Asking…": "正在请求…",
+    "Run now": "立即运行",
+    "Delete automation": "删除自动化",
+    "Next due: {when}": "下次到期：{when}",
+    "Not yet scheduled — the agent holding this group arms it on its next pass.":
+      "尚未排定 — 持有此群组的代理会在下次巡检时装备它。",
+    "Not scheduled while disabled.": "停用时不会排定。",
+    "Asked for: a run is open ({state}).": "已请求：有运行处于打开状态（{state}）。",
+    "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.":
+      "已请求。持有此群组的代理会在下次巡检时（默认一分钟）拾取它，群组的审计就是读取它所做之事的地方。",
+    "the automation “{name}”": "自动化“{name}”",
+    "Enabled — the agent reacts to this automation": "已启用 — 代理对此自动化做出反应",
+    Trigger: "触发条件",
+    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
+      "每个触发条件一个自动化：代理会对触发条件上每个已启用的自动化运行该触发条件产生的一切，因此两个会对同一事件应答两次。",
+    "How often": "频率",
+    "Every {minutes} minutes": "每 {minutes} 分钟",
+    Instruction: "指令",
+    "Read the message and say what should happen to it. Useful context, in plain words.":
+      "阅读邮件并说明它应如何处理。有用的上下文，用平实的语言。",
+    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
+      "这段文字就是一次运行被要求的全部内容：每次运行都把它交给安装的模型，模型用它下方领域中的操作作答。",
+    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
+      "它作为数据被读取，而非被服从：要求模型做某事的邮件仍然只是一封邮件。",
+    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
+      "按情况出现时编写：一种邮件与另一种之间的分支属于这里，而非第二个自动化。",
+    "What it may do": "它可以做什么",
+    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
+      "允许清单：此自动化唯一可以运行的操作。模型只会被提供这些，别的一概没有，超出它们的答复会被拒绝。",
+    "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.":
+      "能力目录尚未读取，因此这里没有可授予的内容：无法用它作答的服务器，是此构建无法针对其编写的那种。在它作答之前保存保持被拒绝。",
+    external: "外部",
+    irreversible: "不可逆",
+    "That is not valid JSON — fix the document and publish again.":
+      "这不是有效的 JSON — 请修正文档并重新发布。",
+    "(untitled)": "（无标题）",
+    "Calendar reminder": "日历提醒",
+    "Reminder: {title}": "提醒：{title}",
+    "Message not sent — {what}": "邮件未发送 — {what}",
+    "Not signed in": "未登录",
+    "The mailbox changed before this message was sent": "在此邮件发送前邮箱发生了变化",
+    "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
+      "在您自己的通讯录与群组通讯录之间移动联系人属于安装管理员，因为卡片属于它落到的账户。编辑它以及将新联系人归入它们所在之处仍然可行。",
+    "A file called “{name}” is already here.": "名为“{name}”的文件已在此处。",
+    "Its folder could not be created.": "无法创建其文件夹。",
+    "This conversation no longer exists.": "此会话已不存在。",
+    "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
+      "群组的邮件由安装管理员结束。将邮件归入群组的“已删除邮件”仍然可行，将其移出也同样可行。",
+    "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
+      "只有安装管理员可以清空群组的“已删除邮件”或“垃圾邮件”。将邮件归入那里仍然可行，将其移出也同样可行。",
+    "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
+      "在群组中无法删除装有邮件的文件夹，因为邮件会随之而去。请先将邮件移出，或询问安装管理员。",
+    "This reading was not counted toward this month's authoring.":
+      "此读取未计入本月的撰写量。",
+    "no-bytes": "no-bytes",
+    "no-right": "no-right",
+    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
+      "访问群组的 {need} 以安装的代理身份进行，而该代理不是此群组的成员：文档位于群组自己的账户中，只有成员才能访问 — 因此请在邮件服务器的目录中把代理加入该群组。",
+    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
+      "Gilbert 无法就此群组的 {need} 询问邮件服务器，因此无法说明该代理是否能访问它：没有更改任何内容，也没有读取任何内容。请重试，若它一直这样作答，则该检查邮件服务器。",
+    "Your settings could not be saved: {error}": "您的设置无法保存：{error}",
+    "List-Id": "List-Id",
+    "X-Spam-Status": "X-Spam-Status",
+    "Delete all spam": "删除所有垃圾邮件",
+    "Empty {name}": "清空 {name}",
+    "Delete all spam in “{name}”?": "删除“{name}”中的所有垃圾邮件？",
+    "Empty folder": "清空文件夹",
+    "The phone bridge did not answer.": "电话桥接未响应。",
+    "The phone bridge is gone.": "电话桥接已消失。",
+    "The phone bridge accepted no session.": "电话桥接未接受任何会话。",
+    "The phone bridge attached no plugin.": "电话桥接未挂接任何插件。",
+    "The phone bridge refused the request.": "电话桥接拒绝了请求。",
+    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
+      "您的浏览器阻止了此网站的麦克风，因此通话无法传送您的声音。请为此网站允许它，然后重试。",
+    "No microphone is available on this device, so a call cannot carry your voice.":
+      "此设备上没有可用的麦克风，因此通话无法传送您的声音。",
+    "This browser cannot reach a microphone, so a call cannot carry your voice.":
+      "此浏览器无法访问麦克风，因此通话无法传送您的声音。",
+    "Calling…": "正在拨打…",
+    "Ringing…": "正在响铃…",
+    Connected: "已连接",
+    "The line is busy": "线路忙",
+    "no-route": "no-route",
+    "No route to this number": "无法路由到此号码",
+    "This number is not available": "此号码不可用",
+    "The call was declined": "通话被拒绝",
+    "The call could not be completed": "无法完成通话",
+    "The phone is not connected.": "电话未连接。",
+    "The line is busy.": "线路忙。",
+    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
+      "浏览器无法将电话的媒体传送给 Gilbert：其媒体端口不可到达。问题在此浏览器与 Gilbert 之间，而非与 SIP 提供商之间。",
+    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
+      "线路未向 SIP 服务器注册。问题在 Gilbert 与 SIP 提供商之间，而非在此浏览器与 Gilbert 之间。",
+    "the server closed the live-updates stream": "服务器关闭了实时更新流",
+    "the server could not be reached": "无法到达服务器",
+    "Timed out": "已超时",
+    "Group identities": "群组发件身份",
+    "User identities": "用户发件身份",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1636,5 +2542,65 @@ export const catalog: Catalog = {
     "{n} messages deleted forever": {
       other: "{n} 件邮件已永久删除",
     },
+    "{n} identities are hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.":
+      {
+        other:
+          "{n} 个发件身份已从撰写选择器中隐藏。全部隐藏将没有可选内容，因此这种情况下会再次全部提供。",
+      },
+    "Password changed. {n} other sessions signed out.": {
+      other: "密码已更改。另有 {n} 个会话已退出登录。",
+    },
+    "{n} attendees": {
+      other: "{n} 位参与者",
+    },
+    "{n} attachments could not be saved to Files.": {
+      other: "{n} 个附件无法保存到文件。",
+    },
+    "{n} files are already in this folder. Nothing was replaced.": {
+      other: "此文件夹中已有 {n} 个文件。没有替换任何内容。",
+    },
+    "Saved {n} files to {where}.": {
+      other: "已将 {n} 个文件保存到 {where}。",
+    },
+    "Save {n} attachments to Files.": {
+      other: "将 {n} 个附件保存到文件。",
+    },
+    "Download {n} files": {
+      other: "下载 {n} 个文件",
+    },
+    "{done} of {n} files": {
+      other: "{n} 个文件中的 {done} 个",
+    },
+    "{n} members of {group} have no address and were not added.": {
+      other: "{group} 的 {n} 位成员没有地址，未被添加。",
+    },
+    "group · {n} members": {
+      other: "群组 · {n} 位成员",
+    },
+    "{n} matches": {
+      other: "{n} 个匹配项",
+    },
+    "{n} participants": {
+      other: "{n} 位参与者",
+    },
+    "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.":
+      {
+        other:
+          "已发布。目录列出了 {n} 个账户，它们现在都携带此策略；其他已登录的客户端将再次登录。",
+      },
+    "The directory listed {n} accounts.": {
+      other: "目录列出了 {n} 个账户。",
+    },
+    "{n} accounts were not written to:": {
+      other: "未写入 {n} 个账户：",
+    },
+    "{n} automations": {
+      other: "{n} 个自动化",
+    },
+    "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
+      {
+        other:
+          "所有 {n} 封邮件将被永久删除。它们不会先进入“已删除邮件”，因此此操作无法撤销。",
+      },
   },
 };
