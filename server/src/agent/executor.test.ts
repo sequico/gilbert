@@ -1700,45 +1700,36 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
   );
 });
 
-test("a rules document nobody can read stops the group's runs and says so", async () => {
-  // One malformed rule invalidates the whole document, so every automation of
-  // the group stops. A reader that answered "no rules" for it would stop the
-  // group's work with no audit row and no word in the chat (ADR 0003, failure
-  // paths: an unreadable document), and the reconcile would consume the changes
-  // it never acted on.
+test("a rules document in an older shape is replaced, and the runs continue", async () => {
+  // One malformed rule makes the whole document one this build cannot use, and
+  // this build is its only writer: the read replaces it with an empty, current
+  // document rather than stopping the group's work (ADR 0003).
   await writeAppFileAt(ctx, GROUP, "agent/rules.json", {
     v: 1,
     rules: [{ v: 1, id: "half", version: 1 }],
   });
   const jobsBefore = (await store.listJobs()).length;
 
+  // The executor's own read is the one that replaces it.
   const ran = await executor.runPending(GROUP);
-  assert.equal(ran, 0, "not one job is run while the automation cannot be read");
+  assert.equal(ran, 0, "there is no automation to run");
+  assert.deepEqual((await store.readRules())?.doc, [], "the document was replaced");
 
   const claim = await claimFor();
-  const anchor = claim.states.Email;
-  await createMessage("An invoice arriving while the automation is unreadable");
+  await createMessage("An invoice arriving after the document was replaced");
   await executor.reconcile(GROUP, "Email", claim);
 
   const audit = await store.readAuditAt(new Date());
   const anomalies = (audit?.entries ?? []).filter(
     (entry) => entry.outcome === "failed" && entry.ruleId === "rules.json",
   );
-  assert.equal(
-    anomalies.length,
-    1,
-    "the trail carries the anomaly once per process, not once per pass",
-  );
-  assert.match(String(anomalies[0]?.detail), /does not read as a rules document/);
+  assert.equal(anomalies.length, 0, "there is no anomaly to report");
   const chat = await readChat(ctx, GROUP, client);
   assert.ok(
-    chat.some((message) => message.text.includes("cannot read this group's automations")),
-    "and the group is told why nothing of its automation runs",
-  );
-  assert.equal(
-    (await store.readClaim())?.doc.states.Email,
-    anchor,
-    "the reconcile leaves the anchor where it is: changes it could not match are not consumed",
+    !chat.some((message) =>
+      message.text.includes("cannot read this group's automations"),
+    ),
+    "and the group is not told of a document that was replaced",
   );
   assert.equal((await store.listJobs()).length, jobsBefore, "and no job is opened");
 
