@@ -1834,8 +1834,6 @@ export const catalog: Catalog = {
     "Standing instruction": "常設の指示",
     "Who its runs stop for": "実行が誰のために止まるか",
     "What it follows": "従う内容",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "このグループの自動化ドキュメントを読み取れないため、自動化を表示できません。管理側でこのグループを開くと自動的に置き換えられます。",
     "No automation is set up for this group.":
       "このグループには自動化が設定されていません。",
     "Still open": "まだ未解決",
@@ -2030,7 +2028,6 @@ export const catalog: Catalog = {
       "エージェントはこのセッションが見られるグループにいないため、ここで選べるグループがありません。Stalwart自身の管理側でグループを与えてください。下のタブは1つのグループについて答え、読むフリートはインストール自身のものです。",
     "Working in this group as {address}.": "このグループで{address}として働いています。",
     "Group agent sections": "グループエージェントのセクション",
-    "The automations document cannot be read.": "自動化ドキュメントを読み取れません。",
     "{enabled} of {total} automations enabled": "{total}件中{enabled}件の自動化が有効",
     "{n} waiting for a person in this group":
       "このグループで{n}件が人の応答を待っています",
@@ -2414,10 +2411,6 @@ export const catalog: Catalog = {
       "このグループは1つのトリガーに複数の有効な自動化を持ち、このビルドはそれを受け付けません: {reason}",
     "This group's automation document could not be read.":
       "このグループの自動化ドキュメントを読み取れませんでした。",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "このグループの自動化ドキュメントは古い形式で書かれていたため、新しく空のものに置き換えられました。以下に自動化を書き直してください。",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "このグループの自動化ドキュメントを読み取れず、自動で置き換えることもできませんでした。再読み込みして再試行してください。",
     "Cannot be saved yet: {reason}": "まだ保存できません: {reason}",
     "No automation in this group yet.": "このグループにはまだ自動化がありません。",
     "Every trigger already has an automation in this group.":

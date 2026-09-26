@@ -284,32 +284,7 @@ export function RuleEditor({
               {view.need && groupAccessSentence(view.need)}
             </div>
           )}
-          {view?.granted && view.rulesRecreated === true && (
-            /*
-             * The server found a document an older version wrote and replaced
-             * it with a fresh, empty one. The flag is true only on the read that
-             * did it, so this notice is shown once rather than every visit.
-             */
-            <div className="warn-box" style={{ marginBottom: 12 }}>
-              {t(
-                "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.",
-              )}
-            </div>
-          )}
-          {view?.granted && view.rulesUnreadable === true && (
-            /*
-             * There and unreadable, and the replacement did not land (a lost
-             * compare-and-set, a refused write): the state is shown rather than
-             * the group being called empty, and the next read tries again.
-             */
-            <div className="warn-box" style={{ marginBottom: 12 }}>
-              {t(
-                "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.",
-              )}
-            </div>
-          )}
-          {view?.granted && view.rulesUnreadable === true ? null : view?.granted &&
-            draft ? (
+          {view?.granted && draft ? (
             <div className="card agent-editor">
               <div className="card-head">
                 {/* The automation's name is derived from its trigger, never

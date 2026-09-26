@@ -50,7 +50,7 @@ import {
   AGENT_PREAMBLE_FILE,
   agentRuleJsonSchema,
 } from "./agent/documents.js";
-import { AgentStore } from "./agent/store.js";
+import { AgentDocumentError, AgentStore } from "./agent/store.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -2095,6 +2095,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // its own code chose (400 for a refusal, 401/403 for a boundary, 502 for an
     // upstream one), so it is narrowed to that type rather than asserted as one
     // particular value.
+    if (err instanceof AgentDocumentError) {
+      // A document this build cannot use and could not bring to the current
+      // shape is a fault of the stored documents, not of the mail server: it
+      // answers with its own code so the surface says that and not "could not
+      // reach the mail server".
+      return c.json({ error: "agent_document_not_current", detail: err.detail }, 500);
+    }
     if (err instanceof AgentAdminError) {
       // The reason travels flat beside its code — `{ error, ...params }`, the
       // shape a group refusal already answers with — so the surface composes

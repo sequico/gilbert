@@ -1833,8 +1833,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Vaste instructie",
     "Who its runs stop for": "Voor wie zijn runs stoppen",
     "What it follows": "Wat hij volgt",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "Het automatiseringsdocument van deze groep kan niet worden gelezen, dus de automatiseringen kunnen niet worden getoond. Deze groep in de administratie openen vervangt het automatisch.",
     "No automation is set up for this group.":
       "Er is geen automatisering ingesteld voor deze groep.",
     "Still open": "Nog open",
@@ -2027,8 +2025,6 @@ export const catalog: Catalog = {
       "De agent zit in geen groep die deze sessie kan zien, dus er is hier geen groep te kiezen. Geef hem een groep in Stalwarts eigen administratie: de tabbladen hieronder antwoorden over één groep, en de vloot die ze lezen is die van de installatie zelf.",
     "Working in this group as {address}.": "Werkt in deze groep als {address}.",
     "Group agent sections": "Secties van de groepsagent",
-    "The automations document cannot be read.":
-      "Het automatiseringsdocument kan niet worden gelezen.",
     "{enabled} of {total} automations enabled":
       "{enabled} van {total} automatiseringen ingeschakeld",
     "{n} waiting for a person in this group": "{n} wachten in deze groep op een persoon",
@@ -2419,10 +2415,6 @@ export const catalog: Catalog = {
       "Deze groep draagt meer dan één ingeschakelde automatisering op een trigger, wat deze build niet accepteert: {reason}",
     "This group's automation document could not be read.":
       "Het automatiseringsdocument van deze groep kon niet worden gelezen.",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "Het automatiseringsdocument van deze groep was in een ouder formaat geschreven, dus het is vervangen door een vers, leeg document. Schrijf de automatiseringen hieronder opnieuw.",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "Het automatiseringsdocument van deze groep kan niet worden gelezen, en het kon niet automatisch worden vervangen. Herlaad om het opnieuw te proberen.",
     "Cannot be saved yet: {reason}": "Nog niet op te slaan: {reason}",
     "No automation in this group yet.": "Nog geen automatisering in deze groep.",
     "Every trigger already has an automation in this group.":

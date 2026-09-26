@@ -61,6 +61,7 @@ import {
   type AgentUsage,
   agentDocName,
   auditDocName,
+  EMPTY_GROUP_POLICY,
   isAgentAuditDoc,
   isAgentAuthoringDoc,
   isAgentClaim,
@@ -85,40 +86,25 @@ export interface AgentDoc<T> {
 }
 
 /**
- * A document that is there and does not read as its shape.
+ * A document that is not the shape this build writes and could not be brought
+ * to it.
  *
- * The readers that cannot work without a document raise this rather than answer
- * `null`, because for them "nothing is there" and "something is there that is
- * not this document" are opposite answers: the first is an account with no
- * automation, or a unit nobody holds, and the second is every automation of the
- * group stopped — or a live claim that must not be taken for a free one (see
- * `readDocChecked`). The type is what lets a caller tell an unreadable document
- * from a store that could not answer at all.
+ * A present document in any other shape is replaced with the current empty form
+ * (see `readDoc`); this is thrown only when that replacement does not land — the
+ * compare-and-set kept losing, or the server refused the write. It carries a
+ * code a surface composes its sentence from, so a document this build cannot
+ * use is never reported as an unreachable mail server.
  */
-export class UnreadableDocumentError extends Error {
+export class AgentDocumentError extends Error {
   constructor(
     readonly path: string,
-    what: string,
-    /**
-     * What this particular reader or writer says about it. The default is a
-     * reader's "refusing to report it as absent"; a writer that must not
-     * overwrite the document says that instead, and an audit reader says
-     * "empty month" — one class, and the sentence the caller reads is its own.
-     */
-    message = `the document ${path} is there but does not read as ${what}; ` +
-      `refusing to report it as absent`,
-    /**
-     * The account's FileNode state the checked read observed, when the throw
-     * came from `readDocChecked`. A caller that replaces the unreadable
-     * document passes this as `ifInState`, so the write is conditional on the
-     * exact state the bad document was read at rather than a state re-read
-     * afterwards — a valid document written in the window then loses the
-     * compare-and-set instead of being clobbered.
-     */
-    readonly state?: string,
+    readonly what: string,
+    readonly detail: string,
   ) {
-    super(message);
-    this.name = "UnreadableDocumentError";
+    super(
+      `the ${what} document ${path} is not the shape this build writes and could not be replaced: ${detail}`,
+    );
+    this.name = "AgentDocumentError";
   }
 }
 
@@ -221,49 +207,51 @@ export class AgentStore {
   }
 
   /**
-   * A document, `null` meaning "nothing at this path **or** something that does
-   * not read as this document". That is the answer for a caller that works on
-   * what it can read and nothing else — a listed record it cannot parse is one
-   * it does not act on — and it is the wrong answer wherever the two mean
-   * opposite things: those readers use `readDocChecked`.
+   * A document of the current shape, and nothing else.
+   *
+   * This build is the only writer of these documents, so one that does not read
+   * as its shape was written by an older build or by hand, and it is not left
+   * behind: `reset` names the document's current empty form, and the bad one is
+   * overwritten with it in place. A lock or a record that has no empty form
+   * passes `null` and is removed instead — the next write recreates it in the
+   * current shape. Missing is `null` and means absent.
+   *
+   * The replacement is conditional on the state the bad document was read at,
+   * so a valid document written in the window loses the compare-and-set rather
+   * than being clobbered; the loop re-reads and keeps it when that happens.
    */
   private async readDoc<T>(
     path: string,
     valid: (x: unknown) => x is T,
-  ): Promise<AgentDoc<T> | null> {
-    // The state is read before the document: a state newer than the data
-    // would let a conditional write pass while the data is already stale.
-    const state = await this.state();
-    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-    if (raw === null || !valid(raw)) return null;
-    return { doc: raw, state };
-  }
-
-  /**
-   * A document, with "nothing is at this path" told apart from "something is
-   * there that is not this document".
-   *
-   * Missing is an empty account and unreadable is a fault, and for the rules and
-   * the claim the two are opposites. No rules document is a group with no
-   * automation; a rules document nobody can read is every automation of the
-   * group stopped, and a reader that reported the second as the first would stop
-   * the group's work with nothing anywhere saying so. The claim is sharper
-   * still: a claim read as absent is a unit nobody holds, so the next worker
-   * takes it and writes `epoch: 0` over an ownership it could not read — the
-   * fence of the run that still holds it stops matching. `readAudit` raises for
-   * the same reason, and this is the same answer for the documents whose callers
-   * record what they could not read instead of carrying on.
-   */
-  private async readDocChecked<T>(
-    path: string,
-    valid: (x: unknown) => x is T,
+    reset: (() => T) | null,
     what: string,
   ): Promise<AgentDoc<T> | null> {
-    const state = await this.state();
-    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-    if (raw === null) return null;
-    if (!valid(raw)) throw new UnreadableDocumentError(path, what, undefined, state);
-    return { doc: raw, state };
+    for (let attempt = 0; attempt < 4; attempt++) {
+      // The state is read before the document: a state newer than the data
+      // would let a conditional write pass while the data is already stale.
+      const state = await this.state();
+      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+      if (raw === null) return null;
+      if (valid(raw)) return { doc: raw, state };
+      try {
+        if (!reset) {
+          await this.destroyDoc(path, { ifInState: state });
+          return null;
+        }
+        const next = reset();
+        await writeAppFileAt(this.ctx, this.accountId, path, next, {
+          ifInState: state,
+        });
+        console.warn(
+          `[gilbert] ${this.accountId}: ${path} was not the current shape and was replaced`,
+        );
+        return { doc: next, state: await this.state() };
+      } catch (err) {
+        if (!isStateMismatch(err))
+          throw new AgentDocumentError(path, what, (err as Error).message);
+      }
+    }
+    throw new AgentDocumentError(path, what, "the compare-and-set kept losing");
   }
 
   private async listDocs<T>(
@@ -274,7 +262,12 @@ export class AgentStore {
     const out: Array<AgentDoc<T>> = [];
     for (const node of nodes) {
       if (node.nodeType !== "file" || typeof node.name !== "string") continue;
-      const found = await this.readDoc(`${dir}/${node.name}`, valid);
+      const found = await this.readDoc(
+        `${dir}/${node.name}`,
+        valid,
+        null,
+        "a listed document",
+      );
       if (found) out.push(found);
     }
     return out;
@@ -300,18 +293,19 @@ export class AgentStore {
   /* ---------------- rules (group account) ---------------- */
 
   /**
-   * The group's rules, raising when the document is there and does not read.
+   * The group's rules.
    *
-   * "No rules" and "rules nobody can read" are opposite answers
-   * (`readDocChecked`), and the callers that must act on the difference — the
-   * pending sweep and the reconcile — record this instead of taking the group
-   * for one with no automation.
+   * A document in any other shape is replaced with an empty, current one (see
+   * `readDoc`); this build is the only writer, so any other shape is an old
+   * build's. Both "no document" and a document this read replaced answer with
+   * no automation.
    */
   async readRules(): Promise<AgentDoc<AgentRule[]> | null> {
-    const found = await this.readDocChecked<AgentRulesDoc>(
+    const found = await this.readDoc<AgentRulesDoc>(
       this.path(AGENT_RULES_FILE),
       isAgentRulesDoc,
-      "a rules document",
+      () => ({ v: 1, rules: [] }),
+      "rules",
     );
     return found ? { doc: found.doc.rules, state: found.state } : null;
   }
@@ -325,7 +319,12 @@ export class AgentStore {
    * account the store was built for.
    */
   async readProse(path: string): Promise<AgentDoc<AgentProseDoc> | null> {
-    return this.readDoc<AgentProseDoc>(this.path(path), isAgentProseDoc);
+    return this.readDoc<AgentProseDoc>(
+      this.path(path),
+      isAgentProseDoc,
+      () => ({ v: 1, text: "", updatedAt: new Date().toISOString(), updatedBy: "" }),
+      "prose",
+    );
   }
 
   async writeProse(
@@ -350,6 +349,12 @@ export class AgentStore {
     return this.readDoc<AgentGroupPolicyDoc>(
       this.path(AGENT_POLICY_FILE),
       isAgentGroupPolicyDoc,
+      () => ({
+        ...EMPTY_GROUP_POLICY,
+        updatedAt: new Date().toISOString(),
+        updatedBy: "",
+      }),
+      "policy",
     );
   }
 
@@ -381,6 +386,13 @@ export class AgentStore {
     return this.readDoc<AgentNotebookDoc>(
       this.path(AGENT_NOTEBOOK_FILE),
       isAgentNotebookDoc,
+      () => ({
+        v: 1,
+        facts: [],
+        updatedAt: new Date().toISOString(),
+        updatedBy: "",
+      }),
+      "notebook",
     );
   }
 
@@ -441,10 +453,11 @@ export class AgentStore {
    * not read). Unreadable is loud, the same line the rules and the claim hold.
    */
   async readSchedule(): Promise<AgentDoc<AgentScheduleEntry[]> | null> {
-    const found = await this.readDocChecked<AgentScheduleDoc>(
+    const found = await this.readDoc<AgentScheduleDoc>(
       this.path(AGENT_SCHEDULE_FILE),
       isAgentScheduleDoc,
-      "a schedule document",
+      () => ({ v: 1, entries: [] }),
+      "schedule",
     );
     return found ? { doc: found.doc.entries, state: found.state } : null;
   }
@@ -466,7 +479,12 @@ export class AgentStore {
   /* ---------------- configuration (agent account) ---------------- */
 
   async readConfig(): Promise<AgentDoc<AgentConfigDoc> | null> {
-    return this.readDoc<AgentConfigDoc>(this.path(AGENT_CONFIG_FILE), isAgentConfigDoc);
+    return this.readDoc<AgentConfigDoc>(
+      this.path(AGENT_CONFIG_FILE),
+      isAgentConfigDoc,
+      null,
+      "configuration",
+    );
   }
 
   async writeConfig(
@@ -488,6 +506,8 @@ export class AgentStore {
     return this.readDoc<AgentStreamClaim>(
       this.path(AGENT_STREAM_FILE),
       isAgentStreamClaim,
+      null,
+      "stream claim",
     );
   }
 
@@ -511,19 +531,18 @@ export class AgentStore {
   /* ---------------- claim (group account) ---------------- */
 
   /**
-   * The account's claim, raising when the document is there and does not read.
+   * The account's claim.
    *
-   * A claim nobody can read is not a free unit: `claimAccount` takes a missing
-   * claim as its own to create, and treating an unreadable one the same way
-   * would replace a live ownership with a new claim at `epoch: 0`, which is the
-   * answer every fence of the run that holds it stops agreeing with (see
-   * `readDocChecked`).
+   * A claim in any other shape is removed (see `readDoc`), so it reads as a unit
+   * nobody holds and the next taker writes a fresh claim in the current shape.
+   * This build is the only writer, so any other shape is an old build's.
    */
   async readClaim(): Promise<AgentDoc<AgentClaim> | null> {
-    return this.readDocChecked<AgentClaim>(
+    return this.readDoc<AgentClaim>(
       this.path(AGENT_CLAIM_FILE),
       isAgentClaim,
-      "a claim",
+      null,
+      "claim",
     );
   }
 
@@ -551,6 +570,8 @@ export class AgentStore {
     return this.readDoc<AgentJob>(
       this.path(AGENT_JOBS_DIR, agentDocName(id)),
       isAgentJob,
+      null,
+      "job",
     );
   }
 
@@ -578,6 +599,8 @@ export class AgentStore {
     return this.readDoc<AgentDecision>(
       this.path(AGENT_DECISIONS_DIR, agentDocName(id)),
       isAgentDecision,
+      null,
+      "decision",
     );
   }
 
@@ -603,26 +626,19 @@ export class AgentStore {
   /**
    * The month's audit document.
    *
-   * A document that is **there but does not read as an audit** is an error, not
-   * an empty month: the trail is what an agent's work is answered from, and a
-   * surface that shows "nothing happened" for a month nobody can read is
-   * telling the wrong story about work that may well have happened. Missing
-   * really is empty; unreadable is loud — the same line the writer already
-   * holds.
+   * This build is the only writer of the trail, so a document that is there in
+   * any other shape is replaced with an empty month in the current shape (see
+   * `readDoc`); a replacement that cannot land is an error, never a month
+   * reported as empty.
    */
   async readAudit(month: string): Promise<AgentAuditDoc | null> {
-    const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
-    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-    if (raw === null) return null;
-    if (!isAgentAuditDoc(raw)) {
-      throw new UnreadableDocumentError(
-        path,
-        "an audit",
-        `the audit document ${path} is there but does not read as an audit; ` +
-          `refusing to report it as an empty month`,
-      );
-    }
-    return raw;
+    const found = await this.readDoc<AgentAuditDoc>(
+      this.path(AGENT_AUDIT_DIR, auditDocName(month)),
+      isAgentAuditDoc,
+      () => ({ v: 1, month, entries: [] }),
+      `the ${month} audit`,
+    );
+    return found?.doc ?? null;
   }
 
   /** The audit document for an instant's month. */
@@ -633,43 +649,32 @@ export class AgentStore {
   /**
    * The month's authoring document, in the account that holds it.
    *
-   * A document that is **there but does not read as one** is an error, not an
-   * empty month, for the same reason the trail's is: replacing what an
-   * installation spent with a count that lies about it is the one failure a
-   * meter cannot have.
+   * Replaced with an empty month when it is there in any other shape, the same
+   * as the trail's (see `readDoc`).
    */
   async readAuthoring(month: string): Promise<AgentAuthoringDoc | null> {
-    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
-    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-    if (raw === null) return null;
-    if (!isAgentAuthoringDoc(raw)) {
-      throw new UnreadableDocumentError(
-        path,
-        "an authoring document",
-        `the authoring document ${path} is there but does not read as one; ` +
-          `refusing to report it as an empty month`,
-      );
-    }
-    return raw;
+    const found = await this.readDoc<AgentAuthoringDoc>(
+      this.path(AGENT_AUTHORING_DIR, auditDocName(month)),
+      isAgentAuthoringDoc,
+      () => ({ v: 1, month, entries: [] }),
+      `the ${month} authoring`,
+    );
+    return found?.doc ?? null;
   }
 
   /**
    * One compare-and-set pass over a month's authoring document.
    *
    * `appendAuthoring`, `reserveAuthoring` and `updateAuthoringEntry` each
-   * re-read the document, default a missing one to an empty month, refuse one
-   * that is there but unreadable, and retry when the write loses the CAS.
+   * re-read the document, default one that is missing or in an older shape to
+   * an empty month, and retry when the write loses the CAS.
    * `mutate` is handed the document as it now reads and returns the next one,
    * or null to abandon the pass (a cap reached, an entry no longer present).
-   * `onUnreadable` is "throw" for a writer that must not overwrite a document
-   * it cannot read, and "abandon" for the one that settles a reservation and
-   * can simply give up. `conflict` completes the sentence thrown past the
-   * last attempt.
+   * `conflict` completes the sentence thrown past the last attempt.
    */
   private async authoringCas(
     month: string,
     mutate: (doc: AgentAuthoringDoc) => AgentAuthoringDoc | null,
-    onUnreadable: "throw" | "abandon",
     conflict: string,
   ): Promise<boolean> {
     const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
@@ -677,15 +682,6 @@ export class AgentStore {
       if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      if (raw !== null && !isAgentAuthoringDoc(raw)) {
-        if (onUnreadable === "abandon") return false;
-        throw new UnreadableDocumentError(
-          path,
-          "an authoring document",
-          `the authoring document ${path} is there but does not read as one; ` +
-            `refusing to write over it`,
-        );
-      }
       const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
         ? raw
         : { v: 1, month, entries: [] };
@@ -708,14 +704,14 @@ export class AgentStore {
    *
    * Simpler than the trail's append on purpose: a count that lost a race is
    * repaired by asking again, while a run's record is what a group's work is
-   * answered from. Missing is empty, unreadable is loud, and a lost race is
-   * retried the ordinary number of times before it fails in the open.
+   * answered from. Missing is empty, a document in an older shape is replaced
+   * with an empty month, and a lost race is retried the ordinary number of times
+   * before it fails in the open.
    */
   async appendAuthoring(entry: AgentAuthoringEntry, at = new Date()): Promise<void> {
     await this.authoringCas(
       monthOf(at),
       (doc) => ({ ...doc, entries: [...doc.entries, entry] }),
-      "throw",
       "the call is not counted",
     );
   }
@@ -753,7 +749,6 @@ export class AgentStore {
                 { at: at.toISOString(), pending: true, ...entry },
               ],
             },
-      "throw",
       "the reservation could not be made",
     );
   }
@@ -804,7 +799,6 @@ export class AgentStore {
               : doc.entries.map((entry, i) => (i === idx ? replaced : entry)),
         };
       },
-      "abandon",
       `the reservation for ${token} could not be settled`,
     );
   }
@@ -852,18 +846,9 @@ export class AgentStore {
       if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      // A document that is there but does not validate is **not** an empty
-      // month. Treating it as one would replace a month of the trail with a
-      // single entry — the one failure the audit cannot have. Missing is empty;
-      // unreadable is loud, and a person decides what to do with it.
-      if (raw !== null && !isAgentAuditDoc(raw)) {
-        throw new UnreadableDocumentError(
-          path,
-          "an audit",
-          `the audit document ${path} is there but does not read as an audit; ` +
-            `refusing to write over it`,
-        );
-      }
+      // A document that is there in any other shape is replaced with an empty
+      // month and this entry: this build is the only writer of the trail, so an
+      // older shape is an old build's, not a month to preserve.
       const doc: AgentAuditDoc = isAgentAuditDoc(raw)
         ? raw
         : { v: 1, month, entries: [] };

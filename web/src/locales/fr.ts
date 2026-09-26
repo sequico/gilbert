@@ -1854,8 +1854,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Instruction permanente",
     "Who its runs stop for": "Pour qui ses exécutions s'arrêtent",
     "What it follows": "Ce qu'il suit",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "Le document d'automatisations de ce groupe ne peut pas être lu, ses automatisations ne peuvent donc pas être affichées. Ouvrir ce groupe dans l'administration le remplace automatiquement.",
     "No automation is set up for this group.":
       "Aucune automatisation n'est configurée pour ce groupe.",
     "Still open": "Encore ouvert",
@@ -2052,8 +2050,6 @@ export const catalog: Catalog = {
     "Working in this group as {address}.":
       "Travaille dans ce groupe en tant que {address}.",
     "Group agent sections": "Sections de l'agent de groupe",
-    "The automations document cannot be read.":
-      "Le document d'automatisations ne peut pas être lu.",
     "{enabled} of {total} automations enabled":
       "{enabled} sur {total} automatisations activées",
     "{n} waiting for a person in this group":
@@ -2449,10 +2445,6 @@ export const catalog: Catalog = {
       "Ce groupe porte plus d'une automatisation activée sur un déclencheur, ce que cette version n'accepte pas : {reason}",
     "This group's automation document could not be read.":
       "Le document d'automatisations de ce groupe n'a pas pu être lu.",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "Le document d'automatisations de ce groupe était écrit dans un ancien format, il a donc été remplacé par un document neuf et vide. Réécrivez ses automatisations ci-dessous.",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "Le document d'automatisations de ce groupe ne peut pas être lu, et il n'a pas pu être remplacé automatiquement. Rechargez pour réessayer.",
     "Cannot be saved yet: {reason}": "Pas encore enregistrable : {reason}",
     "No automation in this group yet.":
       "Aucune automatisation dans ce groupe pour l'instant.",

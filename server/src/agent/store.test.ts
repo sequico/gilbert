@@ -22,7 +22,7 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { filesAccountId } = await import("../appFolder.js");
 type Ctx = import("../appFolder.js").Ctx;
-const { AgentStore, UnreadableDocumentError } = await import("./store.js");
+const { AgentStore } = await import("./store.js");
 const { writeAppFileAt } = await import("../appFolder.js");
 const { newJob } = await import("./documents.js");
 
@@ -256,76 +256,64 @@ test("a conditional write is refused when the document moved under it", async ()
   );
 });
 
-test("an audit document that is there but unreadable is loud, not empty", async () => {
-  // The trail is what an agent's work is answered from: a month nobody can
-  // read must not present itself as a month where nothing happened. The writer
-  // refuses to overwrite it; the reader refuses to call it empty.
+test("an audit document in an older shape is replaced with an empty month", async () => {
+  // This build is the only writer of the trail, so a document in any other
+  // shape is an old build's: it is replaced with an empty, current month rather
+  // than blocking every write or being reported as a month where nothing
+  // happened.
   await writeAppFileAt(ctx, store.accountId, "agent/audit/2026-11.json", {
     nope: "not an audit document",
   });
 
-  await assert.rejects(
-    () => store.readAudit("2026-11"),
-    /does not read as an audit/,
-    'reading an unreadable month throws instead of answering "nothing happened"',
+  assert.deepEqual(await store.readAudit("2026-11"), {
+    v: 1,
+    month: "2026-11",
+    entries: [],
+  });
+
+  await store.appendAudit(
+    {
+      at: "2026-11-10T08:00:00Z",
+      jobId: "job-x",
+      ruleId: "r1",
+      ruleVersion: 1,
+      outcome: "done",
+      actions: [],
+    },
+    new Date("2026-11-10T08:00:00Z"),
   );
-  await assert.rejects(
-    () =>
-      store.appendAudit(
-        {
-          at: "2026-11-10T08:00:00Z",
-          jobId: "job-x",
-          ruleId: "r1",
-          ruleVersion: 1,
-          outcome: "done",
-          actions: [],
-        },
-        new Date("2026-11-10T08:00:00Z"),
-      ),
-    /refusing to write over it/,
-    "appending must not replace the unreadable document with a single entry",
+  assert.equal(
+    (await store.readAudit("2026-11"))?.entries.length,
+    1,
+    "the entry lands in the replaced month",
   );
 });
 
-test("rules that are there but unreadable are loud, not no automation", async () => {
-  // One malformed rule invalidates the whole document, and a reader that
-  // answered `null` for it would report a group with automations as a group with
-  // none: every rule of the group stops, and nothing in the trail or the chat
-  // says why. Missing really is an empty account; unreadable is loud, which is
-  // the line the audit document already holds.
+test("rules in an older shape are replaced with an empty document", async () => {
+  // One malformed rule makes the whole document one this build cannot use, and
+  // this build is its only writer: it is replaced with an empty, current
+  // document rather than the group's automations going dark.
   await writeAppFileAt(ctx, store.accountId, "agent/rules.json", {
     v: 1,
     rules: [{ v: 1, id: "r1", version: 1, name: "Half a rule" }],
   });
 
-  await assert.rejects(
-    () => store.readRules(),
-    /there but does not read as a rules document/,
-    'a rules document nobody can read is not "no rules"',
+  assert.deepEqual((await store.readRules())?.doc, [], "the document is replaced");
+  assert.deepEqual(
+    (await store.readRules())?.doc,
+    [],
+    "and it now reads as the current shape",
   );
-
-  // The document is left exactly as it was found: reading never writes, so the
-  // same read meets the same answer, and a person is who fixes it.
-  await assert.rejects(() => store.readRules(), UnreadableDocumentError);
-  await store.writeRules([]);
 });
 
-test("a claim that is there but unreadable is not a free unit", async () => {
-  // `claimAccount` takes a missing claim as its own to create, so a claim read
-  // as absent is a unit written over at `epoch: 0` — and every fence of the run
-  // that holds it stops agreeing with it. Present-but-unreadable is the other
-  // answer, and it is raised, not returned.
+test("a claim in an older shape is a free unit", async () => {
+  // A claim is a lock with no empty form: one in any other shape is an old
+  // build's and is removed, so it reads as a unit nobody holds and the next
+  // taker writes a fresh claim in the current shape.
   await writeAppFileAt(ctx, store.accountId, "agent/claim.json", {
     worker: "w1",
     heartbeatAt: "2026-09-10T08:00:00Z",
   });
 
-  await assert.rejects(
-    () => store.readClaim(),
-    /there but does not read as a claim/,
-    "an unreadable claim is not a unit nobody holds",
-  );
-
-  await store.destroyClaim();
-  assert.equal(await store.readClaim(), null);
+  assert.equal(await store.readClaim(), null, "the old claim was removed");
 });

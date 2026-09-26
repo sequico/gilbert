@@ -61,6 +61,8 @@ export const AGENT_ERROR_SENTENCES = {
   agent_files_account_missing:
     "The agent {address} has no account holding its own Files, so there is nothing for it to read or write.",
   agent_not_found: "The server has no account at that address: {detail}",
+  agent_document_not_current:
+    "A stored agent document is not in the shape this build writes, and it could not be replaced: {detail}",
   forbidden: "This administrator may not act as that agent: {detail}",
   duplicate_rule:
     'Two automations share the id "{id}". Ids must be unique: a job records the id and the version it was created from.',

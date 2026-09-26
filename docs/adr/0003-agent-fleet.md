@@ -344,12 +344,15 @@ The agents admin area is three sections.
   The automations document is a section of the agent's behaviour rather than a
   peer of its configuration documents: it holds up to four independent rules,
   each pinned by `ruleId`/`ruleVersion` on the jobs and audit that reference it
-  and each readable by the group's own members. A rules document that is there
-  but does not read — an older format, a hand edit — is replaced on the
-  administration's read with a fresh, empty one in the current format,
-  conditionally on the state just read and said once on the read that did it, so
-  the group heals without a person acting; the member door reports it and never
-  writes, and the executor still refuses to run such a document.
+  and each readable by the group's own members. This build is the only writer of
+  the agent's documents, so a document that is there in any other shape — an
+  older format, a hand edit — is not left behind: on read it is replaced with the
+  document's current empty form, or removed when it has no empty form (a claim,
+  a stream claim, a job, a decision, the configuration), so the next write
+  recreates it in the current shape. The replacement is conditional on the state
+  the bad document was read at, and a replacement that cannot land raises
+  `AgentDocumentError`, answered as `agent_document_not_current` rather than as
+  an unreachable mail server.
 - **Approvals** — cross-group oversight, read-only by construction: a
   **Pending** tab shows every group's paused decisions at once, and an
   **Audit** tab merges every granted group's trail, filterable by group and

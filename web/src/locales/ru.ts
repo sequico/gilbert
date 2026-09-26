@@ -1829,8 +1829,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Постоянная инструкция",
     "Who its runs stop for": "Для кого останавливаются его запуски",
     "What it follows": "Чему он следует",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "Документ автоматизаций этой группы не удаётся прочитать, поэтому её автоматизации нельзя показать. Открытие этой группы в администрации заменяет его автоматически.",
     "No automation is set up for this group.":
       "Для этой группы не настроено ни одной автоматизации.",
     "Still open": "Ещё открыто",
@@ -2024,8 +2022,6 @@ export const catalog: Catalog = {
       "Агент не состоит ни в одной группе, которую видит этот сеанс, поэтому здесь нечего выбирать. Дайте ему группу в собственной администрации Stalwart: вкладки ниже отвечают про одну группу, а флот, который они читают, — собственный флот установки.",
     "Working in this group as {address}.": "Работает в этой группе как {address}.",
     "Group agent sections": "Разделы агента группы",
-    "The automations document cannot be read.":
-      "Документ автоматизаций не удаётся прочитать.",
     "{enabled} of {total} automations enabled":
       "{enabled} из {total} автоматизаций включено",
     "{n} waiting for a person in this group": "{n} ждут человека в этой группе",
@@ -2415,10 +2411,6 @@ export const catalog: Catalog = {
       "Эта группа несёт более одной включённой автоматизации на триггер, чего эта сборка не принимает: {reason}",
     "This group's automation document could not be read.":
       "Документ автоматизаций этой группы не удалось прочитать.",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "Документ автоматизаций этой группы был написан в старом формате, поэтому заменён свежим, пустым. Напишите её автоматизации заново ниже.",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "Документ автоматизаций этой группы не удаётся прочитать, и его не удалось заменить автоматически. Перезагрузите, чтобы попробовать снова.",
     "Cannot be saved yet: {reason}": "Пока нельзя сохранить: {reason}",
     "No automation in this group yet.": "В этой группе пока нет автоматизаций.",
     "Every trigger already has an automation in this group.":

@@ -1845,8 +1845,6 @@ export const catalog: Catalog = {
     "Standing instruction": "Instrução permanente",
     "Who its runs stop for": "Para quem as execuções dele param",
     "What it follows": "O que ele segue",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "O documento de automações deste grupo não pode ser lido, então as automações dele não podem ser mostradas. Abrir este grupo na administração o substitui automaticamente.",
     "No automation is set up for this group.":
       "Nenhuma automação está configurada para este grupo.",
     "Still open": "Ainda aberto",
@@ -2040,8 +2038,6 @@ export const catalog: Catalog = {
       "O agente não está em nenhum grupo que esta sessão consiga ver, então não há grupo a escolher aqui. Dê um grupo a ele na própria administração do Stalwart: as abas abaixo respondem sobre um grupo, e a frota que elas leem é a da própria instalação.",
     "Working in this group as {address}.": "Trabalhando neste grupo como {address}.",
     "Group agent sections": "Seções do agente de grupo",
-    "The automations document cannot be read.":
-      "O documento de automações não pode ser lido.",
     "{enabled} of {total} automations enabled":
       "{enabled} de {total} automações ativadas",
     "{n} waiting for a person in this group": "{n} esperando por uma pessoa neste grupo",
@@ -2433,10 +2429,6 @@ export const catalog: Catalog = {
       "Este grupo carrega mais de uma automação ativada em um gatilho, o que esta versão não aceita: {reason}",
     "This group's automation document could not be read.":
       "O documento de automações deste grupo não pôde ser lido.",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "O documento de automações deste grupo foi escrito em um formato antigo, então foi substituído por um novo e vazio. Escreva as automações dele de novo abaixo.",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "O documento de automações deste grupo não pode ser lido, e não pôde ser substituído automaticamente. Recarregue para tentar de novo.",
     "Cannot be saved yet: {reason}": "Ainda não pode ser salvo: {reason}",
     "No automation in this group yet.": "Ainda não há automação neste grupo.",
     "Every trigger already has an automation in this group.":

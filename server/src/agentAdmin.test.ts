@@ -584,11 +584,7 @@ test("an administrator reads and saves a group's rules", async () => {
 
   const empty = await call(`/api/admin/groups/${TEAM}/agent/rules`);
   assert.equal(empty.status, 200);
-  assert.deepEqual(empty.body, {
-    rules: [],
-    rulesUnreadable: false,
-    rulesRecreated: false,
-  });
+  assert.deepEqual(empty.body, { rules: [] });
 
   const saved = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
@@ -677,24 +673,16 @@ test("an automation document an older version wrote is replaced automatically", 
   const read = await call(`/api/admin/groups/${TEAM}/agent`);
   assert.equal(read.status, 200, JSON.stringify(read.body));
   const view = read.body as {
-    rulesUnreadable: boolean;
-    rulesRecreated: boolean;
     rules: unknown[];
     jobs: unknown[];
   };
-  assert.equal(view.rulesRecreated, true, "the read replaced the old document");
-  assert.equal(view.rulesUnreadable, false, "and the fresh one reads");
-  assert.deepEqual(view.rules, [], "the fresh document is empty");
+  assert.deepEqual(view.rules, [], "the old document was replaced with an empty one");
   assert.ok(Array.isArray(view.jobs), "the rest of the surface is still there");
 
-  // A second read finds a document that reads: the one-time notice is over.
+  // A second read finds the replaced, current document.
   const again = (await call(`/api/admin/groups/${TEAM}/agent`)).body as {
-    rulesUnreadable: boolean;
-    rulesRecreated: boolean;
     rules: unknown[];
   };
-  assert.equal(again.rulesRecreated, false, "the notice is shown once");
-  assert.equal(again.rulesUnreadable, false);
   assert.deepEqual(again.rules, []);
 
   // And an automation can be authored into the fresh document.
@@ -711,10 +699,8 @@ test("an automation document an older version wrote is replaced automatically", 
     rules: [{ v: 1, id: "legacy" }],
   });
   const rulesRead = (await call(`/api/admin/groups/${TEAM}/agent/rules`)).body as {
-    rulesRecreated: boolean;
     rules: unknown[];
   };
-  assert.equal(rulesRead.rulesRecreated, true);
   assert.deepEqual(rulesRead.rules, []);
 });
 

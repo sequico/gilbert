@@ -1782,8 +1782,6 @@ export const catalog: Catalog = {
     "Standing instruction": "常驻指令",
     "Who its runs stop for": "其运行会为谁停止",
     "What it follows": "它所遵循的内容",
-    "This group's automation document cannot be read, so its automations cannot be shown. Opening this group in the administration replaces it automatically.":
-      "无法读取此群组的自动化文档，因此无法显示其自动化。在管理端打开此群组会自动替换它。",
     "No automation is set up for this group.": "此群组未设置任何自动化。",
     "Still open": "仍未关闭",
     "Nothing is running and nothing is waiting.": "没有任何运行，也没有任何等待。",
@@ -1971,7 +1969,6 @@ export const catalog: Catalog = {
       "代理不在此会话可见的任何群组中，因此这里没有群组可选。在 Stalwart 自己的管理端给它一个群组：下面的标签针对一个群组作答，它们读取的代理群是安装自己的。",
     "Working in this group as {address}.": "在此群组以 {address} 身份工作。",
     "Group agent sections": "群组代理的各个区段",
-    "The automations document cannot be read.": "无法读取自动化文档。",
     "{enabled} of {total} automations enabled": "{total} 个自动化中已启用 {enabled} 个",
     "{n} waiting for a person in this group": "{n} 项在此群组中等待某人",
     "Nothing waiting for a person here": "这里没有等待某人的项",
@@ -2334,10 +2331,6 @@ export const catalog: Catalog = {
     "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}":
       "此群组在一个触发条件上携带多个已启用的自动化，此构建不接受：{reason}",
     "This group's automation document could not be read.": "无法读取此群组的自动化文档。",
-    "This group's automation document was written in an older format, so it was replaced with a fresh, empty one. Write its automations again below.":
-      "此群组的自动化文档以较旧格式写入，因此已替换为一份全新的空文档。请在下方重新编写其自动化。",
-    "This group's automation document cannot be read, and it could not be replaced automatically. Reload to try again.":
-      "无法读取此群组的自动化文档，且无法自动替换它。请重新加载以重试。",
     "Cannot be saved yet: {reason}": "尚无法保存：{reason}",
     "No automation in this group yet.": "此群组还没有自动化。",
     "Every trigger already has an automation in this group.":

@@ -147,7 +147,7 @@ import {
   unrunEntries,
   unrunEntry,
 } from "./scheduler.js";
-import { type AgentDoc, AgentStore, UnreadableDocumentError } from "./store.js";
+import { type AgentDoc, AgentDocumentError, AgentStore } from "./store.js";
 
 /** The JMAP types the executor reconciles, plus the schedule. */
 export type ChangeType = "Email" | "FileNode";
@@ -365,19 +365,18 @@ export class Executor {
   }
 
   /**
-   * The group's rules, with a document nobody can read recorded rather than
-   * taken for no automation.
+   * The group's rules, with a document that could not be brought to the current
+   * shape recorded rather than taken for no automation.
    *
-   * `null` is the account having no rules document at all; a document that is
-   * there and does not read as rules raises out of `readRules` (see
-   * `UnreadableDocumentError`). The two are opposites — a group with no
-   * automation, against every automation of the group stopped — and a caller
-   * that took the second for the first would let the group's work stop with no
-   * audit row and no word in the chat: a `?doc ?? []` at the call site reads the
-   * two as the same thing.
+   * `null` is the account having no rules document at all; a document in an
+   * older shape is replaced with an empty, current one on read, and only a
+   * replacement that cannot land raises out of `readRules` (see
+   * `AgentDocumentError`). The last is a state a caller must not read as "nothing
+   * to run": the group's work would stop with no audit row and no word in the
+   * chat, which is what this records.
    *
-   * The line is written once per process and cause, because an unreadable
-   * document is a state and not an event: it is still unreadable on the next
+   * The line is written once per process and cause, because a document that
+   * cannot be replaced is a state and not an event: it is still so on the next
    * pass, and the group's chat would carry the same sentence every poll. The
    * log carries the pass it happened in either way.
    */
@@ -412,10 +411,11 @@ export class Executor {
       }
       return rules;
     } catch (err) {
-      // Anything that is not the unreadable document itself — a server that
-      // could not answer, a refused read — keeps its own handling: this path is
-      // about a document a person has to fix, not about a read that failed.
-      if (!(err instanceof UnreadableDocumentError)) throw err;
+      // Anything that is not the document that could not be replaced — a server
+      // that could not answer, a refused read — keeps its own handling: this
+      // path is about a document a person has to fix, not about a read that
+      // failed.
+      if (!(err instanceof AgentDocumentError)) throw err;
       const detail = errorMessage(err);
       this.deps.log(
         `${accountId}: ${where} cannot read the group's automation: ${detail}`,

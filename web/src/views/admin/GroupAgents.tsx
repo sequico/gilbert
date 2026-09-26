@@ -200,7 +200,6 @@ export function GroupAgents() {
             <GroupGlance
               rulesEnabled={rulesEnabled}
               rulesTotal={rulesTotal}
-              rulesUnreadable={view?.granted === true && view.rulesUnreadable === true}
               pending={pendingHere}
               serving={servingHere}
             />
@@ -276,26 +275,21 @@ export function GroupAgents() {
 function GroupGlance({
   rulesEnabled,
   rulesTotal,
-  rulesUnreadable,
   pending,
   serving,
 }: {
   rulesEnabled: number;
   rulesTotal: number;
-  /** The document is there but does not read, so the counts mean nothing. */
-  rulesUnreadable: boolean;
   pending: number;
   serving: number;
 }) {
   return (
     <div className="agent-glance">
       <span className="hint">
-        {rulesUnreadable
-          ? t("The automations document cannot be read.")
-          : t("{enabled} of {total} automations enabled", {
-              enabled: rulesEnabled,
-              total: rulesTotal,
-            })}
+        {t("{enabled} of {total} automations enabled", {
+          enabled: rulesEnabled,
+          total: rulesTotal,
+        })}
       </span>
       <span className="hint">
         {pending > 0

@@ -198,6 +198,7 @@ export type AgentErrorReason =
   | { code: "agent_unreachable"; detail: string }
   | { code: "agent_files_account_missing"; address: string }
   | { code: "agent_not_found"; detail: string }
+  | { code: "agent_document_not_current"; detail: string }
   | { code: "forbidden"; detail: string }
   | { code: "duplicate_rule"; id: string }
   | { code: "rule_not_a_document"; index: number }
@@ -280,26 +281,6 @@ export interface AgentGroupSurface {
   error?: GroupDeniedCode;
   need?: GroupNeed;
   rules: AgentRule[];
-  /**
-   * Whether the group's automation document is there but does not read.
-   *
-   * `rules` is empty either way, so this is the one thing that tells a group
-   * with no automation from one whose document an older version wrote: the
-   * first is a state, the second is a document a save can replace and a
-   * person is shown as such rather than as "no automations".
-   */
-  rulesUnreadable: boolean;
-  /**
-   * Whether this read replaced a document that did not read with a fresh,
-   * empty one.
-   *
-   * The administration heals an unreadable automation document in place: the
-   * document an older version wrote is replaced with an empty one in the
-   * current format, and this is true on the one read that did it, so a surface
-   * can say what happened once instead of showing a group that silently lost
-   * its automations. `rules` is empty on that read.
-   */
-  rulesRecreated: boolean;
   jobs: AgentJob[];
   decisions: AgentDecision[];
   audit: AgentAuditEntry[];
@@ -327,25 +308,14 @@ export type AgentGroupDenied = AgentGroupSurface & {
  */
 export type AgentGroupDocuments = Pick<
   AgentGroupSurface,
-  | "rules"
-  | "rulesUnreadable"
-  | "rulesRecreated"
-  | "jobs"
-  | "decisions"
-  | "audit"
-  | "meter"
-  | "schedule"
+  "rules" | "jobs" | "decisions" | "audit" | "meter" | "schedule"
 > & { granted: true };
 
 /**
- * What a group's rules read answers with, either way — the rules-editor read
- * alone, derived from the group surface so the two cannot spell a field
- * differently.
+ * What a group's rules read answers with — the rules-editor read alone, derived
+ * from the group surface so the two cannot spell a field differently.
  */
-export type AgentRulesRead = Pick<
-  AgentGroupDocuments,
-  "rules" | "rulesUnreadable" | "rulesRecreated"
->;
+export type AgentRulesRead = Pick<AgentGroupDocuments, "rules">;
 
 /** What the group route answers with, either way. */
 export type AgentGroupAnswer = AgentGroupView | AgentGroupDenied;
@@ -599,19 +569,6 @@ export interface MemberAgentView {
   /** The registered agent's address; empty when the installation has none. */
   agentAddress: string;
   rules: MemberAgentRule[];
-  /**
-   * Whether the group's automation document is there but does not read.
-   *
-   * A member reads the same document the administrator does, and the same
-   * distinction holds: `rules` is empty for a group with no automation and for
-   * one whose document an older version wrote, and this says which.
-   */
-  rulesUnreadable: boolean;
-  /**
-   * Whether the read replaced an unreadable document. Always false on this
-   * door: a member reads, and the pen that heals is the administration's.
-   */
-  rulesRecreated: boolean;
   /**
    * The group's standing instruction, as text a member reads (resolution 17).
    *
