@@ -8,7 +8,10 @@ import {
 } from "./identityAdmin.js";
 import { JMAP_CONTACTS, JMAP_PRINCIPALS, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
-import { GLOBAL_CONTACTS_BOOK_NAME, type GlobalContactInput } from "./shared/phone.js";
+import {
+  GLOBAL_CONTACTS_BOOK_NAME,
+  type GlobalContactInput,
+} from "./shared/globalContacts.js";
 
 /**
  * The Global contacts directory, written as the Master (ADR 0023).
@@ -80,7 +83,7 @@ async function findGlobalContactsBook(
  * The Global contacts book's id, creating the book on first use.
  *
  * Found by name — the one the shared constant declares — because that name is
- * the decision (`gilbert-phone`). A create the server refused is not a failure
+ * the decision (`gilbert-global-contacts`). A create the server refused is not a failure
  * until the book is looked for again: a sibling already carrying the name is
  * the directory, and adopting it is what keeps it one book.
  */

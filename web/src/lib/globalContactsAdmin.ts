@@ -5,7 +5,7 @@
  * Master — the share grants the administrator's own session nothing to write
  * with — so these are routes rather than JMAP calls. `id: null` creates.
  */
-import type { GlobalContactInput } from "@gilbert/shared/phone";
+import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
 import { apiFetch } from "@/jmap/client";
 
 /** Create or update one card, answering its id. */

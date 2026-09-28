@@ -109,7 +109,6 @@ import {
   storeSignatureHtml,
   writeGroupIdentity,
   writePersonIdentity,
-  writePersonSipCredential,
 } from "./identityAdmin.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
@@ -117,8 +116,6 @@ import {
   publishInstallation,
   readInstallationForAdmin,
 } from "./installationAdmin.js";
-import { bridgeReachable } from "./phone/bridge.js";
-import { phoneSocket } from "./phone/proxy.js";
 import {
   MAX_PUSH_BODY_BYTES,
   attach as pushAttach,
@@ -141,8 +138,8 @@ import {
 } from "./sessions.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import type { GlobalContactInput } from "./shared/globalContacts.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
-import type { GlobalContactInput, SipCredential } from "./shared/phone.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
 import { staticHandler } from "./static.js";
@@ -659,16 +656,9 @@ const securityHeaders: MiddlewareHandler = async (c, next) => {
      route is the only one, and only for PDFs -- see the note there. */
   if (!h.has("X-Frame-Options")) h.set("X-Frame-Options", "DENY");
   h.set("Referrer-Policy", "no-referrer");
-  /*
-   * The phone registers a SIP leg through `getUserMedia`, and a policy that
-   * denies the microphone to the app itself does not prompt the reader — it
-   * fails the call outright, as a `NotAllowedError`, which then reads as "your
-   * browser is blocking the microphone". The app is allowed its own
-   * microphone; camera, location, payment and USB stay denied.
-   */
   h.set(
     "Permissions-Policy",
-    "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   );
   h.set("Cross-Origin-Opener-Policy", "same-origin");
   if (!h.has("Cache-Control")) h.set("Cache-Control", "no-store");
@@ -878,14 +868,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
   api.use("*", smallBodies);
-
-  /*
-   * The phone's signalling socket (ADR 0023): the browser's Janus API, carried
-   * on this server's own origin and behind the Gilbert session, so the page
-   * reaches no second endpoint and holds no bridge address. A deployment with
-   * no bridge answers nothing here, and the client offers no phone.
-   */
-  api.get("/phone", requireSession, phoneSocket);
 
   /*
    * The forced-password-change door (ADR 0001).
@@ -2635,67 +2617,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * for exactly that) and a session already open sees it the next time it
    * reads its own.
    */
-  /**
-   * Whether the phone's bridge is running (ADR 0023).
-   *
-   * A status for the administration, not a setting: a host that could not
-   * build Janus installs Gilbert without the phone, and this is how the
-   * administration knows to say the phone is unavailable and why. The client
-   * still proves the media path before offering the phone.
-   */
-  api.get("/admin/phone/status", requireSession, requireAdmin, async (c) =>
-    c.json(await bridgeReachable()),
-  );
-
-  /**
-   * One identity's SIP account (ADR 0023).
-   *
-   * What the softphone registers with, per identity, written into the
-   * account's own `sip.json` — the same document the account reads. `sip:
-   * null` clears it, which is the identity the phone does not register. The
-   * write is an impersonation of that person, like every other identity write.
-   */
-  api.post("/admin/identities/user/sip", requireSession, requireAdmin, async (c) => {
-    const body = await readJson<{ address?: unknown; email?: unknown; sip?: unknown }>(c);
-    try {
-      const raw = body?.sip;
-      let credential: SipCredential | null = null;
-      if (raw !== null && raw !== undefined) {
-        if (typeof raw !== "object")
-          throw new IdentityAdminError(
-            "invalid_identity",
-            "The SIP account must be an object or null.",
-            400,
-          );
-        const fields = raw as {
-          server?: unknown;
-          username?: unknown;
-          password?: unknown;
-        };
-        if (typeof fields.server !== "string" || typeof fields.username !== "string")
-          throw new IdentityAdminError(
-            "invalid_identity",
-            "A SIP account needs a string server and user name.",
-            400,
-          );
-        credential = {
-          server: fields.server,
-          username: fields.username,
-          password: typeof fields.password === "string" ? fields.password : "",
-        };
-      }
-      await writePersonSipCredential(
-        c.get("session"),
-        typeof body?.address === "string" ? body.address : "",
-        typeof body?.email === "string" ? body.email : "",
-        credential,
-      );
-      return c.json({ ok: true });
-    } catch (err) {
-      return identityFailure(c, err);
-    }
-  });
-
   api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{ address?: unknown; locked?: unknown }>(c);
     try {

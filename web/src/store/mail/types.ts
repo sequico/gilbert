@@ -162,7 +162,7 @@ export interface MailState {
   /**
    * The account `quotas` is the storage of. The sidebar bar follows the account
    * on screen, so it asks again when this is not the active one; a group's
-   * quota is the group's own (ADR 0023, RFC 9425).
+   * quota is the group's own (RFC 9425).
    */
   quotaAccountId: Id | null;
   vacation: VacationResponse | null;

@@ -3,15 +3,12 @@ import { after, before, test } from "node:test";
 import { postWith } from "./testkit.js";
 
 /**
- * The administrator's two surfaces: an identity's SIP account (ADR 0023)
- * and the Global contacts directory (ADR 0024).
+ * The Global contacts directory (ADR 0023), as an administrator writes it.
  *
- * Each account is written into that account's own `sip.json` by impersonation
- * and read back keyed by the identity's email — the key both tiers assume. The
- * directory is written as the Master: the book is found or made, the universal
- * read share is re-applied from the principal enumeration, and the card is
- * created, checked against the book and destroyed. A write returning at all
- * proves the enumeration ran — it is the first thing that would refuse.
+ * The directory is written as the Master: the book is found or made, the
+ * universal read share is re-applied from the principal enumeration, and the
+ * card is created, checked against the book and destroyed. A write returning
+ * at all proves the enumeration ran — it is the first thing that would refuse.
  *
  * Mock port: must not collide with any other test file — the runner executes
  * files as parallel child processes, each binding its own mock.
@@ -71,59 +68,6 @@ before(async () => {
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
-});
-
-test("an identity's SIP account is written as them, and read back by email", async () => {
-  const saved = await post("/api/admin/identities/user/sip", {
-    address: DEMO,
-    email: DEMO,
-    sip: { server: "pbx.example.com", username: "1001", password: "a-secret" },
-  });
-  assert.equal(saved.status, 200, JSON.stringify(saved.body));
-
-  const read = await call(
-    `/api/admin/identities/user?address=${encodeURIComponent(DEMO)}`,
-  );
-  assert.equal(read.status, 200, JSON.stringify(read.body));
-  const sip = (read.body as { sip?: Record<string, unknown> }).sip ?? {};
-  assert.deepEqual(sip[DEMO], {
-    server: "pbx.example.com",
-    username: "1001",
-    password: "a-secret",
-  });
-
-  // An account for an address the account does not send as is refused: it
-  // would be a key the phone never looks up.
-  const orphan = await post("/api/admin/identities/user/sip", {
-    address: DEMO,
-    email: "nobody@example.com",
-    sip: { server: "pbx.example.com", username: "9", password: "p" },
-  });
-  assert.equal(orphan.status, 404, JSON.stringify(orphan.body));
-
-  // And an account that is not three strings is a bad request.
-  const malformed = await post("/api/admin/identities/user/sip", {
-    address: DEMO,
-    email: DEMO,
-    sip: { server: 42, username: "1001", password: "p" },
-  });
-  assert.equal(malformed.status, 400, JSON.stringify(malformed.body));
-
-  // Clearing is allowed even for an address the account no longer holds.
-  const cleared = await post("/api/admin/identities/user/sip", {
-    address: DEMO,
-    email: DEMO,
-    sip: null,
-  });
-  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
-  const after = await call(
-    `/api/admin/identities/user?address=${encodeURIComponent(DEMO)}`,
-  );
-  assert.equal(
-    (after.body as { sip?: Record<string, unknown> }).sip?.[DEMO] ?? null,
-    null,
-    "the account is gone",
-  );
 });
 
 test("a Global contacts card is created, checked, and destroyed", async () => {

@@ -1,9 +1,9 @@
 /**
  * The chat launcher (ADR 0005): the top-bar entry to group chat.
  *
- * First item of the top-bar action cluster, immediately left of the phone
- * entry -- the composer dock owns the bottom-right corner and the account
- * avatar is the corner anchor, so the launcher lives in the top bar and its
+ * First item of the top-bar action cluster -- the composer dock owns the
+ * bottom-right corner and the account avatar is the corner anchor, so the
+ * launcher lives in the top bar and its
  * panel opens under it. Offered only when the session holds group mailboxes;
  * the product-admin group is not a chat account (ADR 0001). The panel is a
  * popover on desktop and a sheet in the content area on mobile -- portaled to

@@ -21,7 +21,7 @@ import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { GroupAgents } from "@/views/admin/GroupAgents";
 import { GroupLabels } from "@/views/admin/GroupLabels";
-import { IdentitiesAndSipPhone } from "@/views/admin/IdentitiesAndSipPhone";
+import { Identities } from "@/views/admin/Identities";
 import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
@@ -33,7 +33,7 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the
  * installation's own document (ADR 0003's Master, configured once), the group
- * label catalogs, forced password changes, and **Identities and SIP Phone**,
+ * label catalogs, forced password changes, and **Identities**,
  * one section holding a person's and a group's behind two tabs (ADR 0007) —
  * the surfaces ADR 0001/0003/0005 cover, which stand without an agent.
  * "Assistant" is everything ADR 0003
@@ -78,10 +78,10 @@ function sections(pendingApprovals: number): AdminSection[] {
       owner: "mailer",
     },
     {
-      id: "identities-and-sip-phone",
-      label: t("Identities and SIP Phone"),
+      id: "identities",
+      label: t("Identities"),
       icon: <UserCog size={18} />,
-      el: <IdentitiesAndSipPhone />,
+      el: <Identities />,
       owner: "mailer",
     },
     {

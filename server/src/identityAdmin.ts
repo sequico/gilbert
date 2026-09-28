@@ -46,7 +46,6 @@ import {
   readAppJsonAt,
   writeAppBytesAt,
   writeAppFile,
-  writeAppFileIn,
 } from "./appFolder.js";
 import { agentAddress } from "./config.js";
 import { isStateMismatch, JMAP_SUBMISSION, JmapClient } from "./jmap.js";
@@ -74,13 +73,6 @@ import type {
 } from "./shared/identityViews.js";
 import type { SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
-import {
-  parseSipCredentials,
-  SIP_CREDENTIALS_FILE,
-  type SipCredential,
-  type SipCredentialsDocument,
-  withSipCredential,
-} from "./shared/phone.js";
 /*
  * The client's settings document, and the one key of it this tier writes.
  * Both names are contracts — see the module's own header.
@@ -641,7 +633,6 @@ export async function personIdentities(
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
-        sip: {},
       };
     throw new IdentityAdminError(
       imp.status === 404 ? "account_not_found" : "account_unreachable",
@@ -663,111 +654,7 @@ export async function personIdentities(
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
-    sip: parseSipCredentials(
-      await readAppJsonAt(imp.ctx, accountId, SIP_CREDENTIALS_FILE),
-    ),
   };
-}
-
-/**
- * Set or clear one identity's SIP account (ADR 0023), as the person.
- *
- * The account lives in `sip.json`, in that account's own app folder, keyed
- * by identity email — the same impersonating door the default identity and the
- * lock write through. `null` clears the entry; a credential with no server or
- * user name is refused before it gets here, so only `null` removes it.
- */
-export async function writePersonSipCredential(
-  admin: LiveSession,
-  address: string,
-  email: string,
-  credential: SipCredential | null,
-): Promise<void> {
-  const target = identityAddress(address);
-  const key = email.trim().toLowerCase();
-  if (!key)
-    throw new IdentityAdminError(
-      "invalid_identity",
-      "A SIP account belongs to an identity, and this one names no email to key it by.",
-      400,
-    );
-  if (credential && !(credential.server.trim() && credential.username.trim()))
-    throw new IdentityAdminError(
-      "invalid_identity",
-      "A SIP account needs a server and a user name.",
-      400,
-    );
-  const imp = await impersonateAs(admin, target);
-  if (!imp.ok)
-    throw new IdentityAdminError(
-      imp.status === 403 ? "impersonation_denied" : "account_unreachable",
-      imp.message,
-      imp.status,
-    );
-  const accountId = ownIdentityAccount(imp.ctx);
-  if (!accountId)
-    throw new IdentityAdminError(
-      "no_identity_account",
-      `${target} holds no account this session can write a credential to.`,
-      409,
-    );
-  /*
-   * The key is a contract both tiers assume: the phone looks a credential up by
-   * the identity's email, so a credential set for an address the account does
-   * not send as is one nobody will ever register. Clearing is allowed for an
-   * address the account no longer holds — that is how an orphan is removed.
-   */
-  if (credential) {
-    const identities = await readIdentities(imp.ctx, accountId);
-    if (!identities.some((identity) => identity.email.trim().toLowerCase() === key))
-      throw new IdentityAdminError(
-        "identity_not_found",
-        `${target} holds no identity with the address ${email.trim()}.`,
-        404,
-      );
-  }
-  await writeSipDocument(imp.ctx, accountId, (current) =>
-    withSipCredential(current, key, credential),
-  );
-}
-
-/**
- * One compare-and-set write of the credential document.
- *
- * The app folder is created first, the FileNode state read next, then the
- * document, and the write carries `ifInState` — the order `writeAssignmentDoc`
- * uses, for the same reason: two administrators setting two identities at once
- * is a lost race for one of them rather than a silent overwrite of the other.
- * One retry, because the change is applied to what the retry reads.
- */
-async function writeSipDocument(
-  ctx: Ctx,
-  accountId: string,
-  change: (current: Record<string, SipCredential>) => SipCredentialsDocument,
-): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const folderId = await ensureAppFolder(ctx, accountId);
-    const state = await appFolderState(ctx, accountId);
-    const current = parseSipCredentials(
-      await readAppJsonAt(ctx, accountId, SIP_CREDENTIALS_FILE),
-    );
-    try {
-      await writeAppFileIn(
-        ctx,
-        accountId,
-        folderId,
-        SIP_CREDENTIALS_FILE,
-        change(current),
-        {
-          ifInState: state,
-        },
-      );
-      return;
-    } catch (err) {
-      if (isStateMismatch(err) && attempt === 0) continue;
-      throw err;
-    }
-  }
 }
 
 /**

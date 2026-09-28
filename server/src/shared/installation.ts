@@ -438,13 +438,6 @@ export function parseInstallationDocumentDetailed(
       `"server.cookieName" must not be empty: sessions are held in that cookie, so a nameless one would sign nobody in.`,
     );
 
-  /*
-   * There is no phone section (ADR 0023): where the Janus bridge lives and
-   * which ports it needs are the deployment's own facts, and each person's SIP
-   * account is account data the identity surface holds -- neither is this
-   * installation document's.
-   */
-
   const doc: InstallationDocument = {
     version,
     epoch: readInt("epoch", whole.epoch, defaults.epoch),

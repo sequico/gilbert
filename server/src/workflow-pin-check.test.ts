@@ -7,7 +7,7 @@ import {
 } from "../../scripts/workflow-pin-check.mjs";
 
 /**
- * The pin rule, kept in one place (ADR 0026).
+ * The pin rule, kept in one place (ADR 0025).
  *
  * A workflow action named by a tag is a moving target: a repointed tag runs in
  * this repository's release path with its token. This is the check that keeps

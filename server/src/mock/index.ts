@@ -7,8 +7,8 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { MASKED } from "../shared/accountSecurity.js";
+import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
-import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/phone.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
@@ -1676,8 +1676,7 @@ const sharedCards: Obj[] = [
     notes: {},
     updated: new Date(now()).toISOString(),
   },
-  /* Two people the installation's directory carries, with numbers the dialer
-     can ring: the phone's speed dial reads these. */
+  /* Two people the installation's directory carries. */
   {
     id: "gc1c1",
     addressBookIds: { gc1: true },

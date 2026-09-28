@@ -50,7 +50,6 @@ import { ChatLauncher } from "./chat/ChatLauncher";
 import { InstallAppDialog, InstallBanner, useInstallState } from "./InstallApp";
 import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
-import { PhoneLauncher } from "./phone/PhoneLauncher";
 import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
@@ -340,12 +339,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </span>
         <SearchBar />
         <div className="topbar-actions">
-          {/* Chat comes first in the action cluster, with the phone entry
-              beside it: ADR 0005. Rendered (or not) by the launcher itself. */}
+          {/* Chat comes first in the action cluster: ADR 0005. Rendered (or
+              not) by the launcher itself. */}
           <ChatLauncher />
-          {/* The phone (ADR 0023): its own entry, its own state, and no
-              presence at all where the installation or the account has none. */}
-          <PhoneLauncher />
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"

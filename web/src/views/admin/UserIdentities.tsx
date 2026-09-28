@@ -1,5 +1,5 @@
 /**
- * User identities (ADR 0007), the first tab of **Identities and SIP Phone**: what
+ * User identities (ADR 0007), the first tab of **Identities**: what
  * an administrator sets on a person's account, through the same form the
  * person's own settings use.
  *
@@ -19,8 +19,7 @@
  * list — so nothing of a group's is shown here as well.
  */
 
-import type { SipCredential } from "@gilbert/shared/phone";
-import { Phone, Plus, RotateCw, Star, Trash2 } from "lucide-react";
+import { Plus, RotateCw, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { t } from "@/lib/i18n";
@@ -31,12 +30,10 @@ import {
   type IdentityPatch,
   type PersonIdentitiesView,
   saveUserIdentity,
-  saveUserSipCredential,
   setUserDefaultIdentity,
   setUserIdentityLock,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
-import { usePhone } from "@/store/phone";
 import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
 import { ACTIVE_COLOR } from "@/ui/misc";
@@ -47,8 +44,7 @@ import {
   DirectoryPicker,
   useUserDirectory,
 } from "./directory";
-import { IdentityCard, identityLabel } from "./IdentityCard";
-import { SipCredentialDialog } from "./SipCredentialDialog";
+import { IdentityCard } from "./IdentityCard";
 
 export function UserIdentities() {
   const directory = useUserDirectory();
@@ -63,8 +59,6 @@ export function UserIdentities() {
    */
   const [locked, setLocked] = useState<IdentityLockState | null>(null);
   const [editing, setEditing] = useState<Partial<Identity> | null>(null);
-  /** The identity whose SIP account (ADR 0023) is being edited. */
-  const [sipFor, setSipFor] = useState<Identity | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -118,19 +112,6 @@ export function UserIdentities() {
   async function save(patch: Partial<Identity>) {
     await saveUserIdentity(address, editing?.id ?? null, patch as IdentityPatch);
     await load(address);
-  }
-
-  /**
-   * Write one identity's SIP account (ADR 0023), then re-read the account so
-   * the row says what is really stored rather than what was typed.
-   */
-  async function saveSip(identity: Identity, sip: SipCredential | null) {
-    await saveUserSipCredential(address, identity.email, sip);
-    // Writing a credential is the whole of turning a phone on: re-read the
-    // account now, so the line appears (or goes) without a reload. A write for
-    // somebody else changes nothing here, and the re-read knows it.
-    usePhone.getState().refresh();
-    await readAccount(address);
   }
 
   /**
@@ -305,40 +286,23 @@ export function UserIdentities() {
               identity={identity}
               onEdit={() => setEditing(identity)}
               head={
-                <>
-                  <button
-                    className="btn btn-sm btn-ghost"
-                    aria-pressed={view.defaultIdentityId === identity.id}
-                    disabled={busy}
-                    title={t("Send from this identity by default")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void setDefault(
-                        view.defaultIdentityId === identity.id ? null : identity.id,
-                      );
-                    }}
-                  >
-                    <Star size={14} />{" "}
-                    {view.defaultIdentityId === identity.id
-                      ? t("Default")
-                      : t("Make default")}
-                  </button>
-                  {/* The SIP account (ADR 0023): what the phone registers
-                      with for this identity. Its own editor, because it is not
-                      an identity property and the person's own dialog must not
-                      offer it. */}
-                  <button
-                    className="btn btn-sm btn-ghost"
-                    title={t("SIP account")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSipFor(identity);
-                    }}
-                  >
-                    <Phone size={14} />{" "}
-                    {view.sip[identity.email.toLowerCase()] ? t("SIP set") : t("SIP")}
-                  </button>
-                </>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  aria-pressed={view.defaultIdentityId === identity.id}
+                  disabled={busy}
+                  title={t("Send from this identity by default")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void setDefault(
+                      view.defaultIdentityId === identity.id ? null : identity.id,
+                    );
+                  }}
+                >
+                  <Star size={14} />{" "}
+                  {view.defaultIdentityId === identity.id
+                    ? t("Default")
+                    : t("Make default")}
+                </button>
               }
               trailing={
                 identity.mayDelete && (
@@ -428,15 +392,6 @@ export function UserIdentities() {
           assets={{
             storeHtml: (html) => storeAdminSignatureHtml("user", address, html),
           }}
-        />
-      )}
-
-      {sipFor && (
-        <SipCredentialDialog
-          identity={identityLabel(sipFor)}
-          current={view?.sip[sipFor.email.toLowerCase()] ?? null}
-          onClose={() => setSipFor(null)}
-          onSave={(sip) => saveSip(sipFor, sip)}
         />
       )}
     </div>

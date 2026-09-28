@@ -1,5 +1,4 @@
 import { serve } from "@hono/node-server";
-import { WebSocketServer } from "ws";
 import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
@@ -36,7 +35,7 @@ async function main() {
    */
   assertServable(config);
   /*
-   * Global contacts (ADR 0024): the installation's shared directory exists
+   * Global contacts (ADR 0023): the installation's shared directory exists
    * because the installation needs it, not because an administrator made it.
    * Created once, as the Master, before anything is served, so the section is
    * there for every reader on the first load. A failure is logged and does not
@@ -71,20 +70,11 @@ async function main() {
     },
   );
   const app = createApp();
-  /*
-   * The phone's signalling socket (ADR 0023) rides the app's own HTTP server:
-   * `upgradeWebSocket` (server/src/phone/proxy.ts) hands the upgrade to this
-   * WebSocket server, which is what makes the route reachable. No bridge is
-   * named here; the proxy reaches it, and a deployment without one simply
-   * answers nothing.
-   */
-  const wss = new WebSocketServer({ noServer: true });
   const server = serve(
     {
       fetch: app.fetch,
       hostname: config.host,
       port: config.port,
-      websocket: { server: wss },
     },
     (info) => {
       /* The browser will not trust 0.0.0.0: it is not a potentially
@@ -115,10 +105,6 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
-    // The phone's signalling sockets (ADR 0023) are long-lived, and a closing
-    // HTTP server waits for its connections: end them first, so a call in
-    // progress cannot hold the process open past its shutdown.
-    for (const client of wss.clients) client.terminate();
     server.close();
     await fleet?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,

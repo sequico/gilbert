@@ -1,4 +1,4 @@
-import type { GlobalContactInput } from "@gilbert/shared/phone";
+import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ContactCard } from "@/jmap/types";

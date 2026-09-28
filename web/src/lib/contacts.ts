@@ -1,4 +1,4 @@
-import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/phone";
+import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/globalContacts";
 import type {
   AddressBook,
   ContactCard,
@@ -11,10 +11,10 @@ import { foldLine } from "./contentLines";
 
 /**
  * Whether an address book is the installation's shared Global contacts
- * directory (ADR 0023). One predicate, asked by the sidebar and the dialer, so
- * the two cannot disagree about which book is the directory.
+ * directory. One predicate, asked by the sidebar and the contacts list, so the
+ * two cannot disagree about which book is the directory.
  *
- * The name is the marker the decision fixes (ADR 0024). Rights are deliberately
+ * The name is the marker the decision fixes (ADR 0023). Rights are deliberately
  * not part of it: an administrator's own session may see the book writable and a
  * member's read-only, and the directory is the directory either way — requiring
  * read-only hid it from exactly the administrator who maintains it.
