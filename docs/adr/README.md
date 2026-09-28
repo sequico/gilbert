@@ -264,3 +264,12 @@ is, not what a user sees.
   findings, the design as it stands, the lifecycle, versioning and publication
   (e.g. ISO 9001 policies), the library choice, and the questions still open,
   before any code exists.
+- **0026 — One gate, and nothing merges or ships unverified.** The gate has one
+  source — `npm run check:ci` — run by the pre-push hook and by the CI release
+  pre-check, so the two cannot diverge; the action-pin rule is a check
+  (`workflow:pin`) rather than a reviewer's memory; the dependency audit runs
+  where a release is prepared, not on every push; a release is verified after it
+  publishes, on both architectures and with `:latest` naming the same index; and
+  a Dependabot pull request merges only on its CI run's green completion,
+  through `workflow_run` so the token may write, merging the exact commit the CI
+  verified. The procedure and the rollback are `docs/releasing.md`. Built.

@@ -27,6 +27,11 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  # Hardcoded rather than derived from github.repository: a registry path must
+  # be lowercase. This is this repository's own package -- never upstream's.
+  IMAGE: ghcr.io/sequico/gilbert
+
 jobs:
   # Release pre-check: the full CI stack (typecheck, tests, build, Docker
   # smoke build) must pass before anything is cut. Nothing ships on a red
@@ -226,3 +231,39 @@ jobs:
     with:
       ref: ${{ needs.check.outputs.sha }}
       tag_latest: true
+
+  # A release is not done when the image is pushed: it is done when what was
+  # pushed is what the tag names. The manifest is read back from the registry
+  # and both architectures are asserted -- a half-failed digest push, one
+  # platform short, must not pass as a release -- and :latest must name the
+  # same index.
+  verify:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: The tag resolves on both architectures, and :latest names it
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The git tag carries a leading `v`; the image tag does not.
+          image_tag="${TAG#v}"
+          docker buildx imagetools inspect "$IMAGE:$image_tag" > tag.txt
+          cat tag.txt
+          grep -q 'linux/amd64' tag.txt
+          grep -q 'linux/arm64' tag.txt
+          tag_digest="$(awk '/^Digest:/{print $2; exit}' tag.txt)"
+          test -n "$tag_digest"
+          docker buildx imagetools inspect "$IMAGE:latest" > latest.txt
+          latest_digest="$(awk '/^Digest:/{print $2; exit}' latest.txt)"
+          test "$tag_digest" = "$latest_digest"
+          echo "Verified $IMAGE:$image_tag on linux/amd64 and linux/arm64 ($tag_digest); :latest names it." >> "$GITHUB_STEP_SUMMARY"

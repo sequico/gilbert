@@ -896,6 +896,7 @@ does when they are closed. The bridge's version is pinned in
 | 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature, with the capability each one needs |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
+| 🚦 **[docs/releasing.md](docs/releasing.md)** | The one gate, and how a release is cut, verified and rolled back |
 | 🏛 **[docs/adr](docs/adr/README.md)** | The architecture decisions behind all of it, one file each |
 
 ## Contributing

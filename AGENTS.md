@@ -385,7 +385,8 @@ merges the commit the CI verified (`--match-head-commit`). A major update, or
 one the workflow cannot classify, waits for a person.
 **Releases are called manually by the user — for now there are none and none are
 automated.** Never tag, publish, or trigger release/publish workflows on your
-own (see `.github/workflows/release.yml`, `publish.yml`).
+own (see `.github/workflows/release.yml`, `publish.yml`). The procedure, what a
+release verifies and how it is rolled back are `docs/releasing.md`.
 **Upstream is download-only (ADR 0002):** upstream releases are fetched
 directly by the merge that takes them in (ADR 0002) — there is no mirror
 branch — and the mail core merges them in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
