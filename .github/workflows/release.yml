@@ -58,6 +58,12 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # The supply-chain preflight: a release must not fail later -- or ship --
+      # on a dependency advisory. It runs here and not on every push because it
+      # is network-bound and advisory-driven: a new advisory should refuse a
+      # release, not a push that changed nothing.
+      - run: npm ci --ignore-scripts
+      - run: npm run audit
       - id: decide
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

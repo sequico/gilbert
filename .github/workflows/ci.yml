@@ -2,8 +2,9 @@ name: CI
 on:
   # The release pre-check: release.yml calls this before it cuts anything, so
   # nothing ships on a red check. There is deliberately no push trigger any
-  # more -- per-push verification is the local fast gate (npm run prepush,
-  # enforced by the pre-push hook); see AGENTS.md. The one
+  # more -- per-push verification is the local fast gate (npm run prepush, the
+  # same `check:ci` this job runs, enforced by the pre-push hook); see
+  # AGENTS.md. The one
   # thing that does run on every push is code scanning, which GitHub runs from
   # the repository's settings (default setup) and not from a file here: this
   # workflow stays the release pre-check.
@@ -22,6 +23,12 @@ on:
   # to reach for. Useful too for putting a check on a commit that predates a CI
   # change, without pushing an empty commit to move it.
   workflow_dispatch:
+# A run per ref, and only a pull request's run may be cancelled by its
+# successor: on main a release's pre-check must not lose its verdict because
+# somebody pushed again while it was reading the tree.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
     # A human PR does not run here: it has no way through the pre-push hook
@@ -39,11 +46,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run i18n:check
-      - run: npm test
-      - run: npm run build
+      # One gate, one source: this is the same `npm run check:ci` the pre-push
+      # hook runs, so the release pre-check and a developer's push cannot
+      # diverge. The Docker smoke build below is the only part that is CI's
+      # alone -- a local gate cannot assume a Docker daemon.
+      - run: npm run check:ci
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Docker build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

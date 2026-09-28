@@ -143,20 +143,24 @@ One test, not the suite: `npm run test -w web -- src/lib/<name>.test.ts`
 (vitest), or from `server/` `npx tsx --test src/<name>.test.ts` (node:test).
 **Lint + format gate: Biome** (`biome.jsonc` — calibrated to this repo's
 actual style, with deliberate, commented rule exceptions; a11y off). Run with
-`npm run lint` / `npm run lint:fix`; it is part of `prepush` and of the CI
-release pre-check.
+`npm run lint` / `npm run lint:fix`; it is part of `check:ci`, run by the
+pre-push hook and by the CI release pre-check.
 **The gate reports zero, or it has not passed (global user rule, active here).**
 "Pre-existing" is not a category: every error, warning and informational finding
 the gate prints is fixed, whoever wrote the line and whenever it arrived — and a
 non-zero count is work to do, never context to report. Biome 0/0/0, no failing
-test, no skipped test, a dependency audit at zero, `npm run codeql` at zero
-result(s).
+test, no skipped test, a dependency audit at zero (the release pre-check runs
+`npm run audit`), `npm run codeql` at zero result(s).
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
-non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
+non-UTC machine run them as `TZ=UTC npm test` — `check:ci` already forces it so
 the local gate matches CI.
-**`npm run prepush` is the fast gate**, in order: typecheck, Biome, `adr:owed`,
-`adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, then `TZ=UTC npm test`;
-`npm run prepush:full` appends `codeql`. The pre-push hook runs it.
+**`npm run check:ci` is the one gate**, in order: typecheck, Biome, `adr:owed`,
+`adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, `TZ=UTC npm test`, then
+`npm run build`. The pre-push hook runs it (`npm run prepush` is that pipeline
+under the name the hook calls, and `npm run prepush:full` appends `codeql`), and
+`ci.yml` runs the same script — so the release pre-check and a developer's push
+cannot diverge. The only part of CI that is not in it is the Docker smoke build,
+which a local gate cannot assume has a daemon.
 Version from git at build time (`node scripts/version.mjs`).
 
 **The phone's bridge is a pinned dependency of our own** (ADR 0023): Janus, a
@@ -300,8 +304,8 @@ zero in the same shell invocation. Verification is per write step, never
 batched at the end of a long run. Whole-tree rename scans (e.g. for
 `ihasmail`) are never truncated with head/tail — scan per file with bounded
 output instead.
-**Every push is gated by the fast CI** (`npm run prepush`: typecheck + Biome
-lint + the check scripts + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
+**Every push is gated by the fast CI** (`npm run check:ci`: typecheck + Biome
+lint + the check scripts + tests + build); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only
 deliberately with `--no-verify`. `ci.yml` does not run on push: it is the
 release pre-check, and only Dependabot's pull requests start it, because their

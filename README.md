@@ -21,8 +21,8 @@
   <a href="#development"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
   <a href="#quick-start-docker"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
   <br>
-  <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: the release pre-check — typecheck, Biome, i18n, the tests, the build and a Docker smoke build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
-  <a href=".githooks/pre-push"><img alt="The pre-push hook runs the fast gate before every push: typecheck, Biome, the check scripts and the tests" src="https://img.shields.io/badge/gate-typecheck%20%C2%B7%20Biome%20%C2%B7%20tests-1f6feb?style=flat-square"></a>
+  <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: the release pre-check — typecheck, Biome, the check scripts, i18n, the tests, the build and a Docker smoke build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
+  <a href=".githooks/pre-push"><img alt="The pre-push hook runs the one gate before every push: typecheck, Biome, the check scripts, the tests and the build" src="https://img.shields.io/badge/gate-typecheck%20%C2%B7%20Biome%20%C2%B7%20tests-1f6feb?style=flat-square"></a>
   <a href="#code-scanning"><img alt="GitHub code scanning with the JavaScript/TypeScript suite, on every push and pull request" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
 </p>
 
@@ -775,9 +775,10 @@ npm test               # vitest (web) + node:test (server)
 npm run build          # web/dist + server/dist
 npm start              # serve the production build
 
-npm run prepush        # the fast gate: typecheck + Biome + the check scripts + tests
+npm run check:ci       # the one gate: typecheck + Biome + the check scripts + tests + build
+npm run audit          # npm audit --omit=dev, run by the release pre-check
 npm run codeql         # the code scanning analysis GitHub runs, on demand
-npm run prepush:full   # the fast gate, then `codeql`
+npm run prepush:full   # the one gate, then `codeql`
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
