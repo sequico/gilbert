@@ -1,5 +1,7 @@
 #!/bin/sh
-# Fast CI gate before every push: typecheck + tests (npm run prepush).
+# Fast CI gate before every push: the same `npm run check:ci` the release
+# pre-check runs (typecheck, Biome, the check scripts, i18n, the tests under
+# UTC and the build).
 # Enabled per clone with `git config core.hooksPath .githooks`; see
 # AGENTS.md. Bypass deliberately with `git push --no-verify`.
 #
