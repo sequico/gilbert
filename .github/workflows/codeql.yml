@@ -1,0 +1,52 @@
+# The CodeQL analysis, run where a release is prepared rather than on every
+# push.
+#
+# It is a 686 MB toolchain and minutes of analysis, which is why it is not in
+# the per-push gate (`check:ci`): a gate that cannot run on a fresh clone is not
+# a gate. It is called by `release.yml` as part of its pre-check, so nothing is
+# cut on an analysis that is not clean, and it can be dispatched by hand or runs
+# weekly so a query added upstream surfaces without a release.
+#
+# `npm run codeql` (`scripts/codeql.mjs`) runs the same suite on a checkout, for
+# a machine that has the bundle.
+name: CodeQL
+
+on:
+  # Called by release.yml's pre-check, beside ci.yml.
+  workflow_call:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly, off the hour.
+    - cron: "41 3 * * 1"
+
+# Read-only, plus the one write the analysis needs to publish its results.
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # JavaScript and TypeScript need no build step for the extractor, which
+      # also reads the GitHub Actions workflows through this suite.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
+        with:
+          category: "/language:javascript-typescript"

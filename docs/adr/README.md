@@ -282,3 +282,10 @@ is, not what a user sees.
   secrets and `.semgrepignore` to point the SAST scan at the code that ships. A
   finding is work to do in the same change, and an allowlist entry is a positive
   proof rather than a silence. Built.
+- **0028 — The CodeQL analysis runs with the release.** CodeQL is not a
+  per-push gate: it is a 686 MB toolchain, so it runs as a release pre-check —
+  `.github/workflows/codeql.yml`, called by `release.yml`, with `cut` waiting on
+  it — plus weekly and on dispatch. A file names it rather than a repository
+  setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
+  same suite on a checkout and `npm run check:release` (`check:ci` then
+  `codeql`) is the full local gate. Built.

@@ -3,11 +3,9 @@ on:
   # The release pre-check: release.yml calls this before it cuts anything, so
   # nothing ships on a red check. There is deliberately no push trigger any
   # more -- per-push verification is the local fast gate (npm run prepush, the
-  # same `check:ci` this job runs, enforced by the pre-push hook); see
-  # AGENTS.md. The one
-  # thing that does run on every push is code scanning, which GitHub runs from
-  # the repository's settings (default setup) and not from a file here: this
-  # workflow stays the release pre-check.
+  # same `check:ci` this job runs, enforced by the pre-push hook) plus the
+  # security workflow (ci-security.yml); see AGENTS.md. This workflow stays the
+  # release pre-check, and codeql.yml is the release's other one.
   #
   # One pull_request exception: Dependabot's branches never pass through the
   # local pre-push hook, so its PRs get the check automatically. The job-level

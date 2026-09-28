@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * CodeQL on this tree: the analysis GitHub's own code scanning runs.
+ * CodeQL on this tree: the local half of the analysis the release pre-check
+ * runs on GitHub (`.github/workflows/codeql.yml`).
  *
- * Code scanning is configured in the repository's settings (default setup), so
- * the scanning workflow is GitHub's own and no file here names it. What that
- * leaves is the gap this script closes: nothing local would tell a person that
- * a change opens an alert, and an alert nobody looked at is a finding this
- * project does not know about. `npm run codeql` analyses **the files a push
- * would carry**, with the same query suite GitHub runs, prints what it found,
- * and exits non-zero on any result — so a green run here means the alerts stay
- * closed.
+ * The hosted analysis runs when a release is prepared, which leaves a gap this
+ * script closes: nothing local would tell a person that a change opens an
+ * alert, and an alert nobody looked at is a finding this project does not know
+ * about. `npm run codeql` analyses **the files a push would carry**, with the
+ * same query suite that workflow runs, prints what it found, and exits non-zero
+ * on any result — so a green run here means the release's analysis stays clean.
  *
  * The tree it analyses is exported, not the working directory. GitHub analyses
  * a checkout: `node_modules` is not in it, and `web/dist` is not in it, so
@@ -19,13 +18,11 @@
  * a push would carry, and it means `.gitignore` stays the one place that
  * decides what is ignored.
  *
- * Two things it deliberately is not. It is not part of `npm run prepush`: the
- * toolchain is a 686 MB bundle and one analysis takes a couple of minutes, and
- * a fast gate that cannot run on a fresh clone is not a gate. `npm run
- * prepush:full` is the fast gate plus this, for a machine that has the bundle.
- * And it is not a `.github/workflows/codeql.yml`: advanced setup and default
- * setup cannot both be configured on one repository, and a workflow here would
- * have to be turned on in the settings anyway.
+ * It is deliberately not part of `npm run prepush`: the toolchain is a 686 MB
+ * bundle and one analysis takes a couple of minutes, and a fast gate that
+ * cannot run on a fresh clone is not a gate. `npm run check:release` is
+ * `check:ci` then this, and `npm run prepush:full` runs it, for a machine that
+ * has the bundle; on a release the same suite is `.github/workflows/codeql.yml`.
  *
  * The CLI is looked for in `CODEQL_CLI`, then on `PATH`, then in the bundle
  * cache. Absent, the script says how to get it and exits non-zero: a scan that
@@ -42,19 +39,19 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
- * The language GitHub's default setup detects for this repository.
+ * The language this repository's analysis is configured with.
  *
  * The JavaScript/TypeScript extractor also covers the GitHub Actions workflows
  * (its code-scanning suite carries those queries), so one database is the whole
- * of what code scanning analyses here.
+ * of what the analysis covers here.
  */
 export const LANGUAGE = "javascript-typescript";
 
 /**
- * The query suite, by its pack-qualified name: `default` in the repository's
- * code scanning settings is this suite, so a local run and the hosted one
- * report the same queries. `security-and-quality` is the other choice the
- * settings offer, and is a superset that would report more than this gate sees.
+ * The query suite, by its pack-qualified name: the workflow's default suite is
+ * this one, so a local run and the hosted one report the same queries.
+ * `security-and-quality` is a superset a workflow could ask for by name, and
+ * would report more than this gate sees.
  */
 export const SUITE =
   "codeql/javascript-queries:codeql-suites/javascript-code-scanning.qls";
@@ -227,7 +224,7 @@ export function formatReport(report, { sarif, sourceRoot }) {
     }
     lines.push("");
     lines.push("An alert is work to do, not context to report: fix it here, in the");
-    lines.push("same change, and the alert code scanning opens stays shut.");
+    lines.push("same change, and the release's analysis stays clean.");
   }
   lines.push(`SARIF: ${sarif}`);
   return lines.join("\n");

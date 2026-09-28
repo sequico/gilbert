@@ -23,7 +23,7 @@
   <br>
   <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: the release pre-check — typecheck, Biome, the check scripts, i18n, the tests, the build and a Docker smoke build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
   <a href=".githooks/pre-push"><img alt="The pre-push hook runs the one gate before every push: typecheck, Biome, the check scripts, the tests and the build" src="https://img.shields.io/badge/gate-typecheck%20%C2%B7%20Biome%20%C2%B7%20tests-1f6feb?style=flat-square"></a>
-  <a href="#code-scanning"><img alt="GitHub code scanning with the JavaScript/TypeScript suite, on every push and pull request" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
+  <a href="#code-scanning"><img alt="CodeQL with the JavaScript/TypeScript suite, run with the release and on demand" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
 </p>
 
 # Gilbert
@@ -777,8 +777,8 @@ npm start              # serve the production build
 
 npm run check:ci       # the one gate: typecheck + Biome + the check scripts + tests + build
 npm run audit          # npm audit --omit=dev, run by the release pre-check
-npm run codeql         # the code scanning analysis GitHub runs, on demand
-npm run prepush:full   # the one gate, then `codeql`
+npm run codeql         # the release's CodeQL analysis, on demand
+npm run prepush:full   # the full local gate (`check:release`): the one gate, then `codeql`
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
@@ -786,19 +786,21 @@ build. Running it for real is [Quick start (Docker)](#quick-start-docker) above.
 
 ### Code scanning
 
-Every push and pull request is analysed by GitHub's **code scanning**, on its
-default setup — configured in the repository's settings, not by a workflow here
-— with the JavaScript/TypeScript code-scanning suite. `npm run codeql` runs the
-same analysis on this checkout, so a finding shows up before it is pushed:
+The **CodeQL** analysis runs where a release is prepared, not on every push: it
+is a 686 MB toolchain and minutes of analysis, so it is
+`.github/workflows/codeql.yml`, called by the **Release** workflow as a
+pre-check — nothing is cut on an analysis that is not clean — and run weekly and
+on demand besides. `npm run codeql` runs the same JavaScript/TypeScript suite on
+this checkout, so a finding shows up before it is pushed:
 
 ```bash
 npm run codeql
 # → CodeQL: 0 result(s).
 ```
 
-Its toolchain is a 686 MB bundle, which is why the fast gate does not carry it
-(`npm run prepush:full` is the two together). Install it once, or point
-`CODEQL_CLI` at an existing binary:
+It is not part of the per-push gate; `npm run prepush:full` is the full local
+gate, `check:release` (`check:ci` then `codeql`). Install the bundle once, or
+point `CODEQL_CLI` at an existing binary:
 
 ```bash
 mkdir -p ~/.cache/gilbert/codeql

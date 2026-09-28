@@ -2964,18 +2964,19 @@ and in Settings › About.
 
 ## Code scanning
 
-GitHub's own code scanning runs against this repository on every push and pull
-request, on the **default setup**: configured in the repository's settings rather
-than by a file here, analysing the tree with the JavaScript/TypeScript
-code-scanning suite (its Actions queries included, so `.github/workflows` is
-covered by the same run).
+The **CodeQL** analysis runs where a release is prepared. It is
+`.github/workflows/codeql.yml`, called by the **Release** workflow as a
+pre-check so nothing is cut on an analysis that is not clean, and run weekly and
+on demand besides — it is a 686 MB toolchain, which is why it is not a per-push
+gate. The analysis is the JavaScript/TypeScript code-scanning suite (its Actions
+queries included, so `.github/workflows` is covered by the same run).
 
 `npm run codeql` is that same analysis on this checkout, so a finding shows up
 before it is pushed:
 
 ```bash
 npm run codeql                  # → CodeQL: 0 result(s).
-npm run prepush:full            # the fast gate, then the analysis
+npm run check:release           # the fast gate, then the analysis
 ```
 
 - **It analyses the files a push would carry.** `git ls-files --cached --others

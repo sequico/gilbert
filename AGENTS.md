@@ -321,15 +321,16 @@ finding. `npm run workflow:pin` is the check that enforces both: an action
 named by a tag, or pinned with no version beside it, fails the gate. The
 workflows this repository owns are ours; upstream's CI is not taken.
 
-**Code scanning runs on every push and pull request** (owner decision
-2026-09-17): GitHub's default setup, configured in the repository's settings
-and by no file here, analysing the tree with the JavaScript/TypeScript
-code-scanning suite. It stays out of the fast gate — a 686 MB toolchain and an
-analysis of minutes — so `npm run codeql` is that same analysis on demand and
-`npm run prepush:full` is the fast gate plus it; the toolchain is found through
-`CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one **fails
-with the install instructions** rather than reporting a clean tree. An alert it
-prints is work to do in the same change, like any other finding a gate prints.
+**CodeQL runs with the release** (ADR 0028, owner decision 2026-09-27): the
+analysis is `.github/workflows/codeql.yml`, called by `release.yml` as a
+pre-check — `cut` waits on it — and run weekly and on dispatch besides. It is
+not a per-push gate: a 686 MB toolchain and minutes of analysis. `npm run codeql`
+is the same suite on this checkout, `npm run check:release` is `check:ci` then
+it, and `npm run prepush:full` runs `check:release`; the toolchain is found
+through `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one
+**fails with the install instructions** rather than reporting a clean tree. An
+alert it prints is work to do in the same change, like any other finding a gate
+prints.
 **Static analysis and secret scanning run on every push and pull request, and
 once a night** (ADR 0027): `.github/workflows/ci-security.yml` runs Semgrep at
 ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,

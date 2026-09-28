@@ -44,6 +44,18 @@ jobs:
       contents: read
     uses: ./.github/workflows/ci.yml
 
+  # The CodeQL analysis beside CI: a release must not ship a finding any more
+  # than it may ship a failing test. Called rather than triggered, so it runs
+  # exactly when a release is being prepared -- a dry run included -- and the
+  # per-push cost stays where AGENTS.md puts it.
+  codeql:
+    needs: [check]
+    if: needs.check.outputs.should_release == 'true'
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+
   check:
     runs-on: ubuntu-latest
     permissions:
@@ -132,7 +144,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   cut:
-    needs: [check, ci]
+    needs: [check, ci, codeql]
     if: needs.check.outputs.should_release == 'true' && !inputs.dry_run
     runs-on: ubuntu-latest
     permissions:

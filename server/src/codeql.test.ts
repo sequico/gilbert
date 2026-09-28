@@ -19,10 +19,10 @@ import {
 } from "../../scripts/codeql.mjs";
 
 /**
- * Code scanning is configured in GitHub's settings, so nothing in this
- * repository fails when a change opens an alert there. `scripts/codeql.mjs` is
- * what tells a person before they push, and these are the parts of it that have
- * to be right for that to be true: which binary it runs, which files it
+ * The release's analysis runs on GitHub (`.github/workflows/codeql.yml`), so
+ * nothing local fails when a change opens a finding there. `scripts/codeql.mjs`
+ * is what tells a person before they push, and these are the parts of it that
+ * have to be right for that to be true: which binary it runs, which files it
  * analyses, which suite it asks for, and -- the one that matters most -- that a
  * scan which did not happen is never reported as one that found nothing.
  */

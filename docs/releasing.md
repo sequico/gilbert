@@ -22,10 +22,11 @@ Two checks the pipeline does not carry, on purpose:
 - **`npm run audit`** (`npm audit --omit=dev`) is network-bound and
   advisory-driven, so it runs in the release pre-check: a new advisory refuses a
   release, not a push that changed nothing.
-- **`npm run codeql`** is a 686 MB toolchain and minutes of analysis; it is
-  `npm run prepush:full` (`check:ci` then `codeql`) when a machine has it, and
-  GitHub runs the same analysis on every push and pull request from the
-  repository's settings.
+- **`npm run codeql`** is a 686 MB toolchain and minutes of analysis. Locally it
+  is `npm run check:release` (`check:ci` then `codeql`), which is what
+  `npm run prepush:full` runs; on a release it is `.github/workflows/codeql.yml`,
+  called by the Release workflow so nothing is cut on an unclean analysis
+  (ADR 0028).
 
 ## Committing and pushing
 
@@ -47,7 +48,8 @@ What the run does, in order:
 1. **Decide** whether a release is due. A release with no commits in it is worse
    than no release, so a run with nothing new since the last release, or whose
    tag already exists, stops with a written reason and cuts nothing.
-2. **Pre-check.** The full `ci.yml` gate, plus the dependency audit.
+2. **Pre-check.** The full `ci.yml` gate, the dependency audit, and the CodeQL
+   analysis (`codeql.yml`).
 3. **Cut.** A GitHub release is created at the verified commit, with notes
    generated from the commits since the previous release. Those notes are the
    changelog; there is no `CHANGELOG.md` to keep in step.
