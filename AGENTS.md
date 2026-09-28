@@ -18,7 +18,7 @@ npm workspaces: the root coordinates, the two packages hold the code.
   `web/tsconfig.json` and `web/vite.config.ts`. Never copy a shape or helper
   into `web/`; import it.
 - `scripts/` — the checks `prepush` runs (`adr-owed`, `adr-cite`, `config:dead`,
-  `i18n-*`), plus `version.mjs` and `codeql.mjs`.
+  `workflow-pin`, `i18n-*`), plus `version.mjs` and `codeql.mjs`.
 - `docs/adr/` — one decision per file, indexed by `docs/adr/README.md`.
   `FEATURES.md` is the feature inventory; `KNOWN-ISSUES.md` and `ROADMAP.md` are
   the product docs.
@@ -155,7 +155,7 @@ result(s).
 non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
 the local gate matches CI.
 **`npm run prepush` is the fast gate**, in order: typecheck, Biome, `adr:owed`,
-`adr:cite`, `config:dead`, `i18n:check`, then `TZ=UTC npm test`;
+`adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, then `TZ=UTC npm test`;
 `npm run prepush:full` appends `codeql`. The pre-push hook runs it.
 Version from git at build time (`node scripts/version.mjs`).
 
@@ -313,8 +313,9 @@ one that is repointed runs in this repository's release path with its token.
 A `./.github/workflows/…` reference is a workflow here rather than an action,
 and is not pinned. Dependabot's `github-actions` updates are what move these —
 a bump that moves the SHA without the version comment beside it is a review
-finding. The workflows this repository owns are ours; upstream's CI is not
-taken.
+finding. `npm run workflow:pin` is the check that enforces both: an action
+named by a tag, or pinned with no version beside it, fails the gate. The
+workflows this repository owns are ours; upstream's CI is not taken.
 
 **Code scanning runs on every push and pull request** (owner decision
 2026-09-17): GitHub's default setup, configured in the repository's settings
@@ -332,7 +333,7 @@ finished unit, and runs **no check between units**. At the end of the turn, on a
 tree whose work has stopped moving, exactly two things run automatically:
 **`npm run typecheck` (tsc) and `npm run lint` (Biome)**, and what they report is
 fixed in that same turn. Everything else — the check scripts (`adr:owed`,
-`adr:cite`, `config:dead`, `i18n:check`), `npm test`, `npm run prepush` and
+`adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`), `npm test`, `npm run prepush` and
 `npm run prepush:full`/`codeql` — is **not** run automatically: the turn names
 which of them it did not run, and the owner decides when to run them. A
 dispatched child runs no gate at all.
