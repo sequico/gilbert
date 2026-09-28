@@ -1,6 +1,6 @@
 # ADR 0026 — One gate, and nothing merges or ships unverified
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The pipeline is `check:ci` in `package.json`, with
 `scripts/workflow-pin-check.mjs` among its checks; the pre-push hook is
@@ -76,7 +76,6 @@ claim in the law and the mechanism did not meet.
 - The dependency audit is not part of the offline gate; a machine with no
   network can still push. The audit is where a release is, and the owner decides
   when a release is cut.
-- This record is **Proposed** until the owner accepts it.
 
 ## References
 
