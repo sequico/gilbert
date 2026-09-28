@@ -377,6 +377,12 @@ review, no status check, since the gate a push meets is the local pre-push hook
 — so direct commit + push to main is still the normal flow. Lifting or widening
 the protection is the owner's call, never a side effect of another change; when
 it moves, this sentence and `CONTRIBUTING.md` are what state it.
+**A Dependabot pull request merges itself once the CI is green, and only
+then.** `dependabot-auto-merge.yml` triggers on the CI run's completion rather
+than on the pull request — which is also what lets its token write, since the
+read-only restriction applies to workflows Dependabot triggers directly — and
+merges the commit the CI verified (`--match-head-commit`). A major update, or
+one the workflow cannot classify, waits for a person.
 **Releases are called manually by the user — for now there are none and none are
 automated.** Never tag, publish, or trigger release/publish workflows on your
 own (see `.github/workflows/release.yml`, `publish.yml`).
