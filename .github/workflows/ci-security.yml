@@ -1,0 +1,86 @@
+# Static analysis and secret scanning, on every push and pull request and once
+# a night.
+#
+# Where `check:ci` answers "does this tree build and behave", this answers
+# "does it carry something it should not": Semgrep reads the TypeScript and
+# Node rule packs for ERROR-level findings, and Gitleaks reads the history for
+# credentials.
+#
+# It is deliberately not part of `check:ci`: Semgrep is a second toolchain and
+# Gitleaks wants the whole history, neither of which belongs in a gate that has
+# to run before every push. A finding here is still work to do in the same
+# change, like any other a gate prints.
+name: CI – Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Once a day, off the hour: a rule added upstream should surface without
+    # waiting for the next push.
+    - cron: "23 3 * * *"
+  workflow_dispatch: {}
+
+# Read-only: both jobs read the tree and the history, and neither writes.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  semgrep:
+    name: SAST – Semgrep
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Semgrep
+        run: pip install semgrep --quiet
+      # Only ERROR-level findings fail the job: the packs carry advisory rules
+      # too, and a gate that fails on those is a gate nobody reads.
+      - name: Run Semgrep
+        run: |
+          set -euo pipefail
+          semgrep \
+            --config=p/typescript \
+            --config=p/nodejs \
+            --config=p/security-audit \
+            --config=p/owasp-top-ten \
+            --severity=ERROR \
+            --quiet \
+            --error \
+            .
+
+  secrets:
+    name: Secret scanning – Gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      # Gitleaks reads the PR through the API in pull_request mode and does a
+      # full fetch in push mode; job-level permissions replace the workflow's
+      # rather than adding to them, so both are named here.
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the scan is over commits, not just the working tree.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The allowlist is checked in, so the scan reads the same config here
+          # as it does on a developer's machine.
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # The action asks for a (free) license on repositories owned by an
+          # organization. If the organization holds one it is used here; the
+          # line is a harmless no-op while the action enforces nothing.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

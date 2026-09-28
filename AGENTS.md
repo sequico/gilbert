@@ -330,6 +330,16 @@ analysis of minutes — so `npm run codeql` is that same analysis on demand and
 `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one **fails
 with the install instructions** rather than reporting a clean tree. An alert it
 prints is work to do in the same change, like any other finding a gate prints.
+**Static analysis and secret scanning run on every push and pull request, and
+once a night** (ADR 0027): `.github/workflows/ci-security.yml` runs Semgrep at
+ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,
+and Gitleaks over the history through the official action pinned to a commit.
+Neither is in `check:ci` — Semgrep is a second toolchain and Gitleaks wants the
+whole history — and a finding either prints is work to do in the same change.
+The identifiers Gitleaks is told are not secrets live in `.gitleaks.toml`, each
+a positive proof rather than a silence, and `.semgrepignore` points the SAST
+scan at the code that ships — test files reach the local mock over http and
+carry fixtures, so the packs' HTTP patterns fire on them by construction.
 **Coding first, light gates at the end of the turn (owner decision 2026-09-24):**
 a task that carries a plan of several units does **all** of its work first —
 coding, docs and the claim fixes that go with them — landing one commit per

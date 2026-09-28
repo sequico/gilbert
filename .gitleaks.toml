@@ -1,0 +1,18 @@
+# Gitleaks configuration for Gilbert.
+#
+# Every entry here is a positive proof that what the scanner sees is not a
+# credential, never a way to silence a real finding: a VAPID application server
+# key is public by design (the browser hands it to the push service), an
+# RFC 6238 seed is a published test vector, a demo push subscription is the
+# example pair from the Web Push documentation, and the mock server and the
+# probes are synthetic fixtures by construction.
+[allowlist]
+  description = "Public VAPID keys, RFC 6238 test seeds, demo push keys and mock/probe fixtures"
+  paths = [
+    '''web/src/lib/__tests__/webpush\.test\.ts''',
+    '''web/src/lib/__tests__/pushRegistration\.test\.ts''',
+    '''web/src/lib/notify/__tests__/push-registration\.test\.ts''',
+    '''server/src/totp\.test\.ts''',
+    '''server/src/mock/index\.ts''',
+    '''scripts/probe-degraded-statechange\.mjs''',
+  ]

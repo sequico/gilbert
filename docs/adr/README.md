@@ -273,3 +273,12 @@ is, not what a user sees.
   a Dependabot pull request merges only on its CI run's green completion,
   through `workflow_run` so the token may write, merging the exact commit the CI
   verified. The procedure and the rollback are `docs/releasing.md`. Built.
+- **0027 — Supply-chain scanning in CI.** What the one gate of ADR 0026 does not
+  answer — a known-weak code pattern, a credential in the history — is a
+  separate workflow (`ci-security.yml`), deliberately outside `check:ci`:
+  Semgrep at ERROR level across the TypeScript, Node, security-audit and OWASP
+  packs, and Gitleaks over the history through the official action pinned to a
+  commit, with `.gitleaks.toml` for the project identifiers that are not
+  secrets and `.semgrepignore` to point the SAST scan at the code that ships. A
+  finding is work to do in the same change, and an allowlist entry is a positive
+  proof rather than a silence. Built.
