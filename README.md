@@ -66,13 +66,11 @@ that arrives as a PDF can be read, filed and answered — but the product takes
 no position on revenue. What it supports is the operation underneath: the work
 between something arriving and the matter being closed.
 
-Three surfaces carry that work:
+Two surfaces carry that work:
 
 - **A mailer** — mail, calendars, contacts and files, in a client good enough
   to move a whole company into, self-hosted so nothing of it leaves the
   building.
-- **A phone** — a softphone in the browser, so a desk is reachable where the
-  work already is.
 - **An assistant for processes** — agents that read what arrives, file the
   paperwork, read the document inside it, draft the answer, and say in the
   group's chat what they have done, inside a permission list an administrator
@@ -131,22 +129,10 @@ and the mail client is what they live in.
   survives people joining and leaving, with replies, `@` mentions of the whole
   roster, per-member read markers and search across the whole history. This is
   also where the agents talk and where approvals happen.
-- **A phone, and a directory everyone shares.** Gilbert carries its own
-  **Janus** bridge with its SIP plugin — the image builds it and the host
-  installer fetches it — so pointing a person's identity at the SIP account of
-  your provider turns their browser into a softphone in the top bar: the browser
-  is the phone, registering through the bridge and relaying the call, and
-  collapsing into the bar while a call is live so the reader keeps working. The
-  deployment opens the bridge's **UDP media range and its STUN port** inbound —
-  the two ports it opens; SIP goes outbound, so 5060 and 5061 are never opened.
-  **One tab** holds the line; every other tab shows no phone, and closing the
-  holder hands the seat to the next one. It dials a contact — from **Global
-  contacts**, a group's book or their own, or a number typed by hand — and its
-  colour is the line: idle, in a call, or unavailable. **Global contacts** is one
-  directory the installation owns and every account reads; an administrator
-  edits it from Contacts and everybody else reads it. What a browser cannot do
-  is ring with the tab closed, which is the platform's limit and not a promise
-  broken.
+- **A directory everyone shares.** **Global contacts** is one address book the
+  installation owns and every account reads; an administrator edits it from
+  Contacts and everybody else reads it, merged into *All contacts* beside their
+  own and their groups'.
 - **File management that holds up.** A folder tree that remembers how you left
   it, drag and drop with whole folders (empty ones included), uploads you can
   **cancel** mid-flight, a sort order kept per folder, multi-select with
@@ -305,8 +291,7 @@ reproduces those four as well.
 ## Quick start
 
 **[INSTALL.md](INSTALL.md) installs Gilbert** — the environment it needs, the two
-ways to run it (Docker, or a host install), the phone's bridge, and the two
-ports the firewall opens.
+ways to run it (Docker, or a host install), and the reverse proxy in front.
 
 Either way the client and an agent run beside each other, and users sign in with
 their Stalwart mailbox credentials. **An account with two-factor authentication
@@ -873,28 +858,22 @@ names a git ref.
 
 ### Deploying
 
-Both ways carry the whole product — the application and the phone's bridge — and
-**[INSTALL.md](INSTALL.md) is the guide**:
+Both ways carry the whole product, and **[INSTALL.md](INSTALL.md) is the
+guide**:
 
 - **Docker**: `docker compose up --build -d` (above), or
   [`deploy.example.sh`](deploy.example.sh), a single-host redeploy that refuses
   anything held back by `.deploy-hold`, asks before shipping new commits, and
   keeps the newest `GILBERT_KEEP_VERSIONS` images — never the one running;
 - **Host, no Docker**: `sudo ./install/install.sh`, which builds the app and
-  installs the bridge as a systemd service (`gilbert.service`,
-  `gilbert-janus.service`).
-
-The things an operator opens are the bridge's media range, UDP 10000-10200, and
-its STUN port, UDP 3478; [INSTALL.md](INSTALL.md) says why, and what the phone
-does when they are closed. The bridge's version is pinned in
-[`deploy/janus/VERSION`](deploy/janus/VERSION) and is ours to update —
-[INSTALL.md](INSTALL.md) has the check.
+  installs it as a systemd service (`gilbert.service`) behind the host's reverse
+  proxy.
 
 ## Where to read more
 
 | | |
 | --- | --- |
-| 🚀 **[INSTALL.md](INSTALL.md)** | Installing Gilbert — both ways — the phone's bridge, and the two ports it needs |
+| 🚀 **[INSTALL.md](INSTALL.md)** | Installing Gilbert — both ways — and the reverse proxy in front |
 | 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature, with the capability each one needs |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
@@ -912,10 +891,7 @@ Copyright (C) 2026 Sequi Company — AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 The mail client Gilbert derives from is **ihasmail**, by **Coffey Labs**, used and
 modified under the same licence: that attribution is in [NOTICE](NOTICE), and the
-copyright in this build is Sequi Company's. The phone runs on **Janus**, the
-WebRTC server by Meetecho s.r.l., used under the GPL-3.0, and its STUN responder
-is **coturn**, used under the BSD 3-Clause — both as separate processes, recorded
-with the other attributions in [NOTICE](NOTICE). The AGPL's section 13 is the point of
+copyright in this build is Sequi Company's. The AGPL's section 13 is the point of
 it — webmail is nearly always run as a network service rather than handed to
 anyone as a binary, and that section closes the gap.
 

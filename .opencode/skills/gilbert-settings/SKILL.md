@@ -118,11 +118,10 @@ metadata:
 - Not every Settings page is policy material: filters, vacation, identities,
   2FA and folder/label structure live server-side (JMAP objects), not in the
   settings file.
-- The phone is not a setting either: the server account and the way in are an
-  identity's (ADR 0007), chosen by the address an administrator states, and the
-  bridge it may go through is a deployment fact (ADR 0023), so none of it
-  belongs in `Settings`/`settings.json`. Load `gilbert-phone` before reaching
-  for a preference here.
+- Global contacts is not a setting either: the directory is one book in the
+  Master's account, created by the installation at boot (ADR 0023), so none of
+  it belongs in `Settings`/`settings.json`. Load `gilbert-global-contacts`
+  before reaching for a preference here.
 
 ## Testing and local dev
 

@@ -1,4 +1,4 @@
-# ADR 0028 — The CodeQL analysis runs with the release
+# ADR 0027 — The CodeQL analysis runs with the release
 
 Status: Accepted
 
@@ -30,7 +30,7 @@ prepush:full` runs it.
   called by `release.yml` beside `ci.yml`, and `cut` waits for it: nothing is
   cut on an analysis that is not clean, and a dry run carries it too.
 - **A file names it, not a repository setting.** The workflow is in the tree so
-  it is reviewed like any other change and moves under the pin rule of ADR 0026;
+  it is reviewed like any other change and moves under the pin rule of ADR 0025;
   advanced setup and default setup cannot both be configured on one repository,
   and the one that is a file is the one this repository can read.
 - **It also runs weekly and on dispatch**, so a query added upstream surfaces
@@ -56,4 +56,4 @@ prepush:full` runs it.
 - `.github/workflows/release.yml` — the pre-check that calls it
 - `scripts/codeql.mjs` — the same suite on a checkout
 - `package.json` — `check:release` and `prepush:full`
-- ADR 0026 — the one gate, the release pre-check and the pin rule
+- ADR 0025 — the one gate, the release pre-check and the pin rule

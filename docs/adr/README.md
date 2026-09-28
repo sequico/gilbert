@@ -219,38 +219,14 @@ is, not what a user sees.
   account the action is aimed at, because a group's copy of a conversation and
   the reader's own are two threads. The dated entries keep their literal
   meaning.
-- **0023 — SIP telephony.** A browser cannot speak SIP, and a deployment's
-  provider may not offer it over WebSocket, so the phone runs on **Janus** with
-  its SIP plugin — a second process that ships with Gilbert (the image and the
-  host installer both build it; one media UDP range is the only thing an
-  operator opens). The browser attaches to the
-  plugin, registers the account and negotiates the media, while Janus terminates
-  the WebRTC and relays SIP and RTP; it never frames SIP, speaking the **Janus
-  API** over a WebSocket gilbertserver proxies on its own origin and certificate
-  and authenticates by session. Exactly one tab of one browser holds the line,
-  seated by a **Web Lock** so every other tab shows no phone and the next waiting
-  tab takes the seat and registers when the holder goes; the registration is the
-  tab's, and the provider's own routing takes a call while none holds it. Audio
-  only, G.711 passed through without transcoding, DTMF over RFC 2833, SIP over
-  UDP to the provider, a STUN-only responder of the bridge's own and no TURN; the
-  media range and the STUN port are the inbound ports and the SIP leg is
-  outbound. A second call is refused 486 by the plugin. Each person's
-  server, user name and password are account data, set in **Identities and SIP
-  Phone** in the identity-enforcement surface and kept in the account's own
-  `sip.json`; there is no installation-level phone configuration and no SIP Phone
-  page, and the phone appears only where it can carry a call. The surface is
-  **desktop only**: a page rings only while it is alive, and the dialer is
-  read-only over Contacts separated by Global contacts, each group, personal and
-  all, with a number typed by hand. Built.
-
-- **0024 — Global contacts.** One address book in the Master's account, created
+- **0023 — Global contacts.** One address book in the Master's account, created
   by the installation rather than by hand, shared read-only with every account
   and written only by an administrator from inside Contacts through a server
   route that acts as the Master. It leads the Contacts sidebar, above
   `All contacts` and the reader's own books, as well as being merged in it; its
-  cards are ordinary cards, and the phone offers them as speed dial. The exact
-  Stalwart shape of a share naming every account at once is owed a live probe.
-- **0025 — The knowledge base (proposed, a working record).** An enterprise
+  cards are ordinary cards. The exact Stalwart shape of a share naming every
+  account at once is owed a live probe.
+- **0024 — The knowledge base (proposed, a working record).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
   owned by the Master and shared, plus a KB per group owned by the group, over
   app-folder documents in Stalwart. An article has **one shared unapproved draft
@@ -264,7 +240,7 @@ is, not what a user sees.
   findings, the design as it stands, the lifecycle, versioning and publication
   (e.g. ISO 9001 policies), the library choice, and the questions still open,
   before any code exists.
-- **0026 — One gate, and nothing merges or ships unverified.** The gate has one
+- **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check
   (`workflow:pin`) rather than a reviewer's memory; the dependency audit runs
@@ -273,7 +249,7 @@ is, not what a user sees.
   a Dependabot pull request merges only on its CI run's green completion,
   through `workflow_run` so the token may write, merging the exact commit the CI
   verified. The procedure and the rollback are `docs/releasing.md`. Built.
-- **0027 — Supply-chain scanning in CI.** What the one gate of ADR 0026 does not
+- **0026 — Supply-chain scanning in CI.** What the one gate of ADR 0025 does not
   answer — a known-weak code pattern, a credential in the history — is a
   separate workflow (`ci-security.yml`), deliberately outside `check:ci`:
   Semgrep at ERROR level across the TypeScript, Node, security-audit and OWASP
@@ -282,7 +258,7 @@ is, not what a user sees.
   secrets and `.semgrepignore` to point the SAST scan at the code that ships. A
   finding is work to do in the same change, and an allowlist entry is a positive
   proof rather than a silence. Built.
-- **0028 — The CodeQL analysis runs with the release.** CodeQL is not a
+- **0027 — The CodeQL analysis runs with the release.** CodeQL is not a
   per-push gate: it is a 686 MB toolchain, so it runs as a release pre-check —
   `.github/workflows/codeql.yml`, called by `release.yml`, with `cut` waiting on
   it — plus weekly and on dispatch. A file names it rather than a repository

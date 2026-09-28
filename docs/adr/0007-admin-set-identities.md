@@ -25,9 +25,9 @@ not change because the reader opened a share or a group's mail. The person's
 own section and the administration therefore address that account and no
 other, and read one list of the same objects.
 
-The administration gains **Identities and SIP Phone**, under the **Gilbert
-Mailer** group of the admin navigation, with two tabs: **User identities** and
-**Group identities**.
+The administration gains **Identities**, under the **Gilbert Mailer** group of
+the admin navigation, with two tabs: **User identities** and **Group
+identities**.
 
 ## The Bcc an identity carries
 

@@ -1,4 +1,4 @@
-# ADR 0027 — Supply-chain scanning in CI
+# ADR 0026 — Supply-chain scanning in CI
 
 Status: Accepted
 
@@ -13,7 +13,7 @@ patterns fire on by construction.
 
 ## Context
 
-The gate ADR 0026 describes answers whether the tree builds and behaves. It
+The gate ADR 0025 describes answers whether the tree builds and behaves. It
 does not answer whether the tree carries something it should not. Three
 kinds of finding live outside it:
 
@@ -22,7 +22,7 @@ kinds of finding live outside it:
   name but a test suite does not.
 - **A credential committed to the history**, which no build, test or type
   check will ever refuse.
-- **A dependency advisory**, which ADR 0026 places in the release pre-check
+- **A dependency advisory**, which ADR 0025 places in the release pre-check
   (`npm run audit`).
 
 The first two need a second toolchain and the whole history, so neither belongs
@@ -41,7 +41,7 @@ in a gate that must run before every push; the third is already placed.
   local mock over http and carry fixtures — that is where the scan points, not
   a finding silenced.
 - **Gitleaks over the history**, through the official action pinned to a commit
-  (the pin rule of ADR 0026 applies to this workflow like any other). A project
+  (the pin rule of ADR 0025 applies to this workflow like any other). A project
   identifier that is not a secret is allowlisted in `.gitleaks.toml`, and the
   allowlist names what each entry is and why it is not a secret.
 - **A finding is work to do in the same change.** Like every other gate this
@@ -68,5 +68,5 @@ in a gate that must run before every push; the third is already placed.
 - `.semgrepignore` — the code the SAST scan points at
 - Semgrep rule packs — <https://semgrep.dev/explore>
 - Gitleaks — <https://github.com/gitleaks/gitleaks>
-- ADR 0026 — the one gate, the release pre-check and the audit this record
+- ADR 0025 — the one gate, the release pre-check and the audit this record
   completes

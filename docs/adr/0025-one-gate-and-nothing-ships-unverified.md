@@ -1,4 +1,4 @@
-# ADR 0026 — One gate, and nothing merges or ships unverified
+# ADR 0025 — One gate, and nothing merges or ships unverified
 
 Status: Accepted
 
@@ -85,4 +85,3 @@ claim in the law and the mechanism did not meet.
 - `.github/workflows/dependabot-auto-merge.yml` — the merge that waits
 - `scripts/workflow-pin-check.mjs` — the pin rule as a check
 - `docs/releasing.md` — the procedure and the rollback
-- ADR 0023 — the phone's bridge, whose host tarball the release publishes

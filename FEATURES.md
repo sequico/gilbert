@@ -628,7 +628,7 @@ the same capabilities on every account it lists, so a folder, calendar or
 address-book share that carries an address would otherwise read as a group —
 and the one classifier is a probe of the account's mailbox tree, server-side
 and in the client alike. A share is never administered or served as a group.
-- **Identities and SIP Phone** (ADR 0007), under *Gilbert Mailer* in the
+- **Identities** (ADR 0007), under *Gilbert Mailer* in the
   administration, after *Force passwords*:
   one section, two tabs — **User identities** for a person's, **Group
   identities** for a group's. Each tab picks its principal from a menu that
@@ -768,8 +768,8 @@ and in the client alike. A share is never administered or served as a group.
   instead whether there is enough to create.
 - **Nav grouping**: the administration sections are grouped by owner —
 Gilbert Mailer (policy, the installation document, forced passwords, group
-label catalogs, and **Identities and SIP Phone**, one section with a tab per
-kind of principal), Gilbert Assistant (the agent fleet and what it does per
+label catalogs, and **Identities**, one section with a tab per kind of
+principal), Gilbert Assistant (the agent fleet and what it does per
 group), server configuration
 under “Stalwart” (**System Sieve**, its trusted, server-wide Sieve scripts),
 and About ungrouped at the tail.
@@ -836,86 +836,15 @@ sits below the composer dock.
 presence, no deletion or moderation — growth is append-only; a group that
 wants to retire a chat clears the folders through Files.
 
-## The phone, and Global contacts
+## Global contacts
 
-Gilbert carries its own **Janus** bridge with the SIP plugin — the image carries
-it and the release publishes a host tarball the installer fetches, as a second
-process beside the app — so a softphone in the client — **gilbertmailer** — and a
-**directory** every account
-reads arrive with the installation. The telephony server is the deployment's
-own, external to the four blocks: Gilbert adds no registrar, no media relay and
-no durable telephony state beyond an identity's account (ADR 0023). The
-**browser is the phone**: it attaches to the Janus SIP plugin, registers the
-account and negotiates the media, and Janus terminates the WebRTC and relays SIP
-and RTP. Its signalling is the Janus API, carried over a WebSocket gilbertserver
-proxies on its own origin and certificate and authenticates by session. Zadarma
-is the reference.
-
-- **One tab holds the line.** The phone is seated by a **Web Lock**: the first
-  tab to ask is the phone, every other tab of the same origin shows none, and
-  closing, reloading or crashing the holder hands the seat to the next tab,
-  which registers then. The registration is the tab's — with no tab holding the
-  seat there is no registration, and the provider's own routing takes a call.
-- **The line.** One entry in the top bar, beside the chat launcher. Its colour
-  is the line: outline when registered and idle, green in a call, red when the
-  line is not available — and the red names which leg failed, the browser's to
-  Gilbert or Gilbert's to the SIP provider, so a reader is not sent to fix
-  their own network for a server's fault. It registers the **identity** it sends
-  as — the SIP server, user name and password an administrator sets per
-  identity in **Identities and SIP Phone**, account data that follows the
-  account.
-- **The call.** An incoming call announces itself as a banner; a live call
-  **collapses into the top bar** so the reader keeps working. The surface offers
-  mute, a DTMF keypad (RFC 2833) and hang up; a second call is refused **486**
-  and the provider's routing takes it. A number with no contact can be typed by
-  hand, so the phone is not limited to Contacts. One keypad stays in one place
-  through every phase — it composes the number, then sends DTMF — and the live
-  call takes the dial button's own place, with a small self-updating line naming
-  its phase (calling, ringing, connected, busy, no route, …) so a call that
-  never lands says why.
-- **Audio only, and the same for everyone.** G.711 passed through without
-  transcoding, over the provider's own SIP transport (UDP/5060 as built; not
-  TLS). The bridge runs its own **STUN-only responder** — no TURN, and no STUN an
-  operator names — so the browser gets a server-reflexive candidate. The
-  deployment's firewall must leave the bridge's **UDP media range and its STUN
-  port open inbound** — the two ports a deployment opens — while the SIP leg to
-  the provider is outbound, so 5060/5061 are never opened. What cannot be
-  recovered ends cleanly rather than leaving a dead call on screen.
-- **Offered only where it can work.** The account must hold a SIP account, the
-  bridge must answer, and the media path must be proven before the entry is
-  drawn: a deployment whose bridge ports are still closed shows **no phone**,
-  and the administration states the bridge's media range as the one thing to
-  open.
-- **The phone panel** opens attached to the handset in three equal panes: the
-  **contacts** on the left, the **dialer** in the centre, the account's **call
-  history** on the right. The contacts pane carries two dots with their cause on
-  hover, each true in real time and either green or red — the browser's path to
-  Gilbert and the account's registration with its SIP server — and tabs
-  (**All**, **Global**, **My**, and one row per group the reader belongs to)
-  that choose which contacts the list offers, a search with its clear control
-  narrowing it live. Only a contact that carries a number is offered,
-  and a press dials it; a contact with no number is not a row, and a row names
-  the person with the company beside the name where the card carries one.
-  Editing belongs to Contacts, so the list is read-only.
-- **The call history** is the account's own (`calls.json` in its app folder):
-  the calls placed and taken, newest first, each with the direction, the other
-  party — or the contact it matches — when it began and the seconds it
-  connected. It follows the account between devices and is bounded.
-- **Global contacts** is one address book, owned by the Master, shared
-  **read-only with every account** and written only by an administrator, from
-  inside Contacts. The administrator's write re-applies the share, which is what
-  brings an account created later in — the deployment's own share shape is owed
-  the live probe ADR 0024 names. Every reader sees it as the first row of the
-  Contacts sidebar and merged in `All contacts`; the phone offers its numbers as
-  speed dial.
-- **No installation-level settings.** There is no SIP Phone administration page
-  and no phone section in the installation's document; each person's account is
-  per identity. The bridge ships with the release, and the one thing an operator
-  opens is its media range — [INSTALL.md](INSTALL.md) has the whole of it.
-- **What a browser cannot do**: ring with the tab closed, or keep a call across
-  a full reload. Both are the platform's limit rather than a broken promise; with
-  no tab holding the seat the provider takes the call, and a reload with a call
-  live asks first.
+- **A directory everyone shares** (ADR 0023): one address book, owned by the
+  Master, created by the installation at boot, shared **read-only with every
+  account** and written only by an administrator, from inside Contacts. The
+  administrator's write re-applies the share, which is what brings an account
+  created later in — the deployment's own share shape is owed the live probe
+  ADR 0023 names. Every reader sees it as the first row of the Contacts sidebar
+  and merged in `All contacts`.
 
 ---
 
@@ -2610,9 +2539,8 @@ away from a signed-in screen, which is the case that matters.
   Proxied blobs get a far stricter one — `sandbox; default-src 'none';
   style-src 'unsafe-inline'; img-src data:`.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer`, a `Permissions-Policy` that allows the
-  **microphone to the app itself** — the phone registers a SIP leg through it —
-  and denies camera, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
+  `Referrer-Policy: no-referrer`, a `Permissions-Policy` that denies the
+  microphone, camera, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
   same-origin`, HSTS over HTTPS, and `Cache-Control: no-store` by default.
 - **CSRF**: every API call must carry `X-Requested-With: gilbert`, and any
   request whose `Sec-Fetch-Site` is not same-origin is refused outright.

@@ -163,13 +163,6 @@ cannot diverge. The only part of CI that is not in it is the Docker smoke build,
 which a local gate cannot assume has a daemon.
 Version from git at build time (`node scripts/version.mjs`).
 
-**The phone's bridge is a pinned dependency of our own** (ADR 0023): Janus, a
-second process the image builds from the one pin in `deploy/janus/VERSION` and
-the release publishes as a host tarball the host installer fetches. Dependabot
-sees neither it nor that tag, so `node scripts/janusVersion.mjs` says
-pinned-vs-upstream and it is bumped by hand, deliberately, like the Node line —
-never left to drift.
-
 ## Language
 Code comments, documentation, commit messages and every other file in the repo
 are written in **English**. Never write or translate repo content into another
@@ -321,7 +314,7 @@ finding. `npm run workflow:pin` is the check that enforces both: an action
 named by a tag, or pinned with no version beside it, fails the gate. The
 workflows this repository owns are ours; upstream's CI is not taken.
 
-**CodeQL runs with the release** (ADR 0028, owner decision 2026-09-27): the
+**CodeQL runs with the release** (ADR 0027, owner decision 2026-09-27): the
 analysis is `.github/workflows/codeql.yml`, called by `release.yml` as a
 pre-check — `cut` waits on it — and run weekly and on dispatch besides. It is
 not a per-push gate: a 686 MB toolchain and minutes of analysis. `npm run codeql`
@@ -332,7 +325,7 @@ through `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one
 alert it prints is work to do in the same change, like any other finding a gate
 prints.
 **Static analysis and secret scanning run on every push and pull request, and
-once a night** (ADR 0027): `.github/workflows/ci-security.yml` runs Semgrep at
+once a night** (ADR 0026): `.github/workflows/ci-security.yml` runs Semgrep at
 ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,
 and Gitleaks over the history through the official action pinned to a commit.
 Neither is in `check:ci` — Semgrep is a second toolchain and Gitleaks wants the
@@ -411,8 +404,8 @@ Full law: load `.opencode/skills/gilbert-project/SKILL.md`. Renames: load
 `.opencode/skills/gilbert-branding/SKILL.md`. UI strings & languages: load
 `.opencode/skills/gilbert-i18n/SKILL.md`. Settings & policy: load
 `.opencode/skills/gilbert-settings/SKILL.md`. Group-owned data & features: load
-`.opencode/skills/gilbert-groups/SKILL.md`. The phone and Global contacts: load
-`.opencode/skills/gilbert-phone/SKILL.md`. Stalwart internals, quirks &
+`.opencode/skills/gilbert-groups/SKILL.md`. Global contacts: load
+`.opencode/skills/gilbert-global-contacts/SKILL.md`. Stalwart internals, quirks &
 integration: load `.opencode/skills/gilbert-stalwart/SKILL.md`. Upstream merges:
 load `.opencode/skills/gilbert-upstream-rebrand/SKILL.md`. The skill that governs
 a kind of work is loaded before the first edit of it.

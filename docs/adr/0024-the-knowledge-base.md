@@ -1,4 +1,4 @@
-# ADR 0025 — The knowledge base
+# ADR 0024 — The knowledge base
 
 Status: Proposed
 
@@ -54,7 +54,7 @@ this tree, not a preference.
   One book in the **Master's** account, created at boot by the installation
   rather than by hand, shared read-only with every account, written only by an
   administrator through a server route that acts as the Master
-  (`server/src/globalContactsAdmin.ts`, `docs/adr/0024`). The exact Stalwart
+  (`server/src/globalContactsAdmin.ts`, `docs/adr/0023`). The exact Stalwart
   shape of a share naming every account at once is **owed a live probe**;
   `shareWithEveryone` is the best-known shape (a paged `Principal/query` merged
   into the node's `shareWith`).
@@ -233,9 +233,12 @@ below.
   approval.
 - **Only an administrator approves.** Administrators are the single approval
   level. No member, and no agent, ever approves an article.
-- **Approval puts the draft in force, with an effective date.** The administrator
-  approves and states the date the revision takes effect; that becomes the
-  article's in-force revision.
+- **Approval issues the draft as a revision, with an effective date.** The
+  administrator approves and states the date the revision takes effect. A date
+  already passed puts it in force at once; a future date leaves it **pending**,
+  and until then the previous revision stays in force and is what readers see —
+  an article with no earlier revision is simply not yet in force. The pending
+  revision and its date are shown, never a hidden timer.
 - **The previous revision stays in history as superseded.** Approving a new
   revision supersedes the one before it, which remains readable and is marked
   superseded. Nothing already issued is ever edited in place.
@@ -244,7 +247,10 @@ below.
 
 - **One article is one folder**: `gilbert/knowledge/<id>/`, holding the single
   mutable `draft.json`, the immutable approved revisions (`revisions/<rev>.json`,
-  each carrying its approval and effective date), and which revision is in force.
+  each carrying its approval and effective date), and which revision is in force —
+  a revision approved with a future effective date is recorded and pending until
+  that date, so the article can hold a pending revision beside the one still in
+  force.
   The article's file name is its title; the tree is the FileNode tree (an article
   is a folder whose children are its sub-articles), so a listing carries titles
   without reading blobs.
@@ -326,7 +332,7 @@ public, like the ISO 9001 policies") may mean one, two or all three. They must b
 decided separately because each has a different cost.
 
 1. **Installation-wide** — every authenticated account reads it. This is the
-   company KB's **read share** (ADR 0024's shape), and it is not "public" in the
+   company KB's **read share** (ADR 0023's shape), and it is not "public" in the
    outside-world sense. The cheap one; largely already the design.
 2. **Anonymous, no session** — a URL that resolves without signing in. This is a
    **new trust boundary**: a route on gilbertserver that serves account content
@@ -338,7 +344,8 @@ decided separately because each has a different cost.
 3. **Published and controlled** — the ISO 9001 sense, and the owner has settled
    it (the lifecycle section): one shared draft, edited by users and agents,
    reviewed by the fleet, then **approved by an administrator with an effective
-   date**, which puts it in force; the revision it replaces stays in history as
+   date**, which puts it in force (or records it as pending, until a future
+   effective date arrives); the revision it replaces stays in history as
    `superseded`. This is a document-control feature on top of the versioning
    above, not an access level.
 
@@ -347,7 +354,7 @@ an approver distinct from the author, and possibly a controlled-documents
 catalogue page that lists what is currently in force — which is a document the
 installation owns and administrators maintain.
 
-Publication authority is settled: **administrators only**, through the ADR 0024
+Publication authority is settled: **administrators only**, through the ADR 0023
 door. A separate "quality manager" grant does not exist and is not needed for
 v1, because Gilbert administration is Stalwart administration plus the admin
 marker (`docs/adr/0001`).
@@ -383,7 +390,7 @@ does this is a *document controller*, and it is where the KB earns its keep.
   the review policy; a change to what is in force is never an edit of the issued
   revision but an edit of the draft above it. When the draft is ready, approval is
   what issues it (the lifecycle section), through the same privileged door every
-  other administrative write uses (ADR 0024, `docs/adr/0001`).
+  other administrative write uses (ADR 0023, `docs/adr/0001`).
 - **The catalogue grows, and stays closed.** A `knowledge` **read** (the lookup
   of the previous section) and **propose/apply** write capabilities, offered and
   bounded exactly like every existing action: the model chooses a kind and its
@@ -409,7 +416,7 @@ still standing. The open ones are the reasons this record is still Proposed.
    acts as the Master — broader authorisation, a new trust decision; or (C) a
    read-write Stalwart share on the folder, the member's own session, no
    privileged door. *Recommend C if the share holds under a live probe (the ADR
-   0024 wildcard-share probe is already owed), else B.*
+   0023 wildcard-share probe is already owed), else B.*
 2. **Where does the company KB live — hidden or visible?** — **Open.**
    `gilbert/knowledge` inside the app folder (consistent with chat; keeps raw
    JSON out of Files) or a visible `Knowledge` folder in the Master's Files.
@@ -431,8 +438,9 @@ still standing. The open ones are the reasons this record is still Proposed.
 8. **Who may publish/approve?** — **Settled.** Administrators only, with an
    effective date. No separate quality-manager grant for v1.
 9. **Is a lifecycle needed?** — **Settled.** One shared draft → agent review →
-   administrator approval with an effective date → in force; the previous
-   revision stays as superseded.
+   administrator approval with an effective date → in force (pending until a
+   future date, the previous revision still in force); the revision replaced
+   stays as superseded.
 10. **Immutability of an approved revision** — **Settled.** Never edited in
     place; the next change is a new draft, and the old revision becomes
     superseded.
@@ -517,7 +525,7 @@ still standing. The open ones are the reasons this record is still Proposed.
 ## Consequences (of the shape as it stands)
 
 - One edit of the company KB changes what every reader sees, with nothing to
-  republish — the ADR 0024 property.
+  republish — the ADR 0023 property.
 - The KB is a rule the product keeps, not a security boundary: the app folder and
   its documents are readable and writable by whoever can write the account (an
   administrator with impersonation, the deployment's agent). Where a real
@@ -543,7 +551,7 @@ still standing. The open ones are the reasons this record is still Proposed.
 - `docs/adr/0014` — merging two folders is planned before it is written
 - `docs/adr/0019` — the three levels of prose
 - `docs/adr/0020` — a run may look something up
-- `docs/adr/0024` — Global contacts: the installation-owned, shared, admin-written
+- `docs/adr/0023` — Global contacts: the installation-owned, shared, admin-written
   precedent
 - `server/src/shared/appFolder.ts`, `web/src/lib/appFolder.ts` — the app folder
 - `web/src/lib/chat.ts`, `web/src/store/chat.ts` — the group-document precedent

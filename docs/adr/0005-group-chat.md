@@ -60,9 +60,8 @@ marker unchanged.
 
 ### Placement
 
-The chat launcher sits in the top bar, first item of the action cluster,
-with the phone entry beside it — a child
-of the same action group the avatar anchors, not a free sibling after the
+The chat launcher sits in the top bar, first item of the action cluster, a
+child of the same action group the avatar anchors, not a free sibling after the
 search bar (whose flexible, centred
 layout would otherwise leave an icon drifting in whitespace on wide
 viewports). The bottom-right corner is the composer dock's, and the mobile

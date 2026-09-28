@@ -15,7 +15,7 @@ fails it is refused; `git push --no-verify` bypasses it deliberately and never
 by accident. `.github/workflows/ci.yml` runs the same script and adds only a
 Docker smoke build, which a local gate cannot assume; because `release.yml`
 calls `ci.yml` as its pre-check, the check that prepares a release is the check
-a push met, not a weaker second list (ADR 0026).
+a push met, not a weaker second list (ADR 0025).
 
 Two checks the pipeline does not carry, on purpose:
 
@@ -26,7 +26,7 @@ Two checks the pipeline does not carry, on purpose:
   is `npm run check:release` (`check:ci` then `codeql`), which is what
   `npm run prepush:full` runs; on a release it is `.github/workflows/codeql.yml`,
   called by the Release workflow so nothing is cut on an unclean analysis
-  (ADR 0028).
+  (ADR 0027).
 
 ## Committing and pushing
 
@@ -55,12 +55,10 @@ What the run does, in order:
    changelog; there is no `CHANGELOG.md` to keep in step.
 4. **Publish** the container image to `ghcr.io/sequico/gilbert`, for
    `linux/amd64` and `linux/arm64` natively, and move `:latest` to it.
-5. **Build the phone's bridge** (Janus, ADR 0023) as a host tarball per
-   architecture and attach it and its `.sha256` to the release.
-6. **Verify** the release: the published tag must resolve on both architectures
+5. **Verify** the release: the published tag must resolve on both architectures
    and `:latest` must name the same index. A release that pushed a half-failed
    image fails here rather than being discovered on a `docker pull`.
-7. **Prune** old image versions from GHCR, keeping the ten most recent tagged
+6. **Prune** old image versions from GHCR, keeping the ten most recent tagged
    ones. Releases themselves are never deleted — their notes are the only
    changelog there is.
 

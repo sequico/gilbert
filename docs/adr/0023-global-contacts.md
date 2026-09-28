@@ -1,15 +1,15 @@
-# ADR 0024 — Global contacts
+# ADR 0023 — Global contacts
 
 Status: Accepted
 
 Implementation: Built. The directory is written as the Master
 (`server/src/globalContactsAdmin.ts`), its book name and card shape are declared
-once (`server/src/shared/phone.ts`), it is read in Contacts and in the dialer
+once (`server/src/shared/globalContacts.ts`), it is read in Contacts
 (`web/src/views/contacts/ContactsSidebar.tsx`,
-`web/src/views/contacts/GlobalContactsEditor.tsx`, `web/src/lib/contacts.ts`,
-`web/src/lib/phone/dialer.ts`), and the mock carries the Master's books
-(`server/src/mock/index.ts`). The exact Stalwart shape of a share that names
-every account at once is owed a live probe, as the consequences say.
+`web/src/views/contacts/GlobalContactsEditor.tsx`, `web/src/lib/contacts.ts`),
+and the mock carries the Master's books (`server/src/mock/index.ts`). The exact
+Stalwart shape of a share that names every account at once is owed a live probe,
+as the consequences say.
 
 ## Context
 
@@ -25,8 +25,8 @@ missing is one directory the whole installation reads.
 **Global contacts is one address book, owned by the Master, shared read-only
 with every account, and written only by an administrator, from inside
 Contacts.** It is identified by its name, declared once in
-`@gilbert/shared/phone`, so the sidebar, the dialer and the mock cannot
-disagree about which book is the directory.
+`@gilbert/shared/globalContacts`, so the sidebar and the mock cannot disagree
+about which book is the directory.
 
 - **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
   held in the Master's account — an object the server holds, gilbertstalwart's
@@ -49,7 +49,6 @@ disagree about which book is the directory.
 - **Its cards are ordinary cards**, so they take part in the composer's
   recipient suggestions and the contact search the way every readable book's
   do, under ADR 0004's rules for group cards.
-- **The phone offers them as speed dial** (ADR 0023), like any other contact.
 
 ### What is not in it
 
@@ -81,9 +80,8 @@ disagree about which book is the directory.
 
 ## References
 
-- `server/src/shared/phone.ts` — the book name and the card shape both tiers read
+- `server/src/shared/globalContacts.ts` — the book name and the card shape both tiers read
 - ADR 0001 — the administration door and impersonation
 - ADR 0004 — a contact group is not a recipient
 - ADR 0007 — the identity-enforcement surface, beside which the write lives
 - ADR 0021 — a group's folders are subscribed for every member
-- ADR 0023 — the phone that offers the directory as speed dial

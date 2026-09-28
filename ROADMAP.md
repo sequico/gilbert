@@ -30,6 +30,18 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
   Expect the asking to be far out of proportion to the using. A self-hosted webmail for Stalwart draws self-hosters, privacy-minded users and European SMEs, which is about the densest concentration of PGP users left alive — so this will be requested much more often than it would be used, and that is an argument for keeping it here, described honestly, rather than either building it on the strength of the requests or refusing it outright.
 
+- **The knowledge base.** A company-wide KB owned by the Master and shared with
+  every account, plus a KB per group owned by the group, holding documents in
+  Stalwart under one shared draft per article and an administrator's approval
+  with an effective date issuing a revision (ADR 0024). The record is **Proposed**
+  and deliberately a working notebook: the editor (BlockNote) and the search
+  (Orama) come off the shelf, and the storage, ownership, versioning, approval and
+  the fleet's document-controller behaviour are Gilbert's own. What decides it —
+  the door members write the company KB through, whether a share on the nested
+  folder can stay hidden behind the app folder, and whether co-editing ships in
+  v1 or a lock does — is in its **Questions, settled and open**, and the
+  shared-share probe ADR 0023 already owes is what unblocks it.
+
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 
   It matters because the server can run an agent beside the web tier in its own process (ADR 0003), so "the agent hung" and "the server hung" are one event and one restart, and a fleet that is quiet inside a process that still answers requests is exactly the state nothing would name.
@@ -77,13 +89,3 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   rather than rhetorical, and it is a bigger change than this file's shape:
   the mock is a Node server, and the suites stub `fetch`.
 
-- **SIP over TLS toward the provider.** The bridge reaches the provider over the
-  transport the provider's own record names, which is **UDP/5060** today. The
-  leg is outbound, so nothing is exposed inbound, but the signalling is in the
-  clear. TLS is the intended end state and is not reachable yet: Janus's SIP
-  plugin does not reliably establish a TLS transport, and the provider's
-  certificate is not publicly trusted — its own setup guides tell clients to
-  disable verification, which is a false sense of security rather than a fix.
-  It needs, in order: a certificate a system trust store accepts, a `sips_certs_dir`
-  configured for the plugin, and a registration that actually negotiates
-  `sips:`/TLS — verified with a capture, never assumed.
