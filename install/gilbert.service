@@ -3,9 +3,7 @@
 # installer layers its hardening over it as a drop-in instead (see
 # gilbert-hardening.conf).
 #
-# It runs with the phone's bridge beside it (ADR 0023) but does not require it:
-# with no bridge, or with its ports closed, the phone is simply not offered. The
-# environment file carries the handshake and whatever else this deployment
+# The environment file carries the handshake and whatever else this deployment
 # states (see .env.example); everything else lives in Stalwart.
 [Unit]
 Description=Gilbert

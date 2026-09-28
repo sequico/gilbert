@@ -56,8 +56,8 @@ jobs:
           context: .
           load: true
           tags: gilbert:ci
-          # The phone's bridge is the slow stage. This job runs first (it is the
+          # The image build is the slow stage. This job runs first (it is the
           # release's pre-check) and caches it under the same scope the release's
-          # image build reads, so Janus is compiled once, not three times.
+          # image build reads.
           cache-from: type=gha,scope=linux/amd64
           cache-to: type=gha,mode=max,scope=linux/amd64

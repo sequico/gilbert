@@ -49,11 +49,8 @@ APP="${GILBERT_APP:-$HOME/apps/gilbert}"
 ENVF="${GILBERT_ENV:-$APP/.env.production}"
 # Commits held back from production, one per line; blank or missing is fine.
 HOLD="${GILBERT_HOLD:-$APP/.deploy-hold}"
-# Container name, and where the app listens on the host. The container runs
-# with host networking -- the image carries the phone's Janus bridge, which has
-# to be reachable at the host's public IP (ADR 0023) -- so this is the address
-# the app binds directly. The default is loopback, for a reverse proxy in front
-# (see Caddyfile.example / nginx.example.conf).
+# Container name, and where to publish it. The default binds to loopback only,
+# for a reverse proxy in front (see Caddyfile.example / nginx.example.conf).
 NAME="${GILBERT_NAME:-gilbert}"
 BIND="${GILBERT_BIND:-127.0.0.1:8090}"
 # Named volume for /data (sessions). Unused when running immutably.
@@ -241,8 +238,7 @@ docker build \
   -t "$IMAGE_REPO:current" \
   .
 
-RUN_ARGS=(-d --name "$NAME" --restart unless-stopped --network host
-  -e HOST="${BIND%:*}" -e PORT="${BIND##*:}" --env-file "$ENVF")
+RUN_ARGS=(-d --name "$NAME" --restart unless-stopped -p "$BIND:8080" --env-file "$ENVF")
 if [ "$IMMUTABLE" = "1" ]; then
   # -e wins over --env-file, so the switch is set here rather than needing the
   # environment file edited to match.

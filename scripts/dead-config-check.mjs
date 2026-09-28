@@ -45,7 +45,9 @@ import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
  * the app secret live in each account's own Stalwart storage now, and a
  * deployment that still carries one of these is a deployment whose settings
  * are silently not in force — which is why a mention of one anywhere is a
- * defect rather than a curiosity.
+ * defect rather than a curiosity. The bridge switches retired with the
+ * telephony they installed: nothing reads them, so a mention of one is a name
+ * a reader can still find and believe.
  */
 const RETIRED = [
   "SESSION_FILE",
@@ -54,6 +56,9 @@ const RETIRED = [
   "SETTINGS_DEFAULTS",
   "SETTINGS_ENFORCED",
   "SETTINGS_CHANGES",
+  "GILBERT_BRIDGE",
+  "GILBERT_JANUS_PREFIX",
+  "GILBERT_RELEASE_URL",
 ];
 
 /**

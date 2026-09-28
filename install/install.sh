@@ -1,142 +1,47 @@
 #!/bin/bash
-# Install Gilbert on a host, without Docker: the application, and the phone's
-# bridge beside it (ADR 0023).
+# Install Gilbert on a host, without Docker.
 #
-# WHAT THIS INSTALLS, AND WHY THERE ARE TWO SERVICES
+# WHAT THIS INSTALLS
 #
-# Gilbert is a Node process. The phone cannot be one: a browser cannot speak
-# SIP, so telephony runs through Janus — a separate daemon ([Janus], a WebRTC
-# server, with its SIP plugin) that translates between the page's WebRTC and
-# the provider's SIP. Janus is a second process, started and stopped with the
-# application, and this script installs both as systemd services
-# (`gilbert-janus.service` and `gilbert.service`). It is part of the release,
-# not something an installer builds by hand.
-#
-# [Janus]: https://github.com/meetecho/janus-gateway
-#
-# THE BRIDGE IS FETCHED, NOT COMPILED. The release publishes a host tarball of
-# the bridge, built once by CI from the pinned Janus (deploy/janus/VERSION), for
-# amd64 and arm64. This script downloads the latest one, checks its checksum and
-# unpacks it — no compiler, no build dependencies. It carries Janus alone, not
-# the system libraries Janus links; those are installed here, as the image
-# installs them, and the bridge is refused if any is still missing (that is the
-# `ExecMainStatus=127` a bare tarball gives). If it cannot be fetched, the
-# install does NOT stop: Gilbert is installed without the phone, with a loud
-# warning here and a warning in the administration surface, both saying the
-# phone is unavailable and why. The phone's absence is a degraded feature, not
-# a broken installation. `GILBERT_BRIDGE=0` skips the attempt entirely: nothing
-# is fetched, no `gilbert-janus.service` is installed, no port is opened —
-# a deliberate choice, not a workaround.
+# Gilbert is a Node process served behind a reverse proxy. This script builds
+# the checkout, installs it as a systemd service (`gilbert.service`) and writes
+# the environment file the process reads at boot.
 #
 # IT LAYERS OVER YOUR UNIT. If the host already runs its own `gilbert.service`,
 # that unit stays: its ExecStart, its User, its paths. This script writes only
-# the hardening drop-in beside it (`gilbert.service.d/10-hardening.conf`), so the
-# posture is ours and the unit is yours. A host with no unit gets ours too.
-#
-# THE PORTS — THE ONE THING THE FIREWALL NEEDS
-#
-# When the bridge is installed, it has two legs:
-#
-#   the page <-> Janus leg:  WebRTC media over UDP, plus the Janus API on
-#                            loopback (127.0.0.1:8188) that only gilbertserver
-#                            reaches. The API is never exposed.
-#   the Janus <-> provider leg: SIP and RTP, OUTBOUND only. The provider answers
-#                            on the connection the registration opened, so no
-#                            SIP port (5060/5061) is ever opened.
-#
-# So the things to open inbound are the bridge's media range, UDP 10000-10200,
-# and its STUN responder's port, UDP 3478 (both in `server/src/shared/phone.ts`,
-# shown in the administration too). On ufw:
-#
-#   ufw allow 10000:10200/udp
-#   ufw allow 3478/udp
-#
-# and, if the host sees them through a cloud firewall or a security group, the
-# same rules there. The STUN responder only answers a browser's Binding request;
-# it relays nothing, so no TURN transport or relay port is opened.
-#
-# If those ports are not open, NOTHING BREAKS LOUDLY: the phone simply does not
-# appear. The client proves the media path before it offers itself, so a
-# deployment whose range is closed shows no phone at all rather than an entry
-# that fails on the first call. That is the signal to go and open the range.
+# the hardening drop-in beside it (`gilbert.service.d/10-hardening.conf`), so
+# the posture is ours and the unit is yours. A host with no unit gets ours too.
 #
 # WHAT THIS DOES NOT DO
 #
-# It does not install Node (Gilbert needs the LTS line, 24 today; the bridge
-# tarball carries Janus and this script installs the libraries Janus links, so
-# no compiler is needed) and it does not put a reverse proxy in front: both are
-# stated in INSTALL.md. It targets Linux.
+# It does not install Node (Gilbert needs the LTS line, 24 today) and it does
+# not put a reverse proxy in front: both are stated in INSTALL.md. It targets
+# Linux.
 #
 # Usage, as root (or with sudo):
 #
 #   sudo ./install/install.sh
 #
 # Set GILBERT_APP to the checkout if this script is run from elsewhere,
-# GILBERT_USER to the account the services run as (default: the user who invoked
-# sudo, else `gilbert`), and GILBERT_RELEASE_URL to fetch the bridge from a
-# mirror. GILBERT_ENV, GILBERT_JANUS_PREFIX and GILBERT_UNIT_DIR move the
-# environment file, the bridge prefix and the unit directory; the variables
-# below say what each is for.
+# GILBERT_USER to the account the service runs as (default: the user who invoked
+# sudo, else `gilbert`). GILBERT_ENV and GILBERT_UNIT_DIR move the environment
+# file and the unit directory; the variables below say what each is for.
 set -euo pipefail
 
 # --- what to install, and where ---------------------------------------------
 APP="${GILBERT_APP:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
-# The account the services run as. Prefer the user who invoked sudo (they own
+# The account the service runs as. Prefer the user who invoked sudo (they own
 # the checkout); fall back to a system account this script creates if needed.
 USER_NAME="${GILBERT_USER:-${SUDO_USER:-gilbert}}"
 # The environment file the application reads at boot: the handshake (the
 # Stalwart URL, and the Master when this deployment runs an agent) and anything
 # else this deployment states. See `.env.example`.
 ENV_FILE="${GILBERT_ENV:-/etc/gilbert.env}"
-# Where the bridge is installed. `/usr/local` so the `janus` binary and its
-# config land on the usual paths.
-PREFIX="${GILBERT_JANUS_PREFIX:-/usr/local}"
-# The bridge's config, beside Janus's own.
-JANUS_ETC="$PREFIX/etc/janus"
 UNIT_DIR="${GILBERT_UNIT_DIR:-/etc/systemd/system}"
-# Where the bridge's host tarball is published. The latest release's assets are
-# addressable by fixed name, so no API and no tag arithmetic are needed.
-RELEASE="${GILBERT_RELEASE_URL:-https://github.com/sequico/gilbert/releases/latest/download}"
 
 say() { printf '==> %s\n' "$*"; }
 warn() { printf '!! %s\n' "$*" >&2; }
 die() { printf '!! %s\n' "$*" >&2; exit 1; }
-
-# Make the browser's host candidates resolvable (ADR 0023).
-#
-# There is no STUN: the browser's own host candidates are the media path, and
-# Chrome obfuscates them as random `<uuid>.local` names. Janus resolves those
-# through the system resolver, so with no mDNS resolution it adds none of the
-# browser's candidates and leaves ICE to peer-reflexive discovery — which works
-# on some networks and not others, the phone failing intermittently. `nss-mdns`
-# over avahi is what makes the names resolve. Best effort: a host that cannot
-# have it still runs a phone, just a less reliable one, so this warns rather
-# than failing the install.
-ensure_mdns_resolution() {
-  if [ -f /etc/nsswitch.conf ] && grep -qE '^hosts:.*[[:space:]]mdns' /etc/nsswitch.conf; then
-    return 0
-  fi
-  if command -v apt-get >/dev/null 2>&1; then
-    if ! apt-get install -y --no-install-recommends avahi-daemon libnss-mdns >/dev/null 2>&1; then
-      warn "could not install avahi-daemon/libnss-mdns: the bridge may not resolve the browser's mDNS host candidates, and ICE may fall back to peer-reflexive discovery"
-      return 0
-    fi
-  else
-    warn "no apt-get to install avahi-daemon/libnss-mdns: the bridge may not resolve the browser's mDNS host candidates"
-    return 0
-  fi
-  if [ -f /etc/nsswitch.conf ] && ! grep -qE '^hosts:.*[[:space:]]mdns' /etc/nsswitch.conf; then
-    if grep -qE '^hosts:[[:space:]]+files([[:space:]]|$)' /etc/nsswitch.conf; then
-      sed -i -E 's/^(hosts:[[:space:]]+files[[:space:]]+)/\1mdns4_minimal [NOTFOUND=return] /' /etc/nsswitch.conf \
-        || warn "could not point /etc/nsswitch.conf at mdns4_minimal"
-    else
-      sed -i -E 's/^(hosts:[[:space:]]+)/\1mdns4_minimal [NOTFOUND=return] /' /etc/nsswitch.conf \
-        || warn "could not point /etc/nsswitch.conf at mdns4_minimal"
-    fi
-  fi
-  systemctl enable --now avahi-daemon.service >/dev/null 2>&1 \
-    || warn "could not start avahi-daemon: the bridge may not resolve the browser's mDNS host candidates"
-}
 
 [ "$(id -u)" -eq 0 ] || die "run this as root (or with sudo)."
 command -v node >/dev/null || die "Node is not installed. Gilbert needs the LTS line (24); install it first (see INSTALL.md)."
@@ -154,131 +59,14 @@ say "building Gilbert"
 if ! id "$USER_NAME" >/dev/null 2>&1; then
   say "creating the service account $USER_NAME"
   useradd --system --no-create-home --shell /usr/sbin/nologin "$USER_NAME" \
-    || warn "could not create $USER_NAME; the services may refuse to start"
+    || warn "could not create $USER_NAME; the service may refuse to start"
 fi
 # The app only reads these; root's build outputs are world-readable anyway, but
 # handing them over keeps a write from ever needing a privilege.
 chown -R "$USER_NAME" "$APP/node_modules" "$APP/web/dist" "$APP/server/dist" \
   2>/dev/null || true
 
-# --- the bridge (best effort, fetched from the release) ----------------------
-BRIDGE_OK=0
-STUN_OK=0
-BRIDGE_REASON="the bridge is not installed"
-if [ "${GILBERT_BRIDGE:-1}" != "1" ]; then
-  BRIDGE_REASON="the bridge is disabled (GILBERT_BRIDGE=0)"
-else
-  ARCH="$(uname -m)"
-  case "$ARCH" in
-    x86_64 | amd64) ARCH=amd64 ;;
-    aarch64 | arm64) ARCH=arm64 ;;
-    *) ARCH="" ;;
-  esac
-  if [ -z "$ARCH" ]; then
-    BRIDGE_REASON="this machine's architecture ($(uname -m)) has no bridge build"
-  else
-    asset="gilbert-janus-linux-$ARCH.tar.gz"
-    say "fetching the phone's bridge ($asset)"
-    tmp="$(mktemp -d)"
-    trap 'rm -rf "$tmp"' EXIT
-    if curl -fsSL "$RELEASE/$asset" -o "$tmp/$asset" \
-      && curl -fsSL "$RELEASE/$asset.sha256" -o "$tmp/$asset.sha256" \
-      && ( cd "$tmp" && sha256sum -c "$asset.sha256" >/dev/null 2>&1 ) \
-      && tar xzf "$tmp/$asset" -C "$PREFIX"; then
-      BRIDGE_OK=1
-    else
-      BRIDGE_REASON="the bridge could not be fetched from $RELEASE"
-    fi
-  fi
-fi
-
-# Verify what was unpacked: a binary with no plugins is not a working bridge.
-if [ "$BRIDGE_OK" = "1" ] \
-   && { [ ! -x "$PREFIX/bin/janus" ] \
-        || [ ! -e "$PREFIX/lib/janus/plugins/libjanus_sip.so" ] \
-        || [ ! -e "$PREFIX/lib/janus/plugins/libjanus_echotest.so" ] \
-        || [ ! -e "$PREFIX/lib/janus/transports/libjanus_websockets.so" ]; }; then
-  BRIDGE_OK=0
-  BRIDGE_REASON="the downloaded bridge is missing its sip, echotest or websockets pieces"
-fi
-
-# The libraries Janus links are the host's, except the two whose sonames a
-# current distribution has moved past — those travel with the bridge. Install
-# the rest the way the image does (one at a time: an unknown name must not stop
-# the others), then refuse a bridge the linker still cannot resolve — that is
-# the difference between a service that runs and `ExecMainStatus=127`.
-if [ "$BRIDGE_OK" = "1" ]; then
-  if command -v apt-get >/dev/null 2>&1; then
-    # A distribution that ran the 64-bit time_t transition renamed libraries by
-    # appending `t64` (Ubuntu 24.04 and on), so the package to install is a fact
-    # about the host: the plain name is tried and its `t64` form beside it. A
-    # name that exists in neither form is skipped, like any other package this
-    # host does not have, and the ldd check below is what refuses a bridge that
-    # is still unresolved.
-    for pkg in libglib2.0-0 libjansson4 libssl3 libsrtp2-1 libnice10 \
-               libcurl4 libsofia-sip-ua0 libopus0 libogg0; do
-      apt-get install -y --no-install-recommends "$pkg" >/dev/null 2>&1 \
-        || apt-get install -y --no-install-recommends "${pkg}t64" >/dev/null 2>&1 \
-        || true
-    done
-  fi
-  # A healthy bridge is the empty answer, not a failure: `grep` exits 1 when
-  # nothing matches, `pipefail` makes that the pipeline's status, and `set -e`
-  # would kill the installer right here — so the script survived only while the
-  # bridge was broken. The `|| true` is that status, not the value: `missing`
-  # still holds what was found.
-  missing="$(
-    export LD_LIBRARY_PATH="$PREFIX/lib/janus"
-    {
-      ldd "$PREFIX/bin/janus"
-      for so in "$PREFIX"/lib/janus/plugins/*.so "$PREFIX"/lib/janus/transports/*.so; do
-        [ -e "$so" ] && ldd "$so"
-      done
-    } 2>/dev/null | grep 'not found' | awk '{print $1}' | sort -u | tr '\n' ' '
-  )" || true
-  if [ -n "$missing" ]; then
-    BRIDGE_OK=0
-    BRIDGE_REASON="the bridge needs libraries this host does not have: $missing"
-  fi
-fi
-
-# --- the bridge's configuration and service ----------------------------------
-if [ "$BRIDGE_OK" = "1" ]; then
-  say "writing $JANUS_ETC"
-  mkdir -p "$JANUS_ETC"
-  # The media range is generated from its one definition, so the ports an
-  # operator opens and the ports Janus binds cannot drift apart; the prefix
-  # keeps the plugin folders findable wherever the tarball unpacked.
-  node "$APP/scripts/janusConfig.mjs" "$JANUS_ETC/janus.jcfg" "$PREFIX"
-  cp "$APP/deploy/janus/janus.transport.websockets.jcfg" \
-     "$APP/deploy/janus/janus.plugin.sip.jcfg" \
-     "$APP/deploy/janus/janus.plugin.echotest.jcfg" \
-     "$JANUS_ETC/"
-  # The bridge is useless without the browser's media addresses, and those
-  # arrive as mDNS names.
-  ensure_mdns_resolution
-
-  # The browser's STUN responder: coturn in STUN-only mode, on the port generated
-  # from its one definition. It answers the Binding request that gives the
-  # browser its server-reflexive address, and relays nothing. Best effort, like
-  # the bridge itself: without it ICE falls back to peer-reflexive discovery,
-  # which works but is less deterministic.
-  if command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y --no-install-recommends coturn >/dev/null 2>&1 || true
-  fi
-  if command -v turnserver >/dev/null 2>&1; then
-    install -d /etc/gilbert
-    node "$APP/scripts/stunConfig.mjs" /etc/gilbert/turnserver.conf
-    STUN_OK=1
-    # The distribution's own coturn service, if it exists, would race for the
-    # port: the bridge's responder is ours.
-    systemctl disable --now coturn.service >/dev/null 2>&1 || true
-  else
-    warn "coturn is not installed: the bridge has no STUN responder, and ICE falls back to peer-reflexive discovery"
-  fi
-fi
-
-# --- the services ------------------------------------------------------------
+# --- the service -------------------------------------------------------------
 say "installing systemd services ($UNIT_DIR)"
 install -d "$UNIT_DIR"
 sed_args=(-e "s#@USER@#${USER_NAME}#g" -e "s#@APP@#${APP}#g"
@@ -292,26 +80,7 @@ fi
 install -d "$UNIT_DIR/gilbert.service.d"
 cp "$APP/install/gilbert-hardening.conf" \
   "$UNIT_DIR/gilbert.service.d/10-hardening.conf"
-if [ "$BRIDGE_OK" = "1" ]; then
-  sed "${sed_args[@]}" "$APP/install/gilbert-janus.service" \
-    > "$UNIT_DIR/gilbert-janus.service"
-fi
-if [ "$STUN_OK" = "1" ]; then
-  sed "${sed_args[@]}" "$APP/install/gilbert-stun.service" \
-    > "$UNIT_DIR/gilbert-stun.service"
-fi
 systemctl daemon-reload
-
-if [ "$BRIDGE_OK" = "1" ]; then
-  systemctl enable --now gilbert-janus.service
-  say "the bridge is installed and running ($(cat "$PREFIX/share/janus/VERSION" 2>/dev/null || echo "unknown version"))"
-else
-  warn "the phone is NOT available on this host: $BRIDGE_REASON."
-  warn "Gilbert is installed without it; the administration says the same."
-fi
-if [ "$STUN_OK" = "1" ]; then
-  systemctl enable --now gilbert-stun.service
-fi
 
 # --- the environment file, and starting the application ----------------------
 if [ ! -f "$ENV_FILE" ]; then
@@ -342,26 +111,10 @@ cat <<EOF
 
   the application   systemctl status gilbert.service
   the environment   $ENV_FILE
-$( [ "$BRIDGE_OK" = "1" ] && echo "  the bridge        systemctl status gilbert-janus.service" || echo "  the bridge        NOT installed ($BRIDGE_REASON)" )
-$( [ "$STUN_OK" = "1" ] && echo "  the STUN responder systemctl status gilbert-stun.service" || echo "  the STUN responder NOT installed (ICE uses peer-reflexive discovery)" )
 
-Two things are the operator's, and INSTALL.md covers both:
+One thing is the operator's, and INSTALL.md covers it:
 
   1. a reverse proxy in front of the application (see Caddyfile.example /
      nginx.example.conf). The application listens on 127.0.0.1:8080 by default.
-
-  2. THE PHONE'S PORTS, if the bridge was installed. Open its UDP media range
-     and its STUN port inbound, and open them in any cloud firewall too:
-
-         ufw allow 10000:10200/udp
-         ufw allow 3478/udp
-
-     Nothing else is opened: the Janus API is loopback-only, the STUN responder
-     relays nothing, and the SIP leg to the provider is outbound, so 5060/5061
-     stay closed.
-
-     If the ports are closed, the phone does not appear at all — that is the
-     design, not a failure: the client proves the media path before offering
-     the phone.
 
 EOF

@@ -23,57 +23,6 @@ COPY web/package.json web/
 RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
-# The bridge's main config, from the one definition of the media range the
-# administration also shows (ADR 0023).
-RUN node scripts/janusConfig.mjs /janus.jcfg
-# The STUN responder's config, from the one definition of its port (ADR 0023).
-RUN node scripts/stunConfig.mjs /turnserver.conf
-
-# ---- the phone's bridge (ADR 0023) ----
-# Janus with its SIP plugin, built from the pinned upstream release. It is the
-# second process of the one image, not a service of its own, so the phone
-# arrives with Gilbert and nothing is installed by hand.
-FROM debian:bookworm AS janus
-ARG JANUS_VERSION=""
-COPY deploy/janus/VERSION /janus-version
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      ca-certificates curl autoconf automake libtool pkg-config \
-      gcc g++ make cmake gengetopt \
-      libglib2.0-dev libjansson-dev libconfig-dev libssl-dev libsrtp2-dev \
-      libnice-dev libcurl4-openssl-dev libsofia-sip-ua-dev libopus-dev \
-      libogg-dev libwebsockets-dev \
- && rm -rf /var/lib/apt/lists/*
-WORKDIR /src
-RUN VERSION="${JANUS_VERSION:-$(cat /janus-version)}" \
- && curl -fsSL "https://github.com/meetecho/janus-gateway/archive/refs/tags/${VERSION}.tar.gz" \
-      | tar xz \
- && mv janus-gateway-* janus
-WORKDIR /src/janus
-# Only the two plugins the phone uses, only the WebSocket transport, and no
-# data channels, docs or JS modules: the smallest bridge that carries a call.
-RUN ./autogen.sh \
- && ./configure --prefix=/usr/local \
-      --disable-docs --disable-data-channels \
-      --disable-all-plugins --enable-plugin-sip --enable-plugin-echotest \
-      --disable-all-transports --enable-websockets \
-      --disable-all-handlers --disable-all-loggers \
- && make -j"$(nproc)" \
- && make install \
- && mkdir -p /usr/local/share/janus /usr/local/lib/janus/loggers /usr/local/lib/janus/events \
- && cp COPYING /usr/local/share/janus/COPYING \
- && cp /janus-version /usr/local/share/janus/VERSION
-
-# The two sonames a current distribution has moved past. This is built on
-# bookworm, so the bridge links libconfig.so.9 and libwebsockets.so.17, while
-# Ubuntu ships libconfig.so.11 and libwebsockets.so.19 — different sonames, so
-# neither the host's package nor a mirror of the Ubuntu one would do. They travel
-# beside the bridge (found through LD_LIBRARY_PATH, set by the service), so a
-# host needs no Debian packages at all.
-RUN find /usr/lib -maxdepth 2 \
-      \( -name 'libconfig.so.9*' -o -name 'libwebsockets.so.17*' \) \
-      -exec cp -L {} /usr/local/lib/janus/ \; \
- && ls -1 /usr/local/lib/janus/ | grep -E '^lib(config|websockets)\.so\.'
 
 # ---- runtime stage ----
 FROM node:24-bookworm-slim AS runtime
@@ -87,23 +36,10 @@ ENV NODE_ENV=production \
     GILBERT_VERSION=$GILBERT_VERSION \
     BASE_PATH=$BASE_PATH
 WORKDIR /app
-# The bridge's runtime libraries, and Janus itself from the stage above.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
-      libglib2.0-0 libjansson4 libconfig9 libssl3 libsrtp2-1 libnice10 \
-      libcurl4 libsofia-sip-ua0 libopus0 libogg0 libwebsockets17 \
-      coturn \
  && rm -rf /var/lib/apt/lists/*
-COPY --from=janus /usr/local /usr/local
-COPY --from=build /janus.jcfg /usr/local/etc/janus/janus.jcfg
-COPY deploy/janus/janus.transport.websockets.jcfg \
-     deploy/janus/janus.plugin.sip.jcfg \
-     deploy/janus/janus.plugin.echotest.jcfg \
-     /usr/local/etc/janus/
-# The bridge's STUN responder, generated from the one port definition (ADR 0023).
-COPY --from=build /turnserver.conf /etc/gilbert/turnserver.conf
-COPY deploy/janus/entrypoint.sh /usr/local/bin/gilbert-entrypoint
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 # config.ts reads the version through this at startup. With GILBERT_VERSION
@@ -113,8 +49,7 @@ COPY scripts/ ./scripts/
 # Only what the server loads at runtime: hono and its Node adapter, about 4 MB.
 # The build stage's tree is 132 MB of vite, TypeScript, esbuild and React that
 # never executes here but shipped anyway -- and showed up in every CVE scan.
-RUN chmod +x /usr/local/bin/gilbert-entrypoint \
- && npm ci --ignore-scripts --omit=dev --workspace server \
+RUN npm ci --ignore-scripts --omit=dev --workspace server \
  && rm -rf /root/.npm /tmp/* \
  && mkdir -p /data && chown node:node /data \
  # The base image ships a package manager the server never calls. Anyone who
@@ -134,10 +69,5 @@ USER node
 # that want the sessions to survive say so themselves: docker-compose.yml and
 # deploy.example.sh both mount a *named* volume at /data, which is unaffected.
 EXPOSE 8080
-# The bridge's API is loopback-only and its media range is a deployment fact
-# (ADR 0023): the range is stated in the administration, and an operator opens
-# it on the host.
 HEALTHCHECK --interval=30s --timeout=5s CMD ["node", "/app/scripts/healthcheck.mjs"]
-# Janus first, then whatever this image was told to run (ADR 0023).
-ENTRYPOINT ["/usr/local/bin/gilbert-entrypoint"]
 CMD ["node", "server/dist/index.js"]
