@@ -1602,7 +1602,6 @@ export const catalog: Catalog = {
     Policy: "Beleid",
     Installation: "Installatie",
     "Force passwords": "Wachtwoorden forceren",
-    "Identities and SIP Phone": "Identiteiten en SIP-telefoon",
     Master: "Master",
     "Group Agents": "Groepsagenten",
     Approvals: "Goedkeuringen",
@@ -1701,34 +1700,8 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "‘Einde’ moet na ‘Begin’ liggen.",
     "Auto-reply is on": "Automatisch antwoord staat aan",
     "Auto-reply saved": "Automatisch antwoord opgeslagen",
-    Personal: "Persoonlijk",
     Missed: "Gemist",
-    Declined: "Geweigerd",
     Failed: "Mislukt",
-    "Recent calls": "Recente oproepen",
-    "{n}s": "{n}s",
-    "No calls yet.": "Nog geen oproepen.",
-    All: "Alle",
-    Global: "Globaal",
-    My: "Mijn",
-    "This browser reaches Gilbert: the phone's media path is proven.":
-      "Deze browser bereikt Gilbert: het mediaspoor van de telefoon is bewezen.",
-    "The phone's connection to Gilbert is down.":
-      "De verbinding van de telefoon met Gilbert is verbroken.",
-    "Gilbert phone connection": "Gilbert-telefoonverbinding",
-    "Registered with the SIP provider.": "Geregistreerd bij de SIP-provider.",
-    "Not registered with the SIP provider.": "Niet geregistreerd bij de SIP-provider.",
-    "SIP server connection": "SIP-serververbinding",
-    "No contacts with a number to call.": "Geen contacten met een nummer om te bellen.",
-    "Incoming call": "Inkomend gesprek",
-    "Unknown caller": "Onbekende beller",
-    Answer: "Opnemen",
-    Decline: "Weigeren",
-    Call: "Bellen",
-    "Number or address": "Nummer of adres",
-    Unmute: "Dempen opheffen",
-    Mute: "Dempen",
-    "Hang up": "Ophangen",
     "Actions for {email}": "Acties voor {email}",
     "Invitation accepted": "Uitnodiging geaccepteerd",
     "Invitation declined": "Uitnodiging geweigerd",
@@ -2102,28 +2075,6 @@ export const catalog: Catalog = {
       "Elke identiteit van deze groep is aan een lid toegewezen.",
     "Messages already carrying this label lose it for everyone in the group.":
       "Berichten die dit label al dragen, verliezen het voor iedereen in de groep.",
-    "Bridge status": "Bridgestatus",
-    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
-      "De telefoon is niet beschikbaar op deze deployment: {reason}. Open Bridgestatus voor wat er te verhelpen is.",
-    "Unknown — the status could not be read":
-      "Onbekend — de status kon niet worden gelezen",
-    "Not running": "Draait niet",
-    "no reason given": "geen reden opgegeven",
-    Reachable: "Bereikbaar",
-    "Not reachable — open the bridge's ports inbound":
-      "Niet bereikbaar — open de poorten van de bridge inkomend",
-    "Not checked": "Niet gecontroleerd",
-    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
-      "De bridge van de telefoon is een tweede proces naast de applicatie. Zo ziet die eruit vanaf de server en vanaf deze browser; een controle die faalt, noemt wat er te verhelpen is.",
-    "Bridge service": "Bridgedienst",
-    "Janus version": "Janus-versie",
-    "not installed": "niet geïnstalleerd",
-    "Media range (UDP, inbound)": "Mediabereik (UDP, inkomend)",
-    "STUN port (UDP, inbound)": "STUN-poort (UDP, inkomend)",
-    "Media path from this browser": "Mediaspoor vanaf deze browser",
-    "Re-check": "Opnieuw controleren",
-    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
-      "De bridge draait naast de applicatie en start ermee — het entrypoint van de container, of gilbert-janus.service en gilbert-stun.service op een host. GILBERT_BRIDGE=0 zet hem uit. Zijn API is alleen loopback en het stuk naar de SIP-provider is uitgaand, dus het mediabereik en de STUN-poort hierboven zijn de poorten om inkomend te openen.",
     "The theme this build knows: system, light, dark, or Gilbert's own.":
       "Het thema dat deze build kent: systeem, licht, donker of dat van Gilbert zelf.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
@@ -2256,10 +2207,6 @@ export const catalog: Catalog = {
     Unknown: "Onbekend",
     "New in this build — no description yet.":
       "Nieuw in deze build — nog geen beschrijving.",
-    "SIP account": "SIP-account",
-    "User name": "Gebruikersnaam",
-    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
-      "Het account waarmee de telefoon zich registreert, naar de provider verzonden als sip:<user name>@<server>. Een identiteit zonder server en gebruikersnaam wordt niet geregistreerd.",
     "System script saved": "Systeemscript opgeslagen",
     "Your system Sieve script has changes that have not been saved.":
       "Uw systeem-Sieve-script heeft niet-opgeslagen wijzigingen.",
@@ -2287,8 +2234,6 @@ export const catalog: Catalog = {
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Dit account kan niet worden gelezen: Stalwart weigerde de imitatie. Er wordt niets geschreven tot het antwoordt.",
     "This account holds no identity yet.": "Dit account heeft nog geen identiteit.",
-    "SIP set": "SIP ingesteld",
-    SIP: "SIP",
     "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
       "De hele lijst van het account wordt getoond, en elk item is bewerkbaar: er blijft niets achter als identiteit die het opstelscherm nog biedt.",
     Enforce: "Forceren",
@@ -2497,32 +2442,6 @@ export const catalog: Catalog = {
     "Empty {name}": "{name} leegmaken",
     "Delete all spam in “{name}”?": "Alle spam in ‘{name}’ verwijderen?",
     "Empty folder": "Map leegmaken",
-    "The phone bridge did not answer.": "De telefoonbridge antwoordde niet.",
-    "The phone bridge is gone.": "De telefoonbridge is weg.",
-    "The phone bridge accepted no session.": "De telefoonbridge accepteerde geen sessie.",
-    "The phone bridge attached no plugin.": "De telefoonbridge verbond geen plug-in.",
-    "The phone bridge refused the request.": "De telefoonbridge weigerde het verzoek.",
-    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
-      "Uw browser blokkeert de microfoon voor deze site, dus een gesprek kan uw stem niet doorgeven. Sta het voor deze site toe en probeer het opnieuw.",
-    "No microphone is available on this device, so a call cannot carry your voice.":
-      "Er is geen microfoon beschikbaar op dit apparaat, dus een gesprek kan uw stem niet doorgeven.",
-    "This browser cannot reach a microphone, so a call cannot carry your voice.":
-      "Deze browser kan geen microfoon bereiken, dus een gesprek kan uw stem niet doorgeven.",
-    "Calling…": "Bellen…",
-    "Ringing…": "Overgaan…",
-    Connected: "Verbonden",
-    "The line is busy": "De lijn is bezet",
-    "no-route": "no-route",
-    "No route to this number": "Geen route naar dit nummer",
-    "This number is not available": "Dit nummer is niet beschikbaar",
-    "The call was declined": "Het gesprek werd geweigerd",
-    "The call could not be completed": "Het gesprek kon niet worden voltooid",
-    "The phone is not connected.": "De telefoon is niet verbonden.",
-    "The line is busy.": "De lijn is bezet.",
-    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
-      "De browser kan de media van de telefoon niet naar Gilbert brengen: de mediapoorten zijn niet bereikbaar. Het probleem zit tussen deze browser en Gilbert, niet bij de SIP-provider.",
-    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
-      "De lijn registreerde niet bij de SIP-server. Het probleem zit tussen Gilbert en de SIP-provider, niet tussen deze browser en Gilbert.",
     "the server closed the live-updates stream":
       "de server sloot de livestream met updates",
     "the server could not be reached": "de server kon niet worden bereikt",

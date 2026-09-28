@@ -1600,7 +1600,6 @@ export const catalog: Catalog = {
     Policy: "Политика",
     Installation: "Установка",
     "Force passwords": "Принудительная смена паролей",
-    "Identities and SIP Phone": "Профили и SIP-телефон",
     Master: "Master",
     "Group Agents": "Агенты групп",
     Approvals: "Согласования",
@@ -1699,33 +1698,8 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "«Конец» должен быть позже «Начала».",
     "Auto-reply is on": "Автоответ включён",
     "Auto-reply saved": "Автоответ сохранён",
-    Personal: "Личное",
     Missed: "Пропущенные",
-    Declined: "Отклонённые",
     Failed: "Неудачные",
-    "Recent calls": "Недавние звонки",
-    "{n}s": "{n} с",
-    "No calls yet.": "Звонков пока нет.",
-    All: "Все",
-    Global: "Глобальные",
-    My: "Мои",
-    "This browser reaches Gilbert: the phone's media path is proven.":
-      "Этот браузер достигает Gilbert: медиапуть телефона подтверждён.",
-    "The phone's connection to Gilbert is down.": "Связь телефона с Gilbert потеряна.",
-    "Gilbert phone connection": "Связь телефона с Gilbert",
-    "Registered with the SIP provider.": "Зарегистрирован у SIP-провайдера.",
-    "Not registered with the SIP provider.": "Не зарегистрирован у SIP-провайдера.",
-    "SIP server connection": "Связь с SIP-сервером",
-    "No contacts with a number to call.": "Нет контактов с номером для звонка.",
-    "Incoming call": "Входящий звонок",
-    "Unknown caller": "Неизвестный абонент",
-    Answer: "Ответить",
-    Decline: "Отклонить",
-    Call: "Позвонить",
-    "Number or address": "Номер или адрес",
-    Unmute: "Включить звук",
-    Mute: "Выключить звук",
-    "Hang up": "Положить трубку",
     "Actions for {email}": "Действия для {email}",
     "Invitation accepted": "Приглашение принято",
     "Invitation declined": "Приглашение отклонено",
@@ -2101,28 +2075,6 @@ export const catalog: Catalog = {
       "Каждый профиль этой группы назначен участнику.",
     "Messages already carrying this label lose it for everyone in the group.":
       "Письма, уже несущие этот ярлык, теряют его для всех в группе.",
-    "Bridge status": "Состояние моста",
-    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
-      "Телефон недоступен на этом развёртывании: {reason}. Откройте «Состояние моста», чтобы узнать, что чинить.",
-    "Unknown — the status could not be read":
-      "Неизвестно — состояние не удалось прочитать",
-    "Not running": "Не запущен",
-    "no reason given": "причина не указана",
-    Reachable: "Достижим",
-    "Not reachable — open the bridge's ports inbound":
-      "Недостижим — откройте порты моста на вход",
-    "Not checked": "Не проверено",
-    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
-      "Мост телефона — второй процесс рядом с приложением. Вот как он выглядит с сервера и из этого браузера; неудачная проверка называет то, что нужно починить.",
-    "Bridge service": "Служба моста",
-    "Janus version": "Версия Janus",
-    "not installed": "не установлен",
-    "Media range (UDP, inbound)": "Диапазон медиа (UDP, вход)",
-    "STUN port (UDP, inbound)": "Порт STUN (UDP, вход)",
-    "Media path from this browser": "Медиапуть из этого браузера",
-    "Re-check": "Проверить снова",
-    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
-      "Мост работает рядом с приложением и стартует вместе с ним — entrypoint контейнера или gilbert-janus.service и gilbert-stun.service на хосте. GILBERT_BRIDGE=0 отключает его. Его API только loopback, а участок к SIP-провайдеру исходящий, поэтому диапазон медиа и порт STUN выше — это порты для открытия на вход.",
     "The theme this build knows: system, light, dark, or Gilbert's own.":
       "Тема, которую знает эта сборка: системная, светлая, тёмная или собственная тема Gilbert.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
@@ -2252,10 +2204,6 @@ export const catalog: Catalog = {
     Example: "Пример",
     Unknown: "Неизвестно",
     "New in this build — no description yet.": "Новое в этой сборке — описания пока нет.",
-    "SIP account": "Учётная запись SIP",
-    "User name": "Имя пользователя",
-    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
-      "Учётная запись, под которой регистрируется телефон, отправляется провайдеру как sip:<user name>@<server>. Профиль без сервера и имени пользователя не регистрируется.",
     "System script saved": "Системный скрипт сохранён",
     "Your system Sieve script has changes that have not been saved.":
       "В вашем системном скрипте Sieve есть несохранённые изменения.",
@@ -2284,8 +2232,6 @@ export const catalog: Catalog = {
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Эту учётную запись не удаётся прочитать: Stalwart отклонил имперсонацию. Ничего не записывается, пока она не ответит.",
     "This account holds no identity yet.": "У этой учётной записи пока нет профиля.",
-    "SIP set": "SIP задан",
-    SIP: "SIP",
     "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
       "Показан весь список учётной записи, и каждая запись редактируема: ничего не остаётся позади как профиль, который редактор ещё предлагает.",
     Enforce: "Принудить",
@@ -2492,33 +2438,6 @@ export const catalog: Catalog = {
     "Empty {name}": "Очистить {name}",
     "Delete all spam in “{name}”?": "Удалить весь спам в «{name}»?",
     "Empty folder": "Очистить папку",
-    "The phone bridge did not answer.": "Мост телефона не ответил.",
-    "The phone bridge is gone.": "Мост телефона исчез.",
-    "The phone bridge accepted no session.": "Мост телефона не принял ни одного сеанса.",
-    "The phone bridge attached no plugin.":
-      "Мост телефона не подключил ни одного плагина.",
-    "The phone bridge refused the request.": "Мост телефона отклонил запрос.",
-    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
-      "Ваш браузер блокирует микрофон для этого сайта, поэтому звонок не может передать ваш голос. Разрешите его для этого сайта и попробуйте снова.",
-    "No microphone is available on this device, so a call cannot carry your voice.":
-      "На этом устройстве нет доступного микрофона, поэтому звонок не может передать ваш голос.",
-    "This browser cannot reach a microphone, so a call cannot carry your voice.":
-      "Этот браузер не может добраться до микрофона, поэтому звонок не может передать ваш голос.",
-    "Calling…": "Звонок…",
-    "Ringing…": "Гудки…",
-    Connected: "Соединено",
-    "The line is busy": "Линия занята",
-    "no-route": "no-route",
-    "No route to this number": "Нет маршрута к этому номеру",
-    "This number is not available": "Этот номер недоступен",
-    "The call was declined": "Звонок отклонён",
-    "The call could not be completed": "Звонок не удалось завершить",
-    "The phone is not connected.": "Телефон не подключён.",
-    "The line is busy.": "Линия занята.",
-    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
-      "Браузер не может передать медиа телефона в Gilbert: его медиапорты недостижимы. Проблема между этим браузером и Gilbert, а не с SIP-провайдером.",
-    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
-      "Линия не зарегистрировалась на SIP-сервере. Проблема между Gilbert и SIP-провайдером, а не между этим браузером и Gilbert.",
     "the server closed the live-updates stream": "сервер закрыл поток живых обновлений",
     "the server could not be reached": "не удалось достичь сервера",
     "Timed out": "Время истекло",

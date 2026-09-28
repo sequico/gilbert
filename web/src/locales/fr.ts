@@ -1621,7 +1621,6 @@ export const catalog: Catalog = {
     Policy: "Politique",
     Installation: "Installation",
     "Force passwords": "Forcer les mots de passe",
-    "Identities and SIP Phone": "Identités et téléphone SIP",
     Master: "Master",
     "Group Agents": "Agents de groupe",
     Approvals: "Approbations",
@@ -1722,34 +1721,8 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "« Fin » doit suivre « Début ».",
     "Auto-reply is on": "La réponse automatique est activée",
     "Auto-reply saved": "Réponse automatique enregistrée",
-    Personal: "Personnel",
     Missed: "Manqués",
-    Declined: "Refusés",
     Failed: "Échoués",
-    "Recent calls": "Appels récents",
-    "{n}s": "{n}s",
-    "No calls yet.": "Aucun appel pour l'instant.",
-    All: "Tous",
-    Global: "Globaux",
-    My: "Mes",
-    "This browser reaches Gilbert: the phone's media path is proven.":
-      "Ce navigateur atteint Gilbert : le chemin multimédia du téléphone est prouvé.",
-    "The phone's connection to Gilbert is down.":
-      "La connexion du téléphone à Gilbert est interrompue.",
-    "Gilbert phone connection": "Connexion du téléphone à Gilbert",
-    "Registered with the SIP provider.": "Enregistré auprès du fournisseur SIP.",
-    "Not registered with the SIP provider.": "Non enregistré auprès du fournisseur SIP.",
-    "SIP server connection": "Connexion au serveur SIP",
-    "No contacts with a number to call.": "Aucun contact avec un numéro à appeler.",
-    "Incoming call": "Appel entrant",
-    "Unknown caller": "Appelant inconnu",
-    Answer: "Répondre",
-    Decline: "Refuser",
-    Call: "Appeler",
-    "Number or address": "Numéro ou adresse",
-    Unmute: "Réactiver le son",
-    Mute: "Couper le son",
-    "Hang up": "Raccrocher",
     "Actions for {email}": "Actions pour {email}",
     "Invitation accepted": "Invitation acceptée",
     "Invitation declined": "Invitation refusée",
@@ -2129,27 +2102,6 @@ export const catalog: Catalog = {
       "Chaque identité de ce groupe est attribuée à un membre.",
     "Messages already carrying this label lose it for everyone in the group.":
       "Les messages portant déjà ce libellé le perdent pour tout le monde dans le groupe.",
-    "Bridge status": "État du bridge",
-    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
-      "Le téléphone n'est pas disponible sur ce déploiement : {reason}. Ouvrez État du bridge pour ce qu'il faut corriger.",
-    "Unknown — the status could not be read": "Inconnu — l'état n'a pas pu être lu",
-    "Not running": "Ne tourne pas",
-    "no reason given": "aucune raison indiquée",
-    Reachable: "Atteignable",
-    "Not reachable — open the bridge's ports inbound":
-      "Non atteignable — ouvrez les ports du bridge en entrée",
-    "Not checked": "Non vérifié",
-    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
-      "Le bridge du téléphone est un second processus à côté de l'application. Voici à quoi il ressemble depuis le serveur et depuis ce navigateur ; une vérification qui échoue nomme ce qu'il faut corriger.",
-    "Bridge service": "Service de bridge",
-    "Janus version": "Version de Janus",
-    "not installed": "non installé",
-    "Media range (UDP, inbound)": "Plage multimédia (UDP, entrée)",
-    "STUN port (UDP, inbound)": "Port STUN (UDP, entrée)",
-    "Media path from this browser": "Chemin multimédia depuis ce navigateur",
-    "Re-check": "Revérifier",
-    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
-      "Le bridge tourne à côté de l'application et démarre avec elle — le point d'entrée du conteneur, ou gilbert-janus.service et gilbert-stun.service sur un hôte. GILBERT_BRIDGE=0 le désactive. Son API est en boucle locale uniquement et le tronçon vers le fournisseur SIP est sortant, la plage multimédia et le port STUN ci-dessus sont donc les ports à ouvrir en entrée.",
     "The theme this build knows: system, light, dark, or Gilbert's own.":
       "Le thème que cette version connaît : système, clair, sombre, ou celui propre de Gilbert.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
@@ -2285,10 +2237,6 @@ export const catalog: Catalog = {
     Unknown: "Inconnu",
     "New in this build — no description yet.":
       "Nouveau dans cette version — pas encore de description.",
-    "SIP account": "Compte SIP",
-    "User name": "Nom d'utilisateur",
-    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
-      "Le compte avec lequel le téléphone s'enregistre, envoyé au fournisseur sous la forme sip:<user name>@<server>. Une identité sans serveur ni nom d'utilisateur n'est pas enregistrée.",
     "System script saved": "Script système enregistré",
     "Your system Sieve script has changes that have not been saved.":
       "Votre script Sieve système a des modifications non enregistrées.",
@@ -2317,8 +2265,6 @@ export const catalog: Catalog = {
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "Ce compte ne peut pas être lu : Stalwart a refusé l'usurpation. Rien n'est écrit tant qu'il n'a pas répondu.",
     "This account holds no identity yet.": "Ce compte n'a pas encore d'identité.",
-    "SIP set": "SIP défini",
-    SIP: "SIP",
     "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
       "Toute la liste du compte est affichée, et chaque entrée est modifiable : rien ne reste en arrière comme identité que la rédaction propose encore.",
     Enforce: "Forcer",
@@ -2529,35 +2475,6 @@ export const catalog: Catalog = {
     "Empty {name}": "Vider {name}",
     "Delete all spam in “{name}”?": "Supprimer tout le spam dans « {name} » ?",
     "Empty folder": "Vider le dossier",
-    "The phone bridge did not answer.": "Le bridge du téléphone n'a pas répondu.",
-    "The phone bridge is gone.": "Le bridge du téléphone a disparu.",
-    "The phone bridge accepted no session.":
-      "Le bridge du téléphone n'a accepté aucune session.",
-    "The phone bridge attached no plugin.":
-      "Le bridge du téléphone n'a attaché aucun plugin.",
-    "The phone bridge refused the request.":
-      "Le bridge du téléphone a refusé la demande.",
-    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
-      "Votre navigateur bloque le microphone pour ce site, un appel ne peut donc pas porter votre voix. Autorisez-le pour ce site, puis réessayez.",
-    "No microphone is available on this device, so a call cannot carry your voice.":
-      "Aucun microphone n'est disponible sur cet appareil, un appel ne peut donc pas porter votre voix.",
-    "This browser cannot reach a microphone, so a call cannot carry your voice.":
-      "Ce navigateur ne peut atteindre aucun microphone, un appel ne peut donc pas porter votre voix.",
-    "Calling…": "Appel…",
-    "Ringing…": "Sonnerie…",
-    Connected: "Connecté",
-    "The line is busy": "La ligne est occupée",
-    "no-route": "no-route",
-    "No route to this number": "Aucune route vers ce numéro",
-    "This number is not available": "Ce numéro n'est pas disponible",
-    "The call was declined": "L'appel a été refusé",
-    "The call could not be completed": "L'appel n'a pas pu aboutir",
-    "The phone is not connected.": "Le téléphone n'est pas connecté.",
-    "The line is busy.": "La ligne est occupée.",
-    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
-      "Le navigateur ne peut pas porter les médias du téléphone vers Gilbert : ses ports multimédias ne sont pas atteignables. Le problème se situe entre ce navigateur et Gilbert, pas avec le fournisseur SIP.",
-    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
-      "La ligne ne s'est pas enregistrée auprès du serveur SIP. Le problème se situe entre Gilbert et le fournisseur SIP, pas entre ce navigateur et Gilbert.",
     "the server closed the live-updates stream":
       "le serveur a fermé le flux des mises à jour en direct",
     "the server could not be reached": "le serveur n'a pas pu être atteint",

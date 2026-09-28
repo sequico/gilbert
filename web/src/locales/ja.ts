@@ -1605,7 +1605,6 @@ export const catalog: Catalog = {
     Policy: "ポリシー",
     Installation: "インストール",
     "Force passwords": "パスワードを強制",
-    "Identities and SIP Phone": "差出人とSIP電話",
     Master: "Master",
     "Group Agents": "グループエージェント",
     Approvals: "承認",
@@ -1704,33 +1703,8 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "「終了」は「開始」より後でなければなりません。",
     "Auto-reply is on": "自動返信はオンです",
     "Auto-reply saved": "自動返信を保存しました",
-    Personal: "個人",
     Missed: "不在",
-    Declined: "拒否",
     Failed: "失敗",
-    "Recent calls": "最近の通話",
-    "{n}s": "{n}秒",
-    "No calls yet.": "通話はまだありません。",
-    All: "すべて",
-    Global: "グローバル",
-    My: "自分",
-    "This browser reaches Gilbert: the phone's media path is proven.":
-      "このブラウザーはGilbertに到達しています。電話のメディア経路が確認されました。",
-    "The phone's connection to Gilbert is down.": "電話のGilbertへの接続が切れています。",
-    "Gilbert phone connection": "Gilbert電話接続",
-    "Registered with the SIP provider.": "SIPプロバイダーに登録されています。",
-    "Not registered with the SIP provider.": "SIPプロバイダーに登録されていません。",
-    "SIP server connection": "SIPサーバー接続",
-    "No contacts with a number to call.": "発信できる番号を持つ連絡先がありません。",
-    "Incoming call": "着信",
-    "Unknown caller": "不明な発信者",
-    Answer: "応答",
-    Decline: "拒否",
-    Call: "発信",
-    "Number or address": "番号またはアドレス",
-    Unmute: "ミュート解除",
-    Mute: "ミュート",
-    "Hang up": "切断",
     "Actions for {email}": "{email}の操作",
     "Invitation accepted": "招待を承諾しました",
     "Invitation declined": "招待を辞退しました",
@@ -2107,27 +2081,6 @@ export const catalog: Catalog = {
       "このグループの差出人はすべてメンバーに割り当てられています。",
     "Messages already carrying this label lose it for everyone in the group.":
       "すでにこのラベルを持つメールは、グループの全員にとって失われます。",
-    "Bridge status": "ブリッジの状態",
-    "The phone is not available on this deployment: {reason}. Open Bridge status for what to fix.":
-      "このデプロイでは電話を利用できません: {reason}。修正すべきことはブリッジの状態で確認してください。",
-    "Unknown — the status could not be read": "不明 — 状態を読み取れませんでした",
-    "Not running": "実行していない",
-    "no reason given": "理由は示されていません",
-    Reachable: "到達可能",
-    "Not reachable — open the bridge's ports inbound":
-      "到達不可 — ブリッジのポートを内向きに開いてください",
-    "Not checked": "未確認",
-    "The phone's bridge is a second process beside the application. This is what it looks like from the server and from this browser; a check that fails names the thing to fix.":
-      "電話のブリッジはアプリケーションの隣の2つ目のプロセスです。サーバーからもこのブラウザーからもこう見えます。失敗した確認は、修正すべきものを名指しします。",
-    "Bridge service": "ブリッジサービス",
-    "Janus version": "Janusバージョン",
-    "not installed": "未インストール",
-    "Media range (UDP, inbound)": "メディア範囲 (UDP、内向き)",
-    "STUN port (UDP, inbound)": "STUNポート (UDP、内向き)",
-    "Media path from this browser": "このブラウザーからのメディア経路",
-    "Re-check": "再確認",
-    "The bridge runs beside the application and starts with it — the container's entrypoint, or gilbert-janus.service and gilbert-stun.service on a host. GILBERT_BRIDGE=0 turns it off. Its API is loopback-only and the leg to the SIP provider is outbound, so the media range and the STUN port above are the ports to open inbound.":
-      "ブリッジはアプリケーションの隣で動き、それとともに起動します — コンテナのエントリーポイント、またはホスト上のgilbert-janus.serviceとgilbert-stun.serviceです。GILBERT_BRIDGE=0で無効になります。そのAPIはループバック限定で、SIPプロバイダーへの区間は外向きなので、上のメディア範囲とSTUNポートが内向きに開くポートです。",
     "The theme this build knows: system, light, dark, or Gilbert's own.":
       "このビルドが知るテーマ: システム、ライト、ダーク、またはGilbert自身のもの。",
     "The colour palette (Gilbert's own or one of the shipped ones).":
@@ -2252,10 +2205,6 @@ export const catalog: Catalog = {
     Unknown: "不明",
     "New in this build — no description yet.":
       "このビルドで新規 — 説明はまだありません。",
-    "SIP account": "SIPアカウント",
-    "User name": "ユーザー名",
-    "The account the phone registers as, sent to the provider as sip:<user name>@<server>. An identity with no server and user name is not registered.":
-      "電話が登録するアカウントで、sip:<user name>@<server>としてプロバイダーに送られます。サーバーとユーザー名のない差出人は登録されません。",
     "System script saved": "システムスクリプトを保存しました",
     "Your system Sieve script has changes that have not been saved.":
       "システムのSieveスクリプトに保存されていない変更があります。",
@@ -2284,8 +2233,6 @@ export const catalog: Catalog = {
     "This account cannot be read: Stalwart refused the impersonation. Nothing is written until it answers.":
       "このアカウントを読み取れません。Stalwartが成り代わりを拒否しました。応答するまで何も書き込まれません。",
     "This account holds no identity yet.": "このアカウントにはまだ差出人がありません。",
-    "SIP set": "SIPを設定しました",
-    SIP: "SIP",
     "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
       "アカウントの一覧全体が表示され、すべての項目が編集可能です。作成画面がまだ提示する差出人として残るものはありません。",
     Enforce: "強制",
@@ -2492,34 +2439,6 @@ export const catalog: Catalog = {
     "Empty {name}": "{name}を空にする",
     "Delete all spam in “{name}”?": "「{name}」の迷惑メールをすべて削除しますか？",
     "Empty folder": "フォルダーを空にする",
-    "The phone bridge did not answer.": "電話ブリッジが応答しませんでした。",
-    "The phone bridge is gone.": "電話ブリッジがなくなりました。",
-    "The phone bridge accepted no session.":
-      "電話ブリッジがセッションを受け付けませんでした。",
-    "The phone bridge attached no plugin.":
-      "電話ブリッジがプラグインを接続しませんでした。",
-    "The phone bridge refused the request.": "電話ブリッジが要求を拒否しました。",
-    "Your browser is blocking the microphone for this site, so a call cannot carry your voice. Allow it for this site, then try again.":
-      "このサイトでブラウザーがマイクをブロックしているため、通話で音声を伝えられません。このサイトで許可し、もう一度試してください。",
-    "No microphone is available on this device, so a call cannot carry your voice.":
-      "この端末に利用できるマイクがないため、通話で音声を伝えられません。",
-    "This browser cannot reach a microphone, so a call cannot carry your voice.":
-      "このブラウザーはマイクに到達できないため、通話で音声を伝えられません。",
-    "Calling…": "発信しています…",
-    "Ringing…": "呼び出しています…",
-    Connected: "接続済み",
-    "The line is busy": "回線が話し中です",
-    "no-route": "no-route",
-    "No route to this number": "この番号への経路がありません",
-    "This number is not available": "この番号は利用できません",
-    "The call was declined": "通話は拒否されました",
-    "The call could not be completed": "通話を完了できませんでした",
-    "The phone is not connected.": "電話が接続されていません。",
-    "The line is busy.": "回線が話し中です。",
-    "The browser cannot carry the phone's media to Gilbert: its media ports are not reachable. The problem is between this browser and Gilbert, not with the SIP provider.":
-      "ブラウザーは電話のメディアをGilbertへ伝えられません。メディアポートに到達できないためです。問題はこのブラウザーとGilbertの間にあり、SIPプロバイダーとの間ではありません。",
-    "The line did not register with the SIP server. The problem is between Gilbert and the SIP provider, not between this browser and Gilbert.":
-      "回線はSIPサーバーに登録されませんでした。問題はGilbertとSIPプロバイダーの間にあり、このブラウザーとGilbertの間ではありません。",
     "the server closed the live-updates stream":
       "サーバーがライブ更新のストリームを閉じました",
     "the server could not be reached": "サーバーに到達できませんでした",
