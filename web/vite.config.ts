@@ -138,9 +138,6 @@ export default defineConfig({
       [`${base}api`]: {
         target: "http://127.0.0.1:8080",
         changeOrigin: false,
-        // The phone's signalling is a WebSocket on this same path (ADR 0023),
-        // so the proxy carries upgrades too, not only requests.
-        ws: true,
       },
     },
   },

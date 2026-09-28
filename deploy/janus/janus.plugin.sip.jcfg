@@ -1,6 +1,0 @@
-# The SIP plugin (ADR 0023): the leg that registers the account at the
-# provider and relays its SIP and RTP. The provider, the account and the
-# password all arrive per request from the browser, through gilbertserver.
-general: {
-	enable = true
-}
