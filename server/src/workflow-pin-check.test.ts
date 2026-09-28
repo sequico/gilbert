@@ -22,7 +22,9 @@ const file = (text: string) => ({
 
 test("a commit-pinned action with its version passes", () => {
   const result = checkWorkflowPins([
-    file("      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n"),
+    file(
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n",
+    ),
   ]);
   assert.equal(result.ok, true, formatReport(result.findings));
   assert.equal(result.checked, 1);
