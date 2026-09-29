@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   analyzeArgs,
   BUNDLE_DIR,
+  BUNDLE_VERSION,
   createArgs,
   formatReport,
   LANGUAGE,
@@ -96,6 +97,14 @@ test("a missing toolchain is not a clean scan, and says how to install one", () 
   assert.ok(
     message.includes(BUNDLE_DIR),
     "the instructions name the directory the script looks in",
+  );
+  assert.ok(
+    message.includes(`/download/${BUNDLE_VERSION}/`),
+    "the bundle is pinned to the version the workflow's action ships",
+  );
+  assert.ok(
+    !message.includes("/latest/download/"),
+    "a moving tag would install whatever is newest, not what the release runs",
   );
 });
 

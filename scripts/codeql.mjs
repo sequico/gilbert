@@ -26,7 +26,9 @@
  *
  * The CLI is looked for in `CODEQL_CLI`, then on `PATH`, then in the bundle
  * cache. Absent, the script says how to get it and exits non-zero: a scan that
- * did not happen is never reported as one that found nothing.
+ * did not happen is never reported as one that found nothing. The bundle it
+ * names is the one the workflow's action ships (`BUNDLE_VERSION`), pinned by
+ * hand so local and hosted runs ask the same queries.
  *
  * Usage: `npm run codeql`, or `node scripts/codeql.mjs`.
  */
@@ -58,6 +60,16 @@ export const SUITE =
 
 /** Where a bundle goes when `CODEQL_CLI` names no binary: see `missingCli()`. */
 export const BUNDLE_DIR = join(homedir(), ".cache", "gilbert", "codeql");
+
+/**
+ * The CLI bundle the workflow's analysis ships, pinned by hand.
+ *
+ * The hosted action is `v4.38.2`, which ships CodeQL CLI 2.27.1; a local run
+ * that used another bundle would report a different query set, so the one a
+ * person installs is named rather than fetched from `latest` — a tag that moves
+ * under them the way every other tag does. Bump it with the action.
+ */
+export const BUNDLE_VERSION = "v2.27.1";
 
 /**
  * The database, the export and the SARIF, in the system's temporary space.
@@ -99,7 +111,7 @@ export function missingCli() {
     "  install the bundle (686 MB, unpacked once):",
     "",
     `    mkdir -p ${BUNDLE_DIR}`,
-    "    curl -L https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-linux64.tar.gz \\",
+    `    curl -L https://github.com/github/codeql-action/releases/download/${BUNDLE_VERSION}/codeql-bundle-linux64.tar.gz \\`,
     `      | tar xz -C ${BUNDLE_DIR} --strip-components=1`,
     "",
     "  or point CODEQL_CLI at an existing binary, or put `codeql` on PATH.",
