@@ -19,10 +19,12 @@ on:
     # Weekly, off the hour.
     - cron: "41 3 * * 1"
 
-# Read-only, plus the one write the analysis needs to publish its results.
+# Read-only, plus the one write the analysis needs to publish its results and
+# the run read it uses for status and telemetry.
 permissions:
   contents: read
   security-events: write
+  actions: read
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -35,6 +37,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
