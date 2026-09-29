@@ -784,12 +784,16 @@ npm run codeql
 ```
 
 It is not part of the per-push gate; `npm run prepush:full` is the full local
-gate, `check:release` (`check:ci` then `codeql`). Install the bundle once, or
-point `CODEQL_CLI` at an existing binary:
+gate, `check:release` (`check:ci` then `codeql`). The analysis is **not published
+to GitHub code scanning** — a private repository without GitHub Code Security has
+nowhere to publish it — so the workflow reads the SARIF it produced and **fails
+on any result**, exactly as the local run does. Install the bundle once (the
+version the workflow's action ships), or point `CODEQL_CLI` at an existing
+binary:
 
 ```bash
 mkdir -p ~/.cache/gilbert/codeql
-curl -L https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-linux64.tar.gz \
+curl -L https://github.com/github/codeql-action/releases/download/v2.27.1/codeql-bundle-linux64.tar.gz \
   | tar xz -C ~/.cache/gilbert/codeql --strip-components=1
 ```
 

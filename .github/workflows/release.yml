@@ -53,10 +53,8 @@ jobs:
     if: needs.check.outputs.should_release == 'true'
     permissions:
       contents: read
-      security-events: write
-      # The analysis reads its own workflow run for status and telemetry; a
-      # caller that does not grant this makes CodeQL fail as a configuration
-      # error, which is exactly what a release pre-check must not do.
+      # The analysis reads its own workflow run for status and telemetry and
+      # publishes nothing, so no write permission is granted.
       actions: read
     uses: ./.github/workflows/codeql.yml
 

@@ -7,7 +7,8 @@ Implementation: Built. `.github/workflows/codeql.yml` (the
 by `.github/workflows/release.yml` as a pre-check, and runs weekly and on
 dispatch besides. `npm run codeql` (`scripts/codeql.mjs`) is the same suite on a
 checkout, `npm run check:release` is `check:ci` then `codeql`, and `npm run
-prepush:full` runs it.
+prepush:full` runs it. The hosted run reads the SARIF it produced and fails on
+any result rather than publishing it.
 
 ## Context
 
@@ -43,9 +44,11 @@ prepush:full` runs it.
 
 - A release ships a clean analysis, and the per-push gate stays fast and
   offline.
-- Publishing the analysis needs code scanning enabled for the repository on
-  GitHub (a private repository needs GitHub Code Security); the workflow fails
-  rather than reporting a clean tree when it cannot publish.
+- The analysis is **not published** to GitHub code scanning: this repository is
+  private without GitHub Code Security, so the SARIF has nowhere to go. The
+  workflow reads the SARIF it produced and **fails on any result** instead, the
+  way `npm run codeql` does locally — nothing is cut on an unclean analysis, and
+  no paid feature is required to check it.
 - A finding is work to do in the same change, like every other gate this
   repository runs; the query suite is the one the settings' `default` names, so
   a local run and the hosted one report the same queries.

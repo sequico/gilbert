@@ -2898,6 +2898,10 @@ pre-check so nothing is cut on an analysis that is not clean, and run weekly and
 on demand besides — it is a 686 MB toolchain, which is why it is not a per-push
 gate. The analysis is the JavaScript/TypeScript code-scanning suite (its Actions
 queries included, so `.github/workflows` is covered by the same run).
+- **It is not published.** The repository is private without GitHub Code
+  Security, so code scanning cannot receive the SARIF; the workflow reads the
+  SARIF it produced and **fails on any result** instead, so nothing is cut on an
+  unclean analysis without needing that feature.
 
 `npm run codeql` is that same analysis on this checkout, so a finding shows up
 before it is pushed:
