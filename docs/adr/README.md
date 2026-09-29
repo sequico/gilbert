@@ -271,5 +271,8 @@ is, not what a user sees.
   pointing at that group's own emails, files and checklist state. A reader sees
   the union of the parts their group memberships reach and an administrator sees
   every part by being in every group; JMAP has no field-level permission, so the
-  boundary is account access. Recorded before the design is settled — the open
+  boundary is account access. A wide panel beside the work is the surface, one
+  function follows every reference to the object it names, and the per-order
+  folder tree is a code-maintained projection of the pointers rather than a
+  second source of truth. Recorded before the design is settled — the open
   questions are in the record, and the KB (ADR 0024) is a separate decision.
