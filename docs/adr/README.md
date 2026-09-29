@@ -265,3 +265,11 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
+- **0028 — Orders are group-owned parts (proposed, a stub).** What an order is
+  and who sees what of it: not a document but a shared reference and a set of
+  parts, each part owned by the account of the group competent for it and
+  pointing at that group's own emails, files and checklist state. A reader sees
+  the union of the parts their group memberships reach and an administrator sees
+  every part by being in every group; JMAP has no field-level permission, so the
+  boundary is account access. Recorded before the design is settled — the open
+  questions are in the record, and the KB (ADR 0024) is a separate decision.
