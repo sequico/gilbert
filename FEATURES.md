@@ -1513,8 +1513,10 @@ The sidebar keeps the panes apart:
   there is more than one, so every member sees it, a member added later
   included, with no share to maintain. A group's calendars need no adding —
   membership is the subscription, so no "available" row is drawn for them — and
-  a group calendar's **colour belongs to the calendar**: every member sees the
-  same one, and only an installation administrator may change it.
+  none can be removed either: a group's calendar is hidden and shown, never
+  unsubscribed, for a member and an installation administrator alike. A group
+  calendar's **colour belongs to the calendar**: every member sees the same one,
+  and only an installation administrator may change it.
 - **Shared with me** — other people's, once added.
 - **Available to add** — shared with you but not yet added, with a plus beside
   each. An unadded calendar draws nothing. This is deliberate: the server
@@ -1522,7 +1524,7 @@ The sidebar keeps the panes apart:
   meant to share it, so being handed one is not evidence that it was offered.
 
 Right-click your own to rename, recolour, share, stop sharing or delete;
-right-click a group calendar to remove it from your view (editing it is the
+right-click a group calendar to hide or show it (editing it is the
 administrator's, above); right-click one of someone else's to remove it from
 your view, which changes nothing for anybody else.
 

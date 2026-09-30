@@ -209,8 +209,16 @@ export function CalendarSidebar() {
 
   /* Shared-calendar rows, used both under a group's section and in the
      read-only area for shares that are not a group. Keying is the caller's
-     job (the row has no key of its own). */
-  const subscribedRow = (accountId: Id, accountName: string, c: Calendar) => (
+     job (the row has no key of its own). `removable` is false for a group's
+     calendar: membership is the subscription, so it is hidden and shown like
+     the reader's own rather than unsubscribed, which would leave it with no
+     way back. */
+  const subscribedRow = (
+    accountId: Id,
+    accountName: string,
+    c: Calendar,
+    removable = true,
+  ) => (
     <div
       className={`cal-list-item ${cal.hidden[sharedKey(accountId, c.id)] ? "hidden-cal" : ""}`}
       onClick={() => cal.toggleHidden(sharedKey(accountId, c.id))}
@@ -224,17 +232,19 @@ export function CalendarSidebar() {
         }}
       />
       <span className="cal-name">{c.name}</span>
-      <button
-        className="icon-btn xs nav-more"
-        title={t("Remove from my calendar")}
-        aria-label={t("Remove from my calendar")}
-        onClick={(e) => {
-          e.stopPropagation();
-          void cal.setSharedSubscribed(accountId, c.id, false);
-        }}
-      >
-        <X size={14} />
-      </button>
+      {removable && (
+        <button
+          className="icon-btn xs nav-more"
+          title={t("Remove from my calendar")}
+          aria-label={t("Remove from my calendar")}
+          onClick={(e) => {
+            e.stopPropagation();
+            void cal.setSharedSubscribed(accountId, c.id, false);
+          }}
+        >
+          <X size={14} />
+        </button>
+      )}
       <button
         className="icon-btn xs nav-more"
         aria-label={t("Calendar options")}
@@ -466,10 +476,11 @@ export function CalendarSidebar() {
       )}
       {/* A group's calendar needs no adding: membership of the group is the
           subscription, the same rule a group's books follow. They follow one
-          another in one run, each naming its group on hover. */}
+          another in one run, each naming its group on hover, and none can be
+          removed -- only hidden and shown -- so no remove control is drawn. */}
       {groupCalendars.map((c) => (
         <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
-          {subscribedRow(c.accountId, c.accountName, c.calendar)}
+          {subscribedRow(c.accountId, c.accountName, c.calendar, false)}
         </Fragment>
       ))}
       {sharedOnlySubscribed.length > 0 && (

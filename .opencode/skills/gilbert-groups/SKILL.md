@@ -50,7 +50,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   one after another and each naming its group on hover, with a **+** on the
   section that creates a calendar **owned by the group** (asking which group
   when there is more than one), and a group's calendars listed as subscribed (no
-  "+ add" row: membership is the subscription). A group calendar's **colour
+  "+ add" row: membership is the subscription, and no remove either -- a member
+  hides and shows one, never unsubscribes it). A group calendar's **colour
   belongs to the calendar**, so every reader sees the same one, and only an
   installation administrator may change it — the Edit entry is disabled for a
   member. A calendar a group owns is deleted and renamed from that same section;

@@ -68,6 +68,10 @@ describe("the calendar sidebar's group section", () => {
     [...host.querySelectorAll(".nav-section > span")].map((s) => s.textContent ?? "");
   const rowNames = () =>
     [...host.querySelectorAll(".cal-list-item")].map((r) => r.textContent ?? "");
+  const rowFor = (name: string) =>
+    [...host.querySelectorAll(".cal-list-item")].find((r) =>
+      (r.textContent ?? "").includes(name),
+    );
 
   beforeEach(async () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
@@ -101,6 +105,11 @@ describe("the calendar sidebar's group section", () => {
           accountId: "finance",
           accountName: "finance@example.org",
           calendar: cal("fnc", "Finance calendar", 1),
+        },
+        {
+          accountId: "colleague",
+          accountName: "colleague@example.org",
+          calendar: cal("cc", "Colleague calendar", 2),
         },
       ],
       hidden: {},
@@ -140,6 +149,19 @@ describe("the calendar sidebar's group section", () => {
     const rows = rowNames();
     expect(rows.some((r) => r.includes("Freight calendar"))).toBe(true);
     expect(rows.some((r) => r.includes("Finance calendar"))).toBe(true);
+  });
+
+  it("offers no remove on a group's calendar, and a remove on a share", () => {
+    // A group's calendar is hidden and shown, never unsubscribed -- for a
+    // member and an administrator alike: membership is the subscription, and a
+    // calendar removed this way had no way back.
+    for (const name of ["Freight calendar", "Finance calendar"])
+      expect(rowFor(name)?.querySelector('[title="Remove from my calendar"]')).toBeNull();
+    // Somebody else's calendar still offers the remove that "Available to add"
+    // completes.
+    expect(
+      rowFor("Colleague calendar")?.querySelector('[title="Remove from my calendar"]'),
+    ).toBeTruthy();
   });
 
   it("creates a group calendar in the group chosen on the section's +", async () => {
