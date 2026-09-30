@@ -37,7 +37,7 @@ import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { dateTimeKey, useSettings } from "@/store/settings";
-import { confirmDialog } from "@/ui/dialog";
+import { choiceDialog, confirmDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -138,12 +138,10 @@ export function CalendarSidebar() {
   }) =>
     Boolean(c.calendar.isSubscribed) ||
     addedShares.has(sharedKey(c.accountId, c.calendar.id));
-  /* Accounts that are group mailboxes get their own calendar section; any
-     other shared account (a colleague's calendar-only share) stays in the
-     read-only area below the group sections. */
+  /* Group mailboxes share one "Group calendars" section, whose "+" creates a
+     calendar in the group the reader picks; any other shared account (a
+     colleague's calendar-only share) stays in the read-only area below. */
   const mailAccounts = useMail((s) => s.mailAccounts);
-  /* The product-admin group is not a working group: it never gets a section
-     or a "+", and its calendars fall into the read-only area below. */
   const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
   const isAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
@@ -166,6 +164,21 @@ export function CalendarSidebar() {
   const sharedOnlyAvailable = cal.sharedCalendars.filter(
     (c) => !groupIds.has(c.accountId) && !isAdded(c),
   );
+  /*
+   * Every group's calendars in one run: the groups in session order, their
+   * calendars by the groups' own order, so the section reads as one list rather
+   * than a heading per group. A calendar whose group a section used to announce
+   * now names its group on hover.
+   */
+  const groupRank = new Map(groups.map((g, i) => [g.accountId, i]));
+  const groupCalendars = cal.sharedCalendars
+    .filter((c) => groupIds.has(c.accountId))
+    .sort(
+      (a, b) =>
+        (groupRank.get(a.accountId) ?? 0) - (groupRank.get(b.accountId) ?? 0) ||
+        a.calendar.sortOrder - b.calendar.sortOrder ||
+        a.calendar.name.localeCompare(b.calendar.name),
+    );
 
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
   /** The account the menu's calendar lives in; own when null/equal to own. */
@@ -173,6 +186,26 @@ export function CalendarSidebar() {
   const [editCal, setEditCal] = useState<Partial<Calendar> | null>(null);
   const [editAccountId, setEditAccountId] = useState<Id | null>(null);
   const [share, setShare] = useState<Calendar | null>(null);
+
+  /*
+   * The one "+" for group calendars. A group must be named before the calendar
+   * is, so a lone group is asked straight away and several are first chosen
+   * between; the calendar is then created in the group's own account, with the
+   * first colour the group is not already using.
+   */
+  const createGroupCalendar = async () => {
+    if (groups.length === 0) return;
+    const accountId =
+      groups.length === 1
+        ? groups[0]!.accountId
+        : await choiceDialog({
+            title: t("New calendar in a group"),
+            choices: groups.map((g) => ({ value: g.accountId, label: g.name })),
+          });
+    if (!accountId) return;
+    setEditCal({ color: groupColor(accountId) });
+    setEditAccountId(accountId);
+  };
 
   /* Shared-calendar rows, used both under a group's section and in the
      read-only area for shares that are not a group. Keying is the caller's
@@ -421,35 +454,22 @@ export function CalendarSidebar() {
       {groups.length > 0 && (
         <div className="nav-section" style={{ paddingLeft: 4 }}>
           <span>{t("Group calendars")}</span>
+          <button
+            className="icon-btn"
+            title={t("New calendar in a group")}
+            aria-label={t("New calendar in a group")}
+            onClick={() => void createGroupCalendar()}
+          >
+            <Plus size={16} />
+          </button>
         </div>
       )}
-      {groups.map((g) => (
-        <Fragment key={g.accountId}>
-          <div className="nav-section">
-            <span>{g.name}</span>
-            <button
-              className="icon-btn xs"
-              title={t("New calendar in {group}", { group: g.name })}
-              aria-label={t("New calendar in {group}", { group: g.name })}
-              onClick={() => {
-                setEditCal({ color: groupColor(g.accountId) });
-                setEditAccountId(g.accountId);
-              }}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-          {cal.sharedCalendars
-            .filter((c) => c.accountId === g.accountId)
-            .map((c) => (
-              <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
-                {/* A group's calendar needs no adding: membership of the group
-                    is the subscription, the same rule a group's books follow.
-                    A row offering "+ add" here reads as a calendar nobody has,
-                    which is not what a member's group calendar is. */}
-                {subscribedRow(c.accountId, c.accountName, c.calendar)}
-              </Fragment>
-            ))}
+      {/* A group's calendar needs no adding: membership of the group is the
+          subscription, the same rule a group's books follow. They follow one
+          another in one run, each naming its group on hover. */}
+      {groupCalendars.map((c) => (
+        <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
+          {subscribedRow(c.accountId, c.accountName, c.calendar)}
         </Fragment>
       ))}
       {sharedOnlySubscribed.length > 0 && (

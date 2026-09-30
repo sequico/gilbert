@@ -1506,14 +1506,15 @@ are settings.
 The sidebar keeps the panes apart:
 
 - **My calendars** — yours, each with a colour, each hideable with a click.
-- **Group calendars** — one subsection per group mailbox (freight@…, the teams
-  you belong to): that group's calendars, and a **+** that creates a calendar
-  **owned by the group** — the create goes to the group's own account, so every
-  member sees it, a member added later included, with no share to maintain. A
-  group's calendars need no adding — membership is the subscription, so no
-  "available" row is drawn for them — and a group calendar's **colour belongs to
-  the calendar**: every member sees the same one, and only an installation
-  administrator may change it.
+- **Group calendars** — one section for every group mailbox (freight@…, the
+  teams you belong to): their calendars listed one after another, each naming
+  its group on hover, and a **+** that creates a calendar **owned by the group**
+  — the create goes to the group's own account after asking which group when
+  there is more than one, so every member sees it, a member added later
+  included, with no share to maintain. A group's calendars need no adding —
+  membership is the subscription, so no "available" row is drawn for them — and
+  a group calendar's **colour belongs to the calendar**: every member sees the
+  same one, and only an installation administrator may change it.
 - **Shared with me** — other people's, once added.
 - **Available to add** — shared with you but not yet added, with a plus beside
   each. An unadded calendar draws nothing. This is deliberate: the server
@@ -1724,11 +1725,12 @@ JMAP Contacts and JSContact.
   where a narrow screen shows one pane at a time.
 - **Address books**: the **Contacts** list leads with **Global contacts**, then
   **All contacts**, then the reader's own under **My contacts**; a **Group
-  contacts** section gives each group mailbox you belong to its own subsection —
-  its books, and a **+** that creates a book **owned by the group** in the
-  group's own account — and other people's are plainly separate under **Shared
-  with me**, with the same *Available to add* split the calendar uses. Create,
-  rename, share, stop sharing, delete; one is the default for new cards.
+  contacts** section lists the books of every group mailbox you belong to one
+  after another — each naming its group on hover, with a **+** that creates a
+  book **owned by the group** in the group's own account, asking which group
+  when there is more than one — and other people's are plainly separate under
+  **Shared with me**, with the same *Available to add* split the calendar uses.
+  Create, rename, share, stop sharing, delete; one is the default for new cards.
 - **Contact records**: photo, prefix, first, middle, last, suffix, nickname,
   company, job title, any number of emails, phones and addresses with types,
   birthday, website and notes.

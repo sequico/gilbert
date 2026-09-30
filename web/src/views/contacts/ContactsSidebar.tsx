@@ -26,7 +26,7 @@ import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
-import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { choiceDialog, confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
@@ -127,12 +127,11 @@ export function ContactsSidebar() {
   const added = new Set(settings.addedShares);
   const isAdded = (accountId: string, bookId: string) =>
     added.has(`${accountId}:${bookId}`);
-  /* Group mailboxes get one section each, with their own "+": a book made
-     there is created in the group's own account, so it belongs to the group
-     and every member reaches it -- no share to maintain. Any other shared
-     account (a colleague's share) stays in the read-only area below. */
-  /* The product-admin group is not a working group: it never gets a section
-     or a "+", and its books fall into the read-only area below. */
+  /* Group mailboxes share one "Group contacts" section, whose "+" creates a
+     book in the group the reader picks: a book made there is created in the
+     group's own account, so it belongs to the group and every member reaches
+     it -- no share to maintain. Any other shared account (a colleague's share)
+     stays in the read-only area below. */
   const groups = groupMailboxAccounts(mailAccounts);
   const groupIds = new Set(groups.map((g) => g.accountId));
   /*
@@ -153,6 +152,21 @@ export function ContactsSidebar() {
       !groupIds.has(b.accountId) &&
       !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
   );
+  /*
+   * Every group's books in one run: the groups in session order, their books by
+   * the groups' own order, so the section reads as one list rather than a
+   * heading per group. A book whose group a section used to announce now says
+   * which group it came from in its own tooltip.
+   */
+  const groupRank = new Map(groups.map((g, i) => [g.accountId, i]));
+  const groupBooks = contacts.sharedBooks
+    .filter((b) => groupIds.has(b.accountId) && !isGlobalContactsBook(b.book))
+    .sort(
+      (a, b) =>
+        (groupRank.get(a.accountId) ?? 0) - (groupRank.get(b.accountId) ?? 0) ||
+        a.book.sortOrder - b.book.sortOrder ||
+        a.book.name.localeCompare(b.book.name),
+    );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */
   const subscribedRow = (accountId: string, accountName: string, book: AddressBook) => (
@@ -223,6 +237,34 @@ export function ContactsSidebar() {
       </button>
     </div>
   );
+
+  /*
+   * The one "+" for group books. A group must be named before the book is, so
+   * a lone group is asked straight away and several are first chosen between;
+   * either way the book is created in the group's own account, which is what
+   * makes it the group's rather than the reader's share.
+   */
+  const createGroupBook = async () => {
+    if (groups.length === 0) return;
+    const accountId =
+      groups.length === 1
+        ? groups[0]!.accountId
+        : await choiceDialog({
+            title: t("New address book in a group"),
+            choices: groups.map((g) => ({ value: g.accountId, label: g.name })),
+          });
+    if (!accountId) return;
+    const name = await promptDialog({
+      title: t("New address book"),
+      placeholder: t("Name"),
+    });
+    if (!name?.trim()) return;
+    try {
+      await contacts.createBook(name.trim(), accountId);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   return (
     <>
@@ -320,41 +362,22 @@ export function ContactsSidebar() {
       {groups.length > 0 && (
         <div className="nav-section">
           <span>{t("Group contacts")}</span>
+          <button
+            className="icon-btn sm"
+            title={t("New address book in a group")}
+            aria-label={t("New address book in a group")}
+            onClick={() => void createGroupBook()}
+          >
+            <Plus size={14} />
+          </button>
         </div>
       )}
-      {groups.map((g) => (
-        <Fragment key={g.accountId}>
-          <div className="nav-section">
-            <span>{g.name}</span>
-            <button
-              className="icon-btn sm"
-              title={t("New address book in {group}", { group: g.name })}
-              aria-label={t("New address book in {group}", { group: g.name })}
-              onClick={async () => {
-                const name = await promptDialog({
-                  title: t("New address book"),
-                  placeholder: t("Name"),
-                });
-                if (!name?.trim()) return;
-                try {
-                  await contacts.createBook(name.trim(), g.accountId);
-                } catch (err) {
-                  toast.error((err as Error).message);
-                }
-              }}
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-          {contacts.sharedBooks
-            .filter((b) => b.accountId === g.accountId && !isGlobalContactsBook(b.book))
-            .map((b) => (
-              <Fragment key={`${b.accountId}:${b.book.id}`}>
-                {/* A group's books need no adding: membership of the group is
-                    the subscription (see the composer picker and loadShared). */}
-                {subscribedRow(b.accountId, b.accountName, b.book)}
-              </Fragment>
-            ))}
+      {/* A group's books need no adding: membership of the group is the
+          subscription (see the composer picker and loadShared). They follow one
+          another in one run, each naming its group on hover. */}
+      {groupBooks.map((b) => (
+        <Fragment key={`${b.accountId}:${b.book.id}`}>
+          {subscribedRow(b.accountId, b.accountName, b.book)}
         </Fragment>
       ))}
 
