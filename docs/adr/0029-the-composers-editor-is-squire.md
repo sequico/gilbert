@@ -13,22 +13,19 @@ licence is recorded in `NOTICE`; and the tests are
 ## Context
 
 The message composer, the templates and an identity's signature all edit rich
-HTML, and until now each did it through one hand-rolled `contenteditable` with a
-custom toolbar over `document.execCommand` — a component the mail client
-inherited from upstream ihasmail. That shape carries four costs. `execCommand`
-is deprecated with no replacement. Undo, selection and block normalisation are
-left to the browser, so the editor saved and restored a `Range` by hand and
-rebuilt content with `innerHTML`. Building markup out of strings is where a
-typed URL could leave an attribute — the CodeQL `js/xss-through-dom` finding —.
-And every browser difference is this project's to reconcile.
-
-None of this touches the architecture law: it is a component of **gilbertmailer**
-over the same JMAP, with no service and no database of its own.
+HTML, and the architecture law reaches none of it: it is a component of
+**gilbertmailer** over the same JMAP, with no service and no database of its own.
+What the shape does reach is the choice of engine. A hand-rolled `contenteditable`
+over `document.execCommand` carries four costs: `execCommand` is deprecated with
+no replacement; undo, selection and block normalisation are left to the browser,
+so the editor must save and restore a `Range` itself and rebuild content with
+`innerHTML`; building markup out of strings is where a typed URL can leave an
+attribute; and every browser difference is then this project's to reconcile.
 
 ## Decision
 
 Use **Squire** (`squire-rte`) for every surface that composes rich HTML — the
-composer, templates and signatures — and remove the `execCommand` editor.
+composer, templates and signatures.
 
 Squire is the shelf editor built for email, which is the one property the others
 do not share. The HTML is its source of truth, so a quote or a forward keeps a
@@ -82,13 +79,13 @@ recorded in `NOTICE`.
 
 ## Consequences
 
-- The deprecated `document.execCommand` editor is gone from the tree.
-- The web build gains one client-side dependency, with its licence recorded.
-- The editor is now a library the project does not own; that is the trade for
+- No `document.execCommand` editor remains in the tree.
+- The web build carries one more client-side dependency, with its licence
+  recorded.
+- The editor is a library the project does not own; that is the trade for
   not maintaining a rich-text engine, and it is the same trade the shelf
   decision makes everywhere else.
-- One component still serves all three surfaces, so a future composer change
-  lands once.
+- One component serves all three surfaces, so a composer change lands once.
 
 ## References
 

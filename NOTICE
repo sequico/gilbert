@@ -90,9 +90,9 @@ by GitHub.
 
 ## Squire
 
-The rich-text editor of the message composer is **Squire**
-(https://github.com/neilj/Squire), by Neil Jenkins, used unmodified under the
-MIT licence as the `squire-rte` package.
+The rich-text editor of the message composer, of the templates and of an
+identity's signature is **Squire** (https://github.com/neilj/Squire), by Neil
+Jenkins, used unmodified under the MIT licence as the `squire-rte` package.
 
 Copyright © 2011–2023 by Neil Jenkins
 

@@ -147,6 +147,8 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   const elRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Squire | null>(null);
   const lastEmitted = useRef<string>("");
+  const htmlRef = useRef(html);
+  htmlRef.current = html;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const [empty, setEmpty] = useState(!html);
@@ -212,6 +214,19 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       sanitizeToDOMFragment: (input) => sanitizeEditorFragment(input),
     });
     editorRef.current = editor;
+    /* Seed this instance from the current html. The sync effect below fires on
+       a prop change, and under StrictMode the engine is built twice in one
+       commit: a ref that survives the first teardown would make the second,
+       empty instance look already in sync, and a pre-filled body (a reply, a
+       template, a signature) would come up blank. The empty body is left to the
+       sync effect so the caret logic below can still place it in the body's
+       first line once that body arrives. */
+    if (htmlRef.current) {
+      editor.setHTML(htmlRef.current);
+      lastEmitted.current = htmlRef.current;
+      setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
+      setUndo({ canUndo: false, canRedo: false });
+    }
 
     const onInput = () => emit();
     const onUndoState = (event: Event) => {
@@ -241,6 +256,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       editor.removeEventListener("pasteImage", onPasteImage);
       editor.destroy();
       editorRef.current = null;
+      caretPlaced.current = false;
     };
   }, [emit]);
 
@@ -253,6 +269,9 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       editor.setHTML(html);
       lastEmitted.current = html;
       setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
+      // setHTML clears the engine's undo stack without firing undoStateChange,
+      // so the buttons have to be told the history is gone.
+      setUndo({ canUndo: false, canRedo: false });
     }
   }, [html]);
 

@@ -282,9 +282,9 @@ is, not what a user sees.
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
   email, whose HTML is the source of truth so a quote or a forward keeps a third
-  party's markup and quoting is first-class. It replaces the hand-rolled
-  `contenteditable` over `document.execCommand` that came in with the mail
-  client: the engine normalises the browsers itself, keeps its own undo stack,
+  party's markup and quoting is first-class. Against a hand-rolled
+  `contenteditable` over `document.execCommand`, the engine normalises the
+  browsers itself, keeps its own undo stack,
   ships no UI (the app's toolbar, popovers and translations are unchanged), and
   sets a link's `href` and an image's `src` as element properties rather than
   building markup, which removes the string-built-markup XSS class by

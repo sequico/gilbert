@@ -95,7 +95,10 @@ describe("a link typed into the composer", () => {
 
   it("keeps an angle bracket inside the attribute rather than opening an element", () => {
     const area = insertLink('https://example.com/"><img src=x onerror="alert(1)');
-    expect(area.querySelector("img")).toBeNull();
-    expect(area.querySelector("a")).not.toBeNull();
+    const link = area.querySelector("a");
+    // The `<` stayed in the attribute's value instead of opening a tag.
+    expect(link?.getAttribute("href")).toContain("<");
+    expect(link?.hasAttribute("onerror")).toBe(false);
+    expect(area.querySelector("img, script")).toBeNull();
   });
 });
