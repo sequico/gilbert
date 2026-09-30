@@ -88,9 +88,17 @@ the Invertocat logo are trademarks of GitHub, Inc.; this palette is named
 "Primer" after the design system and is neither affiliated with nor endorsed
 by GitHub.
 
+## Squire
+
+The rich-text editor of the message composer is **Squire**
+(https://github.com/neilj/Squire), by Neil Jenkins, used unmodified under the
+MIT licence as the `squire-rte` package.
+
+Copyright © 2011–2023 by Neil Jenkins
+
 ---
 
-The MIT licence, under which all ten are used:
+The MIT licence, under which the palettes and Squire above are used:
 
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),

@@ -1382,7 +1382,10 @@ minimisable and maximisable; full-screen on mobile.
 - **Rich text**: bold, italic, underline, strikethrough, text colour, highlight,
   font size, alignment, bulleted and numbered lists, indent/outdent, blockquote,
   code block, links (`Ctrl+K`), inline images, an emoji picker, and remove
-  formatting. Tab and Shift+Tab indent inside the body.
+  formatting. Tab and Shift+Tab indent inside a list. The editor is **Squire**
+  (ADR 0029), an HTML editor built for email: a quoted or forwarded message
+  keeps its original markup, quoting nests, and the same component serves the
+  composer, the templates and an identity's signature.
 - **Plain text** as a per-message or default format.
 - **Recipient chips** with autocomplete from contacts, shared address books you
   have added, the server directory and recent recipients; your own cards win a

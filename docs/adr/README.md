@@ -278,3 +278,19 @@ is, not what a user sees.
   folder tree is a code-maintained projection of the pointers rather than a
   second source of truth. Recorded before the design is settled — the open
   questions are in the record, and the KB (ADR 0024) is a separate decision.
+- **0029 — The composer's editor is Squire (proposed, built).** Every surface
+  that composes rich HTML — the message composer, templates and identity
+  signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
+  email, whose HTML is the source of truth so a quote or a forward keeps a third
+  party's markup and quoting is first-class. It replaces the hand-rolled
+  `contenteditable` over `document.execCommand` that came in with the mail
+  client: the engine normalises the browsers itself, keeps its own undo stack,
+  ships no UI (the app's toolbar, popovers and translations are unchanged), and
+  sets a link's `href` and an image's `src` as element properties rather than
+  building markup, which removes the string-built-markup XSS class by
+  construction. One component serves all three surfaces, sanitisation stays one
+  policy (`sanitizeEditorFragment` for the engine, `sanitizeEditorHtml` for the
+  rest), and the KB's block editor (ADR 0024) is a different tool. The library
+  is taken unmodified — ADR 0002's download-only stance applied to a library —
+  and its releases arrive through Dependabot's npm channel. Its MIT notice is in
+  `NOTICE`.

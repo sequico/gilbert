@@ -502,32 +502,53 @@ export function sanitizeEmailHtml(
 }
 
 /**
+ * The policy every composer-editor sanitisation shares: the blocklist is the
+ * shared one, and it is what the mail body's is. A signature is rendered inside
+ * the app's document, so `style` elements are forbidden too, and a mail body is
+ * quarantined in a shadow root and keeps them. The allowed attributes are those
+ * a pasted or quoted message legitimately carries.
+ */
+const EDITOR_SANITIZE_OPTIONS = {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: [...OURS_FORBID_TAGS],
+  FORBID_ATTR: [...FORBID_ATTR],
+  ADD_ATTR: [
+    "target",
+    "bgcolor",
+    "align",
+    "valign",
+    "border",
+    "cellpadding",
+    "cellspacing",
+    "width",
+    "height",
+    "color",
+    "face",
+    "size",
+  ],
+};
+
+/**
  * Minimal sanitizer for signatures / composer HTML (no remote blocking, keeps
- * images). Its blocklist is the shared one, which is what the mail body's is:
- * a signature is rendered inside the app's document, so it forbids `style`
- * elements too, and a mail body is quarantined in a shadow root and keeps them.
+ * images). One definition with `sanitizeEditorFragment`, which is the same
+ * policy as a DOM fragment for the editor engine.
  */
 export function sanitizeEditorHtml(input: string): string {
   ensureHooks();
-  return DOMPurify.sanitize(input, {
-    USE_PROFILES: { html: true },
-    FORBID_TAGS: [...OURS_FORBID_TAGS],
-    FORBID_ATTR: [...FORBID_ATTR],
-    ADD_ATTR: [
-      "target",
-      "bgcolor",
-      "align",
-      "valign",
-      "border",
-      "cellpadding",
-      "cellspacing",
-      "width",
-      "height",
-      "color",
-      "face",
-      "size",
-    ],
-  }) as string;
+  return DOMPurify.sanitize(input, EDITOR_SANITIZE_OPTIONS) as string;
+}
+
+/**
+ * The same policy as a `DocumentFragment` in this document, which is the shape
+ * a rich-text engine's `sanitizeToDOMFragment` must return.
+ */
+export function sanitizeEditorFragment(input: string): DocumentFragment {
+  ensureHooks();
+  const fragment = DOMPurify.sanitize(input, {
+    ...EDITOR_SANITIZE_OPTIONS,
+    RETURN_DOM_FRAGMENT: true,
+  }) as unknown as DocumentFragment;
+  return document.importNode(fragment, true);
 }
 
 /** Base CSS injected into the shadow root that hosts HTML email. */

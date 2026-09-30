@@ -73,10 +73,12 @@ this tree, not a preference.
   `.xlsx`/`.xls`, text and images are read as text and, where a page is pixels,
   as images handed to the model (`server/src/agent/documentFamily.ts`). A KB
   that holds files rather than only blocks already has a reader.
-- **The composer's editor is hand-rolled.** `web/src/views/compose/RichEditor.tsx`
-  is a `contenteditable` with a custom toolbar (`execCommand`-style) — precisely
-  the kind of component the owner does not want to write again. It is not a
-  candidate to extend into a document editor.
+- **The composer's editor is Squire, an email editor.**
+  `web/src/views/compose/RichEditor.tsx` wraps Squire (`squire-rte`, MIT), whose
+  HTML-is-the-source-of-truth model is what an email body needs and whose
+  quoting is first-class (`docs/adr/0029`). It is not a block document editor
+  and is not a candidate to extend into one — the KB wants structured blocks,
+  which is a different tool.
 - **Conditional writes are the only lock JMAP offers.** `FileNode/set` honours
   `ifInState`, refused as `stateMismatch`; the token is **whole-account**
   FileNode state, so any unrelated write invalidates it (`gilbert-stalwart`,
@@ -269,7 +271,8 @@ below.
 
 ### Editor
 
-Adopt a block editor rather than extend `RichEditor.tsx`. **BlockNote** is the
+Adopt a block editor rather than extend the composer's editor
+(`docs/adr/0029`). **BlockNote** is the
 recommendation: it is a ready-made Notion-style block editor (slash menu, drag
 handles, block types) on ProseMirror/TipTap with Yjs built in, React 19 ready,
 and its core is MPL-2.0 (compatible with an AGPL application). TipTap and Plate
@@ -507,8 +510,8 @@ still standing. The open ones are the reasons this record is still Proposed.
   in-process.
 - **Outline.** BSL 1.1, and its "Document Service" restriction conflicts with an
   enterprise product.
-- **Extending `RichEditor.tsx`.** A block document editor is a component to take
-  off the shelf, not to grow by hand.
+- **Extending the composer's editor.** A block document editor is a component
+  to take off the shelf, not to grow by hand (`docs/adr/0029`).
 - **An anonymous Web surface** unless Q7 is answered yes, which would need its
   own record.
 - **Per-user setup.** The company KB exists at boot and is shared automatically;

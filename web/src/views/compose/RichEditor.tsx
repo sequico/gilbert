@@ -23,7 +23,6 @@ import {
   Undo,
 } from "lucide-react";
 import {
-  type ClipboardEvent,
   forwardRef,
   type ReactNode,
   useCallback,
@@ -32,9 +31,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { sanitizeEditorHtml } from "@/lib/html";
+import Squire from "squire-rte";
+import { sanitizeEditorFragment } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
-import { escapeHtml } from "@/lib/text";
 import { Popover, useMenu } from "@/ui/popover";
 
 export interface RichEditorHandle {
@@ -118,6 +117,18 @@ const COLORS = [
   "#a64d79",
 ];
 
+/*
+ * The editor is Squire, an HTML editor built for email: the HTML is the source
+ * of truth, which is what lets a quote or a forward keep a third party's markup
+ * intact, and quoting is a first-class operation (`increaseQuoteLevel`). Squire
+ * normalises the browsers itself and does not use `document.execCommand`, so
+ * the toolbar buttons below drive its own methods and its own undo stack rather
+ * than browser editing commands.
+ *
+ * The toolbar, the popovers and the CSS classes are the app's own and are
+ * unchanged: Squire brings no UI, so it is a component dropped where a
+ * `<textarea>` would be.
+ */
 export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEditor(
   {
     html,
@@ -134,171 +145,174 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   ref,
 ) {
   const elRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<Squire | null>(null);
   const lastEmitted = useRef<string>("");
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const [empty, setEmpty] = useState(!html);
+  const [undo, setUndo] = useState({ canUndo: false, canRedo: false });
   const emojiMenu = useMenu();
   const colorMenu = useMenu();
   const hiliteMenu = useMenu();
   const linkMenu = useMenu();
   const [linkUrl, setLinkUrl] = useState("");
-  const savedRange = useRef<Range | null>(null);
 
-  // Sync external html → DOM (only when it differs from what we emitted)
-  useEffect(() => {
+  /** Read the editor back out and hand it to the caller, when it changed. */
+  const emit = useCallback(() => {
+    const editor = editorRef.current;
     const el = elRef.current;
-    if (!el) return;
-    if (html !== lastEmitted.current) {
-      el.innerHTML = html;
-      lastEmitted.current = html;
-      setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
-    }
-  }, [html]);
+    if (!editor || !el) return;
+    const value = editor.getHTML();
+    lastEmitted.current = value;
+    setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
+    onChangeRef.current(value);
+  }, []);
+
+  const insertImageFile = useCallback(
+    (file: File) => {
+      const place = (url: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        editor.insertImage(url, { alt: file.name, style: "max-width:100%" });
+        emit();
+      };
+      if (imageUpload) {
+        imageUpload(file)
+          .then(place)
+          .catch(() => {
+            /* uploader reports its own errors */
+          });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => place(String(reader.result));
+      reader.readAsDataURL(file);
+    },
+    [imageUpload, emit],
+  );
+
+  /* The engine is created once and lives for the mount: the effect that builds
+     it names no changing value, so a re-render never tears it down and the undo
+     stack survives. */
+  const insertImageRef = useRef(insertImageFile);
+  insertImageRef.current = insertImageFile;
 
   // autoFocus means "focus on mount", as it does on a DOM element. Reacting to
   // the prop turning true later would yank the caret out of whatever the user
   // is typing in — typing the first letter of a subject would jump to the body.
   const autoFocusOnMount = useRef(autoFocus);
   const caretPlaced = useRef(false);
+
   useEffect(() => {
-    if (!autoFocusOnMount.current) return;
-    elRef.current?.focus();
-  }, []);
+    const el = elRef.current;
+    if (!el) return;
+    const editor = new Squire(el, {
+      blockTag: "DIV",
+      sanitizeToDOMFragment: (input) => sanitizeEditorFragment(input),
+    });
+    editorRef.current = editor;
+
+    const onInput = () => emit();
+    const onUndoState = (event: Event) => {
+      const detail = (event as CustomEvent<{ canUndo: boolean; canRedo: boolean }>)
+        .detail;
+      setUndo({ canUndo: detail.canUndo, canRedo: detail.canRedo });
+    };
+    /* An image pasted from the clipboard arrives as its own event, after the
+       engine has already swallowed the paste: the image is uploaded and put in
+       through `insertImage`, so the src is set as a property and never built
+       into markup. */
+    const onPasteImage = (event: Event) => {
+      const { clipboardData } = (event as CustomEvent<{ clipboardData: DataTransfer }>)
+        .detail;
+      const file = Array.from(clipboardData?.items ?? [])
+        .find((item) => item.type.startsWith("image/"))
+        ?.getAsFile();
+      if (file) insertImageRef.current(file);
+    };
+    editor.addEventListener("input", onInput);
+    editor.addEventListener("undoStateChange", onUndoState);
+    editor.addEventListener("pasteImage", onPasteImage);
+    if (autoFocusOnMount.current) editor.focus();
+    return () => {
+      editor.removeEventListener("input", onInput);
+      editor.removeEventListener("undoStateChange", onUndoState);
+      editor.removeEventListener("pasteImage", onPasteImage);
+      editor.destroy();
+      editorRef.current = null;
+    };
+  }, [emit]);
+
+  // Sync external html → DOM (only when it differs from what we emitted).
+  useEffect(() => {
+    const editor = editorRef.current;
+    const el = elRef.current;
+    if (!editor || !el) return;
+    if (html !== lastEmitted.current) {
+      editor.setHTML(html);
+      lastEmitted.current = html;
+      setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
+    }
+  }, [html]);
 
   /*
    * The caret, once the body is there, at the start of its first block.
    *
    * The body can arrive after the editor does -- a reply's quote is fetched --
-   * and a caret placed at `(editor, 0)` sits *outside* the first block, which
-   * leaves the browser to decide where the character typed next lands. That is
-   * the browser's own normalisation and not a position this client chose, and
-   * the first line of a message is the last line to leave to it: the body opens
-   * with an empty line that is the reader's, and everything below it belongs to
-   * the signature and the quote, which are drawn in another colour. Placing the
-   * caret inside the first block is the position every browser types into the
-   * same way.
+   * and a caret placed while the root is still empty sits in a DOM that is then
+   * replaced, which leaves the browser to decide where the character typed next
+   * lands. That is the browser's own normalisation and not a position this
+   * client chose, and the first line of a message is the last line to leave to
+   * it: the body opens with an empty line that is the reader's, and everything
+   * below it belongs to the signature and the quote, which are drawn in another
+   * colour. Placing the caret inside the first block is the position every
+   * browser types into the same way.
    */
   useEffect(() => {
     if (!autoFocusOnMount.current || caretPlaced.current) return;
+    const editor = editorRef.current;
     const el = elRef.current;
-    if (!el?.firstChild) return;
+    if (!editor || !el?.firstChild) return;
     caretPlaced.current = true;
-    el.focus();
-    const range = document.createRange();
-    range.setStart(el.firstChild, 0);
-    range.collapse(true);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
+    editor.focus();
+    editor.moveCursorToStart();
   }, [html]);
 
-  const emit = useCallback(() => {
-    const el = elRef.current;
-    if (!el) return;
-    const v = el.innerHTML;
-    lastEmitted.current = v;
-    setEmpty(!el.textContent?.trim() && !el.querySelector("img"));
-    onChange(v);
-  }, [onChange]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => editorRef.current?.focus(),
+      insertHtml: (h: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        editor.insertHTML(h);
+        emit();
+      },
+      insertText: (text: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.focus();
+        editor.insertPlainText(text, false);
+        emit();
+      },
+      getHtml: () => editorRef.current?.getHTML() ?? "",
+    }),
+    [emit],
+  );
 
-  const exec = useCallback(
-    (cmd: string, value?: string) => {
-      elRef.current?.focus();
-      restoreRange();
-      document.execCommand(cmd, false, value);
+  /** Focus the editor (Squire restores the saved selection), run a command, report. */
+  const run = useCallback(
+    (command: (editor: Squire) => void) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+      command(editor);
       emit();
     },
     [emit],
   );
-
-  const saveRange = () => {
-    const sel = window.getSelection();
-    if (sel?.rangeCount && elRef.current?.contains(sel.anchorNode))
-      savedRange.current = sel.getRangeAt(0).cloneRange();
-  };
-  const restoreRange = () => {
-    const r = savedRange.current;
-    if (!r) return;
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(r);
-  };
-
-  const insertHtml = useCallback(
-    (h: string) => {
-      elRef.current?.focus();
-      restoreRange();
-      document.execCommand("insertHTML", false, h);
-      emit();
-    },
-    [emit],
-  );
-
-  useImperativeHandle(ref, () => ({
-    focus: () => elRef.current?.focus(),
-    insertHtml,
-    insertText: (t: string) => {
-      elRef.current?.focus();
-      restoreRange();
-      document.execCommand("insertText", false, t);
-      emit();
-    },
-    getHtml: () => elRef.current?.innerHTML ?? "",
-  }));
-
-  const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
-    const items = Array.from(e.clipboardData.items);
-    const imgItem = items.find((i) => i.type.startsWith("image/"));
-    if (imgItem) {
-      const f = imgItem.getAsFile();
-      if (f) {
-        e.preventDefault();
-        insertImageFile(f);
-        return;
-      }
-    }
-    const htmlData = e.clipboardData.getData("text/html");
-    if (htmlData) {
-      e.preventDefault();
-      const clean = sanitizeEditorHtml(htmlData).replace(/<meta[^>]*>/gi, "");
-      document.execCommand("insertHTML", false, clean);
-      emit();
-      return;
-    }
-    // plain text: let browser handle (it inserts text nodes) but normalize newlines
-    const text = e.clipboardData.getData("text/plain");
-    if (text && /\n/.test(text)) {
-      e.preventDefault();
-      const escaped = text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\r?\n/g, "<br>");
-      document.execCommand("insertHTML", false, escaped);
-      emit();
-    }
-  };
-
-  const insertImageFile = (f: File) => {
-    if (imageUpload) {
-      imageUpload(f)
-        .then((url) =>
-          insertHtml(
-            `<img src="${url}" alt="${f.name.replace(/"/g, "")}" style="max-width:100%">`,
-          ),
-        )
-        .catch(() => {
-          /* uploader reports its own errors */
-        });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      insertHtml(
-        `<img src="${reader.result as string}" alt="${f.name.replace(/"/g, "")}" style="max-width:100%">`,
-      );
-    };
-    reader.readAsDataURL(f);
-  };
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     const files = Array.from(e.dataTransfer.files);
@@ -328,28 +342,11 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     linkMenu.close();
     if (!url) return;
     /* A scheme this composer will not link, so the text typed into the box
-       becomes a URL rather than being taken at its word. */
+       becomes a URL rather than being taken at its word. The href itself is
+       set on the anchor by the engine, never built into markup, so nothing a
+       URL carries can leave the attribute. */
     const typed = /^(https?:|mailto:|tel:)/i.test(url) ? url : `https://${url}`;
-    /* The three characters a URL cannot carry raw, percent-encoded the way a
-       URL parser reads them back. Both branches below put this string where a
-       browser will parse it, and a `"` left in it would end the href attribute
-       and put whatever followed into the message body as markup. */
-    const target = typed.replace(/"/g, "%22").replace(/</g, "%3C").replace(/>/g, "%3E");
-    elRef.current?.focus();
-    restoreRange();
-    const sel = window.getSelection();
-    if (sel?.isCollapsed) {
-      /* Typed, not from the selection, so the href and the visible label are
-         both built from it; the `&` escaping `escapeHtml` adds is the correct
-         attribute form, and the browser reads it back as `&`. */
-      const safe = escapeHtml(target);
-      document.execCommand(
-        "insertHTML",
-        false,
-        `<a href="${safe}" target="_blank" rel="noopener">${safe}</a>`,
-      );
-    } else document.execCommand("createLink", false, target);
-    emit();
+    run((editor) => editor.makeLink(typed, { target: "_blank", rel: "noopener" }));
     setLinkUrl("");
   };
 
@@ -363,22 +360,18 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
         spellCheck={spellcheck}
         data-placeholder={placeholder ?? ""}
         data-empty={empty}
-        onInput={emit}
-        onBlur={saveRange}
-        onKeyUp={saveRange}
-        onMouseUp={saveRange}
-        onPaste={onPaste}
         onDrop={onDrop}
         onDragOver={(e) => e.preventDefault()}
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
             e.preventDefault();
-            saveRange();
             linkMenu.open(e.currentTarget);
           }
           if (e.key === "Tab") {
             e.preventDefault();
-            exec(e.shiftKey ? "outdent" : "indent");
+            run((editor) =>
+              e.shiftKey ? editor.decreaseListLevel() : editor.increaseListLevel(),
+            );
           }
         }}
         role="textbox"
@@ -394,45 +387,47 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
           <button
             type="button"
             className="icon-btn"
+            disabled={!undo.canUndo}
             title={translate("Undo (Ctrl+Z)")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("undo")}
+            onClick={() => run((editor) => editor.undo())}
           >
             <Undo size={16} />
           </button>
           <button
             type="button"
             className="icon-btn"
+            disabled={!undo.canRedo}
             title={translate("Redo")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("redo")}
+            onClick={() => run((editor) => editor.redo())}
           >
             <Redo size={16} />
           </button>
           <span className="tb-sep" />
           <select
             title={translate("Font size")}
-            onMouseDown={saveRange}
             onChange={(e) => {
-              exec("fontSize", e.target.value);
+              const size = e.target.value;
               e.target.value = "";
+              run((editor) => editor.setFontSize(size));
             }}
             defaultValue=""
           >
             <option value="" disabled>
               {translate("Size")}
             </option>
-            <option value="1">{translate("Small")}</option>
-            <option value="3">{translate("Normal")}</option>
-            <option value="5">{translate("Large")}</option>
-            <option value="7">{translate("Huge")}</option>
+            <option value="small">{translate("Small")}</option>
+            <option value="medium">{translate("Normal")}</option>
+            <option value="large">{translate("Large")}</option>
+            <option value="xx-large">{translate("Huge")}</option>
           </select>
           <button
             type="button"
             className="icon-btn"
             title={translate("Bold (Ctrl+B)")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("bold")}
+            onClick={() => run((editor) => editor.bold())}
           >
             <Bold size={16} />
           </button>
@@ -441,7 +436,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Italic (Ctrl+I)")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("italic")}
+            onClick={() => run((editor) => editor.italic())}
           >
             <Italic size={16} />
           </button>
@@ -450,7 +445,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Underline (Ctrl+U)")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("underline")}
+            onClick={() => run((editor) => editor.underline())}
           >
             <Underline size={16} />
           </button>
@@ -459,7 +454,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Strikethrough")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("strikeThrough")}
+            onClick={() => run((editor) => editor.strikethrough())}
           >
             <Strikethrough size={16} />
           </button>
@@ -467,10 +462,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             type="button"
             className="icon-btn"
             title={translate("Text color")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              saveRange();
-            }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={colorMenu.open}
           >
             <Palette size={16} />
@@ -479,10 +471,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             type="button"
             className="icon-btn"
             title={translate("Highlight")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              saveRange();
-            }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={hiliteMenu.open}
           >
             <Highlighter size={16} />
@@ -493,7 +482,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Align left")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyLeft")}
+            onClick={() => run((editor) => editor.setTextAlignment("left"))}
           >
             <AlignLeft size={16} />
           </button>
@@ -502,7 +491,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Center")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyCenter")}
+            onClick={() => run((editor) => editor.setTextAlignment("center"))}
           >
             <AlignCenter size={16} />
           </button>
@@ -511,7 +500,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Align right")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyRight")}
+            onClick={() => run((editor) => editor.setTextAlignment("right"))}
           >
             <AlignRight size={16} />
           </button>
@@ -521,7 +510,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Bulleted list")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("insertUnorderedList")}
+            onClick={() => run((editor) => editor.makeUnorderedList())}
           >
             <List size={16} />
           </button>
@@ -530,7 +519,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Numbered list")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("insertOrderedList")}
+            onClick={() => run((editor) => editor.makeOrderedList())}
           >
             <ListOrdered size={16} />
           </button>
@@ -539,7 +528,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Decrease indent")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("outdent")}
+            onClick={() => run((editor) => editor.decreaseListLevel())}
           >
             <Outdent size={16} />
           </button>
@@ -548,7 +537,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Increase indent")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("indent")}
+            onClick={() => run((editor) => editor.increaseListLevel())}
           >
             <Indent size={16} />
           </button>
@@ -557,7 +546,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Quote")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("formatBlock", "blockquote")}
+            onClick={() => run((editor) => editor.increaseQuoteLevel())}
           >
             <Quote size={16} />
           </button>
@@ -566,7 +555,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Code block")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("formatBlock", "pre")}
+            onClick={() => run((editor) => editor.toggleCode())}
           >
             <Code size={16} />
           </button>
@@ -575,7 +564,13 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Normal text")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("formatBlock", "div")}
+            onClick={() =>
+              run((editor) => {
+                editor.removeQuote();
+                editor.removeCode();
+                editor.removeList();
+              })
+            }
           >
             <Type size={16} />
           </button>
@@ -584,10 +579,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             type="button"
             className="icon-btn"
             title={translate("Insert link (Ctrl+K)")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              saveRange();
-            }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={linkMenu.open}
           >
             <LinkIcon size={16} />
@@ -595,7 +587,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
           <label
             className="icon-btn"
             title={translate("Insert image")}
-            onMouseDown={saveRange}
+            onMouseDown={(e) => e.preventDefault()}
           >
             <ImageIcon size={16} />
             <input
@@ -613,10 +605,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             type="button"
             className="icon-btn"
             title={translate("Emoji")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              saveRange();
-            }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={emojiMenu.open}
           >
             <Smile size={16} />
@@ -626,10 +615,12 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
             className="icon-btn"
             title={translate("Remove formatting")}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              exec("removeFormat");
-              exec("unlink");
-            }}
+            onClick={() =>
+              run((editor) => {
+                editor.removeAllFormatting();
+                editor.removeLink();
+              })
+            }
           >
             <Eraser size={16} />
           </button>
@@ -651,7 +642,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
               type="button"
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => {
-                insertHtml(e);
+                run((editor) => editor.insertPlainText(e, false));
                 emojiMenu.close();
               }}
             >
@@ -676,7 +667,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
               style={{ background: c }}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => {
-                exec("foreColor", c);
+                run((editor) => editor.setTextColor(c));
                 colorMenu.close();
               }}
               aria-label={c}
@@ -700,7 +691,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
               style={{ background: c }}
               onMouseDown={(ev) => ev.preventDefault()}
               onClick={() => {
-                exec("hiliteColor", c);
+                run((editor) => editor.setHighlightColor(c));
                 hiliteMenu.close();
               }}
               aria-label={c}
