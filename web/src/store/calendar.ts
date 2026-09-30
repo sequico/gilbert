@@ -39,11 +39,27 @@ import {
 import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { showNotification } from "@/lib/notify";
 import { toast } from "@/ui/toast";
 import { useContacts } from "./contacts";
+import { useMail } from "./mail";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
+
+/**
+ * The group mailboxes the reader belongs to, per the mail store's probe.
+ *
+ * A group's calendar is subscribed by membership, so `isSubscribed` is not the
+ * member's switch on it: it is drawn whether or not that flag survived, and one
+ * found unsubscribed is put back. Read here the way the contacts store reads
+ * it, so every group surface asks the same classifier.
+ */
+function groupAccountIds(): Set<string> {
+  return new Set(
+    groupMailboxAccounts(useMail.getState().mailAccounts).map((a) => a.accountId),
+  );
+}
 
 /**
  * Arm the calendar reminders (ADR 0016).
@@ -800,6 +816,23 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       sharedRanges:
         found.length || !Object.keys(s.sharedRanges).length ? s.sharedRanges : {},
     }));
+    /*
+     * A group's calendar is subscribed by membership, so one left unsubscribed
+     * is put back on the group's own object here: the client once let a member
+     * unsubscribe one, which stranded it with no way back. Repairing the shared
+     * object restores it for every reader, not only this one. Where the server
+     * refuses the write, `setSharedSubscribed` records it for this reader
+     * instead and the calendar is drawn all the same.
+     */
+    const groupIds = groupAccountIds();
+    const addedShares = new Set(settings().addedShares);
+    for (const c of found)
+      if (
+        groupIds.has(c.accountId) &&
+        !c.calendar.isSubscribed &&
+        !addedShares.has(sharedKey(c.accountId, c.calendar.id))
+      )
+        void get().setSharedSubscribed(c.accountId, c.calendar.id, true);
     // Fill in whatever windows are already on screen.
     for (const key of Object.keys(get().ranges)) {
       const [from, to] = key.split("|").map((n) => new Date(Number(n)));
@@ -1114,6 +1147,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
        without knowing they exist. Their calendars are looked up per account:
        a shared calendar id means nothing outside the account holding it, and
        hiding one is remembered under the same account-qualified key. */
+    const groupIds = groupAccountIds();
     const sharedKeys = new Set<string>();
     for (const list of Object.values(sharedRanges))
       for (const k of list) sharedKeys.add(k);
@@ -1127,13 +1161,16 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          with full rights on each, whether or not anybody meant to share it --
          an account linked for its files offered its calendar too. `isSubscribed`
          is the only thing separating "shared with me" from "reachable", so
-         nothing unsubscribed is drawn. */
+         nothing unsubscribed is drawn -- except a group's, where membership is
+         the subscription: it is drawn whether or not `isSubscribed` survived,
+         the same rule a group's books follow (contacts' `wanted`). */
       const theirs: Record<Id, Calendar> = {};
       for (const c of sharedCalendars) {
         if (c.accountId !== accountId) continue;
         if (
           !c.calendar.isSubscribed &&
-          !addedShares.has(sharedKey(c.accountId, c.calendar.id))
+          !addedShares.has(sharedKey(c.accountId, c.calendar.id)) &&
+          !groupIds.has(c.accountId)
         )
           continue;
         theirs[c.calendar.id] = c.calendar;
