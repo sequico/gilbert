@@ -54,7 +54,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   hides and shows one, never unsubscribes it). A group calendar's **colour
   belongs to the calendar**, so every reader sees the same one, and only an
   installation administrator may change it — the Edit entry is disabled for a
-  member. A calendar a group owns is deleted and renamed from that same section;
+  member. A calendar a group owns is renamed from that same section, and never
+  deleted — Delete is disabled for a shared calendar, a group's included;
   non-group shared calendars stay in the read-only *Shared with me / Available
   to add* area.
 - **Address books**: same shape — `store/contacts.ts`
