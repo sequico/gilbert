@@ -1,6 +1,6 @@
 # ADR 0029 — The composer's editor is Squire
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The editor wrapper
 `web/src/views/compose/RichEditor.tsx` drives Squire; the sanitisation policy it

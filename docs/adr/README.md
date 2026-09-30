@@ -278,7 +278,7 @@ is, not what a user sees.
   folder tree is a code-maintained projection of the pointers rather than a
   second source of truth. Recorded before the design is settled — the open
   questions are in the record, and the KB (ADR 0024) is a separate decision.
-- **0029 — The composer's editor is Squire (proposed, built).** Every surface
+- **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
   email, whose HTML is the source of truth so a quote or a forward keeps a third
