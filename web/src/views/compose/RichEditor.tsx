@@ -284,10 +284,10 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
    * lands. That is the browser's own normalisation and not a position this
    * client chose, and the first line of a message is the last line to leave to
    * it: the body opens with an empty line that is the reader's, and everything
-   * below it -- the signature and the quote -- is drawn in another colour, so a
-   * character the browser decides where to put can land in the wrong one.
-   * Placing the caret inside the first block is the position every browser types
-   * into the same way.
+   * below it belongs to the signature and the quoted message rather than to the
+   * reader, so a character the browser decides where to put can land in the
+   * wrong one. Placing the caret inside the first block is the position every
+   * browser types into the same way.
    *
    * The engine is told before it is focused: `setSelection` stores the range for
    * the focus that follows, so the engine's own idea of the caret
