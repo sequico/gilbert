@@ -284,18 +284,31 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
    * lands. That is the browser's own normalisation and not a position this
    * client chose, and the first line of a message is the last line to leave to
    * it: the body opens with an empty line that is the reader's, and everything
-   * below it belongs to the signature and the quote, which are drawn in another
-   * colour. Placing the caret inside the first block is the position every
-   * browser types into the same way.
+   * below it -- the signature and the quote -- is drawn in another colour, so a
+   * character the browser decides where to put can land in the wrong one.
+   * Placing the caret inside the first block is the position every browser types
+   * into the same way.
+   *
+   * The engine is told before it is focused: `setSelection` stores the range for
+   * the focus that follows, so the engine's own idea of the caret
+   * (`getSelection`) agrees with the browser's when a key arrives -- focusing
+   * first leaves it holding an older range, and the next Enter splits at the
+   * wrong one. The blur is what makes the focus an event at all: a root that is
+   * already focused fires none, which is where React building the engine twice
+   * in one commit leaves the second instance.
    */
   useEffect(() => {
     if (!autoFocusOnMount.current || caretPlaced.current) return;
     const editor = editorRef.current;
-    const el = elRef.current;
-    if (!editor || !el?.firstChild) return;
+    const first = elRef.current?.firstChild;
+    if (!editor || !first) return;
     caretPlaced.current = true;
+    const range = document.createRange();
+    range.setStart(first, 0);
+    range.collapse(true);
+    editor.blur();
+    editor.setSelection(range);
     editor.focus();
-    editor.moveCursorToStart();
   }, [html]);
 
   useImperativeHandle(
