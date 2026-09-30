@@ -34,7 +34,9 @@ is, not what a user sees.
   identity lock and the forced-password directive are all per-account
   documents written that way.
 - **0002 — Upstream is download-only.** Releases are fetched at merge time,
-  nothing flows back, and no mirror branch is kept.
+  nothing flows back, and no mirror branch is kept. Hand-taken commits are
+  recorded in `docs/upstream.md`, because taking one never makes a release's own
+  commit an ancestor of `main`.
 - **0003 — The agent fleet.** One installation-wide agent identity, its own
   process or embedded in the server, coordinated by lease documents with no
   supervisor. An automation is a trigger, a prose instruction and a capability

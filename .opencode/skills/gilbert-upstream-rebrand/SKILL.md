@@ -21,6 +21,9 @@ Two things are checked in one pass, and neither is the other's job:
 
 Upstream releases are fetched directly by the merge that takes them into
 `main` (ADR 0002), and a daily watch reports a release main has not taken in.
+That report is a pointer rather than a verdict: a hand-take never makes the
+release's own commit an ancestor, so `docs/upstream.md` — one row per upstream
+commit and what became of it — is what settles whether a commit is already in.
 Upstream code is written for ihasmail: it ships `ihasmail` identifiers,
 `[ihasmail]` log prefixes, `ihasmail-…` device/header strings, ihasmail.example
 fixtures and prose that calls the product ihasmail. Gilbert's naming law

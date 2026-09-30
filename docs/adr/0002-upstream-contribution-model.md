@@ -4,7 +4,8 @@ Status: Accepted
 
 Implementation: Built, and carried by the repository's own shape rather than by
 code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
-and a release is fetched by the merge that takes it in.
+a release is fetched by the merge that takes it in, and `docs/upstream.md`
+carries the per-commit record.
 
 Gilbert's mail client is based on **ihasmail**, by **Coffey Labs**; `NOTICE`
 carries the attribution and the addresses. Upstream is consumed here and never
@@ -24,9 +25,15 @@ keep upstream close, and no credential is kept to push it.
 the newest upstream release, and asks one question: is that release's commit
 an ancestor of `main`? If it is, nothing has been missed. If it is not, the
 watch opens an issue that names the owner and closes it once the commit lands.
-Nothing is written down to compare against, so there is no bookkeeping that
-can fall out of step with the actual history; the workflow pushes nothing and
-holds no secret.
+The workflow pushes nothing and holds no secret.
+
+The ancestry check has one false positive, and it is the common case here: a
+release whose work was **hand-taken** commit by commit never makes the release's
+own commit an ancestor, so it keeps being reported as missing. `docs/upstream.md`
+is the record that answers it — one row per upstream commit and what became of
+it — and every hand-take records the upstream sha in its own message
+(`Upstream: <sha>`), so the mapping lives in the history and the table is rebuilt
+from it rather than maintained by hand.
 
 No upstream-shaped fork is kept, no un-renaming patches exist, and nothing is
 proposed back upstream: work that upstream might once have accepted simply lives
@@ -54,5 +61,6 @@ release taken in by cherry-pick instead would keep being reported as missing
 ## References
 
 - `.github/workflows/upstream-watch.yml` — the fetch, the ancestry check, the issue
+- `docs/upstream.md` — the per-commit record the watch's false positive needs
 - upstream's repository — the remote a merge fetches from; the address is in `NOTICE`
 - upstream's GitHub-era issue archive — the issues and pull requests from GitHub, whose numbers match GitHub's; the address is in `NOTICE`
