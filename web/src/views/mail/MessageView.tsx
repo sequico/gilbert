@@ -12,14 +12,12 @@ import {
   Eye,
   FileUp,
   Filter,
-  Forward,
   Image as ImageIcon,
   Mail,
   MailPlus,
   MoreVertical,
   Paperclip,
   Printer,
-  Reply,
   ReplyAll,
   Share2,
   ShieldAlert,
@@ -623,21 +621,10 @@ export const MessageView = memo(function MessageView({
         align="end"
         width={240}
       >
-        <MenuItem
-          icon={<Reply size={16} />}
-          label={translate("Reply")}
-          onClick={() => void reply(e, "reply")}
-        />
-        <MenuItem
-          icon={<ReplyAll size={16} />}
-          label={translate("Reply all")}
-          onClick={() => void reply(e, "replyAll")}
-        />
-        <MenuItem
-          icon={<Forward size={16} />}
-          label={translate("Forward")}
-          onClick={() => void reply(e, "forward")}
-        />
+        {/* The reply strip below the conversation carries Reply, Reply all and
+            Forward in full, and this header keeps Reply all as its one quick
+            action, so the menu does not repeat those three; it carries the rest
+            of what can be done with the message. */}
         {/* The same message rather than a quotation of it: headers, attachments
             and all, for passing one on to be looked at rather than read. */}
         <MenuItem
@@ -645,8 +632,7 @@ export const MessageView = memo(function MessageView({
           label={translate("Forward as attachment")}
           onClick={() => useCompose.getState().forwardAsAttachment(e)}
         />
-        {/* Sends the same mail again rather than passing it on, so it sits with
-            the other three rather than down among the read-only actions. */}
+        {/* Sends the same mail again rather than passing it on. */}
         <MenuItem
           icon={<MailPlus size={16} />}
           label={translate("Compose as new")}
@@ -655,7 +641,7 @@ export const MessageView = memo(function MessageView({
         <MenuSep />
         <MenuItem
           icon={<Mail size={16} />}
-          label={e.keywords.$seen ? "Mark as unread" : "Mark as read"}
+          label={translate(e.keywords.$seen ? "Mark as unread" : "Mark as read")}
           onClick={() => void useMail.getState().markRead([e.id], !e.keywords.$seen)}
         />
         <MenuItem
