@@ -55,12 +55,41 @@ way every app-folder document is.
   name: the uid is what ties the copies, so renaming a workorder is an edit and
   never a rename, and no reference breaks.
 
+### The document shape
+
+One definition, `@gilbert/shared/workorder`, read by both tiers. A root and a
+part are the same shape; the root carries what a part does not.
+
+- `v` — the schema version, an integer.
+- `uid` — the workorder's id.
+- `name` — the friendly name, on the root; a part does not carry it.
+- `state` — on the root: `running`, `completed`, `cancelled` or `replaced`, and
+  `replacedBy` names the successor's uid when it is `replaced`.
+- `checklist` — `{ template: { accountId, id, revision }, steps: [step] }`, a
+  step being `{ id, state: "open" | "done", by, at }`: the template step's id and
+  the step's state, never a copy of the controlled text, which is read from the
+  template revision the checklist is bound to; `by` and `at` are the last
+  signature.
+- `refs` — the references `{ accountId, kind, id }` this document gathers; `kind`
+  names what `id` is — `folder`, `file` or `kb` — and a later version may add
+  more, which a reader preserves and skips.
+- `created`, `updated` — `{ by, at }`.
+
+Two rules keep the shape open without losing anything. A document carries `v`,
+and **a write preserves what it does not know** — every writer is a
+read-modify-write that keeps unknown fields, so a document from a later version,
+or one carrying an extra field, is never trimmed. A change to the shape is a
+version bump and a **non-destructive migration** that carries values forward and
+drops none.
+
 ### Closing a workorder moves its root
 
-When a workorder reaches a terminal state — completed, cancelled, whatever the
-document's own `state` says — the Master moves the **root** into
-`workorders/closed/`, so listing `workorders/` is the active set and listing
-`closed/` is what is done. The `closed/` **directory node** sits among the active
+When a workorder reaches a terminal state — `completed`, `cancelled` or
+`replaced` — the Master moves the **root** into `workorders/closed/`, so listing
+`workorders/` is the active set and listing `closed/` is what is done. The
+`closed/` folder is not a bin: a terminal workorder is **kept for ever**, and
+nothing destroys one. `replaced` means another workorder succeeds it, named in
+`replacedBy`, and nothing is copied from the one it replaces. The `closed/` **directory node** sits among the active
 roots in a listing of `workorders/` and is dropped by node type, so the active
 set is the files that remain. The folder is a **projection of the state, not the
 state**: the `state` field is the truth, a root standing in the wrong folder is a
@@ -149,7 +178,9 @@ chooses each template, as a reference to a template the reader may read. When a
 template changes, rewriting a running checklist is a later concern with its own
 gate.
 
-A checked step carries its **last signature**: who checked it and when.
+A checked step carries its **last signature**, visible to the workorder's
+readers: who checked it and when — unlike a KB draft's attribution, which is
+private to the writer.
 
 - **Who** is the person's own address, not the identity the group sends as (ADR
   0007) — the actor, not the From line. A step the agent checks is signed as the
@@ -215,9 +246,6 @@ created.
 
 ## Open questions
 
-- What states a workorder reaches besides in force and closed, and whether a
-  closed one is ever destroyed or kept in `closed/` for good.
-- The document's exact schema, and the reference kinds it carries first.
 - Whether the surface degrades read-only when the Master's session is
   unavailable, since it is the only writer.
 
