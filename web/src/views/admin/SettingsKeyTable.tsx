@@ -29,7 +29,7 @@ export interface KeyEntry {
 
 export const ENTRIES: Record<string, KeyEntry> = {
   theme: {
-    desc: t("The theme this build knows: system, light, dark, or Gilbert's own."),
+    desc: t("Which theme to use: system, light, dark, or Gilbert's own."),
     example: "gilbert",
   },
   palette: {
@@ -66,7 +66,7 @@ export const ENTRIES: Record<string, KeyEntry> = {
     example: false,
   },
   showHiddenFolders: {
-    desc: t("Show hidden folders in Files (the gilbert app folder and more)."),
+    desc: t("Show folders that Files normally hides."),
     example: false,
   },
   themeMessageBody: {
@@ -380,7 +380,7 @@ export function SettingsKeyTable() {
                   <td>
                     <code>{key}</code>
                   </td>
-                  <td>{t("New in this build — no description yet.")}</td>
+                  <td>{t("No description available.")}</td>
                   <td>
                     <code>"{key}": …</code>
                   </td>

@@ -288,7 +288,7 @@ export function RuleForm({
       {!grantIsReadable(grant) ? (
         <p className="hint">
           {t(
-            "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.",
+            "The capability catalogue has not been read, so there is nothing to grant here. Saving stays refused until the server answers with it.",
           )}
         </p>
       ) : (

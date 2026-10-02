@@ -301,7 +301,7 @@ export function CalendarView({
           icon={<CalIcon size={40} />}
           title={translate("Calendar is not available")}
         >
-          {translate("This account does not have the JMAP calendars capability.")}
+          {translate("This account is not set up for calendars.")}
         </Empty>
       </div>
     );

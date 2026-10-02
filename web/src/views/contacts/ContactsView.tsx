@@ -420,7 +420,7 @@ export function ContactsView({ id }: { id?: string }) {
     return (
       <div className="p-16">
         <Empty icon={<Users size={40} />} title={translate("Contacts are not available")}>
-          {translate("This account does not have the JMAP contacts capability.")}
+          {translate("This account is not set up for contacts.")}
         </Empty>
       </div>
     );

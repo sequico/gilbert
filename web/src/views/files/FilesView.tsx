@@ -213,7 +213,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     return (
       <div className="p-16">
         <Empty icon={<FolderOpen size={40} />} title={t("File storage is not available")}>
-          {t("This account does not have the JMAP file storage capability.")}
+          {t("This account is not set up for file storage.")}
         </Empty>
       </div>
     );

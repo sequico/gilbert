@@ -54,7 +54,7 @@ export function FiltersSettings() {
     return (
       <div>
         <h1>{t("Filters & rules")}</h1>
-        <p className="lead">{t("Sieve filtering is not available for this account.")}</p>
+        <p className="lead">{t("Filters are not available for this account.")}</p>
       </div>
     );
   }
@@ -64,7 +64,7 @@ export function FiltersSettings() {
       <h1>{t("Filters & rules")}</h1>
       <p className="lead">
         {t(
-          "Sort incoming mail automatically. Rules run on the server (Sieve), so they work for every client you use.",
+          "Sort incoming mail automatically. Rules run on the server, so they work for every client you use.",
         )}
       </p>
       <div className="view-switch" style={{ marginBottom: 16 }}>

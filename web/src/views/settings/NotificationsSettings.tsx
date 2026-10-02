@@ -52,7 +52,7 @@ export function NotificationsSettings() {
     <div>
       <h1>{t("Notifications")}</h1>
       <p className="lead">
-        {t("Live updates are delivered via JMAP push ({state}).", {
+        {t("Live updates are {state}.", {
           state: pushConnected ? t("connected") : t("reconnecting…"),
         })}
       </p>

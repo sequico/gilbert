@@ -260,7 +260,7 @@ export function RuleEditor({
       {doubled && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
-            "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}",
+            "This group has more than one enabled automation on a trigger, which is not supported: {reason}",
             { reason: doubled },
           )}
         </div>
@@ -514,9 +514,7 @@ function RuleItem({
           {nextDue
             ? t("Next due: {when}", { when: formatListDate(nextDue) })
             : rule.enabled
-              ? t(
-                  "Not yet scheduled — the agent holding this group arms it on its next pass.",
-                )
+              ? t("Not scheduled yet — it starts on the agent's next pass.")
               : t("Not scheduled while disabled.")}
         </p>
       )}
@@ -533,7 +531,7 @@ function RuleItem({
       ) : run === "asked" ? (
         <p className="hint">
           {t(
-            "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.",
+            "Asked for. The agent picks it up on its next pass, within a minute by default; the group's audit records what it did.",
           )}
         </p>
       ) : null}

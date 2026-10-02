@@ -253,9 +253,7 @@ export function AppearanceSettings() {
         </p>
       )}
       <p className="hint">
-        {translate(
-          "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.",
-        )}
+        {translate("Only languages Gilbert has been translated into appear here.")}
       </p>
       <p className="hint">
         {tNode(

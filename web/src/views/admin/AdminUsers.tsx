@@ -98,7 +98,7 @@ export function AdminUsers() {
       <h1>{t("Force passwords")}</h1>
       <p className="lead">
         {t(
-          "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.",
+          "Require an account to change its password. The requirement is enforced by the server; administrators cannot force one another.",
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>

@@ -464,15 +464,6 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             <span className="hint">{t("Draft")}</span>
           )}
         </div>
-
-        {/* v1's honest conflict note (ADR 0024 Q13): the whole draft is saved,
-            several people can edit it, and a save that would overwrite
-            somebody else's change is refused rather than losing it. */}
-        <p className="hint" style={{ marginTop: 8, marginBottom: 0 }}>
-          {t(
-            "Saving writes the whole draft. Several people can edit a page at once; real-time co-editing comes later (ADR 0024).",
-          )}
-        </p>
       </div>
 
       <div className="files-scroll">

@@ -28,7 +28,7 @@ export function GroupInstruction({ group }: { group: string }) {
       scope={group}
       heading={t("Standing instruction")}
       lead={t(
-        "Written once for the whole group and handed to the model on every call, after the installation's own rules and before the automation's own instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.",
+        "Written once for the whole group and applied to every call, after the installation's own rules and before each automation's instruction. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.",
       )}
       label={t("How this group's agent works")}
       placeholder={t(

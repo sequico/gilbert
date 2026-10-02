@@ -62,7 +62,7 @@ export const AGENT_ERROR_SENTENCES = {
     "The agent {address} has no account holding its own Files, so there is nothing for it to read or write.",
   agent_not_found: "The server has no account at that address: {detail}",
   agent_document_not_current:
-    "A stored agent document is not in the shape this build writes, and it could not be replaced: {detail}",
+    "A stored agent document is not in a shape Gilbert can read, and it could not be replaced: {detail}",
   forbidden: "This administrator may not act as that agent: {detail}",
   duplicate_rule:
     'Two automations share the id "{id}". Ids must be unique: a job records the id and the version it was created from.',
@@ -91,7 +91,7 @@ export const AGENT_ERROR_SENTENCES = {
   instruction_too_long:
     "One piece of prose an agent carries is at most {max} characters; this one is {length}.",
   review_mode_unknown:
-    "That is not a review policy this build knows: pick one of the three.",
+    "That is not a review policy Gilbert knows: pick one of the three.",
   policy_not_an_object: "The policy could not be read from what was sent.",
   no_provider:
     "This installation has no model configured, so there is nothing to read a draft with: set the provider under Agents first.",
