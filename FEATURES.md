@@ -887,9 +887,13 @@ a folder of Files.
   same text without Orama — the two share a corpus, not a ranking, and neither
   is a second service.
 - **For the fleet**: a `knowledge` lookup (list or search pages, read one page's
-  text) and a `knowledge.write` capability (create or update a page's draft) in
-  the closed catalogue. The KB is a **lookup**, never carried whole into a prompt;
-  the notebook stays the distilled head (ADR 0006, ADR 0020).
+  text), a `knowledge.write` capability (create or update a page's draft), and a
+  `knowledge.review` that records a consistency check's findings — all in the
+  closed catalogue. A multi-page change is a **plan**: each write names the draft
+  it was read from (`basedOn`), so a page edited since is refused rather than
+  overwritten, and the per-page outcomes and the review's findings are kept on
+  the run's own job, not in the KB. The KB is a **lookup**, never carried whole
+  into a prompt; the notebook stays the distilled head (ADR 0006, ADR 0020).
 - **Graceful degradation**: the company tier is read when the KB is opened (a
   share is not a membership, so no live update is promised for it), while a
   group's KB rides the FileNode push rail like any other document; a page that
@@ -898,8 +902,7 @@ a folder of Files.
   that reaches every account — is owed the live probe ADR 0023 already names.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
-Excalidraw diagrams, and the document-controller's multi-document plan kept as a
-document of its own. There are no attachments: a procedure is formatted text
+and Excalidraw diagrams. There are no attachments: a procedure is formatted text
 blocks.
 
 ---

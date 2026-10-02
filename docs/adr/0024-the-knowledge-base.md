@@ -10,11 +10,13 @@ validators and the lifecycle arithmetic are one definition
 (`server/src/index.ts`); the client reads and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
 BlockNote editor are `web/src/views/knowledge/`; and the fleet's `knowledge`
-lookup and `knowledge.write` capability live in `server/src/agent/`. Not built:
-the multi-document plan kept as its own document, and the phases this record
-defers (co-editing over Yjs/Hocuspocus, Excalidraw diagrams). The company KB's
-read share on `gilbert/knowledge` is owed the live probe ADR 0023 carries for a
-share that reaches every account.
+lookup and `knowledge.write` capability live in `server/src/agent/`. The fleet
+records the multi-document plan it applies and a review's findings on the run's
+own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
+was read; `knowledge.review` records the prose), in the trail Q23 names. Not
+built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
+diagrams). The company KB's read share on `gilbert/knowledge` is owed the live
+probe ADR 0023 carries for a share that reaches every account.
 
 ## Context
 
@@ -284,7 +286,8 @@ below.
   one keeps it, with its revisions, and marks it **retired**: it leaves the tree
   and is found only by a search that asks for retired articles, so it cannot
   confuse a reader. An article no approval ever touched is deleted outright.
-  Retiring is an administrator's, like approving.
+  Retiring is an administrator's, like approving, and a retired article is not
+  brought back: a change to it is a new article.
 
 ### Storage
 
