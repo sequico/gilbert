@@ -54,6 +54,7 @@ import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
+import { WorkorderLauncher } from "./workorder/WorkorderLauncher";
 
 /*
  * The other sections' sidebars, loaded with the section they belong to.
@@ -355,6 +356,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Chat comes first in the action cluster: ADR 0005. Rendered (or
               not) by the launcher itself. */}
           <ChatLauncher />
+          {/* The workorder launcher sits beside chat's: ADR 0028. It opens a
+              panel rather than a popover, but the entry point is the same. */}
+          <WorkorderLauncher />
           {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"
