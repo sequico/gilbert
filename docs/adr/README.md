@@ -228,7 +228,7 @@ is, not what a user sees.
   `All contacts` and the reader's own books, as well as being merged in it; its
   cards are ordinary cards. The exact Stalwart shape of a share naming every
   account at once is owed a live probe.
-- **0024 — The knowledge base (proposed).** An enterprise
+- **0024 — The knowledge base (accepted).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
   owned by the Master and shared, plus a KB per group owned by the group, over
   app-folder documents in Stalwart — policies, procedures and the checklist
@@ -240,7 +240,7 @@ is, not what a user sees.
   the search (Orama) off the shelf and builds the rest — storage, ownership,
   versioning, approval — itself, and makes the fleet a **document controller**
   that keeps policies aligned, finds inconsistencies and plans multi-document
-  edits. The record is **Proposed**, every design question settled: it carries
+  edits. The record is **Accepted**, every design question settled: it carries
   the findings, the design as it stands, the lifecycle, versioning and publication
   (e.g. ISO 9001 policies), and the library choice. **Built** for v1 — the storage
   and lifecycle, the Master-owned door and its routes, the boot ensure, the client
@@ -274,7 +274,7 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
-- **0028 — Workorders are group-owned parts (proposed).** A workorder is one
+- **0028 — Workorders are group-owned parts (accepted).** A workorder is one
   uid: a root document in the Master's `gilbert/workorders/` — identity, global
   checklist and the registry of every workorder, the root moved to `closed/` when
   the state turns terminal (a projection, the state being the truth) — and a part

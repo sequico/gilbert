@@ -1,6 +1,6 @@
 # ADR 0028 — Workorders are group-owned parts
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The shape, its validators and the wire views are one
 definition (`server/src/shared/workorder.ts`); the Master-owned door and its

@@ -1,6 +1,6 @@
 # ADR 0024 — The knowledge base
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The article shape, the storage layout, the
 validators and the lifecycle arithmetic are one definition
@@ -467,7 +467,7 @@ does this is a *document controller*, and it is where the KB earns its keep.
 ## Questions, settled
 
 Every question this record opened is settled below, with what the owner decided.
-The record is **Proposed** until the owner accepts it.
+The record is **Accepted**.
 
 1. **Who writes the company KB, and through which door?** — **Settled.** Every
    member and every agent writes and edits drafts, and only an administrator
