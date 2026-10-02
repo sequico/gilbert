@@ -45,7 +45,6 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const load = useKnowledge((s) => s.load);
   const open = useKnowledge((s) => s.open);
   const setEdit = useKnowledge((s) => s.setEdit);
-  const beginCreate = useKnowledge((s) => s.beginCreate);
   const save = useKnowledge((s) => s.save);
   const approve = useKnowledge((s) => s.approve);
   const restore = useKnowledge((s) => s.restore);
@@ -149,21 +148,6 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       : (tiers.find(
           (tier) => tier.scope === article.scope && tier.accountId === article.accountId,
         ) ?? null);
-
-  /*
-   * The shell's "New page" is a button in the module bar, so the page it starts
-   * is asked for here: the current tier, or the first when none is open. The
-   * sidebar's inline input is what names it — nothing is asked in a dialog.
-   */
-  useEffect(() => {
-    const onNew = () => {
-      const tier = activeTier ?? tiers[0];
-      if (!tier) return;
-      beginCreate(tier, null, "page");
-    };
-    window.addEventListener("ihm:knowledge-new", onNew);
-    return () => window.removeEventListener("ihm:knowledge-new", onNew);
-  }, [activeTier, tiers, beginCreate]);
 
   if (loading || articleLoading) return <Spinner size="lg" />;
   if (!article) {

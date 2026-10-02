@@ -107,7 +107,8 @@ interface Module {
   href: string;
   label: string;
   icon: LucideIcon;
-  action: { label: string; icon: LucideIcon; event?: string };
+  /** The section's primary action; the knowledge base has none. */
+  action?: { label: string; icon: LucideIcon; event?: string };
 }
 
 /**
@@ -121,9 +122,10 @@ interface Module {
  *
  * A section that has an editor of its own is reached through `event` rather
  * than by this file: the shell dispatches, the view that owns the dialog
- * listens (see CalendarView, ContactsView, FilesView, KnowledgeView). `.action`
- * carrying no event is how mail says its composer is the app's own store and
- * is called directly.
+ * listens (see CalendarView, ContactsView, FilesView). `.action` carrying no
+ * event is how mail says its composer is the app's own store and is called
+ * directly. A section with no primary action carries none — the knowledge base
+ * makes its pages in its own tree — and draws no button.
  *
  * `search` is not one of these: it is mail, filtered, and `currentModule`
  * answers with mail for it so the renderers agree about which module is
@@ -163,7 +165,6 @@ const MODULES: Module[] = [
     href: "/kb",
     label: "KB",
     icon: BookOpen,
-    action: { label: "New page", icon: Plus, event: "ihm:knowledge-new" },
   },
 ];
 
@@ -247,8 +248,7 @@ export function AppShell({ children }: { children: ReactNode }) {
    * empty pane that starts a message is the one that is always meaningful. The
    * fab is not drawn there at all (see below), being the section's own action.
    */
-  const action = mod?.action ?? MODULES[0]!.action;
-  const SectionAction = action.icon;
+  const action = mod ? mod.action : MODULES[0]!.action;
   /*
    * Where the shield takes the reader back to: the section that was open
    * before the last jump into /admin. Remembered on the click that leaves
@@ -542,17 +542,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Whatever this pane is for. In Files it starts an upload rather
               than a message: Compose belongs to mail, not to the file
               manager. */}
-          <button
-            className="compose-btn"
-            onClick={() => {
-              const { event } = action;
-              if (event) window.dispatchEvent(new CustomEvent(event));
-              else openCompose();
-            }}
-          >
-            <SectionAction size={22} />
-            <span>{t(action.label)}</span>
-          </button>
+          {action && (
+            <button
+              className="compose-btn"
+              onClick={() => {
+                const { event } = action;
+                if (event) window.dispatchEvent(new CustomEvent(event));
+                else openCompose();
+              }}
+            >
+              <action.icon size={22} />
+              <span>{t(action.label)}</span>
+            </button>
+          )}
           <div className="sidebar-scroll">
             {(section === "mail" || section === "search") && <MailboxTree />}
             {/*
@@ -650,7 +652,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             The section's primary action, floating over the list. Hidden while
             a message is open in the reading pane -- see `readingMessage`.
           */}
-          {mod && !readingMessage(section, location) && (
+          {mod && action && !readingMessage(section, location) && (
             <button
               className="fab"
               aria-label={t(action.label)}
@@ -660,7 +662,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 else openCompose();
               }}
             >
-              <SectionAction size={24} />
+              <action.icon size={24} />
             </button>
           )}
           <nav className="mobile-tabbar" aria-label={t("Sections")}>
