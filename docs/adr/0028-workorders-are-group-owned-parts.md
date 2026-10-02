@@ -60,7 +60,9 @@ way every app-folder document is.
 When a workorder reaches a terminal state — completed, cancelled, whatever the
 document's own `state` says — the Master moves the **root** into
 `workorders/closed/`, so listing `workorders/` is the active set and listing
-`closed/` is what is done. The folder is a **projection of the state, not the
+`closed/` is what is done. The `closed/` **directory node** sits among the active
+roots in a listing of `workorders/` and is dropped by node type, so the active
+set is the files that remain. The folder is a **projection of the state, not the
 state**: the `state` field is the truth, a root standing in the wrong folder is a
 **finding** the fleet reconciles, and the move is one write that keeps the id, so
 every reference by uid survives and reopening moves it back.
@@ -165,8 +167,8 @@ A workorder is created **by the Master** — instructed in chat, or by an
 installation administrator from the workorder surface. Creation is privileged
 because the registry must be complete: it is the only enumeration, so nothing may
 create a workorder the Master's copy does not know. A request made in chat is an
-explicit run of a capability the fleet already declares, not a new kind of
-trigger (ADR 0003, ADR 0006). A group's part is written **in that group's own
+explicit run of a capability this adds to the fleet's closed catalogue, not a new
+kind of trigger (ADR 0003, ADR 0006). A group's part is written **in that group's own
 account**, so it is the group's; the Master seeds it as a member.
 
 ## Decision

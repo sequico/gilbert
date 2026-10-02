@@ -361,13 +361,11 @@ decided separately because each has a different cost.
 1. **Installation-wide** — every authenticated account reads it. This is the
    company KB's **read share** (ADR 0023's shape), and it is not "public" in the
    outside-world sense. The cheap one; largely already the design.
-2. **Anonymous, no session** — a URL that resolves without signing in. This is a
-   **new trust boundary**: a route on gilbertserver that serves account content
-   to nobody-in-particular, outside the session door, with its own sanitisation
-   (the strict CSP and `web/src/lib/html.ts` exist), rate limiting, and a
-   decision about search engines and caching. Attachments are worse: a JMAP blob
-   URL is session-authenticated, so a public page's images would have to be
-   streamed through a public route too. **Q7**.
+2. **Anonymous, no session** — a URL that resolves without signing in. **Not
+   built, and Q7 settled it out:** it would be a new trust boundary — a route on
+   gilbertserver serving account content to nobody-in-particular, outside the
+   session door, with its own sanitisation, rate limiting and caching decision —
+   and a record of its own is where to reopen it.
 3. **Published and controlled** — the ISO 9001 sense, and the owner has settled
    it (the lifecycle section): one shared draft, edited by users and agents,
    reviewed by the fleet, then **approved by an administrator with an effective
@@ -547,8 +545,8 @@ The record is **Proposed** until the owner accepts it.
   enterprise product.
 - **Extending the composer's editor.** A block document editor is a component
   to take off the shelf, not to grow by hand (`docs/adr/0029`).
-- **An anonymous Web surface** unless Q7 is answered yes, which would need its
-  own record.
+- **An anonymous Web surface.** The KB is installation-wide only (Q7); an
+  anonymous surface would be a record of its own.
 - **Per-user setup.** The company KB exists at boot and is shared automatically;
   no button, no step nobody asked for (`AGENTS.md`, automatic by default).
 - **A QMS/ISO-9001 product or a workflow engine.** The shelf holds nothing
@@ -560,7 +558,7 @@ The record is **Proposed** until the owner accepts it.
   edited by everyone; a competing change edits that draft rather than opening a
   second.
 
-## Consequences (of the shape as it stands)
+## Consequences
 
 - One edit of the company KB changes what every reader sees, with nothing to
   republish — the ADR 0023 property.
