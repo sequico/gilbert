@@ -27,7 +27,7 @@ export const MIN_DURATION_MINUTES = 15;
 
 /** Round a count of minutes to the nearest slot, away from zero on a tie. */
 export function snap(minutes: number, slot: number = SNAP_MINUTES): number {
-  return Math.round(minutes / slot) * slot;
+  return Math.sign(minutes) * Math.round(Math.abs(minutes) / slot) * slot;
 }
 
 export interface Span {

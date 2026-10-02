@@ -382,7 +382,7 @@ export interface SharedCalendar {
  * that stops being found. Re-exported because this store's callers key shared
  * calendars by it.
  */
-import { sharedKey } from "@/lib/sharedKey";
+import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 
 export { sharedKey };
 
@@ -1154,7 +1154,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     for (const k of sharedKeys) {
       const e = sharedEvents[k];
       if (!e) continue;
-      const accountId = k.slice(0, k.length - e.id.length - 1);
+      const accountId = accountOfSharedKey(k, e.id);
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[sharedKey(accountId, calId)]) continue;
       /* Stalwart hands back every calendar in an account the reader can reach,

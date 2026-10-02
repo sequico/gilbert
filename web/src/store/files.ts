@@ -1012,7 +1012,7 @@ export const useFiles = create<FilesState>((set, get) => ({
           accountId,
           filter: { nodeType: "directory" },
           sort: [{ property: "name", isAscending: true }],
-          limit: 1000,
+          limit: LEVEL_LIMIT,
           properties: fileNodeProps(),
         }),
       );
@@ -1048,7 +1048,7 @@ export const useFiles = create<FilesState>((set, get) => ({
             { property: "nodeType", isAscending: false },
             { property: "name", isAscending: true },
           ],
-          limit: 1000,
+          limit: LEVEL_LIMIT,
           properties: fileNodeProps(),
         }),
       );
@@ -1538,10 +1538,7 @@ export const useFiles = create<FilesState>((set, get) => ({
     if (!ids.length) return;
     const accountId = get().accountId!;
     const from = new Set(ids.map((id) => get().nodes[id]?.parentId ?? null));
-    const update = Object.fromEntries(ids.map((id) => [id, { parentId }]));
-    const res = await client.call<SetResponse>("FileNode/set", { accountId, update });
-    const failed = Object.values(res.notUpdated ?? {})[0];
-    if (failed) throw new Error(setErrorMessage(failed));
+    await moveNodes(accountId, ids, parentId);
     from.add(parentId);
     for (const p of from) await get().loadChildren(p);
     void get().loadTree();
@@ -1550,13 +1547,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   async destroy(ids) {
     const accountId = get().accountId!;
     const parents = new Set(ids.map((id) => get().nodes[id]?.parentId ?? null));
-    const res = await client.call<SetResponse>("FileNode/set", {
-      accountId,
-      destroy: ids,
-      onDestroyRemoveChildren: true,
-    });
-    const failed = Object.values(res.notDestroyed ?? {})[0];
-    if (failed) throw new Error(setErrorMessage(failed));
+    await destroyNodes(accountId, ids, true);
     for (const p of parents) await get().loadChildren(p);
     void get().loadTree();
   },

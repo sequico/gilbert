@@ -48,7 +48,7 @@ export const useSieve = create<SieveState>((set, get) => ({
   error: null,
 
   async init() {
-    const accountId = useSession.getState().accountFor(CAP.sieve);
+    const accountId = useSession.getState().ownAccountFor(CAP.sieve);
     const available = Boolean(accountId && client.hasCapability(CAP.sieve));
     set({ accountId, available });
     if (available) await get().load();

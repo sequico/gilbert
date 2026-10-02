@@ -218,7 +218,16 @@ export async function findInFolderWithState(
   name: string,
 ): Promise<{ file?: FoundNode; state: string }> {
   const { list, state } = await listChildrenWithState(accountId, folderId, fileProps);
-  const found = list.find((n) => n.name === name && n.parentId === folderId);
+  // A node that carries the name must also be the file: a directory somebody
+  // gave a document's name is not the document, and updating it would write a
+  // blob onto a folder. The server's twin (`findInFolder`) reads it the same.
+  const found = list.find(
+    (n) =>
+      n.nodeType === "file" &&
+      typeof n.blobId === "string" &&
+      n.name === name &&
+      n.parentId === folderId,
+  );
   // One state per type per account, so any node changing anywhere in the
   // account invalidates the token — the comparison `FileNode/set` makes.
   return { file: found ? { ...found, state } : undefined, state };
@@ -261,7 +270,7 @@ export function isStateMismatch(err: unknown): boolean {
  * writer, where `settings.json` is a name every tab saves to — retries by
  * re-reading. A caller with nothing to lose omits `opts.ifInState` and takes the
  * unconditional write; nothing here is conditional unless it is asked for. The
- * server's own twin, `putFile` in `server/src/appFolder.ts`, is the shape this
+ * server's own twin, `writeFile` in `server/src/appFolder.ts`, is the shape this
  * mirrors.
  */
 export async function putFile(
