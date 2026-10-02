@@ -231,6 +231,7 @@ function revisionSummary(r: KnowledgeRevision): KnowledgeRevisionSummary {
     approvedBy: r.approvedBy,
     approvedAt: r.approvedAt,
     title: r.title,
+    tags: r.tags,
     supersedes: r.supersedes,
   };
 }
