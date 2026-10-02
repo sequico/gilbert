@@ -1,3 +1,7 @@
+import {
+  GLOBAL_CONTACTS_BOOK_NAME,
+  type GlobalContactView,
+} from "@gilbert/shared/globalContacts";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
@@ -22,6 +26,11 @@ import {
   isGlobalContactsBook,
   sortKey,
 } from "@/lib/contacts";
+import {
+  fetchGlobalContacts,
+  GLOBAL_CONTACTS_ACCOUNT_ID,
+  GLOBAL_CONTACTS_BOOK_ID,
+} from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
@@ -225,6 +234,78 @@ export interface SharedBook {
 }
 
 /**
+ * The directory's address book, as the store draws any shared book (ADR 0023).
+ *
+ * It is not a real JMAP `AddressBook`: the directory is served through the
+ * route that acts as the Master, so its book is synthesised in the shape every
+ * shared-book surface already renders. `myRights` is read-only on purpose — a
+ * member writes it through the administration's own route and never through
+ * their session — which is what `cardWritable` and the sidebar draw from.
+ */
+function globalContactsBook(): AddressBook {
+  return {
+    id: GLOBAL_CONTACTS_BOOK_ID,
+    name: GLOBAL_CONTACTS_BOOK_NAME,
+    description: null,
+    sortOrder: 0,
+    isDefault: false,
+    // Subscribed so the composer's picker offers it like a book the reader
+    // added; the sidebar draws it as its own leading row regardless.
+    isSubscribed: true,
+    shareWith: {},
+    myRights: { mayRead: true, mayWrite: false, mayShare: false, mayDelete: false },
+  };
+}
+
+/**
+ * One directory card, widened from the route's small shape to a JSContact card.
+ *
+ * The route answers the fields the administrator typed; the store draws
+ * ordinary cards everywhere, so the widening happens once here — the same
+ * direction the server builds them, so a card read back equals the one the
+ * editor wrote. The id is the card's identity and its uid: a directory card is
+ * not a group member, so nothing looks a uid up across accounts for it.
+ */
+function globalContactCard(view: GlobalContactView): ContactCard {
+  const card: ContactCard = {
+    id: view.id,
+    uid: view.id,
+    "@type": "Card",
+    version: "1.0",
+    kind: "individual",
+    addressBookIds: { [GLOBAL_CONTACTS_BOOK_ID]: true },
+    name: { "@type": "Name", full: view.name },
+  };
+  if (view.emails.length) {
+    const emails: NonNullable<ContactCard["emails"]> = {};
+    view.emails.forEach((address, i) => {
+      emails[`e${i}`] = {
+        "@type": "EmailAddress",
+        address,
+        ...(i === 0 ? { pref: 1 } : {}),
+      };
+    });
+    card.emails = emails;
+  }
+  if (view.phones.length) {
+    const phones: NonNullable<ContactCard["phones"]> = {};
+    view.phones.forEach((number, i) => {
+      phones[`p${i}`] = { "@type": "Phone", number };
+    });
+    card.phones = phones;
+  }
+  if (view.organization) {
+    card.organizations = {
+      o0: { "@type": "Organization", name: view.organization },
+    };
+  }
+  if (view.notes) {
+    card.notes = { n0: { "@type": "Note", note: view.notes } };
+  }
+  return card;
+}
+
+/**
  * Which account holds an address book: the reader's own when it is one of
  * theirs, otherwise the account that shared it -- a colleague's, or a group
  * mailbox the reader belongs to. Cards write to that account, never to the
@@ -316,7 +397,14 @@ interface ContactsState {
   select(selection: BookSelection): void;
   /** Add a shared address book to, or remove it from, the reader's own view. */
   setBookSubscribed(accountId: Id, bookId: Id, subscribed: boolean): Promise<void>;
-  /** The account a card belongs to, null for the reader's own. */
+  /**
+   * The account a card belongs to, null for the reader's own.
+   *
+   * A card of the installation's directory answers the sentinel account it is
+   * installed under (ADR 0023), never the reader's own: its writes go through
+   * the administration's route, so no caller may take that answer for a JMAP
+   * account.
+   */
   accountOfCard(id: Id): Id | null;
   /**
    * What the books holding this card are called, in the reader's terms.
@@ -590,14 +678,35 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const accounts = Object.entries(s?.accounts ?? {}).filter(
         ([id, a]) => a.isPersonal === false && id !== own,
       );
+      /*
+       * The installation's directory first (ADR 0023). It is not a share and it
+       * does not live in any account the reader can enter: the route reads it
+       * as the Master and answers every session, so it is installed here as one
+       * more shared book under the sentinel the rest of the store keys it by. A
+       * route that fails leaves it out rather than taking the group and
+       * colleague books down with it.
+       */
+      const directory: SharedBook[] = [];
+      const cards: Record<string, ContactCard> = {};
+      try {
+        const global = await fetchGlobalContacts();
+        directory.push({
+          accountId: GLOBAL_CONTACTS_ACCOUNT_ID,
+          accountName: GLOBAL_CONTACTS_BOOK_NAME,
+          book: globalContactsBook(),
+        });
+        for (const view of global)
+          cards[sharedKey(GLOBAL_CONTACTS_ACCOUNT_ID, view.id)] = globalContactCard(view);
+      } catch {
+        /* no directory this load; the rest of the shared books still load */
+      }
       if (!accounts.length) {
-        set({ sharedBooks: [], sharedCards: {}, sharedLoaded: true });
+        set({ sharedBooks: directory, sharedCards: cards, sharedLoaded: true });
         restoreBookPlace();
         return;
       }
       const groupIds = await groupMailboxIds();
       const books: SharedBook[] = [];
-      const cards: Record<string, ContactCard> = {};
       /*
        * Every account at once. `client.call` batches the calls made in one tick
        * into a single request, so the loop this replaces sent one request after
@@ -612,7 +721,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
               ids: null,
               properties: ADDRESS_BOOK_PROPS,
             });
-            for (const book of res.list)
+            /*
+             * The directory is served through the route, not discovered as a
+             * shared book: a book carrying its name in a reachable account is
+             * left out here, so the directory is never installed twice.
+             */
+            const visible = res.list.filter((b) => !isGlobalContactsBook(b));
+            for (const book of visible)
               books.push({ accountId, accountName: account.name, book });
             /*
              * Cards come only from books the reader has added -- or books of a
@@ -628,16 +743,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
              */
             const added = new Set(useSettings.getState().settings.addedShares);
             const wanted = new Set(
-              res.list
+              visible
                 .filter(
                   (b) =>
                     b.isSubscribed ||
                     added.has(sharedKey(accountId, b.id)) ||
-                    groupIds.has(accountId) ||
-                    // The installation's directory is read by everyone and is
-                    // never "added": it is there whether or not a member
-                    // subscribed to it (ADR 0023).
-                    isGlobalContactsBook(b),
+                    groupIds.has(accountId),
                 )
                 .map((b) => b.id),
             );
@@ -680,12 +791,17 @@ export const useContacts = create<ContactsState>((set, get) => ({
       );
       /*
        * Answers arrive in any order, and the sidebar lists them in the session's
-       * order -- so the books are put back in it rather than left in whatever
-       * order the requests happened to finish.
+       * order -- so the account books are put back in it rather than left in
+       * whatever order the requests happened to finish. The directory leads
+       * them, as the first row of the sidebar (ADR 0023).
        */
       const order = new Map(accounts.map(([id], i) => [id, i]));
       books.sort((a, b) => (order.get(a.accountId) ?? 0) - (order.get(b.accountId) ?? 0));
-      set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
+      set({
+        sharedBooks: [...directory, ...books],
+        sharedCards: cards,
+        sharedLoaded: true,
+      });
       restoreBookPlace();
     })();
     sharedLoadRun = run;
@@ -785,7 +901,14 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const held = st.sharedBooks.find(
         (b) => b.accountId === accountId && b.book.id === id,
       );
-      if (held) names.push(`${held.book.name} · ${held.accountName}`);
+      // The directory has no owner to name it after -- it is the
+      // installation's (ADR 0023) -- so it reads as its own name.
+      if (held)
+        names.push(
+          isGlobalContactsBook(held.book)
+            ? held.book.name
+            : `${held.book.name} · ${held.accountName}`,
+        );
     }
     return names;
   },
@@ -958,6 +1081,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const target =
       accountId ?? (get().cards[id] ? own : (get().accountOfCard(id) ?? own));
     if (!target) return null;
+    // The directory is served by a route, not held in an account: its card is
+    // already in the store, and `global` is not a JMAP account to ask.
+    if (target === GLOBAL_CONTACTS_ACCOUNT_ID)
+      return get().sharedCards[sharedKey(target, id)] ?? null;
     const res = await client.call<GetResponse<ContactCard>>("ContactCard/get", {
       accountId: target,
       ids: [id],

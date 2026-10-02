@@ -5,15 +5,18 @@
  * validators and the pure helpers — is one definition in
  * `@gilbert/shared/knowledge`, read by both tiers. This module is the client's
  * read of it: the FileNode tree under `gilbert/knowledge` in an account's app
- * folder, and the server route that writes it as the Master. The shared half is
- * re-exported, so `@/lib/knowledge` is the one import a surface needs.
+ * folder, and the server routes that read and write the company KB as the
+ * Master. The shared half is re-exported, so `@/lib/knowledge` is the one
+ * import a surface needs.
  *
- * Reads go straight to JMAP Files; writes go through `/api/knowledge/*`, because
- * the company KB lives in the Master's account and a reader reaches it through
- * a read-only share, not a session that may write it (ADR 0024, Q1). A group's
- * KB is read and written through the same route for one reason only — the
- * approval is an administrator's — while the read is the reader's own session
- * on the group account.
+ * Writes go through `/api/knowledge/*`, because the company KB lives in the
+ * Master's account and a reader reaches it through a route, not a session that
+ * may write it (ADR 0024, Q1). The **company** KB is read through the route
+ * too: a `shareWith` naming every account cannot work (Stalwart caps a share at
+ * 10 principals per item, live-probed; ADR 0023), so the route is how every
+ * account reaches the folder. A group's KB is read straight from the reader's
+ * own session on the group account, membership being the grant; its approval
+ * still goes through the route, an administrator's alone.
  */
 
 import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
@@ -74,16 +77,39 @@ export async function findKnowledgeFolder(accountId: Id): Promise<Id | null> {
   return found && found.nodeType === "directory" ? found.id : null;
 }
 
-/** Where the company KB lives, as the server answers through the share. */
-export async function companyKnowledge(): Promise<{
+/**
+ * The company KB's tree, as the server reads it as the Master (ADR 0024, Q1).
+ *
+ * The route answers the account the articles live in and their summaries, so
+ * the client never searches an account it cannot enter. A route that fails is
+ * the caller's to handle; no company KB is an empty answer, not a failure.
+ */
+export async function companyTree(includeRetired = false): Promise<{
   accountId: Id;
-  folderId: Id;
-} | null> {
+  articles: KnowledgeSummary[];
+}> {
   const res = await apiFetch<{
     ok: true;
-    company: { accountId: Id; folderId: Id } | null;
-  }>("/api/knowledge/company");
-  return res.company;
+    accountId: Id;
+    articles: KnowledgeSummary[];
+  }>(`/api/knowledge/company/tree${includeRetired ? "?retired=1" : ""}`);
+  return { accountId: res.accountId, articles: res.articles ?? [] };
+}
+
+/**
+ * One company KB article, read through the route that acts as the Master.
+ *
+ * `folder` is the article's folder path within its tier, the value every
+ * summary carries. A path the route does not resolve answers null.
+ */
+export async function companyArticle(
+  folder: string,
+): Promise<KnowledgeArticleView | null> {
+  const res = await apiFetch<{
+    ok: true;
+    article: KnowledgeArticleView | null;
+  }>(`/api/knowledge/company/article?folder=${encodeURIComponent(folder)}`);
+  return res.article;
 }
 
 /** Read and validate a named document node, or null when it is not one. */

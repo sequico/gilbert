@@ -50,6 +50,7 @@ import {
 } from "@/lib/contacts";
 import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
+import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { plural, t as translate } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMayMoveContact } from "@/lib/useMayMoveContact";
@@ -194,17 +195,19 @@ export function ContactsView({ id }: { id?: string }) {
     [mailAccounts],
   );
   /*
-   * **All contacts**: the reader's own cards and the cards of every group they
-   * belong to, because a group's books need nobody to add them -- membership of
-   * the group is the subscription, the same rule the composer's suggestions and
-   * `loadShared` follow. Each row says which group it came from, so the two are
-   * still told apart without opening anything.
+   * **All contacts**: the reader's own cards, the installation's directory and
+   * the cards of every group they belong to. A group's books need nobody to add
+   * them -- membership of the group is the subscription, the same rule the
+   * composer's suggestions and `loadShared` follow -- and the directory is read
+   * by everyone through its route, so both are in the one list of everything.
+   * Each group row says which group it came from, so the two are still told
+   * apart without opening anything.
    *
    * A colleague's shared book is not a group's and stays out: that one the
    * reader adds deliberately, and it lives under `Shared with me` in the
-   * sidebar. `cardsIn` reads the groups' cards rather than the whole shared cache, so
-   * what `loadShared` left unloaded (a stranger's account) cannot arrive here by
-   * the back door.
+   * sidebar. `cardsIn` reads the directory's and the groups' cards rather than
+   * the whole shared cache, so what `loadShared` left unloaded (a stranger's
+   * account) cannot arrive here by the back door.
    *
    * The one source for that set: the list draws it and "Export all contacts"
    * writes it, so what is exported is what is on screen rather than the half of
@@ -213,6 +216,7 @@ export function ContactsView({ id }: { id?: string }) {
   const allCards = useMemo(
     () => [
       ...Object.values(contacts.cards),
+      ...contacts.cardsIn(GLOBAL_CONTACTS_ACCOUNT_ID),
       ...groupCardAccounts.flatMap((g) => contacts.cardsIn(g.accountId)),
     ],
     [contacts, groupCardAccounts],
@@ -240,6 +244,9 @@ export function ContactsView({ id }: { id?: string }) {
     } else {
       for (const card of Object.values(contacts.cards))
         pairs.push({ card, accountId: null });
+      // The directory is read by everyone, so All contacts holds it too.
+      for (const card of contacts.cardsIn(GLOBAL_CONTACTS_ACCOUNT_ID))
+        pairs.push({ card, accountId: GLOBAL_CONTACTS_ACCOUNT_ID });
       for (const g of groupCardAccounts)
         for (const card of contacts.cardsIn(g.accountId))
           pairs.push({ card, accountId: g.accountId });
@@ -764,10 +771,14 @@ export function ContactsView({ id }: { id?: string }) {
                        * than what is in it: a right-click offers it, and the move
                        * dialog asks the destination. Nothing is drawn on a row
                        * that has nowhere to go, so the menu is opened only where
-                       * the reader may move one (ADR 0018).
+                       * the reader may move one (ADR 0018). The directory is
+                       * read through a route rather than held in an account, so
+                       * it has nowhere to go and is left out (ADR 0023).
                        */
                       onContextMenu={
-                        mayMove ? (e) => openMenuAt(e, c, cardAccountId) : undefined
+                        mayMove && cardAccountId !== GLOBAL_CONTACTS_ACCOUNT_ID
+                          ? (e) => openMenuAt(e, c, cardAccountId)
+                          : undefined
                       }
                     >
                       {contacts.cardWritable(c, cardAccountId) && (

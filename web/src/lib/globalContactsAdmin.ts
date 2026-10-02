@@ -1,12 +1,46 @@
 /**
- * Writing the installation's Global contacts directory (ADR 0023).
+ * The installation's Global contacts directory, client half (ADR 0023).
  *
- * Only an administrator writes it, and the write is made by the server as the
- * Master — the share grants the administrator's own session nothing to write
- * with — so these are routes rather than JMAP calls. `id: null` creates.
+ * The directory is owned by the Master, so no session reaches it: it is read
+ * through the route that answers every account, and written only by an
+ * administrator through the route that acts as the Master. `id: null` creates.
  */
-import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
+import type {
+  GlobalContactInput,
+  GlobalContactView,
+} from "@gilbert/shared/globalContacts";
 import { apiFetch } from "@/jmap/client";
+
+/**
+ * The synthetic account id the directory is held under in the store.
+ *
+ * The directory is served through a route rather than held in any session
+ * account, so the client installs it — and its cards — under this one sentinel.
+ * Every shared-book surface keys it by this, `accountOfCard` answers it for a
+ * directory card, and no JMAP write path may ever take it for a real account:
+ * the generic contact editor refuses it and the administration's own route is
+ * the only door (ADR 0023).
+ */
+export const GLOBAL_CONTACTS_ACCOUNT_ID = "global";
+
+/** The id of the directory's one address book, as the store draws it. */
+export const GLOBAL_CONTACTS_BOOK_ID = "global-contacts";
+
+/**
+ * The installation's directory, read through the route that acts as the Master
+ * (ADR 0023).
+ *
+ * A member's session cannot reach the directory's book, so it is fetched here
+ * rather than discovered as a shared book. A failed fetch is the caller's to
+ * handle; the cards are the administrator's small shape, widened to JSContact
+ * cards where the store installs them.
+ */
+export async function fetchGlobalContacts(): Promise<GlobalContactView[]> {
+  const res = await apiFetch<{ ok: true; contacts: GlobalContactView[] }>(
+    "/api/global-contacts",
+  );
+  return res.contacts ?? [];
+}
 
 /** Create or update one card, answering its id. */
 export async function saveGlobalContact(

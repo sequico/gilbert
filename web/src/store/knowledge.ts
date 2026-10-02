@@ -3,10 +3,9 @@
  *
  * One store serves both tiers — the company KB and each group's — because the
  * documents and the surface are the same and only the owning account differs.
- * The company tier is discovered through the server route that acts as the
- * Master; a group tier is the reader's own FileNode tree, read through their
- * session on the group's account. Writes go through the server route; reads go
- * straight to JMAP Files.
+ * The company tier is read through the server route that acts as the Master;
+ * a group tier is the reader's own FileNode tree, read through their session on
+ * the group's account. Writes go through the server route for both.
  *
  * The company lead is the scope that ships first, but nothing here is
  * company-shaped: `tiers` is an ordered list, the company tier first, then one
@@ -28,7 +27,8 @@ import type { Id } from "@/jmap/types";
 import {
   approveArticle,
   articleKey,
-  companyKnowledge,
+  companyArticle,
+  companyTree,
   createArticle,
   createKnowledgeFolder,
   deleteArticle,
@@ -178,9 +178,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
    *
    * The open article answers from the draft in hand — including unsaved edits,
    * which is what the reader sees and should search — and any other article is
-   * read once through the same `readArticle` the surface opens it with. The
-   * bound is the loaded tiers: nothing is discovered beyond them, so a search
-   * never walks an account nobody asked for.
+   * read once through the tier's own door: the company route that acts as the
+   * Master, or `readArticle` on the group's own session. The bound is the
+   * loaded tiers: nothing is discovered beyond them, so a search never walks an
+   * account nobody asked for.
    */
   async function textOf(
     tier: KnowledgeTierState,
@@ -195,14 +196,17 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       return edit?.text ?? article.draft?.text ?? "";
     }
     try {
-      const view = await readArticle(
-        tier.accountId,
-        summary.nodeId,
-        summary.nodeId,
-        summary.folder,
-        tier.scope,
-        summary.parentId,
-      );
+      const view =
+        tier.scope === "company"
+          ? await companyArticle(summary.folder)
+          : await readArticle(
+              tier.accountId,
+              summary.nodeId,
+              summary.nodeId,
+              summary.folder,
+              tier.scope,
+              summary.parentId,
+            );
       return view?.draft?.text ?? "";
     } catch {
       return "";
@@ -240,30 +244,22 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const tiers: KnowledgeTierState[] = [];
 
       /*
-       * The company KB first, discovered through the route that acts as the
-       * Master. A boot with no company folder yet — or a route that fails —
-       * leaves the company tier out and still loads the group tiers; one tier's
-       * failure never takes `load()` down with it.
+       * The company KB first, read through the route that acts as the Master.
+       * The route answers the account and the standing tree — a retired company
+       * article is not offered through it, so the reader's "show retired"
+       * choice narrows the group tiers and not this one. A boot that fails the
+       * route leaves the company tier out and still loads the group tiers; one
+       * tier's failure never takes `load()` down with it.
        */
       try {
-        const company = await companyKnowledge();
-        if (company) {
-          let articles: KnowledgeSummary[] = [];
-          try {
-            articles = await listArticles(
-              company.accountId,
-              company.folderId,
-              get().showRetired,
-            );
-          } catch {
-            articles = [];
-          }
+        const company = await companyTree(get().showRetired);
+        if (company.accountId) {
           tiers.push({
             scope: "company",
             accountId: company.accountId,
             group: null,
             canApprove,
-            articles,
+            articles: company.articles,
           });
         }
       } catch {
@@ -311,14 +307,20 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       try {
         const tier = get().tiers.find((t) => t.accountId === accountId);
         const summary = tier?.articles.find((a) => a.nodeId === nodeId);
-        const view = await readArticle(
-          accountId,
-          nodeId,
-          nodeId,
-          folder,
-          tier?.scope ?? scopeOf(accountId),
-          summary?.parentId,
-        );
+        // The company tier is opened through the route that acts as the
+        // Master; a group's is opened through the reader's own session, where
+        // a uid and a folder are theirs to read.
+        const view =
+          tier?.scope === "company"
+            ? await companyArticle(folder)
+            : await readArticle(
+                accountId,
+                nodeId,
+                nodeId,
+                folder,
+                tier?.scope ?? scopeOf(accountId),
+                summary?.parentId,
+              );
         if (!view) {
           set({ articleLoading: false });
           return;

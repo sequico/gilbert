@@ -17,6 +17,7 @@ import {
   newKey,
   withPhoto,
 } from "@/lib/contacts";
+import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { useMayMoveContact } from "@/lib/useMayMoveContact";
@@ -257,7 +258,14 @@ export function ContactEditor({
   );
 
   const save = async () => {
-    if (!bookId) {
+    /*
+     * The directory is not a book the reader's session may write: it is served
+     * through a route and written only by an administrator through the
+     * administration's own editor (ADR 0023). The sidebar withholds Edit for
+     * it; this is the guard on the effect itself, so a card reached another way
+     * cannot be saved into a real account under the sentinel's name.
+     */
+    if (!bookId || bookAccount === GLOBAL_CONTACTS_ACCOUNT_ID) {
       toast.error(t("Choose an address book"));
       return;
     }
