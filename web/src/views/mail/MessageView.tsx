@@ -39,7 +39,7 @@ import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
-import { askDeleteMessages } from "@/lib/deleteConfirm";
+import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
@@ -673,7 +673,7 @@ export const MessageView = memo(function MessageView({
                a message forever without one. */
             const permanent = deleteEffect(e, finalFoldersOf(mail.mailboxes)) === "final";
             void (async () => {
-              if (permanent || settings.confirmDelete) {
+              if (deleteNeedsConfirm(permanent)) {
                 /*
                  * The same question the list's toolbar asks, in the same words
                  * (`askDeleteMessages`), so one click from inside either folder

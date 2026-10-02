@@ -2,7 +2,7 @@ import { buildFilter, describeFilter, parseQuery } from "@gilbert/shared/search"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
-import { askDeleteMessages } from "@/lib/deleteConfirm";
+import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -386,7 +386,7 @@ export function MailView({
          * `askDeleteMessages`'s, so the same delete is not described one way in
          * the list and another in a message's own menu.
          */
-        if (!allRefused && (permanent || settings.confirmDelete)) {
+        if (!allRefused && deleteNeedsConfirm(permanent)) {
           if (!(await askDeleteMessages({ count: t.length, permanent }))) return;
         }
         /*

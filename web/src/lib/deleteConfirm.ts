@@ -19,6 +19,7 @@
  * on, which is how copy ships English in all ten languages unnoticed.
  */
 import { plural, t } from "@/lib/i18n";
+import { useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 
 /** The sentence a permanent delete of `n` messages states. */
@@ -35,6 +36,15 @@ export function trashedMessages(n: number): string {
     one: "Move {n} message to Trash?",
     other: "Move {n} messages to Trash?",
   });
+}
+
+/**
+ * Whether a delete must be confirmed: a permanent one always, a filing one only
+ * when the reader asked to be asked (`confirmDelete`). One rule, so the list's
+ * toolbar and a message's own menu cannot ask differently.
+ */
+export function deleteNeedsConfirm(permanent: boolean): boolean {
+  return permanent || useSettings.getState().settings.confirmDelete;
 }
 
 /**
