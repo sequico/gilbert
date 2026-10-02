@@ -303,7 +303,7 @@ below.
 
 Adopt a block editor rather than extend the composer's editor
 (`docs/adr/0029`). **BlockNote** is the
-recommendation: it is a ready-made Notion-style block editor (slash menu, drag
+choice: it is a ready-made Notion-style block editor (slash menu, drag
 handles, block types) on ProseMirror/TipTap with Yjs built in, React 19 ready,
 and its core is MPL-2.0 (compatible with an AGPL application). TipTap and Plate
 are the alternatives if more control or a different UI system is wanted.
@@ -461,8 +461,9 @@ still standing. The open ones are the reasons this record is still Proposed.
    question 1 has to grant read on `gilbert/knowledge` without exposing the rest
    of `gilbert/`, where `settings.json` lives — the question the wildcard share
    ADR 0023 already owes a probe for.
-3. **Group KBs now or later?** — **Open.** *Recommend the same code built once,
-   company first; group scope in the phase after.*
+3. **Group KBs now or later?** — **Settled.** The same code built once, and both
+   tiers ship together: the company KB and a group's KB in the same phase, not one
+   after the other.
 4. **Versioning shape** — **Settled.** A revision is minted at approval, not per
    save; the single draft is the mutable copy (the Versioning section).
 5. **Retention** — **Settled.** In-force and superseded revisions are kept for
@@ -471,9 +472,9 @@ still standing. The open ones are the reasons this record is still Proposed.
 6. **Restore/revert** — **Settled.** Restoring a superseded revision opens a new
    draft, by any permitted writer, which an administrator then approves; history
    is never edited.
-7. **Does "public" include anonymous access?** — **Open.** *Recommend no for v1 —
-   installation-wide only; an anonymous surface is a separate trust decision with
-   its own ADR if it is ever wanted.*
+7. **Does "public" include anonymous access?** — **Settled: no.** Installation-wide
+   is the only sense of "public" the KB has; an anonymous surface would be a
+   separate trust decision with its own record, and is not built.
 8. **Who may publish/approve?** — **Settled.** Administrators only, with an
    effective date. No separate quality-manager grant for v1.
 9. **Is a lifecycle needed?** — **Settled.** One shared draft → agent review →
@@ -483,18 +484,19 @@ still standing. The open ones are the reasons this record is still Proposed.
 10. **Immutability of an approved revision** — **Settled.** Never edited in
     place; the next change is a new draft, and the old revision becomes
     superseded.
-11. **Attachments of a controlled document** — **Open.** Frozen with the revision
-    or referenced live? *Recommend frozen with the revision (a controlled
-    document whose annex can change under it is not controlled).*
-12. **Editor** — **Open.** *Recommend BlockNote.*
-13. **Real-time co-editing now or later?** — **Open**, and now load-bearing: the
-    single shared draft is multi-edited by everyone, so concurrent edits are the
-    normal case, not the exception. It needs a CRDT endpoint on the server
-    (Hocuspocus) and a checkpoint design into Stalwart. *Recommend a later phase;
-    v1 saves the whole draft under `ifInState` with an honest conflict path, and
-    says so on screen.*
-14. **Search index** — **Open.** *Recommend lazy rebuild for v1; cache only if a
-    real KB proves slow.*
+11. **Attachments of a controlled document** — **Settled.** Frozen with the
+    revision: a controlled document whose annex can change under it is not
+    controlled, so an approval fixes the attachment with the text it was approved
+    with.
+12. **Editor** — **Settled.** **BlockNote**, the block editor the Editor section
+    names, whose core is MPL-2.0.
+13. **Real-time co-editing now or later?** — **Settled: later.** v1 saves the whole
+    draft under `ifInState` with an honest conflict path, and says so on screen;
+    the CRDT endpoint (Hocuspocus) and its checkpointing into Stalwart are the
+    phase after. It is load-bearing: the single shared draft is multi-edited by
+    everyone, so concurrent edits are the normal case, not the exception.
+14. **Search index** — **Settled.** Lazy rebuild over the pages' `text` for v1; a
+    cached document only if a real KB proves slow.
 15. **May an agent write the KB?** — **Settled.** Agents read everywhere and
     write drafts everywhere (company and group); they never approve. A group
     agent's company-KB draft write goes through the same door the members' does
