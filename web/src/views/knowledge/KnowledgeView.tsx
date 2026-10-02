@@ -237,6 +237,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
          */}
         <select
           className="select"
+          style={{ width: "auto", maxWidth: 240, flex: "0 0 auto" }}
           value={activeTier ? `${activeTier.scope}:${activeTier.accountId}` : ""}
           aria-label={t("KB")}
           onChange={(e) => {

@@ -239,11 +239,11 @@ export function KnowledgeSidebar() {
    * tier) and Enter commits it. "New folder" does the same at the tier root.
    */
   const addPage = (tier: KnowledgeTierView) => {
-    const under =
-      article && article.scope === tier.scope && article.accountId === tier.accountId
-        ? article.summary.nodeId
-        : null;
-    beginCreate(tier, under, "page");
+    // A new page lands in the folder that holds the open one, or at the tier
+    // root: an article is a leaf, so it cannot be a page's parent.
+    const inTier =
+      article && article.scope === tier.scope && article.accountId === tier.accountId;
+    beginCreate(tier, inTier ? (article?.summary.parentId ?? null) : null, "page");
   };
 
   const addFolder = (tier: KnowledgeTierView, parentNodeId: string | null) => {

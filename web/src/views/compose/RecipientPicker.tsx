@@ -1,7 +1,7 @@
 import { Book, BookOpen, Search, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ContactCard, EmailAddress } from "@/jmap/types";
-import { contactDisplayName, contactEmails } from "@/lib/contacts";
+import { contactDisplayName, contactEmails, isGlobalContactsBook } from "@/lib/contacts";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { sharedKey } from "@/lib/sharedKey";
@@ -143,7 +143,15 @@ export function RecipientPicker({
         );
         if (!inBook) continue;
         if (bookKey !== "all" && bookKey !== `${accountId}:${inBook.book.id}`) continue;
-        push(card, `${inBook.book.name} · ${inBook.accountName}`, accountId);
+        push(
+          card,
+          // The directory is the installation's own book, not somebody's shared
+          // one: it is named plainly, without a "· account" that would repeat it.
+          isGlobalContactsBook(inBook.book)
+            ? inBook.book.name
+            : `${inBook.book.name} · ${inBook.accountName}`,
+          accountId,
+        );
       }
     }
     const needle = q.trim().toLowerCase();
@@ -269,7 +277,9 @@ export function RecipientPicker({
               key={sharedKey(b.accountId, b.book.id)}
               value={sharedKey(b.accountId, b.book.id)}
             >
-              {b.book.name} · {b.accountName}
+              {isGlobalContactsBook(b.book)
+                ? b.book.name
+                : `${b.book.name} · ${b.accountName}`}
             </option>
           ))}
         </select>
