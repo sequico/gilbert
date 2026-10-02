@@ -70,6 +70,15 @@ export interface KnowledgeEdit {
   dirty: boolean;
 }
 
+/** One knowledge-base search hit, as the sidebar lists it and opens it. */
+export interface KnowledgeSearchResult {
+  accountId: Id;
+  nodeId: Id;
+  scope: "company" | "group";
+  title: string;
+  snippet: string;
+}
+
 interface KnowledgeStore {
   tiers: KnowledgeTierState[];
   loaded: boolean;
@@ -84,13 +93,7 @@ interface KnowledgeStore {
   searching: boolean;
   /** Show retired articles beside the standing ones, off by default. */
   showRetired: boolean;
-  results: Array<{
-    accountId: Id;
-    nodeId: Id;
-    scope: "company" | "group";
-    title: string;
-    snippet: string;
-  }>;
+  results: KnowledgeSearchResult[];
 
   /** Discover the tiers and list their articles. */
   load(): Promise<void>;

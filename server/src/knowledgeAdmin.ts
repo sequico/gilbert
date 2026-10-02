@@ -38,13 +38,13 @@ import {
 } from "./appFolder.js";
 import {
   agentSession,
+  groupAccountId,
   IdentityAdminError,
   ownIdentityAccount,
   refusalOf,
 } from "./identityAdmin.js";
 import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
-import { sameAddress } from "./shared/address.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import {
   buildDraft,
@@ -52,6 +52,7 @@ import {
   buildRevision,
   buildState,
   compareKnowledgeSiblings,
+  compareRevisionsNewestFirst,
   DRAFT_FILE,
   isKnowledgeDraft,
   isKnowledgeFolderDoc,
@@ -66,7 +67,6 @@ import {
   type KnowledgeDraft,
   type KnowledgeIssued,
   type KnowledgeRevision,
-  type KnowledgeRevisionSummary,
   type KnowledgeScope,
   type KnowledgeState,
   type KnowledgeSummary,
@@ -78,6 +78,7 @@ import {
   REVISIONS_FOLDER,
   revisionFileName,
   revisionInForceAt,
+  revisionSummary,
   STATE_FILE,
   stateAfterApproval,
 } from "./shared/knowledge.js";
@@ -172,22 +173,6 @@ export async function companyKnowledgeAccount(
   // so making the folder is all this resolves.
   const folderId = await knowledgeFolder(ctx, accountId);
   return { ctx, accountId, folderId };
-}
-
-/**
- * A group's own account in a session that holds it: non-personal and carrying
- * the group's address — the same rule `identityAdmin.ts`'s `groupAccountId`
- * applies, so a files share is never read as a group.
- */
-function groupAccountId(ctx: Ctx, group: string): string {
-  for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
-    const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    if (!sameAddress(a.name, group)) continue;
-    return id;
-  }
-  return "";
 }
 
 /**
@@ -603,22 +588,8 @@ async function readRevisions(
       // can rather than a surface taken down by one unreadable document.
     }
   }
-  out.sort((a, b) => b.approvedAt.localeCompare(a.approvedAt));
+  out.sort(compareRevisionsNewestFirst);
   return out;
-}
-
-/** A revision, as the history column lists it. */
-function revisionSummary(revision: KnowledgeRevision): KnowledgeRevisionSummary {
-  return {
-    revision: revision.revision,
-    rev: revision.rev,
-    effectiveAt: revision.effectiveAt,
-    approvedBy: revision.approvedBy,
-    approvedAt: revision.approvedAt,
-    title: revision.title,
-    tags: revision.tags,
-    supersedes: revision.supersedes,
-  };
 }
 
 /**
@@ -839,7 +810,11 @@ export async function createFolder(
   const parentNodeId = parent ? parent.nodeId : tierFolderId;
   const folderName = await freeChildFolderName(ctx, accountId, parentNodeId, wantedName);
   const nodeId = await ensureFolderPath(ctx, accountId, `${parentPath}/${folderName}`);
-  const order = Date.now();
+  // A fresh node lands last among its siblings, by the same strictly-increasing
+  // counter an article create uses: the clock alone collides in one millisecond,
+  // and two folders would then fall back to title order.
+  lastCreateOrder = Math.max(Date.now(), lastCreateOrder + 1);
+  const order = lastCreateOrder;
   await writeAppFileIn(
     ctx,
     accountId,
@@ -1056,8 +1031,11 @@ export async function approveArticle(
    */
   let nextState: KnowledgeState | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    // Re-read on a retry: whatever landed between the attempts is the state
-    // the approval is applied over, so nothing else is overwritten.
+    // The token is read before the state document, as `saveDraft` reads it: a
+    // token read after it is still valid while what it would be compared
+    // against has already moved. Both are re-read on a retry, so whatever
+    // landed between the attempts is the state the approval is applied over.
+    const token = await appFolderState(ctx, accountId);
     const current = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
@@ -1081,7 +1059,6 @@ export async function approveArticle(
       tags: inForceNow ? draft.tags : base.tags,
       updated: { by: admin.username, at: now },
     };
-    const token = await appFolderState(ctx, accountId);
     try {
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: token || undefined,

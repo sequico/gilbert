@@ -19,9 +19,10 @@
  * still goes through the route, an administrator's alone.
  */
 
-import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { APP_DOCUMENT_TYPE, FOLDER_PROPS } from "@gilbert/shared/appFolder";
 import {
   compareKnowledgeSiblings,
+  compareRevisionsNewestFirst,
   DRAFT_FILE,
   isKnowledgeDraft,
   isKnowledgeFolderDoc,
@@ -33,7 +34,6 @@ import {
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
   type KnowledgeRevision,
-  type KnowledgeRevisionSummary,
   type KnowledgeScope,
   type KnowledgeSummary,
   type KnowledgeTarget,
@@ -41,6 +41,7 @@ import {
   orderBetween,
   REVISIONS_FOLDER,
   revisionInForceAt,
+  revisionSummary,
   STATE_FILE,
 } from "@gilbert/shared/knowledge";
 import { apiFetch, client } from "@/jmap/client";
@@ -54,7 +55,7 @@ export * from "@gilbert/shared/knowledge";
  * file, find the reserved documents by name and read their blobs. `name` and
  * `nodeType` carry the tree, `blobId` the documents.
  */
-const ARTICLE_PROPS = ["id", "name", "parentId", "nodeType", "blobId", "type"];
+const ARTICLE_PROPS = [...FOLDER_PROPS, "blobId", "type"];
 
 /** One JSON document's parsed value, straight from its blob. */
 export async function readJsonNode(accountId: Id, blobId: Id): Promise<unknown> {
@@ -290,20 +291,6 @@ async function parentArticleId(accountId: Id, nodeId: Id): Promise<Id | null> {
   }
 }
 
-/** A revision, as the history column lists it — without its content. */
-function revisionSummary(r: KnowledgeRevision): KnowledgeRevisionSummary {
-  return {
-    revision: r.revision,
-    rev: r.rev,
-    effectiveAt: r.effectiveAt,
-    approvedBy: r.approvedBy,
-    approvedAt: r.approvedAt,
-    title: r.title,
-    tags: r.tags,
-    supersedes: r.supersedes,
-  };
-}
-
 /**
  * One article opened: its summary, its draft, the revision in force and the
  * history, newest first.
@@ -345,9 +332,7 @@ export async function readArticle(
       if (revision) revisions.push(revision);
     }
   }
-  revisions.sort(
-    (a, b) => (Date.parse(b.approvedAt) || 0) - (Date.parse(a.approvedAt) || 0),
-  );
+  revisions.sort(compareRevisionsNewestFirst);
 
   // The revision a reader sees now: the one the lifecycle names, matched to its
   // full document in the history. A state naming a revision that is not there
@@ -435,8 +420,10 @@ export async function reorderKnowledgeArticle(
  * Set several siblings' places in one request.
  *
  * Used when a drop's fractional order has run out of precision: the whole
- * family is renumbered, and one request keeps the tree from being briefly
- * half-ordered (ADR 0024).
+ * family is renumbered and its new places travel together rather than one
+ * request per row (ADR 0024). The server applies each with its own
+ * compare-and-set, so the numbers stay independent and a write that loses a
+ * race leaves the rest as they were sent.
  */
 export async function reorderKnowledgeArticles(
   target: KnowledgeTarget,

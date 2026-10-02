@@ -23,7 +23,7 @@ import {
   type KnowledgeTierView,
   siblingDropPlan,
 } from "@/lib/knowledge";
-import { useKnowledge } from "@/store/knowledge";
+import { type KnowledgeSearchResult, useKnowledge } from "@/store/knowledge";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 
 /**
@@ -89,33 +89,6 @@ function isWithin(tier: KnowledgeTierView, ancestorId: string, nodeId: string): 
     current = byId.get(current.parentId);
   }
   return false;
-}
-
-/**
- * One search hit, read tolerantly.
- *
- * The store owns the shape of a result; this view only needs the page's id, its
- * title and a snippet, and reads those fields rather than trusting a layout.
- */
-interface SearchHit {
-  accountId: string;
-  nodeId: string;
-  title: string;
-  snippet: string;
-}
-
-function readHit(raw: unknown): SearchHit | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const r = raw as Record<string, unknown>;
-  const str = (key: string) => (typeof r[key] === "string" ? (r[key] as string) : "");
-  const nodeId = str("nodeId");
-  if (!nodeId) return null;
-  return {
-    accountId: str("accountId"),
-    nodeId,
-    title: str("title"),
-    snippet: str("snippet"),
-  };
 }
 
 /** The company tier is the installation's; a group tier is named by its group. */
@@ -490,7 +463,8 @@ export function KnowledgeSidebar() {
     return out;
   };
 
-  const selectedHit = (hit: SearchHit) => article?.summary.nodeId === hit.nodeId;
+  const selectedHit = (hit: KnowledgeSearchResult) =>
+    article?.summary.nodeId === hit.nodeId;
 
   return (
     <>
@@ -543,9 +517,7 @@ export function KnowledgeSidebar() {
               {t("Nothing found.")}
             </p>
           )}
-          {results.map((raw, i) => {
-            const hit = readHit(raw);
-            if (!hit) return null;
+          {results.map((hit, i) => {
             return (
               <button
                 key={`${hit.nodeId}:${i}`}

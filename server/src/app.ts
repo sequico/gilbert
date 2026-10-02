@@ -3083,7 +3083,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
        * A family renumbered at once. A drop orders two neighbours by their
        * midpoint, and the fractional gap runs out of precision after enough
        * drops into one slot; the client then sends every sibling's new place in
-       * one request, so the tree is never briefly half-ordered (ADR 0024).
+       * one request. Each is applied with its own compare-and-set, so a write
+       * that loses a race leaves the rest as the client sent them (ADR 0024).
        */
       if (Array.isArray(body?.orders)) {
         for (const item of body.orders as Array<{

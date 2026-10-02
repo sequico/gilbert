@@ -338,8 +338,11 @@ export function ownIdentityAccount(ctx: Ctx): string {
  * A group's own account in a session that holds it: non-personal and carrying
  * the group's address — the same rule `resolveGroupAccess` applies, so a files
  * share is never read as a group.
+ *
+ * The one definition: the knowledge base's group tier imports it rather than
+ * repeating the classifier, so a rule change reaches both doors.
  */
-function groupAccountId(ctx: Ctx, group: string): string {
+export function groupAccountId(ctx: Ctx, group: string): string {
   for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
     const a = account as { name?: unknown; isPersonal?: unknown };
     if (a.isPersonal !== false) continue;

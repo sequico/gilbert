@@ -166,6 +166,35 @@ export interface KnowledgeRevisionSummary extends KnowledgeIssued {
   supersedes: string | null;
 }
 
+/**
+ * One revision, as the history column lists it: identity and metadata, never
+ * the content.
+ *
+ * One projection for both tiers. The server lists the history through the
+ * route and the client reads it locally, so a field added on one side only
+ * would arrive `undefined` on the other rather than fail to compile.
+ */
+export function revisionSummary(revision: KnowledgeRevision): KnowledgeRevisionSummary {
+  return {
+    revision: revision.revision,
+    rev: revision.rev,
+    effectiveAt: revision.effectiveAt,
+    approvedBy: revision.approvedBy,
+    approvedAt: revision.approvedAt,
+    title: revision.title,
+    tags: revision.tags,
+    supersedes: revision.supersedes,
+  };
+}
+
+/** Newest first by approval instant, the one order both tiers list history in. */
+export function compareRevisionsNewestFirst(
+  a: Pick<KnowledgeRevisionSummary, "approvedAt">,
+  b: Pick<KnowledgeRevisionSummary, "approvedAt">,
+): number {
+  return (Date.parse(b.approvedAt) || 0) - (Date.parse(a.approvedAt) || 0);
+}
+
 /** One article opened: its summary, its draft, the revision in force, the history. */
 export interface KnowledgeArticleView {
   scope: KnowledgeScope;
