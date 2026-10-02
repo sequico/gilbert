@@ -210,7 +210,8 @@ export function subscriptionPayload(
      * does not arrive twice.
      *
      * `FileNode` is named only when the reader is in at least one group, which
-     * is where chat lives: a `FileNode` change is the only wake-up a chat
+     * is where chat and a group's knowledge base live: a `FileNode` change is
+     * the only wake-up a chat
      * message produces, because `emailpush` has no vocabulary for a file. It
      * wakes the device for every file write in every account the subscription
      * serves -- an upload, an agent document, the reader's own settings -- and

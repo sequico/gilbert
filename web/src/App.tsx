@@ -36,6 +36,7 @@ import { useCalendar } from "@/store/calendar";
 import { useChat } from "@/store/chat";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
+import { useKnowledge } from "@/store/knowledge";
 import { useMail } from "@/store/mail";
 import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
@@ -388,6 +389,10 @@ function AuthedApp() {
       // every FileNode change can be offered to it.
       if (types.has("FileNode"))
         work.push(useChat.getState().applyChanges(accountId, signal));
+      // The knowledge base of a group rides the same FileNode rail (ADR 0024);
+      // the company tier is read when opened, so it is not pushed here.
+      if (types.has("FileNode"))
+        work.push(useKnowledge.getState().applyChanges(accountId));
       return work;
     };
     const queue = (acct: string, type: string) => {

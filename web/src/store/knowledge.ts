@@ -13,8 +13,9 @@
  * per probed group mailbox, the contact sidebar's own arrangement.
  *
  * Search is Orama in-process over the articles' `text`, rebuilt lazily per
- * search (ADR 0024 Q14), so the human box and the agent lookup rank the same
- * way without a second service and without a cached index to go stale.
+ * search (ADR 0024 Q14), so the human box shares a corpus with the fleet's
+ * lookup — which reads the same `text` without Orama — without a second service
+ * and without a cached index to go stale.
  */
 
 import {
@@ -106,6 +107,8 @@ interface KnowledgeStore {
   setSearch(term: string): void;
   setShowRetired(on: boolean): void;
   runSearch(): Promise<void>;
+  /** A FileNode change arrived for an account the store holds: re-list its tier. */
+  applyChanges(accountId: Id): Promise<void>;
   reset(): void;
 }
 
@@ -428,6 +431,32 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     setShowRetired(on) {
       set({ showRetired: on });
       void get().reload();
+    },
+
+    /**
+     * A group's KB rides the FileNode push rail (ADR 0024); the company tier is
+     * read when opened, so a change there is picked up on the next open. The
+     * store ignores an account it does not hold, so every FileNode change can be
+     * offered to it.
+     */
+    async applyChanges(accountId) {
+      const tier = get().tiers.find((t) => t.accountId === accountId);
+      if (!tier) return;
+      try {
+        const folderId =
+          tier.scope === "company"
+            ? ((await companyKnowledge())?.folderId ?? null)
+            : await findKnowledgeFolder(accountId);
+        if (!folderId) return;
+        const articles = await listArticles(accountId, folderId, get().showRetired);
+        set((s) => ({
+          tiers: s.tiers.map((t) =>
+            t.accountId === accountId && t.scope === tier.scope ? { ...t, articles } : t,
+          ),
+        }));
+      } catch {
+        /* a failed reconcile leaves the tree as it was; the next event retries */
+      }
     },
 
     async runSearch() {
