@@ -267,17 +267,17 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
-- **0028 — Orders are group-owned parts (proposed, a stub).** What an order is
-  and who sees what of it: not a document but a shared reference and a set of
-  parts, each part owned by the account of the group competent for it and
-  pointing at that group's own emails, files and checklist state. A reader sees
-  the union of the parts their group memberships reach and an administrator sees
-  every part by being in every group; JMAP has no field-level permission, so the
-  boundary is account access. A wide panel beside the work is the surface, one
-  function follows every reference to the object it names, and the per-order
-  folder tree is a code-maintained projection of the pointers rather than a
-  second source of truth. Recorded before the design is settled — the open
-  questions are in the record, and the KB (ADR 0024) is a separate decision.
+- **0028 — Orders are group-owned parts (proposed).** An order is one uid: a
+  root document in the Master's `gilbert/workorders/` — identity, global
+  checklist and the registry of every order — and a part in each competent
+  group's own app folder, holding that group's checklist and its references by
+  id to that group's folders, messages and files; nothing is copied and no
+  marker is planted in a work folder. The Master does every read and write, so
+  an administrator sees every part without being a member of every group and a
+  member sees the global checklist and their own groups' parts, the door being
+  the server route that checks the caller's membership; a checked step keeps the
+  last signature, taken from the authenticated session. The KB (ADR 0024) is the
+  model a checklist step follows, and the two are separate decisions.
 - **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for

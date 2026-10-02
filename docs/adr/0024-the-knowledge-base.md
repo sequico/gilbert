@@ -420,11 +420,12 @@ still standing. The open ones are the reasons this record is still Proposed.
    read-write Stalwart share on the folder, the member's own session, no
    privileged door. *Recommend C if the share holds under a live probe (the ADR
    0023 wildcard-share probe is already owed), else B.*
-2. **Where does the company KB live — hidden or visible?** — **Open.**
-   `gilbert/knowledge` inside the app folder (consistent with chat; keeps raw
-   JSON out of Files) or a visible `Knowledge` folder in the Master's Files.
-   *Recommend hidden, with a probe that a share on the nested folder grants read
-   without exposing `gilbert/` (where `settings.json` lives).*
+2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
+   `gilbert/knowledge` inside the app folder — the Master's account for the
+   company's KB and each account's own for a group's — the app folder's name
+   being the whole hiding rule, so no second rule is invented. The share probe
+   the write door may need, without exposing `gilbert/` (where `settings.json`
+   lives), is the one question 1 still rests on.
 3. **Group KBs now or later?** — **Open.** *Recommend the same code built once,
    company first; group scope in the phase after.*
 4. **Versioning shape** — **Settled.** A revision is minted at approval, not per
