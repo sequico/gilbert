@@ -44,20 +44,17 @@ export function WorkorderLauncher() {
     <>
       <button
         type="button"
-        /*
-         * `.chat-launcher`/`.chat-badge` are the launcher pattern's own
-         * positioning classes -- the corner badge hangs off a relative button.
-         * Reused rather than spelled out inline, so the workorder launcher and
-         * chat's cannot drift apart at the corner.
-         */
-        className="icon-btn chat-launcher"
+        /* Its own launcher classes (`.workorder-launcher`/`.workorder-badge`),
+           the same shape as chat's but its own name, so the corner badge is a
+           workorder fact and the two launchers do not share a spelling. */
+        className="icon-btn workorder-launcher"
         aria-label={t("Workorders")}
         title={t("Workorders")}
         aria-expanded={panelOpen}
         onClick={toggle}
       >
         <Factory size={21} />
-        {running > 0 && <span className="chat-badge">{running}</span>}
+        {running > 0 && <span className="workorder-badge">{running}</span>}
       </button>
       {panelOpen && <WorkorderPanel />}
     </>

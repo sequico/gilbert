@@ -14,7 +14,7 @@
  * answers, and nothing here composes a document of its own.
  */
 import { ArrowLeft, Plus, RefreshCw, Trash2, X } from "lucide-react";
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
@@ -31,7 +31,7 @@ import type {
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
-import { Spinner, useIsMobile } from "@/ui/misc";
+import { Spinner } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
 /*
@@ -107,43 +107,43 @@ function PartSection({
 }) {
   const title = part.scope === "global" ? t("Global") : (part.group ?? "");
   return (
-    <section className="card">
+    <section className="card workorder-part">
       <div className="card-head">
         <h3 className="grow truncate">{title}</h3>
       </div>
       {part.checklist.steps.length === 0 ? (
         <p className="hint">{t("No steps")}</p>
       ) : (
-        part.checklist.steps.map((step) => {
-          const done = step.state === "done";
-          return (
-            <label
-              key={step.id}
-              className="row"
-              style={{ alignItems: "flex-start", padding: "6px 0" }}
-            >
-              <input
-                type="checkbox"
-                checked={done}
-                disabled={!part.canCheck}
-                onChange={(e) =>
-                  onToggle(part.scope, part.group, step.id, e.target.checked)
-                }
-              />
-              <span className="grow">
-                <span>{part.labels[step.id] ?? step.id}</span>
-                {done && step.by && step.at && (
-                  <span className="hint" style={{ display: "block" }}>
-                    {t("Checked by {who} on {when}", {
-                      who: step.by,
-                      when: formatFullDate(step.at),
-                    })}
+        <div className="workorder-steps">
+          {part.checklist.steps.map((step) => {
+            const done = step.state === "done";
+            return (
+              <label key={step.id} className={`workorder-step ${done ? "done" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={done}
+                  disabled={!part.canCheck}
+                  onChange={(e) =>
+                    onToggle(part.scope, part.group, step.id, e.target.checked)
+                  }
+                />
+                <span className="workorder-step-label">
+                  <span className="workorder-step-text">
+                    {part.labels[step.id] ?? step.id}
                   </span>
-                )}
-              </span>
-            </label>
-          );
-        })
+                  {done && step.by && step.at && (
+                    <span className="workorder-stamp">
+                      {t("Checked by {who} on {when}", {
+                        who: step.by,
+                        when: formatFullDate(step.at),
+                      })}
+                    </span>
+                  )}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       )}
     </section>
   );
@@ -320,7 +320,9 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
           import("@/store/knowledge"),
           import("@/lib/knowledge"),
         ]);
-        if (!useKnowledge.getState().loaded) await useKnowledge.getState().load();
+        // Always refresh: the picker must reflect what is in force now, not what
+        // the session happened to load before an administrator approved a page.
+        await useKnowledge.getState().load();
         if (!alive) return;
         setTemplates(
           useKnowledge.getState().tiers.flatMap((tier) =>
@@ -438,7 +440,6 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
 }
 
 export function WorkorderPanel() {
-  const isMobile = useIsMobile();
   const workorders = useWorkorders((s) => s.workorders);
   const loaded = useWorkorders((s) => s.loaded);
   const loading = useWorkorders((s) => s.loading);
@@ -485,54 +486,9 @@ export function WorkorderPanel() {
     return () => document.removeEventListener("keydown", onKey, true);
   }, [closePanel]);
 
-  const overlayStyle: CSSProperties = isMobile
-    ? {
-        position: "fixed",
-        inset: 0,
-        zIndex: 965,
-        background: "rgba(2, 6, 23, 0.45)",
-        display: "flex",
-        alignItems: "stretch",
-        justifyContent: "center",
-        padding: 0,
-      }
-    : {
-        position: "fixed",
-        inset: 0,
-        zIndex: 965,
-        background: "rgba(2, 6, 23, 0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        backdropFilter: "blur(2px)",
-      };
-
-  const panelStyle: CSSProperties = isMobile
-    ? {
-        background: "var(--bg-elev)",
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        height: "100dvh",
-        overflow: "hidden",
-      }
-    : {
-        background: "var(--bg-elev)",
-        display: "flex",
-        flexDirection: "column",
-        width: "min(1100px, 94vw)",
-        height: "min(85vh, 900px)",
-        maxHeight: "calc(100vh - 32px)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "var(--shadow-3)",
-        overflow: "hidden",
-      };
-
   return createPortal(
     <div
-      style={overlayStyle}
+      className="workorder-overlay"
       onMouseDown={(e) => {
         // A press on the backdrop puts the panel away, the dialog's own rule;
         // a press inside it stays.
@@ -540,19 +496,12 @@ export function WorkorderPanel() {
       }}
     >
       <div
-        style={panelStyle}
+        className="workorder-panel"
         role="dialog"
         aria-modal="true"
         aria-label={t("Workorders")}
       >
-        <header
-          className="row"
-          style={{
-            padding: "12px 16px",
-            borderBottom: "1px solid var(--border)",
-            gap: 8,
-          }}
-        >
+        <header className="workorder-head">
           {open && (
             <button
               type="button"
@@ -564,10 +513,7 @@ export function WorkorderPanel() {
               <ArrowLeft size={18} />
             </button>
           )}
-          <h2
-            className="grow truncate"
-            style={{ margin: 0, fontSize: "1.1em", fontWeight: 650 }}
-          >
+          <h2 className="workorder-title grow truncate">
             {open ? (
               // A workorder's name is the reader's own words, never translated.
               <span className="notranslate" translate="no">
@@ -598,7 +544,7 @@ export function WorkorderPanel() {
           </button>
         </header>
 
-        <div style={{ padding: 16, overflow: "auto", flex: "1 1 auto" }}>
+        <div className="workorder-scroll">
           {open ? (
             <>
               {open.parts.map((part) => (
@@ -632,7 +578,7 @@ export function WorkorderPanel() {
           ) : workorders.length === 0 ? (
             <p className="hint">{t("No workorders yet")}</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="workorder-list">
               {workorders.map((w) => {
                 const gs = partGroups(w);
                 return (

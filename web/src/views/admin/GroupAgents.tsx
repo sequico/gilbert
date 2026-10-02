@@ -45,6 +45,7 @@ import { agentGroupNames, agentViewKey, useAgents } from "@/store/agents";
 import { toast } from "@/ui/toast";
 import { GroupAudit } from "./agent/GroupAudit";
 import { GroupInstruction } from "./agent/GroupInstruction";
+import { GroupKnowledge } from "./agent/GroupKnowledge";
 import { GroupMemory } from "./agent/GroupMemory";
 import { GroupPolicy } from "./agent/GroupPolicy";
 import { RuleEditor } from "./agent/RuleEditor";
@@ -57,6 +58,7 @@ const GROUP_PARTS = [
   { id: "behaviour", label: "Behaviour" },
   { id: "automations", label: "Automations" },
   { id: "memory", label: "Memory" },
+  { id: "knowledge", label: "Knowledge" },
   { id: "activity", label: "Activity" },
 ] as const;
 
@@ -249,6 +251,7 @@ export function GroupAgents() {
         )}
         {part === "automations" && <RuleEditor groups={groups} group={group} />}
         {part === "memory" && <GroupMemory group={group} known={known} />}
+        {part === "knowledge" && <GroupKnowledge group={group} known={known} />}
         {part === "activity" && (
           <>
             {/* What it has done, and who is doing it: the trail and the agents

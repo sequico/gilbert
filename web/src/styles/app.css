@@ -2872,3 +2872,63 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
    the caption; a hint after the control is not. */
 .field > span:first-child { font-size: .85em; font-weight: 600; color: var(--fg-muted); letter-spacing: .01em; }
 
+
+/* ---------- Workorders (ADR 0028) ---------- */
+
+/* Launcher in the top-bar action cluster, beside chat's; the badge hangs off
+   its corner. Its own classes, not chat's: the two launchers share a shape,
+   not a name. */
+.workorder-launcher { position: relative; }
+.workorder-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px; background: var(--accent); color: var(--accent-fg);
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  pointer-events: none; box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* The large panel: wide and tall enough to work in, not a popover. */
+.workorder-overlay {
+  position: fixed; inset: 0; z-index: 965;
+  background: rgba(2, 6, 23, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  backdrop-filter: blur(2px);
+}
+.workorder-panel {
+  background: var(--bg-elev); display: flex; flex-direction: column;
+  width: min(1100px, 94vw); height: min(85vh, 900px);
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3); overflow: hidden;
+}
+.workorder-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.workorder-head h2 { margin: 0; font-size: 1.1em; font-weight: 650; }
+.workorder-scroll { padding: 16px; overflow: auto; flex: 1 1 auto; }
+.workorder-list { display: flex; flex-direction: column; gap: 10px; }
+.workorder-list .card { margin-bottom: 0; }
+
+/* One checklist: the global one or a group's, with each step and its last
+   signature. A done step is tinted and its text recedes; the process stays
+   readable, which is the point of the checklist. */
+.workorder-part { margin-bottom: 12px; }
+.workorder-steps { display: flex; flex-direction: column; }
+.workorder-step {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+}
+.workorder-step + .workorder-step { border-top: 1px solid var(--border); }
+.workorder-step.done { background: var(--accent-soft); }
+.workorder-step-label { flex: 1 1 auto; min-width: 0; }
+.workorder-step.done .workorder-step-text { color: var(--fg-muted); }
+.workorder-stamp { display: block; font-size: .8em; color: var(--fg-muted); margin-top: 2px; }
+
+@media (max-width: 760px) {
+  .workorder-overlay { padding: 0; align-items: stretch; }
+  .workorder-panel {
+    width: 100%; height: 100dvh; max-height: none;
+    border-radius: 0; border: 0;
+  }
+}
