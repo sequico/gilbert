@@ -243,11 +243,31 @@ export function KnowledgeSidebar() {
     // root: an article is a leaf, so it cannot be a page's parent.
     const inTier =
       article && article.scope === tier.scope && article.accountId === tier.accountId;
-    beginCreate(tier, inTier ? (article?.summary.parentId ?? null) : null, "page");
+    const parentNodeId = inTier ? (article?.summary.parentId ?? null) : null;
+    expandChain(tier, parentNodeId);
+    beginCreate(tier, parentNodeId, "page");
   };
 
   const addFolder = (tier: KnowledgeTierView, parentNodeId: string | null) => {
+    expandChain(tier, parentNodeId);
     beginCreate(tier, parentNodeId, "folder");
+  };
+
+  /*
+   * Open every folder on the way to `nodeId`, so the row created inside it is
+   * actually mounted: a collapsed parent would take the input where nobody can
+   * see it, and the click would read as doing nothing.
+   */
+  const expandChain = (tier: KnowledgeTierView, nodeId: string | null) => {
+    if (!nodeId) return;
+    const byId = new Map(tier.articles.map((a) => [a.nodeId, a]));
+    const opened: Record<string, boolean> = {};
+    let id: string | null = nodeId;
+    while (id) {
+      opened[id] = true;
+      id = byId.get(id)?.parentId ?? null;
+    }
+    setExpanded((prev) => ({ ...prev, ...opened }));
   };
 
   const toggleFolder = (nodeId: string) =>

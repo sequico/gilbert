@@ -244,7 +244,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             const tier = tiers.find(
               (x) => `${x.scope}:${x.accountId}` === e.target.value,
             );
-            const first = tier?.articles[0];
+            const first = tier?.articles.find((a) => a.kind !== "folder");
             if (tier && first) void open(tier.accountId, first.folder, first.nodeId);
           }}
         >

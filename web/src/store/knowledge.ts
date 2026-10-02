@@ -245,13 +245,13 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
 
       /*
        * The company KB first, read through the route that acts as the Master.
-       * The route answers the account and the standing tree — a retired company
-       * article is not offered through it, so the reader's "show retired"
-       * choice narrows the group tiers and not this one. A boot that fails the
-       * route leaves the company tier out and still loads the group tiers; one
-       * tier's failure never takes `load()` down with it.
+       * The route answers the account and the tree, honouring the reader's
+       * "show retired" choice the same way a group tier does. A boot that fails
+       * the route leaves the company tier out and still loads the group tiers;
+       * one tier's failure never takes `load()` down with it.
        */
       try {
+        set({ error: null });
         const company = await companyTree(get().showRetired);
         if (company.accountId) {
           tiers.push({
@@ -305,8 +305,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     async open(accountId, folder, nodeId) {
       set({ articleLoading: true, article: null, edit: null });
       try {
+        set({ error: null });
         const tier = get().tiers.find((t) => t.accountId === accountId);
         const summary = tier?.articles.find((a) => a.nodeId === nodeId);
+        // A topic folder is a group, not a page: it has no draft to open and
+        // must never be turned into an article by an edit (ADR 0024).
+        if (summary?.kind === "folder") {
+          set({ articleLoading: false });
+          return;
+        }
         // The company tier is opened through the route that acts as the
         // Master; a group's is opened through the reader's own session, where
         // a uid and a folder are theirs to read.
@@ -362,6 +369,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
       };
       try {
+        set({ error: null });
         await createArticle(target, title, parentFolder);
         await get().reload();
         return true;
@@ -377,6 +385,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
       };
       try {
+        set({ error: null });
         await createKnowledgeFolder(target, name, parentFolder);
         await get().reload();
         return true;
@@ -395,6 +404,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         folder,
       };
       try {
+        set({ error: null });
         await reorderKnowledgeArticle(target, folder, order);
         // Ordering is the tier's fact, not the open article's, so a re-list
         // refreshes the tree without losing what is open.
@@ -413,6 +423,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         folder,
       };
       try {
+        set({ error: null });
         await moveKnowledgeArticle(target, folder, parentFolder);
         await get().reload();
         return true;
@@ -434,10 +445,14 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         text: edit.text,
       };
       try {
+        set({ error: null });
         // A save rewrites the document; only a rename moves the folder, so the
         // re-open follows the folder the article already has.
         const summary = await saveDraft(target, input);
         await reopen(article.accountId, summary);
+        // A save rewrites the title a listing mirrors, so the tree is re-listed
+        // rather than left reading its old one.
+        await get().reload();
         return true;
       } catch (err) {
         set({ error: (err as Error).message });
@@ -451,8 +466,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const target = targetOf(article);
       if (!target) return false;
       try {
+        set({ error: null });
         const summary = await approveArticle(target, effectiveAt);
         await reopen(article.accountId, summary);
+        // The approval moves `rev` and the pending marker the sidebar badges,
+        // which the tree — not the open article — carries.
+        await get().reload();
         return true;
       } catch (err) {
         set({ error: (err as Error).message });
@@ -466,8 +485,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const target = targetOf(article);
       if (!target) return false;
       try {
+        set({ error: null });
         const summary = await restoreArticle(target, revision);
         await reopen(article.accountId, summary);
+        // Restoring an older revision moves `rev` and the pending marker, so
+        // the tree is re-listed with the open article kept.
+        await get().reload();
         return true;
       } catch (err) {
         set({ error: (err as Error).message });
@@ -481,6 +504,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const target = targetOf(article);
       if (!target) return false;
       try {
+        set({ error: null });
         const summary = await renameArticle(target, title);
         await reopen(article.accountId, summary);
         // The folder moved, and the sidebar still carries the old path; the
@@ -499,6 +523,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const target = targetOf(article);
       if (!target) return false;
       try {
+        set({ error: null });
         await deleteArticle(target);
         set({ article: null, edit: null, articleLoading: false });
         await get().reload();
@@ -540,6 +565,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       // opened, so it is not pushed (ADR 0024).
       if (tier?.scope !== "group") return;
       try {
+        set({ error: null });
         const folderId = await findKnowledgeFolder(accountId);
         if (!folderId) return;
         const articles = await listArticles(accountId, folderId, get().showRetired);
@@ -563,6 +589,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       }
       set({ searching: true });
       try {
+        set({ error: null });
         const docs: Array<{ id: string; title: string; text: string; tags: string }> = [];
         const index = new Map<
           string,
@@ -570,6 +597,8 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         >();
         for (const tier of get().tiers) {
           for (const summary of tier.articles) {
+            // A topic folder groups articles; it is not a page to find.
+            if (summary.kind === "folder") continue;
             const key = articleKey(tier.accountId, summary.nodeId);
             docs.push({
               id: key,
