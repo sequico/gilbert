@@ -82,10 +82,12 @@ Where the integration lives:
   `web/src/lib/signatureHtml.ts`), calendar events, contacts, sieve scripts,
   principal/group structure.
 - **Global contacts** (ADR 0023, `gilbert-global-contacts`): one `AddressBook` +
-  `ContactCard`s in the **Master's** account, shared **read-only with every
-  account** and written only by an administrator from inside Contacts — a
-  Stalwart object, never a second store. The exact shape of a share naming every
-  account at once is **owed a live probe** (see the live questions below).
+  `ContactCard`s in the **Master's** account, written only by an administrator
+  from inside Contacts and **read by every account through a server route** — a
+  Stalwart object, never a second store. A `shareWith` naming every account was
+  live-probed and **cannot work**: Stalwart caps a share at **10 principals per
+  item** (see the live questions below), so the route is the door. The same
+  applies to the KB's company tier (ADR 0024).
 - Installation policy: `server/src/config.ts` (settings-policy file/env),
   served by `/api/config`; admin group concept in `docs/adr/0001` (admin is
   membership of a Stalwart group, e.g. `admins@domain`; policy documents in
@@ -229,8 +231,21 @@ trusting a new server version, then replace the note below with the answer, its
 version and its date.
 
 The three below were run against a live 0.16.23 installation on 2026-09-24 and
-their answers are recorded. The questions that remain owed are ADR 0016's, kept
-in that record and asked by `scripts/probe-degraded-statechange.mjs`.
+their answers are recorded, and the universal-share question was run against the
+deployment on 2026-10-02 and is recorded below. The questions that remain owed
+are ADR 0016's, kept in that record and asked by
+`scripts/probe-degraded-statechange.mjs`.
+
+### A share naming every principal — the cap (2026-10-02)
+
+A `shareWith` naming every principal **cannot be written**: Stalwart refuses it
+with `invalidProperties` / "Maximum number of shares per item exceeded (max:
+10)", live-probed on the deployment against 14 principals. The property is
+recognized on a **FileNode** — the refusal is the ceiling, not the type — so a
+nested folder cannot be shared with an unbounded set of accounts either. An
+installation-wide resource is therefore **served through a route**, not shared:
+the KB's company tier (ADR 0024) and Global contacts (ADR 0023) both. The probe
+did not record the server version; the cap is "10 per item" as answered.
 
 ### `scripts/probe-directory-paging.mjs` — the directory read's paging
 

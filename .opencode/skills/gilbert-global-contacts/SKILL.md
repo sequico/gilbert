@@ -1,6 +1,6 @@
 ---
 name: gilbert-global-contacts
-description: The Global contacts law of the Gilbert client — the one Master-owned directory the installation creates at boot, shared read-only with every account and written only by an administrator from inside Contacts. Load before touching Global contacts, the directory's editor or sidebar, or the account-wide contact merge.
+description: The Global contacts law of the Gilbert client — the one Master-owned directory the installation creates at boot, read by every account through a server route and written only by an administrator from inside Contacts. Load before touching Global contacts, the directory's editor or sidebar, or the account-wide contact merge.
 metadata:
   short-description: Global contacts directory law
 ---
@@ -15,8 +15,11 @@ a bug in one of the two.
 
 1. One address book in the **Master's account**, **created by the installation
    at boot** (`ensureGlobalContacts`), not by hand.
-2. Shared **read-only with every account**; written only by an administrator
-   from inside Contacts, through a server route that acts as the Master.
+2. Read by every account **through a server route** — a `shareWith` cannot
+   name an unbounded set: Stalwart caps a share at 10 principals per item
+   (live-probed; `gilbert-stalwart`), so the route is the door. Written only by
+   an administrator from inside Contacts, through a server route that acts as the
+   Master.
 3. The **first row of the Contacts sidebar**, above `All contacts` and the
    reader's books, merged in `All contacts`; the book's name is the marker
    (`@gilbert/shared/globalContacts`).
@@ -26,8 +29,8 @@ a bug in one of the two.
 
 ## The map
 
-- `server/src/globalContactsAdmin.ts` — the write, the share, the boot-time
-  `ensureGlobalContacts`.
+- `server/src/globalContactsAdmin.ts` — the write, the read the route serves,
+  the boot-time `ensureGlobalContacts`.
 - `server/src/index.ts` — its call, before anything is served.
 - `server/src/shared/globalContacts.ts` — the book name and the card shape both
   tiers read.

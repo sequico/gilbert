@@ -36,9 +36,9 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   [The knowledge base](FEATURES.md#the-knowledge-base). What is deliberately
   later is what ADR 0024 defers: real-time co-editing over Yjs/Hocuspocus (v1
   saves the whole draft under `ifInState` and says so) and Excalidraw diagrams.
-  The company KB's
-  read share on `gilbert/knowledge` is owed the live probe ADR 0023 already names
-  for a share of a nested folder that reaches every account.
+  The company KB is read through the server route ADR 0023's probe settled on: a
+  `shareWith` naming every account cannot work (Stalwart caps a share at 10
+  principals per item), so no share probe remains owed.
 
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 

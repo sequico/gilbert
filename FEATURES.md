@@ -838,13 +838,13 @@ wants to retire a chat clears the folders through Files.
 
 ## Global contacts
 
-- **A directory everyone shares** (ADR 0023): one address book, owned by the
-  Master, created by the installation at boot, shared **read-only with every
-  account** and written only by an administrator, from inside Contacts. The
-  administrator's write re-applies the share, which is what brings an account
-  created later in — the deployment's own share shape is owed the live probe
-  ADR 0023 names. Every reader sees it as the first row of the Contacts sidebar
-  and merged in `All contacts`.
+- **A directory everyone reads** (ADR 0023): one address book, owned by the
+  Master, created by the installation at boot, **served to every account through
+  a server route** (`/api/global-contacts`) and written only by an administrator,
+  from inside Contacts. A `shareWith` naming every account cannot work — Stalwart
+  caps a share at 10 principals per item (live-probed, 2026-10-02) — so the route
+  is the door, and an account created later needs nothing added. Every reader sees
+  it as the first row of the Contacts sidebar and merged in `All contacts`.
 
 ---
 
@@ -856,7 +856,7 @@ the **fifth** module, **KB**, after Mail, Calendar, Contacts and Files, and not
 a folder of Files.
 
 - **Two tiers, one shape.** A company-wide KB owned by the **Master** and read
-  by every account through a read-only share of `gilbert/knowledge`; a KB per
+  by every account through the server route for `gilbert/knowledge`; a KB per
   group, owned by the group's own account and read by its members (membership is
   the grant). The company tier leads the sidebar and the groups follow; the
   surface is the same for both.
@@ -883,10 +883,10 @@ a folder of Files.
   deleted: it leaves the tree and is found only by showing retired articles,
   while a draft no approval ever touched is deleted outright.
 - **Written as the Master.** Every write goes through a server route
-  (`/api/knowledge/*`) that acts as the Master, because the company KB is read
-  through a read-only share that grants the caller's own session nothing to write
-  with, and because approval is gated on the administrator the session
-  authenticated. An agent drafts; it never approves.
+  (`/api/knowledge/*`) that acts as the Master, because the company KB is reached
+  through a route that acts as the Master and the caller's own session does not
+  hold the Master's folder, and because approval is gated on the administrator
+  the session authenticated. An agent drafts; it never approves.
 - **The editor is BlockNote** (core MPL-2.0: ProseMirror/TipTap, with Yjs built
   in for the co-editing phase) and the search is **Orama**, in-process over each
   page's text and rebuilt lazily per search, while the fleet's lookup reads the
@@ -900,12 +900,10 @@ a folder of Files.
   overwritten, and the per-page outcomes and the review's findings are kept on
   the run's own job, not in the KB. The KB is a **lookup**, never carried whole
   into a prompt; the notebook stays the distilled head (ADR 0006, ADR 0020).
-- **Graceful degradation**: the company tier is read when the KB is opened (a
-  share is not a membership, so no live update is promised for it), while a
-  group's KB rides the FileNode push rail like any other document; a page that
-  cannot be read resolves as empty rather than a broken pane. The exact Stalwart
-  shape of the read share — a read-only grant on the nested `gilbert/knowledge`
-  that reaches every account — is owed the live probe ADR 0023 already names.
+- **Graceful degradation**: the company tier is read when the KB is opened (the
+  route is not membership, so no live update is promised for it), while a group's
+  KB rides the FileNode push rail like any other document; a page that cannot be
+  read resolves as empty rather than a broken pane.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
 and Excalidraw diagrams. There are no attachments: a procedure is formatted text

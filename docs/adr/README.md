@@ -222,15 +222,15 @@ is, not what a user sees.
   the reader's own are two threads. The dated entries keep their literal
   meaning.
 - **0023 — Global contacts.** One address book in the Master's account, created
-  by the installation rather than by hand, shared read-only with every account
-  and written only by an administrator from inside Contacts through a server
-  route that acts as the Master. It leads the Contacts sidebar, above
-  `All contacts` and the reader's own books, as well as being merged in it; its
-  cards are ordinary cards. The exact Stalwart shape of a share naming every
-  account at once is owed a live probe.
+  by the installation rather than by hand, **read by every account through a
+  server route** and written only by an administrator from inside Contacts. It
+  leads the Contacts sidebar, above `All contacts` and the reader's own books, as
+  well as being merged in it; its cards are ordinary cards. A `shareWith` naming
+  every account cannot work — Stalwart caps a share at 10 principals per item
+  (live-probed, 2026-10-02) — so the route is the door.
 - **0024 — The knowledge base (accepted).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
-  owned by the Master and shared, plus a KB per group owned by the group, over
+  owned by the Master and read through a route, plus a KB per group owned by the group, over
   app-folder documents in Stalwart — policies, procedures and the checklist
   templates a workorder instantiates (ADR 0028). An article has **one shared
   unapproved draft that users and agents both edit**, the fleet reviews it, and
@@ -247,8 +247,8 @@ is, not what a user sees.
   read/write, the surface with its BlockNote editor, the fleet's `knowledge`
   read, `knowledge.write` and `knowledge.review` with the plan and findings on the
   run's own job, and the checklist templates a workorder instantiates (ADR 0028);
-  co-editing and diagrams are the deferred phases. The company KB's read share is
-  owed ADR 0023's live probe.
+  co-editing and diagrams are the deferred phases. The company KB is read
+  through the same route as Global contacts.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check

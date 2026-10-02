@@ -62,8 +62,8 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   `createBook(name, accountId?)`; `ContactsSidebar` lists every group's books
   together under **Group contacts**, each naming its group on hover, with the
   same **+** on the section.
-  **Global contacts is not one of these**: it is one Master-owned book with a
-  universal read-only share, the installation's rather than a group's, and it
+  **Global contacts is not one of these**: it is one Master-owned book read
+  through a server route, the installation's rather than a group's, and it
   gets no per-group section and no per-group copy (`gilbert-global-contacts`).
 - **Files**: ownership follows the browsed context (`store/files.ts`
   `openAccount`); a doc created while browsing the group account is the

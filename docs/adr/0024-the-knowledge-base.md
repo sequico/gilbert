@@ -6,8 +6,9 @@ Implementation: Built. The article shape, the storage layout, the
 validators and the lifecycle arithmetic are one definition
 (`server/src/shared/knowledge.ts`); the Master-owned write door and its
 `/api/knowledge/*` routes are `server/src/knowledgeAdmin.ts` and
-`server/src/app.ts`; the company KB is created and shared at boot
-(`server/src/index.ts`); the client reads and writes through
+`server/src/app.ts`; the company KB is created at boot and read through the
+route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client reads
+and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
 BlockNote editor are `web/src/views/knowledge/`; and the fleet's `knowledge`
 lookup and `knowledge.write` capability live in `server/src/agent/`. The fleet
@@ -16,8 +17,9 @@ own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
 was read; `knowledge.review` records the prose), in the trail Q23 names. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
 diagrams). The checklist templates a workorder instantiates are built
-(ADR 0028). The company KB's read share on `gilbert/knowledge` is owed the live
-probe ADR 0023 carries for a share that reaches every account.
+(ADR 0028). The company KB is read through the route, not a share: a `shareWith`
+naming every account cannot work — Stalwart caps a share at 10 principals per
+item, as ADR 0023's live probe found (2026-10-02).
 
 ## Context
 
@@ -61,12 +63,12 @@ this tree, not a preference.
   account (`web/src/lib/chat.ts`, `web/src/store/chat.ts`, `docs/adr/0005`).
 - **Global contacts is the precedent for an installation-wide resource.**
   One book in the **Master's** account, created at boot by the installation
-  rather than by hand, shared read-only with every account, written only by an
-  administrator through a server route that acts as the Master
-  (`server/src/globalContactsAdmin.ts`, `docs/adr/0023`). The exact Stalwart
-  shape of a share naming every account at once is **owed a live probe**;
-  `shareWithEveryone` is the best-known shape (a paged `Principal/query` merged
-  into the node's `shareWith`).
+  rather than by hand, written only by an administrator and **read by everyone
+  through a server route** — the shape this KB's company tier now copies. A
+  `shareWith` naming every account cannot work (Stalwart caps a share at 10
+  principals per item; `docs/adr/0023`, live-probed 2026-10-02), so the route,
+  not a share, is how an installation-wide resource reaches every account
+  (`server/src/globalContactsAdmin.ts`, `docs/adr/0023`).
 - **The admin group's Files are not member-readable.** A member's `FileNode/
   query` against the admin group's account answers nothing (`gilbert-stalwart`).
   So an installation-wide document cannot live in the admin group; the Master's
@@ -174,7 +176,7 @@ aligned are Gilbert's and exist nowhere to import.
 - `@gilbert/shared/knowledge` — the page shape, the folder layout, the tree and
   text helpers, the one definition both tiers read.
 - Storage through the existing app-folder writers and their `ifInState`.
-- Ownership — the Master's company KB and each group's — the share, the
+- Ownership — the Master's company KB and each group's — the route, the
   boot-time ensure.
 - Versioning and its retention, the publication lifecycle and its approval.
 - The agent's document-controller behaviour and its catalogue entries.
@@ -202,7 +204,7 @@ Excalidraw only when their phase arrives.
 
 ## The design as it stands
 
-Not yet accepted, and every question below is settled. The approval lifecycle is
+Every question below is settled. The approval lifecycle is
 the core of it.
 
 ### What the KB holds: procedures and checklist templates
@@ -230,18 +232,19 @@ Calendar, Contacts and Files** in the module bar — and not a folder inside Fil
 | | **Company KB** (the lead) | **Group KB** |
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
-| Who reads | everyone (read-only share) | members (membership is the grant) |
+| Who reads | everyone (through the route, as the Master) | members (membership is the grant) |
 | Who writes | every member and every agent, **drafts only** | members and the group's agent, drafts only |
 | Who approves | **administrators only** | **administrators only** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
-| Access | a read-only Stalwart share (not a security boundary) | the reader's own JMAP session |
+| Access | the server route, as the Master (not a security boundary) | the reader's own JMAP session |
 
 The two are the **same documents and the same surface**; only the owning account
 differs. Both are **written** through the server route that acts as the Master
-(Q1); they differ only in how a reader reaches them — the company KB through its
-read-only share, because a reader is not a member of the Master's account, a
-group's through the reader's own session, because membership reaches it. The
+(Q1); they differ only in how a reader reaches them — the company KB through the
+route that acts as the Master, because a reader is not a member of the Master's
+account, a group's through the reader's own session, because membership reaches
+it. The
 surface lists **Company** first, then one section per group the reader is in —
 the contact sidebar's shape (Global contacts above the reader's books and the
 groups').
@@ -355,9 +358,9 @@ FileNode state changes ride the existing push rail (`docs/adr/0012`); nothing
 polls. A write is broad (a `FileNode` wake cannot be narrowed to a folder), so
 the client reads the change back and reconciles.
 
-The company KB is read through a **share, which is not membership**: ADR 0016
+The company KB is read through the **route**, which is not membership: ADR 0016
 serves a push subscription for the accounts the principal is a member of, so the
-shared company KB is read **when it is opened** and no live update is promised. A
+company KB is read **when it is opened** and no live update is promised. A
 group's KB, read with the reader's own session, rides the push rail like any
 other FileNode.
 
@@ -400,7 +403,7 @@ public, like the ISO 9001 policies") may mean one, two or all three. They must b
 decided separately because each has a different cost.
 
 1. **Installation-wide** — every authenticated account reads it. This is the
-   company KB's **read share** (ADR 0023's shape), and it is not "public" in the
+   company KB's **route read** (ADR 0023's shape), and it is not "public" in the
    outside-world sense. The cheap one; largely already the design.
 2. **Anonymous, no session** — a URL that resolves without signing in. **Not
    built, and Q7 settled it out:** it would be a new trust boundary — a route on
@@ -482,18 +485,19 @@ The record is **Accepted**.
    administrator — the live `requireAdmin` gate, which re-reads the account's own
    permissions on every call — which is what an approval is gated on, and it is
    the same door the workorder surface uses (ADR 0028). The company KB
-   is **read** through a read-only Stalwart share on `gilbert/knowledge` — a
-   reader is not a member of the Master's account, so the share is how every
-   account reaches the folder without the read passing through the Master. A
+   is **read** through the route that acts as the Master — a reader is not a
+   member of the Master's account, and a `shareWith` naming every account cannot
+   work (Stalwart caps a share at 10 principals per item, live-probed; ADR
+   0023), so the route is how every account reaches the folder. A
    group's KB is read with the reader's own session, membership being the grant
    (the table above).
 2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
    `gilbert/knowledge` inside the app folder — the Master's account for the
    company's KB and each account's own for a group's — the app folder's name
-   being the whole hiding rule, so no second rule is invented. The read share of
-   question 1 has to grant read on `gilbert/knowledge` without exposing the rest
-   of `gilbert/`, where `settings.json` lives — the question the wildcard share
-   ADR 0023 already owes a probe for.
+   being the whole hiding rule, so no second rule is invented. The route of
+   question 1 reads only `gilbert/knowledge`, so the rest of `gilbert/` — where
+   `settings.json` lives — is never exposed: the folder is hidden by the app
+   folder's own name.
 3. **Group KBs now or later?** — **Settled.** The same code built once, and both
    tiers ship together: the company KB and a group's KB in the same phase, not one
    after the other.
@@ -592,7 +596,7 @@ The record is **Accepted**.
   beside a page, so there is nothing to freeze or version.
 - **An anonymous Web surface.** The KB is installation-wide only (Q7); an
   anonymous surface would be a record of its own.
-- **Per-user setup.** The company KB exists at boot and is shared automatically;
+- **Per-user setup.** The company KB exists at boot and is served automatically;
   no button, no step nobody asked for (`AGENTS.md`, automatic by default).
 - **A QMS/ISO-9001 product or a workflow engine.** The shelf holds nothing
   embeddable for either, and each brings a database; document control is built on
@@ -617,11 +621,12 @@ The record is **Accepted**.
 - A publication lifecycle adds state a reader must understand (which revision is
   in force), and the audit trail precedent (`docs/adr/0003`) is where "who
   published what, when" would live rather than in a new log.
-- The company KB is read through a Stalwart share that reaches every account and
-  has to expose nothing but `gilbert/knowledge`; a new account is a share kept
-  current, the same debt Global contacts carries.
-- The read share hands over the folder, not a rendered view: the unapproved draft
-  and the per-change attribution are readable at the byte level by every account,
+- The company KB is read through a route that reaches every account and exposes
+  nothing but `gilbert/knowledge`; a new account needs nothing added, since the
+  route answers any authenticated session.
+- The route hands over the folder's documents, not a rendered view: the
+  unapproved draft and the per-change attribution are readable through it by
+  every account,
   and only the surface decides what to show. It is a product rule, not a
   boundary, like the rest of the app folder.
 
@@ -636,8 +641,8 @@ The record is **Accepted**.
 - `docs/adr/0014` — merging two folders is planned before it is written
 - `docs/adr/0019` — the three levels of prose
 - `docs/adr/0020` — a run may look something up
-- `docs/adr/0023` — Global contacts: the installation-owned, shared, admin-written
-  precedent
+- `docs/adr/0023` — Global contacts: the installation-owned, route-served,
+  admin-written precedent
 - `server/src/shared/appFolder.ts`, `web/src/lib/appFolder.ts` — the app folder
 - `web/src/lib/chat.ts`, `web/src/store/chat.ts` — the group-document precedent
 - `server/src/globalContactsAdmin.ts` — the Master-owned write door
