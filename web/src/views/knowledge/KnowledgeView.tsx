@@ -351,10 +351,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       </div>
 
       {isTemplate && (
-        <div
-          className="row"
-          style={{ gap: 6, flexWrap: "wrap", padding: "8px 16px 0" }}
-        >
+        <div className="row" style={{ gap: 6, flexWrap: "wrap", padding: "8px 16px 0" }}>
           <span className="hint">
             {usedBy.length ? t("Used by") : t("Not used by any workorder yet.")}
           </span>

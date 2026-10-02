@@ -38,10 +38,7 @@ export interface LastPlace {
    * mailbox would open a stranger's folder in a group's tree, and the reader
    * never opened it.
    */
-  openFolders?: {
-    mail?: Record<string, boolean>;
-    files?: Record<string, boolean>;
-  };
+  openFolders?: Partial<Record<TreeKind, Record<string, boolean>>>;
   /**
    * How each file folder was last ordered on this device, keyed by account and
    * folder (`folderKey`).

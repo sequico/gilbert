@@ -21,8 +21,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { uid } from "@/lib/format";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
+import { uid } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import {
   compareKnowledgeSiblings,
@@ -572,7 +572,7 @@ export function KnowledgeSidebar() {
               aria-label={openFolder ? t("Collapse") : t("Expand")}
               onClick={(e) => {
                 e.stopPropagation();
-                toggleFolder(a.nodeId);
+                toggleFolder(tier, a.nodeId);
               }}
             >
               {openFolder ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
