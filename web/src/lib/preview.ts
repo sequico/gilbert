@@ -15,7 +15,7 @@
  * The two answer different questions and neither can be derived from the other:
  * a file the app can render is not always one the server will serve inline.
  */
-import { GENERIC_TYPES, mediaType } from "@gilbert/shared/media";
+import { GENERIC_TYPES, isMarkdownExtension, mediaType } from "@gilbert/shared/media";
 
 export type PreviewKind = "image" | "pdf" | "text";
 
@@ -30,7 +30,7 @@ const BY_EXTENSION: Array<[RegExp, PreviewKind]> = [
   [/\.(png|jpe?g|gif|webp|avif|bmp|ico|heic|heif)$/i, "image"],
   [/\.pdf$/i, "pdf"],
   [
-    /\.(txt|text|md|markdown|log|csv|tsv|json|ya?ml|toml|ini|cfg|conf|env|sh|bash|zsh|fish|ps1|bat|js|mjs|cjs|jsx|ts|tsx|css|scss|less|html?|xhtml|xml|sql|py|rb|rs|go|c|h|cc|cpp|hpp|java|kt|swift|php|pl|lua|r|diff|patch|gitignore|dockerfile|makefile)$/i,
+    /\.(txt|text|log|csv|tsv|json|ya?ml|toml|ini|cfg|conf|env|sh|bash|zsh|fish|ps1|bat|js|mjs|cjs|jsx|ts|tsx|css|scss|less|html?|xhtml|xml|sql|py|rb|rs|go|c|h|cc|cpp|hpp|java|kt|swift|php|pl|lua|r|diff|patch|gitignore|dockerfile|makefile)$/i,
     "text",
   ],
 ];
@@ -68,6 +68,7 @@ export function previewKind(
     return null;
   }
   const n = name ?? "";
+  if (isMarkdownExtension(n)) return "text";
   for (const [re, kind] of BY_EXTENSION) if (re.test(n)) return kind;
   return null;
 }

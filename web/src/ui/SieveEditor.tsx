@@ -76,6 +76,8 @@ export function SieveEditor({
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  /** Set while an external `value` is applied, so it is not echoed back as an edit. */
+  const applyingExternal = useRef(false);
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -94,7 +96,8 @@ export function SieveEditor({
         EditorView.editable.of(!readOnly),
         theme,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) onChangeRef.current(update.state.doc.toString());
+          if (update.docChanged && !applyingExternal.current)
+            onChangeRef.current(update.state.doc.toString());
         }),
       ],
     });
@@ -115,7 +118,9 @@ export function SieveEditor({
     if (!view) return;
     const current = view.state.doc.toString();
     if (current === value) return;
+    applyingExternal.current = true;
     view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
+    applyingExternal.current = false;
   }, [value]);
 
   return (

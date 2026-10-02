@@ -1,4 +1,4 @@
-import { mediaType } from "@gilbert/shared/media";
+import { isMarkdownExtension, mediaType } from "@gilbert/shared/media";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { FORBID_ATTR, OURS_FORBID_TAGS } from "@/lib/html";
@@ -29,8 +29,9 @@ export function isMarkdown(
   const t = mediaType(type);
   if (t === "text/markdown" || t === "text/x-markdown") return true;
   // A .md upload usually arrives as application/octet-stream, so the name is
-  // the only evidence -- the same reason previewKind falls back to it.
-  return /\.(md|markdown|mdown|mkd)$/i.test(name ?? "");
+  // the only evidence -- one extension set, shared with the preview that
+  // decides the same file is text-shaped.
+  return isMarkdownExtension(name);
 }
 
 export function renderMarkdown(source: string): string {

@@ -118,11 +118,15 @@ export function Popover({
       document.addEventListener("touchstart", onDown, true);
       document.addEventListener("keydown", onKey, true);
       window.addEventListener("resize", onScroll);
+      // A popover positioned from viewport coordinates drifts off its anchor
+      // when the page scrolls under it: close on a scroll too.
+      window.addEventListener("scroll", onScroll, true);
     }, 0);
     return () => {
       window.clearTimeout(t);
       document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("touchstart", onDown, true);
+      window.removeEventListener("scroll", onScroll, true);
       document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onScroll);
     };

@@ -188,8 +188,16 @@ export function comboOf(e: KeyboardEvent): string | null {
   if (k === " ") k = "space";
   else if (k === "Escape") k = "esc";
   else if (k.length === 1) {
-    // Single chars: shift is encoded by the character itself (e.g. "#", "!").
-    k = k.length === 1 && !e.shiftKey ? k.toLowerCase() : k;
+    // A shifted letter is its own binding (`shift+i`); a shifted symbol encodes
+    // the shift in the character itself (`#`, `!`), so only letters get the
+    // extra part and case-fold. Without this, shift+i produced "I" and never
+    // matched the registered `shift+i`.
+    if (e.shiftKey && /[a-zA-Z]/.test(k)) {
+      parts.push("shift");
+      k = k.toLowerCase();
+    } else {
+      k = e.shiftKey ? k : k.toLowerCase();
+    }
   } else k = k.toLowerCase();
   parts.push(k);
   return parts.join("+");

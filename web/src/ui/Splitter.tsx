@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { type PointerEvent, useRef } from "react";
 import { t } from "@/lib/i18n";
 
 interface Props {
@@ -22,6 +22,16 @@ export function Splitter({
 }: Props) {
   const last = useRef(0);
   const active = useRef(false);
+  /** End a drag: on pointer-up and on pointer-cancel alike, so a stolen touch
+   *  gesture does not leave the cursor and text-selection stuck. */
+  const release = (e: PointerEvent<HTMLDivElement>) => {
+    if (!active.current) return;
+    active.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    onEnd?.();
+  };
   return (
     <div
       className={`splitter ${direction}${className ? ` ${className}` : ""}`}
@@ -48,14 +58,8 @@ export function Splitter({
           onResize(delta);
         }
       }}
-      onPointerUp={(e) => {
-        if (!active.current) return;
-        active.current = false;
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        onEnd?.();
-      }}
+      onPointerUp={release}
+      onPointerCancel={release}
       onKeyDown={(e) => {
         const step =
           e.key === "ArrowLeft" || e.key === "ArrowUp"

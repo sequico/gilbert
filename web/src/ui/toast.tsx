@@ -24,7 +24,15 @@ export const useToasts = create<ToastState>((set, get) => ({
   toasts: [],
   push(t) {
     const id = counter++;
-    set({ toasts: [...get().toasts.slice(-3), { ...t, id }] });
+    const existing = get().toasts;
+    // Trimming the list must clear the evicted toasts' timers too, or a
+    // dropped toast leaves a pending timeout that later dismisses nothing.
+    for (const gone of existing.slice(0, -3)) {
+      const timer = timers.get(gone.id);
+      if (timer) window.clearTimeout(timer);
+      timers.delete(gone.id);
+    }
+    set({ toasts: [...existing.slice(-3), { ...t, id }] });
     if (t.duration > 0) {
       const timer = window.setTimeout(() => get().dismiss(id), t.duration);
       timers.set(id, timer);

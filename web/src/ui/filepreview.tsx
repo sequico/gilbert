@@ -243,11 +243,10 @@ export function FilePreviewDialog({
     };
     window.addEventListener("afterprint", clear);
     root.classList.add("printing-preview");
-    try {
-      window.print();
-    } finally {
-      clear();
-    }
+    // `afterprint` is the one cleanup: on a browser where `print()` is
+    // non-blocking, clearing the class here would strip it before the raster is
+    // produced.
+    window.print();
   };
 
   return (

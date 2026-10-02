@@ -20,18 +20,28 @@ export function QrCode({
   title?: string;
 }) {
   const { path, count } = useMemo(() => {
-    const qr = qrcode(0, "M");
-    qr.addData(value);
-    qr.make();
-    const count = qr.getModuleCount();
-    let path = "";
-    for (let row = 0; row < count; row++) {
-      for (let col = 0; col < count; col++) {
-        if (qr.isDark(row, col)) path += `M${col} ${row}h1v1h-1z`;
+    try {
+      const qr = qrcode(0, "M");
+      qr.addData(value);
+      qr.make();
+      const count = qr.getModuleCount();
+      let path = "";
+      for (let row = 0; row < count; row++) {
+        for (let col = 0; col < count; col++) {
+          if (qr.isDark(row, col)) path += `M${col} ${row}h1v1h-1z`;
+        }
       }
+      return { path, count };
+    } catch {
+      // A value past the code's capacity is not something to draw: an empty
+      // square, rather than taking the tree down through the crash boundary.
+      return { path: "", count: 0 };
     }
-    return { path, count };
   }, [value]);
+  const label = title ?? t("QR code");
+
+  if (count === 0)
+    return <span className="hint">{t("This value is too long to show as a code.")}</span>;
 
   return (
     <svg
@@ -39,11 +49,11 @@ export function QrCode({
       height={size}
       viewBox={`-2 -2 ${count + 4} ${count + 4}`}
       role="img"
-      aria-label={title ?? t("QR code")}
+      aria-label={label}
       shapeRendering="crispEdges"
       style={{ background: "#fff", borderRadius: 8, display: "block" }}
     >
-      <title>{title ?? "QR code"}</title>
+      <title>{label}</title>
       <path d={path} fill="#000" />
     </svg>
   );

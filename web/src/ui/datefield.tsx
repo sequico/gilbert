@@ -183,7 +183,10 @@ function TimeList({
     return out;
   }, []);
   const currentSlot = selected
-    ? Math.round((selected.getHours() * 60 + selected.getMinutes()) / STEP_MINUTES)
+    ? Math.min(
+        slots.length - 1,
+        Math.round((selected.getHours() * 60 + selected.getMinutes()) / STEP_MINUTES),
+      )
     : -1;
 
   useEffect(() => {
@@ -474,6 +477,7 @@ export function DateTimeField({
       <span className="dp-field dp-time-field">
         <input
           ref={timeRef}
+          id={id ? `${id}-time` : undefined}
           className="input"
           type="text"
           inputMode="numeric"

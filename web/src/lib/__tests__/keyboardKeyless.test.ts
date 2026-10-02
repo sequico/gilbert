@@ -38,7 +38,14 @@ describe("a keydown with no key", () => {
 
   it("leaves real keys alone", () => {
     expect(comboOf(new KeyboardEvent("keydown", { key: "e" }))).toBe("e");
-    expect(comboOf(new KeyboardEvent("keydown", { key: "E", shiftKey: true }))).toBe("E");
+    // A shifted letter is its own binding, which is what the `shift+i` and
+    // `shift+u` shortcuts register against.
+    expect(comboOf(new KeyboardEvent("keydown", { key: "E", shiftKey: true }))).toBe(
+      "shift+e",
+    );
+    // A shifted symbol encodes the shift in the character, so there is no
+    // `shift` part.
+    expect(comboOf(new KeyboardEvent("keydown", { key: "#", shiftKey: true }))).toBe("#");
     expect(
       comboOf(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true })),
     ).toMatch(/enter$/);

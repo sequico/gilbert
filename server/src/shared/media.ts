@@ -60,6 +60,17 @@ export function isInlineImage(type: string | null | undefined): boolean {
 }
 
 /**
+ * Whether a file name is a Markdown document.
+ *
+ * A `.md` upload usually arrives as `application/octet-stream`, so the name is
+ * the only evidence. One test, so the viewer that renders it and the preview
+ * that decides it is text-shaped accept the same extensions.
+ */
+export function isMarkdownExtension(name: string | null | undefined): boolean {
+  return /\.(md|markdown|mdown|mkd)$/i.test(name ?? "");
+}
+
+/**
  * The types that say nothing about a file.
  *
  * An uploader with no guess, or a store that kept none, leaves one of these
