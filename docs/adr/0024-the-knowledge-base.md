@@ -2,7 +2,7 @@
 
 Status: Proposed
 
-Implementation: Partly built. The article shape, the storage layout, the
+Implementation: Built. The article shape, the storage layout, the
 validators and the lifecycle arithmetic are one definition
 (`server/src/shared/knowledge.ts`); the Master-owned write door and its
 `/api/knowledge/*` routes are `server/src/knowledgeAdmin.ts` and

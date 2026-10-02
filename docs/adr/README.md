@@ -242,13 +242,13 @@ is, not what a user sees.
   that keeps policies aligned, finds inconsistencies and plans multi-document
   edits. The record is **Proposed**, every design question settled: it carries
   the findings, the design as it stands, the lifecycle, versioning and publication
-  (e.g. ISO 9001 policies), and the library choice. **Partly built** — the storage
+  (e.g. ISO 9001 policies), and the library choice. **Built** for v1 — the storage
   and lifecycle, the Master-owned door and its routes, the boot ensure, the client
-  read/write, the surface with its BlockNote editor, and the fleet's `knowledge`
-  read, `knowledge.write` and `knowledge.review`, and it records the multi-document
-  plan it applies and a review's findings on the run's own job; co-editing and
-  diagrams are not. The company KB's read share is owed
-  ADR 0023's live probe.
+  read/write, the surface with its BlockNote editor, the fleet's `knowledge`
+  read, `knowledge.write` and `knowledge.review` with the plan and findings on the
+  run's own job, and the checklist templates a workorder instantiates (ADR 0028);
+  co-editing and diagrams are the deferred phases. The company KB's read share is
+  owed ADR 0023's live probe.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check
