@@ -219,17 +219,21 @@ Calendar, Contacts and Files** in the module bar — and not a folder inside Fil
 | | **Company KB** (the lead) | **Group KB** |
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
-| Who reads | everyone (universal share) | members (membership is the grant) |
+| Who reads | everyone (read-only share) | members (membership is the grant) |
 | Who writes | every member and every agent, **drafts only** | members and the group's agent, drafts only |
 | Who approves | **administrators only** | **administrators only** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
-| Access | a Stalwart share (not a security boundary) | the reader's own JMAP session |
+| Access | a read-only Stalwart share (not a security boundary) | the reader's own JMAP session |
 
 The two are the **same documents and the same surface**; only the owning account
-differs. The surface lists **Company** first, then one section per group the
-reader is in — the contact sidebar's shape (Global contacts above the reader's
-books and the groups').
+differs. Both are **written** through the server route that acts as the Master
+(Q1); they differ only in how a reader reaches them — the company KB through its
+read-only share, because a reader is not a member of the Master's account, a
+group's through the reader's own session, because membership reaches it. The
+surface lists **Company** first, then one section per group the reader is in —
+the contact sidebar's shape (Global contacts above the reader's books and the
+groups').
 
 ### The lifecycle: one shared draft, an administrator approves
 
@@ -431,18 +435,22 @@ still standing. The open ones are the reasons this record is still Proposed.
 
 1. **Who writes the company KB, and through which door?** — **Settled.** Every
    member and every agent writes and edits drafts, and only an administrator
-   approves. Every read and write goes through a **server route that acts as the
-   Master**, not a read-write Stalwart share on the folder: the route is the one
-   place that knows whether the caller is an administrator
-   (`session.gilbert.isAdmin`), which is what an approval is gated on, and it is
-   the same door the order surface uses (ADR 0028).
+   approves. Every **write** goes through a **server route that acts as the
+   Master**: the route is the one place that knows whether the caller is an
+   administrator (`session.gilbert.isAdmin`), which is what an approval is gated
+   on, and it is the same door the order surface uses (ADR 0028). The company KB
+   is **read** through a read-only Stalwart share on `gilbert/knowledge` — a
+   reader is not a member of the Master's account, so the share is how every
+   account reaches the folder without the read passing through the Master. A
+   group's KB is read with the reader's own session, membership being the grant
+   (the table below).
 2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
    `gilbert/knowledge` inside the app folder — the Master's account for the
    company's KB and each account's own for a group's — the app folder's name
-   being the whole hiding rule, so no second rule is invented. Whether a share on
-   the nested folder can grant a member read access without exposing `gilbert/`
-   (where `settings.json` lives) is the probe the read side still owes; it no
-   longer gates question 1, which the server route settles.
+   being the whole hiding rule, so no second rule is invented. The read share of
+   question 1 has to grant read on `gilbert/knowledge` without exposing the rest
+   of `gilbert/`, where `settings.json` lives — the question the wildcard share
+   ADR 0023 already owes a probe for.
 3. **Group KBs now or later?** — **Open.** *Recommend the same code built once,
    company first; group scope in the phase after.*
 4. **Versioning shape** — **Settled.** A revision is minted at approval, not per
@@ -557,9 +565,9 @@ still standing. The open ones are the reasons this record is still Proposed.
 - A publication lifecycle adds state a reader must understand (which revision is
   in force), and the audit trail precedent (`docs/adr/0003`) is where "who
   published what, when" would live rather than in a new log.
-- The company KB is one more thing a deployment's admin group cannot read as
-  members; the surface must degrade to "not shared yet" rather than to a
-  permission error, the way Global contacts does.
+- The company KB is read through a Stalwart share that reaches every account and
+  has to expose nothing but `gilbert/knowledge`; a new account is a share kept
+  current, the same debt Global contacts carries.
 
 ## References
 

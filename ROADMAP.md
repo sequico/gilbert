@@ -33,14 +33,15 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 - **The knowledge base.** A company-wide KB owned by the Master and shared with
   every account, plus a KB per group owned by the group, holding documents in
   Stalwart under one shared draft per article and an administrator's approval
-  with an effective date issuing a revision (ADR 0024). Every document is read
-  and written through the server acting as the Master, which is where the
-  administrator check an approval is gated on lives, and the KB is the strategic
-  layer — policies, procedures and the checklist templates a workorder
-  instantiates (ADR 0028). The record is **Proposed** and deliberately a working
-  notebook: the editor (BlockNote) and the search (Orama) come off the shelf, and
-  the storage, ownership, versioning, approval and the fleet's
-  document-controller behaviour are Gilbert's own. What still decides it —
+  with an effective date issuing a revision (ADR 0024). Every document is written
+  through the server acting as the Master, which is where the administrator check
+  an approval is gated on lives, and the company KB is read through a read-only
+  share to every account; the KB is the strategic layer — policies, procedures
+  and the checklist templates a workorder instantiates (ADR 0028). The record is
+  **Proposed** and deliberately a working notebook: the editor (BlockNote) and the
+  search (Orama) come off the shelf, and the storage, ownership, versioning,
+  approval and the fleet's document-controller behaviour are Gilbert's own. What
+  still decides it —
   co-editing in v1 or a lock, the editor, the search index, the anonymous
   surface — is in its **Questions, settled and open**.
 
