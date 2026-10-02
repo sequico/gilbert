@@ -770,6 +770,7 @@ async function runOne(
       const by = opts.from ?? "";
       const at = (opts.now ?? new Date()).toISOString();
       const body = textOf(action.with?.text);
+      const basedOn = textOf(action.with?.basedOn).trim();
       // The folder name is normalised even when the model named one: a slash or
       // a control character in a FileNode name would split or corrupt the path.
       const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
@@ -796,6 +797,19 @@ async function runOne(
           );
         const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
         const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
+        // A plan names the draft it was read from; a page edited since is
+        // refused rather than overwritten, and the outcome names the page.
+        if (basedOn && prior?.updated.at !== basedOn)
+          return {
+            action: action.do,
+            ok: true,
+            result: {
+              folder,
+              title,
+              outcome: "moved",
+              detail: "the page changed since the plan was read",
+            },
+          };
         if (priorState && isRetired(priorState))
           throw new Error(
             "knowledge.write: this article is retired and kept on record, so it is not edited",
@@ -833,7 +847,11 @@ async function runOne(
           await writeAppFileAt(ctx, accountId, `${path}/${STATE_FILE}`, state, {
             ...(after ? { ifInState: after } : {}),
           });
-          return { action: action.do, ok: true, result: { id, folder } };
+          return {
+            action: action.do,
+            ok: true,
+            result: { id, folder, title, outcome: prior ? "written" : "created" },
+          };
         } catch (err) {
           if (attempt > 0 || !isStateMismatch(err)) throw err;
         }
@@ -841,6 +859,17 @@ async function runOne(
       throw new Error(
         "knowledge.write: the draft could not be written because another write kept winning the race",
       );
+    }
+    case "knowledge.review": {
+      /*
+       * A consistency check's conclusion, recorded rather than applied (ADR
+       * 0024): a review writes nothing to the KB — what it produces is prose
+       * naming the pages and the revisions it was drawn from, which the
+       * executor keeps on the run's own record and a person reads.
+       */
+      const findings = textOf(action.with?.findings).trim();
+      if (!findings) throw new Error("knowledge.review needs findings");
+      return { action: action.do, ok: true, result: { findings } };
     }
     case "notebook.write": {
       /*

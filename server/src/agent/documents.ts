@@ -114,6 +114,7 @@ export type AgentActionName =
   | "chat.post"
   | "file.write"
   | "knowledge.write"
+  | "knowledge.review"
   | "notebook.write"
   | "document.read"
   | "document.split"
@@ -264,12 +265,22 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     area: "files",
     label: "Write a knowledge base page",
     description:
-      "Create or update a knowledge base article's draft: `title` names it, `folder` updates an existing article by its folder name, and `text` is the body. It writes a draft only — never an approval and never a revision.",
+      "Create or update a knowledge base article's draft: `title` names it, `folder` updates an existing article by its folder name, `text` is the body, and `basedOn` is the draft's `updated` instant a plan was read from — a page edited since is refused rather than overwritten. It writes a draft only — never an approval and never a revision.",
     params: [
       { key: "title", required: true, kind: "text" },
       { key: "folder", required: false, kind: "folder" },
       { key: "text", required: false, kind: "text" },
+      { key: "basedOn", required: false, kind: "text" },
     ],
+  },
+  {
+    name: "knowledge.review",
+    area: "files",
+    label: "Record a knowledge base review",
+    description:
+      "Record the findings of a consistency check over the knowledge base: `findings` is the prose naming the pages and the revisions it was drawn from. It writes nothing to the KB — the findings live in this run's own record, for provenance and for the review item a person reads.",
+    params: [{ key: "findings", required: true, kind: "text" }],
+    unrepeatable: true,
   },
   {
     name: "notebook.write",
@@ -446,6 +457,7 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "mail.draft",
   "file.write",
   "knowledge.write",
+  "knowledge.review",
   "notebook.write",
   "mail.extract",
   "document.split",
@@ -1287,6 +1299,23 @@ export interface AgentJob {
    * before a run could look anything up.
    */
   lookups?: AgentLookup[];
+  /**
+   * The knowledge base plan this run applied, page by page (ADR 0024).
+   *
+   * A multi-document change is built before it is written and its per-page
+   * outcomes are recorded here, in the fleet's own trail rather than in the KB
+   * (Q23): which page moved, and whether it was created, written, refused
+   * because it had changed under the plan, or failed.
+   */
+  plan?: AgentKnowledgePlan;
+  /**
+   * The findings of a consistency check over the KB, in the order recorded.
+   *
+   * A review writes nothing; what it produces is prose naming the pages and the
+   * revisions it was drawn from, kept here for provenance and for the review
+   * item a person reads (ADR 0024 Q23).
+   */
+  findings?: string[];
   /** When the next attempt may start: the backoff between retries. */
   nextAttemptAt?: string;
   decisionId?: string;
@@ -1324,6 +1353,38 @@ export function isAgentEffect(x: unknown): x is AgentEffect {
   if (e.type !== "Email" && e.type !== "FileNode") return false;
   if (typeof e.id !== "string" || !e.id.length) return false;
   return e.at === undefined || typeof e.at === "string";
+}
+
+/** One page of a knowledge base plan: where it landed and how. */
+export interface AgentKnowledgePlanPage {
+  folder: string;
+  title: string;
+  outcome: "created" | "written" | "moved" | "failed";
+  detail?: string;
+}
+
+/** A run's multi-document knowledge change, page by page (ADR 0024). */
+export interface AgentKnowledgePlan {
+  at: string;
+  pages: AgentKnowledgePlanPage[];
+}
+
+const PLAN_OUTCOMES: readonly string[] = ["created", "written", "moved", "failed"];
+
+export function isAgentKnowledgePlanPage(x: unknown): x is AgentKnowledgePlanPage {
+  if (!isRecord(x)) return false;
+  if (typeof x.folder !== "string" || typeof x.title !== "string") return false;
+  if (!PLAN_OUTCOMES.includes(x.outcome as string)) return false;
+  return x.detail === undefined || typeof x.detail === "string";
+}
+
+export function isAgentKnowledgePlan(x: unknown): x is AgentKnowledgePlan {
+  return (
+    isRecord(x) &&
+    typeof x.at === "string" &&
+    Array.isArray(x.pages) &&
+    x.pages.every(isAgentKnowledgePlanPage)
+  );
 }
 
 export function isAgentLease(x: unknown): x is AgentLease {
@@ -1386,6 +1447,12 @@ export function isAgentJob(x: unknown): x is AgentJob {
   if (
     j.lookups !== undefined &&
     (!Array.isArray(j.lookups) || !j.lookups.every(isAgentLookup))
+  )
+    return false;
+  if (j.plan !== undefined && !isAgentKnowledgePlan(j.plan)) return false;
+  if (
+    j.findings !== undefined &&
+    (!Array.isArray(j.findings) || j.findings.some((f) => typeof f !== "string"))
   )
     return false;
   if (j.nextAttemptAt !== undefined && typeof j.nextAttemptAt !== "string") return false;

@@ -115,6 +115,7 @@ import {
   type AgentEffect,
   type AgentEmailView,
   type AgentJob,
+  type AgentKnowledgePlanPage,
   type AgentLookup,
   type AgentProposal,
   type AgentProvider,
@@ -251,6 +252,54 @@ export interface ExecutorDeps {
   agentId: string;
   now: () => Date;
   log: (line: string) => void;
+}
+
+/** The findings one `knowledge.review` recorded, or null. */
+function knowledgeFindings(action: AgentAction, result: ActionResult): string | null {
+  if (action.do !== "knowledge.review") return null;
+  const r = result.result ?? {};
+  return typeof r.findings === "string" && r.findings ? r.findings : null;
+}
+
+/** One knowledge page the run applied, from the action's own result. */
+function knowledgePlanPage(
+  action: AgentAction,
+  result: ActionResult,
+): AgentKnowledgePlanPage | null {
+  if (action.do !== "knowledge.write") return null;
+  const r = result.result ?? {};
+  const folder = typeof r.folder === "string" ? r.folder : "";
+  const title = typeof r.title === "string" ? r.title : folder;
+  const outcome =
+    r.outcome === "created" || r.outcome === "written" || r.outcome === "moved"
+      ? r.outcome
+      : "written";
+  const detail = typeof r.detail === "string" ? r.detail : undefined;
+  return { folder, title, outcome, ...(detail ? { detail } : {}) };
+}
+
+/**
+ * Fold a knowledge action's outcome into the run's own record.
+ *
+ * The KB's plan and a review's findings live on the job, not in the KB (ADR
+ * 0024 Q23): a multi-document change records which page was created, written or
+ * refused because it moved, and a review records its prose. Every other action
+ * leaves the job as it was.
+ */
+function withKnowledgeOutcome(
+  latest: AgentJob,
+  action: AgentAction,
+  result: ActionResult,
+  at: string,
+): AgentJob {
+  const page = knowledgePlanPage(action, result);
+  const findings = knowledgeFindings(action, result);
+  if (!page && !findings) return latest;
+  return {
+    ...latest,
+    ...(page ? { plan: { at, pages: [...(latest.plan?.pages ?? []), page] } } : {}),
+    ...(findings ? { findings: [...(latest.findings ?? []), findings] } : {}),
+  };
 }
 
 export class Executor {
@@ -1639,14 +1688,23 @@ export class Executor {
         onApplied: async (action: AgentAction, result: ActionResult) => {
           landed.push(action.do);
           const wrote = effectsOf(result, this.deps.now().toISOString());
-          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
-            ...latest,
-            applied: [...landed],
-            // The record the action wrote, beside the action that wrote it: a
-            // change naming that id is how the next run of a chain knows which
-            // job woke it (ADR 0003).
-            ...(wrote.length ? { effects: [...(latest.effects ?? []), ...wrote] } : {}),
-          }));
+          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) =>
+            withKnowledgeOutcome(
+              {
+                ...latest,
+                applied: [...landed],
+                // The record the action wrote, beside the action that wrote it: a
+                // change naming that id is how the next run of a chain knows which
+                // job woke it (ADR 0003).
+                ...(wrote.length
+                  ? { effects: [...(latest.effects ?? []), ...wrote] }
+                  : {}),
+              },
+              action,
+              result,
+              this.deps.now().toISOString(),
+            ),
+          );
           // What just landed is not recorded, so the run stops here rather than
           // running the rest of a plan whose prefix nobody can read — and a
           // retry would start the whole plan again.
@@ -2350,11 +2408,20 @@ export class Executor {
           landed.push(action.do);
           if (!job) return;
           const wrote = effectsOf(result, this.deps.now().toISOString());
-          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
-            ...latest,
-            applied: [...landed],
-            ...(wrote.length ? { effects: [...(latest.effects ?? []), ...wrote] } : {}),
-          }));
+          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) =>
+            withKnowledgeOutcome(
+              {
+                ...latest,
+                applied: [...landed],
+                ...(wrote.length
+                  ? { effects: [...(latest.effects ?? []), ...wrote] }
+                  : {}),
+              },
+              action,
+              result,
+              this.deps.now().toISOString(),
+            ),
+          );
           if (!recorded)
             throw new RefusedError(
               "the job document moved while this approval was running, so what it " +

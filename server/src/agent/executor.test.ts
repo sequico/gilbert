@@ -1456,6 +1456,110 @@ test("knowledge.write updates a draft without erasing its body or undoing an app
   );
 });
 
+test("a multi-page change is applied as a plan and a review is kept on the job", async () => {
+  /*
+   * ADR 0024 Q23: a multi-document change and a consistency check are the
+   * fleet's, and their record lives on the run's own job — one entry per page
+   * with its outcome, and the review's prose. Nothing is written to the KB by
+   * the review.
+   */
+  const heard = await createMessage("align the two procedures");
+  const writer = rule({
+    id: "kb-planner",
+    capabilities: ["knowledge.write", "knowledge.review"],
+  });
+  await store.writeRules([writer]);
+  answerSequence("Mail automation", [
+    {
+      summary: "Aligned two pages and recorded a review.",
+      confidence: 1,
+      actions: [
+        { do: "knowledge.write", with: { title: "Procedure A", text: "body A" } },
+        { do: "knowledge.write", with: { title: "Procedure B", text: "body B" } },
+        {
+          do: "knowledge.review",
+          with: { findings: "A and B disagree on the retention period." },
+        },
+      ],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "kb-plan-job",
+    accountId: GROUP,
+    rule: { id: "kb-planner", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, writer, claim);
+
+  const written = await store.readJob("kb-plan-job");
+  const pages = written?.doc.plan?.pages ?? [];
+  assert.equal(pages.length, 2, "the plan recorded one entry per page");
+  assert.deepEqual(
+    pages.map((p) => p.outcome),
+    ["created", "created"],
+    "and each page's outcome",
+  );
+  assert.match(
+    String(written?.doc.findings?.[0] ?? ""),
+    /retention period/,
+    "the review's findings are on the job",
+  );
+});
+
+test("a page that moved since the plan was read is refused, not overwritten", async () => {
+  // The plan names the draft it was built from; a page edited since is refused,
+  // and the outcome says which one and why (ADR 0024).
+  await seedKnowledgeArticle("k-moving", "Moving target", "original");
+  const heard = await createMessage("update the moving target");
+  const writer = rule({ id: "kb-mover", capabilities: ["knowledge.write"] });
+  await store.writeRules([writer]);
+  answerSequence("Mail automation", [
+    {
+      summary: "Update it.",
+      confidence: 1,
+      actions: [
+        {
+          do: "knowledge.write",
+          with: {
+            folder: knowledgeFolderName("Moving target"),
+            title: "Moving target",
+            text: "new body",
+            basedOn: "2000-01-01T00:00:00.000Z",
+          },
+        },
+      ],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "kb-move-job",
+    accountId: GROUP,
+    rule: { id: "kb-mover", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, writer, claim);
+
+  const folder = knowledgeFolderName("Moving target");
+  const draft = await readAppJsonAt(
+    ctx,
+    GROUP,
+    `${KNOWLEDGE_FOLDER}/${folder}/${DRAFT_FILE}`,
+  );
+  if (!isKnowledgeDraft(draft)) assert.fail("the draft is still there");
+  assert.equal(
+    draft.text,
+    "original",
+    "a page that moved under the plan is not overwritten",
+  );
+  const written = await store.readJob("kb-move-job");
+  assert.equal(written?.doc.plan?.pages?.[0]?.outcome, "moved");
+});
+
 test("a run that would rather keep looking than decide is stopped by the bound", async () => {
   // The loop is finite because the run says so, not because the model stops: a
   // model that answers with a lookup every time meets the last call, which
