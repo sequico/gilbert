@@ -30,6 +30,7 @@ import {
   fetchGlobalContacts,
   GLOBAL_CONTACTS_ACCOUNT_ID,
   GLOBAL_CONTACTS_BOOK_ID,
+  refuseDirectoryWrite,
 } from "@/lib/globalContactsAdmin";
 import { t } from "@/lib/i18n";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
@@ -721,13 +722,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
               ids: null,
               properties: ADDRESS_BOOK_PROPS,
             });
-            /*
-             * The directory is served through the route, not discovered as a
-             * shared book: a book carrying its name in a reachable account is
-             * left out here, so the directory is never installed twice.
-             */
-            const visible = res.list.filter((b) => !isGlobalContactsBook(b));
-            for (const book of visible)
+            for (const book of res.list)
               books.push({ accountId, accountName: account.name, book });
             /*
              * Cards come only from books the reader has added -- or books of a
@@ -743,7 +738,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
              */
             const added = new Set(useSettings.getState().settings.addedShares);
             const wanted = new Set(
-              visible
+              res.list
                 .filter(
                   (b) =>
                     b.isSubscribed ||
@@ -818,6 +813,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   async setBookSubscribed(accountId, bookId, subscribed) {
+    refuseDirectoryWrite(accountId);
     /*
      * `notUpdated` matters more here than anywhere else this pattern is used.
      * Subscribing is a write to somebody *else's* account, so it is the one
@@ -1147,6 +1143,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       accountId ??
       accountOfBook(addressBookId, get().books, get().accountId, get().sharedBooks);
     if (!accountId_) throw new Error("That address book is not available");
+    refuseDirectoryWrite(accountId_);
     const obj = {
       "@type": "Card",
       version: "1.0",
@@ -1182,6 +1179,8 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const own = get().accountId;
     if (!fromAccountId || !toAccountId)
       throw new Error("That address book is not available");
+    refuseDirectoryWrite(fromAccountId);
+    refuseDirectoryWrite(toAccountId);
     /*
      * Moving a card between accounts changes whose it is, so it is an
      * installation administrator's (ADR 0018). The guard is here, on the
@@ -1243,6 +1242,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   async updateCard(card, patch) {
+    refuseDirectoryWrite(card.accountId);
     const accountId = card.accountId ?? get().accountId;
     if (!accountId) return;
     const res = await client.call<SetResponse>("ContactCard/set", {
@@ -1283,6 +1283,9 @@ export const useContacts = create<ContactsState>((set, get) => ({
     for (const { id, accountId } of cards) {
       const target = accountId ?? own;
       if (!target) continue;
+      // The directory is not a JMAP account: its cards leave the list through
+      // the administration route, never a `ContactCard/set` at the sentinel.
+      if (target === GLOBAL_CONTACTS_ACCOUNT_ID) continue;
       const held = byAccount.get(target);
       if (held) held.push(id);
       else byAccount.set(target, [id]);

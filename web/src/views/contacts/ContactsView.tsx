@@ -279,6 +279,15 @@ export function ContactsView({ id }: { id?: string }) {
   }, [contacts, rowsInBook, q]);
 
   /*
+   * The rows a selection can act on: the directory is read-only from here, so
+   * its cards carry no checkbox and "Select all" must not reach them.
+   */
+  const pickable = useMemo(
+    () => listed.filter((i) => contacts.cardWritable(i.card, i.accountId)),
+    [listed, contacts],
+  );
+
+  /*
    * The opened card, resolved by the account **and** id the route names -- not
    * by id alone, which prefers the reader's own map and leaves another
    * account's card carrying the same id unreachable. Whether *this* card is
@@ -634,17 +643,17 @@ export function ContactsView({ id }: { id?: string }) {
             <input
               type="checkbox"
               className="contact-check"
-              checked={pickedRefs.length === listed.length}
+              checked={pickedRefs.length === pickable.length && pickable.length > 0}
               ref={(el) => {
                 if (el)
                   el.indeterminate =
-                    pickedRefs.length > 0 && pickedRefs.length < listed.length;
+                    pickedRefs.length > 0 && pickedRefs.length < pickable.length;
               }}
               onChange={(e) => {
                 if (e.target.checked) {
                   setPicked(
                     Object.fromEntries(
-                      listed.map((i) => [
+                      pickable.map((i) => [
                         cardKey({ id: i.card.id, accountId: i.accountId }),
                         true as const,
                       ]),

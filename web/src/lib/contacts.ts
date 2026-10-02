@@ -1,4 +1,3 @@
-import { GLOBAL_CONTACTS_BOOK_NAME } from "@gilbert/shared/globalContacts";
 import type {
   AddressBook,
   ContactCard,
@@ -7,22 +6,23 @@ import type {
   JSContactName,
 } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
+import { GLOBAL_CONTACTS_BOOK_ID } from "@/lib/globalContactsAdmin";
 import { foldLine } from "./contentLines";
 
 /**
  * Whether an address book is the installation's shared Global contacts
- * directory. One predicate, asked by the sidebar and the contacts list, so the
- * two cannot disagree about which book is the directory.
+ * directory. One predicate, asked by the store and the surfaces, so the two
+ * cannot disagree about which book is the directory.
  *
- * The name is the marker the decision fixes (ADR 0023). Rights are deliberately
- * not part of it: an administrator's own session may see the book writable and a
- * member's read-only, and the directory is the directory either way — requiring
- * read-only hid it from exactly the administrator who maintains it.
+ * The **id** is the marker, not the name (ADR 0023): the directory is served
+ * through a route and installed under a sentinel id, so a group-owned or
+ * colleague-shared book a member happens to name "Global contacts" is their
+ * own book and stays visible. Rights are deliberately not part of it: an
+ * administrator's own session may see the book writable and a member's
+ * read-only, and the directory is the directory either way.
  */
-export function isGlobalContactsBook(
-  book: Pick<AddressBook, "name" | "myRights">,
-): boolean {
-  return book.name === GLOBAL_CONTACTS_BOOK_NAME;
+export function isGlobalContactsBook(book: Pick<AddressBook, "id">): boolean {
+  return book.id === GLOBAL_CONTACTS_BOOK_ID;
 }
 
 /**

@@ -61,3 +61,20 @@ export async function deleteGlobalContact(id: string): Promise<void> {
     body: JSON.stringify({ id }),
   });
 }
+
+/**
+ * Refuse a JMAP write aimed at the synthetic directory.
+ *
+ * The directory is read through a route and written only through the
+ * administration route that acts as the Master; `GLOBAL_CONTACTS_ACCOUNT_ID`
+ * is a store sentinel, not an account, so a JMAP call carrying it is a bug on
+ * the surface rather than a request a server could answer (ADR 0023). The
+ * guard sits on the write primitives, so a second surface that forgets the
+ * check still cannot reach a server with it.
+ */
+export function refuseDirectoryWrite(accountId: string | null | undefined): void {
+  if (accountId === GLOBAL_CONTACTS_ACCOUNT_ID)
+    throw new Error(
+      "Global contacts is maintained through the administration route, not from a contact list.",
+    );
+}

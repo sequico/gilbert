@@ -254,11 +254,28 @@ export async function writeGlobalContact(
   input: GlobalContactInput,
 ): Promise<string> {
   const { ctx, accountId } = await masterAccount(admin);
-  const bookId = await globalContactsBookId(ctx, accountId);
   const client = new JmapClient(ctx);
   const fields = cardFields(input, { clear: id !== null });
   try {
     if (id) {
+      // The id must name a card the directory holds. The route is the
+      // enforcement door: updating any id it is handed would adopt a card from
+      // somewhere else into the directory. The book is looked up, never
+      // created — an update for a directory that does not exist is a 404.
+      const bookId = await requiredGlobalContactsBook(client, accountId);
+      const got = await client.call<{
+        list?: Array<{ addressBookIds?: Record<string, unknown> }>;
+      }>(
+        "ContactCard/get",
+        { accountId, ids: [id], properties: ["id", "addressBookIds"] },
+        [JMAP_CONTACTS],
+      );
+      if (!got.list?.[0]?.addressBookIds?.[bookId])
+        throw new IdentityAdminError(
+          "global_contact",
+          "That card is not in the Global contacts directory.",
+          404,
+        );
       const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
         "ContactCard/set",
         {
@@ -276,6 +293,7 @@ export async function writeGlobalContact(
         );
       return id;
     }
+    const bookId = await globalContactsBookId(ctx, accountId);
     const res = await client.call<{
       created?: Record<string, { id?: unknown }>;
       notCreated?: Record<string, unknown>;

@@ -95,3 +95,39 @@ test("a Global contacts card is created, checked, and destroyed", async () => {
   const noId = await post("/api/admin/global-contacts/delete", {});
   assert.equal(noId.status, 400, "which card is a question the caller must answer");
 });
+
+test("every account reads the directory through the route", async () => {
+  /*
+   * ADR 0023's read path: the directory is owned by the Master, so no session
+   * reaches its book — a member (here the signed-in administrator, whose
+   * session does not hold the agent's account) reads it through
+   * `GET /api/global-contacts`. A route that read the caller's own account
+   * instead would answer nothing, so the seeded cards are the assertion.
+   */
+  const read = await call("/api/global-contacts");
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  const names = ((read.body?.contacts as Array<{ name: string }> | undefined) ?? []).map(
+    (c) => c.name,
+  );
+  assert.ok(names.includes("Ada Lovelace"), "the directory's seeded cards are read");
+  assert.ok(names.includes("Alan Turing"));
+
+  // A card written through the administration route is read back at once.
+  const created = await post("/api/admin/global-contacts", {
+    id: null,
+    card: {
+      name: "Katherine Johnson",
+      emails: ["katherine@example.org"],
+      phones: [],
+      organization: "",
+      notes: "",
+    },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const later = await call("/api/global-contacts");
+  const rows = (later.body?.contacts as Array<{ name: string }> | undefined) ?? [];
+  assert.ok(
+    rows.some((c) => c.name === "Katherine Johnson"),
+    "a card added through the route appears in the next read",
+  );
+});

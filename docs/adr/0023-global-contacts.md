@@ -24,9 +24,12 @@ missing is one directory the whole installation reads.
 ## Decision
 
 **Global contacts is one address book, owned by the Master, read by every
-account and written only by an administrator, from inside Contacts.** It is
-identified by its name, declared once in `@gilbert/shared/globalContacts`, so the
-sidebar and the mock cannot disagree about which book is the directory.
+account and written only by an administrator, from inside Contacts.** The
+Master's own book is found by the name declared once in
+`@gilbert/shared/globalContacts`; the client, which never holds that book,
+identifies the directory it installs under a sentinel id, so the sidebar and the
+mock cannot disagree about which book is the directory, and a member's own book
+that happens to carry the name is never taken for it.
 
 - **It is an ordinary address book.** JMAP `AddressBook` and `ContactCard`,
   held in the Master's account — an object the server holds, gilbertstalwart's

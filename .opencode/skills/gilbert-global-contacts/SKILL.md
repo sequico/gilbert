@@ -21,8 +21,10 @@ a bug in one of the two.
    an administrator from inside Contacts, through a server route that acts as the
    Master.
 3. The **first row of the Contacts sidebar**, above `All contacts` and the
-   reader's books, merged in `All contacts`; the book's name is the marker
-   (`@gilbert/shared/globalContacts`).
+   reader's books, merged in `All contacts`; the Master's book is found by its
+   name (`@gilbert/shared/globalContacts`), and the client identifies the
+   directory it installs under the sentinel id (`GLOBAL_CONTACTS_BOOK_ID`), so a
+   member's own book of that name is never taken for it.
 4. A card is an ordinary JSContact card — name, emails, telephones,
    organisation, notes — declared once as `GlobalContactInput`, so the
    administration cannot write a key the directory does not mean to carry.
