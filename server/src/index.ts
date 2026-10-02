@@ -4,6 +4,7 @@ import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./ap
 import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
 import { ensureGlobalContacts } from "./globalContactsAdmin.js";
+import { ensureKnowledge } from "./knowledgeAdmin.js";
 import { releaseOnShutdown } from "./push.js";
 
 async function main() {
@@ -52,6 +53,27 @@ async function main() {
   ).catch((err) => {
     console.warn(
       "[gilbert] Global contacts could not be prepared:",
+      err instanceof Error ? err.message : String(err),
+    );
+  });
+  /*
+   * The company knowledge base (ADR 0024): the Master-owned folder exists and
+   * is shared read-only because the installation needs it, not because
+   * somebody created it. Created once, as the Master, before anything is
+   * served. A failure is logged and does not stop the process: a knowledge
+   * base that could not be reached is a degraded feature, not a boot that
+   * cannot serve.
+   */
+  await ensureKnowledge(
+    {
+      authorization: boot.master.authorization,
+      session: boot.master.session,
+      username: boot.master.address,
+    },
+    boot.accountId,
+  ).catch((err) => {
+    console.warn(
+      "[gilbert] The knowledge base could not be prepared:",
       err instanceof Error ? err.message : String(err),
     );
   });

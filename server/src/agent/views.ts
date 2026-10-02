@@ -369,7 +369,8 @@ export type GroupNeed =
   | "standing instruction"
   | "notebook"
   | "approvals"
-  | "agent documents";
+  | "agent documents"
+  | "knowledge";
 
 /** The code a group the agent does not hold travels as, on every surface. */
 export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";

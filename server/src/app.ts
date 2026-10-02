@@ -117,6 +117,16 @@ import {
   readInstallationForAdmin,
 } from "./installationAdmin.js";
 import {
+  approveArticle,
+  companyKnowledgeAccount,
+  createArticle,
+  deleteArticle,
+  KnowledgeAdminError,
+  renameArticle,
+  restoreArticle,
+  saveDraft,
+} from "./knowledgeAdmin.js";
+import {
   MAX_PUSH_BODY_BYTES,
   attach as pushAttach,
   attachRelay as pushAttachRelay,
@@ -139,6 +149,7 @@ import {
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import type { GlobalContactInput } from "./shared/globalContacts.js";
+import type { KnowledgeArticleInput, KnowledgeTarget } from "./shared/knowledge.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
@@ -2736,6 +2747,209 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ ok: true });
     } catch (err) {
       return identityFailure(c, err);
+    }
+  });
+
+  // ---------- The knowledge base (ADR 0024) ----------
+
+  /** A refusal from the KB surfaces: the code and the sentence, or upstream's. */
+  const knowledgeFailure = (c: Context, err: unknown) => {
+    if (err instanceof KnowledgeAdminError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  };
+
+  /**
+   * The scope of a KB request, checked before anything is asked of a server.
+   *
+   * Every write names the tier it acts on: the company's or a group the caller
+   * is a member of. A group scope without a name is a refusal here, where the
+   * sentence names what is missing, rather than a 403 from a membership check
+   * about an empty group.
+   */
+  const knowledgeTarget = (
+    body: {
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+    } | null,
+  ): KnowledgeTarget => {
+    const raw = body?.scope;
+    const scope = raw === "company" || raw === "group" ? raw : null;
+    if (!scope)
+      throw new KnowledgeAdminError(
+        "bad_request",
+        'The scope must be "company" or "group".',
+      );
+    const group = typeof body?.group === "string" ? body.group.trim() : "";
+    if (scope === "group" && !group)
+      throw new KnowledgeAdminError(
+        "bad_request",
+        "A group knowledge base needs the group's name.",
+      );
+    const folder = typeof body?.folder === "string" ? body.folder : "";
+    const target: KnowledgeTarget = { scope };
+    if (group) target.group = group;
+    if (folder) target.folder = folder;
+    return target;
+  };
+
+  /** The editor's small shape, narrowed to what the draft writes. */
+  const knowledgeInput = (raw: unknown): KnowledgeArticleInput => {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    if (
+      typeof r.title !== "string" ||
+      !Array.isArray(r.tags) ||
+      !Array.isArray(r.blocks) ||
+      typeof r.text !== "string"
+    )
+      throw new KnowledgeAdminError(
+        "bad_request",
+        "The article body must carry title, tags, blocks and text.",
+      );
+    return {
+      title: r.title,
+      tags: r.tags.filter((tag): tag is string => typeof tag === "string"),
+      blocks: r.blocks,
+      text: r.text,
+    };
+  };
+
+  const bodyFolder = (body: { folder?: unknown } | null): string =>
+    typeof body?.folder === "string" ? body.folder : "";
+
+  /**
+   * Where the company knowledge base lives, as the client's read share needs
+   * it. No company KB is a state, not a failure — the surface shows no Company
+   * section rather than an error the reader cannot act on.
+   */
+  api.get("/knowledge/company", requireSession, async (c) => {
+    try {
+      const tier = await companyKnowledgeAccount(c.get("session"));
+      return c.json({
+        ok: true,
+        company: { accountId: tier.accountId, folderId: tier.folderId },
+      });
+    } catch (err) {
+      if (err instanceof KnowledgeAdminError) return c.json({ ok: true, company: null });
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/create", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      title?: unknown;
+      parentFolder?: unknown;
+    }>(c);
+    try {
+      const parentFolder = body?.parentFolder;
+      const summary = await createArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        typeof body?.title === "string" ? body.title : "",
+        typeof parentFolder === "string" && parentFolder.trim()
+          ? parentFolder.trim()
+          : null,
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/save", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      input?: unknown;
+    }>(c);
+    try {
+      const summary = await saveDraft(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        knowledgeInput(body?.input),
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/rename", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      title?: unknown;
+    }>(c);
+    try {
+      const summary = await renameArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        typeof body?.title === "string" ? body.title : "",
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/restore", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      revision?: unknown;
+    }>(c);
+    try {
+      const summary = await restoreArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        typeof body?.revision === "string" ? body.revision : "",
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/approve", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      effectiveAt?: unknown;
+    }>(c);
+    try {
+      const summary = await approveArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        typeof body?.effectiveAt === "string" ? body.effectiveAt : "",
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/delete", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+    }>(c);
+    try {
+      await deleteArticle(c.get("session"), knowledgeTarget(body), bodyFolder(body));
+      return c.json({ ok: true });
+    } catch (err) {
+      return knowledgeFailure(c, err);
     }
   });
 
