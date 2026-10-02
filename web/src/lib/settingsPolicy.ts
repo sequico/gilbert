@@ -1,7 +1,7 @@
 import { isRecord } from "@gilbert/shared/json";
 import { withBase } from "@/lib/basePath";
 import { pendingSettingsKeys } from "@/lib/settingsSync";
-import { DEFAULT_SETTINGS, type Settings, useSettings } from "@/store/settings";
+import { isSettingsKey, type Settings, useSettings } from "@/store/settings";
 
 /**
  * What the installation has decided about settings, rather than the reader.
@@ -94,7 +94,7 @@ let fetched: Promise<PolicyRead> | null = null;
  */
 function known(obj: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) if (k in DEFAULT_SETTINGS) out[k] = v;
+  for (const [k, v] of Object.entries(obj)) if (isSettingsKey(k)) out[k] = v;
   return out as Partial<Settings>;
 }
 

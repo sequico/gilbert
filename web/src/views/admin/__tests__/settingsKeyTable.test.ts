@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "@/store/settings";
+import { isSettingsKey } from "@/store/settings";
 import { ENTRIES, GROUPS } from "../SettingsKeyTable";
 
 /**
@@ -28,7 +28,7 @@ describe("the settings-key table", () => {
   it("names only keys this build has", () => {
     // An entry for a key `DEFAULT_SETTINGS` does not carry is a row nobody can
     // reach: the table lists the keys the build has, not the ones a doc recalls.
-    const unknown = Object.keys(ENTRIES).filter((key) => !(key in DEFAULT_SETTINGS));
+    const unknown = Object.keys(ENTRIES).filter((key) => !isSettingsKey(key));
     expect(unknown).toEqual([]);
   });
 });

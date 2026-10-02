@@ -444,6 +444,18 @@ export function syncedPart(s: Settings): Record<string, unknown> {
 }
 
 /**
+ * Whether a key is one this build knows.
+ *
+ * `Object.hasOwn`, never `in`: `in` also answers true for the members every
+ * object inherits (`toString`, `__proto__`), so a settings file or a policy
+ * document could name one and have it accepted and merged as a setting. One
+ * predicate for every reader that applies such a document.
+ */
+export function isSettingsKey(key: string): boolean {
+  return Object.hasOwn(DEFAULT_SETTINGS, key);
+}
+
+/**
  * What of a settings file we are willing to apply: known keys only, and never
  * a device one — an older Gilbert wrote the whole object up, and that file
  * should not now drag another machine's pane width across.
@@ -451,7 +463,7 @@ export function syncedPart(s: Settings): Record<string, unknown> {
 export function acceptRemote(remote: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(remote)) {
-    if (!(key in DEFAULT_SETTINGS)) continue;
+    if (!isSettingsKey(key)) continue;
     if (DEVICE_KEYS.has(key as keyof Settings)) continue;
     if (value === undefined) continue;
     out[key] = value;
@@ -579,7 +591,7 @@ const initialSettings = {
 function knownSettings(raw: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw))
-    if (key in DEFAULT_SETTINGS && value !== undefined) out[key] = value;
+    if (isSettingsKey(key) && value !== undefined) out[key] = value;
   return migratedThemeFields(out) as Partial<Settings>;
 }
 
@@ -716,20 +728,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
     /* Back to how this installation starts an account, not to how Gilbert
        starts one: resetting must not be a way around a policy, and the defaults
        an admin chose are the honest meaning of "reset" where there are any.
-       Through the same derivation every other way of changing a setting uses:
-       a policy may choose a palette or a mode, and the legacy `theme` an older
-       device reads has to be told about it here as much as anywhere. */
-    const base = deriveTheme({
+       Through `update()`, the one door, so a policy the policy read could not
+       reach refuses the write here as it does every other, rather than reset
+       becoming the one path around it. */
+    get().update({
       ...DEFAULT_SETTINGS,
       ...policyDefaults(),
-      ...policyEnforced(),
     });
-    saveJson("settings", base);
-    set({ settings: base });
-    applyTheme(base);
-    applyDateTimePrefs(base);
-    applyLang(base);
-    queueSettingsPush(syncedPart(base));
   },
   /*
    * The defaults, and nothing written: a session ending is not a change anybody
@@ -761,8 +766,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * still handed on -- an import is the reader's own file, and the
        * known-keys-only rule is `acceptRemote`'s, for files off the server.
        */
-      get().update(migratedThemeFields(parsed) as Partial<Settings>);
-      return true;
+      return get().update(migratedThemeFields(parsed) as Partial<Settings>) === null;
     } catch {
       return false;
     }

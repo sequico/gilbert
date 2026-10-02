@@ -1,6 +1,6 @@
 import { DEFAULT_IDENTITY_KEY } from "@gilbert/shared/settingsDocument";
 import { t } from "@/lib/i18n";
-import { DEFAULT_SETTINGS } from "@/store/settings";
+import { DEFAULT_SETTINGS, isSettingsKey } from "@/store/settings";
 
 /**
  * The Settings-key table shown under "Settings keys" in the policy editor.
@@ -338,7 +338,7 @@ export function SettingsKeyTable() {
   const grouped = GROUPS.map((group) => ({
     title: group.title,
     rows: group.keys.flatMap((k): Array<readonly [string, KeyEntry]> => {
-      if (k === "appliedPolicyChanges" || !(k in DEFAULT_SETTINGS)) return [];
+      if (k === "appliedPolicyChanges" || !isSettingsKey(k)) return [];
       const entry = ENTRIES[k];
       return entry ? [[k, entry]] : [];
     }),
