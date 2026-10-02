@@ -142,3 +142,62 @@ describe("a message document rewritten under the session", () => {
     expect(reads).toBeGreaterThan(0);
   });
 });
+
+describe("a message sent while a re-sync is in flight", () => {
+  it("is not dropped when the sync writes its transcript back", async () => {
+    /*
+     * `applyChanges` reads the changes and then the arrived documents; a
+     * `send()` can append to the transcript inside that window. The set that
+     * lands the sync must rebase on what the conversation holds then, not
+     * replace it with the snapshot the sync started from — a lost message is
+     * invisible until the next poll.
+     */
+    seed({});
+    next = changes({ created: ["m3"] });
+    const local = message("local", "2026-01-03T09:00:00Z");
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method === "FileNode/changes") return next as never;
+      if (method === "FileNode/get") {
+        // A send lands while the arrived document is being fetched.
+        useChat.setState((s) => ({
+          conversations: {
+            ...s.conversations,
+            gg: {
+              ...s.conversations.gg!,
+              nodes: [...s.conversations.gg!.nodes, local],
+            },
+          },
+        }));
+        return {
+          accountId: "gg",
+          state: "s2",
+          notFound: [],
+          list: [
+            {
+              id: "m3",
+              parentId: "ch",
+              nodeType: "file",
+              blobId: "b3",
+              created: "2026-01-03T10:00:00Z",
+            },
+          ],
+        } as never;
+      }
+      return { accountId: args.accountId, state: "s2", list: [], notFound: [] } as never;
+    });
+    vi.spyOn(client, "fetchBlobText").mockImplementation(async () =>
+      JSON.stringify({
+        v: 1,
+        from: "ada@example.org",
+        at: "2026-01-03T10:00:00Z",
+        text: "hi",
+      }),
+    );
+
+    await useChat.getState().applyChanges("gg");
+
+    const ids = useChat.getState().conversations.gg!.nodes.map((n) => n.id);
+    expect(ids).toContain("local");
+    expect(ids).toContain("m3");
+  });
+});
