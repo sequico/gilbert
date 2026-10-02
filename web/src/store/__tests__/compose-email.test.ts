@@ -35,7 +35,6 @@ function draft(over: Partial<Draft> = {}): Draft {
     dirty: false,
     savedAt: null,
     saving: false,
-    sending: false,
     error: null,
     signatureHtml: "",
     replyMode: null,

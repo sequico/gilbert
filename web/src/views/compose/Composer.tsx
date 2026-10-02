@@ -301,19 +301,17 @@ export function Composer({ draft }: { draft: Draft }) {
         ? translate("Forward")
         : translate("Reply")
       : translate("New message"));
-  const status = d.sending
-    ? translate("Sending…")
-    : d.saving
-      ? translate("Saving…")
-      : d.error
-        ? translate("Error")
-        : d.savedAt
-          ? translate("Saved {when}", {
-              when: formatRelative(new Date(d.savedAt).toISOString()),
-            })
-          : d.dirty
-            ? translate("Unsaved")
-            : "";
+  const status = d.saving
+    ? translate("Saving…")
+    : d.error
+      ? translate("Error")
+      : d.savedAt
+        ? translate("Saved {when}", {
+            when: formatRelative(new Date(d.savedAt).toISOString()),
+          })
+        : d.dirty
+          ? translate("Unsaved")
+          : "";
   const totalSize = d.attachments.reduce((n, a) => n + a.size, 0);
 
   if (d.minimized) {
@@ -627,7 +625,6 @@ export function Composer({ draft }: { draft: Draft }) {
             <button
               className="btn btn-primary"
               onClick={() => void doSend()}
-              disabled={d.sending}
               title={
                 d.sendAt !== null
                   ? translate("Hand to the server, held until {when} (Ctrl+Enter)", {

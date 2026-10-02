@@ -95,7 +95,6 @@ export interface Draft {
   dirty: boolean;
   savedAt: number | null;
   saving: boolean;
-  sending: boolean;
   error: string | null;
   /** Original identity signature HTML currently embedded, to replace on identity switch. */
   signatureHtml: string;
@@ -222,7 +221,6 @@ function blankDraft(init: Partial<Draft> = {}): Draft {
     dirty: false,
     savedAt: null,
     saving: false,
-    sending: false,
     error: null,
     signatureHtml: "",
     replyMode: null,
@@ -1069,10 +1067,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
               label: translate("Open draft"),
               onClick: () =>
                 set((s) => ({
-                  drafts: [
-                    ...s.drafts,
-                    { ...d, sending: false, error: (err as Error).message },
-                  ],
+                  drafts: [...s.drafts, { ...d, error: (err as Error).message }],
                   activeKey: d.key,
                 })),
             },
@@ -1129,7 +1124,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
       const { [key]: _drop, ...rest } = s.pendingSends;
       return {
         pendingSends: rest,
-        drafts: [...s.drafts, { ...p.draft, sending: false }],
+        drafts: [...s.drafts, p.draft],
         // Reopen the taken-back mail only when nothing else is open: a send you
         // take back must not pull you out of the draft you started while it was
         // in flight.
@@ -1351,7 +1346,7 @@ function scheduleAutosave(key: string, get: () => ComposeState) {
     window.setTimeout(() => {
       autosaveTimers.delete(key);
       const d = get().drafts.find((x) => x.key === key);
-      if (d?.dirty && !d.sending && (d.to.length || d.subject || hasContent(d)))
+      if (d?.dirty && (d.to.length || d.subject || hasContent(d)))
         void get().saveDraft(key, { silent: true });
     }, AUTOSAVE_MS),
   );
@@ -1756,13 +1751,16 @@ async function sendInternal(d: Draft, target: SendTarget): Promise<void> {
   const s = res.get("s")?.[0] as unknown as SetResponse & {
     __error?: { type: string; description?: string };
   };
-  if (s.__error) throw new Error(setErrorMessage(s.__error));
-  if (s.notCreated?.s) {
-    const err = s.notCreated.s;
-    // Clean up the created (unsent) email so it doesn't linger in Sent.
+  if (s.__error || s.notCreated?.s) {
+    // The submission failed, so the message the chain created never left: it is
+    // destroyed rather than left looking sent, whether the refusal was
+    // per-object or for the whole call.
     const created = e.created?.m?.id;
     if (created) void client.call("Email/set", { accountId, destroy: [created] });
-    throw new Error(setErrorMessage(err));
+    const refusal = s.__error ?? s.notCreated?.s;
+    throw new Error(
+      refusal ? setErrorMessage(refusal) : "the message could not be submitted",
+    );
   }
   if (d.relatedEmailId && d.relatedKeyword) {
     useMail.setState((st) => {

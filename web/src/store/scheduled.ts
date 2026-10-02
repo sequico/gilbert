@@ -12,6 +12,7 @@ import { t } from "@/lib/i18n";
 import { canScheduleSend, maxDelayMs, type SubmissionCapability } from "@/lib/schedule";
 import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
+import { useSession } from "./session";
 
 /**
  * A held message lives in a folder of its own, the way Gmail's does, because
@@ -98,6 +99,7 @@ interface ScheduledState {
   load(): Promise<void>;
   cancel(emailId: Id): Promise<void>;
   reconcile(): Promise<void>;
+  reset(): void;
 }
 
 const SUB_PROPS = ["id", "emailId", "sendAt", "undoStatus"];
@@ -199,12 +201,19 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       ],
       { allowErrors: true },
     );
-    const setRes = res.get("s")?.[0] as unknown as SetResponse & {
+    const subRes = res.get("s")?.[0] as unknown as SetResponse & {
       __error?: { type: string; description?: string };
     };
-    if (setRes.__error) throw new Error(setErrorMessage(setRes.__error));
-    const err = setRes.notUpdated?.[sub.id];
-    if (err) throw new Error(setErrorMessage(err));
+    const emailRes = res.get("e")?.[0] as unknown as SetResponse & {
+      __error?: { type: string; description?: string };
+    };
+    const subError = subRes.__error ?? subRes.notUpdated?.[sub.id];
+    if (subError) throw new Error(setErrorMessage(subError));
+    // The message must be back in Drafts too: a cancelled submission whose
+    // mailbox move failed leaves it stranded in Scheduled with no pending
+    // entry, so the move is checked before the pending record is dropped.
+    const emailError = emailRes.__error ?? emailRes.notUpdated?.[emailId];
+    if (emailError) throw new Error(setErrorMessage(emailError));
     set((s) => {
       const { [emailId]: _drop, ...rest } = s.pending;
       return { pending: rest };
@@ -226,16 +235,25 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
     const scheduledId = scheduledMailboxId();
     if (!accountId || !scheduledId) return;
     try {
-      const q = await client.call<QueryResponse>("Email/query", {
-        accountId,
-        filter: { inMailbox: scheduledId },
-        limit: 200,
-      });
-      if (!q.ids.length) {
+      // Page the whole folder: a single page silently leaves everything past
+      // the first page held in Scheduled, never settled into Sent or Drafts.
+      const pageSize = 200;
+      const ids: Id[] = [];
+      for (let position = 0; ; position += pageSize) {
+        const page = await client.call<QueryResponse>("Email/query", {
+          accountId,
+          filter: { inMailbox: scheduledId },
+          position,
+          limit: pageSize,
+        });
+        ids.push(...page.ids);
+        if (page.ids.length < pageSize) break;
+      }
+      if (!ids.length) {
         set({ pending: {} });
         return;
       }
-      const subs = await loadFor(accountId, q.ids);
+      const subs = await loadFor(accountId, ids);
       // A message may carry several submissions if it was rescheduled. One
       // still pending settles it whatever the timestamps say -- the queue holds
       // a copy either way -- and otherwise the most recent wins.
@@ -254,7 +272,7 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       const draftsId = mail.roleId("drafts");
       const update: Record<Id, Record<string, unknown>> = {};
       const pending: Record<Id, PendingSend> = {};
-      for (const emailId of q.ids) {
+      for (const emailId of ids) {
         const s = latest.get(emailId);
         if (s?.undoStatus === "pending") {
           pending[emailId] = s;
@@ -285,4 +303,11 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       );
     }
   },
+  reset: () => set({ pending: {}, loaded: false }),
 }));
+
+// A session ending drops the pending list: it names submissions of an account
+// nobody is signed into any more, and the next sign-in's load is what fills it.
+useSession.subscribe((s) => {
+  if (s.status !== "authenticated") useScheduled.getState().reset();
+});
