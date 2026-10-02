@@ -392,7 +392,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         </div>
       )}
 
-      <div className="files-scroll">
+      <div className="files-scroll" style={{ marginTop: 20 }}>
         {/* BlockNote is uncontrolled, so a new article -- or a switch between
             reading and editing, which seeds different blocks -- remounts it. */}
         <KnowledgeEditor
