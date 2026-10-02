@@ -120,9 +120,12 @@ import {
   approveArticle,
   companyKnowledgeAccount,
   createArticle,
+  createFolder,
   deleteArticle,
   KnowledgeAdminError,
+  moveArticle,
   renameArticle,
+  reorderArticle,
   restoreArticle,
   saveDraft,
 } from "./knowledgeAdmin.js";
@@ -2973,6 +2976,72 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
+  api.post("/knowledge/folder", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      name?: unknown;
+      parentFolder?: unknown;
+    }>(c);
+    try {
+      const parentFolder = body?.parentFolder;
+      const summary = await createFolder(
+        c.get("session"),
+        knowledgeTarget(body),
+        typeof body?.name === "string" ? body.name : "",
+        typeof parentFolder === "string" && parentFolder.trim()
+          ? parentFolder.trim()
+          : null,
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/reorder", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      order?: unknown;
+    }>(c);
+    try {
+      const summary = await reorderArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        typeof body?.order === "number" ? body.order : Number.NaN,
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  api.post("/knowledge/move", requireSession, async (c) => {
+    const body = await readJson<{
+      scope?: unknown;
+      group?: unknown;
+      folder?: unknown;
+      parentFolder?: unknown;
+    }>(c);
+    try {
+      const parentFolder = body?.parentFolder;
+      const summary = await moveArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+        typeof parentFolder === "string" && parentFolder.trim()
+          ? parentFolder.trim()
+          : null,
+      );
+      return c.json({ ok: true, summary });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
   // ---------- Workorders (ADR 0028) ----------
 
   /** A refusal from the workorder surface: its code and sentence, or upstream's. */
@@ -3077,26 +3146,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/workorders/ref", requireSession, requireAdmin, async (c) => {
-    const body = await readJson<{
-      uid?: unknown;
-      change?: unknown;
-      add?: unknown;
-      remove?: unknown;
-    }>(c);
-    // The client sends `{ uid, change: { add?, remove? } }`; the flat
-    // `{ uid, add?, remove? }` is accepted as well.
-    const nested = body?.change;
-    const source =
-      typeof nested === "object" && nested !== null && !Array.isArray(nested)
-        ? nested
-        : body;
-    const container = (source ?? {}) as { add?: unknown; remove?: unknown };
-    const change: { add?: WorkorderRef; remove?: WorkorderRef } = {};
-    const add = container.add;
-    const remove = container.remove;
-    if (isWorkorderRef(add)) change.add = add;
-    if (isWorkorderRef(remove)) change.remove = remove;
-    if (!change.add && !change.remove)
+    const body = await readJson<{ uid?: unknown; change?: unknown }>(c);
+    const change = (body?.change ?? {}) as { add?: unknown; remove?: unknown };
+    const refs: { add?: WorkorderRef; remove?: WorkorderRef } = {};
+    if (isWorkorderRef(change.add)) refs.add = change.add;
+    if (isWorkorderRef(change.remove)) refs.remove = change.remove;
+    if (!refs.add && !refs.remove)
       return c.json(
         { error: "bad_request", message: "A reference to add or remove is required." },
         400,
@@ -3105,7 +3160,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const workorder = await editRefs(
         c.get("session"),
         typeof body?.uid === "string" ? body.uid : "",
-        change,
+        refs,
       );
       return c.json({ ok: true, workorder });
     } catch (err) {

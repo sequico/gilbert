@@ -1389,6 +1389,7 @@ test("knowledge.write updates a draft without erasing its body or undoing an app
     effectiveAt: at,
     approvedBy: "demo@example.com",
     approvedAt: at,
+    rev: 1,
     title,
     tags: ["iso"],
   };

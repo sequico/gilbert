@@ -1,13 +1,15 @@
 /**
  * The knowledge base's durable format (ADR 0024) — one definition, both tiers.
  *
- * The KB is a tree of **articles** under `gilbert/knowledge` in an account's
- * own app folder: the Master's account for the company's KB, a group's own for
- * a group's. Every article is a folder named by its title, holding the single
- * mutable `draft.json`, the immutable approved revisions under `revisions/`,
- * and the `state.json` that says which revision is in force and which is still
- * pending its effective instant. Sub-articles are folders inside the article
- * folder; `revisions` is the one reserved child name.
+ * The KB is a tree of **articles** and **topic folders** under
+ * `gilbert/knowledge` in an account's own app folder: the Master's account for
+ * the company's KB, a group's own for a group's. An **article** is a leaf folder
+ * named by its title, holding the single mutable `draft.json`, the immutable
+ * approved revisions under `revisions/`, and the `state.json` that says which
+ * revision is in force and which is still pending its effective instant. A
+ * **topic folder** holds no `state.json` — it is pure grouping, with only its
+ * own order in a `folder.json` — and `revisions` is the one reserved child name
+ * of an article.
  *
  * The web client reads those documents and the server route writes them, so
  * the shape, the validators, the lifecycle arithmetic and the pure text
@@ -66,6 +68,8 @@ export interface KnowledgeDraft {
 /** An issued revision: the draft, frozen, plus what approval records. */
 export interface KnowledgeRevision extends KnowledgeDraft {
   revision: string;
+  /** The revision's own number, per article: 1, 2, 3 … */
+  rev: number;
   approvedBy: string;
   approvedAt: string;
   effectiveAt: string;
@@ -76,6 +80,8 @@ export interface KnowledgeRevision extends KnowledgeDraft {
 /** A revision as the lifecycle records it, without its content. */
 export interface KnowledgeIssued {
   revision: string;
+  /** The revision's own number, per article: 1, 2, 3 …, minted at approval. */
+  rev: number;
   effectiveAt: string;
   approvedBy: string;
   approvedAt: string;
@@ -100,6 +106,11 @@ export interface KnowledgeState {
   /** A revision approved with a future effective instant, until that instant. */
   pending: KnowledgeIssued | null;
   /**
+   * The article's position among its siblings — a free number, so a drag lands
+   * between two neighbours without renumbering the rest.
+   */
+  order: number;
+  /**
    * When the article was **retired**: withdrawn from the tree but kept, with
    * its revisions, for traceability. An article that was never approved is
    * destroyed instead; a retired one is found only through a search that asks
@@ -122,8 +133,10 @@ export interface KnowledgeCompanyView {
   folderId: string;
 }
 
-/** One article, as a listing shows it — read from `state.json` alone. */
+/** One article or one topic folder, as a listing shows it. */
 export interface KnowledgeSummary {
+  /** An article has a draft and, once approved, revisions; a folder is a group. */
+  kind: "article" | "folder";
   id: string;
   title: string;
   tags: string[];
@@ -135,6 +148,10 @@ export interface KnowledgeSummary {
   parentId: string | null;
   inForce: KnowledgeIssued | null;
   pending: KnowledgeIssued | null;
+  /** The in-force revision's own number, or null before the first approval. */
+  rev: number | null;
+  /** The position among siblings; free, so a drag can land between two. */
+  order: number;
   /** When the article was retired, or null while it stands. */
   retired: KnowledgeTimes | null;
   created: KnowledgeTimes | null;
@@ -215,6 +232,7 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
     typeof x.effectiveAt === "string" &&
     typeof x.approvedBy === "string" &&
     typeof x.approvedAt === "string" &&
+    typeof x.rev === "number" &&
     typeof x.title === "string" &&
     isTags(x.tags)
   );
@@ -238,6 +256,7 @@ export function isKnowledgeRevision(x: unknown): x is KnowledgeRevision {
   return (
     isKnowledgeDraft(x) &&
     typeof (x as KnowledgeRevision).revision === "string" &&
+    typeof (x as KnowledgeRevision).rev === "number" &&
     typeof (x as KnowledgeRevision).approvedBy === "string" &&
     typeof (x as KnowledgeRevision).approvedAt === "string" &&
     typeof (x as KnowledgeRevision).effectiveAt === "string" &&
@@ -255,6 +274,7 @@ export function isKnowledgeState(x: unknown): x is KnowledgeState {
     isTags(x.tags) &&
     (x.inForce === null || isKnowledgeIssued(x.inForce)) &&
     (x.pending === null || isKnowledgeIssued(x.pending)) &&
+    typeof x.order === "number" &&
     (x.retired === null || isTimes(x.retired)) &&
     isTimes(x.created) &&
     isTimes(x.updated)
@@ -406,6 +426,7 @@ export function buildRevision(
   return {
     ...draft,
     revision: issued.revision,
+    rev: issued.rev,
     approvedBy: issued.approvedBy,
     approvedAt: issued.approvedAt,
     effectiveAt: issued.effectiveAt,
@@ -424,6 +445,7 @@ export function buildState(input: {
   inForce?: KnowledgeIssued | null;
   pending?: KnowledgeIssued | null;
   retired?: KnowledgeTimes | null;
+  order?: number;
 }): KnowledgeState {
   const times: KnowledgeTimes = { by: input.by, at: input.at };
   return {
@@ -434,6 +456,7 @@ export function buildState(input: {
     inForce: input.inForce ?? null,
     pending: input.pending ?? null,
     retired: input.retired ?? null,
+    order: input.order ?? 0,
     created: input.created ?? times,
     updated: times,
   };
@@ -489,4 +512,100 @@ export function stateAfterApproval(
 /** A fresh opaque id, for an article or a revision. */
 export function knowledgeId(): string {
   return crypto.randomUUID();
+}
+
+/* ------------------------------------------------------------------ */
+/* The one summary rule, and the one sibling order (both tiers)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A topic folder's own document: it holds no draft and no revisions, so its
+ * order lives in a small `folder.json` beside the articles it groups.
+ */
+export const KNOWLEDGE_FOLDER_FILE = "folder.json";
+
+export interface KnowledgeFolderDoc {
+  v: 1;
+  order: number;
+}
+
+export function isKnowledgeFolderDoc(x: unknown): x is KnowledgeFolderDoc {
+  return isRecord(x) && x.v === 1 && typeof x.order === "number";
+}
+
+export function buildFolderDoc(order: number): KnowledgeFolderDoc {
+  return { v: 1, order };
+}
+
+/** The last path segment: a folder's display title when it has no state. */
+export function leafFolderName(path: string): string {
+  const parts = path.split("/");
+  return parts[parts.length - 1] || path;
+}
+
+/**
+ * The one place a `KnowledgeSummary` is built.
+ *
+ * The server's listing and the client's read both answer with this shape, and
+ * building it twice is how the two drift: which revision a listing mirrors, what
+ * a folder's title is, whether a node is an article or a group, and which number
+ * it carries are decisions, not one tier's private arithmetic. `state`/`draft`
+ * null is a **topic folder** — a group, not a KB article.
+ */
+export function knowledgeSummary(input: {
+  state: KnowledgeState | null;
+  draft: KnowledgeDraft | null;
+  folder: string;
+  nodeId: string;
+  parentId: string | null;
+  /** A topic folder's own order; ignored when the node is an article. */
+  folderOrder?: number;
+  saved: boolean;
+}): KnowledgeSummary {
+  const { state, draft, folder, nodeId, parentId, saved } = input;
+  // The listing mirrors the revision a reader sees, selected by the clock: a
+  // pending revision whose instant has arrived is what the tree shows, with no
+  // write needed at that instant.
+  const effective = state ? revisionInForceAt(state) : null;
+  return {
+    kind: state || draft ? "article" : "folder",
+    id: state?.id ?? draft?.id ?? nodeId,
+    title: effective?.title ?? state?.title ?? draft?.title ?? leafFolderName(folder),
+    tags: effective?.tags ?? state?.tags ?? draft?.tags ?? [],
+    folder,
+    nodeId,
+    parentId,
+    inForce: state?.inForce ?? null,
+    pending: state?.pending ?? null,
+    rev: effective?.rev ?? null,
+    order: state?.order ?? input.folderOrder ?? 0,
+    retired: state?.retired ?? null,
+    created: state?.created ?? draft?.created ?? null,
+    updated: state?.updated ?? draft?.updated ?? null,
+    saved,
+  };
+}
+
+/**
+ * The one sibling order, so a tree the server lists and a tree the client
+ * builds read the same way: by the free `order` first, then by title.
+ */
+export function compareKnowledgeSiblings(
+  a: Pick<KnowledgeSummary, "order" | "title" | "nodeId">,
+  b: Pick<KnowledgeSummary, "order" | "title" | "nodeId">,
+): number {
+  if (a.order !== b.order) return a.order - b.order;
+  const byTitle = a.title.localeCompare(b.title);
+  return byTitle !== 0 ? byTitle : a.nodeId.localeCompare(b.nodeId);
+}
+
+/**
+ * The order a drop between two neighbours takes: the midpoint, or one past an
+ * end. `null` on either side means that end of the list.
+ */
+export function orderBetween(before: number | null, after: number | null): number {
+  if (before === null && after === null) return Date.now();
+  if (before === null) return (after as number) - 1;
+  if (after === null) return before + 1;
+  return (before + after) / 2;
 }

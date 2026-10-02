@@ -45,15 +45,19 @@ import { sameAddress } from "./shared/address.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import {
   buildDraft,
+  buildFolderDoc,
   buildRevision,
   buildState,
+  compareKnowledgeSiblings,
   DRAFT_FILE,
   isKnowledgeDraft,
+  isKnowledgeFolderDoc,
   isKnowledgeRevision,
   isKnowledgeState,
   isReservedArticleName,
   isRetired,
   KNOWLEDGE_FOLDER,
+  KNOWLEDGE_FOLDER_FILE,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
   type KnowledgeDraft,
@@ -66,6 +70,7 @@ import {
   type KnowledgeTarget,
   knowledgeFolderName,
   knowledgeId,
+  knowledgeSummary,
   MAX_TITLE,
   REVISIONS_FOLDER,
   revisionFileName,
@@ -312,7 +317,7 @@ function scopeOfAccount(ctx: Ctx, accountId: string): KnowledgeScope {
 interface ArticleFolder {
   /** The article folder's FileNode id. */
   nodeId: string;
-  /** The article this one sits inside, or null directly under the tier root. */
+  /** The folder this one sits inside, or null directly under the tier root. */
   parentId: string | null;
   /** The tier-relative folder path, e.g. `"Policies/Returns"`. */
   folder: string;
@@ -384,7 +389,12 @@ async function articleTarget(
   admin: LiveSession,
   target: KnowledgeTarget,
   folder: string,
-): Promise<{ ctx: Ctx; accountId: string; article: ArticleFolder }> {
+): Promise<{
+  ctx: Ctx;
+  accountId: string;
+  folderId: string;
+  article: ArticleFolder;
+}> {
   const clean = (folder ?? "").trim();
   if (!clean)
     throw new KnowledgeAdminError("bad_request", "An article folder is required.");
@@ -395,7 +405,7 @@ async function articleTarget(
     tier.folderId,
     clean,
   );
-  return { ctx: tier.ctx, accountId: tier.accountId, article };
+  return { ctx: tier.ctx, accountId: tier.accountId, folderId: tier.folderId, article };
 }
 
 /** The app-folder-relative path of the article's folder. */
@@ -424,44 +434,19 @@ function asDraft(raw: unknown): KnowledgeDraft | null {
 }
 
 /**
- * One article's summary, in the one shape every listing and write answers with.
+ * A topic folder's order, read from its `folder.json` (0 when absent).
  *
- * `saved` is passed rather than derived: a listing judges an article by the
- * presence of its `state.json` (written with the draft), while an opened
- * article has the draft itself in hand.
+ * The document and its shape are `@gilbert/shared/knowledge`'s rule; this is
+ * only its read path, so the server and the client agree on what a folder's
+ * place is.
  */
-function summaryOf(input: {
-  state: KnowledgeState | null;
-  draft: KnowledgeDraft | null;
-  folder: string;
-  nodeId: string;
-  parentId: string | null;
-  saved: boolean;
-}): KnowledgeSummary {
-  const { state, draft, folder, nodeId, parentId, saved } = input;
-  // The listing mirrors the revision a reader sees, selected by the clock: a
-  // pending revision whose instant has arrived is what the tree shows, with no
-  // write needed at that instant.
-  const effective = state ? revisionInForceAt(state) : null;
-  return {
-    id: state?.id ?? draft?.id ?? nodeId,
-    title:
-      effective?.title ??
-      state?.title ??
-      draft?.title ??
-      folder.split("/").pop() ??
-      folder,
-    tags: effective?.tags ?? state?.tags ?? draft?.tags ?? [],
-    folder,
-    nodeId,
-    parentId,
-    inForce: state?.inForce ?? null,
-    pending: state?.pending ?? null,
-    retired: state?.retired ?? null,
-    created: state?.created ?? draft?.created ?? null,
-    updated: state?.updated ?? draft?.updated ?? null,
-    saved,
-  };
+async function folderOrder(ctx: Ctx, accountId: string, folder: string): Promise<number> {
+  const doc = await readAppJsonAt(
+    ctx,
+    accountId,
+    `${KNOWLEDGE_FOLDER}/${folder}/${KNOWLEDGE_FOLDER_FILE}`,
+  );
+  return isKnowledgeFolderDoc(doc) ? doc.order : 0;
 }
 
 /**
@@ -469,9 +454,11 @@ function summaryOf(input: {
  *
  * A listing reads each article's small `state.json`, never its draft or its
  * revisions: the folder is the tree and the state is the title, so navigation
- * costs one document per article (`KnowledgeSummary`). A directory without a
- * `state.json` is a folder alone, not an article -- it is still listed and
- * still recursed into, so a plain folder holding articles is navigable.
+ * costs one document per article (`KnowledgeSummary`). A directory with a
+ * `state.json` is an article and a **leaf** (its only child is the reserved
+ * revision store, skipped), so the walk stops there; a directory without one
+ * is a **topic folder** that groups articles and other folders, listed and
+ * recursed into.
  *
  * `folder` on every summary is the **tier-relative path** (`"Policies/Returns"`),
  * because that is what a write target carries back to this door: the tree is
@@ -499,17 +486,34 @@ async function listArticlesUnder(
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`),
     );
-    // A retired article is withdrawn from the tree but kept for traceability:
-    // it and its sub-articles are listed only where a caller asks for them.
-    if (state && isRetired(state) && !includeRetired) continue;
+    // A directory with a `state.json` is an article and a leaf: only the
+    // revision store lives under it, so the walk stops here. A retired article
+    // is withdrawn from the tree but kept for traceability, so it is listed
+    // only where a caller asks for it.
+    if (state) {
+      if (isRetired(state) && !includeRetired) continue;
+      direct.push(
+        knowledgeSummary({
+          state,
+          draft: null,
+          folder,
+          nodeId: childId,
+          parentId,
+          saved: true,
+        }),
+      );
+      continue;
+    }
+    // No state: a topic folder, pure grouping with a place of its own.
     direct.push(
-      summaryOf({
-        state,
+      knowledgeSummary({
+        state: null,
         draft: null,
         folder,
         nodeId: childId,
         parentId,
-        saved: state !== null,
+        saved: false,
+        folderOrder: await folderOrder(ctx, accountId, folder),
       }),
     );
     nested.push(
@@ -523,11 +527,13 @@ async function listArticlesUnder(
       )),
     );
   }
-  direct.sort((a, b) => a.title.localeCompare(b.title));
+  // The one sibling order both tiers read: by the free `order` number, then by
+  // title, so a drag lands between two neighbours without renumbering the rest.
+  direct.sort(compareKnowledgeSiblings);
   return [...direct, ...nested];
 }
 
-/** The articles under a KB folder node, siblings ordered by title. */
+/** The articles under a KB folder node, siblings ordered by `order`, then title. */
 export async function listArticles(
   ctx: Ctx,
   accountId: string,
@@ -627,6 +633,7 @@ async function readRevisions(
 function revisionSummary(revision: KnowledgeRevision): KnowledgeRevisionSummary {
   return {
     revision: revision.revision,
+    rev: revision.rev,
     effectiveAt: revision.effectiveAt,
     approvedBy: revision.approvedBy,
     approvedAt: revision.approvedAt,
@@ -667,7 +674,7 @@ export async function readArticle(
   return {
     scope: scopeOfAccount(ctx, accountId),
     accountId,
-    summary: summaryOf({
+    summary: knowledgeSummary({
       state,
       draft,
       folder: article.folder,
@@ -684,43 +691,6 @@ export async function readArticle(
 /* ------------------------------------------------------------------ */
 /* Editors                                                             */
 /* ------------------------------------------------------------------ */
-
-/** Whether a folder already holds a `state.json`, and is therefore an article. */
-async function holdsState(
-  ctx: Ctx,
-  accountId: string,
-  articlePath: string,
-): Promise<boolean> {
-  const folderId = await findFolderPath(ctx, accountId, articlePath);
-  if (!folderId) return false;
-  const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-  return children.some((node) => node.nodeType === "file" && node.name === STATE_FILE);
-}
-
-/**
- * A folder name under `parentPath` no article holds.
- *
- * Only a folder that holds a `state.json` is an article (ADR 0024: a folder
- * alone is not), so a name a plain folder carries may be reused; one an issued
- * article carries is never overwritten and gets ` (2)`, ` (3)` and so on.
- */
-async function freeArticleFolderName(
-  ctx: Ctx,
-  accountId: string,
-  parentPath: string,
-  base: string,
-): Promise<string> {
-  for (let n = 1; n < 1000; n++) {
-    const candidate = n === 1 ? base : `${base} (${n})`;
-    if (!(await holdsState(ctx, accountId, `${parentPath}/${candidate}`)))
-      return candidate;
-  }
-  throw new KnowledgeAdminError(
-    "article_name_taken",
-    `The knowledge base already holds a thousand articles named "${base}".`,
-    409,
-  );
-}
 
 /**
  * Create one article, never overwriting an existing one.
@@ -749,7 +719,14 @@ export async function createArticle(
     ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
     : null;
   const parentPath = parent ? `${KNOWLEDGE_FOLDER}/${parent.folder}` : KNOWLEDGE_FOLDER;
-  const name = await freeArticleFolderName(ctx, accountId, parentPath, wantedName);
+  // A create never lands on an existing directory — an article or a topic
+  // folder. One helper answers both, so the two creators cannot disagree.
+  const name = await freeChildFolderName(
+    ctx,
+    accountId,
+    parent ? parent.nodeId : tierFolderId,
+    wantedName,
+  );
   const nodeId = await ensureFolderPath(ctx, accountId, `${parentPath}/${name}`);
   const id = knowledgeId();
   const now = new Date().toISOString();
@@ -763,16 +740,107 @@ export async function createArticle(
     by,
     at: now,
   });
-  const state = buildState({ id, title: docTitle, tags: [], by, at: now });
+  // A fresh article lands last among its siblings, by the order the clock
+  // mints; a drag writes its own number over this.
+  const state = buildState({
+    id,
+    title: docTitle,
+    tags: [],
+    by,
+    at: now,
+    order: Date.now(),
+  });
   await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
   await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);
-  return summaryOf({
+  return knowledgeSummary({
     state,
     draft,
     folder: parent ? `${parent.folder}/${name}` : name,
     nodeId,
     parentId: parent?.nodeId ?? null,
     saved: true,
+  });
+}
+
+/**
+ * A directory name under `parentId` no directory already holds.
+ *
+ * A topic folder is pure grouping, so a create must not land on a folder that
+ * is already there — an article above all, whose `state.json` beside a new
+ * `folder.json` would mispresent it as a topic folder. A name in use gets
+ * ` (2)`, ` (3)` and so on, exactly as an article create does.
+ */
+async function freeChildFolderName(
+  ctx: Ctx,
+  accountId: string,
+  parentId: string,
+  base: string,
+): Promise<string> {
+  const children = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
+  const taken = new Set(
+    children
+      .filter((node) => node.nodeType === "directory" && typeof node.name === "string")
+      .map((node) => String(node.name)),
+  );
+  for (let n = 1; n < 1000; n++) {
+    const candidate = n === 1 ? base : `${base} (${n})`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  throw new KnowledgeAdminError(
+    "folder_name_taken",
+    `That folder already holds a thousand folders named "${base}".`,
+    409,
+  );
+}
+
+/**
+ * Create one topic folder, never overwriting an article.
+ *
+ * A topic folder is a directory with no `state.json` that groups articles and
+ * other folders, with no content of its own (`folder.json` is only its place
+ * among its siblings). The folder is the name's file name
+ * (`knowledgeFolderName`); a name a directory under the parent already holds
+ * gets a numbered sibling, so a create never lands on an existing article or
+ * folder.
+ */
+export async function createFolder(
+  admin: LiveSession,
+  target: KnowledgeTarget,
+  name: string,
+  parentFolder: string | null,
+): Promise<KnowledgeSummary> {
+  const { ctx, accountId, folderId: tierFolderId } = await tierAccount(admin, target);
+  const clean = (name ?? "").trim();
+  const wantedName = knowledgeFolderName(clean);
+  if (isReservedArticleName(wantedName))
+    throw new KnowledgeAdminError(
+      "reserved_title",
+      `"${wantedName}" is reserved for an article's revision store; choose another name.`,
+      400,
+    );
+  const parent = parentFolder
+    ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
+    : null;
+  const parentPath = parent ? `${KNOWLEDGE_FOLDER}/${parent.folder}` : KNOWLEDGE_FOLDER;
+  const parentNodeId = parent ? parent.nodeId : tierFolderId;
+  const folderName = await freeChildFolderName(ctx, accountId, parentNodeId, wantedName);
+  const nodeId = await ensureFolderPath(ctx, accountId, `${parentPath}/${folderName}`);
+  const order = Date.now();
+  await writeAppFileIn(
+    ctx,
+    accountId,
+    nodeId,
+    KNOWLEDGE_FOLDER_FILE,
+    buildFolderDoc(order),
+  );
+  return knowledgeSummary({
+    state: null,
+    draft: null,
+    folder: parent ? `${parent.folder}/${folderName}` : folderName,
+    nodeId,
+    parentId: parent ? parent.nodeId : null,
+    saved: false,
+    folderOrder: order,
   });
 }
 
@@ -858,7 +926,7 @@ export async function saveDraft(
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after || undefined,
       });
-      return summaryOf({
+      return knowledgeSummary({
         state: nextState,
         draft,
         folder: article.folder,
@@ -920,8 +988,14 @@ export async function approveArticle(
     );
   const now = new Date().toISOString();
   const revision = knowledgeId();
+  // The article's own revision number, minted here: the highest number any
+  // issued revision carried, plus one, so a pending approval that overtakes an
+  // in-force one still numbers forward rather than reusing it.
+  const revNumber =
+    Math.max(existingState?.inForce?.rev ?? 0, existingState?.pending?.rev ?? 0) + 1;
   const issued: KnowledgeIssued = {
     revision,
+    rev: revNumber,
     effectiveAt: when,
     // The administrator's own address, not the Master's: the door writes as the
     // Master, whose username is the installation's agent, and an approval the
@@ -938,6 +1012,7 @@ export async function approveArticle(
     : null;
   const rev = buildRevision(draft, {
     revision,
+    rev: revNumber,
     approvedBy: admin.username,
     approvedAt: now,
     effectiveAt: when,
@@ -997,7 +1072,7 @@ export async function approveArticle(
       "The revision was recorded but its state could not be written because another write kept winning the race.",
       502,
     );
-  return summaryOf({
+  return knowledgeSummary({
     state: nextState,
     draft,
     folder: article.folder,
@@ -1103,7 +1178,7 @@ export async function restoreArticle(
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: after || undefined,
       });
-      return summaryOf({
+      return knowledgeSummary({
         state: nextState,
         draft,
         folder: article.folder,
@@ -1136,7 +1211,11 @@ export async function renameArticle(
   folder: string,
   title: string,
 ): Promise<KnowledgeSummary> {
-  const { ctx, accountId, article } = await articleTarget(admin, target, folder);
+  const { ctx, accountId, folderId, article } = await articleTarget(
+    admin,
+    target,
+    folder,
+  );
   const clean = (title ?? "").trim();
   const docTitle = titleFor(clean);
   const wantedName = knowledgeFolderName(clean);
@@ -1168,16 +1247,15 @@ export async function renameArticle(
     let nextFolder = article.folder;
     try {
       if (wantedName !== currentLeaf) {
+        // The parent is the article's own parent node, or the tier root: one
+        // free-name helper for a rename, an article create and a folder create.
         const parentPath = article.folder.includes("/")
           ? article.folder.slice(0, article.folder.lastIndexOf("/"))
           : "";
-        const appParentPath = parentPath
-          ? `${KNOWLEDGE_FOLDER}/${parentPath}`
-          : KNOWLEDGE_FOLDER;
-        const name = await freeArticleFolderName(
+        const name = await freeChildFolderName(
           ctx,
           accountId,
-          appParentPath,
+          article.parentId ?? folderId,
           wantedName,
         );
         const renamed = await client.call<{
@@ -1219,7 +1297,7 @@ export async function renameArticle(
         await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
           ifInState: after2 || undefined,
         });
-      return summaryOf({
+      return knowledgeSummary({
         state: nextState,
         draft: nextDraft,
         folder: nextFolder,
@@ -1239,12 +1317,177 @@ export async function renameArticle(
 }
 
 /**
+ * Set an article's or topic folder's place among its siblings.
+ *
+ * The order is a free number, so a drag lands between two neighbours without
+ * renumbering the rest: an article carries it on its `state.json`, a topic
+ * folder on its `folder.json`. The document is read under the compare-and-set
+ * token and written back with every other field preserved, retried once, so a
+ * save that landed first is carried into the reordered copy.
+ */
+export async function reorderArticle(
+  admin: LiveSession,
+  target: KnowledgeTarget,
+  folder: string,
+  order: number,
+): Promise<KnowledgeSummary> {
+  if (!Number.isFinite(order))
+    throw new KnowledgeAdminError("bad_request", "An order must be a number.");
+  const { ctx, accountId, article } = await articleTarget(admin, target, folder);
+  const articlePath = articlePathOf(article);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // The token is read before the documents, as `saveDraft` reads it: a token
+    // read after them is still valid while what it would be compared against
+    // has already moved.
+    const token = await appFolderState(ctx, accountId);
+    const state = asState(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    );
+    try {
+      if (state) {
+        const next: KnowledgeState = {
+          ...state,
+          order,
+          updated: { by: admin.username, at: new Date().toISOString() },
+        };
+        await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, next, {
+          ifInState: token || undefined,
+        });
+        return knowledgeSummary({
+          state: next,
+          draft: null,
+          folder: article.folder,
+          nodeId: article.nodeId,
+          parentId: article.parentId,
+          saved: true,
+        });
+      }
+      const read = await readAppJsonAt(
+        ctx,
+        accountId,
+        `${articlePath}/${KNOWLEDGE_FOLDER_FILE}`,
+      );
+      // Merged over what was read, so a field a later document version added is
+      // carried through the reorder rather than dropped.
+      const nextDoc = {
+        ...(isKnowledgeFolderDoc(read) ? read : buildFolderDoc(order)),
+        order,
+      };
+      await writeAppFileIn(
+        ctx,
+        accountId,
+        article.nodeId,
+        KNOWLEDGE_FOLDER_FILE,
+        nextDoc,
+        { ifInState: token || undefined },
+      );
+      return knowledgeSummary({
+        state: null,
+        draft: null,
+        folder: article.folder,
+        nodeId: article.nodeId,
+        parentId: article.parentId,
+        saved: false,
+        folderOrder: order,
+      });
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+  throw new KnowledgeAdminError(
+    "knowledge_reorder_failed",
+    "The order could not be saved because another write kept winning the race.",
+    502,
+  );
+}
+
+/**
+ * Move an article into a topic folder, or back to the tier root.
+ *
+ * The move is the FileNode's `parentId` alone: the node keeps its id, its
+ * draft, its state and every revision, so a reference by id still resolves and
+ * a rename is not implied. The destination is a topic folder resolved by path,
+ * or the tier root when `parentFolder` is null. A refusal is checked, and the
+ * write is conditional on the account state so a save landing first is not
+ * silently overwritten.
+ */
+export async function moveArticle(
+  admin: LiveSession,
+  target: KnowledgeTarget,
+  folder: string,
+  parentFolder: string | null,
+): Promise<KnowledgeSummary> {
+  const {
+    ctx,
+    accountId,
+    folderId: tierFolderId,
+    article,
+  } = await articleTarget(admin, target, folder);
+  const parent = parentFolder
+    ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
+    : null;
+  const leaf = article.folder.split("/").pop() ?? article.folder;
+  const nextFolder = parent ? `${parent.folder}/${leaf}` : leaf;
+  // The FileNode sits under the tier's own KB folder at the root; only the
+  // summary spells that as a null parent, exactly as the listing does.
+  const destNodeId = parent ? parent.nodeId : tierFolderId;
+  const destParentId = parent ? parent.nodeId : null;
+  const client = new JmapClient(ctx);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await appFolderState(ctx, accountId);
+    try {
+      const res = await client.call<{
+        notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
+      }>(
+        "FileNode/set",
+        {
+          accountId,
+          ...(token ? { ifInState: token } : {}),
+          update: { [article.nodeId]: { parentId: destNodeId } },
+        },
+        [FILENODE_CAP],
+      );
+      const refused = res.notUpdated?.[article.nodeId];
+      if (refused)
+        throw new KnowledgeAdminError(
+          "knowledge_move_refused",
+          refusalOf(refused) || "The article could not be moved to that folder.",
+          409,
+        );
+      const afterPath = `${KNOWLEDGE_FOLDER}/${nextFolder}`;
+      const state = asState(
+        await readAppJsonAt(ctx, accountId, `${afterPath}/${STATE_FILE}`),
+      );
+      const draft = asDraft(
+        await readAppJsonAt(ctx, accountId, `${afterPath}/${DRAFT_FILE}`),
+      );
+      return knowledgeSummary({
+        state,
+        draft,
+        folder: nextFolder,
+        nodeId: article.nodeId,
+        parentId: destParentId,
+        saved: draft !== null,
+      });
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+  throw new KnowledgeAdminError(
+    "knowledge_move_failed",
+    "The article could not be moved because another write kept winning the race.",
+    502,
+  );
+}
+
+/**
  * Whether any article at or under a folder has an issued revision.
  *
- * The tree is an article whose children are sub-articles, so a folder that was
- * never approved can still hold approved articles. Deleting it would take their
- * revisions with it — the exact controlled record the lifecycle keeps — so a
- * destructive delete is refused while any descendant is issued.
+ * A topic folder can hold approved articles, and a delete reaches everything
+ * under it, so a folder that was never approved can still hold approved
+ * articles. Deleting it would take their revisions with it — the exact
+ * controlled record the lifecycle keeps — so a destructive delete is refused
+ * while any descendant is issued.
  */
 async function subtreeHasApproval(
   ctx: Ctx,
