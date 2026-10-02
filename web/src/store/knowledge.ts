@@ -105,6 +105,8 @@ interface KnowledgeStore {
     tier: KnowledgeTierState,
     title: string,
     parentFolder: string | null,
+    /** Initial blocks: a checklist template is created with its first step. */
+    blocks?: unknown[],
   ): Promise<boolean>;
   createFolder(
     tier: KnowledgeTierState,
@@ -150,12 +152,12 @@ interface KnowledgeStore {
     accountId: Id;
     scope: "company" | "group";
     parentNodeId: string | null;
-    kind: "page" | "folder";
+    kind: "page" | "folder" | "template";
   } | null;
   beginCreate(
     tier: KnowledgeTierState,
     parentNodeId: string | null,
-    kind: "page" | "folder",
+    kind: "page" | "folder" | "template",
   ): void;
   cancelCreate(): void;
   runSearch(): Promise<void>;
@@ -384,14 +386,14 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       set({ edit: next });
     },
 
-    async create(tier, title, parentFolder) {
+    async create(tier, title, parentFolder, blocks) {
       const target: KnowledgeTarget = {
         scope: tier.scope,
         ...(tier.group ? { group: tier.group } : {}),
       };
       try {
         set({ error: null });
-        await createArticle(target, title, parentFolder);
+        await createArticle(target, title, parentFolder, blocks);
         await get().reload();
         return true;
       } catch (err) {

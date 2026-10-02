@@ -226,9 +226,12 @@ holds `checkListItem` blocks **is** a checklist template, and one without them i
 not. The body is the authority, and the writer writes that verdict down as a
 `template: "checklist"` field on the article's `state.json`, so a listing carries
 it without reading every draft. The tree draws a checklist template with a
-**red checklist icon** rather than the page icon, and the workorder that
-instantiates it names the page it came from. Nothing else marks it: a marker a
-person types can disagree with the body, and the steps are the template.
+**red checklist icon** rather than the page icon, the surface has a **Templates**
+filter and a **New checklist template** action that seeds the first step, and the
+page lists the workorders that use it — the reference made visible from the KB
+side. The workorder that instantiates it names the page it came from. Nothing
+else marks it: a marker a person types can disagree with the body, and the steps
+are the template.
 
 ### The surface in the app
 

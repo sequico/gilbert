@@ -58,6 +58,47 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const [approveDate, setApproveDate] = useState(nowInput);
   const [historyOpen, setHistoryOpen] = useState(false);
   /*
+   * The workorders that instantiate this page, read only when the page **is** a
+   * checklist template. Each names the page it came from (ADR 0028), and the
+   * reverse — "what uses this template" — is the reference made visible from the
+   * KB side.
+   */
+  const [usedBy, setUsedBy] = useState<Array<{ uid: string; name: string }>>([]);
+  const isTemplate = article?.summary.template === "checklist";
+  const templateId = isTemplate ? article.summary.id : null;
+  const templateAccount = isTemplate ? article.accountId : null;
+  useEffect(() => {
+    if (!templateId || !templateAccount) {
+      setUsedBy([]);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const { useWorkorders } = await import("@/store/workorder");
+        await useWorkorders.getState().load();
+        if (!alive) return;
+        setUsedBy(
+          useWorkorders
+            .getState()
+            .workorders.filter((w) =>
+              w.parts.some(
+                (p) =>
+                  p.checklist.template.id === templateId &&
+                  p.checklist.template.accountId === templateAccount,
+              ),
+            )
+            .map((w) => ({ uid: w.uid, name: w.name })),
+        );
+      } catch {
+        if (alive) setUsedBy([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [templateId, templateAccount]);
+  /*
    * Reading and editing are two modes over one open article. The store seeds
    * the working draft (`edit`) whenever it opens a page, so this only says
    * whether the editor is live; leaving the mode is re-opening the page (see
@@ -355,6 +396,29 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           )}
           <KnowledgeRevBadge rev={article.summary.rev} />
         </div>
+
+        {isTemplate && (
+          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            <span className="hint">
+              {usedBy.length ? t("Used by") : t("Not used by any workorder yet.")}
+            </span>
+            {usedBy.map((u) => (
+              <button
+                key={u.uid}
+                type="button"
+                className="chip"
+                onClick={() => {
+                  void import("@/store/workorder").then(({ useWorkorders }) => {
+                    useWorkorders.getState().show(u.uid);
+                    useWorkorders.getState().openPanel();
+                  });
+                }}
+              >
+                {u.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {editing && edit ? (

@@ -422,3 +422,28 @@ test("a family is renumbered in one request when a drop's midpoint collapses", a
     "the tree reads back in the order the renumber set",
   );
 });
+
+test("a page created from checklist blocks is a checklist template", async () => {
+  /*
+   * A template is told from an ordinary page by its body (ADR 0028): a create
+   * that starts from checklist steps is flagged `template: "checklist"` from its
+   * first moment, before any save, so the workorder picker offers it.
+   */
+  const created = await post("/api/knowledge/create", {
+    scope: "company",
+    title: "Checklist from blocks",
+    blocks: [
+      { type: "checkListItem", id: "s1", content: [{ type: "text", text: "One" }] },
+    ],
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const summary = created.body?.summary as { template?: unknown } | undefined;
+  assert.equal(summary?.template, "checklist");
+
+  const plain = await post("/api/knowledge/create", {
+    scope: "company",
+    title: "Ordinary page",
+  });
+  const plainSummary = plain.body?.summary as { template?: unknown } | undefined;
+  assert.equal(plainSummary?.template, null, "a page without steps is not a template");
+});

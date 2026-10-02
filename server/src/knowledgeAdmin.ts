@@ -52,6 +52,7 @@ import {
   buildFolderDoc,
   buildRevision,
   buildState,
+  checklistStepsFromBlocks,
   compareKnowledgeSiblings,
   compareRevisionsNewestFirst,
   DRAFT_FILE,
@@ -693,6 +694,7 @@ export async function createArticle(
   target: KnowledgeTarget,
   title: string,
   parentFolder: string | null,
+  blocks: unknown[] = [],
 ): Promise<KnowledgeSummary> {
   const { ctx, accountId, folderId: tierFolderId } = await tierAccount(admin, target);
   const clean = (title ?? "").trim();
@@ -722,8 +724,10 @@ export async function createArticle(
     id,
     title: docTitle,
     tags: [],
-    blocks: [],
-    text: "",
+    blocks,
+    text: checklistStepsFromBlocks(blocks)
+      .map((step) => step.label)
+      .join("\n"),
     by,
     at: now,
   });
@@ -737,6 +741,9 @@ export async function createArticle(
     by,
     at: now,
     order: lastCreateOrder,
+    // A create that starts from checklist steps is a checklist template from
+    // its first moment, exactly as a save that adds them would make it.
+    template: blocksHaveChecklist(blocks) ? "checklist" : null,
   });
   await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
   await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);

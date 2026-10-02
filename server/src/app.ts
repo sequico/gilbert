@@ -2938,6 +2938,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       group?: unknown;
       title?: unknown;
       parentFolder?: unknown;
+      blocks?: unknown;
     }>(c);
     try {
       const parentFolder = body?.parentFolder;
@@ -2948,6 +2949,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         typeof parentFolder === "string" && parentFolder.trim()
           ? parentFolder.trim()
           : null,
+        Array.isArray(body?.blocks) ? body.blocks : [],
       );
       return c.json({ ok: true, summary });
     } catch (err) {

@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { uid } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import {
   compareKnowledgeSiblings,
@@ -102,7 +103,25 @@ export function tierLabel(tier: KnowledgeTierView): string {
 }
 
 /**
- * The inline "new page / new folder" row.
+ * The first step a new checklist template starts with.
+ *
+ * A template is a page whose body holds checklist steps (ADR 0024), so a create
+ * that starts with one makes the page a template from its first moment rather
+ * than after a save. The author renames it and adds more.
+ */
+function checklistSeedBlocks(): unknown[] {
+  return [
+    {
+      type: "checkListItem",
+      id: uid("step"),
+      content: [{ type: "text", text: "" }],
+      children: [],
+    },
+  ];
+}
+
+/**
+ * The inline "new page / new folder / new checklist template" row.
  *
  * Creation happens where the node will land: a text input appears in the tree at
  * the parent's depth, Enter commits it, Escape drops it, and blur commits what is
@@ -116,7 +135,7 @@ function InlineCreateRow({
 }: {
   tier: KnowledgeTierView;
   parentNodeId: string | null;
-  kind: "page" | "folder";
+  kind: "page" | "folder" | "template";
   depth: number;
 }) {
   const create = useKnowledge((s) => s.create);
@@ -125,7 +144,12 @@ function InlineCreateRow({
   const [name, setName] = useState("");
   // One commit per row: a blur after Enter must not create twice.
   const committed = useRef(false);
-  const label = kind === "page" ? t("New page") : t("New folder");
+  const label =
+    kind === "folder"
+      ? t("New folder")
+      : kind === "template"
+        ? t("New checklist template")
+        : t("New page");
 
   const commit = () => {
     if (committed.current) return;
@@ -137,6 +161,8 @@ function InlineCreateRow({
     cancelCreate();
     if (!value) return;
     if (kind === "page") void create(tier, value, parentFolder);
+    else if (kind === "template")
+      void create(tier, value, parentFolder, checklistSeedBlocks());
     else void createFolder(tier, value, parentFolder);
   };
 
@@ -150,10 +176,12 @@ function InlineCreateRow({
         gap: 6,
       }}
     >
-      {kind === "page" ? (
-        <FileText size={16} className="faint" aria-hidden="true" />
-      ) : (
+      {kind === "folder" ? (
         <Folder size={16} className="faint" aria-hidden="true" />
+      ) : kind === "template" ? (
+        <ClipboardCheck size={16} className="kb-checklist-icon" aria-hidden="true" />
+      ) : (
+        <FileText size={16} className="faint" aria-hidden="true" />
       )}
       <input
         className="input sm grow"
@@ -214,6 +242,8 @@ export function KnowledgeSidebar() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragging, setDragging] = useState<Dragging | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  /** Show only checklist templates and the folders on the way to them. */
+  const [templatesOnly, setTemplatesOnly] = useState(false);
 
   /*
    * Where a hit lives. The result carries the account but not the article's
@@ -245,6 +275,15 @@ export function KnowledgeSidebar() {
   const addFolder = (tier: KnowledgeTierView, parentNodeId: string | null) => {
     expandChain(tier, parentNodeId);
     beginCreate(tier, parentNodeId, "folder");
+  };
+
+  /** A page that starts as a checklist template: same place as a new page. */
+  const addTemplate = (tier: KnowledgeTierView) => {
+    const inTier =
+      article && article.scope === tier.scope && article.accountId === tier.accountId;
+    const parentNodeId = inTier ? (article?.summary.parentId ?? null) : null;
+    expandChain(tier, parentNodeId);
+    beginCreate(tier, parentNodeId, "template");
   };
 
   /** Open a row's Rename/Delete menu, anchored to the button that asked. */
@@ -564,13 +603,33 @@ export function KnowledgeSidebar() {
   /** One tier's rows, nested by `parentId` and folded by `expanded`. */
   const renderTree = (tier: KnowledgeTierView) => {
     const out: ReactNode[] = [];
+    // When the Templates filter is on, only checklist templates and the folders
+    // that lead to them are shown, and those folders are opened so the template
+    // is visible without a click.
+    const show = (() => {
+      if (!templatesOnly) return null;
+      const byId = new Map(tier.articles.map((a) => [a.nodeId, a]));
+      const set = new Set<string>();
+      for (const a of tier.articles) {
+        if (a.kind !== "article" || a.template !== "checklist") continue;
+        let cur: KnowledgeSummary | undefined = a;
+        while (cur) {
+          set.add(cur.nodeId);
+          cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+        }
+      }
+      return set;
+    })();
     const walk = (parentId: string | null, depth: number) => {
       for (const a of siblingsOf(tier, parentId)) {
+        if (show && !show.has(a.nodeId)) continue;
         out.push(row(a, depth, tier));
-        if (a.kind === "folder" && expanded[a.nodeId]) walk(a.nodeId, depth + 1);
+        if (a.kind === "folder" && (expanded[a.nodeId] || show))
+          walk(a.nodeId, depth + 1);
       }
       // The inline "new page / folder" input sits at the level it will join.
       if (
+        !show &&
         creating &&
         creating.accountId === tier.accountId &&
         creating.scope === tier.scope &&
@@ -631,6 +690,19 @@ export function KnowledgeSidebar() {
             }}
           />
           {searching && <span className="spinner" />}
+          <button
+            type="button"
+            className="icon-btn sm"
+            aria-pressed={templatesOnly}
+            title={t("Only checklist templates")}
+            aria-label={t("Only checklist templates")}
+            onClick={() => setTemplatesOnly((v) => !v)}
+          >
+            <ClipboardCheck
+              size={15}
+              className={templatesOnly ? "kb-checklist-icon" : "muted"}
+            />
+          </button>
         </div>
       </div>
 
@@ -711,6 +783,14 @@ export function KnowledgeSidebar() {
                       onClick={() => void addFolder(tier, null)}
                     >
                       <FolderPlus size={14} />
+                    </button>
+                    <button
+                      className="icon-btn sm"
+                      title={t("New checklist template")}
+                      aria-label={t("New checklist template")}
+                      onClick={() => void addTemplate(tier)}
+                    >
+                      <ClipboardCheck size={14} className="kb-checklist-icon" />
                     </button>
                   </span>
                 )}

@@ -382,10 +382,16 @@ export async function createArticle(
   target: KnowledgeTarget,
   title: string,
   parentFolder: string | null,
+  blocks?: unknown[],
 ): Promise<KnowledgeSummary> {
   const res = await apiFetch<Written>("/api/knowledge/create", {
     method: "POST",
-    body: JSON.stringify({ ...target, title, parentFolder }),
+    body: JSON.stringify({
+      ...target,
+      title,
+      parentFolder,
+      ...(blocks ? { blocks } : {}),
+    }),
   });
   return res.summary;
 }

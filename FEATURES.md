@@ -891,7 +891,9 @@ a folder of Files.
   a **checklist template** — what a workorder instantiates, below. The tree
   marks it with a red checklist icon so it is told from an ordinary page, and the
   workorder names the page it came from. The steps are the template; the checked
-  state and the signature live only in the instantiated workorder.
+  state and the signature live only in the instantiated workorder. A template is
+  made with **New checklist template** (which seeds the first step), found with
+  the **Templates** filter, and the page lists the workorders that use it.
 - **Written as the Master.** Every write goes through a server route
   (`/api/knowledge/*`) that acts as the Master, because the company KB is reached
   through a route that acts as the Master and the caller's own session does not
