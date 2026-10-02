@@ -246,7 +246,8 @@ is, not what a user sees.
   and lifecycle, the Master-owned door and its routes, the boot ensure, the client
   read/write, the surface with its BlockNote editor, and the fleet's `knowledge`
   read and write; the attachment upload surface, a multi-document plan as a
-  document, co-editing and diagrams are not.
+  document, co-editing and diagrams are not. The company KB's read share is owed
+  ADR 0023's live probe.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check

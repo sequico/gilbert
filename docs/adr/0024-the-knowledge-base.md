@@ -282,7 +282,7 @@ below.
 
 ### Storage
 
-- **One article is one folder**: `gilbert/knowledge/<id>/`, holding the single
+- **One article is one folder**: `gilbert/knowledge/<title>/`, holding the single
   mutable `draft.json`, the immutable approved revisions (`revisions/<rev>.json`,
   each carrying its approval and effective date), and which revision is in force —
   a revision approved with a future effective date is recorded and pending until
@@ -326,8 +326,9 @@ are the alternatives if more control or a different UI system is wanted.
 
 ### Search
 
-**Orama** (Apache-2.0), in-process, over the pages' `text`, used by both tiers so
-the human search box and the agent lookup rank the same way. The index is built
+**Orama** (Apache-2.0), in-process, over the pages' `text`, used by the human
+search box; the fleet's `knowledge` lookup reads the same `text` without Orama,
+so the two share a corpus rather than a ranking. The index is built
 from Stalwart and, because the container is disposable, is either rebuilt lazily
 or cached as a document — **Q14**.
 
@@ -364,6 +365,11 @@ What is then true:
 
 - **In-force and superseded revisions are kept for ever** — they are the
   controlled record, not history to prune (the distinction the ISO case forces).
+- **An administrator may delete an article outright** — the folder and its
+  revisions go together, for a page created by mistake. It is the one exception
+  to "kept for ever", it is `requireAdmin`, and it is a decision rather than a
+  gap: the alternative is a void state that keeps a page nobody wants in a
+  reader's tree.
 - **The draft is the one bounded thing**: one per article, replaced by the next
   revision on approval, so there is no per-save pile to bound.
 - **A restore of a superseded revision opens a new draft** — by any writer

@@ -881,8 +881,9 @@ a folder of Files.
   authenticated. An agent drafts; it never approves.
 - **The editor is BlockNote** (core MPL-2.0: ProseMirror/TipTap, with Yjs built
   in for the co-editing phase) and the search is **Orama**, in-process over each
-  page's text and rebuilt lazily per search — so the human box and an agent's
-  lookup rank the same way, and neither is a second service.
+  page's text and rebuilt lazily per search, while the fleet's lookup reads the
+  same text without Orama — the two share a corpus, not a ranking, and neither
+  is a second service.
 - **For the fleet**: a `knowledge` lookup (list or search pages, read one page's
   text) and a `knowledge.write` capability (create or update a page's draft) in
   the closed catalogue. The KB is a **lookup**, never carried whole into a prompt;
@@ -890,7 +891,9 @@ a folder of Files.
 - **Graceful degradation**: the company tier is read when the KB is opened (a
   share is not a membership, so no live update is promised for it), while a
   group's KB rides the FileNode push rail like any other document; a page that
-  cannot be read resolves as empty rather than a broken pane.
+  cannot be read resolves as empty rather than a broken pane. The exact Stalwart
+  shape of the read share — a read-only grant on the nested `gilbert/knowledge`
+  that reaches every account — is owed the live probe ADR 0023 already names.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
 Excalidraw diagrams, the attachment upload surface, and the document-controller's
