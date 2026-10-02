@@ -5,10 +5,8 @@ import { postWith } from "./testkit.js";
 /**
  * The Global contacts directory (ADR 0023), as an administrator writes it.
  *
- * The directory is written as the Master: the book is found or made, the
- * universal read share is re-applied from the principal enumeration, and the
- * card is created, checked against the book and destroyed. A write returning
- * at all proves the enumeration ran — it is the first thing that would refuse.
+ * The directory is written as the Master: the book is found or made, and the
+ * card is created, checked against the book and destroyed.
  *
  * Mock port: must not collide with any other test file — the runner executes
  * files as parallel child processes, each binding its own mock.

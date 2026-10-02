@@ -37,12 +37,12 @@ async function main() {
    */
   assertServable(config);
   /*
-   * Global contacts (ADR 0023): the installation's shared directory exists
-   * because the installation needs it, not because an administrator made it.
-   * Created once, as the Master, before anything is served, so the section is
-   * there for every reader on the first load. A failure is logged and does not
-   * stop the process: a directory that could not be reached is a degraded
-   * feature, not a boot that cannot serve.
+   * Global contacts (ADR 0023): the installation's directory exists because the
+   * installation needs it, not because an administrator made it. Created once,
+   * as the Master, before anything is served, so the section is there for every
+   * reader on the first load (read through the route, not a share). A failure is
+   * logged and does not stop the process: a directory that could not be reached
+   * is a degraded feature, not a boot that cannot serve.
    */
   await ensureGlobalContacts(
     {
@@ -58,12 +58,12 @@ async function main() {
     );
   });
   /*
-   * The company knowledge base (ADR 0024): the Master-owned folder exists and
-   * is shared read-only because the installation needs it, not because
-   * somebody created it. Created once, as the Master, before anything is
-   * served. A failure is logged and does not stop the process: a knowledge
-   * base that could not be reached is a degraded feature, not a boot that
-   * cannot serve.
+   * The company knowledge base (ADR 0024): the Master-owned folder exists
+   * because the installation needs it, not because somebody created it, and is
+   * read through the route (a `shareWith` cannot reach every account). Created
+   * once, as the Master, before anything is served. A failure is logged and
+   * does not stop the process: a knowledge base that could not be reached is a
+   * degraded feature, not a boot that cannot serve.
    */
   await ensureKnowledge(
     {

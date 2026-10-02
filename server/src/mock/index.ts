@@ -1618,7 +1618,8 @@ const addressBooks: Obj[] = [
 ];
 /* A book in the shared account, so "Shared with me" and addressing a message
    from somebody else's contacts can be exercised at all. Read-only, which is
-   what a share usually is. */
+   what a share usually is. The installation's directory is NOT here: it lives in
+   the agent account and is served by a route (ADR 0023). */
 const sharedAddressBooks: Obj[] = [
   {
     id: "ab9",
@@ -1627,26 +1628,6 @@ const sharedAddressBooks: Obj[] = [
     sortOrder: 0,
     isDefault: true,
     isSubscribed: false,
-    shareWith: {},
-    myRights: abRights(false),
-  },
-  /*
-   * The installation's shared directory (ADR 0023).
-   *
-   * Simulated as a read-only book the reader is subscribed to in the shared
-   * account, because that is the shape the client can exercise here. What a
-   * real deployment owes and this does not reproduce is the **one rule that
-   * names every account at once** — the Master-owned universal share — which is
-   * owed a live probe (`gilbert-stalwart`). The name is the shared constant's,
-   * so the mock cannot drift from the client about which book is the directory.
-   */
-  {
-    id: "gc1",
-    name: GLOBAL_CONTACTS_BOOK_NAME,
-    description: null,
-    sortOrder: 0,
-    isDefault: false,
-    isSubscribed: true,
     shareWith: {},
     myRights: abRights(false),
   },
@@ -1670,31 +1651,6 @@ const sharedCards: Obj[] = [
     name: { full: "Dorothy Vaughan" },
     emails: { e1: { address: "dorothy@example.org", contexts: {} } },
     phones: {},
-    organizations: {},
-    nicknames: {},
-    addresses: {},
-    notes: {},
-    updated: new Date(now()).toISOString(),
-  },
-  /* Two people the installation's directory carries. */
-  {
-    id: "gc1c1",
-    addressBookIds: { gc1: true },
-    name: { full: "Ada Lovelace" },
-    emails: { e1: { address: "ada@example.org", contexts: {} } },
-    phones: { p1: { number: "+44 20 7946 0001" } },
-    organizations: {},
-    nicknames: {},
-    addresses: {},
-    notes: {},
-    updated: new Date(now()).toISOString(),
-  },
-  {
-    id: "gc1c2",
-    addressBookIds: { gc1: true },
-    name: { full: "Alan Turing" },
-    emails: { e1: { address: "alan@example.org", contexts: {} } },
-    phones: { p1: { number: "+44 20 7946 0002" } },
     organizations: {},
     nicknames: {},
     addresses: {},
@@ -1796,19 +1752,55 @@ const groupCards: Obj[] = [
   },
 ];
 /*
- * The Master's own books and cards (ADR 0023): the administrator's route
- * writes the Global contacts directory into this account, as the installation's
- * agent. The directory the demo reader *sees* is the shared account's
- * stand-in above; a real deployment's universal share is what the mock does not
- * reproduce, so the two are separate here while they are one book in
- * production.
+ * The Master's own books and cards (ADR 0023): the administrator's route writes
+ * the Global contacts directory into this account, as the installation's agent,
+ * and the read route serves it to every session from the same account. The
+ * directory is therefore a book here, named by the shared constant, so the mock
+ * cannot drift from the client about which book is the directory.
  *
  * Module state, like every other fixture in this file: the mock is one
  * process, and the test runner gives each test file its own, so a book a test
  * creates is not inherited by another file.
  */
-const masterAddressBooks: Obj[] = [];
-const masterCards: Obj[] = [];
+const masterAddressBooks: Obj[] = [
+  {
+    id: "gc1",
+    name: GLOBAL_CONTACTS_BOOK_NAME,
+    description: null,
+    sortOrder: 0,
+    isDefault: false,
+    isSubscribed: true,
+    shareWith: {},
+    myRights: abRights(),
+  },
+];
+/* Two people the installation's directory carries, in the agent's own book. */
+const masterCards: Obj[] = [
+  {
+    id: "gc1c1",
+    addressBookIds: { gc1: true },
+    name: { full: "Ada Lovelace" },
+    emails: { e1: { address: "ada@example.org", contexts: {} } },
+    phones: { p1: { number: "+44 20 7946 0001" } },
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date(now()).toISOString(),
+  },
+  {
+    id: "gc1c2",
+    addressBookIds: { gc1: true },
+    name: { full: "Alan Turing" },
+    emails: { e1: { address: "alan@example.org", contexts: {} } },
+    phones: { p1: { number: "+44 20 7946 0002" } },
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date(now()).toISOString(),
+  },
+];
 
 const booksFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT

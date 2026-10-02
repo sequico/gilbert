@@ -6,27 +6,25 @@ import {
   ownIdentityAccount,
   refusalOf,
 } from "./identityAdmin.js";
-import { JMAP_CONTACTS, JMAP_PRINCIPALS, JmapClient } from "./jmap.js";
+import { JMAP_CONTACTS, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,
   type GlobalContactInput,
+  type GlobalContactView,
 } from "./shared/globalContacts.js";
 
 /**
- * The Global contacts directory, written as the Master (ADR 0023).
+ * The Global contacts directory, written and read as the Master (ADR 0023).
  *
- * The directory is the installation's, owned by the Master, shared read-only
- * with every account; only an administrator writes it, and this is the door
- * they write through. The write is made as the Master — the installation's
- * agent credential, or impersonation from the administrator's session — which
- * is the same door a group's identity is written through, and it is a server
- * route rather than a client JMAP call because a read-only share grants the
- * administrator's own session nothing to write with.
+ * The directory is the installation's, owned by the Master and read by every
+ * account through a server route; only an administrator writes it, and both go
+ * through this door, which acts as the Master — the installation's agent
+ * credential, or impersonation from the administrator's session. A client JMAP
+ * call cannot be the door because a reader is not a member of the Master's
+ * account, and a `shareWith` cannot name every account: Stalwart caps a share
+ * at 10 principals per item (ADR 0023, live-probed 2026-10-02).
  */
-
-/** How many principals one page of the enumeration asks for. */
-const PRINCIPAL_PAGE = 500;
 
 /** The Master's session and its own account, or a refusal. */
 async function masterAccount(
@@ -123,77 +121,16 @@ async function requiredGlobalContactsBook(
 }
 
 /**
- * Share the directory read-only with every principal the Master can name.
- *
- * The decision is one rule that reaches every account, including one created
- * later; whether Stalwart has such a wildcard share is what the ADR leaves owed
- * a live probe, so this is the best-known shape: every principal read through
- * the standard door, merged into the book's existing share so a principal
- * beyond the first page keeps its grant. The walk pages to the end rather than
- * trusting one page, which is what makes "every principal" true. It runs on
- * every write, which is what brings an account created since the last one in.
- * An enumeration that names nobody, and a share the server refuses, both fail
- * loudly: a directory nobody can read is not a directory.
- */
-async function shareWithEveryone(
-  ctx: Ctx,
-  accountId: string,
-  bookId: string,
-): Promise<void> {
-  const client = new JmapClient(ctx);
-  const wanted: Record<string, { mayRead: boolean }> = {};
-  for (let position = 0; ; position += PRINCIPAL_PAGE) {
-    const page = await client.call<{ ids?: unknown[]; total?: unknown }>(
-      "Principal/query",
-      { accountId, position, limit: PRINCIPAL_PAGE, calculateTotal: true },
-      [JMAP_PRINCIPALS],
-    );
-    const ids = (page.ids ?? []).filter((id): id is string => typeof id === "string");
-    for (const id of ids) if (id !== accountId) wanted[id] = { mayRead: true };
-    if (ids.length < PRINCIPAL_PAGE) break;
-    if (typeof page.total === "number" && position + ids.length >= page.total) break;
-  }
-  if (!Object.keys(wanted).length)
-    throw new IdentityAdminError(
-      "global_contacts_share",
-      "No principal could be enumerated, so the directory could not be shared with anyone.",
-      502,
-    );
-
-  const current = await client.call<{ list?: Array<{ shareWith?: unknown }> }>(
-    "AddressBook/get",
-    { accountId, ids: [bookId], properties: ["id", "shareWith"] },
-    [JMAP_CONTACTS],
-  );
-  const existing = (current.list?.[0]?.shareWith ?? {}) as Record<string, unknown>;
-  const shareWith = { ...existing, ...wanted };
-  const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
-    "AddressBook/set",
-    { accountId, update: { [bookId]: { shareWith } } },
-    [JMAP_CONTACTS, JMAP_PRINCIPALS],
-  );
-  const refused = res.notUpdated?.[bookId];
-  if (refused)
-    throw new IdentityAdminError(
-      "global_contacts_share",
-      refusalOf(refused as { type?: unknown; description?: unknown }) ||
-        "The directory could not be shared.",
-      502,
-    );
-}
-
-/**
- * Make the directory exist and be shared, as the Master.
+ * Make the directory exist, as the Master.
  *
  * Run at boot so the directory is there for every reader without anyone
  * creating it: a thing the product needs is made to happen, not asked for with
- * a button. Idempotent — an existing book is found and its share re-applied —
- * and safe to run on every boot, because the alternative is a feature that is
- * absent until an administrator happens to do the right thing.
+ * a button. Idempotent — an existing book is found and left in place — and safe
+ * to run on every boot, because the alternative is a feature that is absent
+ * until an administrator happens to do the right thing.
  */
 export async function ensureGlobalContacts(ctx: Ctx, accountId: string): Promise<void> {
-  const bookId = await globalContactsBookId(ctx, accountId);
-  await shareWithEveryone(ctx, accountId, bookId);
+  await globalContactsBookId(ctx, accountId);
 }
 
 function text(value: unknown): string {
@@ -203,6 +140,68 @@ function text(value: unknown): string {
 function strings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map(text).filter(Boolean);
+}
+
+/**
+ * Read the directory's cards, as the route serves them to any session.
+ *
+ * The Master's account holds the directory, so its cards are the directory's:
+ * each is answered as the small shape both tiers read (`GlobalContactView`) —
+ * the one name, the addresses, the numbers, the organisation and the note,
+ * flattened so a reader draws the directory without parsing the JSContact card
+ * vocabulary. An account with no cards answers none; nothing is created here.
+ */
+export async function readGlobalContacts(
+  ctx: Ctx,
+  accountId: string,
+): Promise<GlobalContactView[]> {
+  const client = new JmapClient(ctx);
+  // The directory is its own book: the account may hold other books (the agent
+  // writes here too), and their cards are not the directory.
+  const bookId = await findGlobalContactsBook(client, accountId);
+  if (!bookId) return [];
+  const res = await client.call<{
+    list?: Array<{
+      id?: unknown;
+      addressBookIds?: Record<string, unknown>;
+      name?: { full?: unknown };
+      emails?: Record<string, { address?: unknown }>;
+      phones?: Record<string, { number?: unknown }>;
+      organizations?: Record<string, { name?: unknown }>;
+      notes?: Record<string, { note?: unknown }>;
+    }>;
+  }>(
+    "ContactCard/get",
+    {
+      accountId,
+      ids: null,
+      properties: [
+        "id",
+        "addressBookIds",
+        "name",
+        "emails",
+        "phones",
+        "organizations",
+        "notes",
+      ],
+    },
+    [JMAP_CONTACTS],
+  );
+  const out: GlobalContactView[] = [];
+  for (const card of res.list ?? []) {
+    if (!card.addressBookIds?.[bookId]) continue;
+    const id = typeof card.id === "string" ? card.id : "";
+    if (!id) continue;
+    out.push({
+      id,
+      name: text(card.name?.full),
+      emails: strings(Object.values(card.emails ?? {}).map((email) => email.address)),
+      phones: strings(Object.values(card.phones ?? {}).map((phone) => phone.number)),
+      organization: text(Object.values(card.organizations ?? {})[0]?.name),
+      notes: text(Object.values(card.notes ?? {})[0]?.note),
+    });
+  }
+  return out;
 }
 
 /**
@@ -256,9 +255,6 @@ export async function writeGlobalContact(
 ): Promise<string> {
   const { ctx, accountId } = await masterAccount(admin);
   const bookId = await globalContactsBookId(ctx, accountId);
-  // Every write re-applies the universal share, so an account created since
-  // the last one is brought in.
-  await shareWithEveryone(ctx, accountId, bookId);
   const client = new JmapClient(ctx);
   const fields = cardFields(input, { clear: id !== null });
   try {

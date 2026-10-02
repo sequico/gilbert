@@ -92,15 +92,18 @@ import { safeEqual } from "./crypto.js";
 import {
   destroyGlobalContact,
   isEmptyGlobalContact,
+  readGlobalContacts,
   writeGlobalContact,
 } from "./globalContactsAdmin.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
+  agentSession,
   groupIdentity,
   IdentityAdminError,
   identityAddress,
   identityLockedForSession,
   memberGroupAssignment,
+  ownIdentityAccount,
   personIdentities,
   removeGroupIdentity,
   removePersonIdentity,
@@ -118,7 +121,9 @@ import {
 } from "./installationAdmin.js";
 import {
   approveArticle,
+  companyArticle,
   companyKnowledgeAccount,
+  companyTree,
   createArticle,
   createFolder,
   deleteArticle,
@@ -2708,15 +2713,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * member already holds, else a new one".
    */
   /**
-   * The Global contacts directory (ADR 0023), written as the Master.
+   * The Global contacts directory (ADR 0023), written and read as the Master.
    *
-   * The directory is the installation's, owned by the Master and shared
-   * read-only with every account, so the administrator's own session has
-   * nothing to write with and the write is made here — as the installation's
-   * agent credential, or by impersonating the Master — the same door a group's
-   * identity is written through. `id: null` creates; the server builds the card
-   * from the editor's small shape, so a client cannot write a key the directory
-   * does not mean to carry.
+   * The directory is the installation's, owned by the Master and reached by
+   * every account through the read route below, so the caller's own session
+   * holds nothing of it and both the write here and that read are made as the
+   * Master — the installation's agent credential, or impersonating the Master —
+   * the same door a group's identity is used through. `id: null` creates; the
+   * server builds the card from the editor's small shape, so a client cannot
+   * write a key the directory does not mean to carry.
    */
   const globalContactInput = (raw: unknown): GlobalContactInput => {
     const r = (raw ?? {}) as Record<string, unknown>;
@@ -2765,6 +2770,31 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       await destroyGlobalContact(c.get("session"), id);
       return c.json({ ok: true });
     } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * Global contacts (ADR 0023), read by every session.
+   *
+   * The directory is the Master's, so the reader's own session holds nothing of
+   * it; the route reads it as the Master and answers any authenticated session,
+   * the same door the administrator writes through. A deployment with no usable
+   * agent has no directory to read and answers none rather than a refusal the
+   * reader cannot act on.
+   */
+  api.get("/global-contacts", requireSession, async (c) => {
+    try {
+      const ctx = await agentSession(c.get("session"));
+      const accountId = ownIdentityAccount(ctx);
+      if (!accountId) return c.json({ ok: true, contacts: [] });
+      return c.json({ ok: true, contacts: await readGlobalContacts(ctx, accountId) });
+    } catch (err) {
+      // A deployment with no agent has no directory to read: that is an answer
+      // of none, not a refusal the reader cannot act on. Every other failure is
+      // surfaced — an unreadable directory is not an empty one.
+      if (err instanceof IdentityAdminError && err.code === "agent_not_configured")
+        return c.json({ ok: true, contacts: [] });
       return identityFailure(c, err);
     }
   });
@@ -2838,9 +2868,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     typeof body?.folder === "string" ? body.folder : "";
 
   /**
-   * Where the company knowledge base lives, as the client's read share needs
-   * it. No company KB is a state, not a failure — the surface shows no Company
-   * section rather than an error the reader cannot act on.
+   * Where the company knowledge base lives: its account and root folder.
+   *
+   * The surface reads the articles through `/knowledge/company/tree` and
+   * `/knowledge/company/article`; this answers the **location** a caller that
+   * composes the tree itself names (the door test reaching the folder id, and a
+   * future reader of the same shape). No company KB is a state, not a failure —
+   * an absent one answers `company: null` rather than an error.
    */
   api.get("/knowledge/company", requireSession, async (c) => {
     try {
@@ -2851,6 +2885,42 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
     } catch (err) {
       if (err instanceof KnowledgeAdminError) return c.json({ ok: true, company: null });
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  /**
+   * The company KB's tree, read as the Master (ADR 0024).
+   *
+   * A reader is not a member of the Master's account, so the company tier is
+   * served here rather than by a JMAP share; the same door every write uses
+   * reads it. `accountId` names the tier the folders belong to, so the surface
+   * can tell a company article from a group's.
+   */
+  api.get("/knowledge/company/tree", requireSession, async (c) => {
+    try {
+      const tree = await companyTree(c.get("session"), {
+        includeRetired: c.req.query("retired") === "1",
+      });
+      return c.json({ ok: true, accountId: tree.accountId, articles: tree.articles });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  /**
+   * One company article by its tier-relative folder, read as the Master.
+   *
+   * A folder that is not there answers `article: null` — a state the surface
+   * shows as nothing rather than a failure the reader cannot act on.
+   */
+  api.get("/knowledge/company/article", requireSession, async (c) => {
+    try {
+      return c.json({
+        ok: true,
+        article: await companyArticle(c.get("session"), c.req.query("folder") ?? ""),
+      });
+    } catch (err) {
       return knowledgeFailure(c, err);
     }
   });

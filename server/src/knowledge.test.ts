@@ -6,16 +6,13 @@ import { postWith } from "./testkit.js";
 /**
  * The knowledge base's Master-owned door (ADR 0024), end to end.
  *
- * The company KB is created at boot as the Master and shared read-only with
- * every account; every write goes through the route, which acts as the Master
- * and gates approval on the caller being an administrator. What these pin is
+ * The company KB is created at boot as the Master and read through the route;
+ * every write goes through the route, which acts as the Master and gates
+ * approval on the caller being an administrator. What these pin is
  * the lifecycle the ADR is built on: one shared draft per article, a revision
  * minted only at approval, an effective instant that puts the revision in force
  * now or leaves it pending, and history that is opened as a new draft rather
  * than edited. Each fails if the mechanism is removed.
- *
- * A write returning at all proves the principal enumeration and the share ran:
- * they are the first thing that would refuse.
  *
  * Mock port: must not collide with any other test file.
  */
@@ -98,7 +95,7 @@ const summaryOf = (body: Record<string, unknown> | null): Summary => {
   return summary;
 };
 
-/** The company KB's location, as the client's read share discovers it. */
+/** The company KB's location, as the client's read route discovers it. */
 async function company(): Promise<{ accountId: string; folderId: string }> {
   const res = await call("/api/knowledge/company");
   const where = res.body?.company as { accountId: string; folderId: string } | null;

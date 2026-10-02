@@ -5,10 +5,13 @@
  * app folder: the company's in the Master's account, a group's in the group's.
  * Every **write** goes through this module, which acts as the Master — the
  * installation's agent credential, or impersonation from the caller's session —
- * because the company KB is read through a read-only share that grants the
- * caller's own session nothing to write with. A group's KB is read with the
- * member's own session (membership is the grant) and written here so that both
- * tiers share one lifecycle, one shape and one approval gate.
+ * because a reader's own session holds nothing of the Master's account. The
+ * company KB is **read** through the same door, as a server route: a `shareWith`
+ * cannot name every account (Stalwart caps a share at 10 principals per item),
+ * so the route, and not a share, is how every account reaches the folder. A
+ * group's KB is read with the member's own session (membership is the grant)
+ * and written here so that both tiers share one lifecycle, one shape and one
+ * approval gate.
  *
  * The durable shape, the validators and the lifecycle arithmetic live in
  * `@gilbert/shared/knowledge`; this module only resolves which account and
@@ -39,7 +42,7 @@ import {
   ownIdentityAccount,
   refusalOf,
 } from "./identityAdmin.js";
-import { isStateMismatch, JMAP_PRINCIPALS, JmapClient } from "./jmap.js";
+import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { sameAddress } from "./shared/address.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
@@ -91,100 +94,33 @@ export class KnowledgeAdminError extends Error {
   }
 }
 
-/** How many principals one page of the enumeration asks for. */
-const PRINCIPAL_PAGE = 500;
-
 /* ------------------------------------------------------------------ */
 /* Where a tier's knowledge base lives                                 */
 /* ------------------------------------------------------------------ */
 
 /**
- * Ensure `gilbert/knowledge` exists and share it read-only with every
- * principal.
+ * Ensure `gilbert/knowledge` exists in the account.
  *
- * The company KB is the installation's, owned by the Master and read by every
- * account through a read-only share — the ADR 0023 shape Global contacts
- * already uses. The share is re-applied on every door call so an account
- * created since the last one is brought in; an enumeration that names nobody
- * fails loudly, because a knowledge base nobody can read is not a knowledge
- * base.
+ * The folder is the whole of what a tier needs here: the company KB reaches
+ * every account through the server route this door serves — a `shareWith`
+ * cannot name every account — and a group's KB is reached by membership.
+ * Neither is a share, so making the folder is all this does.
  */
-async function shareWithEveryone(
-  ctx: Ctx,
-  accountId: string,
-  folderId: string,
-): Promise<void> {
-  const client = new JmapClient(ctx);
-  const wanted: Record<string, { mayRead: boolean }> = {};
-  for (let position = 0; ; position += PRINCIPAL_PAGE) {
-    const page = await client.call<{ ids?: unknown[]; total?: unknown }>(
-      "Principal/query",
-      { accountId, position, limit: PRINCIPAL_PAGE, calculateTotal: true },
-      [JMAP_PRINCIPALS],
-    );
-    const ids = (page.ids ?? []).filter((id): id is string => typeof id === "string");
-    for (const id of ids) if (id !== accountId) wanted[id] = { mayRead: true };
-    if (ids.length < PRINCIPAL_PAGE) break;
-    if (typeof page.total === "number" && position + ids.length >= page.total) break;
-  }
-  if (!Object.keys(wanted).length)
-    throw new KnowledgeAdminError(
-      "knowledge_share",
-      "No principal could be enumerated, so the knowledge base could not be shared with anyone.",
-      502,
-    );
-
-  const current = await client.call<{ list?: Array<{ shareWith?: unknown }> }>(
-    "FileNode/get",
-    { accountId, ids: [folderId], properties: ["id", "shareWith"] },
-    [FILENODE_CAP],
-  );
-  const existing = (current.list?.[0]?.shareWith ?? {}) as Record<string, unknown>;
-  const shareWith = { ...existing, ...wanted };
-  const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
-    "FileNode/set",
-    { accountId, update: { [folderId]: { shareWith } } },
-    [FILENODE_CAP, JMAP_PRINCIPALS],
-  );
-  const refused = res.notUpdated?.[folderId];
-  if (refused)
-    throw new KnowledgeAdminError(
-      "knowledge_share",
-      refusalOf(refused as { type?: unknown; description?: unknown }) ||
-        "The knowledge base could not be shared.",
-      502,
-    );
+async function knowledgeFolder(ctx: Ctx, accountId: string): Promise<string> {
+  return ensureFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
 }
 
 /**
- * Ensure the KB folder exists, sharing it only when the tier is the company's.
- *
- * The company KB is installation-wide and reaches every account through the
- * read-only share; a group's KB is reached by membership and is **never**
- * shared, or the group's documents would leak to every principal in the
- * directory (`gilbert-groups`). That is the whole difference between the two
- * tiers at this level, so it is a parameter rather than two folder walks.
- */
-async function knowledgeFolder(
-  ctx: Ctx,
-  accountId: string,
-  share: boolean,
-): Promise<string> {
-  const folderId = await ensureFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
-  if (share) await shareWithEveryone(ctx, accountId, folderId);
-  return folderId;
-}
-
-/**
- * Make the Master's company knowledge base exist and be shared.
+ * Make the Master's company knowledge base exist.
  *
  * Run at boot so the company KB is there for every reader without anyone
  * creating it — a thing the product needs is made to happen, not asked for with
- * a button. Idempotent and safe on every boot. A group's KB is created on first
- * use, as `gilbert/chat` is, and by membership rather than a share.
+ * a button. Idempotent and safe on every boot. Readers reach the folder through
+ * the route, not a share; a group's KB is created on first use, as
+ * `gilbert/chat` is, and by membership.
  */
 export async function ensureKnowledge(ctx: Ctx, accountId: string): Promise<void> {
-  await knowledgeFolder(ctx, accountId, true);
+  await knowledgeFolder(ctx, accountId);
 }
 
 /**
@@ -222,9 +158,9 @@ export async function companyKnowledgeAccount(
       "The Master's own account could not be read, so the company knowledge base cannot be reached.",
       409,
     );
-  // No share here: `ensureKnowledge` applied it at boot, and a read-only
-  // discovery must not write. The root share reaches every nested article.
-  const folderId = await knowledgeFolder(ctx, accountId, false);
+  // Readers reach the folder through the route this door serves, not a share,
+  // so making the folder is all this resolves.
+  const folderId = await knowledgeFolder(ctx, accountId);
   return { ctx, accountId, folderId };
 }
 
@@ -273,9 +209,9 @@ export async function groupKnowledgeAccount(
       `The installation's agent is not a member of ${group.trim() || group}, so its knowledge base cannot be written.`,
       409,
     );
-  // No share: the group's KB is reached by membership, never by a grant to
-  // every principal (`gilbert-groups`). Only the folder is made, on first use.
-  const folderId = await knowledgeFolder(ctx, accountId, false);
+  // The group's KB is reached by membership, never a share (`gilbert-groups`);
+  // only the folder is made, on first use.
+  const folderId = await knowledgeFolder(ctx, accountId);
   return { ctx, accountId, folderId };
 }
 
@@ -686,6 +622,45 @@ export async function readArticle(
     effective,
     revisions: revisions.map(revisionSummary),
   };
+}
+
+/**
+ * The company KB's tree, read through the route as the Master (ADR 0024).
+ *
+ * A reader is not a member of the Master's account, so the company tier is
+ * reached by a server route rather than a JMAP share: `shareWith` cannot name
+ * every account. The tier is resolved first — its account and root folder —
+ * and the articles are listed from there, the same walk the group tier reads
+ * with the reader's own session.
+ */
+export async function companyTree(
+  admin: LiveSession,
+  opts: { includeRetired?: boolean } = {},
+): Promise<{ accountId: string; articles: KnowledgeSummary[] }> {
+  const { ctx, accountId, folderId } = await companyKnowledgeAccount(admin);
+  return {
+    accountId,
+    articles: await listArticles(ctx, accountId, folderId, {
+      includeRetired: opts.includeRetired === true,
+    }),
+  };
+}
+
+/**
+ * One company article by its tier-relative folder, or null when it is not
+ * there.
+ *
+ * The read goes through the master door for the same reason the tree does: a
+ * reader's own session cannot see the Master's account. An absent folder is a
+ * state, not a failure — the surface shows nothing rather than an error the
+ * reader cannot act on.
+ */
+export async function companyArticle(
+  admin: LiveSession,
+  folder: string,
+): Promise<KnowledgeArticleView | null> {
+  const { ctx, accountId, folderId } = await companyKnowledgeAccount(admin);
+  return readArticle(ctx, accountId, folderId, folder);
 }
 
 /* ------------------------------------------------------------------ */
