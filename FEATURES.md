@@ -869,11 +869,13 @@ a folder of Files.
   breaks nothing.
 - **One shared draft, an administrator's approval.** Users and agents edit the
   same unapproved draft. Only an installation administrator **approves**, stating
-  the date the revision takes effect: a date already passed puts it in force at
-  once, a future one leaves it **pending** beside the revision still in force,
-  and the revision it replaces stays readable as **superseded**. History is never
-  edited — restoring a superseded revision opens a new draft, which is approved
-  again.
+  the instant the revision takes effect: an instant already passed puts it in
+  force at once, a future one leaves it **pending** beside the revision still in
+  force, and the revision it replaces stays readable as **superseded**. History
+  is never edited — restoring a superseded revision opens a new draft, which is
+  approved again. An article that was ever approved is **retired**, never
+  deleted: it leaves the tree and is found only by showing retired articles,
+  while a draft no approval ever touched is deleted outright.
 - **Written as the Master.** Every write goes through a server route
   (`/api/knowledge/*`) that acts as the Master, because the company KB is read
   through a read-only share that grants the caller's own session nothing to write
@@ -896,8 +898,9 @@ a folder of Files.
   that reaches every account — is owed the live probe ADR 0023 already names.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
-Excalidraw diagrams, the attachment upload surface, and the document-controller's
-multi-document plan kept as a document of its own.
+Excalidraw diagrams, and the document-controller's multi-document plan kept as a
+document of its own. There are no attachments: a procedure is formatted text
+blocks.
 
 ---
 

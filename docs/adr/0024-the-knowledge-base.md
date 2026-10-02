@@ -11,10 +11,10 @@ validators and the lifecycle arithmetic are one definition
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
 BlockNote editor are `web/src/views/knowledge/`; and the fleet's `knowledge`
 lookup and `knowledge.write` capability live in `server/src/agent/`. Not built:
-the attachment upload surface, the multi-document plan kept as its own document,
-and the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
-diagrams). The company KB's read share on `gilbert/knowledge` is owed the live
-probe ADR 0023 carries for a share that reaches every account.
+the multi-document plan kept as its own document, and the phases this record
+defers (co-editing over Yjs/Hocuspocus, Excalidraw diagrams). The company KB's
+read share on `gilbert/knowledge` is owed the live probe ADR 0023 carries for a
+share that reaches every account.
 
 ## Context
 
@@ -270,15 +270,21 @@ below.
   server authenticated and never from the request: the Master is the writer of
   every KB document (Q1), so the document is the only place an administrator can
   be named.
-- **Approval issues the draft as a revision, with an effective date.** The
-  administrator approves and states the date the revision takes effect. A date
-  already passed puts it in force at once; a future date leaves it **pending**,
-  and until then the previous revision stays in force and is what readers see —
-  an article with no earlier revision is simply not yet in force. The pending
-  revision and its date are shown, never a hidden timer.
+- **Approval issues the draft as a revision, with an effective instant.** The
+  administrator approves and states the instant the revision takes effect — a
+  UTC instant, shown in each reader's own timezone. An instant already passed
+  puts it in force at once; a future one leaves it **pending**, and until then
+  the previous revision stays in force and is what readers see — an article with
+  no earlier revision is simply not yet in force. The pending revision and its
+  instant are shown, never a hidden timer.
 - **The previous revision stays in history as superseded.** Approving a new
   revision supersedes the one before it, which remains readable and is marked
   superseded. Nothing already issued is ever edited in place.
+- **An article that was ever approved is retired, never deleted.** Withdrawing
+  one keeps it, with its revisions, and marks it **retired**: it leaves the tree
+  and is found only by a search that asks for retired articles, so it cannot
+  confuse a reader. An article no approval ever touched is deleted outright.
+  Retiring is an administrator's, like approving.
 
 ### Storage
 
@@ -300,8 +306,9 @@ below.
   approved it, the approval instant, the effective date, and the revision it
   supersedes). Neither the search index nor an agent's read has to understand the
   editor's format.
-- **Attachments** are blobs in the account's Files, referenced from the page;
-  the KB does not invent a second blob store.
+- **There are no attachments.** A procedure is formatted text blocks and nothing
+  else, so a revision snapshots the whole document and nothing can change under
+  it.
 - **Who owns a page** follows the account it is created in, never a `shareWith`
   written later (`gilbert-groups`).
 
@@ -365,11 +372,11 @@ What is then true:
 
 - **In-force and superseded revisions are kept for ever** — they are the
   controlled record, not history to prune (the distinction the ISO case forces).
-- **An administrator may delete an article outright** — the folder and its
-  revisions go together, for a page created by mistake. It is the one exception
-  to "kept for ever", it is `requireAdmin`, and it is a decision rather than a
-  gap: the alternative is a void state that keeps a page nobody wants in a
-  reader's tree.
+- **An article that was ever approved is retired, not deleted** — kept with its
+  revisions, hidden from the tree, found only by a search that asks for retired
+  articles. The one exception is an article no approval ever touched, which is
+  deleted outright: a draft nobody depended on is not the controlled record.
+  Retiring is `requireAdmin`, like approving.
 - **The draft is the one bounded thing**: one per article, replaced by the next
   revision on approval, so there is no per-save pile to bound.
 - **A restore of a superseded revision opens a new draft** — by any writer
@@ -499,10 +506,10 @@ The record is **Proposed** until the owner accepts it.
 10. **Immutability of an approved revision** — **Settled.** Never edited in
     place; the next change is a new draft, and the old revision becomes
     superseded.
-11. **Attachments of a controlled document** — **Settled.** Frozen with the
-    revision: a controlled document whose annex can change under it is not
-    controlled, so an approval fixes the attachment with the text it was approved
-    with.
+11. **Attachments of a controlled document** — **Settled: there are none.** A
+    procedure is formatted text blocks and nothing else, so an approval already
+    fixes everything the article holds — there is no annex that can change under
+    a revision.
 12. **Editor** — **Settled.** **BlockNote**, the block editor the Editor section
     names, whose core is MPL-2.0.
 13. **Real-time co-editing now or later?** — **Settled: later.** v1 saves the whole
@@ -569,6 +576,8 @@ The record is **Proposed** until the owner accepts it.
   enterprise product.
 - **Extending the composer's editor.** A block document editor is a component
   to take off the shelf, not to grow by hand (`docs/adr/0029`).
+- **Attachments.** A procedure is formatted text blocks; the KB holds no file
+  beside a page, so there is nothing to freeze or version.
 - **An anonymous Web surface.** The KB is installation-wide only (Q7); an
   anonymous surface would be a record of its own.
 - **Per-user setup.** The company KB exists at boot and is shared automatically;

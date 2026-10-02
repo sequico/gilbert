@@ -35,9 +35,9 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   and the fleet's `knowledge` read and `knowledge.write` — see
   [The knowledge base](FEATURES.md#the-knowledge-base). What is deliberately
   later is what ADR 0024 defers: real-time co-editing over Yjs/Hocuspocus (v1
-  saves the whole draft under `ifInState` and says so), Excalidraw diagrams, the
-  attachment upload surface, and the document-controller's multi-document plan
-  kept as a document of its own rather than as a run's actions. The company KB's
+  saves the whole draft under `ifInState` and says so), Excalidraw diagrams, and
+  the document-controller's multi-document plan kept as a document of its own
+  rather than as a run's actions. The company KB's
   read share on `gilbert/knowledge` is owed the live probe ADR 0023 already names
   for a share of a nested folder that reaches every account.
 
