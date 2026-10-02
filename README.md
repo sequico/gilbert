@@ -142,18 +142,17 @@ and the mail client is what they live in.
   by every account, plus one per group owned by the group. A page has one shared
   draft that people and agents edit, an administrator **approves** it into force
   with an effective instant, and every issued revision is kept — a page that was
-  ever approved is **retired**, never deleted. BlockNote is the editor, Orama
-  searches in-process, and the fleet reads and drafts pages: a multi-page change
-  is a plan whose per-page outcomes and a review's findings are kept on the run's
-  own record.
+  ever approved is **retired**, never deleted. The fleet reads and drafts pages;
+  a multi-page change is a plan, and a review's findings are kept with the run
+  that produced them.
 - **Workorders, from a factory icon beside chat.** A **workorder** gathers, by
-  reference, the folders, files and KB articles that belong to it, and carries a
+  reference, the folders, files and KB pages that belong to it, and carries a
   checklist that is an **instance of a KB template** bound to the revision in
   force — the operational state, step by step, with the last signature of who
   checked it. It is one **uid** with a **root** in the Master's registry and a
   **part** per group in that group's own account; opening one shows the global
-  checklist and the reader's groups' parts. The launcher is a factory in the top
-  bar, and it opens a large panel.
+  checklist and the reader's groups' parts, in a large panel beside the rest of
+  the app.
 - **File management that holds up.** A folder tree that remembers how you left
   it, drag and drop with whole folders (empty ones included), uploads you can
   **cancel** mid-flight, a sort order kept per folder, multi-select with
