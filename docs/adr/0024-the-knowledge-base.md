@@ -4,12 +4,6 @@ Status: Proposed
 
 Implementation: Not built.
 
-> **This record is a working notebook, not yet a decision.** The owner asked for
-> the findings, the design as it stands and every open question to be written
-> down before any code exists. It is rewritten in place as the questions in
-> **Open questions** are answered, and it becomes a decision record when the
-> owner accepts it. `Implementation: Not built.` is literal: there is no code.
-
 ## Context
 
 Gilbert needs an **enterprise knowledge base** — a place for the company's
@@ -193,8 +187,8 @@ Excalidraw only when their phase arrives.
 
 ## The design as it stands
 
-Not yet accepted, and each unsettled point below has a question in **Questions,
-settled and open**. The approval lifecycle is settled and is the core of it.
+Not yet accepted, and every question below is settled. The approval lifecycle is
+the core of it.
 
 ### What the KB holds: procedures and checklist templates
 
@@ -437,11 +431,10 @@ does this is a *document controller*, and it is where the KB earns its keep.
   administrator approves and sets the effective date**. An agent that could both
   draft and approve would collapse the separation ISO 9001 exists to keep.
 
-## Questions, settled and open
+## Questions, settled
 
-The approval lifecycle above settles several of these; each is marked
-**Settled** with what the owner decided, or **Open** with the recommendation
-still standing. The open ones are the reasons this record is still Proposed.
+Every question this record opened is settled below, with what the owner decided.
+The record is **Proposed** until the owner accepts it.
 
 1. **Who writes the company KB, and through which door?** — **Settled.** Every
    member and every agent writes and edits drafts, and only an administrator
@@ -529,8 +522,10 @@ still standing. The open ones are the reasons this record is still Proposed.
     for provenance, with the plan text also attached to the review item a person
     sees.
 24. **May one plan touch more than one owner** (the company KB and a group's) in
-    a single request? — **Open.** *Recommend no in v1: a plan is one owner's, so
-    its share and its approval are unambiguous.*
+    a single request? — **Settled: no in v1.** A plan is one owner's: `ifInState`
+    is per-account, so a cross-owner plan could not be atomic, and each owner's
+    approval and door differ. Crossing owners is two plans, each approved by the
+    administrator; a parent job that coordinates them is later work.
 25. **Does approving a plan publish, or only write drafts?** — **Settled.**
     Approval is the act that issues the revision, with the effective date; a plan
     produces draft changes that wait for an administrator's approval.

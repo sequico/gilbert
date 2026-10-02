@@ -228,7 +228,7 @@ is, not what a user sees.
   `All contacts` and the reader's own books, as well as being merged in it; its
   cards are ordinary cards. The exact Stalwart shape of a share naming every
   account at once is owed a live probe.
-- **0024 — The knowledge base (proposed, a working record).** An enterprise
+- **0024 — The knowledge base (proposed).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
   owned by the Master and shared, plus a KB per group owned by the group, over
   app-folder documents in Stalwart — policies, procedures and the checklist
@@ -240,10 +240,9 @@ is, not what a user sees.
   the search (Orama) off the shelf and builds the rest — storage, ownership,
   versioning, approval — itself, and makes the fleet a **document controller**
   that keeps policies aligned, finds inconsistencies and plans multi-document
-  edits. The record is **Proposed** and deliberately a notebook: it carries the
-  findings, the design as it stands, the lifecycle, versioning and publication
-  (e.g. ISO 9001 policies), the library choice, and the questions still open,
-  before any code exists.
+  edits. The record is **Proposed**, every design question settled: it carries
+  the findings, the design as it stands, the lifecycle, versioning and publication
+  (e.g. ISO 9001 policies), and the library choice.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check

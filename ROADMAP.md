@@ -38,12 +38,10 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   an approval is gated on lives, and the company KB is read through a read-only
   share to every account; the KB is the strategic layer — policies, procedures
   and the checklist templates a workorder instantiates (ADR 0028). The record is
-  **Proposed** and deliberately a working notebook: the editor (BlockNote) and the
+  **Proposed**, every design question settled: the editor (BlockNote) and the
   search (Orama) come off the shelf, and the storage, ownership, versioning,
-  approval and the fleet's document-controller behaviour are Gilbert's own. What
-  still decides it —
-  co-editing in v1 or a lock, the editor, the search index, the anonymous
-  surface — is in its **Questions, settled and open**.
+  approval and the fleet's document-controller behaviour are Gilbert's own.
+  Co-editing is a later phase and there is no anonymous surface.
 
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 
