@@ -14,14 +14,13 @@
  * dispatches into `applyChanges`.
  */
 
-import { appDocumentJson } from "@gilbert/shared/appDocument";
-import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
 import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
   CHAT_PAGE,
+  type ChatFolders,
   type ChatMessage,
   compareMessages,
   createDoc,
@@ -53,7 +52,7 @@ export interface ChatConversation {
   accountId: Id;
   name: string;
   /** The chat/chat-state folders once ensured; null until the first load. */
-  folders: { chat: Id; state: Id } | null;
+  folders: ChatFolders | null;
   /** Messages in transcript order (server creation order, see compareMessages). */
   nodes: ChatMessage[];
   /** The FileNode state the transcript was last synced from. */
@@ -333,23 +332,12 @@ export const useChat = create<ChatState>((set, get) => {
     if (!conv || !folders || !me) return;
     if (conv.marker?.lastRead === target) return;
     try {
-      const doc = { v: 1 as const, lastRead: target };
-      const marker = conv.marker;
-      let markerId = marker?.id ?? null;
-      if (marker?.id) {
-        // Rewrite the existing marker node's blob.
-        const json = appDocumentJson(doc);
-        const blob = new Blob([json], { type: APP_DOCUMENT_TYPE });
-        const up = await client.upload(accountId, blob, { type: APP_DOCUMENT_TYPE });
-        await client.call("FileNode/set", {
-          accountId,
-          update: {
-            [marker.id]: { blobId: up.blobId, type: APP_DOCUMENT_TYPE, size: blob.size },
-          },
-        });
-      } else {
-        markerId = await writeDoc(accountId, folders.state, markerNameFor(me), doc);
-      }
+      // One writer for every chat document (`lib/chat.ts`): the write finds the
+      // marker by name and updates it, minting a node only the first time.
+      const markerId = await writeDoc(accountId, folders.state, markerNameFor(me), {
+        v: 1 as const,
+        lastRead: target,
+      });
       set((s) => ({
         conversations: {
           ...s.conversations,
@@ -638,12 +626,20 @@ export const useChat = create<ChatState>((set, get) => {
           set((s) => {
             const c = s.conversations[accountId];
             if (!c) return {};
+            /*
+             * Rebased on what the conversation holds now, not the snapshot the
+             * sync started from: a `send()` can append a node while the changes
+             * are in flight, and replacing `nodes` with the stale list would
+             * make the message vanish until the next poll.
+             */
+            const merged = c.nodes.filter((n) => !destroyed.has(n.id));
+            for (const m of arrived) sortedInsert(merged, m);
             return {
               conversations: {
                 ...s.conversations,
                 [accountId]: {
                   ...c,
-                  nodes,
+                  nodes: merged,
                   stateToken: since,
                   ...(markerGone ? { marker: null } : {}),
                   ...(replyGone ? { replyTo: null } : {}),

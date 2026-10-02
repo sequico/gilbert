@@ -115,3 +115,20 @@ export function emojiAsset(sequence: string): string | null {
   const stem = EMOJI_ASSET[sequence];
   return stem ? withBase(`/img/emoji/${stem}.png`) : null;
 }
+
+/**
+ * The grapheme clusters of a string, for stable per-character rendering.
+ *
+ * One splitter for the chat surfaces: an emoji is several code points, and the
+ * composer and the message body must both treat it as one character. Without
+ * segmentation a flag or a skin-toned emoji would be cut in half.
+ */
+export function graphemes(text: string): string[] {
+  try {
+    return [
+      ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
+    ].map((s) => s.segment);
+  } catch {
+    return [text];
+  }
+}

@@ -20,7 +20,7 @@
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { localPart, mentionRegex } from "@/lib/chat";
-import { emojiAsset } from "@/lib/emoji";
+import { emojiAsset, graphemes } from "@/lib/emoji";
 import { t } from "@/lib/i18n";
 
 export interface ChatInputHandle {
@@ -68,17 +68,6 @@ function serializePlain(root: HTMLElement): string {
   };
   for (const c of root.childNodes) walk(c);
   return out;
-}
-
-/** The grapheme clusters of a string, for stable per-character rendering. */
-function graphemes(text: string): string[] {
-  try {
-    return [
-      ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
-    ].map((s) => s.segment);
-  } catch {
-    return [text];
-  }
 }
 
 /** Render plain text into the editor: mention chips, <br>, emoji as images. */

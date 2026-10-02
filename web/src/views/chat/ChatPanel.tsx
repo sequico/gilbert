@@ -12,6 +12,7 @@ import { Bot, CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import {
+  CHAT_PAGE,
   type ChatMention,
   type ChatMessage,
   localPart,
@@ -20,7 +21,7 @@ import {
   mentionRegex,
   participantsOf,
 } from "@/lib/chat";
-import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
+import { COMMON_EMOJI, emojiAsset, graphemes } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
@@ -48,15 +49,7 @@ function snippet(text: string): string {
  * only -- the message itself is plain text (ADR 0005).
  */
 function EmojiText({ text }: { text: string }) {
-  const parts = useMemo(() => {
-    try {
-      return [
-        ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
-      ].map((s) => s.segment);
-    } catch {
-      return [text];
-    }
-  }, [text]);
+  const parts = useMemo(() => graphemes(text), [text]);
   return (
     <>
       {parts.map((part, i) => {
@@ -335,7 +328,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     open.loaded &&
     open.reachedStart &&
     !open.pagingMore &&
-    open.nodes.length >= 200;
+    open.nodes.length >= CHAT_PAGE;
 
   return (
     <div className="chat-panel">
