@@ -40,7 +40,12 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
   }, [part.blobId, cal.available]);
 
   if (!cal.available) return null;
-  if (error) return null;
+  if (error)
+    return (
+      <div className="invite-card">
+        <div className="hint">{t("This invitation could not be read.")}</div>
+      </div>
+    );
   const ev = events?.[0];
   if (!ev) return null;
   const method = (ev.method ?? "").toUpperCase();
@@ -58,14 +63,19 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
     : null;
   const attendees = Object.values(ev.participants ?? {}).filter(isAttendee);
 
+  // The calendar an invitation goes into when it is not there yet: the
+  // account's default, or the first one. One definition, used by both the RSVP
+  // and the plain add.
+  const defaultCalendarId = () =>
+    Object.values(cal.calendars).find((c) => c.isDefault)?.id ??
+    Object.keys(cal.calendars)[0];
+
   const respond = async (status: "accepted" | "tentative" | "declined") => {
     setBusy(status);
     try {
       let target = existing;
       if (!target) {
-        const calId =
-          Object.values(cal.calendars).find((c) => c.isDefault)?.id ??
-          Object.keys(cal.calendars)[0];
+        const calId = defaultCalendarId();
         if (!calId) throw new Error("No calendar available");
         const id = await cal.importEvent(ev, calId);
         target = await cal.getEvent(id);
@@ -90,9 +100,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
   const addToCalendar = async () => {
     setBusy("add");
     try {
-      const calId =
-        Object.values(cal.calendars).find((c) => c.isDefault)?.id ??
-        Object.keys(cal.calendars)[0];
+      const calId = defaultCalendarId();
       if (!calId) throw new Error("No calendar available");
       const id = await cal.importEvent(ev, calId);
       setExisting(await cal.getEvent(id));
@@ -106,14 +114,14 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
 
   const title =
     method === "CANCEL"
-      ? "Cancelled event"
+      ? t("Cancelled event")
       : method === "REPLY"
-        ? "Invitation reply"
+        ? t("Invitation reply")
         : method === "REQUEST"
           ? existing
-            ? "Invitation (in your calendar)"
-            : "Invitation"
-          : "Event";
+            ? t("Invitation (in your calendar)")
+            : t("Invitation")
+          : t("Event");
 
   return (
     <div className="invite-card">
@@ -168,7 +176,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
                 disabled={Boolean(busy)}
                 onClick={() => void respond("accepted")}
               >
-                <Check size={14} /> {myStatus === "accepted" ? "Accepted" : "Yes"}
+                <Check size={14} /> {myStatus === "accepted" ? t("Accepted") : t("Yes")}
               </button>
               <button
                 className={`btn btn-sm ${myStatus === "tentative" ? "btn-primary" : ""}`}
@@ -176,14 +184,14 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
                 onClick={() => void respond("tentative")}
               >
                 <HelpCircle size={14} />{" "}
-                {myStatus === "tentative" ? "Tentative" : "Maybe"}
+                {myStatus === "tentative" ? t("Tentative") : t("Maybe")}
               </button>
               <button
                 className={`btn btn-sm ${myStatus === "declined" ? "btn-danger" : ""}`}
                 disabled={Boolean(busy)}
                 onClick={() => void respond("declined")}
               >
-                <X size={14} /> {myStatus === "declined" ? "Declined" : "No"}
+                <X size={14} /> {myStatus === "declined" ? t("Declined") : t("No")}
               </button>
             </>
           ) : (

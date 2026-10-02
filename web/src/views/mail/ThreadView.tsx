@@ -25,8 +25,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
+import { emlFilename } from "@/lib/emlName";
 import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
+import { mailboxDisplayName } from "@/lib/mailboxName";
 import {
   deleteEffectInFolder,
   finalFoldersOf,
@@ -352,7 +354,8 @@ export function ThreadView({
     const set = new Set<string>();
     for (const m of messages)
       for (const id of Object.keys(m.mailboxIds))
-        if (mailboxes[id] && id !== mailboxId) set.add(mailboxes[id]!.name);
+        if (mailboxes[id] && id !== mailboxId)
+          set.add(mailboxDisplayName(mailboxes[id]!));
     return [...set];
   }, [messages, mailboxes, mailboxId]);
 
@@ -382,7 +385,7 @@ export function ThreadView({
         </button>
         <button
           className="icon-btn"
-          title={inJunk ? "Not spam" : "Report spam (!)"}
+          title={inJunk ? t("Not spam") : t("Report spam (!)")}
           onClick={() => void actions.spam(rowIds)}
         >
           {inJunk ? <ShieldCheck size={19} /> : <AlertOctagon size={19} />}
@@ -398,7 +401,7 @@ export function ThreadView({
         <span className="tb-sep hide-mobile" />
         <button
           className="icon-btn hide-mobile"
-          title={anyUnread ? "Mark as read" : "Mark as unread"}
+          title={anyUnread ? t("Mark as read") : t("Mark as unread")}
           onClick={() => void actions.read(anyUnread, rowIds)}
         >
           {anyUnread ? <MailOpen size={19} /> : <Mail size={19} />}
@@ -460,7 +463,7 @@ export function ThreadView({
                 a.href = client.downloadUrl(
                   accountId,
                   last.blobId,
-                  `${(last.subject || "message").replace(/[^\w.-]+/g, "_")}.eml`,
+                  emlFilename(last.subject),
                   "message/rfc822",
                 );
                 a.download = "";

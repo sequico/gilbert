@@ -24,7 +24,16 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
@@ -1025,9 +1034,9 @@ export const MessageView = memo(function MessageView({
           {Object.entries(e)
             .filter(([k]) => k.startsWith("header:"))
             .map(([k, v]) => (
-              <>
-                <dt key={`${k}-t`}>{k.split(":")[1]}</dt>
-                <dd key={`${k}-d`} className="mono small">
+              <Fragment key={k}>
+                <dt>{k.split(":")[1]}</dt>
+                <dd className="mono small">
                   {Array.isArray(v)
                     ? v
                         .map((x: unknown) =>
@@ -1038,7 +1047,7 @@ export const MessageView = memo(function MessageView({
                         .join(", ")
                     : String(v ?? "—")}
                 </dd>
-              </>
+              </Fragment>
             ))}
           <dt>{translate("Received")}</dt>
           <dd>{formatFullDate(e.receivedAt)}</dd>

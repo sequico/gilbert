@@ -167,7 +167,17 @@ export function MailView({
       collapseThreads: settings.conversationMode && !isDraftsOrSent,
       mailboxId,
     };
-  }, [search, q, mailboxId, mailboxes, settings.conversationMode, scheduledId]);
+  }, [
+    search,
+    q,
+    mailboxId,
+    mailboxes,
+    settings.conversationMode,
+    settings.listSortScope,
+    settings.listSortPreset,
+    settings.listSortLevels,
+    scheduledId,
+  ]);
 
   useEffect(() => {
     if (listQuery && mailboxesLoaded) void query(listQuery);

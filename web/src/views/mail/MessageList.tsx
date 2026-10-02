@@ -575,7 +575,7 @@ export function MessageList({
                         <AlertOctagon size={16} />
                       )
                     }
-                    label={mailbox?.role === "junk" ? "Not spam" : "Report spam"}
+                    label={mailbox?.role === "junk" ? t("Not spam") : t("Report spam")}
                     onClick={() => void actions.spam()}
                   />
                   <MenuItem
@@ -906,7 +906,9 @@ export function MessageList({
                     )}
                     <Row
                       email={e}
-                      threadEmails={threadEmailsByRow.get(id)}
+                      threadEmails={
+                        list?.collapseThreads ? threadEmailsByRow.get(id) : undefined
+                      }
                       top={vi.start}
                       height={vi.size}
                       selected={Boolean(selected[id])}
@@ -1021,14 +1023,14 @@ export function MessageList({
         />
         <MenuItem
           icon={<AlertOctagon size={16} />}
-          label={mailbox?.role === "junk" ? "Not spam" : "Report spam"}
+          label={mailbox?.role === "junk" ? t("Not spam") : t("Report spam")}
           kbd="!"
           onClick={() => void actions.spam(ctxTargets)}
         />
         <MenuSep />
         <MenuItem
           icon={someUnread ? <MailOpen size={16} /> : <Mail size={16} />}
-          label={someUnread ? "Mark as read" : "Mark as unread"}
+          label={someUnread ? t("Mark as read") : t("Mark as unread")}
           onClick={() => void actions.read(someUnread, ctxTargets)}
         />
         <MenuItem

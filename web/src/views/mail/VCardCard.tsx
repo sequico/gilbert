@@ -52,7 +52,7 @@ export function VCardCard({ part, accountId }: { part: EmailBodyPart; accountId:
         <div className="hint">{t("vCard attachment")}</div>
       </div>
       <button className="btn btn-sm" disabled={busy || done} onClick={() => void add()}>
-        {done ? "Added" : "Add to contacts"}
+        {done ? t("Added") : t("Add to contacts")}
       </button>
     </div>
   );
