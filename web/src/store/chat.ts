@@ -419,7 +419,8 @@ export const useChat = create<ChatState>((set, get) => {
         .ensureAccount(accountId)
         .then(() => {
           // The marker is born at first open, reading up to the newest message:
-          // no marker ever means "everything is unread" (ADR 0005 kind rule).
+          // a chat opened for the first time starts read, rather than counting
+          // every message already in it (ADR 0005 kind rule).
           markAt(accountId);
         });
     },
