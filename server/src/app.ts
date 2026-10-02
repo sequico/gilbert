@@ -153,6 +153,13 @@ import type { KnowledgeArticleInput, KnowledgeTarget } from "./shared/knowledge.
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
+import {
+  isWorkorderRef,
+  isWorkorderState,
+  isWorkorderTemplateRef,
+  type WorkorderCreateInput,
+  type WorkorderRef,
+} from "./shared/workorder.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
@@ -173,6 +180,15 @@ import {
   type UpstreamSession,
   upstreamFor,
 } from "./upstream.js";
+import {
+  checkStep as checkWorkorderStep,
+  closeWorkorder,
+  createWorkorder,
+  editRefs,
+  listWorkorders,
+  readWorkorder,
+  WorkorderAdminError,
+} from "./workorderAdmin.js";
 
 type Env = { Variables: { session: LiveSession; adminPermissions: readonly string[] } };
 
@@ -2954,6 +2970,146 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ ok: true, retired: result.retired });
     } catch (err) {
       return knowledgeFailure(c, err);
+    }
+  });
+
+  // ---------- Workorders (ADR 0028) ----------
+
+  /** A refusal from the workorder surface: its code and sentence, or upstream's. */
+  const workorderFailure = (c: Context, err: unknown) => {
+    if (err instanceof WorkorderAdminError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  };
+
+  /** The creation body, narrowed to what the door writes. */
+  const workorderCreate = (raw: unknown): WorkorderCreateInput => {
+    const r = (raw ?? {}) as Record<string, unknown>;
+    if (typeof r.name !== "string" || !isWorkorderTemplateRef(r.template))
+      throw new WorkorderAdminError(
+        "bad_request",
+        "A workorder needs a name and the template it instantiates.",
+      );
+    return {
+      name: r.name,
+      template: r.template,
+      groups: Array.isArray(r.groups)
+        ? r.groups.filter((group): group is string => typeof group === "string")
+        : [],
+    };
+  };
+
+  api.get("/workorders", requireSession, async (c) => {
+    try {
+      return c.json({ ok: true, workorders: await listWorkorders(c.get("session")) });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  api.get("/workorders/:uid", requireSession, async (c) => {
+    try {
+      const workorder = await readWorkorder(c.get("session"), c.req.param("uid"));
+      if (!workorder) return c.json({ ok: false, error: "workorder_not_found" }, 404);
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  api.post("/workorders/create", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<unknown>(c);
+    try {
+      const workorder = await createWorkorder(c.get("session"), workorderCreate(body));
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  api.post("/workorders/check", requireSession, async (c) => {
+    const body = await readJson<{
+      uid?: unknown;
+      scope?: unknown;
+      group?: unknown;
+      stepId?: unknown;
+      checked?: unknown;
+    }>(c);
+    const rawScope = body?.scope;
+    const scope = rawScope === "global" || rawScope === "group" ? rawScope : null;
+    if (!scope)
+      return c.json(
+        { error: "bad_request", message: 'The scope must be "global" or "group".' },
+        400,
+      );
+    try {
+      const workorder = await checkWorkorderStep(c.get("session"), {
+        uid: typeof body?.uid === "string" ? body.uid : "",
+        scope,
+        group: typeof body?.group === "string" ? body.group : undefined,
+        stepId: typeof body?.stepId === "string" ? body.stepId : "",
+        checked: body?.checked === true,
+      });
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  api.post("/workorders/close", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ uid?: unknown; state?: unknown }>(c);
+    const state = body?.state;
+    if (!isWorkorderState(state))
+      return c.json(
+        { error: "bad_request", message: "A workorder state is required." },
+        400,
+      );
+    try {
+      const workorder = await closeWorkorder(
+        c.get("session"),
+        typeof body?.uid === "string" ? body.uid : "",
+        state,
+      );
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  api.post("/workorders/ref", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{
+      uid?: unknown;
+      change?: unknown;
+      add?: unknown;
+      remove?: unknown;
+    }>(c);
+    // The client sends `{ uid, change: { add?, remove? } }`; the flat
+    // `{ uid, add?, remove? }` is accepted as well.
+    const nested = body?.change;
+    const source =
+      typeof nested === "object" && nested !== null && !Array.isArray(nested)
+        ? nested
+        : body;
+    const container = (source ?? {}) as { add?: unknown; remove?: unknown };
+    const change: { add?: WorkorderRef; remove?: WorkorderRef } = {};
+    const add = container.add;
+    const remove = container.remove;
+    if (isWorkorderRef(add)) change.add = add;
+    if (isWorkorderRef(remove)) change.remove = remove;
+    if (!change.add && !change.remove)
+      return c.json(
+        { error: "bad_request", message: "A reference to add or remove is required." },
+        400,
+      );
+    try {
+      const workorder = await editRefs(
+        c.get("session"),
+        typeof body?.uid === "string" ? body.uid : "",
+        change,
+      );
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
     }
   });
 

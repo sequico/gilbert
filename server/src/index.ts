@@ -6,6 +6,7 @@ import { assertServable, config, useConfiguration } from "./config.js";
 import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { ensureKnowledge } from "./knowledgeAdmin.js";
 import { releaseOnShutdown } from "./push.js";
+import { ensureWorkorders } from "./workorderAdmin.js";
 
 async function main() {
   /*
@@ -74,6 +75,26 @@ async function main() {
   ).catch((err) => {
     console.warn(
       "[gilbert] The knowledge base could not be prepared:",
+      err instanceof Error ? err.message : String(err),
+    );
+  });
+  /*
+   * The workorder registry (ADR 0028): the Master's `workorders/` folder and
+   * its `closed/` child exist because the installation needs them, not because
+   * somebody created them. Created once, as the Master, before anything is
+   * served. A failure is logged and does not stop the process: a registry that
+   * could not be reached is a degraded feature, not a boot that cannot serve.
+   */
+  await ensureWorkorders(
+    {
+      authorization: boot.master.authorization,
+      session: boot.master.session,
+      username: boot.master.address,
+    },
+    boot.accountId,
+  ).catch((err) => {
+    console.warn(
+      "[gilbert] Workorders could not be prepared:",
       err instanceof Error ? err.message : String(err),
     );
   });
