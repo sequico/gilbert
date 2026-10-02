@@ -2909,6 +2909,37 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .workorder-scroll { padding: 16px; overflow: auto; flex: 1 1 auto; }
 .workorder-list { display: flex; flex-direction: column; gap: 10px; }
 .workorder-list .card { margin-bottom: 0; }
+.workorder-list .card.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* Two panes: the list, with its status filter, on the left; the open
+   workorder on the right. Below 860px they stack, and the view shows one at a
+   time (the JS picks which), so a phone reads the list, then the workorder. */
+.workorder-body { display: flex; flex: 1 1 auto; min-height: 0; }
+.workorder-list-pane {
+  width: 340px; min-width: 280px; flex: 0 0 auto;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.workorder-detail-pane {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.workorder-filters {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+.workorder-filters .chip { cursor: pointer; }
+.workorder-filters .chip.active {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--fg);
+}
+.workorder-list-pane .workorder-scroll { padding: 12px; }
+@media (max-width: 860px) {
+  .workorder-body { flex-direction: column; }
+  .workorder-list-pane {
+    width: 100%; min-width: 0; border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
 
 /* One checklist: the global one or a group's, with each step and its last
    signature. A done step is tinted and its text recedes; the process stays

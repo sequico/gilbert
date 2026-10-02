@@ -31,7 +31,7 @@ import type {
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
-import { Spinner } from "@/ui/misc";
+import { Spinner, useIsNarrow } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
 /*
@@ -486,6 +486,12 @@ export function WorkorderPanel() {
     return () => document.removeEventListener("keydown", onKey, true);
   }, [closePanel]);
 
+  const [filter, setFilter] = useState<WorkorderState | "all">("all");
+  const narrow = useIsNarrow();
+  const filtered =
+    filter === "all" ? workorders : workorders.filter((w) => w.state === filter);
+  const filters = ["all", "running", "completed", "cancelled", "replaced"] as const;
+
   return createPortal(
     <div
       className="workorder-overlay"
@@ -529,9 +535,10 @@ export function WorkorderPanel() {
             className="icon-btn sm"
             aria-label={t("Refresh")}
             title={t("Refresh")}
+            disabled={loading}
             onClick={() => void load()}
           >
-            <RefreshCw size={17} />
+            <RefreshCw size={17} className={loading ? "spin" : undefined} />
           </button>
           <button
             type="button"
@@ -544,77 +551,108 @@ export function WorkorderPanel() {
           </button>
         </header>
 
-        <div className="workorder-scroll">
-          {open ? (
-            <>
-              {open.parts.map((part) => (
-                <PartSection
-                  key={part.scope === "global" ? "global" : (part.group ?? "group")}
-                  part={part}
-                  onToggle={(scope, group, stepId, checked) =>
-                    void toggle(open.uid, scope, group, stepId, checked)
-                  }
-                />
-              ))}
-              <RefsSection
-                refs={open.refs}
-                canAdminister={canAdminister}
-                onAdd={(ref) => void addRef(open.uid, ref)}
-                onRemove={(ref) => void removeRef(open.uid, ref)}
-              />
-              {canAdminister && (
-                <CloseControl onClose={(state) => void close(open.uid, state)} />
-              )}
-            </>
-          ) : loading && !loaded ? (
-            <Spinner label={t("Loading…")} />
-          ) : error && !loaded ? (
-            <div className="row" style={{ flexDirection: "column", gap: 10 }}>
-              <div>{t("Could not load the workorders")}</div>
-              <button type="button" className="btn btn-sm" onClick={() => void load()}>
-                {t("Retry")}
-              </button>
-            </div>
-          ) : workorders.length === 0 ? (
-            <p className="hint">{t("No workorders yet")}</p>
-          ) : (
-            <div className="workorder-list">
-              {workorders.map((w) => {
-                const gs = partGroups(w);
-                return (
-                  <div
-                    key={w.uid}
-                    role="button"
-                    tabIndex={0}
-                    className="card clickable"
-                    style={{ textAlign: "left", marginBottom: 0 }}
-                    onClick={() => show(w.uid)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        show(w.uid);
-                      }
-                    }}
+        <div className="workorder-body">
+          {(!narrow || !open) && (
+            <aside className="workorder-list-pane">
+              <div className="workorder-filters">
+                {filters.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`chip ${filter === f ? "active" : ""}`}
+                    onClick={() => setFilter(f)}
                   >
-                    <div className="card-head">
-                      <h3 className="grow truncate">{w.name}</h3>
-                      <StateBadge state={w.state} />
-                    </div>
-                    <div className="hint" style={{ marginTop: 6 }}>
-                      {gs.length
-                        ? t("Groups: {groups}", { groups: gs.join(", ") })
-                        : t("Global")}
-                    </div>
+                    {f === "all" ? t("All") : t(STATE_LABELS[f])}
+                  </button>
+                ))}
+              </div>
+              <div className="workorder-scroll">
+                {loading && !loaded ? (
+                  <Spinner label={t("Loading…")} />
+                ) : error && !loaded ? (
+                  <div className="row" style={{ flexDirection: "column", gap: 10 }}>
+                    <div>{t("Could not load the workorders")}</div>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => void load()}
+                    >
+                      {t("Retry")}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                ) : filtered.length === 0 ? (
+                  <p className="hint">{t("No workorders yet")}</p>
+                ) : (
+                  <div className="workorder-list">
+                    {filtered.map((w) => {
+                      const gs = partGroups(w);
+                      return (
+                        <div
+                          key={w.uid}
+                          role="button"
+                          tabIndex={0}
+                          className={`card clickable ${open?.uid === w.uid ? "active" : ""}`}
+                          style={{ textAlign: "left", marginBottom: 0 }}
+                          onClick={() => show(w.uid)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              show(w.uid);
+                            }
+                          }}
+                        >
+                          <div className="card-head">
+                            <h3 className="grow truncate">{w.name}</h3>
+                            <StateBadge state={w.state} />
+                          </div>
+                          <div className="hint" style={{ marginTop: 6 }}>
+                            {gs.length
+                              ? t("Groups: {groups}", { groups: gs.join(", ") })
+                              : t("Global")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {canAdminister && (
+                  <div style={{ marginTop: 16 }}>
+                    <NewWorkorderForm groups={groups} />
+                  </div>
+                )}
+              </div>
+            </aside>
           )}
 
-          {!open && canAdminister && (
-            <div style={{ marginTop: 16 }}>
-              <NewWorkorderForm groups={groups} />
-            </div>
+          {(!narrow || open) && (
+            <section className="workorder-detail-pane">
+              <div className="workorder-scroll">
+                {open ? (
+                  <>
+                    {open.parts.map((part) => (
+                      <PartSection
+                        key={part.scope === "global" ? "global" : (part.group ?? "group")}
+                        part={part}
+                        onToggle={(scope, group, stepId, checked) =>
+                          void toggle(open.uid, scope, group, stepId, checked)
+                        }
+                      />
+                    ))}
+                    <RefsSection
+                      refs={open.refs}
+                      canAdminister={canAdminister}
+                      onAdd={(ref) => void addRef(open.uid, ref)}
+                      onRemove={(ref) => void removeRef(open.uid, ref)}
+                    />
+                    {canAdminister && (
+                      <CloseControl onClose={(state) => void close(open.uid, state)} />
+                    )}
+                  </>
+                ) : (
+                  <p className="hint">{t("Select a workorder, or create one.")}</p>
+                )}
+              </div>
+            </section>
           )}
         </div>
       </div>
