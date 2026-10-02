@@ -850,110 +850,158 @@ wants to retire a chat clears the folders through Files.
 
 # The knowledge base
 
-An enterprise knowledge base inside Gilbert, for people and for agents, over
-Stalwart's own Files — no second database, no second service (ADR 0024). It is
-the **fifth** module, **KB**, after Mail, Calendar, Contacts and Files, and not
-a folder of Files.
+A knowledge base lives inside Gilbert, in the account it belongs to: the
+company's policies and procedures, the way its work is done, and the checklist
+templates a job of work starts from. It is the **fifth** module, **KB**, beside
+Mail, Calendar, Contacts and Files — its own surface, not a folder of Files —
+and it is for people and for agents alike. Every page is kept where everything
+else durable is kept, in the mail store, so there is no second database and a
+redeploy loses nothing.
 
-- **Two tiers, one shape.** A company-wide KB owned by the **Master** and read
-  by every account through the server route for `gilbert/knowledge`; a KB per
-  group, owned by the group's own account and read by its members (membership is
-  the grant). The company tier leads the sidebar and the groups follow; the
-  surface is the same for both.
-- **One article is one folder** named by its title, under `gilbert/knowledge` in
-  the owning account's hidden app folder: a single mutable `draft.json`, the
-  immutable approved revisions under `revisions/`, and a `state.json` naming
-  which revision is **in force** and which is still **pending** its effective
-  instant. An article is a **leaf**; a **topic folder** — a directory with no
-  `state.json`, its own order in a `folder.json` — groups articles by subject, and
-  the whole tree is **draggable** to reorder, with an article droppable into a
-  folder. Siblings carry a free order, so a drag costs one write — and when the
-  midpoint between two neighbours has run out of floating-point room, the family
-  is renumbered `1..N` in one request rather than writing a number that would
-  tie. Tags cut across
-  the tree. The article's **id** is stable — its folder is named by the title —
-  so the references a later feature makes (a workorder's template, a link in
-  another page) will carry the id and survive a rename.
-- **One shared draft, an administrator's approval.** An administrator **creates,
-  renames, moves and deletes** pages and folders; everyone else writes the
-  **draft** of a page that already exists — users and agents edit the same
-  unapproved draft. Only an installation administrator **approves**, stating
-  the instant the revision takes effect: an instant already passed puts it in
-  force at once, a future one leaves it **pending** beside the revision still in
-  force, and the revision it replaces stays readable as **superseded**. History
-  is never edited — restoring a superseded revision opens a new draft, which is
-  approved again. Every revision carries its own **number** (1, 2, 3 … per
-  article), minted at approval and shown read-only beside the title. An article
-  that was ever approved is **retired**, never
-  deleted: it leaves the tree and is found only by showing retired articles,
-  while a draft no approval ever touched is deleted outright.
-- **Checklist templates are pages.** A page whose body holds checklist steps is
-  a **checklist template** — what a workorder instantiates, below. The tree
-  marks it with a red checklist icon so it is told from an ordinary page, and the
-  workorder names the page it came from. The steps are the template; the checked
-  state and the signature live only in the instantiated workorder. A template is
-  made with **New checklist template** (which seeds the first step), found with
-  the **Templates** filter, and the page lists the workorders that use it.
-- **Written as the Master.** Every write goes through a server route
-  (`/api/knowledge/*`) that acts as the Master, because the company KB is reached
-  through a route that acts as the Master and the caller's own session does not
-  hold the Master's folder, and because approval — and creating, renaming,
-  moving and deleting a page or a folder — is gated on the administrator the
-  session authenticated. An agent drafts; it never approves.
-- **The editor is BlockNote** (core MPL-2.0: ProseMirror/TipTap, with Yjs built
-  in for the co-editing phase) and the search is **Orama**, in-process over each
-  page's text and rebuilt lazily per search, while the fleet's lookup reads the
-  same text without Orama — the two share a corpus, not a ranking, and neither
-  is a second service.
-- **For the fleet**: a `knowledge` lookup (list or search pages, read one page's
-  text), a `knowledge.write` capability (create or update a page's draft), and a
-  `knowledge.review` that records a consistency check's findings — all in the
-  closed catalogue. A multi-page change is a **plan**: each write names the draft
-  it was read from (`basedOn`), so a page edited since is refused rather than
-  overwritten, and the per-page outcomes and the review's findings are kept on
-  the run's own job, not in the KB. The KB is a **lookup**, never carried whole
-  into a prompt; the notebook stays the distilled head (ADR 0006, ADR 0020).
-- **Graceful degradation**: the company tier is read when the KB is opened (the
-  route is not membership, so no live update is promised for it), while a group's
-  KB rides the FileNode push rail like any other document; a page that cannot be
-  read resolves as empty rather than a broken pane.
+## Two knowledge bases
 
-Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
-and Excalidraw diagrams. There are no attachments: a procedure is formatted text
-blocks.
+- **The company's** — owned by the installation and read by every signed-in
+  account. It leads the sidebar.
+- **A group's** — owned by the group and read by its members; membership is the
+  grant, and a member added later finds it already there.
+
+Both are the same surface and the same kind of page; only the owning account
+differs. The sidebar carries the company KB first, then one section per group
+the reader is in.
+
+## Pages, folders and the tree
+
+A page is the unit: a title, a body of formatted text and checklists, and the
+tags that cut across the tree. A **topic folder** groups pages by subject and
+may nest, and the whole tree is draggable — drag to reorder, drop a page into a
+folder. Search looks across the pages' text. Pages are named by their title, but
+a reference to a page — the template a workorder starts from — points at the
+page's **id**, so renaming or moving a page breaks nothing.
+
+## One shared draft, an administrator's approval
+
+A page holds one **draft** at a time, and everyone who can read it edits that
+same draft — people and agents together; there are no competing drafts to merge.
+
+- **Only an administrator creates, renames, moves, reorders and deletes pages
+  and folders.** The shape of the tree is the installation's.
+- **Only an administrator approves.** Approving turns the draft into a numbered
+  **revision** and states the instant it takes effect, shown in each reader's
+  own timezone. An instant already passed puts it in force at once; a future one
+  leaves it **pending**, with the revision before it still in force until then.
+  A page that has never been approved is simply not yet in force.
+- **Nothing issued is edited in place.** The revision a new approval replaces
+  stays readable as **superseded**, and the page's **History** holds every
+  revision. Restoring an older one opens a new draft, which is approved again.
+- **A page that was ever approved is retired, never deleted.** Retiring takes it
+  out of the tree and keeps it, with its revisions; **Retired** brings those
+  pages back into view. A page no approval ever touched is deleted outright.
+- Every revision has its own **number**, shown read-only beside the title.
+
+## Checklist templates
+
+A page whose body holds checklist steps is a **checklist template**: the steps a
+job of that kind must take. The tree marks it with a red checklist icon so it is
+told from an ordinary page, and it is made with **New checklist template**, which
+seeds the first step. The **Templates** filter narrows the tree to the templates
+and the folders that lead to them, and the page itself lists the **workorders
+that use it**, so the reference is visible from both sides.
+
+The steps are the template. A workorder that starts from it keeps only the
+checked state and the signature — the controlled text is read from the template
+— so a template can be approved and versioned without disturbing a workorder
+already running.
+
+## For the agents
+
+The installation's agents read the company KB and the groups' ones, and write
+**drafts**: a page they propose to change, a consistency review across pages, or
+a multi-page plan that names the revision each page was read from, so a page
+changed since the plan was made is refused rather than overwritten. A review is
+advice, and a plan waits: approval stays with an administrator, and an agent
+never approves.
+
+## What the KB is not
+
+- **Not a folder in Files**, and its pages do not appear there.
+- **No attachments** — a page is formatted text, so approving one fixes
+  everything it holds.
+- **No per-page restrictions**: every member reads the whole company KB. Where a
+  real access boundary is wanted, the design says so rather than pretending.
+- **No anonymous access**: the KB is installation-wide inside Gilbert, reached
+  by signed-in accounts only.
 
 ---
 
 # Workorders
 
-A surface of its own, opened from a **factory icon** in the top bar beside chat
-(ADR 0028): it gathers, **by reference, never by copy**, the folders, files and
-KB articles a job of work belongs to, and carries a checklist.
+A **workorder** gathers, by reference, the folders, files and KB pages a job of
+work belongs to, and carries a checklist. It opens from a **factory icon** in the
+top bar beside chat, into a large panel: the list of workorders and the open one
+stay in the panel while the rest of the app is used beside it, so opening a
+file, a folder or a page shows it in the main area without leaving the workorder.
 
-- **One uid, a root and its parts.** The Master's copy is the **root** — identity,
-  friendly name, global checklist and state — and its `gilbert/workorders/`
-  folder is the **registry**; `workorders/closed/` holds the terminal ones, which
-  are kept for ever. A group's copy is its **part**, in the group's own account,
-  holding that group's checklist and references. Everything gathered is a
-  reference by id, so renaming or moving the target breaks nothing.
-- **A checklist is an instance of a KB template**, bound to the revision **in
-  force** at creation (ADR 0024): the workorder stores the step ids and each
-  step's state and last signature — who checked it and when — and never a copy of
-  the controlled text, which the reader gets from the KB. The global checklist is
-  the Master's; each group has its own, checked by its members.
-- **The route is the door, and the Master writes.** A workorder is **route-only** —
-  never read through a share — and the server route acts as the Master, deciding
-  what each caller may reach by their group membership alone: an administrator
-  sees every part, a member sees the global checklist and their own groups'. A
-  check is signed with the caller's own address, taken from the session, never a
-  name the client could assert.
-- **A large panel.** The factory launcher opens a wide, tall panel: the list of
-  workorders and the open one's global checklist, the reader's groups' checklists
-  and the references, while the rest of the app is used beside it. Creating one,
-  closing one and editing references are an administrator's; every member checks
-  steps. Closing moves the root to `closed/` — `running`, `completed`, `cancelled`
-  or `replaced` — and nothing destroys one; a closed workorder's checklist no
-  longer changes, so a check after the fact is refused.
+## One workorder, a root and its parts
+
+A workorder is one **uid**. Its **root** — its identity, friendly name, global
+checklist and state — sits in the installation's registry; each group competent
+for it keeps a **part** in that group's own account, holding the group's
+checklist and references. Opening one shows the global checklist and the
+reader's groups' parts together. The same uid names both, so the two are never
+kept in step by hand, and renaming a workorder is an edit that breaks no
+reference.
+
+## The panel
+
+The list is on the left, filtered by **All**, **Running**, **Completed**,
+**Cancelled** and **Replaced**, and the open workorder is on the right: its
+checklists and the folders, files and pages it gathers. A refresh re-reads it.
+
+## Checklists, and who checked what
+
+A workorder's checklist is an **instance of a KB checklist template**, bound to
+the revision in force when the checklist is created. The template's steps are
+the controlled text; the workorder keeps the checked state, and names the
+template it came from. Every workorder has its own **global** checklist, and
+each group has one beside it. A checked step shows **who checked it and when** —
+the last signature, taken from the signed-in account. A group's members check
+their group's steps; an administrator, or the agent, checks the global one.
+
+A template with no revision in force yet cannot be started from — there is
+nothing to bind. A template whose page was retired still resolves by id, because
+its revisions are kept.
+
+## References, not copies
+
+Everything a workorder gathers is a reference — a folder, a file or a KB page —
+never a copy, and never a marker planted in a folder. A folder can belong to
+several workorders; renaming or moving a target breaks nothing, because the
+reference is by id. A target that is gone or out of reach resolves as **not
+available**, never a broken pane.
+
+## States, and closing
+
+A workorder is **running** until it is closed: **completed**, **cancelled**, or
+**replaced** by another workorder, which is named on it. Closing keeps the
+workorder for ever — nothing destroys one — and **freezes the checklist**, so a
+check after the fact is refused and the record is what was checked while the
+work ran.
+
+## Who can do what
+
+An administrator creates a workorder, closes it and edits its references; an
+agent can be asked for one in a group's chat. Every member checks the steps of
+their own groups' checklists. What a reader sees follows group membership: a
+member sees the global checklist and their own groups' parts, an administrator
+sees every part, and a part a reader cannot reach is simply not there for them.
+
+## What a workorder is not
+
+- **Not mail**: an email is not referenced and no mailbox is part of one. What
+  an agent does with mail on an explicit instruction is the agent's own act, not
+  part of the workorder.
+- **Not a folder tree**: membership and references decide what is in a
+  workorder, so there is no per-workorder folder to keep.
 
 ---
 

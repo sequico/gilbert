@@ -35,7 +35,7 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   and the fleet's `knowledge` read, `knowledge.write` and `knowledge.review` — see
   [The knowledge base](FEATURES.md#the-knowledge-base). What is deliberately
   later is what ADR 0024 defers: real-time co-editing over Yjs/Hocuspocus (v1
-  saves the whole draft under `ifInState` and says so) and Excalidraw diagrams.
+  saves the whole draft under `ifInState`) and Excalidraw diagrams.
   The company KB is read through the server route ADR 0023's probe settled on: a
   `shareWith` naming every account cannot work (Stalwart caps a share at 10
   principals per item), so no share probe remains owed.
