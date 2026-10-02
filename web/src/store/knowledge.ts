@@ -131,6 +131,14 @@ interface KnowledgeStore {
   restore(revision: string): Promise<boolean>;
   rename(title: string): Promise<boolean>;
   remove(): Promise<boolean>;
+  /** Rename one tree node — an article or a topic folder — from its row. */
+  renameNode(
+    tier: KnowledgeTierState,
+    summary: KnowledgeSummary,
+    title: string,
+  ): Promise<boolean>;
+  /** Delete one tree node from its row; a folder goes with what it holds. */
+  removeNode(tier: KnowledgeTierState, summary: KnowledgeSummary): Promise<boolean>;
   setSearch(term: string): void;
   setShowRetired(on: boolean): void;
   /**
@@ -558,6 +566,54 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         set({ error: null });
         await deleteArticle(target);
         set({ article: null, edit: null, articleLoading: false });
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async renameNode(tier, summary, title) {
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+        folder: summary.folder,
+      };
+      try {
+        set({ error: null });
+        const renamed = await renameArticle(target, title);
+        // The open page, if it is this node, follows the folder the door moved.
+        const open = get().article;
+        if (open && open.summary.nodeId === summary.nodeId)
+          await reopen(tier.accountId, renamed);
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async removeNode(tier, summary) {
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+        folder: summary.folder,
+      };
+      try {
+        set({ error: null });
+        await deleteArticle(target);
+        // A folder takes its descendants with it: close the open page if it is
+        // the node itself or anything under it.
+        const open = get().article;
+        if (
+          open &&
+          (open.summary.nodeId === summary.nodeId ||
+            open.summary.folder === summary.folder ||
+            open.summary.folder.startsWith(`${summary.folder}/`))
+        )
+          set({ article: null, edit: null, articleLoading: false });
         await get().reload();
         return true;
       } catch (err) {

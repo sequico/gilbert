@@ -5,6 +5,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  MoreHorizontal,
   Plus,
   Search,
 } from "lucide-react";
@@ -12,6 +13,7 @@ import {
   type CSSProperties,
   type DragEvent,
   Fragment,
+  type MouseEvent,
   type ReactNode,
   useRef,
   useState,
@@ -24,6 +26,8 @@ import {
   siblingDropPlan,
 } from "@/lib/knowledge";
 import { type KnowledgeSearchResult, useKnowledge } from "@/store/knowledge";
+import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { type Anchor, anchorFromEl, MenuItem, Popover } from "@/ui/popover";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 
 /**
@@ -185,8 +189,21 @@ export function KnowledgeSidebar() {
   const creating = useKnowledge((s) => s.creating);
   const beginCreate = useKnowledge((s) => s.beginCreate);
   const reload = useKnowledge((s) => s.reload);
+  const renameNode = useKnowledge((s) => s.renameNode);
+  const removeNode = useKnowledge((s) => s.removeNode);
   const setSearch = useKnowledge((s) => s.setSearch);
   const runSearch = useKnowledge((s) => s.runSearch);
+
+  /*
+   * A row's own menu: rename or delete the node the row names, whichever kind
+   * it is. Anchored to the button that opened it, like every other row menu in
+   * the app.
+   */
+  const [menu, setMenu] = useState<{
+    tier: KnowledgeTierView;
+    summary: KnowledgeSummary;
+    anchor: Anchor | null;
+  } | null>(null);
 
   /*
    * Expansion is the reader's own view state, not a document: the KB stores no
@@ -227,6 +244,72 @@ export function KnowledgeSidebar() {
   const addFolder = (tier: KnowledgeTierView, parentNodeId: string | null) => {
     expandChain(tier, parentNodeId);
     beginCreate(tier, parentNodeId, "folder");
+  };
+
+  /** Open a row's Rename/Delete menu, anchored to the button that asked. */
+  const openRowMenu = (
+    e: MouseEvent,
+    summary: KnowledgeSummary,
+    tier: KnowledgeTierView,
+  ) => {
+    e.stopPropagation();
+    setMenu({ tier, summary, anchor: anchorFromEl(e.currentTarget as Element) });
+  };
+
+  const renameFromMenu = async (tier: KnowledgeTierView, summary: KnowledgeSummary) => {
+    const name = await promptDialog({
+      title: summary.kind === "folder" ? t("Rename folder") : t("Rename page"),
+      defaultValue: summary.title,
+    });
+    if (name?.trim() && name.trim() !== summary.title)
+      void renameNode(tier, summary, name.trim());
+  };
+
+  /**
+   * Whether a folder holds an approved page anywhere under it, read from the
+   * tier the tree already lists. The server refuses to destroy such a folder,
+   * so the control says so rather than inviting the click (ADR 0024).
+   */
+  const approvedDescendantsOf = (tier: KnowledgeTierView, nodeId: string): boolean => {
+    const seen = new Set<string>([nodeId]);
+    const stack = [nodeId];
+    while (stack.length) {
+      const id = stack.pop()!;
+      for (const child of tier.articles) {
+        if ((child.parentId ?? "") !== id || seen.has(child.nodeId)) continue;
+        seen.add(child.nodeId);
+        if (child.inForce || child.pending) return true;
+        stack.push(child.nodeId);
+      }
+    }
+    return false;
+  };
+
+  const deleteFromMenu = async (tier: KnowledgeTierView, summary: KnowledgeSummary) => {
+    // An article something was issued from is retired, not destroyed; a folder
+    // holding one is not deleted at all — the same rule the panel states.
+    const everApproved = Boolean(summary.inForce || summary.pending);
+    if (!everApproved && approvedDescendantsOf(tier, summary.nodeId)) return;
+    const ok = await confirmDialog(
+      everApproved
+        ? {
+            title: t("Retire “{title}”?", { title: summary.title }),
+            message: t(
+              "It leaves the tree but stays on record, with its revisions; find it again by showing retired articles.",
+            ),
+            confirmLabel: t("Retire"),
+          }
+        : {
+            title: t("Delete “{title}”?", { title: summary.title }),
+            message:
+              summary.kind === "folder"
+                ? t("The pages and folders inside it go too.")
+                : t("This cannot be undone."),
+            confirmLabel: t("Delete"),
+            danger: true,
+          },
+    );
+    if (ok) void removeNode(tier, summary);
   };
 
   /*
@@ -283,13 +366,6 @@ export function KnowledgeSidebar() {
       return;
     }
     const mode = modeFor(a, e);
-    const sameParent = (drag.summary.parentId ?? "") === (a.parentId ?? "");
-    // A before/after drop means "between siblings", so it is only meaningful
-    // between rows that share a parent; a drop on a folder still nests.
-    if (mode !== "inside" && !sameParent) {
-      if (dropTarget) setDropTarget(null);
-      return;
-    }
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
@@ -309,14 +385,40 @@ export function KnowledgeSidebar() {
       void move(tier, drag.summary.folder, a.folder);
       return;
     }
-    if ((drag.summary.parentId ?? "") !== (a.parentId ?? "")) return;
-    const plan = siblingDropPlan(
-      siblingsOf(tier, a.parentId),
-      drag.summary.nodeId,
-      a.nodeId,
-      target.mode,
-    );
+    const sameParent = (drag.summary.parentId ?? "") === (a.parentId ?? "");
+    // The target's siblings, plus the moved node: `siblingDropPlan` removes the
+    // moved node and re-inserts it at the drop, so including it here is what
+    // lets a before/after drop land beside a row in *another* folder.
+    const list = [...siblingsOf(tier, a.parentId), drag.summary];
+    const plan = siblingDropPlan(list, drag.summary.nodeId, a.nodeId, target.mode);
     if (!plan) return;
+    if (!sameParent) {
+      /*
+       * A before/after drop beside a row in another folder means "move it here,
+       * at this position": reparent to that row's folder, then order it among
+       * its new siblings. This is also how a page leaves a folder for the tier
+       * root, which has no row of its own to drop onto.
+       */
+      const parentFolder = a.parentId
+        ? (tier.articles.find((x) => x.nodeId === a.parentId)?.folder ?? null)
+        : null;
+      const leaf = drag.summary.folder.split("/").pop() ?? drag.summary.folder;
+      // The path the node has *after* the move: a reorder naming the old path
+      // is a 404, since no folder carries it any more.
+      const newFolder = parentFolder ? `${parentFolder}/${leaf}` : leaf;
+      void (async () => {
+        if (!(await move(tier, drag.summary.folder, parentFolder))) return;
+        if (plan.kind === "order") await reorder(tier, newFolder, plan.order);
+        else if (plan.orders.length)
+          await renumber(
+            tier,
+            plan.orders.map((o) =>
+              o.folder === drag.summary.folder ? { ...o, folder: newFolder } : o,
+            ),
+          );
+      })();
+      return;
+    }
     // A collapsed midpoint renumbers the whole family in one request; an
     // ordinary drop writes the one number between its neighbours.
     if (plan.kind === "renumber") {
@@ -401,6 +503,15 @@ export function KnowledgeSidebar() {
         <KnowledgeRevBadge rev={a.kind === "article" ? a.rev : null} />
         {a.pending && <span className="hint">{t("Pending")}</span>}
         {a.retired && <span className="hint">{t("Retired")}</span>}
+        <button
+          type="button"
+          className="icon-btn sm nav-row-menu"
+          aria-label={t("More")}
+          title={t("More")}
+          onClick={(e) => openRowMenu(e, a, tier)}
+        >
+          <MoreHorizontal size={15} />
+        </button>
       </>
     );
     // A folder's row carries the twisty button, which a button row could not
@@ -420,17 +531,24 @@ export function KnowledgeSidebar() {
       );
     }
     return (
-      <button
+      <div
         key={a.nodeId}
-        type="button"
+        role="button"
+        tabIndex={0}
         className={className}
         style={style}
         title={a.title}
         {...rowDrag}
         onClick={() => void open(tier.accountId, a.folder, a.nodeId)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            void open(tier.accountId, a.folder, a.nodeId);
+          }
+        }}
       >
         {body}
-      </button>
+      </div>
     );
   };
 
@@ -595,6 +713,35 @@ export function KnowledgeSidebar() {
             </Fragment>
           ))}
         </>
+      )}
+      {menu && (
+        <Popover anchor={menu.anchor} onClose={() => setMenu(null)} width={200}>
+          <MenuItem
+            label={t("Rename")}
+            onClick={() => {
+              const m = menu;
+              setMenu(null);
+              void renameFromMenu(m.tier, m.summary);
+            }}
+          />
+          {menu.tier.canApprove && (
+            <MenuItem
+              label={
+                menu.summary.inForce || menu.summary.pending ? t("Retire") : t("Delete")
+              }
+              danger={!(menu.summary.inForce || menu.summary.pending)}
+              disabled={
+                !(menu.summary.inForce || menu.summary.pending) &&
+                approvedDescendantsOf(menu.tier, menu.summary.nodeId)
+              }
+              onClick={() => {
+                const m = menu;
+                setMenu(null);
+                void deleteFromMenu(m.tier, m.summary);
+              }}
+            />
+          )}
+        </Popover>
       )}
     </>
   );
