@@ -441,19 +441,20 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
      */
     async applyChanges(accountId) {
       const tier = get().tiers.find((t) => t.accountId === accountId);
-      if (!tier) return;
+      // Only a group's KB rides the FileNode rail; the company tier is read when
+      // opened, so it is not pushed (ADR 0024).
+      if (tier?.scope !== "group") return;
       try {
-        const folderId =
-          tier.scope === "company"
-            ? ((await companyKnowledge())?.folderId ?? null)
-            : await findKnowledgeFolder(accountId);
+        const folderId = await findKnowledgeFolder(accountId);
         if (!folderId) return;
         const articles = await listArticles(accountId, folderId, get().showRetired);
         set((s) => ({
-          tiers: s.tiers.map((t) =>
-            t.accountId === accountId && t.scope === tier.scope ? { ...t, articles } : t,
-          ),
+          tiers: s.tiers.map((t) => (t.accountId === accountId ? { ...t, articles } : t)),
         }));
+        // The open page is reconciled too, unless it holds unsaved edits.
+        const open = get().article;
+        if (open && open.accountId === accountId && !get().edit?.dirty)
+          await get().open(open.accountId, open.summary.folder, open.summary.nodeId);
       } catch {
         /* a failed reconcile leaves the tree as it was; the next event retries */
       }

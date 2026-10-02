@@ -144,7 +144,24 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const readerTags =
     article.effective?.tags ?? article.draft?.tags ?? article.summary.tags;
   // An article something was issued from is retired, not destroyed; one no
-  // approval ever touched is removed outright (ADR 0024).
+  // approval ever touched is removed outright (ADR 0024). A folder whose own
+  // state is unapproved can still hold an approved sub-article, which the server
+  // refuses to destroy — the control says so rather than inviting the click.
+  const approvedDescendants = (() => {
+    const list = activeTier?.articles ?? [];
+    const seen = new Set<string>([article.summary.nodeId]);
+    const stack = [article.summary.nodeId];
+    while (stack.length) {
+      const id = stack.pop()!;
+      for (const child of list) {
+        if ((child.parentId ?? "") !== id || seen.has(child.nodeId)) continue;
+        seen.add(child.nodeId);
+        if (child.inForce || child.pending) return true;
+        stack.push(child.nodeId);
+      }
+    }
+    return false;
+  })();
   const everApproved =
     article.revisions.length > 0 ||
     Boolean(article.summary.inForce) ||
@@ -222,7 +239,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         <select
           className="select"
           value={activeTier ? `${activeTier.scope}:${activeTier.accountId}` : ""}
-          aria-label={t("Knowledge base")}
+          aria-label={t("KB")}
           onChange={(e) => {
             const tier = tiers.find(
               (x) => `${x.scope}:${x.accountId}` === e.target.value,
@@ -231,7 +248,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             if (tier && first) void open(tier.accountId, first.folder, first.nodeId);
           }}
         >
-          {!activeTier && <option value="">{t("Knowledge base")}</option>}
+          {!activeTier && <option value="">{t("KB")}</option>}
           {tiers.map((tier) => (
             <option
               key={`${tier.scope}:${tier.accountId}`}
@@ -298,6 +315,12 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         {activeTier?.canApprove && (
           <button
             className={`btn btn-sm ${everApproved ? "" : "btn-danger"}`}
+            disabled={!everApproved && approvedDescendants}
+            title={
+              !everApproved && approvedDescendants
+                ? t("This folder holds an approved article; retire or move it first.")
+                : undefined
+            }
             onClick={() => void doRemove()}
           >
             {everApproved ? t("Retire") : t("Delete")}
@@ -370,7 +393,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             somebody else's change is refused rather than losing it. */}
         <p className="hint" style={{ marginTop: 8, marginBottom: 0 }}>
           {t(
-            "Saving writes the whole draft. Several people can edit a page at once, and a save that would overwrite somebody else's change is refused rather than losing it; real-time co-editing comes later.",
+            "Saving writes the whole draft. Several people can edit a page at once; real-time co-editing comes later (ADR 0024).",
           )}
         </p>
       </div>
