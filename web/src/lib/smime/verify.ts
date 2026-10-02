@@ -145,7 +145,9 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
       reason: "other",
       detail: "The signed part is not the content of this message.",
     };
-  if (signedPart.parts.length < 2)
+  // A `multipart/signed` carries exactly one content part and one signature
+  // part (RFC 1847); anything else is malformed, not a message to verify.
+  if (signedPart.parts.length !== 2)
     return { kind: "unsupported", reason: "not-signed-properly" };
 
   const [content, signature] = signedPart.parts as [MimePart, MimePart];
@@ -163,6 +165,16 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
   } catch (err) {
     return { kind: "unsupported", reason: "other", detail: (err as Error).message };
   }
+
+  // One signer only: verifying the first of several and reporting intact would
+  // vouch for a message on the strength of a signature that may be beside a
+  // second, unverified one.
+  if (signed.signers.length !== 1)
+    return {
+      kind: "unsupported",
+      reason: "other",
+      detail: "a message with more than one signer",
+    };
 
   const signer = signed.signers[0]!;
   if (signer.signature === "rsa-pss") {
@@ -193,7 +205,16 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
     }),
   );
   const usable = certs.filter((c): c is Certificate => c !== null);
-  if (usable.length === 0) return { kind: "unsupported", reason: "no-certificate" };
+  if (usable.length === 0)
+    // "Present but unreadable" is not "none carried": the difference is a
+    // finding to report, not a message that never had a certificate.
+    return signed.certificates.length
+      ? {
+          kind: "unsupported",
+          reason: "other",
+          detail: "a certificate in the signature could not be read",
+        }
+      : { kind: "unsupported", reason: "no-certificate" };
 
   // Prefer the certificate the signer names, but fall back to trying each in
   // turn: what settles it is which key the signature verifies under, and that
@@ -262,6 +283,9 @@ export function ecdsaDerToRaw(
   const size = curve === "P-256" ? 32 : curve === "P-384" ? 48 : 66;
   try {
     if (der[0] !== 0x30) return null;
+    // 0x80 is BER's indefinite length, not DER: refuse it rather than read the
+    // payload at the wrong offset.
+    if (der[1] === 0x80) return null;
     let i = 2;
     if (der[1]! > 0x80) i = 2 + (der[1]! & 0x7f);
     const out = new Uint8Array(size * 2);

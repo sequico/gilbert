@@ -153,10 +153,23 @@ export function oid(node: Asn1): string {
   expect(node, TAG.oid, "an object identifier");
   const c = node.content;
   if (c.length === 0) throw new DerError("Empty object identifier.");
-  // The first octet packs two arcs: 40*first + second.
-  const parts = [Math.floor(c[0]! / 40), c[0]! % 40];
+  // The first subidentifier packs two arcs in base-128 and may itself be more
+  // than one octet: its value is `40*first + second`, and a value of 2 for the
+  // first arc means "second >= 40", i.e. an offset of 80. Reading only the low
+  // octet misdecodes `2.x` and any multi-octet first subidentifier.
+  let first = 0;
+  let i = 0;
+  for (; i < c.length; i++) {
+    const b = c[i]!;
+    first = first * 128 + (b & 0x7f);
+    if ((b & 0x80) === 0) {
+      i++;
+      break;
+    }
+  }
+  const parts = first < 80 ? [Math.floor(first / 40), first % 40] : [2, first - 80];
   let value = 0;
-  for (let i = 1; i < c.length; i++) {
+  for (; i < c.length; i++) {
     const b = c[i]!;
     value = value * 128 + (b & 0x7f);
     if ((b & 0x80) === 0) {
