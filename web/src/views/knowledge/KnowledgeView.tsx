@@ -1,4 +1,4 @@
-import { BookOpen } from "lucide-react";
+import { BookOpen, Eye } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
@@ -8,6 +8,7 @@ import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { Empty, Spinner } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 import { KnowledgeEditor } from "./KnowledgeEditor";
+import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 import { tierLabel } from "./KnowledgeSidebar";
 
 /**
@@ -44,7 +45,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const load = useKnowledge((s) => s.load);
   const open = useKnowledge((s) => s.open);
   const setEdit = useKnowledge((s) => s.setEdit);
-  const create = useKnowledge((s) => s.create);
+  const beginCreate = useKnowledge((s) => s.beginCreate);
   const save = useKnowledge((s) => s.save);
   const approve = useKnowledge((s) => s.approve);
   const restore = useKnowledge((s) => s.restore);
@@ -110,20 +111,18 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
 
   /*
    * The shell's "New page" is a button in the module bar, so the page it starts
-   * is asked for here: the current tier's root, or the first tier when no page
-   * is open. A blank name is not a page and is dropped.
+   * is asked for here: the current tier, or the first when none is open. The
+   * sidebar's inline input is what names it — nothing is asked in a dialog.
    */
   useEffect(() => {
-    const onNew = async () => {
+    const onNew = () => {
       const tier = activeTier ?? tiers[0];
       if (!tier) return;
-      const name = window.prompt(t("New page"));
-      if (!name?.trim()) return;
-      await create(tier, name.trim(), null);
+      beginCreate(tier, null, "page");
     };
     window.addEventListener("ihm:knowledge-new", onNew);
     return () => window.removeEventListener("ihm:knowledge-new", onNew);
-  }, [activeTier, tiers, create]);
+  }, [activeTier, tiers, beginCreate]);
 
   if (loading || articleLoading) return <Spinner size="lg" />;
   if (!article) {
@@ -258,16 +257,18 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             </option>
           ))}
         </select>
-        {/* Retired articles are hidden by default so they do not confuse the
-            tree; this is how a reader asks to see them. */}
-        <label className="row" style={{ gap: 6, alignItems: "center", fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={showRetired}
-            onChange={(e) => setShowRetired(e.target.checked)}
-          />
-          {t("Show retired")}
-        </label>
+        {/* Retired pages are hidden by default so they do not confuse the tree;
+            this toggle is how a reader asks to see them. A labelled pill with a
+            pressed state, not a loose checkbox. */}
+        <button
+          type="button"
+          className={`btn btn-sm ${showRetired ? "btn-primary" : "btn-ghost"}`}
+          aria-pressed={showRetired}
+          title={t("Show retired pages")}
+          onClick={() => setShowRetired(!showRetired)}
+        >
+          <Eye size={14} /> {t("Retired")}
+        </button>
         <span className="spacer" />
         <button
           className="btn btn-sm"
@@ -329,19 +330,26 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       </div>
 
       <div style={{ padding: "16px 16px 0" }}>
-        {editing && edit ? (
-          <input
-            className="input"
-            value={edit.title}
-            aria-label={t("Title")}
-            placeholder={t("Title")}
-            onChange={(e) => setEdit({ title: e.target.value })}
-          />
-        ) : (
-          <h2 className="truncate" style={{ margin: 0 }}>
-            {title}
-          </h2>
-        )}
+        {/* The in-force revision number sits beside the title, read-only: it is
+            the lifecycle's fact, never part of the title string the editor
+            writes, so it stays out of the input and out of `edit`. */}
+        <div className="row" style={{ gap: 8, alignItems: "center" }}>
+          {editing && edit ? (
+            <input
+              className="input"
+              style={{ flex: 1, minWidth: 0 }}
+              value={edit.title}
+              aria-label={t("Title")}
+              placeholder={t("Title")}
+              onChange={(e) => setEdit({ title: e.target.value })}
+            />
+          ) : (
+            <h2 className="truncate" style={{ margin: 0, flex: 1, minWidth: 0 }}>
+              {title}
+            </h2>
+          )}
+          <KnowledgeRevBadge rev={article.summary.rev} />
+        </div>
 
         <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>
           {editing && edit ? (
