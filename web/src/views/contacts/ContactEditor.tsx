@@ -403,10 +403,18 @@ export function ContactEditor({
       } else {
         const cardAccount = sourceAccountId ?? contacts.accountId ?? "";
         if (cardAccount === bookAccount) {
-          // Same account: a patch that adds the target book.
+          // Same account: file the card in the chosen book and take it out of
+          // the others. The full map is sent, so the result is the same whether
+          // the server merges the patch or replaces it — a bare `{ [bookId]:
+          // true }` adds where the server merges and drops the rest where it
+          // replaces, and neither is predictable from here.
           const patch: Record<string, unknown> = { ...obj };
-          const curBook = Object.keys(card.addressBookIds ?? {})[0];
-          if (curBook !== bookId) patch.addressBookIds = { [bookId]: true };
+          const books = card.addressBookIds ?? {};
+          if (!books[bookId] || Object.keys(books).length !== 1) {
+            const next: Record<string, boolean | null> = { [bookId]: true };
+            for (const key of Object.keys(books)) if (key !== bookId) next[key] = null;
+            patch.addressBookIds = next;
+          }
           if (!photo && !removePhoto) delete patch.media;
           await contacts.updateCard(
             {
@@ -483,7 +491,7 @@ export function ContactEditor({
         ? existingPhoto.uri
         : existingPhoto.blobId
           ? client.downloadUrl(
-              contacts.accountId!,
+              sourceAccountId ?? contacts.accountId!,
               existingPhoto.blobId,
               "photo",
               existingPhoto.mediaType ?? "image/jpeg",

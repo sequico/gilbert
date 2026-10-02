@@ -353,7 +353,7 @@ function contactMoveSentence(code: ContactMoveRefusal): string {
  * that stops being found. Re-exported because this store's callers key cards by
  * it.
  */
-import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
 
 export { sharedKey };
 
@@ -871,8 +871,8 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   accountOfCard(id) {
     if (get().cards[id]) return null;
-    const hit = Object.entries(get().sharedCards).find(([key]) => key.endsWith(`:${id}`));
-    return hit ? accountOfSharedKey(hit[0], id) : null;
+    const key = sharedKeyForId(get().sharedCards, id);
+    return key ? accountOfSharedKey(key, id) : null;
   },
 
   bookNamesOf(card, heldIn) {
@@ -1195,10 +1195,20 @@ export const useContacts = create<ContactsState>((set, get) => ({
     });
     if (refusal) throw new Error(contactMoveSentence(refusal));
     if (fromAccountId === toAccountId) {
-      // Same account: a patch that adds the target book, mirroring updateCard.
+      // Same account: file the card in the chosen book and take it out of the
+      // others, as one full map. The cross-account path below is a true move
+      // (create there, destroy here), so the same-account path moves too.
+      const card =
+        fromAccountId === own
+          ? get().cards[id]
+          : get().sharedCards[sharedKey(fromAccountId, id)];
+      const books = card?.addressBookIds ?? {};
+      const addressBookIds: Record<string, boolean | null> = { [toBookId]: true };
+      for (const key of Object.keys(books))
+        if (key !== toBookId) addressBookIds[key] = null;
       await get().updateCard(
         { id, accountId: fromAccountId === own ? null : fromAccountId },
-        { addressBookIds: { [toBookId]: true } },
+        { addressBookIds },
       );
       return id;
     }
@@ -1681,7 +1691,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const shared = Object.entries(st.sharedCards).map(([key, c]) => ({
       c,
       penalty: 0.5,
-      accountId: key.slice(0, key.length - c.id.length - 1),
+      accountId: accountOfSharedKey(key, c.id),
     }));
     for (const { c, penalty, accountId } of [...own, ...shared]) {
       for (const a of contactEmails(c)) {

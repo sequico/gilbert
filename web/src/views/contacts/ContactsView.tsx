@@ -438,10 +438,8 @@ export function ContactsView({ id }: { id?: string }) {
    */
   const cardsOf = (accountId: string | null, book: string) => {
     if (accountId) {
-      const prefix = `${accountId}:`;
-      return Object.entries(contacts.sharedCards)
-        .filter(([key]) => key.startsWith(prefix))
-        .map(([, c]) => c)
+      return contacts
+        .cardsIn(accountId)
         .filter((c) => book === "all" || c.addressBookIds?.[book]);
     }
     const mine = Object.values(contacts.cards);

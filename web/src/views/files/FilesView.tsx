@@ -204,7 +204,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             return { nodes };
           });
         })
-        .catch(() => undefined);
+        .catch((err) => toast.error((err as Error).message));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId, files.available]);
@@ -279,20 +279,24 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     const entries = entriesFromDrop(e.dataTransfer);
     const flat = Array.from(e.dataTransfer.files);
     void (async () => {
-      /*
-       * The entries are the tree and the flat list is the fallback, and which
-       * one is worth reading is decided per drop rather than up front: a folder
-       * arrives with entries and no readable files, a set of loose files with
-       * both. Walking the entries answers `dirs` as well as files, so a folder
-       * that holds nothing is still created -- `planUpload` is the walk that
-       * does, and `flat` is only ever the fallback.
-       */
-      if (entries.length && hasDirectory(entries)) {
-        const plan = await planUpload(entries);
-        if (plan.files.length || plan.dirs.length) await files.uploadPlan(into, plan);
-        return;
+      try {
+        /*
+         * The entries are the tree and the flat list is the fallback, and which
+         * one is worth reading is decided per drop rather than up front: a folder
+         * arrives with entries and no readable files, a set of loose files with
+         * both. Walking the entries answers `dirs` as well as files, so a folder
+         * that holds nothing is still created -- `planUpload` is the walk that
+         * does, and `flat` is only ever the fallback.
+         */
+        if (entries.length && hasDirectory(entries)) {
+          const plan = await planUpload(entries);
+          if (plan.files.length || plan.dirs.length) await files.uploadPlan(into, plan);
+          return;
+        }
+        if (flat.length) await files.upload(into, flat);
+      } catch (err) {
+        toast.error((err as Error).message);
       }
-      if (flat.length) await files.upload(into, flat);
     })();
   };
 
