@@ -266,6 +266,7 @@ export const catalog: Catalog = {
     "Calendar is not available": "日历不可用",
     Event: "日程",
     "New event": "新建日程",
+    "New page": "新建页面",
     "Create event…": "创建日程…",
     "(new event)": "（新建日程）",
     "New all-day event": "新建全天日程",

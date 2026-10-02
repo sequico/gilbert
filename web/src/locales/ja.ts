@@ -273,6 +273,7 @@ export const catalog: Catalog = {
     "Calendar is not available": "カレンダーは利用できません",
     Event: "予定",
     "New event": "新しい予定",
+    "New page": "新しいページ",
     "Create event…": "予定を作成…",
     "(new event)": "（新しい予定）",
     "New all-day event": "新しい終日の予定",

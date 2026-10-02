@@ -270,6 +270,7 @@ export const catalog: Catalog = {
     "Calendar is not available": "Календар недоступний",
     Event: "Подія",
     "New event": "Нова подія",
+    "New page": "Нова сторінка",
     "Create event…": "Створити подію…",
     "(new event)": "(нова подія)",
     "New all-day event": "Нова подія на весь день",

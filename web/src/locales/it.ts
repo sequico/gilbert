@@ -417,6 +417,7 @@ export const catalog: Catalog = {
     Event: "Evento",
 
     "New event": "Nuovo evento",
+    "New page": "Nuova pagina",
 
     "Create event…": "Crea evento…",
 

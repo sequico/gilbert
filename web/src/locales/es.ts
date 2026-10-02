@@ -276,6 +276,7 @@ export const catalog: Catalog = {
     "Calendar is not available": "El calendario no está disponible",
     Event: "Evento",
     "New event": "Evento nuevo",
+    "New page": "Nueva página",
     "Create event…": "Crear evento…",
     "(new event)": "(evento nuevo)",
     "New all-day event": "Evento nuevo de todo el día",
