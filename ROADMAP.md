@@ -33,14 +33,16 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 - **The knowledge base.** A company-wide KB owned by the Master and shared with
   every account, plus a KB per group owned by the group, holding documents in
   Stalwart under one shared draft per article and an administrator's approval
-  with an effective date issuing a revision (ADR 0024). The record is **Proposed**
-  and deliberately a working notebook: the editor (BlockNote) and the search
-  (Orama) come off the shelf, and the storage, ownership, versioning, approval and
-  the fleet's document-controller behaviour are Gilbert's own. What decides it —
-  the door members write the company KB through, whether a share on the nested
-  folder can stay hidden behind the app folder, and whether co-editing ships in
-  v1 or a lock does — is in its **Questions, settled and open**, and the
-  shared-share probe ADR 0023 already owes is what unblocks it.
+  with an effective date issuing a revision (ADR 0024). Every document is read
+  and written through the server acting as the Master, which is where the
+  administrator check an approval is gated on lives, and the KB is the strategic
+  layer — policies, procedures and the checklist templates a workorder
+  instantiates (ADR 0028). The record is **Proposed** and deliberately a working
+  notebook: the editor (BlockNote) and the search (Orama) come off the shelf, and
+  the storage, ownership, versioning, approval and the fleet's
+  document-controller behaviour are Gilbert's own. What still decides it —
+  co-editing in v1 or a lock, the editor, the search index, the anonymous
+  surface — is in its **Questions, settled and open**.
 
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 

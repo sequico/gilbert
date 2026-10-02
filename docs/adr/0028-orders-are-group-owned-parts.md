@@ -20,9 +20,10 @@ permission, so visibility is account access: a group owns the part of the order
 it is competent for, and a reader sees the union of the parts their group
 memberships reach.
 
-An order's checklist is where the **KB (ADR 0024)** becomes a process: a step
-names the article that says what the step means, and the order carries the
-step's state. The KB is the model; the order is the instance.
+An order's checklist is where the **KB (ADR 0024)** becomes a process: the
+checklist is an instance of a **template** the KB defines, and the order carries
+the step's state and never the controlled text. The KB is the strategic layer;
+the order is the lean operational instance.
 
 ## The design as it stands
 
@@ -46,6 +47,10 @@ document is.
 - The **same uid** names every copy. The account tells them apart and decides
   which role a document has, so the root and a part are one name in two places,
   not two shapes to keep in step.
+- The root carries the order's **friendly name** beside the uid — the label a
+  listing and the panel show. It is a field of the document and never the file's
+  name: the uid is what ties the copies, so renaming an order is an edit and
+  never a rename, and no reference breaks.
 
 ### References, not copies and not markers
 
@@ -122,17 +127,17 @@ account**, so it is the group's; the Master seeds it as a member.
 ## Decision
 
 An order is a **uid** with a root document in the Master's app folder — identity,
-global checklist, and the registry of every order — and a **part** in the app
-folder of each group competent for it, holding that group's checklist and its
-references to that group's own folders, messages and files, and to KB articles.
-Everything gathered is a reference by id; nothing is copied and no marker is
-planted in a work folder. The Master does every read and write: it composes the
-surface from the root and the parts, an administrator sees every part through it,
-and a member sees the global checklist and their own groups' parts, with the
-server route deciding what each caller may reach. A checked step keeps the last
-signature — who, taken from the authenticated session, and when. Creation is the
-Master's or an administrator's, and no folder tree and no per-file share beside
-the documents is created.
+friendly name, global checklist, and the registry of every order — and a **part**
+in the app folder of each group competent for it, holding that group's checklist
+— the operational instance of a KB template (ADR 0024) — and its references to
+that group's own folders, messages and files. Everything gathered is a reference
+by id; nothing is copied and no marker is planted in a work folder. The Master
+does every read and write: it composes the surface from the root and the parts,
+an administrator sees every part through it, and a member sees the global
+checklist and their own groups' parts, with the server route deciding what each
+caller may reach. A checked step keeps the last signature — who, taken from the
+authenticated session, and when. Creation is the Master's or an administrator's,
+and no folder tree and no per-file share beside the documents is created.
 
 ## Consequences
 
@@ -163,7 +168,8 @@ the documents is created.
 
 ## References
 
-- `docs/adr/0024` — the knowledge base: the procedure a checklist step follows
+- `docs/adr/0024` — the knowledge base: the procedures and the checklist
+  templates an order instantiates
 - `docs/adr/0003` — the agent fleet (its `job` is a run, not an order)
 - `docs/adr/0005` — group chat (the panel launcher's shape)
 - `docs/adr/0007` — the agent as a member of every group it is granted on

@@ -196,6 +196,18 @@ Excalidraw only when their phase arrives.
 Not yet accepted, and each unsettled point below has a question in **Questions,
 settled and open**. The approval lifecycle is settled and is the core of it.
 
+### What the KB holds: procedures and checklist templates
+
+The KB is the **strategic, controlled** layer — what the company has decided and
+how its work is done. Beside policies and procedures it holds **checklist
+templates**: the steps a job of that kind must take and what each step means.
+
+A workorder's checklist is an **instance of a template** (ADR 0028): the order
+carries the operational state — the step ids, their state, who checked them, the
+references — and never a copy of the controlled text, which the reader gets from
+the KB. The two layers are deliberately different: the KB is versioned, reviewed
+and approved with an effective date; the workorder is lean and moves.
+
 ### The surface in the app
 
 The KB is a top-level section of its own — the **fifth**, placed after **Mail,
@@ -234,7 +246,11 @@ below.
   what is in force. A review is a read that yields findings; it is not an
   approval.
 - **Only an administrator approves.** Administrators are the single approval
-  level. No member, and no agent, ever approves an article.
+  level. No member, and no agent, ever approves an article. The approver a
+  revision records, and the instant of approval, are taken from the session the
+  server authenticated and never from the request: the Master is the writer of
+  every KB document (Q1), so the document is the only place an administrator can
+  be named.
 - **Approval issues the draft as a revision, with an effective date.** The
   administrator approves and states the date the revision takes effect. A date
   already passed puts it in force at once; a future date leaves it **pending**,
@@ -413,19 +429,20 @@ The approval lifecycle above settles several of these; each is marked
 **Settled** with what the owner decided, or **Open** with the recommendation
 still standing. The open ones are the reasons this record is still Proposed.
 
-1. **Who writes the company KB?** — **Settled in principle:** every member and
-   every agent writes and edits drafts; only an administrator approves. Still
-   open is the *door* those member writes go through: (B) a server route that
-   acts as the Master — broader authorisation, a new trust decision; or (C) a
-   read-write Stalwart share on the folder, the member's own session, no
-   privileged door. *Recommend C if the share holds under a live probe (the ADR
-   0023 wildcard-share probe is already owed), else B.*
+1. **Who writes the company KB, and through which door?** — **Settled.** Every
+   member and every agent writes and edits drafts, and only an administrator
+   approves. Every read and write goes through a **server route that acts as the
+   Master**, not a read-write Stalwart share on the folder: the route is the one
+   place that knows whether the caller is an administrator
+   (`session.gilbert.isAdmin`), which is what an approval is gated on, and it is
+   the same door the order surface uses (ADR 0028).
 2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
    `gilbert/knowledge` inside the app folder — the Master's account for the
    company's KB and each account's own for a group's — the app folder's name
-   being the whole hiding rule, so no second rule is invented. The share probe
-   the write door may need, without exposing `gilbert/` (where `settings.json`
-   lives), is the one question 1 still rests on.
+   being the whole hiding rule, so no second rule is invented. Whether a share on
+   the nested folder can grant a member read access without exposing `gilbert/`
+   (where `settings.json` lives) is the probe the read side still owes; it no
+   longer gates question 1, which the server route settles.
 3. **Group KBs now or later?** — **Open.** *Recommend the same code built once,
    company first; group scope in the phase after.*
 4. **Versioning shape** — **Settled.** A revision is minted at approval, not per

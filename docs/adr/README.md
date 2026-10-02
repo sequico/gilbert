@@ -231,8 +231,10 @@ is, not what a user sees.
 - **0024 — The knowledge base (proposed, a working record).** An enterprise
   knowledge base inside Gilbert, for people and for agents: a company-wide KB
   owned by the Master and shared, plus a KB per group owned by the group, over
-  app-folder documents in Stalwart. An article has **one shared unapproved draft
-  that users and agents both edit**, the fleet reviews it, and **only an
+  app-folder documents in Stalwart — policies, procedures and the checklist
+  templates a workorder instantiates (ADR 0028). An article has **one shared
+  unapproved draft that users and agents both edit**, the fleet reviews it, and
+  **only an
   administrator approves it into force with an effective date**, the revision it
   replaces staying in history as superseded. It takes the editor (BlockNote) and
   the search (Orama) off the shelf and builds the rest — storage, ownership,
@@ -276,8 +278,9 @@ is, not what a user sees.
   an administrator sees every part without being a member of every group and a
   member sees the global checklist and their own groups' parts, the door being
   the server route that checks the caller's membership; a checked step keeps the
-  last signature, taken from the authenticated session. The KB (ADR 0024) is the
-  model a checklist step follows, and the two are separate decisions.
+  last signature, taken from the authenticated session, and a friendly name
+  beside the uid. A checklist instantiates a KB template (ADR 0024), which is a
+  separate decision.
 - **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
