@@ -23,6 +23,8 @@
  * `undefined` on one.
  */
 
+import { isRecord } from "./json.js";
+
 /** The folder under the app folder that holds a tier's articles. */
 export const KNOWLEDGE_FOLDER = "knowledge";
 
@@ -241,10 +243,6 @@ export interface KnowledgeTarget {
 /* ------------------------------------------------------------------ */
 /* Validators                                                          */
 /* ------------------------------------------------------------------ */
-
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null && !Array.isArray(x);
-}
 
 function isTimes(x: unknown): x is KnowledgeTimes {
   return isRecord(x) && typeof x.by === "string" && typeof x.at === "string";

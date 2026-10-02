@@ -18,6 +18,8 @@
  * server cannot drift.
  */
 
+import { isRecord } from "./json.js";
+
 export const WORKORDER_FOLDER = "workorders";
 export const WORKORDER_CLOSED_FOLDER = "closed";
 
@@ -106,10 +108,6 @@ export function workorderFileName(uid: string): string {
 /* ------------------------------------------------------------------ */
 /* Validators                                                          */
 /* ------------------------------------------------------------------ */
-
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null && !Array.isArray(x);
-}
 
 function isTimes(x: unknown): x is WorkorderTimes {
   return isRecord(x) && typeof x.by === "string" && typeof x.at === "string";

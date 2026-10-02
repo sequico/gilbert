@@ -19,6 +19,7 @@
  * surface that assigned it.
  */
 
+import { isEmailAddress } from "./address.js";
 import { isRecord } from "./json.js";
 
 /** The file a group's member-to-identity assignment lives in. */
@@ -36,7 +37,7 @@ export interface AssignmentDoc {
 
 /** Whether a member address is one this document may carry a key for. */
 export function isMemberKey(address: string): boolean {
-  return /^[^\s@]+@[^\s@]+$/.test(address.trim());
+  return isEmailAddress(address);
 }
 
 /**

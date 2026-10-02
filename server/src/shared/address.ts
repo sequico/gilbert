@@ -16,3 +16,17 @@ export function sameAddress(
 ): boolean {
   return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 }
+
+/**
+ * Whether a string is an address this product will accept.
+ *
+ * One predicate for a value every door names an address with — the policy
+ * editor, the identity doors, the assignment document — so a value accepted at
+ * one is not refused at another. A domain is required (a local part alone is
+ * not an address), and the check is deliberately structural rather than
+ * exhaustive: what a server actually accepts is the server's answer, and this
+ * only refuses the obviously-not.
+ */
+export function isEmailAddress(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+}

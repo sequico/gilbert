@@ -16,3 +16,20 @@
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/**
+ * Whether a thrown value is JMAP's lost-compare-and-set refusal.
+ *
+ * A conditional write carrying a stale `ifInState` is refused with
+ * `stateMismatch` (RFC 8620 §5.3), and every writer that retries needs to
+ * recognise it. The check is duck-typed on `type`, not `instanceof`, because
+ * the two tiers have different error classes and the value can cross the
+ * proxy; a value carrying that type is that refusal.
+ */
+export function isStateMismatch(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { type?: unknown }).type === "stateMismatch"
+  );
+}
