@@ -501,31 +501,33 @@ still standing. The open ones are the reasons this record is still Proposed.
     write drafts everywhere (company and group); they never approve. A group
     agent's company-KB draft write goes through the same door the members' does
     (Q1).
-16. **Does the company KB enter the model's context automatically?** — **Open.**
-    *Recommend the KB stays a lookup (the tail), never wholesale — the
-    `docs/adr/0006` two-speed rule.*
+16. **Does the company KB enter the model's context automatically?** — **Settled:
+    no.** The KB stays a **lookup** — the tail, fetched by name and bounded — and
+    the notebook stays the distilled head; the whole KB is never carried into the
+    prompt (`docs/adr/0006`, `docs/adr/0020`).
 17. **Structure** — **Settled.** A tree for navigation — the FileNode tree, an
     article a folder whose children are its sub-articles — plus **tags** for the
     sets that cut across it; backlinks are a later concern. References are by id,
     so reorganizing the tree breaks nothing.
-18. **Are KB pages also visible in Files?** — **Open.** *Recommend no: the KB is
-    its own surface, the way chat is not a folder of messages.*
+18. **Are KB pages also visible in Files?** — **Settled: no.** The KB is its own
+    surface, the way chat is not a folder of messages.
 19. **Naming** — **Settled.** The surface is called **KB** in every language —
     the same two letters, never translated, the way the app's own name is not
     — while the identifier and the store path stay `gilbert/knowledge` (the
     four-block vocabulary). It is a term of art rather than English copy, so no
     catalog carries a translation of it and the label renders "KB" everywhere.
-20. **Per-page restrictions inside the company KB** — **Open.** *Recommend out of
-    scope for v1; say so rather than imply a boundary that is not there.*
+20. **Per-page restrictions inside the company KB** — **Settled: out of scope for
+    v1.** Every member reads the whole company KB, and the record says so rather
+    than implying a boundary that is not there.
 21. **What may an agent do unattended?** — **Settled.** Read and draft, including
     the reviews; approval is an administrator's alone.
 22. **When does the consistency pass run** — on change, on operator ask, or on a
-    clock? — **Open.** *Recommend on change and on ask for v1; a schedule is a
-    separate decision with its own cost (`docs/adr/0012`).*
-23. **Where do findings and plans live** — as KB documents (readable, auditable)
-    or as the fleet's job/decision documents (the existing trail)? — **Open.**
-    *Recommend the job/decision trail for provenance, with the plan text also
-    attached to the review item a person sees.*
+    clock? — **Settled.** On a change and on ask; a schedule is a separate
+    decision with its own cost (`docs/adr/0012`).
+23. **Where do findings and plans live** — as KB documents or as the fleet's
+    job/decision documents? — **Settled.** In the fleet's **job/decision trail**,
+    for provenance, with the plan text also attached to the review item a person
+    sees.
 24. **May one plan touch more than one owner** (the company KB and a group's) in
     a single request? — **Open.** *Recommend no in v1: a plan is one owner's, so
     its share and its approval are unambiguous.*
@@ -535,12 +537,10 @@ still standing. The open ones are the reasons this record is still Proposed.
 26. **Who may ask for a multi-document change** — any member, or an
     administrator? — **Settled.** Any member and any agent, since both write
     drafts; issuing the result is an administrator's.
-27. **Is the agents' review a gate before approval, or advisory?** The owner's
-    order is draft → review → approval, which read literally makes the review
-    happen first. *Open: recommend the review informs the administrator rather
-    than blocking the approval, so a slow or failed review never strands a draft;
-    a "review required" flag on the article is the alternative if the process
-    wants it enforced.*
+27. **Is the agents' review a gate before approval, or advisory?** — **Settled:
+    advisory.** The review informs the administrator and never blocks an approval,
+    so a slow or failed review cannot strand a draft; a "review required" flag is
+    the alternative if the process ever wants it enforced.
 
 ## What is not in it
 
