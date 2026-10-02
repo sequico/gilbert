@@ -56,7 +56,7 @@ export interface LastPlace {
 }
 
 /** Which sidebar tree a set of open folders belongs to. */
-export type TreeKind = "mail" | "files";
+export type TreeKind = "mail" | "files" | "kb";
 
 /**
  * The columns a file listing can be ordered by.

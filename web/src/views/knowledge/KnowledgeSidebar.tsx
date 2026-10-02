@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import { uid } from "@/lib/format";
+import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import {
   compareKnowledgeSiblings,
@@ -224,6 +225,7 @@ export function KnowledgeSidebar() {
   const removeNode = useKnowledge((s) => s.removeNode);
   const setSearch = useKnowledge((s) => s.setSearch);
   const runSearch = useKnowledge((s) => s.runSearch);
+  const clearSearchState = useKnowledge((s) => s.clearSearch);
   const searchedTerm = useKnowledge((s) => s.searchedTerm);
 
   /*
@@ -246,11 +248,11 @@ export function KnowledgeSidebar() {
       void runSearch();
     }, 250);
   };
-  const clearSearch = () => {
+  const onClear = () => {
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
     searchTimer.current = null;
-    setSearch("");
-    void runSearch();
+    setTemplatesOnly(false);
+    clearSearchState();
   };
 
   /*
@@ -265,11 +267,12 @@ export function KnowledgeSidebar() {
   } | null>(null);
 
   /*
-   * Expansion is the reader's own view state, not a document: the KB stores no
-   * "open" flag, and a reload rebuilds the tree, so a folded folder stays
-   * folded for as long as this sidebar is mounted.
+   * Which folders are open is the reader's own view state, kept beside the
+   * place their trees were left in and read back on the next visit, the way the
+   * mail and file trees remember theirs: this browser, one record per reader,
+   * never an account setting. A folder absent from the record is shut.
    */
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const { open: expanded, setFolder, openKeys } = useOpenFolders("kb");
   const [dragging, setDragging] = useState<Dragging | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   /** Show only checklist templates and the folders on the way to them. */
@@ -403,17 +406,19 @@ export function KnowledgeSidebar() {
   const expandChain = (tier: KnowledgeTierView, nodeId: string | null) => {
     if (!nodeId) return;
     const byId = new Map(tier.articles.map((a) => [a.nodeId, a]));
-    const opened: Record<string, boolean> = {};
+    const keys: string[] = [];
     let id: string | null = nodeId;
     while (id) {
-      opened[id] = true;
+      keys.push(folderKey(tier.accountId, id));
       id = byId.get(id)?.parentId ?? null;
     }
-    setExpanded((prev) => ({ ...prev, ...opened }));
+    openKeys(keys);
   };
 
-  const toggleFolder = (nodeId: string) =>
-    setExpanded((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
+  const toggleFolder = (tier: KnowledgeTierView, nodeId: string) => {
+    const key = folderKey(tier.accountId, nodeId);
+    setFolder(key, !expanded[key]);
+  };
 
   /*
    * A row's drop zone is decided from where the pointer is: the middle of a
@@ -527,7 +532,8 @@ export function KnowledgeSidebar() {
 
   const row = (a: KnowledgeSummary, depth: number, tier: KnowledgeTierView) => {
     const selected = a.kind === "article" && article?.summary.nodeId === a.nodeId;
-    const openFolder = a.kind === "folder" && Boolean(expanded[a.nodeId]);
+    const openFolder =
+      a.kind === "folder" && Boolean(expanded[folderKey(tier.accountId, a.nodeId)]);
     const inside = dropTarget?.nodeId === a.nodeId && dropTarget.mode === "inside";
     const className = `nav-item ${selected ? "active" : ""} ${inside ? "drop-target" : ""}`;
     const style: CSSProperties = {
@@ -615,7 +621,7 @@ export function KnowledgeSidebar() {
           style={style}
           title={a.title}
           {...rowDrag}
-          onClick={() => toggleFolder(a.nodeId)}
+          onClick={() => toggleFolder(tier, a.nodeId)}
         >
           {body}
         </div>
@@ -667,7 +673,10 @@ export function KnowledgeSidebar() {
       for (const a of siblingsOf(tier, parentId)) {
         if (show && !show.has(a.nodeId)) continue;
         out.push(row(a, depth, tier));
-        if (a.kind === "folder" && (expanded[a.nodeId] || show))
+        if (
+          a.kind === "folder" &&
+          (expanded[folderKey(tier.accountId, a.nodeId)] || show)
+        )
           walk(a.nodeId, depth + 1);
       }
       // The inline "new page / folder" input sits at the level it will join.
@@ -741,7 +750,7 @@ export function KnowledgeSidebar() {
               className="icon-btn sm"
               title={t("Clear search")}
               aria-label={t("Clear search")}
-              onClick={clearSearch}
+              onClick={onClear}
             >
               <X size={15} />
             </button>

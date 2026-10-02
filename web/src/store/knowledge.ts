@@ -144,6 +144,8 @@ interface KnowledgeStore {
   /** Delete one tree node from its row; a folder goes with what it holds. */
   removeNode(tier: KnowledgeTierState, summary: KnowledgeSummary): Promise<boolean>;
   setSearch(term: string): void;
+  /** Empty the box and its results, so the tree is what shows again. */
+  clearSearch(): void;
   setShowRetired(on: boolean): void;
   /**
    * Where an inline "new page / new folder" input is open, or null. Creation is
@@ -640,6 +642,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
 
     setSearch(term) {
       set({ search: term });
+    },
+
+    clearSearch() {
+      set({ search: "", results: [], searching: false, searchedTerm: "" });
     },
 
     setShowRetired(on) {
