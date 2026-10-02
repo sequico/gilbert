@@ -60,6 +60,11 @@ const CalendarView = lazyView(() =>
 const FilesView = lazyView(() =>
   import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })),
 );
+const KnowledgeView = lazyView(() =>
+  import("@/views/knowledge/KnowledgeView").then((m) => ({
+    default: m.KnowledgeView,
+  })),
+);
 const SettingsView = lazyView(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
@@ -690,6 +695,7 @@ function AuthedApp() {
             {(p) => <CalendarView view={p.view} date={p.date} />}
           </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
+          <Route path="/kb/:nodeId?">{(p) => <KnowledgeView nodeId={p.nodeId} />}</Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}
           </Route>

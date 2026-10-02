@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Calendar,
   ChevronsUpDown,
   Download,
@@ -70,6 +71,11 @@ const ContactsSidebar = lazyView(() =>
 const FilesTree = lazyView(() =>
   import("./files/FilesTree").then((m) => ({ default: m.FilesTree })),
 );
+const KnowledgeSidebar = lazyView(() =>
+  import("./knowledge/KnowledgeSidebar").then((m) => ({
+    default: m.KnowledgeSidebar,
+  })),
+);
 
 /*
  * How far the sidebar edge can be dragged. Below about 240px the module bar
@@ -114,7 +120,7 @@ interface Module {
  *
  * A section that has an editor of its own is reached through `event` rather
  * than by this file: the shell dispatches, the view that owns the dialog
- * listens (see CalendarView, ContactsView, FilesView). `.action`
+ * listens (see CalendarView, ContactsView, FilesView, KnowledgeView). `.action`
  * carrying no event is how mail says its composer is the app's own store and
  * is called directly.
  *
@@ -151,14 +157,21 @@ const MODULES: Module[] = [
     icon: FolderOpen,
     action: { label: "Upload", icon: Upload, event: "ihm:files-upload" },
   },
+  {
+    id: "kb",
+    href: "/kb",
+    label: "KB",
+    icon: BookOpen,
+    action: { label: "New page", icon: Plus, event: "ihm:knowledge-new" },
+  },
 ];
 
 /**
  * The module a location's section belongs to, or `undefined` where there is
- * none — the settings and admin screens are not one of the four.
+ * none — the settings and admin screens are not one of the five.
  *
  * Search is deliberately not a section of its own: it is mail, filtered, so the
- * four renderers agree about which module is current while it is open.
+ * five renderers agree about which module is current while it is open.
  */
 function currentModule(section: string): Module | undefined {
   if (section === "search") return MODULES[0];
@@ -541,13 +554,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/*
               The other sections' sidebars load with the section, the way their
               views already do: each is only drawn under one section, and
-              keeping all three in the main chunk is what made a mail-only
-              session carry the calendar, contacts and files trees.
+              keeping all four in the main chunk is what made a mail-only
+              session carry the calendar, contacts, files and knowledge trees.
             */}
             <Suspense fallback={null}>
               {section === "calendar" && <CalendarSidebar />}
               {section === "contacts" && <ContactsSidebar />}
               {section === "files" && <FilesTree />}
+              {section === "kb" && <KnowledgeSidebar />}
             </Suspense>
             {section === "settings" && (
               <div className="nav-section">
