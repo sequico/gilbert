@@ -19,6 +19,7 @@
  * for that unit and comes back next pass.
  */
 
+import { hostname } from "node:os";
 import { isStateMismatch } from "../jmap.js";
 import { type AgentClaim, type AgentStreamClaim, claimEpoch } from "./documents.js";
 import type { AgentStore } from "./store.js";
@@ -346,6 +347,17 @@ export async function releaseStreamClaim(
 const PROCESS_STARTED = Date.now().toString(36);
 
 /**
+ * The host this process runs on.
+ *
+ * A process id is only unique on one host: two containers serving the same
+ * Master address can both be PID 1, started in the same millisecond, and would
+ * then carry an identical agent id — each reading the other's live claim as its
+ * own and skipping the takeover fence. The hostname separates them, and stays
+ * stable for the process.
+ */
+const HOST = hostname();
+
+/**
  * How someone is the same agent again: stable for the process, different for
  * every run. A restarted agent therefore never mistakes the process it
  * replaced for itself, and — with takeover decided against this process's own
@@ -353,5 +365,5 @@ const PROCESS_STARTED = Date.now().toString(36);
  * anything out.
  */
 export function agentId(address: string): string {
-  return `${address}#${process.pid}-${PROCESS_STARTED}`;
+  return `${address}#${HOST}-${process.pid}-${PROCESS_STARTED}`;
 }

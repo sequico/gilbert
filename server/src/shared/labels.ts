@@ -49,6 +49,9 @@ export const STARRED_KEYWORD = "$flagged";
 /** The keyword that marks a message read. */
 export const SEEN_KEYWORD = "$seen";
 
+/** The keyword that marks a message a draft. */
+export const DRAFT_KEYWORD = "$draft";
+
 /** The parsed `labels.json`. */
 export interface LabelCatalog {
   labels: LabelCatalogEntry[];

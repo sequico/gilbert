@@ -235,7 +235,7 @@ test("the stream claim is exclusive, in the agent's own account", async () => {
 test("an agent id is stable for the process and names the agent", () => {
   const id = agentId("gilbert@example.com");
   assert.equal(id, agentId("gilbert@example.com"));
-  assert.match(id, /^gilbert@example\.com#[0-9]+-/);
+  assert.match(id, /^gilbert@example\.com#.+-[0-9]+-/);
 });
 
 /*

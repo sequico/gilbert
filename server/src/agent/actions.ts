@@ -313,13 +313,19 @@ async function assertAgentLabelsDefined(
 /* Mailbox lookups                                                     */
 /* ------------------------------------------------------------------ */
 
-interface MailboxRecord {
+export interface MailboxRecord {
   id?: unknown;
   name?: unknown;
   role?: unknown;
 }
 
-async function mailboxesOf(
+/**
+ * An account's mailboxes, as a name to resolve against or a list to render.
+ *
+ * The one `Mailbox/get` projection both the run's lookups and the action layer
+ * ask, so a property added for one reader is seen by the other.
+ */
+export async function mailboxesOf(
   client: JmapClient,
   accountId: string,
   ids: string[] | null,

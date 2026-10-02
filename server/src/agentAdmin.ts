@@ -126,7 +126,7 @@ import {
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import { isRecord } from "./shared/json.js";
-import { AGENT_LABELS } from "./shared/labels.js";
+import { AGENT_LABELS, DRAFT_KEYWORD } from "./shared/labels.js";
 import {
   fetchUpstreamSession,
   getUpstreamSession,
@@ -919,7 +919,7 @@ async function newestInboxMessage(
         "Email/query",
         {
           accountId,
-          filter: { inMailbox: inbox, notKeyword: "$draft" },
+          filter: { inMailbox: inbox, notKeyword: DRAFT_KEYWORD },
           sort: [{ property: "receivedAt", isAscending: false }],
           limit: 1,
         },

@@ -3,6 +3,7 @@
  * newly created filter can be applied retroactively to a folder (the server only
  * runs Sieve on delivery).
  */
+import { DRAFT_KEYWORD, SEEN_KEYWORD, STARRED_KEYWORD } from "@gilbert/shared/labels";
 import { chunk, client } from "@/jmap/client";
 import type { Email, GetResponse, Id, QueryResponse } from "@/jmap/types";
 import { LIST_PROPS, useMail } from "@/store/mail";
@@ -291,10 +292,10 @@ export async function applyRuleToMailbox(
 
 function normalizeFlag(flag: string): string {
   const f = flag.trim();
-  if (/^\\\\?seen$/i.test(f)) return "$seen";
-  if (/^\\\\?flagged$/i.test(f)) return "$flagged";
+  if (/^\\\\?seen$/i.test(f)) return SEEN_KEYWORD;
+  if (/^\\\\?flagged$/i.test(f)) return STARRED_KEYWORD;
   if (/^\\\\?answered$/i.test(f)) return "$answered";
-  if (/^\\\\?draft$/i.test(f)) return "$draft";
+  if (/^\\\\?draft$/i.test(f)) return DRAFT_KEYWORD;
   return f.replace(/^\\+/, "");
 }
 

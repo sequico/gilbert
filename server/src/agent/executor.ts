@@ -51,7 +51,7 @@ import {
   plainTextFromBlocks,
   STATE_FILE,
 } from "../shared/knowledge.js";
-import { AGENT_LABEL, SEEN_KEYWORD } from "../shared/labels.js";
+import { AGENT_LABEL, DRAFT_KEYWORD, SEEN_KEYWORD } from "../shared/labels.js";
 import { buildFilter, parseQuery, resolveMailbox } from "../shared/search.js";
 import {
   type ActionOpts,
@@ -60,6 +60,7 @@ import {
   type EmailRecord,
   fetchEmailRecord,
   fetchEmailView,
+  mailboxesOf,
   mailboxIdByRole,
   RefusedError,
   runActions,
@@ -696,8 +697,8 @@ export class Executor {
   private async nodeRecords(
     accountId: string,
     ids: ReadonlyArray<string>,
-  ): Promise<FileNodeRecord[]> {
-    const res = await this.deps.client.call<{ list?: FileNodeRecord[] }>(
+  ): Promise<FileNodeLike[]> {
+    const res = await this.deps.client.call<{ list?: FileNodeLike[] }>(
       "FileNode/get",
       { accountId, ids, properties: ["id", "name", "parentId", "nodeType", "size"] },
       [FILENODE_CAP],
@@ -705,10 +706,7 @@ export class Executor {
     return res.list ?? [];
   }
 
-  private async nodeRecord(
-    accountId: string,
-    id: string,
-  ): Promise<FileNodeRecord | null> {
+  private async nodeRecord(accountId: string, id: string): Promise<FileNodeLike | null> {
     const list = await this.nodeRecords(accountId, [id]);
     return list[0] ?? null;
   }
@@ -1291,12 +1289,7 @@ export class Executor {
     accountId: string,
     lookup: Extract<AgentLookup, { kind: "mailboxes" }>,
   ): Promise<string> {
-    const res = await this.deps.client.call<{ list?: Array<Record<string, unknown>> }>(
-      "Mailbox/get",
-      { accountId, ids: null, properties: ["id", "name", "role"] },
-      [JMAP_MAIL],
-    );
-    const rows = (res.list ?? []).map(
+    const rows = (await mailboxesOf(this.deps.client, accountId, null)).map(
       (mailbox) =>
         `- ${String(mailbox.name ?? "(unnamed)")}${
           mailbox.role ? ` (${String(mailbox.role)})` : ""
@@ -1323,13 +1316,8 @@ export class Executor {
   private async accountMailboxes(
     accountId: string,
   ): Promise<Record<string, { id: string; name: string; role?: string | null }>> {
-    const res = await this.deps.client.call<{
-      list?: Array<{ id?: unknown; name?: unknown; role?: unknown }>;
-    }>("Mailbox/get", { accountId, ids: null, properties: ["id", "name", "role"] }, [
-      JMAP_MAIL,
-    ]);
     const map: Record<string, { id: string; name: string; role?: string | null }> = {};
-    for (const mailbox of res.list ?? []) {
+    for (const mailbox of await mailboxesOf(this.deps.client, accountId, null)) {
       if (typeof mailbox.id !== "string" || typeof mailbox.name !== "string") continue;
       map[mailbox.id] = {
         id: mailbox.id,
@@ -1355,8 +1343,14 @@ export class Executor {
       // wrong folder" is a question about the shape of the tree, and a listing
       // that stopped at one level would make the run ask a person to walk it
       // folder by folder (ADR 0020).
-      const truncated = rows.length >= AGENT_LOOKUP_FILES_MAX;
-      await this.walkVisible(accountId, folderId, folder, 0, rows, lookup.name);
+      const truncated = await this.walkVisible(
+        accountId,
+        folderId,
+        folder,
+        0,
+        rows,
+        lookup.name,
+      );
       const rendered = renderItemList(lookup, rows.length, rows);
       return truncated
         ? `${rendered}\n…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`
@@ -1395,8 +1389,13 @@ export class Executor {
     depth: number,
     rows: string[],
     nameFilter?: string,
-  ): Promise<void> {
-    if (depth > AGENT_LOOKUP_DEPTH_MAX || rows.length >= AGENT_LOOKUP_FILES_MAX) return;
+  ): Promise<boolean> {
+    // True when the walk stopped because it filled its bound rather than because
+    // it reached the end: the caller renders that as "more entries", and a
+    // listing that happens to end exactly at the bound does not claim there are
+    // more.
+    if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;
+    if (depth > AGENT_LOOKUP_DEPTH_MAX) return false;
     const nodes = await fileChildren(
       this.deps.ctx,
       accountId,
@@ -1405,20 +1404,24 @@ export class Executor {
       AGENT_LOOKUP_FILES_MAX,
     );
     for (const node of nodes) {
-      if (rows.length >= AGENT_LOOKUP_FILES_MAX) return;
+      if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;
       const name = String(node.name ?? "");
       if (!name || name === APP_FOLDER_NAME) continue;
       if (matchesName(node, nameFilter)) rows.push(fileLine(node, prefix));
       if (node.nodeType === "directory" && node.id)
-        await this.walkVisible(
-          accountId,
-          String(node.id),
-          prefix ? `${prefix}/${name}` : name,
-          depth + 1,
-          rows,
-          nameFilter,
-        );
+        if (
+          await this.walkVisible(
+            accountId,
+            String(node.id),
+            prefix ? `${prefix}/${name}` : name,
+            depth + 1,
+            rows,
+            nameFilter,
+          )
+        )
+          return true;
     }
+    return false;
   }
 
   /** One file of the group's visible Files, as the text this build reads. */
@@ -3362,14 +3365,6 @@ export class Executor {
 /* Small helpers                                                       */
 /* ------------------------------------------------------------------ */
 
-interface FileNodeRecord {
-  id?: unknown;
-  name?: unknown;
-  parentId?: unknown;
-  nodeType?: unknown;
-  size?: unknown;
-}
-
 /** One job per rule and trigger: the durable half of at-least-once delivery. */
 function jobKey(ruleId: string, trigger: AgentTriggerRecord): string {
   return `${ruleId}:${trigger.on}:${changeIdOf(trigger)}`;
@@ -3750,7 +3745,7 @@ function fileLine(node: FileNodeLike, prefix: string): string {
 function mailListLine(view: AgentEmailView): string {
   const from = (view.from ?? []).map((a) => a.email ?? a.name ?? "").join(", ");
   const labels = Object.keys(view.keywords ?? {}).filter(
-    (keyword) => keyword !== SEEN_KEYWORD && keyword !== "$draft",
+    (keyword) => keyword !== SEEN_KEYWORD && keyword !== DRAFT_KEYWORD,
   );
   return `- ${view.id ?? "?"}  ${view.receivedAt ?? "unknown"}  ${from}  ${
     view.subject ?? "(no subject)"
