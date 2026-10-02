@@ -129,12 +129,13 @@ live, only for a reader who may read the target, so a reference leaks no name.
 
 ### The surface, and who reads what
 
-One **wide panel** beside the work — the chat launcher's shape (`store/chat.ts`:
-an icon, a badge, open and close) but wide enough to work in. It lists the
-workorders the reader can see and holds the open workorder — global checklist,
-the reader's own checklists, parts, references — while the rest of the app is
-used beside it. Opening a reference does not leave the workorder: the panel stays
-as the context and the main area shows the target.
+One **launcher in the top bar** beside chat's (`store/chat.ts`: an icon, a badge,
+open and close), and one **large panel** it opens: wide and tall enough to work
+in, not a popover — the chat launcher's shape at a working size. The icon is a
+**factory**. The panel lists the workorders the reader can see and holds the open
+one — global checklist, the reader's own checklists, parts, references — while the
+rest of the app is used beside it. Opening a reference does not leave the
+workorder: the panel stays as the context and the main area shows the target.
 
 The **Master does every read and every write**, because it is a member of every
 group the installation grants it on (ADR 0007). It composes the full view from

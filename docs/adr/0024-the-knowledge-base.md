@@ -436,7 +436,7 @@ does this is a *document controller*, and it is where the KB earns its keep.
   pages and the revisions it was drawn from, never a silent change.
 - **A multi-document change is a plan, built before it is written.** "Update
   every procedure that references policy X" becomes a plan document: for each
-  page, the revision it was read at, the intended change and why. This is the
+  page, the revision it was read at, and the intended change. This is the
   folder-merge discipline of `docs/adr/0014` — the plan is built, collisions and
   pages moved since are detected, and only then is it applied, page by page,
   under `ifInState`. JMAP has no transaction across FileNodes, so a partial
