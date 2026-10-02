@@ -200,13 +200,15 @@ settled and open**. The approval lifecycle is settled and is the core of it.
 
 The KB is the **strategic, controlled** layer — what the company has decided and
 how its work is done. Beside policies and procedures it holds **checklist
-templates**: the steps a job of that kind must take and what each step means.
+templates**: the steps a job of that kind must take and what each step means. A
+template is an **article like any other** — the same folder, the same draft and
+revisions, the same approval — only its body is a checklist.
 
-A workorder's checklist is an **instance of a template** (ADR 0028): the order
-carries the operational state — the step ids, their state, who checked them, the
-references — and never a copy of the controlled text, which the reader gets from
-the KB. The two layers are deliberately different: the KB is versioned, reviewed
-and approved with an effective date; the workorder is lean and moves.
+A workorder's checklist is an **instance of a template** (ADR 0028): the
+workorder carries the operational state — the step ids, their state, who checked
+them, the references — and never a copy of the controlled text, which the reader
+gets from the KB. The two layers are deliberately different: the KB is versioned,
+reviewed and approved with an effective date; the workorder is lean and moves.
 
 ### The surface in the app
 
@@ -245,6 +247,11 @@ below.
   and agents alike write and modify the same draft — multi-edit by everybody —
   rather than opening a competing draft of their own. A second intent is an edit
   of that draft, not a second document.
+- **A change carries who asked for it.** The draft's record names the person who
+  requested or made the change, and that attribution is shown only to them.
+- **Gilbert writes in its own right or on behalf of a person.** An agent's write
+  is Gilbert's own; a member's is on behalf of that member, and what was written
+  on a person's behalf is theirs to see.
 - **Agents review the draft.** The fleet reads the draft and its neighbours and
   produces the review: inconsistencies, stale references, contradictions with
   what is in force. A review is a read that yields findings; it is not an
@@ -275,7 +282,8 @@ below.
   force.
   The article's file name is its title; the tree is the FileNode tree (an article
   is a folder whose children are its sub-articles), so a listing carries titles
-  without reading blobs.
+  without reading blobs. Nothing references an article by that title: a reference
+  — a workorder's template, a link in another page — carries the **id**.
 - **The document shape**, one definition in `@gilbert/shared/knowledge` read by
   both tiers: the draft and a revision carry the same fields — identity and
   metadata (id, title, tags, created/updated, author), the editor's `blocks` (the
@@ -438,7 +446,7 @@ still standing. The open ones are the reasons this record is still Proposed.
    approves. Every **write** goes through a **server route that acts as the
    Master**: the route is the one place that knows whether the caller is an
    administrator (`session.gilbert.isAdmin`), which is what an approval is gated
-   on, and it is the same door the order surface uses (ADR 0028). The company KB
+   on, and it is the same door the workorder surface uses (ADR 0028). The company KB
    is **read** through a read-only Stalwart share on `gilbert/knowledge` — a
    reader is not a member of the Master's account, so the share is how every
    account reaches the folder without the read passing through the Master. A

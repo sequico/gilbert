@@ -269,18 +269,19 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
-- **0028 — Orders are group-owned parts (proposed).** An order is one uid: a
-  root document in the Master's `gilbert/workorders/` — identity, global
-  checklist and the registry of every order — and a part in each competent
+- **0028 — Workorders are group-owned parts (proposed).** A workorder is one
+  uid: a root document in the Master's `gilbert/workorders/` — identity, global
+  checklist and the registry of every workorder — and a part in each competent
   group's own app folder, holding that group's checklist and its references by
-  id to that group's folders, messages and files; nothing is copied and no
-  marker is planted in a work folder. The Master does every read and write, so
-  an administrator sees every part without being a member of every group and a
-  member sees the global checklist and their own groups' parts, the door being
-  the server route that checks the caller's membership; a checked step keeps the
-  last signature, taken from the authenticated session, and a friendly name
-  beside the uid. A checklist instantiates a KB template (ADR 0024), which is a
-  separate decision.
+  id to that group's folders and files; nothing is copied and no marker is
+  planted in a work folder. Mail is out of it: a mailbox named after the
+  workorder is made by hand for visibility, not referenced. The Master does every
+  read and write, so an administrator sees every part without being a member of
+  every group and a member sees the global checklist and their own groups' parts,
+  the door being the server route that checks the caller's membership; a checked
+  step keeps the last signature, taken from the authenticated session, and a
+  friendly name beside the uid. A checklist instantiates a KB template (ADR
+  0024), which is a separate decision.
 - **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
