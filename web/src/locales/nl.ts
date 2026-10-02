@@ -955,8 +955,6 @@ export const catalog: Catalog = {
       "Neem het nu over in {name} — het wordt niet opnieuw getoond.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Geen andere gebruikers gevonden in de directory, dus er kan niemand nieuws worden toegevoegd. Bestaande gedeelde items staan hieronder en kunnen nog worden verwijderd.",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart geeft zijn versienummer niet door aan e-mailprogramma's, dus Gilbert noemt de editie als de server die opgeeft. Gilbert vereist 0.16 of nieuwer; inloggen weigert alles wat ouder is.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Het {damage}, dus de regels erin kunnen niet worden getoond of bewerkt — wat wél is aangekomen opslaan zou de rest overschrijven. Laad de pagina opnieuw om het nog eens te proberen. Uw regels staan nog op de server; hier is er niets aan veranderd.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":

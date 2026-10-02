@@ -1538,9 +1538,6 @@ export const catalog: Catalog = {
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Non sono stati trovati altri utenti nella directory, quindi non è possibile aggiungere nessuno. Le condivisioni già in atto sono elencate sotto e possono ancora essere rimosse.",
 
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart non comunica il numero di versione ai client di posta, quindi Gilbert riporta l'edizione quando il server ne fornisce una. Gilbert richiede la versione 0.16 o successiva e l'accesso rifiuta qualsiasi versione precedente.",
-
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "{damage}, quindi le regole che contiene non possono essere mostrate né modificate: salvare ciò che è arrivato lo riscriverebbe sul resto. Ricarica la pagina per riprovare. Le regole sono ancora sul server: qui non è stato cambiato nulla.",
 

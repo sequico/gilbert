@@ -920,8 +920,6 @@ export const catalog: Catalog = {
       "いま {name} にコピーしてください。二度と表示されません。",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "ディレクトリに他のユーザーが見つからないため、新しく追加することはできません。すでに設定されている共有は下に表示され、解除はできます。",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart はメールクライアントにバージョン番号を公開しないため、Gilbert はサーバーが示すエディションだけを表示します。Gilbert には 0.16 以降が必要で、それより古いサーバーへのサインインは拒否されます。",
     "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "Gilbert 自身のバージョンは、ビルド元となったコミットの日付と、そのコミットの出どころを並べたものです。{example} は 2026 年 8 月 30 日付のコミットから作られ、そのコミットはプルリクエスト 129 を通って届きました。プルリクエストを経ていないコミットは、代わりに短い SHA が付きます — {sha}。バージョンには Stalwart に関する情報をあえて含めていません。このビルドがサーバーに求めるものは、上の行に示されています。",
 

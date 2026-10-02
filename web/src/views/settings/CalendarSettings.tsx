@@ -89,7 +89,12 @@ export function CalendarSettings() {
                   title: t("Rename category"),
                   defaultValue: c.name,
                 });
-                if (n?.trim())
+                if (
+                  n?.trim() &&
+                  !s.eventCategories.some(
+                    (c, j) => j !== i && c.name.toLowerCase() === n.trim().toLowerCase(),
+                  )
+                )
                   update({
                     eventCategories: s.eventCategories.map((x, j) =>
                       j === i ? { ...x, name: n.trim() } : x,

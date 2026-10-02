@@ -438,10 +438,15 @@ function ScriptsEditor() {
   /** The personal tab's own preflight: it asks before saving, not on save. */
   async function validate() {
     setBusy(true);
-    const err = await sieve.validate(content);
-    setValidation(err);
-    setBusy(false);
-    if (!err) toast.success(t("Script is valid"));
+    try {
+      const err = await sieve.validate(content);
+      setValidation(err);
+      if (!err) toast.success(t("Script is valid"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   const save = async (activate: boolean): Promise<boolean> => {

@@ -25,14 +25,29 @@ import { LazyShareDialog } from "../lazyPieces";
  * `label` rather than a bare string so the catalogue sees them: they are
  * translated where they render.
  */
-const SETTABLE_ROLES: { value: Exclude<MailboxRole, null>; label: string }[] = [
+type SettableRole = Exclude<MailboxRole, null>;
+
+/**
+ * Every role the server assigns, and whether this surface may set it. One
+ * table, so "settable" and "fixed" cannot drift into an overlap or a gap.
+ */
+const FOLDER_ROLES: Array<{ value: SettableRole; label: string | null }> = [
   { value: "archive", label: "Archive" },
   { value: "drafts", label: "Drafts" },
   { value: "sent", label: "Sent" },
+  { value: "inbox", label: null },
+  { value: "junk", label: null },
+  { value: "trash", label: null },
 ];
 
+const SETTABLE_ROLES = FOLDER_ROLES.filter(
+  (r): r is { value: SettableRole; label: string } => r.label !== null,
+);
+
 /** Roles the server keeps to itself, shown but not offered. */
-const FIXED_ROLES = new Set<string>(["inbox", "junk", "trash"]);
+const FIXED_ROLES: ReadonlySet<string> = new Set(
+  FOLDER_ROLES.filter((r) => r.label === null).map((r) => r.value),
+);
 
 export function FoldersSettings() {
   /*
@@ -203,7 +218,7 @@ export function FoldersSettings() {
                         await // The server's own name, never the localised one: this box writes
                         // back whatever it is prefilled with.
                         promptDialog({ title: t("Rename folder"), defaultValue: m.name });
-                      if (n?.trim() && n !== m.name) {
+                      if (n?.trim() && n.trim() !== m.name) {
                         try {
                           await asOwn();
                           await useMail
@@ -222,10 +237,14 @@ export function FoldersSettings() {
                     title={m.isSubscribed ? t("Hide") : t("Show")}
                     disabled={m.role === "inbox"}
                     onClick={async () => {
-                      await asOwn();
-                      await useMail
-                        .getState()
-                        .updateMailbox(m.id, { isSubscribed: !m.isSubscribed });
+                      try {
+                        await asOwn();
+                        await useMail
+                          .getState()
+                          .updateMailbox(m.id, { isSubscribed: !m.isSubscribed });
+                      } catch (err) {
+                        toast.error((err as Error).message);
+                      }
                     }}
                   >
                     {m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}

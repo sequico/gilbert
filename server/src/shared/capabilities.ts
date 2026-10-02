@@ -23,6 +23,13 @@
  * tier's call sites, so the agent and admin code keeps reading the vocabulary
  * its own layer named.
  */
+/**
+ * The Stalwart release line Gilbert requires: sign-in refuses anything older,
+ * once and with a clear message. One constant, so the refusal and the About
+ * panel cannot name different minimums.
+ */
+export const STALWART_MIN_VERSION = "0.16";
+
 export const CAPABILITIES = {
   core: "urn:ietf:params:jmap:core",
   mail: "urn:ietf:params:jmap:mail",

@@ -155,7 +155,7 @@ import {
   type SessionTtls,
 } from "./sessions.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
-import { CAPABILITIES } from "./shared/capabilities.js";
+import { CAPABILITIES, STALWART_MIN_VERSION } from "./shared/capabilities.js";
 import type { GlobalContactInput } from "./shared/globalContacts.js";
 import type { KnowledgeArticleInput, KnowledgeTarget } from "./shared/knowledge.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
@@ -1108,8 +1108,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         return c.json(
           {
             error: "unsupported_server",
-            message:
-              "Your credentials are fine, but this mail server is older than Stalwart 0.16, which Gilbert needs. Upgrade the server, or run the release tagged stalwart-0.15-support.",
+            message: `Your credentials are fine, but this mail server is older than Stalwart ${STALWART_MIN_VERSION}, which Gilbert needs. Upgrade the server, or run the release tagged stalwart-0.15-support.`,
           },
           501,
         );

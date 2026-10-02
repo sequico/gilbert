@@ -959,8 +959,6 @@ export const catalog: Catalog = {
       "Скопируйте его в {name} сейчас — больше он не показывается.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "В каталоге не найдено других пользователей, поэтому добавить некого. Уже открытый доступ перечислен ниже, и его по-прежнему можно закрыть.",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart не сообщает почтовым клиентам номер версии, поэтому Gilbert показывает редакцию, если сервер её называет. Gilbert требует версию 0.16 или новее, и вход с более старой не выполняется.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Он {damage}, поэтому правила в нём нельзя показать или изменить: сохранение полученной части затёрло бы остальное. Перезагрузите страницу и попробуйте снова. Ваши правила остаются на сервере, здесь их ничто не меняло.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":

@@ -970,8 +970,6 @@ export const catalog: Catalog = {
       "Copiez-le dans {name} maintenant — il ne sera plus affiché.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Aucun autre utilisateur trouvé dans l'annuaire : personne de nouveau ne peut être ajouté. Les partages déjà en place sont listés ci-dessous et restent supprimables.",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart ne communique pas son numéro de version aux clients de messagerie ; Gilbert indique donc l'édition lorsque le serveur en fournit une. Gilbert requiert la version 0.16 ou ultérieure, et la connexion refuse toute version antérieure.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Il {damage} : les règles qu'il contient ne peuvent donc être ni affichées ni modifiées — enregistrer ce qui est arrivé écraserait le reste. Rechargez la page pour réessayer. Vos règles sont toujours sur le serveur ; rien ici ne les a modifiées.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":

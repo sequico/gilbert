@@ -898,8 +898,6 @@ export const catalog: Catalog = {
       "请立即把它复制到 {name}——它不会再次显示。",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "目录中没有找到其他用户，因此无法添加新的共享对象。已有的共享列在下方，仍可移除。",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart 不会向邮件客户端公布版本号，因此只有在服务器给出版本类型时，Gilbert 才会报告它。Gilbert 需要 0.16 或更高版本，更旧的版本一律无法登录。",
     "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "Gilbert 自身的版本号是其构建所用提交的日期，后面跟着该提交的来源：{example} 表示由 2026 年 8 月 30 日的一个提交构建而成，而该提交来自第 129 号拉取请求。未经拉取请求的提交则改用简短 SHA 表示——{sha}。版本号刻意不包含任何关于 Stalwart 的信息；此版本对服务器的要求见上一行。",
 

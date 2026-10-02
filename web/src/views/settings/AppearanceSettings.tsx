@@ -124,9 +124,7 @@ export function AppearanceSettings() {
             >
               <div
                 className="preview"
-                style={{
-                  background: PALETTE_PREVIEW[p.id][shown] || PALETTE_PREVIEW[p.id].dark,
-                }}
+                style={{ background: PALETTE_PREVIEW[p.id][shown] }}
               />
               {p.translatable ? (
                 <span>{translate(p.name)}</span>

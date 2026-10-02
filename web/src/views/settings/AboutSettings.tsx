@@ -1,3 +1,4 @@
+import { STALWART_MIN_VERSION } from "@gilbert/shared/capabilities";
 import { client } from "@/jmap/client";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { t, tNode } from "@/lib/i18n";
@@ -79,7 +80,8 @@ export function AboutSettings() {
       </table>
       <p className="hint" style={{ marginTop: 6 }}>
         {t(
-          "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.",
+          "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires {version} or newer, and sign-in refuses anything older.",
+          { version: STALWART_MIN_VERSION },
         )}
       </p>
       <p className="hint">
@@ -110,9 +112,11 @@ export function AboutSettings() {
 /**
  * Stalwart deliberately withholds its version from clients (it reports a fixed
  * "1.0.0" wherever it publishes one at all), so the edition is all there is to
- * show. The generation is not reported: Gilbert requires 0.16, so signing in at
- * all is the answer to that question.
+ * show. The generation is not reported: Gilbert requires the minimum above, so
+ * signing in at all is the answer to that question.
  */
 function describeServer(server: { edition?: string | null } | undefined): string {
-  return server?.edition ? `0.16 or newer (${server.edition})` : "0.16 or newer";
+  return server?.edition
+    ? `${STALWART_MIN_VERSION} or newer (${server.edition})`
+    : `${STALWART_MIN_VERSION} or newer`;
 }

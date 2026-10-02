@@ -904,8 +904,6 @@ export const catalog: Catalog = {
       "Übertragen Sie es jetzt nach {name} — es wird nicht erneut angezeigt.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Im Verzeichnis wurden keine weiteren Benutzer gefunden, es kann also niemand Neues hinzugefügt werden. Bestehende Freigaben sind unten aufgeführt und können weiterhin entfernt werden.",
-    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart gibt seine Versionsnummer nicht an E-Mail-Programme weiter, daher nennt Gilbert die Edition, sofern der Server eine angibt. Gilbert benötigt 0.16 oder neuer; die Anmeldung verweigert ältere Versionen.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Es {damage}, daher können die enthaltenen Regeln weder angezeigt noch bearbeitet werden — das Speichern des angekommenen Teils würde den Rest überschreiben. Laden Sie die Seite neu und versuchen Sie es erneut. Ihre Regeln liegen weiterhin auf dem Server; hier wurde nichts daran geändert.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":
