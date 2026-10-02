@@ -274,8 +274,17 @@ function knowledgePlanPage(
     r.outcome === "created" || r.outcome === "written" || r.outcome === "moved"
       ? r.outcome
       : "written";
+  const basedOn = typeof r.basedOn === "string" && r.basedOn ? r.basedOn : undefined;
+  const intent = typeof r.intent === "string" && r.intent ? r.intent : undefined;
   const detail = typeof r.detail === "string" ? r.detail : undefined;
-  return { folder, title, outcome, ...(detail ? { detail } : {}) };
+  return {
+    folder,
+    title,
+    outcome,
+    ...(basedOn ? { basedOn } : {}),
+    ...(intent ? { intent } : {}),
+    ...(detail ? { detail } : {}),
+  };
 }
 
 /**
@@ -1475,10 +1484,19 @@ export class Executor {
     accountId: string,
     lookup: Extract<AgentLookup, { kind: "knowledge" }>,
   ): Promise<string> {
-    const rootId = await findFolderPath(this.deps.ctx, accountId, KNOWLEDGE_FOLDER);
-    if (!rootId) return `${lookupHeading(lookup)}: this account has no knowledge base`;
+    // The run's own tier (a group's, or the Master's when the run acts on it)
+    // and the company tier, which is the Master's account in the agent's own
+    // session — an agent reads everywhere (ADR 0024 Q15).
     const articles: KnowledgeArticleRef[] = [];
-    await this.collectKnowledgeArticles(accountId, rootId, "", 0, articles);
+    const accounts = [accountId];
+    const companyKb = filesAccountId(this.deps.ctx);
+    if (companyKb && companyKb !== accountId) accounts.push(companyKb);
+    for (const account of accounts) {
+      const rootId = await findFolderPath(this.deps.ctx, account, KNOWLEDGE_FOLDER);
+      if (rootId) await this.collectKnowledgeArticles(account, rootId, "", 0, articles);
+    }
+    if (!articles.length)
+      return `${lookupHeading(lookup)}: this installation has no knowledge base`;
     if (lookup.id) {
       const found = articles.find((article) => article.id === lookup.id);
       if (!found)
@@ -3675,7 +3693,7 @@ interface KnowledgeArticleRef {
  * The lifecycle state one article's pointer reads as.
  *
  * A pending revision is named first: it is what an approval recorded with a
- * future effective date, and until that date the previous revision is still in
+ * future effective instant, and until that instant the previous revision is still in
  * force — the reader is told both by `state.json` (ADR 0024). A page with no
  * issued revision is a draft.
  */

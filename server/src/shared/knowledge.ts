@@ -6,7 +6,7 @@
  * a group's. Every article is a folder named by its title, holding the single
  * mutable `draft.json`, the immutable approved revisions under `revisions/`,
  * and the `state.json` that says which revision is in force and which is still
- * pending its effective date. Sub-articles are folders inside the article
+ * pending its effective instant. Sub-articles are folders inside the article
  * folder; `revisions` is the one reserved child name.
  *
  * The web client reads those documents and the server route writes them, so
@@ -90,7 +90,7 @@ export interface KnowledgeState {
   tags: string[];
   /** The revision readers see now, or null before the first approval. */
   inForce: KnowledgeIssued | null;
-  /** A revision approved with a future effective date, until that date. */
+  /** A revision approved with a future effective instant, until that instant. */
   pending: KnowledgeIssued | null;
   /**
    * When the article was **retired**: withdrawn from the tree but kept, with
@@ -418,7 +418,7 @@ export function revisionInForceAt(
   return state.inForce;
 }
 
-/** Whether the pending revision's effective date has arrived. */
+/** Whether the pending revision's effective instant has arrived. */
 export function pendingIsDue(
   state: Pick<KnowledgeState, "pending">,
   now: Date = new Date(),

@@ -271,6 +271,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
       { key: "folder", required: false, kind: "folder" },
       { key: "text", required: false, kind: "text" },
       { key: "basedOn", required: false, kind: "text" },
+      { key: "scope", required: false, kind: "text" },
     ],
   },
   {
@@ -1360,6 +1361,10 @@ export interface AgentKnowledgePlanPage {
   folder: string;
   title: string;
   outcome: "created" | "written" | "moved" | "failed";
+  /** The draft instant the plan was read from, when the run named one. */
+  basedOn?: string;
+  /** The body the plan intended to write, so "what changed" is in the trail. */
+  intent?: string;
   detail?: string;
 }
 
@@ -1375,7 +1380,9 @@ export function isAgentKnowledgePlanPage(x: unknown): x is AgentKnowledgePlanPag
   if (!isRecord(x)) return false;
   if (typeof x.folder !== "string" || typeof x.title !== "string") return false;
   if (!PLAN_OUTCOMES.includes(x.outcome as string)) return false;
-  return x.detail === undefined || typeof x.detail === "string";
+  for (const k of ["basedOn", "intent", "detail"] as const)
+    if (x[k] !== undefined && typeof x[k] !== "string") return false;
+  return true;
 }
 
 export function isAgentKnowledgePlan(x: unknown): x is AgentKnowledgePlan {
@@ -1974,6 +1981,13 @@ export interface AgentAuditEntry {
    * answered after the job document has been pruned.
    */
   lookups?: AgentLookup[];
+  /**
+   * The knowledge base plan the run applied, page by page, and a review's
+   * findings — the run's own record, carried into the trail a person reads
+   * (ADR 0024 Q23).
+   */
+  plan?: AgentKnowledgePlan;
+  findings?: string[];
   /**
    * A pass that resumes a plan already decided and already counted: it spent
    * nothing of its own, so it is neither a run nor an uncounted one.

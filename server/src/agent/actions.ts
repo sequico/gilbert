@@ -19,6 +19,7 @@ import {
   appFolderState,
   type Ctx,
   ensureFolderPath,
+  filesAccountId,
   findAppFileAt,
   readAppJsonAt,
   readVisibleFileBytes,
@@ -755,9 +756,9 @@ async function runOne(
        * A knowledge base draft, written by a run (ADR 0024). This action only
        * ever writes the mutable `draft.json` and its `state.json`; approval is
        * an administrator's and a revision is minted only by that approval, so
-       * neither is reachable from here. The account is the one the run acts on:
-       * a group's own KB, or the Master's company KB when the run acts on the
-       * Master.
+       * neither is reachable from here. `scope` names the tier: a group's KB is
+       * the run's own account, the company's is the Master's — which the agent's
+       * own session holds as its personal account, so a run reaches both (Q15).
        *
        * The article folder is named by the title (or by `folder`, to update the
        * article that folder already names), and the id and the lifecycle are
@@ -771,6 +772,8 @@ async function runOne(
       const at = (opts.now ?? new Date()).toISOString();
       const body = textOf(action.with?.text);
       const basedOn = textOf(action.with?.basedOn).trim();
+      const scope = textOf(action.with?.scope).trim();
+      const account = scope === "company" ? filesAccountId(ctx) || accountId : accountId;
       // The folder name is normalised even when the model named one: a slash or
       // a control character in a FileNode name would split or corrupt the path.
       const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
@@ -780,26 +783,27 @@ async function runOne(
         );
       const path = `${KNOWLEDGE_FOLDER}/${folder}`;
       const draftPath = `${path}/${DRAFT_FILE}`;
-      await ensureFolderPath(ctx, accountId, path);
+      await ensureFolderPath(ctx, account, path);
       for (let attempt = 0; attempt < 2; attempt++) {
         // The token is read before the documents, so a save landing between them
         // and the writes is refused rather than silently overwritten.
-        const token = await appFolderState(ctx, accountId);
-        const draftRaw = await readAppJsonAt(ctx, accountId, draftPath);
-        const stateRaw = await readAppJsonAt(ctx, accountId, `${path}/${STATE_FILE}`);
+        const token = await appFolderState(ctx, account);
+        const draftRaw = await readAppJsonAt(ctx, account, draftPath);
+        const stateRaw = await readAppJsonAt(ctx, account, `${path}/${STATE_FILE}`);
         // A lifecycle document that is there but unreadable is never rewritten
         // as "never approved": an issued article turned issued-by-nobody is
         // worse than a refused write.
-        const stateRef = await findAppFileAt(ctx, accountId, `${path}/${STATE_FILE}`);
+        const stateRef = await findAppFileAt(ctx, account, `${path}/${STATE_FILE}`);
         if (stateRef.file && !isKnowledgeState(stateRaw))
           throw new Error(
             "knowledge.write: this article's lifecycle document cannot be read, so it is left untouched",
           );
         const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
         const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
-        // A plan names the draft it was read from; a page edited since is
-        // refused rather than overwritten, and the outcome names the page.
-        if (basedOn && prior?.updated.at !== basedOn)
+        // A plan names the draft it was read from; a page that exists and was
+        // edited since is refused rather than overwritten. A page that does not
+        // exist yet is created — there is nothing to collide with.
+        if (basedOn && prior && prior.updated.at !== basedOn)
           return {
             action: action.do,
             ok: true,
@@ -807,6 +811,8 @@ async function runOne(
               folder,
               title,
               outcome: "moved",
+              basedOn: prior.updated.at,
+              intent: body,
               detail: "the page changed since the plan was read",
             },
           };
@@ -840,17 +846,24 @@ async function runOne(
           retired: priorState?.retired ?? null,
         });
         try {
-          await writeAppFileAt(ctx, accountId, draftPath, draft, {
+          await writeAppFileAt(ctx, account, draftPath, draft, {
             ...(token ? { ifInState: token } : {}),
           });
-          const after = await appFolderState(ctx, accountId);
-          await writeAppFileAt(ctx, accountId, `${path}/${STATE_FILE}`, state, {
+          const after = await appFolderState(ctx, account);
+          await writeAppFileAt(ctx, account, `${path}/${STATE_FILE}`, state, {
             ...(after ? { ifInState: after } : {}),
           });
           return {
             action: action.do,
             ok: true,
-            result: { id, folder, title, outcome: prior ? "written" : "created" },
+            result: {
+              id,
+              folder,
+              title,
+              outcome: prior ? "written" : "created",
+              basedOn: prior?.updated.at ?? "",
+              intent: body,
+            },
           };
         } catch (err) {
           if (attempt > 0 || !isStateMismatch(err)) throw err;

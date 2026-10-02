@@ -137,6 +137,10 @@ export function auditEntry(
   // job carries it — and the trail answers "what did it read" after the job
   // document has been pruned (ADR 0020).
   if (job.lookups?.length) entry.lookups = job.lookups;
+  // The KB plan and a review's findings ride the job into the trail, where a
+  // person reads what a run proposed and what it actually wrote (ADR 0024 Q23).
+  if (job.plan) entry.plan = job.plan;
+  if (job.findings?.length) entry.findings = job.findings;
   return entry;
 }
 

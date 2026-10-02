@@ -776,12 +776,17 @@ export async function saveDraft(
         created,
       }),
     };
+    // The tree shows what a reader sees: the in-force revision's title and tags.
+    // A draft (or a pending revision not yet due) must not leak its title into
+    // the listing while the body still shows the issued revision.
+    const listingTitle = existingState?.inForce ? existingState.title : draft.title;
+    const listingTags = existingState?.inForce ? existingState.tags : draft.tags;
     const nextState: KnowledgeState = {
       ...(existingState ?? {}),
       ...buildState({
         id,
-        title: draft.title,
-        tags: draft.tags,
+        title: listingTitle,
+        tags: listingTags,
         by,
         at: now,
         created,
@@ -905,10 +910,14 @@ export async function approveArticle(
         at: now,
         created: draft.created,
       });
+    const after = stateAfterApproval(base, issued, new Date(now));
+    // The listing follows the revision now in force: a future-dated approval
+    // waits, and the title readers see stays the current one until then.
+    const inForceNow = after.inForce?.revision === revision;
     nextState = {
-      ...stateAfterApproval(base, issued, new Date(now)),
-      title: draft.title,
-      tags: draft.tags,
+      ...after,
+      title: inForceNow ? draft.title : base.title,
+      tags: inForceNow ? draft.tags : base.tags,
       updated: { by: admin.username, at: now },
     };
     const token = await appFolderState(ctx, accountId);
@@ -1144,6 +1153,37 @@ export async function renameArticle(
   );
 }
 
+/**
+ * Whether any article at or under a folder has an issued revision.
+ *
+ * The tree is an article whose children are sub-articles, so a folder that was
+ * never approved can still hold approved articles. Deleting it would take their
+ * revisions with it — the exact controlled record the lifecycle keeps — so a
+ * destructive delete is refused while any descendant is issued.
+ */
+async function subtreeHasApproval(
+  ctx: Ctx,
+  accountId: string,
+  articlePath: string,
+): Promise<boolean> {
+  const folderId = await findFolderPath(ctx, accountId, articlePath);
+  if (!folderId) return false;
+  const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+  for (const child of children) {
+    if (child.nodeType !== "directory") continue;
+    const name = typeof child.name === "string" ? child.name : "";
+    if (!name || name === REVISIONS_FOLDER) continue;
+    const childPath = `${articlePath}/${name}`;
+    const state = asState(
+      await readAppJsonAt(ctx, accountId, `${childPath}/${STATE_FILE}`),
+    );
+    const revisions = await readRevisions(ctx, accountId, childPath);
+    if (state?.inForce || state?.pending || revisions.length > 0) return true;
+    if (await subtreeHasApproval(ctx, accountId, childPath)) return true;
+  }
+  return false;
+}
+
 /** Retire an approved article, or destroy one that was never approved. */
 export async function deleteArticle(
   admin: LiveSession,
@@ -1157,15 +1197,22 @@ export async function deleteArticle(
   );
   const revisions = await readRevisions(ctx, accountId, articlePath);
   // Traceability: an article something was issued from is never destroyed. One
-  // no approval ever touched is a draft nobody depended on, and it goes.
+  // no approval ever touched is a draft nobody depended on, and it goes — but
+  // only if nothing under it was issued either.
   const everApproved =
     Boolean(state?.inForce) || Boolean(state?.pending) || revisions.length > 0;
-  if (!everApproved) {
-    await destroyAppNode(ctx, accountId, article.nodeId, { removeChildren: true });
-    return { retired: false };
+  if (everApproved) {
+    await retireArticle(ctx, accountId, article);
+    return { retired: true };
   }
-  await retireArticle(ctx, accountId, article);
-  return { retired: true };
+  if (await subtreeHasApproval(ctx, accountId, articlePath))
+    throw new KnowledgeAdminError(
+      "article_has_approved_children",
+      "That folder holds an approved article, so it is not deleted: retire or move that article first.",
+      409,
+    );
+  await destroyAppNode(ctx, accountId, article.nodeId, { removeChildren: true });
+  return { retired: false };
 }
 
 /**
