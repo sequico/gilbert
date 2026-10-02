@@ -39,10 +39,11 @@ way every app-folder document is.
 
 - The **Master's** copy, in the Master's account, is the workorder's **root**: its
   identity, its **global checklist** and its state. The Master's `workorders/`
-  folder is the **registry** — listing it yields every workorder, and each root
-  carries where it stands — because `FileNode/query` cannot filter by name and no
-  search spans accounts, so a workorder nothing registers cannot be found at all.
-  No separate index document is kept: it would be one hot node every write in the
+  folder is the **registry** — listing it yields the active workorders, and each
+  root carries where it stands; its `closed/` subfolder holds the ones a terminal
+  state has moved — because `FileNode/query` cannot filter by name and no search
+  spans accounts, so a workorder nothing registers cannot be found at all. No
+  separate index document is kept: it would be one hot node every write in the
   account compares against.
 - A **group's** copy, in that group's own account, is the group's **part**: the
   group's checklist and the group's references.
@@ -53,6 +54,21 @@ way every app-folder document is.
   listing and the panel show. It is a field of the document and never the file's
   name: the uid is what ties the copies, so renaming a workorder is an edit and
   never a rename, and no reference breaks.
+
+### Closing a workorder moves its root
+
+When a workorder reaches a terminal state — completed, cancelled, whatever the
+document's own `state` says — the Master moves the **root** into
+`workorders/closed/`, so listing `workorders/` is the active set and listing
+`closed/` is what is done. The folder is a **projection of the state, not the
+state**: the `state` field is the truth, a root standing in the wrong folder is a
+**finding** the fleet reconciles, and the move is one write that keeps the id, so
+every reference by uid survives and reopening moves it back.
+
+A group's **part never moves**: the panel is composed by the route and filters a
+part by the root's state, and moving a part would be one write per group for no
+gain. Only the Master's own account holds the projection, where the enumeration
+happens.
 
 ### References, not copies and not markers
 
@@ -99,10 +115,11 @@ global checklist and the parts of their own groups.
 What a reader may reach is decided by **group membership alone**: for a part, the
 Master lists `workorders/` in each group the reader belongs to — every group, for
 an administrator — and matches the uid, because the name cannot be asked of the
-server. Nothing lists the parts in the root; the membership is the list, and a
-member's workorders are the union of their groups' parts. The Master's own
-registry is the administrator's index, not the member's: the member reaches their
-groups, not the Master's account.
+server. A root is found in the Master's `workorders/` or in its `closed/`, since
+a terminal state moves it. Nothing lists the parts in the root; the membership is
+the list, and a member's workorders are the union of their groups' parts. The
+Master's own registry is the administrator's index, not the member's: the member
+reaches their groups, not the Master's account.
 
 The door is therefore the **server route**, not the membership: the route answers
 the workorder surface as the Master and decides, per request, whether the caller
@@ -155,9 +172,10 @@ account**, so it is the group's; the Master seeds it as a member.
 ## Decision
 
 A workorder is a **uid** whose root document sits in the Master's
-`gilbert/workorders/` — identity, friendly name and global checklist — and that
-folder is the registry of every workorder; a **part** sits in the app folder of
-each group competent for it, holding that group's checklist — the operational
+`gilbert/workorders/` — identity, friendly name and global checklist, moved to
+`workorders/closed/` when its state turns terminal — and that folder, with its
+`closed/`, is the registry of every workorder; a **part** sits in the app folder
+of each group competent for it, holding that group's checklist — the operational
 instance of a KB template (ADR 0024) in force — and its references to that
 group's own folders and files. Everything gathered is a reference by id; nothing
 is copied and no marker is planted in a work folder. The Master does every read
@@ -182,6 +200,10 @@ created.
 - Every check is one write to a small document; `ifInState` is whole-account, so
   the route retries a lost compare-and-set rather than dropping a check under two
   writers racing.
+- A closed workorder is a **document moved**, not a tree that decides: the root's
+  own state is the truth, `closed/` is the projection, and a root in the wrong
+  folder is a finding. The move keeps the id, costs one write, and never touches
+  a group's part.
 - A workorder's history is operational, not revisioned: a checked step keeps its
   last signature, so an earlier state is not kept the way a KB revision is.
 - Reaching a part costs one listing of the group's `workorders/` folder per
@@ -190,8 +212,8 @@ created.
 
 ## Open questions
 
-- How a workorder is archived, and what the archive is — whether a finished
-  workorder stays in the registry, and what the registry shows of it.
+- What states a workorder reaches besides in force and closed, and whether a
+  closed one is ever destroyed or kept in `closed/` for good.
 - The document's exact schema, and the reference kinds it carries first.
 - Whether the surface degrades read-only when the Master's session is
   unavailable, since it is the only writer.
