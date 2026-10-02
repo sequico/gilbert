@@ -1648,18 +1648,20 @@ export class Executor {
    * The fence asked before an action that leaves the process.
    *
    * A lease can lapse during a long run, and a run whose unit was taken over
-   * must not send, post, draft or file what its successor is doing too. Both
-   * paths that run actions — the plan itself and the draft a paused run leaves
-   * for a person — ask through this one hook, so a new call site cannot run
-   * effects unfenced by forgetting it.
+   * must not send, post, draft or file what its successor is doing too. Every
+   * path that runs actions asks through this one hook, so a new call site
+   * cannot run effects unfenced by forgetting it. A null claim is not this
+   * process's unit at all, so a leaving action is refused rather than run.
    */
   private leavingProcessFence(
     store: AgentStore,
-    claim: AgentClaim,
+    claim: AgentClaim | null,
   ): (action: AgentAction) => Promise<void> {
     return async (action: AgentAction) => {
       if (!leavesTheProcess(action)) return;
-      const mine = await claimStillMine(store, this.deps.agentId, claimEpoch(claim));
+      const mine =
+        claim !== null &&
+        (await claimStillMine(store, this.deps.agentId, claimEpoch(claim)));
       if (!mine)
         throw new RefusedError(
           "the unit was taken over while this run was working: nothing more is run",
@@ -2237,10 +2239,15 @@ export class Executor {
   ): Promise<void> {
     if (!emailId) return;
     try {
-      await runActions(this.deps.ctx, accountId, [action], {
-        emailId,
-        from: this.deps.address,
-      });
+      const store = new AgentStore(this.deps.ctx, accountId);
+      const claim = (await store.readClaim())?.doc ?? null;
+      await runActions(
+        this.deps.ctx,
+        accountId,
+        [action],
+        { emailId, from: this.deps.address },
+        { beforeAction: this.leavingProcessFence(store, claim) },
+      );
     } catch (err) {
       // A label that cannot be applied never masks the run it describes.
       this.deps.log(
@@ -2288,6 +2295,7 @@ export class Executor {
     by: string,
   ): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
+    const claim = (await store.readClaim())?.doc ?? null;
     const found = await store.readDecision(decision.id);
     if (found?.doc.state !== "pending") return;
     const current = found.doc;
@@ -2462,6 +2470,7 @@ export class Executor {
                 "did is not recorded: nothing more is run",
             );
         },
+        beforeAction: this.leavingProcessFence(store, claim),
       });
       if (job)
         await this.writeJobIfCurrent(store, job.id, (latest) =>
@@ -2614,6 +2623,7 @@ export class Executor {
     by: string,
   ): Promise<boolean> {
     const decision = found.doc;
+    const claim = (await store.readClaim())?.doc ?? null;
     const decided: AgentDecision = {
       ...decision,
       state: "approved",
@@ -2677,6 +2687,7 @@ export class Executor {
           accountId,
           actions,
           await this.actionOpts(accountId, actions, job),
+          { beforeAction: this.leavingProcessFence(store, claim) },
         );
       if (job)
         await this.writeJobIfCurrent(store, job.id, (latest) =>

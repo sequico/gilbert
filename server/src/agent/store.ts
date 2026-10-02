@@ -89,11 +89,13 @@ export interface AgentDoc<T> {
  * A document that is not the shape this build writes and could not be brought
  * to it.
  *
- * A present document in any other shape is replaced with the current empty form
- * (see `readDoc`); this is thrown only when that replacement does not land — the
- * compare-and-set kept losing, or the server refused the write. It carries a
- * code a surface composes its sentence from, so a document this build cannot
- * use is never reported as an unreachable mail server.
+ * A present **working** document in any other shape is replaced with the
+ * current empty form (see `readDoc`); this is thrown when that replacement does
+ * not land — the compare-and-set kept losing, or the server refused the write —
+ * and for the **audit trail**, which is never replaced at all: a month in
+ * another shape is refused so the record is not erased. It carries a code a
+ * surface composes its sentence from, so a document this build cannot use is
+ * never reported as an unreachable mail server.
  */
 export class AgentDocumentError extends Error {
   constructor(
@@ -636,19 +638,18 @@ export class AgentStore {
   /**
    * The month's audit document.
    *
-   * This build is the only writer of the trail, so a document that is there in
-   * any other shape is replaced with an empty month in the current shape (see
-   * `readDoc`); a replacement that cannot land is an error, never a month
-   * reported as empty.
+   * A document in any other shape is **not** replaced: the trail is
+   * append-only and kept for twelve months (ADR 0003), so overwriting it with
+   * an empty month would erase the record it stands for. It reads as
+   * unreadable — `null` — and the append refuses rather than overwriting it.
    */
   async readAudit(month: string): Promise<AgentAuditDoc | null> {
-    const found = await this.readDoc<AgentAuditDoc>(
+    const raw = await readAppJsonAt(
+      this.ctx,
+      this.accountId,
       this.path(AGENT_AUDIT_DIR, auditDocName(month)),
-      isAgentAuditDoc,
-      () => ({ v: 1, month, entries: [] }),
-      `the ${month} audit`,
     );
-    return found?.doc ?? null;
+    return isAgentAuditDoc(raw) ? raw : null;
   }
 
   /** The audit document for an instant's month. */
@@ -859,9 +860,15 @@ export class AgentStore {
       if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      // A document that is there in any other shape is replaced with an empty
-      // month and this entry: this build is the only writer of the trail, so an
-      // older shape is an old build's, not a month to preserve.
+      // A document that is there in any other shape is refused, never replaced
+      // with an empty month: the trail is kept for twelve months, and a shape
+      // this build does not read is still the record it stands for.
+      if (raw !== null && !isAgentAuditDoc(raw))
+        throw new AgentDocumentError(
+          path,
+          `the ${month} audit`,
+          "it is not the shape this build writes, and it is not replaced",
+        );
       const doc: AgentAuditDoc = isAgentAuditDoc(raw)
         ? raw
         : { v: 1, month, entries: [] };

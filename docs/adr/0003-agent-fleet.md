@@ -349,10 +349,12 @@ The agents admin area is three sections.
   older format, a hand edit — is not left behind: on read it is replaced with the
   document's current empty form, or removed when it has no empty form (a claim,
   a stream claim, a job, a decision, the configuration), so the next write
-  recreates it in the current shape. The replacement is conditional on the state
-  the bad document was read at, and a replacement that cannot land raises
-  `AgentDocumentError`, answered as `agent_document_not_current` rather than as
-  an unreachable mail server.
+  recreates it in the current shape. The **audit trail** is the exception: it is
+  kept for twelve months, so a month in any other shape is refused, never
+  replaced — the record is not erased. The replacement, where there is one, is
+  conditional on the state the bad document was read at, and a replacement or a
+  refused month raises `AgentDocumentError`, answered as
+  `agent_document_not_current` rather than as an unreachable mail server.
 - **Approvals** — cross-group oversight, read-only by construction: a
   **Pending** tab shows every group's paused decisions at once, and an
   **Audit** tab merges every granted group's trail, filterable by group and

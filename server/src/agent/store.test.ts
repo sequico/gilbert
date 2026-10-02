@@ -22,8 +22,8 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { filesAccountId } = await import("../appFolder.js");
 type Ctx = import("../appFolder.js").Ctx;
-const { AgentStore } = await import("./store.js");
-const { writeAppFileAt } = await import("../appFolder.js");
+const { AgentDocumentError, AgentStore } = await import("./store.js");
+const { readAppJsonAt, writeAppFileAt } = await import("../appFolder.js");
 const { newJob } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -256,36 +256,40 @@ test("a conditional write is refused when the document moved under it", async ()
   );
 });
 
-test("an audit document in an older shape is replaced with an empty month", async () => {
-  // This build is the only writer of the trail, so a document in any other
-  // shape is an old build's: it is replaced with an empty, current month rather
-  // than blocking every write or being reported as a month where nothing
-  // happened.
+test("an audit document in an older shape is refused, never erased", async () => {
+  // The trail is kept for twelve months, so a month in a shape this build does
+  // not read is still the record it stands for: it reads as unreadable and the
+  // append refuses rather than overwriting it with an empty month.
   await writeAppFileAt(ctx, store.accountId, "agent/audit/2026-11.json", {
     nope: "not an audit document",
   });
 
-  assert.deepEqual(await store.readAudit("2026-11"), {
-    v: 1,
-    month: "2026-11",
-    entries: [],
-  });
-
-  await store.appendAudit(
-    {
-      at: "2026-11-10T08:00:00Z",
-      jobId: "job-x",
-      ruleId: "r1",
-      ruleVersion: 1,
-      outcome: "done",
-      actions: [],
-    },
-    new Date("2026-11-10T08:00:00Z"),
-  );
   assert.equal(
-    (await store.readAudit("2026-11"))?.entries.length,
-    1,
-    "the entry lands in the replaced month",
+    await store.readAudit("2026-11"),
+    null,
+    "an unreadable month reads as nothing",
+  );
+
+  await assert.rejects(
+    () =>
+      store.appendAudit(
+        {
+          at: "2026-11-10T08:00:00Z",
+          jobId: "job-x",
+          ruleId: "r1",
+          ruleVersion: 1,
+          outcome: "done",
+          actions: [],
+        },
+        new Date("2026-11-10T08:00:00Z"),
+      ),
+    (err: unknown) => err instanceof AgentDocumentError,
+  );
+
+  // Refusing must not erase what is there.
+  assert.deepEqual(
+    await readAppJsonAt(ctx, store.accountId, "agent/audit/2026-11.json"),
+    { nope: "not an audit document" },
   );
 });
 

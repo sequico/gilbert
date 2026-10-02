@@ -1649,6 +1649,60 @@ test("a whole-tree file listing answers which file is where", async () => {
   );
 });
 
+test("a whole-tree listing past its bound says so", async () => {
+  /*
+   * The listing is bounded (`AGENT_LOOKUP_FILES_MAX`). A bound reached with the
+   * tree not exhausted must read as "more entries", never as a complete list a
+   * run then trusts: a `truncated` computed before the walk is always false and
+   * hides the rest of the tree (ADR 0020).
+   */
+  for (let i = 0; i < 200; i++)
+    await writeBytesIntoVisibleFolder(
+      ctx,
+      GROUP,
+      "BulkA",
+      `f-${String(i).padStart(3, "0")}.txt`,
+      new TextEncoder().encode("x"),
+      "text/plain",
+    );
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "BulkB",
+    "last.txt",
+    new TextEncoder().encode("x"),
+    "text/plain",
+  );
+  const heard = await createMessage("list everything");
+  const bulk = rule({ id: "bulk", capabilities: ["keyword.add"] });
+  await store.writeRules([bulk]);
+  answerSequence("Mail automation", [
+    { lookup: { kind: "files", deep: true } },
+    {
+      summary: "Listed the tree.",
+      confidence: 1,
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "bulk-job",
+    accountId: GROUP,
+    rule: { id: "bulk", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, bulk, claim);
+
+  const user = JSON.stringify(calls[calls.length - 1]?.messages ?? []);
+  assert.match(
+    user,
+    /more than 200 entries/,
+    "a listing that stopped at its bound says it is bounded",
+  );
+});
+
 test("a failure that could have sent mail is not retried", async () => {
   const sender = rule({
     id: "sender",
