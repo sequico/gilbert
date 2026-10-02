@@ -158,7 +158,11 @@ may see or act on a part by checking the **caller's own** group membership — t
 decision made where the request arrives (ADR 0017). A member never holds the
 document; they hold what the route serves them. Nothing on this surface is read
 through a Stalwart share: a workorder is route-only, unlike the KB's company
-tier, which is read through its own share (ADR 0024).
+tier, which is read through its own share (ADR 0024). Because the Master is the
+only writer, the surface **degrades to read-only** when its session is
+unavailable: a reader sees the last state served and a check waits, and no client
+writes on its own — a rule the product keeps, not a boundary, since a member's
+own session still reaches the part.
 
 ### The checklist, and its signature
 
@@ -243,11 +247,6 @@ created.
 - Reaching a part costs one listing of the group's `workorders/` folder per
   lookup, because the server matches no name; that is the price of the registry
   being a folder rather than an index.
-
-## Open questions
-
-- Whether the surface degrades read-only when the Master's session is
-  unavailable, since it is the only writer.
 
 ## References
 
