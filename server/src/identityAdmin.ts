@@ -40,10 +40,10 @@ import {
 import {
   appFolderState,
   type Ctx,
-  destroyAppNode,
   ensureAppFolder,
   findAppFileAt,
   readAppJsonAt,
+  removeAppFile,
   writeAppBytesAt,
   writeAppFile,
 } from "./appFolder.js";
@@ -73,6 +73,7 @@ import type {
 } from "./shared/identityViews.js";
 import type { SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
+import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 /*
  * The client's settings document, and the one key of it this tier writes.
  * Both names are contracts — see the module's own header.
@@ -155,9 +156,7 @@ async function setIdentityLock(
    * than an error: a surface that offers Release to every account needs no
    * separate check for whether there is anything there to release.
    */
-  const { folderId, file } = await findAppFileAt(ctx, accountId, IDENTITY_LOCK_FILE);
-  if (!folderId || !file?.id) return;
-  await destroyAppNode(ctx, accountId, String(file.id));
+  await removeAppFile(ctx, accountId, IDENTITY_LOCK_FILE);
 }
 
 /**
@@ -336,8 +335,8 @@ export function ownIdentityAccount(ctx: Ctx): string {
 
 /**
  * A group's own account in a session that holds it: non-personal and carrying
- * the group's address — the same rule `resolveGroupAccess` applies, so a files
- * share is never read as a group.
+ * the group's address — the same shape `isGroupAccountRecord` defines, plus
+ * this group's address, so a files share is never read as a group.
  *
  * The one definition: the knowledge base's group tier imports it rather than
  * repeating the classifier, so a rule change reaches both doors.
@@ -345,9 +344,8 @@ export function ownIdentityAccount(ctx: Ctx): string {
 export function groupAccountId(ctx: Ctx, group: string): string {
   for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
     const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    if (!sameAddress(a.name, group)) continue;
+    if (!isGroupAccountRecord(a)) continue;
+    if (!sameAddress(a.name as string, group)) continue;
     return id;
   }
   return "";
@@ -595,14 +593,32 @@ export async function writeDefaultIdentity(
   accountId: string,
   identityId: string | null,
 ): Promise<void> {
-  const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
-  const doc = isRecord(raw) ? { ...raw } : {};
-  const current = doc[DEFAULT_IDENTITY_KEY];
-  const map = isRecord(current) ? { ...current } : {};
-  if (identityId) map[accountId] = identityId;
-  else delete map[accountId];
-  doc[DEFAULT_IDENTITY_KEY] = map;
-  await writeAppFile(ctx, accountId, SETTINGS_FILE, doc);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await ensureAppFolder(ctx, accountId);
+    const state = await appFolderState(ctx, accountId);
+    const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
+    const doc = isRecord(raw) ? { ...raw } : {};
+    const current = doc[DEFAULT_IDENTITY_KEY];
+    const map = isRecord(current) ? { ...current } : {};
+    if (identityId) map[accountId] = identityId;
+    else delete map[accountId];
+    doc[DEFAULT_IDENTITY_KEY] = map;
+    try {
+      // Conditional, like every other document writer here: a client save
+      // landing between this read and this write is refused and retried rather
+      // than silently replaced.
+      await writeAppFile(
+        ctx,
+        accountId,
+        SETTINGS_FILE,
+        doc,
+        state ? { ifInState: state } : {},
+      );
+      return;
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import { normalizeLocale } from "./shared/locale.js";
+import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 
 export interface UpstreamSession {
   capabilities: Record<string, unknown>;
@@ -198,12 +199,9 @@ export function hasChatGroupAccounts(
   session: Pick<UpstreamSession, "accounts"> | null | undefined,
 ): boolean {
   if (!session) return false;
-  return Object.values(session.accounts ?? {}).some((a) => {
-    const account = a as { name?: unknown; isPersonal?: unknown };
-    if (account.isPersonal !== false || typeof account.name !== "string") return false;
-    const name = account.name.trim().toLowerCase();
-    return name.indexOf("@") > 0;
-  });
+  return Object.values(session.accounts ?? {}).some((a) =>
+    isGroupAccountRecord(a as { name?: unknown; isPersonal?: unknown }),
+  );
 }
 
 /* ------------------------------------------------------------------ */

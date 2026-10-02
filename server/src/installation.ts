@@ -188,12 +188,15 @@ export async function readInstallation(
    */
   const after = await store.read();
   if (after !== null) {
-    const parsed = parseInstallationDocumentDetailed(after);
-    if ("doc" in parsed && parsed.doc.secret !== fresh.secret) {
+    // The document is there, so this boot did not create it: it is the shape
+    // this build reads, or the boot refuses rather than sealing sessions with a
+    // secret nothing else holds.
+    const stored = requiredDocument(after, where);
+    if (stored.secret !== fresh.secret) {
       log(
         `[gilbert] installation: ${where} was created by another boot while this one was starting; using the secret already stored`,
       );
-      return { document: parsed.doc, created: false, accountId: store.accountId };
+      return { document: stored, created: false, accountId: store.accountId };
     }
   }
 

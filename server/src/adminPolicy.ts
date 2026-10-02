@@ -79,10 +79,8 @@ function readPolicyPublished(v: unknown): PolicyPublished | undefined {
   return id && at ? { id, at } : undefined;
 }
 
-/** The one test for "this is an address", for every field that names one. */
-export function isAddress(value: string): boolean {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
-}
+/** The one test for "this is an address", imported from the shared tree. */
+export { isEmailAddress as isAddress } from "./shared/address.js";
 
 /**
  * One reading of a policy section (`defaults`, `enforced`), shared by the boot
@@ -128,6 +126,27 @@ export function parsePolicyDocument(raw: string): PolicyDocument | null {
  * Returns `{ doc }` for a valid document, or `{ problem }` with a message an
  * editor can show the administrator (the endpoint answers 400 with it).
  */
+/** The `changes` array, validated the one way both readers of the document use. */
+function readPolicyChanges(value: unknown): PolicyChangeDocument[] | string {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return '"changes" must be an array of { version, settings }';
+  const out: PolicyChangeDocument[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < value.length; i++) {
+    const entry = value[i];
+    if (!isRecord(entry))
+      return `changes[${i}] must be an object with "version" and "settings"`;
+    const version = typeof entry.version === "string" ? entry.version.trim() : "";
+    if (!version) return `changes[${i}] has no "version"`;
+    if (seen.has(version)) return `Two changes share the version "${version}"`;
+    seen.add(version);
+    if (!isRecord(entry.settings))
+      return `changes[${i}] ("${version}") has no "settings" object`;
+    out.push({ version, settings: entry.settings });
+  }
+  return out;
+}
+
 export function parsePolicyDocumentDetailed(
   raw: string,
 ): { doc: PolicyDocument } | { problem: string } {
@@ -146,30 +165,9 @@ export function parsePolicyDocumentDetailed(
   if (typeof defaults === "string") return { problem: `${defaults}.` };
   const enforced = readPolicySection("enforced", whole.enforced);
   if (typeof enforced === "string") return { problem: `${enforced}.` };
-  const changes: PolicyChangeDocument[] = [];
-  if (whole.changes !== undefined) {
-    if (!Array.isArray(whole.changes))
-      return { problem: '"changes" must be an array of { version, settings }.' };
-    const seen = new Set<string>();
-    for (let i = 0; i < whole.changes.length; i++) {
-      const entry = whole.changes[i];
-      if (!isRecord(entry))
-        return {
-          problem: `changes[${i}] must be an object with "version" and "settings".`,
-        };
-      const version = typeof entry.version === "string" ? entry.version.trim() : "";
-      if (!version) return { problem: `changes[${i}] has no "version".` };
-      if (seen.has(version))
-        return { problem: `Two changes share the version "${version}".` };
-      seen.add(version);
-      if (!isRecord(entry.settings))
-        return {
-          problem: `changes[${i}] ("${version}") has no "settings" object.`,
-        };
-      changes.push({ version, settings: entry.settings });
-    }
-  }
-  return { doc: { defaults, enforced, changes } };
+  const changesOrProblem = readPolicyChanges(whole.changes);
+  if (typeof changesOrProblem === "string") return { problem: `${changesOrProblem}.` };
+  return { doc: { defaults, enforced, changes: changesOrProblem } };
 }
 
 /** The document text the editor shows, stable keys and two-space indent. */
@@ -217,14 +215,15 @@ export async function readAccountPolicy(
   if (typeof defaults === "string") return null;
   const enforced = readPolicySection("enforced", r.enforced);
   if (typeof enforced === "string") return null;
-  const changes = Array.isArray(r.changes)
-    ? r.changes.filter(
-        (e): e is PolicyChangeDocument =>
-          isRecord(e) && typeof e.version === "string" && isRecord(e.settings),
-      )
-    : [];
+  const changesOrProblem = readPolicyChanges(r.changes);
+  if (typeof changesOrProblem === "string") return null;
   const published = readPolicyPublished(r.published);
-  return { defaults, enforced, changes, ...(published ? { published } : {}) };
+  return {
+    defaults,
+    enforced,
+    changes: changesOrProblem,
+    ...(published ? { published } : {}),
+  };
 }
 
 /**

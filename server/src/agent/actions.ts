@@ -53,6 +53,7 @@ import {
   type LabelCatalogEntry,
   missingAgentLabels,
 } from "../shared/labels.js";
+import { isGroupAccountRecord } from "../shared/sessionAccount.js";
 import { textSignatureBlock } from "../shared/signature.js";
 import { postMessage } from "./chat.js";
 import {
@@ -404,10 +405,8 @@ export async function groupAccountsDetailed(ctx: Ctx): Promise<GroupReach> {
   const candidates: Array<[string, string]> = [];
   for (const [accountId, account] of Object.entries(ctx.session.accounts ?? {})) {
     const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    const name = a.name.trim().toLowerCase();
-    if (name.indexOf("@") <= 0) continue;
+    if (!isGroupAccountRecord(a)) continue;
+    const name = (a.name as string).trim().toLowerCase();
     if (!candidates.some(([, seen]) => seen === name)) candidates.push([accountId, name]);
   }
   const client = new JmapClient(ctx);

@@ -161,6 +161,7 @@ import type { KnowledgeArticleInput, KnowledgeTarget } from "./shared/knowledge.
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
+import { withoutBidiControls } from "./shared/text.js";
 import {
   isWorkorderRef,
   isWorkorderState,
@@ -640,7 +641,7 @@ export function clientIp(c: Context): string {
 
 /** The scheme a request arrived on; `X-Forwarded-Proto` is believed only from a proxy we run. */
 function requestProto(c: Context): "http" | "https" {
-  if (config.trustProxy) {
+  if (config.trustProxy && isTrustedProxy(peerAddress(c), config)) {
     const proto = c.req.header("x-forwarded-proto");
     if (proto)
       return proto.split(",")[0]!.trim().toLowerCase() === "https" ? "https" : "http";
@@ -823,13 +824,20 @@ function setSessionCookie(c: Context, value: string, remember: boolean) {
 
 function upstreamFailure(c: Context, err: unknown) {
   if (err instanceof UpstreamError) {
-    return c.json(
-      {
-        error: err.status === 401 ? "invalid_credentials" : "upstream_error",
-        message: err.message,
-      },
-      err.status as 401 | 502,
-    );
+    // A 403 is a permission and a 404 a missing object: the code keeps the
+    // reason the mail server distinguished, rather than collapsing both into a
+    // generic upstream failure.
+    const status =
+      err.status === 401 || err.status === 403 || err.status === 404 ? err.status : 502;
+    const error =
+      status === 401
+        ? "invalid_credentials"
+        : status === 403
+          ? "forbidden"
+          : status === 404
+            ? "not_found"
+            : "upstream_error";
+    return c.json({ error, message: err.message }, status);
   }
   const name = (err as Error)?.name ?? "";
   if (name === "TimeoutError" || name === "AbortError") {
@@ -4011,14 +4019,6 @@ async function confirmsPassword(
     if (err instanceof UpstreamError && err.status === 401) return false;
     throw err;
   }
-}
-
-/**
- * Direction overrides and isolates, which can make `Invoice_\u202Efdp.exe`
- * read as a PDF in the downloads list. A filename has no honest use for them.
- */
-function withoutBidiControls(name: string): string {
-  return name.replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
 }
 
 /** Name the app password after the browser it will live in. */

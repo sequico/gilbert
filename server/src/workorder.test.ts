@@ -212,6 +212,39 @@ test("a workorder that does not exist is a 404", async () => {
   assert.equal(missing.status, 404);
 });
 
+test("a check that keeps losing the compare-and-set reports its own failure", async () => {
+  /*
+   * `writeRootUnderCas` retries a lost compare-and-set once, then throws
+   * `workorder_check_failed`. Before the fix the second attempt re-threw the
+   * raw JMAP refusal, so the surface saw an upstream error rather than the
+   * workorder's own code — the post-loop throw was unreachable.
+   */
+  const template = await templateRef();
+  const created = await post("/api/workorders/create", {
+    name: "Raced run",
+    template,
+    groups: [],
+  });
+  const uid = workorderOf(created.body).uid;
+
+  // The mock loses the next two conditional FileNode writes for the Master.
+  mock.casLoses.forAddress = "gilbert@example.com";
+  mock.casLoses.count = 2;
+  try {
+    const checked = await post("/api/workorders/check", {
+      uid,
+      scope: "global",
+      stepId: "s1",
+      checked: true,
+    });
+    assert.equal(checked.status, 502, JSON.stringify(checked.body));
+    assert.equal(checked.body?.error, "workorder_check_failed");
+  } finally {
+    mock.casLoses.forAddress = "";
+    mock.casLoses.count = 0;
+  }
+});
+
 test("a closed workorder's checklist no longer changes", async () => {
   /*
    * A terminal state is kept for ever and the checklist is the record of the

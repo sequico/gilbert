@@ -1,9 +1,9 @@
 import {
   type Ctx,
-  destroyAppNode,
   downloadBlobText,
   filesAccountId,
   findAppFileAt,
+  removeAppFile,
   writeAppFile,
 } from "./appFolder.js";
 import { config } from "./config.js";
@@ -399,13 +399,7 @@ export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promi
 export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return;
-  const { folderId, file } = await findAppFileAt(
-    ctx,
-    accountId,
-    PASSWORD_CHANGE_DIRECTIVE,
-  );
-  if (!folderId || !file?.id) return;
-  await destroyAppNode(ctx, accountId, String(file.id));
+  await removeAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
 }
 
 /* ------------------------------------------------------------------ */

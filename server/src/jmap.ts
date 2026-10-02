@@ -117,11 +117,10 @@ export class JmapResult {
  *
  * A conditional write that lost the race answers `stateMismatch`; everything
  * that writes conditionally — the document store, the lease, the executor —
- * has to recognise it, and one definition of "lost the race" beats three.
+ * has to recognise it. One definition, in the shared tree, because the client
+ * tier recognises the same refusal the same way.
  */
-export function isStateMismatch(err: unknown): boolean {
-  return err instanceof JmapError && err.type === "stateMismatch";
-}
+export { isStateMismatch } from "./shared/errors.js";
 
 /**
  * A create refused because a sibling already carries the name.
@@ -224,12 +223,20 @@ export class JmapClient {
   accountFor(capability: string): string {
     const primary = this.session.primaryAccounts?.[capability];
     if (primary) return primary;
+    let fallback = "";
     for (const [id, account] of Object.entries(this.session.accounts ?? {})) {
-      const caps = (account as { accountCapabilities?: Record<string, unknown> })
-        .accountCapabilities;
-      if (caps?.[capability]) return id;
+      const a = account as {
+        isPersonal?: boolean;
+        accountCapabilities?: Record<string, unknown>;
+      };
+      if (!a.accountCapabilities?.[capability]) continue;
+      // Personal first: the first match can be a share that advertises the
+      // capability too, and reading the reader's own mail through a group is
+      // the wrong answer with no visible cause.
+      if (a.isPersonal === true) return id;
+      if (!fallback) fallback = id;
     }
-    return "";
+    return fallback;
   }
 
   /**

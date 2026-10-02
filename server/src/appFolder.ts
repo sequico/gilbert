@@ -354,6 +354,23 @@ export async function findAppFileAt(
   return { folderId, file: await findInFolder(ctx, accountId, folderId, name) };
 }
 
+/**
+ * Remove a document by path, if it is there.
+ *
+ * Absent is success: releasing a lock or clearing a directive that was never
+ * written is not an error. One definition of "find the node, destroy it", so a
+ * caller does not repeat the two steps and forget the absent case.
+ */
+export async function removeAppFile(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<void> {
+  const { file } = await findAppFileAt(ctx, accountId, path);
+  if (!file?.id) return;
+  await destroyAppNode(ctx, accountId, String(file.id));
+}
+
 /** Upload a JSON body for this principal and return its blob id. */
 export async function uploadJsonBlob(
   ctx: Ctx,

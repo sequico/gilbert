@@ -241,22 +241,6 @@ export async function publishInstallation(
 
   const where = installationLocation(store.accountId);
 
-  // What is stored now — the epoch this write moves on from. Read before
-  // anything is written, so no failure between here and the write can leave
-  // the stored document disagreeing with the epoch this publish reports.
-  let stored: string | null;
-  try {
-    stored = await store.read();
-  } catch (err) {
-    return {
-      refused: {
-        status: 502,
-        error: "read_failed",
-        message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
-      },
-    };
-  }
-
   /*
    * The app folder first, then the state: creating that folder is a write that
    * moves the account's FileNode state, so a token read before it exists would
@@ -300,6 +284,23 @@ export async function publishInstallation(
           "document moved is a write that can replace one somebody else just made. Nothing was written.",
       },
     };
+
+  // The stored document is read **after** the state token, not before: a write
+  // landing between the two is then visible here, and the conditional write
+  // below loses the race and reports `installation_moved`, rather than reading
+  // the epoch a moment early and writing a lower one over what just arrived.
+  let stored: string | null;
+  try {
+    stored = await store.read();
+  } catch (err) {
+    return {
+      refused: {
+        status: 502,
+        error: "read_failed",
+        message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
+      },
+    };
+  }
 
   let written: InstallationDocument;
   try {
@@ -371,7 +372,11 @@ export async function publishInstallation(
  */
 function storedEpoch(text: string | null): number {
   const parsed = parseInstallationDocumentDetailed(text ?? "");
-  if ("doc" in parsed) return parsed.doc.epoch;
+  if ("doc" in parsed)
+    // A stored epoch below the floor a publish requires would be read happily
+    // and then refused by `writeInstallation`; lift it to the floor here so a
+    // document this boot accepted can still be republished.
+    return Math.max(parsed.doc.epoch, INSTALLATION_EPOCH_START);
   try {
     const raw = JSON.parse(text ?? "") as { epoch?: unknown };
     const epoch = raw?.epoch;
