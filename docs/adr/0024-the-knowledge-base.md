@@ -2,7 +2,19 @@
 
 Status: Proposed
 
-Implementation: Not built.
+Implementation: Partly built. The article shape, the storage layout, the
+validators and the lifecycle arithmetic are one definition
+(`server/src/shared/knowledge.ts`); the Master-owned write door and its
+`/api/knowledge/*` routes are `server/src/knowledgeAdmin.ts` and
+`server/src/app.ts`; the company KB is created and shared at boot
+(`server/src/index.ts`); the client reads and writes through
+`web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
+BlockNote editor are `web/src/views/knowledge/`; and the fleet's `knowledge`
+lookup and `knowledge.write` capability live in `server/src/agent/`. Not built:
+the attachment upload surface, the multi-document plan kept as its own document,
+and the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
+diagrams). The company KB's read share on `gilbert/knowledge` is owed the live
+probe ADR 0023 carries for a share that reaches every account.
 
 ## Context
 

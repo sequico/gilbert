@@ -30,18 +30,16 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
   Expect the asking to be far out of proportion to the using. A self-hosted webmail for Stalwart draws self-hosters, privacy-minded users and European SMEs, which is about the densest concentration of PGP users left alive — so this will be requested much more often than it would be used, and that is an argument for keeping it here, described honestly, rather than either building it on the strength of the requests or refusing it outright.
 
-- **The knowledge base.** A company-wide KB owned by the Master and shared with
-  every account, plus a KB per group owned by the group, holding documents in
-  Stalwart under one shared draft per article and an administrator's approval
-  with an effective date issuing a revision (ADR 0024). Every document is written
-  through the server acting as the Master, which is where the administrator check
-  an approval is gated on lives, and the company KB is read through a read-only
-  share to every account; the KB is the strategic layer — policies, procedures
-  and the checklist templates a workorder instantiates (ADR 0028). The record is
-  **Proposed**, every design question settled: the editor (BlockNote) and the
-  search (Orama) come off the shelf, and the storage, ownership, versioning,
-  approval and the fleet's document-controller behaviour are Gilbert's own.
-  Co-editing is a later phase and there is no anonymous surface.
+- **The knowledge base's later phases.** The KB itself ships — the storage, the
+  lifecycle and approval, the surface and its BlockNote editor, the Orama search,
+  and the fleet's `knowledge` read and `knowledge.write` — see
+  [The knowledge base](FEATURES.md#the-knowledge-base). What is deliberately
+  later is what ADR 0024 defers: real-time co-editing over Yjs/Hocuspocus (v1
+  saves the whole draft under `ifInState` and says so), Excalidraw diagrams, the
+  attachment upload surface, and the document-controller's multi-document plan
+  kept as a document of its own rather than as a run's actions. The company KB's
+  read share on `gilbert/knowledge` is owed the live probe ADR 0023 already names
+  for a share of a nested folder that reaches every account.
 
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 

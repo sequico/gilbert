@@ -242,7 +242,11 @@ is, not what a user sees.
   that keeps policies aligned, finds inconsistencies and plans multi-document
   edits. The record is **Proposed**, every design question settled: it carries
   the findings, the design as it stands, the lifecycle, versioning and publication
-  (e.g. ISO 9001 policies), and the library choice.
+  (e.g. ISO 9001 policies), and the library choice. **Partly built** — the storage
+  and lifecycle, the Master-owned door and its routes, the boot ensure, the client
+  read/write, the surface with its BlockNote editor, and the fleet's `knowledge`
+  read and write; the attachment upload surface, a multi-document plan as a
+  document, co-editing and diagrams are not.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check

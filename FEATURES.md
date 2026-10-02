@@ -848,6 +848,56 @@ wants to retire a chat clears the folders through Files.
 
 ---
 
+# The knowledge base
+
+An enterprise knowledge base inside Gilbert, for people and for agents, over
+Stalwart's own Files — no second database, no second service (ADR 0024). It is
+the **fifth** module, **KB**, after Mail, Calendar, Contacts and Files, and not
+a folder of Files.
+
+- **Two tiers, one shape.** A company-wide KB owned by the **Master** and read
+  by every account through a read-only share of `gilbert/knowledge`; a KB per
+  group, owned by the group's own account and read by its members (membership is
+  the grant). The company tier leads the sidebar and the groups follow; the
+  surface is the same for both.
+- **One article is one folder** named by its title, under `gilbert/knowledge` in
+  the owning account's hidden app folder: a single mutable `draft.json`, the
+  immutable approved revisions under `revisions/`, and a `state.json` naming
+  which revision is **in force** and which is still **pending** its effective
+  date. Sub-articles are folders inside the folder; tags cut across the tree; a
+  reference carries the article's id, never its title, so renaming or moving one
+  breaks nothing.
+- **One shared draft, an administrator's approval.** Users and agents edit the
+  same unapproved draft. Only an installation administrator **approves**, stating
+  the date the revision takes effect: a date already passed puts it in force at
+  once, a future one leaves it **pending** beside the revision still in force,
+  and the revision it replaces stays readable as **superseded**. History is never
+  edited — restoring a superseded revision opens a new draft, which is approved
+  again.
+- **Written as the Master.** Every write goes through a server route
+  (`/api/knowledge/*`) that acts as the Master, because the company KB is read
+  through a read-only share that grants the caller's own session nothing to write
+  with, and because approval is gated on the administrator the session
+  authenticated. An agent drafts; it never approves.
+- **The editor is BlockNote** (core MPL-2.0: ProseMirror/TipTap, with Yjs built
+  in for the co-editing phase) and the search is **Orama**, in-process over each
+  page's text and rebuilt lazily per search — so the human box and an agent's
+  lookup rank the same way, and neither is a second service.
+- **For the fleet**: a `knowledge` lookup (list or search pages, read one page's
+  text) and a `knowledge.write` capability (create or update a page's draft) in
+  the closed catalogue. The KB is a **lookup**, never carried whole into a prompt;
+  the notebook stays the distilled head (ADR 0006, ADR 0020).
+- **Graceful degradation**: the company tier is read when the KB is opened (a
+  share is not a membership, so no live update is promised for it), while a
+  group's KB rides the FileNode push rail like any other document; a page that
+  cannot be read resolves as empty rather than a broken pane.
+
+Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
+Excalidraw diagrams, the attachment upload surface, and the document-controller's
+multi-document plan kept as a document of its own.
+
+---
+
 # The upstream client
 
 The mail client, calendar, contacts, files, sharing and Sieve editing come from
