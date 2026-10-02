@@ -96,6 +96,47 @@ test("a Global contacts card is created, checked, and destroyed", async () => {
   assert.equal(noId.status, 400, "which card is a question the caller must answer");
 });
 
+test("clearing an organisation or a note on an update erases it", async () => {
+  /*
+   * The editor clears a field by sending it empty, and the `/set` idiom for
+   * removing a property is `null`. A field that falls back to `undefined` is
+   * omitted from the patch, so the old value survives a save that visibly
+   * emptied it.
+   */
+  const created = await post("/api/admin/global-contacts", {
+    id: null,
+    card: {
+      name: "Hedy Lamarr",
+      emails: [],
+      phones: [],
+      organization: "MGM",
+      notes: "frequency hopping",
+    },
+  });
+  const id = (created.body as { id?: unknown }).id;
+  assert.equal(typeof id, "string", "the card is written");
+
+  const updated = await post("/api/admin/global-contacts", {
+    id,
+    card: { name: "Hedy Lamarr", emails: [], phones: [], organization: "", notes: "" },
+  });
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+
+  const read = await call("/api/global-contacts");
+  const row = (
+    (read.body?.contacts as
+      | Array<{
+          id: string;
+          organization: string;
+          notes: string;
+        }>
+      | undefined) ?? []
+  ).find((c) => c.id === id);
+  assert.ok(row, "the card is still listed");
+  assert.equal(row.organization, "", "a cleared organisation is gone");
+  assert.equal(row.notes, "", "a cleared note is gone");
+});
+
 test("every account reads the directory through the route", async () => {
   /*
    * ADR 0023's read path: the directory is owned by the Master, so no session

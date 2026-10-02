@@ -231,8 +231,12 @@ function cardFields(
   for (const [name, value] of Object.entries({
     emails: objects(emails, (address) => ({ address })),
     phones: objects(phones, (number) => ({ number })),
-    organizations: organization ? { o0: { name: organization } } : undefined,
-    notes: notes ? { n0: { note: notes } } : undefined,
+    organizations: organization
+      ? { o0: { name: organization } }
+      : opts.clear
+        ? null
+        : undefined,
+    notes: notes ? { n0: { note: notes } } : opts.clear ? null : undefined,
   }))
     if (value !== undefined) fields[name] = value;
   return fields;
@@ -243,7 +247,9 @@ export function isEmptyGlobalContact(input: GlobalContactInput): boolean {
   return (
     !input.name.trim() &&
     !input.emails.some((e) => e.trim()) &&
-    !input.phones.some((p) => p.trim())
+    !input.phones.some((p) => p.trim()) &&
+    !input.organization.trim() &&
+    !input.notes.trim()
   );
 }
 

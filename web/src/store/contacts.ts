@@ -1285,7 +1285,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       if (!target) continue;
       // The directory is not a JMAP account: its cards leave the list through
       // the administration route, never a `ContactCard/set` at the sentinel.
-      if (target === GLOBAL_CONTACTS_ACCOUNT_ID) continue;
+      refuseDirectoryWrite(target);
       const held = byAccount.get(target);
       if (held) held.push(id);
       else byAccount.set(target, [id]);
@@ -1414,6 +1414,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
      */
     const target = accountId ?? accountOfBook(id, get().books, own, get().sharedBooks);
     if (!target) throw new Error("That address book is not available");
+    refuseDirectoryWrite(target);
     const res = await client.call<SetResponse>("AddressBook/set", {
       accountId: target,
       update: { [id]: patch },
@@ -1428,6 +1429,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const own = get().accountId;
     const target = accountId ?? accountOfBook(id, get().books, own, get().sharedBooks);
     if (!target) throw new Error("That address book is not available");
+    refuseDirectoryWrite(target);
     const res = await client.call<SetResponse>("AddressBook/set", {
       accountId: target,
       destroy: [id],

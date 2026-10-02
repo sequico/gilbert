@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
-import { useGroupLabels } from "@/store/groupLabels";
+import { labelsForAccount, useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import type { Label } from "@/store/settings";
 import { useSettings } from "@/store/settings";
@@ -25,13 +25,14 @@ export function useEffectiveLabels(): Label[] {
   const accountId = useMail((s) => s.accountId);
   const accounts = useMail((s) => s.mailAccounts);
   const personal = useSettings((s) => s.settings.labels);
-  const byAccount = useGroupLabels((s) => s.byAccount);
+  // Subscribed so a group catalog that lands re-renders the caller: the
+  // selection itself is the store's one answer, never a second copy of it.
+  useGroupLabels((s) => s.byAccount);
   const isGroup = isGroupMailboxAccount(accountId, accounts);
 
   useEffect(() => {
     if (isGroup && accountId) void useGroupLabels.getState().load(accountId);
   }, [isGroup, accountId]);
 
-  if (!isGroup || !accountId) return personal;
-  return byAccount[accountId] ?? [];
+  return labelsForAccount(accountId, personal);
 }
