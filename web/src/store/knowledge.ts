@@ -30,6 +30,7 @@ import {
   articleKey,
   companyKnowledge,
   createArticle,
+  createKnowledgeFolder,
   deleteArticle,
   findKnowledgeFolder,
   type KnowledgeArticleInput,
@@ -37,9 +38,11 @@ import {
   type KnowledgeSummary,
   type KnowledgeTarget,
   listArticles,
+  moveKnowledgeArticle,
   plainTextFromBlocks,
   readArticle,
   renameArticle,
+  reorderKnowledgeArticle,
   restoreArticle,
   saveDraft,
 } from "@/lib/knowledge";
@@ -99,6 +102,17 @@ interface KnowledgeStore {
     title: string,
     parentFolder: string | null,
   ): Promise<boolean>;
+  createFolder(
+    tier: KnowledgeTierState,
+    name: string,
+    parentFolder: string | null,
+  ): Promise<boolean>;
+  reorder(tier: KnowledgeTierState, folder: string, order: number): Promise<boolean>;
+  move(
+    tier: KnowledgeTierState,
+    folder: string,
+    parentFolder: string | null,
+  ): Promise<boolean>;
   save(): Promise<boolean>;
   approve(effectiveAt: string): Promise<boolean>;
   restore(revision: string): Promise<boolean>;
@@ -106,6 +120,23 @@ interface KnowledgeStore {
   remove(): Promise<boolean>;
   setSearch(term: string): void;
   setShowRetired(on: boolean): void;
+  /**
+   * Where an inline "new page / new folder" input is open, or null. Creation is
+   * inline in the tree — no `window.prompt`, no dialog: the row appears where
+   * the node will land and Enter commits it.
+   */
+  creating: {
+    accountId: Id;
+    scope: "company" | "group";
+    parentNodeId: string | null;
+    kind: "page" | "folder";
+  } | null;
+  beginCreate(
+    tier: KnowledgeTierState,
+    parentNodeId: string | null,
+    kind: "page" | "folder",
+  ): void;
+  cancelCreate(): void;
   runSearch(): Promise<void>;
   /** A FileNode change arrived for an account the store holds: re-list its tier. */
   applyChanges(accountId: Id): Promise<void>;
@@ -194,6 +225,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     search: "",
     searching: false,
     showRetired: false,
+    creating: null,
     results: [],
 
     async load() {
@@ -337,6 +369,57 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       }
     },
 
+    async createFolder(tier, name, parentFolder) {
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+      };
+      try {
+        await createKnowledgeFolder(target, name, parentFolder);
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async reorder(tier, folder, order) {
+      // The tier is the caller's, not the open page's: a drag happens in a
+      // tier that may hold no open article at all.
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+        folder,
+      };
+      try {
+        await reorderKnowledgeArticle(target, folder, order);
+        // Ordering is the tier's fact, not the open article's, so a re-list
+        // refreshes the tree without losing what is open.
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async move(tier, folder, parentFolder) {
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+        folder,
+      };
+      try {
+        await moveKnowledgeArticle(target, folder, parentFolder);
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
     async save() {
       const { article, edit } = get();
       if (!article || !edit) return false;
@@ -433,6 +516,16 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       void get().reload();
     },
 
+    beginCreate(tier, parentNodeId, kind) {
+      set({
+        creating: { accountId: tier.accountId, scope: tier.scope, parentNodeId, kind },
+      });
+    },
+
+    cancelCreate() {
+      set({ creating: null });
+    },
+
     /**
      * A group's KB rides the FileNode push rail (ADR 0024); the company tier is
      * read when opened, so a change there is picked up on the next open. The
@@ -524,6 +617,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         search: "",
         searching: false,
         showRetired: false,
+        creating: null,
         results: [],
       });
     },

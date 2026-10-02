@@ -18,12 +18,15 @@
 
 import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
 import {
+  compareKnowledgeSiblings,
   DRAFT_FILE,
   isKnowledgeDraft,
+  isKnowledgeFolderDoc,
   isKnowledgeRevision,
   isKnowledgeState,
   isRetired,
   KNOWLEDGE_FOLDER,
+  KNOWLEDGE_FOLDER_FILE,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
   type KnowledgeRevision,
@@ -31,6 +34,7 @@ import {
   type KnowledgeScope,
   type KnowledgeSummary,
   type KnowledgeTarget,
+  knowledgeSummary,
   REVISIONS_FOLDER,
   revisionInForceAt,
   STATE_FILE,
@@ -109,19 +113,30 @@ function revisionsNode(list: FileNode[]): FileNode | undefined {
   return list.find((n) => n.nodeType === "directory" && n.name === REVISIONS_FOLDER);
 }
 
-/** The article folders of a listing — every directory but the reserved child. */
-function articleFolders(list: FileNode[]): FileNode[] {
+/** The child nodes of a listing — every directory but the reserved child. */
+function childFolders(list: FileNode[]): FileNode[] {
   return list.filter((n) => n.nodeType === "directory" && n.name !== REVISIONS_FOLDER);
 }
 
+/** A folder's position among its siblings, from its `folder.json`; absent is 0. */
+async function folderOrder(accountId: Id, node: FileNode | undefined): Promise<number> {
+  const doc = await readDocument(accountId, node, isKnowledgeFolderDoc);
+  return doc?.order ?? 0;
+}
+
 /**
- * One article folder and its sub-articles, flattened.
+ * One tree node and everything under it, flattened depth-first.
  *
- * An article is a folder; its `state.json` is the small document a listing
- * reads, and a `draft.json` beside it is what makes the folder an article
- * rather than one somebody made by hand. A folder with no readable state still
- * lists — its title is its name and it carries no metadata — and `saved` says
- * whether a draft is there, which is the shared document's own rule.
+ * A folder is an article only when it carries a `state.json` or a `draft.json`;
+ * an article is a leaf and is not recursed into (`revisions/` is its one child
+ * and is reserved). A directory holding neither document is a **topic folder**:
+ * a group of siblings whose title is its name, whose position comes from its
+ * `folder.json`, and which is recursed into. A folder with a readable state
+ * still lists even when the state cannot be read — its title is its name and it
+ * carries no metadata — and `saved` says whether a draft is there.
+ *
+ * Siblings are emitted in `order` then `title` order: the children are
+ * summarised first, so their summaries carry the order this node sorts by.
  */
 async function summarizeArticle(
   accountId: Id,
@@ -131,52 +146,83 @@ async function summarizeArticle(
   includeRetired: boolean,
 ): Promise<KnowledgeSummary[]> {
   const { list } = await listChildrenWithState(accountId, node.id, ARTICLE_PROPS);
-  const state = await readDocument(
-    accountId,
-    fileNode(list, STATE_FILE),
-    isKnowledgeState,
-  );
-  // A retired article is withdrawn from the tree but kept for traceability: it
-  // and its sub-articles are shown only where a caller asks for them.
-  if (state && isRetired(state) && !includeRetired) return [];
-  const summary: KnowledgeSummary = {
-    id: state?.id ?? node.id,
-    title: state?.title ?? node.name,
-    tags: state?.tags ?? [],
-    folder: path,
-    nodeId: node.id,
-    parentId,
-    inForce: state?.inForce ?? null,
-    pending: state?.pending ?? null,
-    retired: state?.retired ?? null,
-    created: state?.created ?? null,
-    updated: state?.updated ?? null,
-    saved: Boolean(fileNode(list, DRAFT_FILE)?.blobId),
-  };
-  const out = [summary];
-  for (const child of articleFolders(list)) {
-    out.push(
-      ...(await summarizeArticle(
-        accountId,
-        child,
-        node.id,
-        `${path}/${child.name}`,
-        includeRetired,
-      )),
+  const draftNode = fileNode(list, DRAFT_FILE);
+  const stateNode = fileNode(list, STATE_FILE);
+
+  if (!draftNode && !stateNode) {
+    const summary = knowledgeSummary({
+      state: null,
+      draft: null,
+      folder: path,
+      nodeId: node.id,
+      parentId,
+      folderOrder: await folderOrder(accountId, fileNode(list, KNOWLEDGE_FOLDER_FILE)),
+      saved: false,
+    });
+    const descendants = await summarizeChildren(
+      accountId,
+      list,
+      node.id,
+      path,
+      includeRetired,
     );
+    return [summary, ...descendants];
   }
-  return out;
+
+  const state = await readDocument(accountId, stateNode, isKnowledgeState);
+  // A retired article is withdrawn from the tree but kept for traceability: it
+  // is shown only where a caller asks for it. An article is a leaf, so this
+  // branch does not recurse into the article's children.
+  if (state && isRetired(state) && !includeRetired) return [];
+  const draft = await readDocument(accountId, draftNode, isKnowledgeDraft);
+  return [
+    knowledgeSummary({
+      state,
+      draft,
+      folder: path,
+      nodeId: node.id,
+      parentId,
+      saved: Boolean(draftNode?.blobId),
+    }),
+  ];
 }
 
 /**
- * Every article under a tier's `knowledge` folder, flat and sorted by title.
+ * The children of one listing, each with its own subtree, in sibling order.
  *
- * The tree is the FileNode tree — an article a folder whose children are its
- * sub-articles — so one listing carries the titles without reading a blob, and
- * each article folder is read once for its `state.json` as the walk reaches it.
- * Every article is returned in one flat array and the parent is named on the
- * summary (`parentId`), which is what lets a surface rebuild the tree however
- * it draws it.
+ * A child is summarised first — an article into one leaf, a folder into itself
+ * and its descendants — and the groups are sorted by the child's own summary,
+ * which carries the `order` this listing follows. An empty group is a retired
+ * article kept out of the listing, and contributes nothing.
+ */
+async function summarizeChildren(
+  accountId: Id,
+  list: FileNode[],
+  parentId: Id | null,
+  basePath: string,
+  includeRetired: boolean,
+): Promise<KnowledgeSummary[]> {
+  const subtrees: Array<{ head: KnowledgeSummary; rest: KnowledgeSummary[] }> = [];
+  for (const child of childFolders(list)) {
+    const path = basePath ? `${basePath}/${child.name}` : child.name;
+    const flat = await summarizeArticle(accountId, child, parentId, path, includeRetired);
+    const head = flat[0];
+    if (!head) continue;
+    subtrees.push({ head, rest: flat.slice(1) });
+  }
+  subtrees.sort((a, b) => compareKnowledgeSiblings(a.head, b.head));
+  return subtrees.flatMap((s) => [s.head, ...s.rest]);
+}
+
+/**
+ * Every node under a tier's `knowledge` folder, flat and in sibling order.
+ *
+ * The tree is the FileNode tree — a folder whose children are its siblings,
+ * with articles as the leaves — so one listing carries the titles without
+ * reading a blob, and each folder is read once for its `state.json` or
+ * `folder.json` as the walk reaches it. Every node is returned in one flat
+ * array and the parent is named on the summary (`parentId`), which is what lets
+ * a surface rebuild the tree however it draws it.
  */
 export async function listArticles(
   accountId: Id,
@@ -184,13 +230,7 @@ export async function listArticles(
   includeRetired = false,
 ): Promise<KnowledgeSummary[]> {
   const { list } = await listChildrenWithState(accountId, folderId, ARTICLE_PROPS);
-  const out: KnowledgeSummary[] = [];
-  for (const child of articleFolders(list)) {
-    out.push(
-      ...(await summarizeArticle(accountId, child, null, child.name, includeRetired)),
-    );
-  }
-  return out.sort((a, b) => a.title.localeCompare(b.title));
+  return summarizeChildren(accountId, list, null, "", includeRetired);
 }
 
 /**
@@ -227,6 +267,7 @@ async function parentArticleId(accountId: Id, nodeId: Id): Promise<Id | null> {
 function revisionSummary(r: KnowledgeRevision): KnowledgeRevisionSummary {
   return {
     revision: r.revision,
+    rev: r.rev,
     effectiveAt: r.effectiveAt,
     approvedBy: r.approvedBy,
     approvedAt: r.approvedAt,
@@ -255,16 +296,17 @@ export async function readArticle(
   parentId?: Id | null,
 ): Promise<KnowledgeArticleView | null> {
   const { list } = await listChildrenWithState(accountId, folderId, ARTICLE_PROPS);
-  const draft = await readDocument(
-    accountId,
-    fileNode(list, DRAFT_FILE),
-    isKnowledgeDraft,
-  );
-  const state = await readDocument(
-    accountId,
-    fileNode(list, STATE_FILE),
-    isKnowledgeState,
-  );
+  const draftNode = fileNode(list, DRAFT_FILE);
+  const stateNode = fileNode(list, STATE_FILE);
+  // An article carries one of its two documents; a directory with neither is a
+  // topic folder, so neither document is read and the title is the folder name.
+  const isFolder = !draftNode && !stateNode;
+  const draft = isFolder
+    ? null
+    : await readDocument(accountId, draftNode, isKnowledgeDraft);
+  const state = isFolder
+    ? null
+    : await readDocument(accountId, stateNode, isKnowledgeState);
 
   const revisions: KnowledgeRevision[] = [];
   const revDir = revisionsNode(list);
@@ -291,20 +333,17 @@ export async function readArticle(
 
   const resolvedParent =
     parentId === undefined ? await parentArticleId(accountId, folderId) : parentId;
-  const summary: KnowledgeSummary = {
-    id: state?.id ?? nodeId,
-    title: state?.title ?? folder,
-    tags: state?.tags ?? [],
+  const summary = knowledgeSummary({
+    state,
+    draft,
     folder,
     nodeId,
     parentId: resolvedParent,
-    inForce: state?.inForce ?? null,
-    pending: state?.pending ?? null,
-    retired: state?.retired ?? null,
-    created: state?.created ?? null,
-    updated: state?.updated ?? null,
-    saved: Boolean(fileNode(list, DRAFT_FILE)?.blobId),
-  };
+    folderOrder: isFolder
+      ? await folderOrder(accountId, fileNode(list, KNOWLEDGE_FOLDER_FILE))
+      : undefined,
+    saved: Boolean(draftNode?.blobId),
+  });
 
   return {
     scope,
@@ -335,6 +374,45 @@ export async function createArticle(
   const res = await apiFetch<Written>("/api/knowledge/create", {
     method: "POST",
     body: JSON.stringify({ ...target, title, parentFolder }),
+  });
+  return res.summary;
+}
+
+/** Create a topic folder, optionally under a parent folder's path. */
+export async function createKnowledgeFolder(
+  target: KnowledgeTarget,
+  name: string,
+  parentFolder: string | null,
+): Promise<KnowledgeSummary> {
+  const res = await apiFetch<Written>("/api/knowledge/folder", {
+    method: "POST",
+    body: JSON.stringify({ ...target, name, parentFolder }),
+  });
+  return res.summary;
+}
+
+/** Set a node's position among its siblings; the free `order` is the whole of it. */
+export async function reorderKnowledgeArticle(
+  target: KnowledgeTarget,
+  folder: string,
+  order: number,
+): Promise<KnowledgeSummary> {
+  const res = await apiFetch<Written>("/api/knowledge/reorder", {
+    method: "POST",
+    body: JSON.stringify({ ...target, folder, order }),
+  });
+  return res.summary;
+}
+
+/** Move a node under another folder, or back to the tier root when null. */
+export async function moveKnowledgeArticle(
+  target: KnowledgeTarget,
+  folder: string,
+  parentFolder: string | null,
+): Promise<KnowledgeSummary> {
+  const res = await apiFetch<Written>("/api/knowledge/move", {
+    method: "POST",
+    body: JSON.stringify({ ...target, folder, parentFolder }),
   });
   return res.summary;
 }
