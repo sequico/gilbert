@@ -474,6 +474,8 @@ function lookupLines(): string[] {
       '{"kind": "files", "folder": "Clients", "deep": true, "name": "packing"} — the group\'s Files: one level, or with "deep" the whole tree under a folder; "name" keeps what matches',
     file: '{"kind": "file", "path": "Clients/report.pdf"} — one file\'s own text',
     chat: '{"kind": "chat", "query": "invoice from:ada"} — the group\'s chat, narrowed by the same grammar',
+    knowledge:
+      '{"kind": "knowledge", "query": "quality policy"} — the group\'s knowledge base: list articles, narrowed by title or text; with "id" read one article\'s own text',
   };
   return AGENT_LOOKUP_KINDS.map((kind) => `- ${examples[kind]}`);
 }

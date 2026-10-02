@@ -113,6 +113,7 @@ export type AgentActionName =
   | "mail.send"
   | "chat.post"
   | "file.write"
+  | "knowledge.write"
   | "notebook.write"
   | "document.read"
   | "document.split"
@@ -257,6 +258,18 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
       { key: "text", required: true, kind: "text" },
     ],
     unrepeatable: true,
+  },
+  {
+    name: "knowledge.write",
+    area: "files",
+    label: "Write a knowledge base page",
+    description:
+      "Create or update a knowledge base article's draft: `title` names it, `folder` updates an existing article by its folder name, and `text` is the body. It writes a draft only — never an approval and never a revision.",
+    params: [
+      { key: "title", required: true, kind: "text" },
+      { key: "folder", required: false, kind: "folder" },
+      { key: "text", required: false, kind: "text" },
+    ],
   },
   {
     name: "notebook.write",
@@ -432,6 +445,7 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "chat.post",
   "mail.draft",
   "file.write",
+  "knowledge.write",
   "notebook.write",
   "mail.extract",
   "document.split",
@@ -931,6 +945,15 @@ export const AGENT_LOOKUP_ROUNDS = 3;
 export const AGENT_LOOKUP_MESSAGES_MAX = 20;
 
 /**
+ * The most knowledge base articles one lookup lists.
+ *
+ * Mirroring the message bound: a listing carries the index — a title, an id, a
+ * lifecycle state and tags — never a body, so a run that wants what an article
+ * says names it back in a `knowledge` lookup by its id (ADR 0020, ADR 0024).
+ */
+export const AGENT_LOOKUP_ARTICLES_MAX = 20;
+
+/**
  * The most characters of one read item's own text.
  *
  * One message or one file at this ceiling, not a mailbox and not a folder: the
@@ -958,9 +981,9 @@ export const AGENT_LOOKUP_DEPTH_MAX = 4;
  * a query, a filter or a JMAP method. The catalogue is the group's own state as
  * its members see it — its mail (by folder, label, sender, text or unread), one
  * message of it, its folders, its labels, its visible Files and one file of
- * them, and its chat — because the context a butler needs is the group's, not
- * one label's. Every shape is a read of the group's own account, and none of
- * them writes anything (ADR 0020).
+ * them, its chat, and its knowledge base — because the context a butler needs
+ * is the group's, not one label's. Every shape is a read of the group's own
+ * account, and none of them writes anything (ADR 0020).
  */
 export type AgentLookup =
   | { kind: "mail"; query?: string; limit?: number }
@@ -969,7 +992,8 @@ export type AgentLookup =
   | { kind: "labels" }
   | { kind: "files"; folder?: string; deep?: boolean; name?: string }
   | { kind: "file"; path: string }
-  | { kind: "chat"; query?: string; limit?: number };
+  | { kind: "chat"; query?: string; limit?: number }
+  | { kind: "knowledge"; query?: string; id?: string; limit?: number };
 
 export type AgentLookupKind = AgentLookup["kind"];
 
@@ -981,6 +1005,7 @@ export const AGENT_LOOKUP_KINDS: ReadonlyArray<AgentLookupKind> = [
   "files",
   "file",
   "chat",
+  "knowledge",
 ];
 
 function lookupParam(value: unknown): string | null {
@@ -1015,14 +1040,14 @@ function onlyKeys(x: Record<string, unknown>, allowed: ReadonlyArray<string>): b
 }
 
 /** An optional count: absent is fine, present must be within the listing bound. */
-function optionalLimit(x: Record<string, unknown>): boolean {
+function optionalLimit(
+  x: Record<string, unknown>,
+  max: number = AGENT_LOOKUP_MESSAGES_MAX,
+): boolean {
   const value = x.limit;
   if (value === undefined) return true;
   return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= AGENT_LOOKUP_MESSAGES_MAX
+    typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= max
   );
 }
 
@@ -1054,6 +1079,13 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
         onlyKeys(x, ["kind", "query", "limit"]) &&
         optionalQuery(x, "query") &&
         optionalLimit(x)
+      );
+    case "knowledge":
+      return (
+        onlyKeys(x, ["kind", "query", "id", "limit"]) &&
+        optionalQuery(x, "query") &&
+        optionalParam(x, "id") &&
+        optionalLimit(x, AGENT_LOOKUP_ARTICLES_MAX)
       );
     default:
       return false;
@@ -1090,6 +1122,11 @@ export function lookupLabel(lookup: AgentLookup): string {
       return lookup.query
         ? `the group's chat matching “${lookup.query}”`
         : "the group's chat";
+    case "knowledge":
+      if (lookup.id) return `the knowledge article ${lookup.id}`;
+      return lookup.query
+        ? `the knowledge base matching “${lookup.query}”`
+        : "the knowledge base";
   }
 }
 

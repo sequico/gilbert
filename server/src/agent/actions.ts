@@ -17,14 +17,28 @@ import { randomUUID } from "node:crypto";
 import { readGroupLabels } from "../account.js";
 import {
   type Ctx,
+  readAppJsonAt,
   readVisibleFileBytes,
   unusedVisibleName,
+  writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
 import { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import type { SetResponse } from "../shared/jmap.js";
+import {
+  buildDraft,
+  buildState,
+  DRAFT_FILE,
+  isKnowledgeDraft,
+  isKnowledgeState,
+  KNOWLEDGE_FOLDER,
+  knowledgeFolderName,
+  knowledgeId,
+  MAX_TITLE,
+  STATE_FILE,
+} from "../shared/knowledge.js";
 import {
   GROUP_LABELS_FILE,
   isAgentLabel,
@@ -729,6 +743,63 @@ async function runOne(
         ok: true,
         result: { path: `${folder}/${name}`, nodeId },
       };
+    }
+    case "knowledge.write": {
+      /*
+       * A knowledge base draft, written by a run (ADR 0024). This action only
+       * ever writes the mutable `draft.json`; approval is an administrator's
+       * and a revision is minted only by that approval, so neither is reachable
+       * from here. The account is the one the run acts on: a group's own KB,
+       * or the Master's company KB when the run acts on the Master.
+       *
+       * The article folder is named by the title (or by `folder`, to update the
+       * article that folder already names), and both the id and the `state.json`
+       * are minted on create and preserved on update. `blocks` is empty: the
+       * text is what an agent wrote, and the editor's own blocks are filled in
+       * by whoever opens the page.
+       */
+      const title = textOf(action.with?.title).trim().slice(0, MAX_TITLE);
+      if (!title) throw new Error("knowledge.write needs a title");
+      const by = opts.from ?? "";
+      const at = (opts.now ?? new Date()).toISOString();
+      // The folder name is normalised even when the model named one: a slash or
+      // a control character in a FileNode name would split or corrupt the path.
+      const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
+      const path = `${KNOWLEDGE_FOLDER}/${folder}`;
+      const draftPath = `${path}/${DRAFT_FILE}`;
+      const [draftRaw, stateRaw] = await Promise.all([
+        readAppJsonAt(ctx, accountId, draftPath),
+        readAppJsonAt(ctx, accountId, `${path}/${STATE_FILE}`),
+      ]);
+      const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
+      const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
+      const id = prior?.id ?? priorState?.id ?? knowledgeId();
+      const draft = buildDraft({
+        id,
+        title,
+        tags: prior?.tags ?? priorState?.tags ?? [],
+        blocks: [],
+        text: textOf(action.with?.text),
+        by,
+        at,
+        created: prior?.created ?? priorState?.created,
+      });
+      await writeAppFileAt(ctx, accountId, draftPath, draft);
+      // The lifecycle pointer keeps only what the draft writes about: its
+      // identity, title, tags and stamps. `inForce` and `pending` are carried
+      // over untouched — an approval is not this action's to make.
+      const state = buildState({
+        id,
+        title,
+        tags: draft.tags,
+        by,
+        at,
+        created: priorState?.created ?? prior?.created,
+        inForce: priorState?.inForce ?? null,
+        pending: priorState?.pending ?? null,
+      });
+      await writeAppFileAt(ctx, accountId, `${path}/${STATE_FILE}`, state);
+      return { action: action.do, ok: true, result: { id, folder } };
     }
     case "notebook.write": {
       /*

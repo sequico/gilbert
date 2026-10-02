@@ -11,6 +11,7 @@ import {
   AGENT_AREAS,
   AGENT_AUDIT_OUTCOMES,
   AGENT_AUTOMATION_LABELS,
+  AGENT_LOOKUP_ARTICLES_MAX,
   AGENT_LOOKUP_KINDS,
   AGENT_LOOKUP_MESSAGES_MAX,
   AGENT_LOOKUP_QUERY_MAX,
@@ -181,12 +182,13 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
       "document.merge",
       "document.split",
       "file.write",
+      "knowledge.write",
       "mail.draft",
       "mail.extract",
       "mail.send",
       "notebook.write",
     ],
-    "the set names sending, posting, drafting, filing, the page work that writes a file, and the memory a run writes",
+    "the set names sending, posting, drafting, filing, the page work that writes a file, the knowledge base draft a run writes, and the memory a run writes",
   );
   for (const name of FENCED_ACTIONS) {
     assert.equal(
@@ -373,6 +375,7 @@ test("an area grants a group of actions and never a flagged one", () => {
     "document.read",
     "document.split",
     "file.write",
+    "knowledge.write",
     "notebook.write",
   ]);
   /*
@@ -866,13 +869,15 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   /*
    * ADR 0020: the model names a kind from a closed catalogue and the server
    * validates it. The catalogue is the group's whole state — its mail, its
-   * folders, its labels, its Files and its chat — so a butler is not limited to
-   * one label, and it writes at most a search query, never a filter.
+   * folders, its labels, its Files, its chat and its knowledge base — so a
+   * butler is not limited to one label, and it writes at most a search query,
+   * never a filter.
    */
   assert.deepEqual([...AGENT_LOOKUP_KINDS].sort(), [
     "chat",
     "file",
     "files",
+    "knowledge",
     "labels",
     "mail",
     "mailboxes",
@@ -922,6 +927,33 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(isAgentLookup({ kind: "labels" }), true);
   assert.equal(isAgentLookup({ kind: "chat", query: "invoice" }), true);
   assert.equal(isAgentLookup({ kind: "chat", text: "invoice" }), false);
+  // ADR 0024: the knowledge base is one more read of the group's own account —
+  // list/search an article by title or text, or read one article's text by its
+  // id. It takes the same query and listing bounds, and the new listing bound
+  // is its own.
+  assert.equal(isAgentLookup({ kind: "knowledge" }), true);
+  assert.equal(isAgentLookup({ kind: "knowledge", query: "quality" }), true);
+  assert.equal(isAgentLookup({ kind: "knowledge", id: "k1" }), true);
+  assert.equal(
+    isAgentLookup({ kind: "knowledge", limit: AGENT_LOOKUP_ARTICLES_MAX }),
+    true,
+  );
+  assert.equal(
+    isAgentLookup({ kind: "knowledge", query: "x".repeat(AGENT_LOOKUP_QUERY_MAX + 1) }),
+    false,
+  );
+  assert.equal(
+    isAgentLookup({ kind: "knowledge", limit: AGENT_LOOKUP_ARTICLES_MAX + 1 }),
+    false,
+    "a knowledge listing past its own ceiling is refused rather than clamped",
+  );
+  assert.equal(isAgentLookup({ kind: "knowledge", limit: 0 }), false);
+  assert.equal(isAgentLookup({ kind: "knowledge", id: "" }), false);
+  assert.equal(
+    isAgentLookup({ kind: "knowledge", folder: "Quality" }),
+    false,
+    "a field this build does not read is refused rather than ignored: it would widen the read",
+  );
   assert.equal(isAgentLookup({ kind: "everything" }), false);
   assert.equal(isAgentLookup("mail"), false);
   // One renderer, so the trail and the prompt name a read the same way.
@@ -934,4 +966,10 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
     lookupLabel({ kind: "files", deep: true, name: "packing" }),
     "the group's Files, the whole tree, matching “packing”",
   );
+  assert.equal(lookupLabel({ kind: "knowledge" }), "the knowledge base");
+  assert.equal(
+    lookupLabel({ kind: "knowledge", query: "quality" }),
+    "the knowledge base matching “quality”",
+  );
+  assert.equal(lookupLabel({ kind: "knowledge", id: "k1" }), "the knowledge article k1");
 });

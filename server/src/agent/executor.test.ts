@@ -40,10 +40,25 @@ process.env.GILBERT_AGENT_VISION = "0";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, FILENODE_CAP, writeAppFileAt, writeBytesIntoVisibleFolder } =
-  await import("../appFolder.js");
+const {
+  filesAccountId,
+  FILENODE_CAP,
+  readAppJsonAt,
+  writeAppFileAt,
+  writeBytesIntoVisibleFolder,
+} = await import("../appFolder.js");
 const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
+const {
+  buildDraft,
+  buildState,
+  DRAFT_FILE,
+  isKnowledgeDraft,
+  isKnowledgeState,
+  KNOWLEDGE_FOLDER,
+  knowledgeFolderName,
+  STATE_FILE,
+} = await import("../shared/knowledge.js");
 const { fetchEmailRecord, findMailboxByName, mailboxIdByRole } = await import(
   "./actions.js"
 );
@@ -230,6 +245,33 @@ async function createMessage(
   const id = created.created?.m?.id;
   assert.ok(id, `the mock created the message: ${JSON.stringify(created.notCreated)}`);
   return id;
+}
+
+/**
+ * One knowledge base article, seeded the way a writer's save leaves it: a
+ * folder named by the title holding a `draft.json` and a `state.json`
+ * (ADR 0024). The id is handed back so a test can name it in a lookup.
+ */
+async function seedKnowledgeArticle(
+  id: string,
+  title: string,
+  text: string,
+): Promise<void> {
+  const folder = knowledgeFolderName(title);
+  const at = new Date().toISOString();
+  const path = `${KNOWLEDGE_FOLDER}/${folder}`;
+  const draft = buildDraft({
+    id,
+    title,
+    tags: ["iso"],
+    blocks: [],
+    text,
+    by: AGENT,
+    at,
+  });
+  const state = buildState({ id, title, tags: ["iso"], by: AGENT, at });
+  await writeAppFileAt(ctx, GROUP, `${path}/${DRAFT_FILE}`, draft);
+  await writeAppFileAt(ctx, GROUP, `${path}/${STATE_FILE}`, state);
 }
 
 function rule(overrides: Partial<AgentRule> = {}): AgentRule {
@@ -1217,6 +1259,109 @@ test("a run may look something up, and reads what it asked for", async () => {
     { kind: "mail", query: "is:starred" },
     { kind: "message", id: starred },
   ]);
+});
+
+test("a run reads the knowledge base through the knowledge lookup", async () => {
+  /*
+   * ADR 0024: the KB is a tail read like any other — a listing names the
+   * articles, and one article's own text is read back by the id the listing
+   * gave. It reads the group's own account and writes nothing.
+   */
+  await seedKnowledgeArticle(
+    "k-quality",
+    "Quality policy",
+    "Measure twice and record every result.",
+  );
+  const heard = await createMessage("what does our quality policy say?");
+  const looker = rule({ id: "kb-looker", capabilities: ["keyword.add"] });
+  await store.writeRules([looker]);
+  answerSequence("Mail automation", [
+    { lookup: { kind: "knowledge", query: "quality" } },
+    { lookup: { kind: "knowledge", id: "k-quality" } },
+    {
+      summary: "Read the quality policy.",
+      confidence: 1,
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "kb-lookup-job",
+    accountId: GROUP,
+    rule: { id: "kb-looker", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, looker, claim);
+
+  const user = JSON.stringify(calls[calls.length - 1]?.messages ?? []);
+  assert.match(user, /Quality policy/, "the listing named the article");
+  assert.match(user, /k-quality/, "and the id the read names it by");
+  assert.match(
+    user,
+    /Measure twice and record every result/,
+    "and the read handed over the article's text",
+  );
+  const written = await store.readJob("kb-lookup-job");
+  assert.deepEqual(written?.doc.lookups, [
+    { kind: "knowledge", query: "quality" },
+    { kind: "knowledge", id: "k-quality" },
+  ]);
+});
+
+test("a run writes a knowledge base draft through knowledge.write", async () => {
+  /*
+   * ADR 0024 Q15/Q21: an agent drafts and never approves, so the action writes
+   * the mutable `draft.json` and the article's `state.json` and leaves the
+   * lifecycle untouched — no revision, no approval.
+   */
+  const heard = await createMessage("record the packing procedure");
+  const writer = rule({ id: "kb-writer", capabilities: ["knowledge.write"] });
+  await store.writeRules([writer]);
+  answerSequence("Mail automation", [
+    {
+      summary: "Drafted the procedure.",
+      confidence: 1,
+      actions: [
+        {
+          do: "knowledge.write",
+          with: {
+            title: "Packing procedure",
+            text: "Open the box and count the parts.",
+          },
+        },
+      ],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "kb-write-job",
+    accountId: GROUP,
+    rule: { id: "kb-writer", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, writer, claim);
+
+  const folder = knowledgeFolderName("Packing procedure");
+  const draft = await readAppJsonAt(
+    ctx,
+    GROUP,
+    `${KNOWLEDGE_FOLDER}/${folder}/${DRAFT_FILE}`,
+  );
+  if (!isKnowledgeDraft(draft)) assert.fail("the action created the article's draft");
+  assert.equal(draft.title, "Packing procedure");
+  assert.equal(draft.text, "Open the box and count the parts.");
+  assert.deepEqual(draft.blocks, [], "the body is the text an agent wrote");
+  const state = await readAppJsonAt(
+    ctx,
+    GROUP,
+    `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
+  );
+  if (!isKnowledgeState(state)) assert.fail("the article's lifecycle pointer was minted");
+  assert.equal(state.inForce, null, "the action drafts and never approves");
 });
 
 test("a run that would rather keep looking than decide is stopped by the bound", async () => {

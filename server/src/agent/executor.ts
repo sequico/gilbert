@@ -27,6 +27,7 @@ import {
   findFolderPath,
   findVisibleFolder,
   listAppDir,
+  readAppJsonAt,
   readVisibleFileBytes,
 } from "../appFolder.js";
 import { config } from "../config.js";
@@ -39,6 +40,16 @@ import {
   mentionsName,
   participantsOf,
 } from "../shared/chat.js";
+import {
+  DRAFT_FILE,
+  isKnowledgeDraft,
+  isKnowledgeState,
+  isReservedArticleName,
+  KNOWLEDGE_FOLDER,
+  type KnowledgeState,
+  plainTextFromBlocks,
+  STATE_FILE,
+} from "../shared/knowledge.js";
 import { AGENT_LABEL, SEEN_KEYWORD } from "../shared/labels.js";
 import { buildFilter, parseQuery, resolveMailbox } from "../shared/search.js";
 import {
@@ -86,6 +97,7 @@ import {
   AGENT_DIR,
   AGENT_DOCUMENT_BYTES_MAX,
   AGENT_INSTRUCTION_FILE,
+  AGENT_LOOKUP_ARTICLES_MAX,
   AGENT_LOOKUP_DEPTH_MAX,
   AGENT_LOOKUP_FILES_MAX,
   AGENT_LOOKUP_MESSAGES_MAX,
@@ -1090,8 +1102,9 @@ export class Executor {
    * One dispatcher over the closed catalogue. What lists hands over names and
    * ids and what reads hands over one item's text, bounded: a run pays for the
    * index once and for content only where it needs it, and the group's whole
-   * state — its mail, folders, labels, Files and chat — is reachable without a
-   * mailbox ever being attached wholesale (ADR 0006 decision three).
+   * state — its mail, folders, labels, Files, chat and knowledge base — is
+   * reachable without a mailbox ever being attached wholesale (ADR 0006
+   * decision three).
    */
   private async lookupSlice(accountId: string, lookup: AgentLookup): Promise<string> {
     try {
@@ -1110,6 +1123,8 @@ export class Executor {
           return await this.fileLookup(accountId, lookup);
         case "chat":
           return await this.chatLookup(accountId, lookup);
+        case "knowledge":
+          return await this.knowledgeLookup(accountId, lookup);
       }
     } catch (err) {
       // A path or a document the model chose can be refused by the layer that
@@ -1394,6 +1409,116 @@ export class Executor {
       .slice(-limit)
       .map((message) => `- ${renderChatMessage(message)}`);
     return renderItemList(lookup, matching.length, rows);
+  }
+
+  /**
+   * The group's knowledge base: its articles' index, or one article's own text.
+   *
+   * ADR 0024. The KB is a tail read on the same terms as the rest of the
+   * catalogue — a listing carries a title, an id, a lifecycle state and tags,
+   * never a body, and one article's plain text is read back by the id the
+   * listing gave. The account is the one the run acts on: a group's own KB is
+   * read here, and the Master's company KB is the same read when the run acts
+   * on the Master's account — there is no second path.
+   */
+  private async knowledgeLookup(
+    accountId: string,
+    lookup: Extract<AgentLookup, { kind: "knowledge" }>,
+  ): Promise<string> {
+    const rootId = await findFolderPath(this.deps.ctx, accountId, KNOWLEDGE_FOLDER);
+    if (!rootId) return `${lookupHeading(lookup)}: this account has no knowledge base`;
+    const articles: KnowledgeArticleRef[] = [];
+    await this.collectKnowledgeArticles(accountId, rootId, "", 0, articles);
+    if (lookup.id) {
+      const found = articles.find((article) => article.id === lookup.id);
+      if (!found)
+        return `${lookupHeading(lookup)}: no knowledge article has the id ${lookup.id}`;
+      return renderItem(lookup, boundedText(found.text));
+    }
+    const needle = (lookup.query ?? "").trim().toLowerCase();
+    const matching = needle
+      ? articles.filter(
+          (article) =>
+            article.title.toLowerCase().includes(needle) ||
+            article.text.toLowerCase().includes(needle),
+        )
+      : articles;
+    const limit = Math.min(
+      lookup.limit ?? AGENT_LOOKUP_ARTICLES_MAX,
+      AGENT_LOOKUP_ARTICLES_MAX,
+    );
+    return renderItemList(
+      lookup,
+      matching.length,
+      matching.slice(0, limit).map(knowledgeLine),
+    );
+  }
+
+  /**
+   * Every article under one knowledge folder, depth first and bounded.
+   *
+   * An article is a folder holding a `draft.json` or a `state.json`; a folder
+   * with neither is not an article but may still hold sub-articles, which is
+   * why the walk continues through it. `revisions` is the one reserved child
+   * and is never an article (ADR 0024).
+   */
+  private async collectKnowledgeArticles(
+    accountId: string,
+    folderId: string,
+    prefix: string,
+    depth: number,
+    out: KnowledgeArticleRef[],
+  ): Promise<void> {
+    if (depth > AGENT_LOOKUP_DEPTH_MAX || out.length >= AGENT_LOOKUP_FILES_MAX) return;
+    const children = await fileChildren(
+      this.deps.ctx,
+      accountId,
+      folderId,
+      undefined,
+      AGENT_LOOKUP_FILES_MAX,
+    );
+    for (const node of children) {
+      if (out.length >= AGENT_LOOKUP_FILES_MAX) return;
+      if (node.nodeType !== "directory" || !node.id) continue;
+      const name = String(node.name ?? "");
+      if (!name || isReservedArticleName(name)) continue;
+      const path = prefix ? `${prefix}/${name}` : name;
+      const [draftRaw, stateRaw] = await Promise.all([
+        readAppJsonAt(
+          this.deps.ctx,
+          accountId,
+          `${KNOWLEDGE_FOLDER}/${path}/${DRAFT_FILE}`,
+        ),
+        readAppJsonAt(
+          this.deps.ctx,
+          accountId,
+          `${KNOWLEDGE_FOLDER}/${path}/${STATE_FILE}`,
+        ),
+      ]);
+      const draft = isKnowledgeDraft(draftRaw) ? draftRaw : null;
+      const state = isKnowledgeState(stateRaw) ? stateRaw : null;
+      const id = draft?.id ?? state?.id;
+      if (id) {
+        out.push({
+          id,
+          title: draft?.title ?? state?.title ?? name,
+          tags: draft?.tags ?? state?.tags ?? [],
+          state: knowledgeStateLabel(state),
+          // `plainTextFromBlocks` when the denormalised body is empty: the
+          // editor's blocks are the source of truth and `text` is the copy a
+          // search or a run reads, so a page whose copy nobody rendered still
+          // has a body to hand over.
+          text: draft ? draft.text || plainTextFromBlocks(draft.blocks) : "",
+        });
+      }
+      await this.collectKnowledgeArticles(
+        accountId,
+        String(node.id),
+        path,
+        depth + 1,
+        out,
+      );
+    }
   }
 
   /** The lookups a run made, onto the job, so its record says what it read. */
@@ -3451,6 +3576,41 @@ export function renderItemList(
 /** What one read item hands the run: its own text, bounded and labelled. */
 export function renderItem(lookup: AgentLookup, text: string): string {
   return `${lookupHeading(lookup)}:\n\n${text}`;
+}
+
+/**
+ * One knowledge article as a lookup reads it: the index's fields and its text.
+ *
+ * The text is carried through the walk so a `knowledge` query can match an
+ * article's body, not only its title; the listing itself renders everything
+ * but the text.
+ */
+interface KnowledgeArticleRef {
+  id: string;
+  title: string;
+  tags: string[];
+  state: "in force" | "pending" | "draft";
+  text: string;
+}
+
+/**
+ * The lifecycle state one article's pointer reads as.
+ *
+ * A pending revision is named first: it is what an approval recorded with a
+ * future effective date, and until that date the previous revision is still in
+ * force — the reader is told both by `state.json` (ADR 0024). A page with no
+ * issued revision is a draft.
+ */
+function knowledgeStateLabel(state: KnowledgeState | null): KnowledgeArticleRef["state"] {
+  if (state?.pending) return "pending";
+  if (state?.inForce) return "in force";
+  return "draft";
+}
+
+/** One knowledge article as a listing line: title, id, state and tags. */
+function knowledgeLine(article: KnowledgeArticleRef): string {
+  const tags = article.tags.length ? ` [${article.tags.join(", ")}]` : "";
+  return `- ${article.title} (id: ${article.id}, ${article.state})${tags}`;
 }
 
 /**
