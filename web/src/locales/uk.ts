@@ -213,7 +213,6 @@ export const catalog: Catalog = {
       "Лист чекає на сервері й буде надісланий незалежно від того, чи відкрито Gilbert.",
     "This server holds a message for up to {span}.": "Цей сервер утримує лист до {span}.",
     "Date and time to send": "Дата й час надсилання",
-    "Undo send window": "Час на скасування надсилання",
     "Read receipt requested": "Запитано сповіщення про прочитання",
     "The sender asked for a read receipt.":
       "Відправник запитав сповіщення про прочитання.",
@@ -463,7 +462,6 @@ export const catalog: Catalog = {
     "Below the list": "Під списком",
     "Hidden (open full width)": "Прихована (відкривати на всю ширину)",
     "Off (open messages full width)": "Вимкнена (листи на всю ширину)",
-    Off: "Вимкнено",
     Composing: "Написання",
     "Default format": "Формат за замовчуванням",
     "Rich text (HTML)": "Форматований текст (HTML)",
@@ -490,10 +488,6 @@ export const catalog: Catalog = {
     "Never automatically": "Ніколи автоматично",
     "When someone requests a read receipt": "Коли запитують сповіщення про прочитання",
     "Ask me on each message": "Питати для кожного листа",
-    "5 seconds": "5 секунд",
-    "10 seconds": "10 секунд",
-    "15 seconds": "15 секунд",
-    "30 seconds": "30 секунд",
     Locale: "Регіон",
     Language: "Мова",
     "Interface language": "Мова інтерфейсу",
@@ -1185,7 +1179,6 @@ export const catalog: Catalog = {
     "Try another search.": "Спробуйте інший запит.",
     "Try different keywords or filters.": "Спробуйте інші слова або фільтри.",
     "Two-factor authentication is off": "Двофакторну автентифікацію вимкнено",
-    "Undo window: {seconds}s": "Час на скасування: {seconds} с",
     "You're all caught up": "Усе прочитано",
     "Your browser refused the request: {error}": "Браузер відхилив запит: {error}",
     "Your browser will ask whether to open mail links in Gilbert":
@@ -1379,8 +1372,6 @@ export const catalog: Catalog = {
     "That file is no longer there.": "Цього файлу більше немає.",
     "That identity's address": "Адреса цього профілю відправника",
     "The Inbox only": "Лише «Вхідні»",
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "Лист утримується в цьому браузері й ще не надісланий, тож повернути його нічого не коштує.",
     "The name on the identity you are sending as":
       "Ім’я профілю відправника, від якого ви пишете",
     "The subject already on the message": "Тема, яка вже вказана в листі",
@@ -2114,8 +2105,6 @@ export const catalog: Catalog = {
     "Put the signature above the quoted text.":
       "Розміщувати підпис над цитованим текстом.",
     "Send and archive in one action.": "Надсилати й архівувати однією дією.",
-    "How long Send is undoable, in seconds.":
-      "Скільки секунд можна скасувати надсилання.",
     "Spellcheck the composer.": "Перевірка правопису в редакторі.",
     "Compose templates the account saved.":
       "Шаблони листів, збережені обліковим записом.",

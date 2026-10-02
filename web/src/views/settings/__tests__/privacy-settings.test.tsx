@@ -52,7 +52,6 @@ describe("Privacy & safety", () => {
     expect(text).toContain("Remote images");
     expect(text).toContain("Always request read receipts");
     expect(text).toContain("When someone requests a read receipt");
-    expect(text).toContain("Undo send window");
     expect(text).toContain("Attachment reminder");
     expect(text).toContain("Confirm before deleting");
   });
@@ -64,7 +63,6 @@ describe("Privacy & safety", () => {
       "Remote images",
       "Always request read receipts",
       "When someone requests a read receipt",
-      "Undo send window",
       "Attachment reminder",
       "Confirm before deleting",
     ]) {

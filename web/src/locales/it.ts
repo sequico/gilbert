@@ -333,8 +333,6 @@ export const catalog: Catalog = {
 
     "Date and time to send": "Data e ora di invio",
 
-    "Undo send window": "Intervallo per annullare l'invio",
-
     "Read receipt requested": "Conferma di lettura richiesta",
 
     "The sender asked for a read receipt.":
@@ -742,7 +740,6 @@ export const catalog: Catalog = {
     "Hidden (open full width)": "Nascosto (apri a tutta larghezza)",
 
     "Off (open messages full width)": "Disattivo (messaggi a tutta larghezza)",
-    Off: "Disattivo",
 
     Composing: "Composizione",
     "Default format": "Formato predefinito",
@@ -793,12 +790,6 @@ export const catalog: Catalog = {
 
     "Ask me on each message": "Chiedimelo per ogni messaggio",
 
-    "5 seconds": "5 secondi",
-
-    "10 seconds": "10 secondi",
-    "15 seconds": "15 secondi",
-
-    "30 seconds": "30 secondi",
     Locale: "Regionale",
 
     Language: "Lingua",
@@ -1925,8 +1916,6 @@ export const catalog: Catalog = {
 
     "Two-factor authentication is off": "L'autenticazione a due fattori è disattivata",
 
-    "Undo window: {seconds}s": "Intervallo per annullare: {seconds} s",
-
     "You're all caught up": "È tutto in pari",
 
     "Your browser refused the request: {error}":
@@ -2275,9 +2264,6 @@ export const catalog: Catalog = {
     "That identity's address": "L'indirizzo di quell'identità",
 
     "The Inbox only": "Solo la Posta in arrivo",
-
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "Il messaggio è conservato in questo browser e non è ancora stato inviato, quindi recuperarlo non costa nulla.",
 
     "The name on the identity you are sending as": "Il nome dell'identità con cui invia",
 
@@ -3094,8 +3080,6 @@ export const catalog: Catalog = {
       "Cita il messaggio originale quando rispondi.",
     "Put the signature above the quoted text.": "Metti la firma sopra il testo citato.",
     "Send and archive in one action.": "Invia e archivia in un'unica azione.",
-    "How long Send is undoable, in seconds.":
-      "Per quanto tempo Invia è annullabile, in secondi.",
     "Spellcheck the composer.": "Controllo ortografico nel compositore.",
     "Compose templates the account saved.":
       "Modelli di composizione salvati dall'account.",

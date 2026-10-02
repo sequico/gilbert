@@ -8,7 +8,7 @@ import { toast } from "@/ui/toast";
 /**
  * What a Send in the undo window is aimed at.
  *
- * Send hides the composer and submits the message `undoSendSeconds` later, and
+ * Send hides the composer and submits the message five seconds later, and
  * what it submits must be the account and identity it was aimed at, not
  * whichever is on screen at the end of the window: signing out or switching to
  * a group mailbox inside it submits the message from the wrong account -- or
@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   chainCalls.length = 0;
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
-  useSettings.setState({ settings: { ...DEFAULT_SETTINGS, undoSendSeconds: 5 } });
+  useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
   useMail.setState({
     accountId: "a1",
     identities: [jane] as never,

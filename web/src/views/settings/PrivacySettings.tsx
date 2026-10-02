@@ -4,15 +4,15 @@ import { domainOf } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useMail } from "@/store/mail";
-import { type ReadReceiptPolicy, UNDO_SEND_OPTIONS, useSettings } from "@/store/settings";
+import { type ReadReceiptPolicy, useSettings } from "@/store/settings";
 import { Switch } from "@/ui/misc";
 
 /**
  * Everything about what reaches a sender, and what asks before it happens.
  *
  * These settings are one kind of decision: what reaches a sender, and what asks
- * before it happens — a remote image, a read receipt, the undo-send window.
- * They belong together, and gathering them leaves General smaller as well.
+ * before it happens — a remote image, a read receipt. They belong together, and
+ * gathering them leaves General smaller as well.
  *
  * The boundary against **Security & sessions** is worth keeping sharp, since
  * two similar words next to each other in a nav is how a menu becomes
@@ -189,26 +189,6 @@ export function PrivacySettings() {
       )}
 
       <h2>{t("Before it happens")}</h2>
-      <div className="field">
-        <label>{t("Undo send window")}</label>
-        <select
-          disabled={isEnforced("undoSendSeconds")}
-          className="select"
-          value={String(s.undoSendSeconds)}
-          onChange={(e) => update({ undoSendSeconds: Number(e.target.value) })}
-        >
-          {UNDO_SEND_OPTIONS.map((option) => (
-            <option key={option.seconds} value={option.seconds}>
-              {t(option.label)}
-            </option>
-          ))}
-        </select>
-        <p className="hint">
-          {t(
-            "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.",
-          )}
-        </p>
-      </div>
       <Switch
         locked={isEnforced("attachmentReminder")}
         checked={s.attachmentReminder}

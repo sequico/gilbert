@@ -53,6 +53,15 @@ export interface AttachableFile {
 export type Priority = "high" | "normal" | "low";
 
 /**
+ * The undo window, in seconds: a product constant, not a setting.
+ *
+ * Every sender gets the same five-second hold before the message is submitted,
+ * and nothing in the client or an installation policy changes it. It lives
+ * here because the send path is the one reader.
+ */
+export const UNDO_SEND_SECONDS = 5;
+
+/**
  * How a message is being answered, which decides who the draft is addressed to:
  * one partner for a reply, everyone for a reply all.
  */
@@ -1014,7 +1023,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
   async send(key) {
     const d = get().drafts.find((x) => x.key === key);
     if (!d) return;
-    const delay = settings().undoSendSeconds;
+    const delay = UNDO_SEND_SECONDS;
     /*
      * Settled here, when Send is pressed, and carried to the submission: the
      * undo window is long enough to switch mailbox or sign out, and a send
@@ -1075,7 +1084,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
     // A scheduled send is already delayed, and cancelling it is a server-side
     // operation from the Scheduled folder -- holding it locally first would
     // only add a second, different kind of undo.
-    if (delay <= 0 || scheduling) {
+    if (scheduling) {
       await doSend();
       return;
     }

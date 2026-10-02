@@ -1568,9 +1568,10 @@ minimisable and maximisable; full-screen on mobile.
 
 Two different mechanisms, deliberately.
 
-**Undo send** holds the message in the browser for 0/5/10/15/30 seconds (10 by
-default) and shows a toast naming the mail, with a way back. Nothing has been
-submitted yet.
+**Undo send** holds the message in the browser for five seconds and shows a
+toast naming the mail, with a way back. Nothing has been submitted yet. The
+window is a product constant, not a setting: everyone gets the same five
+seconds and no policy changes it.
 
 **Scheduled send** hands the message to *Stalwart's* queue. JMAP has no
 client-settable `sendAt` — RFC 8621 makes it server-derived — so the hold is

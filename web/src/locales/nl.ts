@@ -212,7 +212,6 @@ export const catalog: Catalog = {
     "This server holds a message for up to {span}.":
       "Deze server houdt een bericht tot {span} vast.",
     "Date and time to send": "Datum en tijd van verzenden",
-    "Undo send window": "Termijn om verzenden ongedaan te maken",
     "Read receipt requested": "Leesbevestiging gevraagd",
     "The sender asked for a read receipt.":
       "De afzender heeft om een leesbevestiging gevraagd.",
@@ -461,7 +460,6 @@ export const catalog: Catalog = {
     "Below the list": "Onder de lijst",
     "Hidden (open full width)": "Verborgen (op volle breedte openen)",
     "Off (open messages full width)": "Uit (berichten op volle breedte openen)",
-    Off: "Uit",
     Composing: "Opstellen",
     "Default format": "Standaardopmaak",
     "Rich text (HTML)": "Opgemaakte tekst (HTML)",
@@ -490,10 +488,6 @@ export const catalog: Catalog = {
     "When someone requests a read receipt":
       "Wanneer iemand om een leesbevestiging vraagt",
     "Ask me on each message": "Bij elk bericht vragen",
-    "5 seconds": "5 seconden",
-    "10 seconds": "10 seconden",
-    "15 seconds": "15 seconden",
-    "30 seconds": "30 seconden",
     Locale: "Regio",
     Language: "Taal",
     "Interface language": "Taal van de interface",
@@ -1188,7 +1182,6 @@ export const catalog: Catalog = {
     "Try another search.": "Probeer een andere zoekopdracht.",
     "Try different keywords or filters.": "Probeer andere zoekwoorden of filters.",
     "Two-factor authentication is off": "Tweefactorauthenticatie staat uit",
-    "Undo window: {seconds}s": "Tijd om ongedaan te maken: {seconds} s",
     "You're all caught up": "U bent helemaal bij",
     "Your browser refused the request: {error}":
       "Uw browser heeft het verzoek geweigerd: {error}",
@@ -1384,8 +1377,6 @@ export const catalog: Catalog = {
     "That file is no longer there.": "Dat bestand is er niet meer.",
     "That identity's address": "Het adres van die identiteit",
     "The Inbox only": "Alleen Postvak IN",
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "Het bericht wordt in deze browser vastgehouden en is nog niet ingediend, dus terughalen kost niets.",
     "The name on the identity you are sending as":
       "De naam op de identiteit waarmee u verzendt",
     "The subject already on the message": "Het onderwerp dat al op het bericht staat",
@@ -2122,8 +2113,6 @@ export const catalog: Catalog = {
     "Put the signature above the quoted text.":
       "De handtekening boven de geciteerde tekst plaatsen.",
     "Send and archive in one action.": "Verzenden en archiveren in één actie.",
-    "How long Send is undoable, in seconds.":
-      "Hoe lang Verzenden ongedaan kan worden gemaakt, in seconden.",
     "Spellcheck the composer.": "Spellingscontrole in het opstelscherm.",
     "Compose templates the account saved.":
       "Opstelsjablonen die het account heeft opgeslagen.",

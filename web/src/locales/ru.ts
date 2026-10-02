@@ -220,7 +220,6 @@ export const catalog: Catalog = {
     "This server holds a message for up to {span}.":
       "Этот сервер удерживает письмо до {span}.",
     "Date and time to send": "Дата и время отправки",
-    "Undo send window": "Время на отмену отправки",
     "Read receipt requested": "Запрошено уведомление о прочтении",
     "The sender asked for a read receipt.":
       "Отправитель запросил уведомление о прочтении.",
@@ -468,7 +467,6 @@ export const catalog: Catalog = {
     "Below the list": "Под списком",
     "Hidden (open full width)": "Скрыта (открывать во всю ширину)",
     "Off (open messages full width)": "Выключена (письма во всю ширину)",
-    Off: "Выключено",
     Composing: "Написание",
     "Default format": "Формат по умолчанию",
     "Rich text (HTML)": "Форматированный текст (HTML)",
@@ -494,10 +492,6 @@ export const catalog: Catalog = {
     "Never automatically": "Никогда автоматически",
     "When someone requests a read receipt": "Когда запрашивают уведомление о прочтении",
     "Ask me on each message": "Спрашивать для каждого письма",
-    "5 seconds": "5 секунд",
-    "10 seconds": "10 секунд",
-    "15 seconds": "15 секунд",
-    "30 seconds": "30 секунд",
     Locale: "Регион",
     Language: "Язык",
     "Interface language": "Язык интерфейса",
@@ -1190,7 +1184,6 @@ export const catalog: Catalog = {
     "Try another search.": "Попробуйте другой запрос.",
     "Try different keywords or filters.": "Попробуйте другие слова или фильтры.",
     "Two-factor authentication is off": "Двухфакторная аутентификация выключена",
-    "Undo window: {seconds}s": "Время на отмену: {seconds} с",
     "You're all caught up": "Всё прочитано",
     "Your browser refused the request: {error}": "Браузер отклонил запрос: {error}",
     "Your browser will ask whether to open mail links in Gilbert":
@@ -1385,8 +1378,6 @@ export const catalog: Catalog = {
     "That file is no longer there.": "Этого файла больше нет.",
     "That identity's address": "Адрес этого профиля отправителя",
     "The Inbox only": "Только «Входящие»",
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "Письмо удерживается в этом браузере и ещё не отправлено, поэтому вернуть его ничего не стоит.",
     "The name on the identity you are sending as":
       "Имя профиля отправителя, от которого вы пишете",
     "The subject already on the message": "Тема, которая уже указана в письме",
@@ -2122,7 +2113,6 @@ export const catalog: Catalog = {
     "Put the signature above the quoted text.":
       "Помещать подпись над цитируемым текстом.",
     "Send and archive in one action.": "Отправлять и архивировать одним действием.",
-    "How long Send is undoable, in seconds.": "Сколько секунд можно отменить отправку.",
     "Spellcheck the composer.": "Проверка орфографии в редакторе.",
     "Compose templates the account saved.": "Шаблоны писем, сохранённые учётной записью.",
     "Remote images: ask, always load, or only from contacts.":

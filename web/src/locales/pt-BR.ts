@@ -221,7 +221,6 @@ export const catalog: Catalog = {
     "This server holds a message for up to {span}.":
       "Este servidor retém uma mensagem por até {span}.",
     "Date and time to send": "Data e hora do envio",
-    "Undo send window": "Prazo para desfazer o envio",
     "Read receipt requested": "Confirmação de leitura solicitada",
     "The sender asked for a read receipt.":
       "O remetente solicitou uma confirmação de leitura.",
@@ -469,7 +468,6 @@ export const catalog: Catalog = {
     "Below the list": "Abaixo da lista",
     "Hidden (open full width)": "Oculto (abrir em largura total)",
     "Off (open messages full width)": "Desativado (mensagens em largura total)",
-    Off: "Desativado",
     Composing: "Escrita",
     "Default format": "Formato padrão",
     "Rich text (HTML)": "Texto formatado (HTML)",
@@ -497,10 +495,6 @@ export const catalog: Catalog = {
     "When someone requests a read receipt":
       "Quando alguém pedir uma confirmação de leitura",
     "Ask me on each message": "Perguntar em cada mensagem",
-    "5 seconds": "5 segundos",
-    "10 seconds": "10 segundos",
-    "15 seconds": "15 segundos",
-    "30 seconds": "30 segundos",
     Locale: "Região",
     Language: "Idioma",
     "Interface language": "Idioma da interface",
@@ -1199,7 +1193,6 @@ export const catalog: Catalog = {
     "Try another search.": "Tente outra busca.",
     "Try different keywords or filters.": "Tente outras palavras ou filtros.",
     "Two-factor authentication is off": "A verificação em duas etapas está desativada",
-    "Undo window: {seconds}s": "Tempo para desfazer: {seconds} s",
     "You're all caught up": "Você está em dia",
     "Your browser refused the request: {error}":
       "Seu navegador recusou a solicitação: {error}",
@@ -1398,8 +1391,6 @@ export const catalog: Catalog = {
     "That file is no longer there.": "Esse arquivo não está mais lá.",
     "That identity's address": "O endereço dessa identidade",
     "The Inbox only": "Somente a Caixa de entrada",
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "A mensagem fica retida neste navegador e ainda não foi enviada, então recuperá-la não custa nada.",
     "The name on the identity you are sending as":
       "O nome da identidade com a qual você está enviando",
     "The subject already on the message": "O assunto que já está na mensagem",
@@ -2139,8 +2130,6 @@ export const catalog: Catalog = {
     "Put the signature above the quoted text.":
       "Colocar a assinatura acima do texto citado.",
     "Send and archive in one action.": "Enviar e arquivar em uma única ação.",
-    "How long Send is undoable, in seconds.":
-      "Por quanto tempo Enviar pode ser desfeito, em segundos.",
     "Spellcheck the composer.": "Corretor ortográfico no editor.",
     "Compose templates the account saved.": "Modelos de redação salvos pela conta.",
     "Remote images: ask, always load, or only from contacts.":

@@ -75,7 +75,7 @@ beforeEach(() => {
   draftSeq = 0;
   openDraft = null;
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
-  useSettings.setState({ settings: { ...DEFAULT_SETTINGS, undoSendSeconds: 0 } });
+  useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
   useMail.setState({
     accountId: "a1",
     identities: [
@@ -155,6 +155,9 @@ describe("a save in flight when Send is clicked", () => {
     gate.resolve();
     await saving;
     await sending;
+    // The send is held for the undo window; run it now, as the window's timer
+    // would.
+    await useCompose.getState().flushPendingSends();
     // The draft d1 that the in-flight save created was destroyed by the send's
     // Email/set — not "orig", which the save itself had already replaced.
     expect(destroyLog.some((d) => d.includes("d1"))).toBe(true);

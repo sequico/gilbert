@@ -157,7 +157,6 @@ export interface Settings {
    * essentially all HTML mail on a white card.
    */
   themeStyledMessages: boolean;
-  undoSendSeconds: number;
   composeFormat: ComposeFormat;
   signatureAboveQuote: boolean;
   includeQuote: boolean;
@@ -324,23 +323,6 @@ export interface Settings {
   appliedPolicyChanges: string[];
 }
 
-/**
- * The undo windows the product offers, in seconds.
- *
- * One list, read by both the settings control and the composer's own window
- * control, so the two cannot drift. `0` means off. The `label` is the English
- * catalogue key, translated where the control renders it.
- */
-export const UNDO_SEND_OPTIONS = [
-  { seconds: 0, label: "Off" },
-  { seconds: 5, label: "5 seconds" },
-  { seconds: 10, label: "10 seconds" },
-  { seconds: 15, label: "15 seconds" },
-  { seconds: 30, label: "30 seconds" },
-] as const;
-
-const UNDO_WINDOWS: readonly number[] = UNDO_SEND_OPTIONS.map((o) => o.seconds);
-
 export const DEFAULT_SETTINGS: Settings = {
   /**
    * gilbert's own palette is what a new account gets, so the app looks like
@@ -365,7 +347,6 @@ export const DEFAULT_SETTINGS: Settings = {
   imagePolicy: "always",
   themeMessageBody: false,
   themeStyledMessages: false,
-  undoSendSeconds: 10,
   composeFormat: "html",
   signatureAboveQuote: true,
   includeQuote: true,
@@ -475,45 +456,7 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
     if (value === undefined) continue;
     out[key] = value;
   }
-  return migratedSettingsFields(out) as Partial<Settings>;
-}
-
-/**
- * An undo window that is no longer one of the offered choices -- an older
- * build, a hand-edited file, a policy copied from one -- reads as the default,
- * so no control is left with a value it cannot show. The one place the rule
- * lives, read by both an incoming file and a whole settings object.
- */
-function validUndoWindow(value: unknown): number {
-  return typeof value === "number" && UNDO_WINDOWS.includes(value)
-    ? value
-    : DEFAULT_SETTINGS.undoSendSeconds;
-}
-
-/**
- * Every migration an incoming settings object is read through, in one place:
- * a file off the server, an import and a policy write all arrive here.
- * Only when the key is present: a file that never set it keeps whatever it is
- * merged over.
- */
-function migratedSettingsFields(
-  source: Record<string, unknown>,
-): Record<string, unknown> {
-  const themed = migratedThemeFields(source);
-  if (!("undoSendSeconds" in themed)) return themed;
-  return { ...themed, undoSendSeconds: validUndoWindow(themed.undoSendSeconds) };
-}
-
-/**
- * The settings as this build understands them.
- *
- * A value can arrive by file, import, policy or cache; every way a whole
- * settings object is written goes through here, so no path can carry a value
- * the controls cannot show. The theme a whole object carries is already
- * derived (`deriveTheme`); only the value-level rule is applied here.
- */
-function normalizeSettings(s: Settings): Settings {
-  return { ...s, undoSendSeconds: validUndoWindow(s.undoSendSeconds) };
+  return migratedThemeFields(out) as Partial<Settings>;
 }
 
 /**
@@ -637,7 +580,7 @@ function knownSettings(raw: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(raw))
     if (key in DEFAULT_SETTINGS && value !== undefined) out[key] = value;
-  return migratedSettingsFields(out) as Partial<Settings>;
+  return migratedThemeFields(out) as Partial<Settings>;
 }
 
 /**
@@ -707,13 +650,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
      * settings file, a keyboard shortcut, or a control somebody adds later and
      * forgets to check. There is one door, so the lock is on it. Issue #207.
      */
-    const settings = normalizeSettings(
-      deriveTheme({
-        ...get().settings,
-        ...patch,
-        ...policyEnforced(),
-      }),
-    );
+    const settings = deriveTheme({
+      ...get().settings,
+      ...patch,
+      ...policyEnforced(),
+    });
     saveJson("settings", settings);
     set({ settings });
     applyTheme(settings);
@@ -778,13 +719,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
        Through the same derivation every other way of changing a setting uses:
        a policy may choose a palette or a mode, and the legacy `theme` an older
        device reads has to be told about it here as much as anywhere. */
-    const base = normalizeSettings(
-      deriveTheme({
-        ...DEFAULT_SETTINGS,
-        ...policyDefaults(),
-        ...policyEnforced(),
-      }),
-    );
+    const base = deriveTheme({
+      ...DEFAULT_SETTINGS,
+      ...policyDefaults(),
+      ...policyEnforced(),
+    });
     saveJson("settings", base);
     set({ settings: base });
     applyTheme(base);
@@ -801,7 +740,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
    */
   discard() {
     inHandFor = null;
-    const settings = normalizeSettings({ ...DEFAULT_SETTINGS });
+    const settings = { ...DEFAULT_SETTINGS };
     set({ settings });
     applyTheme(settings);
     applyDateTimePrefs(settings);
@@ -822,7 +761,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * still handed on -- an import is the reader's own file, and the
        * known-keys-only rule is `acceptRemote`'s, for files off the server.
        */
-      get().update(migratedSettingsFields(parsed) as Partial<Settings>);
+      get().update(migratedThemeFields(parsed) as Partial<Settings>);
       return true;
     } catch {
       return false;
@@ -832,10 +771,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
     /* Enforced values win over what the account's own file says: a policy that
        an older sign-in has already written past would otherwise stay written
        past for ever. */
-    const settings = normalizeSettings({
+    const settings = {
       ...mergeRemote(get().settings, remote, pendingSettingsKeys()),
       ...policyEnforced(),
-    });
+    };
     // Cache it, so the next first frame on this browser is already right.
     saveJson("settings", settings);
     set({ settings });

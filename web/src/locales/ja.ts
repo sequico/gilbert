@@ -217,7 +217,6 @@ export const catalog: Catalog = {
     "This server holds a message for up to {span}.":
       "このサーバーがメールを保持できるのは最長 {span} です。",
     "Date and time to send": "送信する日時",
-    "Undo send window": "送信取り消しの猶予時間",
     "Read receipt requested": "開封確認が要求されています",
     "The sender asked for a read receipt.": "差出人が開封確認を要求しています。",
     "Request read receipt": "開封確認を要求",
@@ -466,7 +465,6 @@ export const catalog: Catalog = {
     "Below the list": "一覧の下",
     "Hidden (open full width)": "表示しない（全幅で開く）",
     "Off (open messages full width)": "オフ（メールを全幅で開く）",
-    Off: "オフ",
     Composing: "作成",
     "Default format": "既定の形式",
     "Rich text (HTML)": "リッチテキスト (HTML)",
@@ -492,10 +490,6 @@ export const catalog: Catalog = {
     "Never automatically": "自動では既読にしない",
     "When someone requests a read receipt": "開封確認を要求されたとき",
     "Ask me on each message": "メールごとに確認する",
-    "5 seconds": "5 秒",
-    "10 seconds": "10 秒",
-    "15 seconds": "15 秒",
-    "30 seconds": "30 秒",
     Locale: "地域",
     Language: "言語",
     "Interface language": "表示言語",
@@ -1196,7 +1190,6 @@ export const catalog: Catalog = {
     "Try another search.": "別のことばで検索してみてください。",
     "Try different keywords or filters.": "別のキーワードや絞り込みをお試しください。",
     "Two-factor authentication is off": "2 段階認証はオフです",
-    "Undo window: {seconds}s": "取り消せる時間: {seconds} 秒",
     "You're all caught up": "未読はありません",
     "Your browser refused the request: {error}":
       "ブラウザーが要求を拒否しました: {error}",
@@ -1392,8 +1385,6 @@ export const catalog: Catalog = {
     "That file is no longer there.": "そのファイルはもうありません。",
     "That identity's address": "その差出人のメールアドレス",
     "The Inbox only": "受信トレイのみ",
-    "The message is held in this browser and has not been submitted yet, so taking it back costs nothing.":
-      "メールはこのブラウザー内に保持されており、まだ送信されていません。取り消しても何も失われません。",
     "The name on the identity you are sending as": "送信に使う差出人の名前",
     "The subject already on the message": "メールにすでに入力されている件名",
     "Their address": "相手のメールアドレス",
@@ -2125,7 +2116,6 @@ export const catalog: Catalog = {
     "Quote the original message when replying.": "返信時に元のメールを引用する。",
     "Put the signature above the quoted text.": "署名を引用テキストの上に置く。",
     "Send and archive in one action.": "送信とアーカイブを1回の操作で行う。",
-    "How long Send is undoable, in seconds.": "送信を元に戻せる時間 (秒)。",
     "Spellcheck the composer.": "作成画面のスペルチェック。",
     "Compose templates the account saved.": "アカウントが保存した作成テンプレート。",
     "Remote images: ask, always load, or only from contacts.":
