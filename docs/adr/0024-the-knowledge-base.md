@@ -325,6 +325,12 @@ FileNode state changes ride the existing push rail (`docs/adr/0012`); nothing
 polls. A write is broad (a `FileNode` wake cannot be narrowed to a folder), so
 the client reads the change back and reconciles.
 
+The company KB is read through a **share, which is not membership**: ADR 0016
+serves a push subscription for the accounts the principal is a member of, so the
+shared company KB is read **when it is opened** and no live update is promised. A
+group's KB, read with the reader's own session, rides the push rail like any
+other FileNode.
+
 ## Versioning
 
 Stalwart keeps no history of a FileNode: an update replaces `blobId`/`type` and

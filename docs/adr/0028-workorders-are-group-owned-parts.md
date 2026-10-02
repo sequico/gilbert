@@ -76,10 +76,10 @@ happens.
 
 Everything a workorder gathers is a reference `{accountId, kind, id}` — a folder,
 a file, a KB article — never a copy and never a marker planted in a work folder.
-**Mail is not part of it**: an email is not referenced and no mailbox is a part.
-A workorder's mail is a **folder named after it** (its friendly name), created in
-the group's mail **by hand** or **by Gilbert on an explicit instruction** — a
-convention for the reader to see, not a reference the product follows.
+**Mail is out of v1 entirely**: an email is not referenced, no mailbox is a part,
+and the product makes no folder for it. On an explicit instruction the agent may
+do as it sees fit with mail, and that is the agent's own act, not part of this
+model.
 
 **The pointers by id are the truth.** A folder belongs to a workorder because a
 reference names it, never because it sits under another folder: no per-workorder
@@ -142,11 +142,12 @@ it, and the global is nobody else's detail. State is operational and lives only
 in the document — the root holds the global checklist, and the combined picture
 is **read** from the parts, never stored beside them.
 
-A checklist is bound to the revision **in force** of its template when the part
-is created (ADR 0024) — a revision approved with a future effective date is not
-yet the one bound. The Master chooses that template when it creates the part, as
-a reference to a template the reader may read. When the template changes,
-rewriting a running checklist is a later concern with its own gate.
+Every checklist — the global as much as a group's part — is bound to the
+revision **in force** of its template when it is created (ADR 0024): a revision
+approved with a future effective date is not yet the one bound. The Master
+chooses each template, as a reference to a template the reader may read. When a
+template changes, rewriting a running checklist is a later concern with its own
+gate.
 
 A checked step carries its **last signature**: who checked it and when.
 
