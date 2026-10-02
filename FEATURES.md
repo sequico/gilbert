@@ -864,17 +864,22 @@ a folder of Files.
   the owning account's hidden app folder: a single mutable `draft.json`, the
   immutable approved revisions under `revisions/`, and a `state.json` naming
   which revision is **in force** and which is still **pending** its effective
-  instant. Sub-articles are folders inside the folder; tags cut across the tree.
-  The article's **id** is stable — its folder is named by the title — so the
-  references a later feature makes (a workorder's template, a link in another
-  page) will carry the id and survive a rename.
+  instant. An article is a **leaf**; a **topic folder** — a directory with no
+  `state.json`, its own order in a `folder.json` — groups articles by subject, and
+  the whole tree is **draggable** to reorder, with an article droppable into a
+  folder. Siblings carry a free order, so a drag costs one write. Tags cut across
+  the tree. The article's **id** is stable — its folder is named by the title —
+  so the references a later feature makes (a workorder's template, a link in
+  another page) will carry the id and survive a rename.
 - **One shared draft, an administrator's approval.** Users and agents edit the
   same unapproved draft. Only an installation administrator **approves**, stating
   the instant the revision takes effect: an instant already passed puts it in
   force at once, a future one leaves it **pending** beside the revision still in
   force, and the revision it replaces stays readable as **superseded**. History
   is never edited — restoring a superseded revision opens a new draft, which is
-  approved again. An article that was ever approved is **retired**, never
+  approved again. Every revision carries its own **number** (1, 2, 3 … per
+  article), minted at approval and shown read-only beside the title. An article
+  that was ever approved is **retired**, never
   deleted: it leaves the tree and is found only by showing retired articles,
   while a draft no approval ever touched is deleted outright.
 - **Written as the Master.** Every write goes through a server route

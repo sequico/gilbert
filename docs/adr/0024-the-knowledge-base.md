@@ -279,7 +279,10 @@ below.
   puts it in force at once; a future one leaves it **pending**, and until then
   the previous revision stays in force and is what readers see — an article with
   no earlier revision is simply not yet in force. The pending revision and its
-  instant are shown, never a hidden timer.
+  instant are shown, never a hidden timer. Every revision carries its own
+  **number** — 1, 2, 3 … per article, minted at approval and auto-incremented —
+  shown read-only beside the title in the tree and the editor, never part of the
+  editable title.
 - **The previous revision stays in history as superseded.** Approving a new
   revision supersedes the one before it, which remains readable and is marked
   superseded. Nothing already issued is ever edited in place.
@@ -298,9 +301,12 @@ below.
   force — a revision approved with a future effective instant is recorded and
   pending until that instant, so the article can hold a pending revision beside
   the one still in force.
-  The article's file name is its title; the tree is the FileNode tree (an article
-  is a folder whose children are its sub-articles), so a listing carries titles
-  without reading blobs. Nothing references an article by that title: a reference
+  The article's file name is its title, and an article is a **leaf**: a **topic
+  folder** — a directory with no `state.json`, pure grouping with its own order
+  in a `folder.json` — holds articles and other folders, so a tree groups by
+  subject without touching a single article. Siblings carry a free `order`, so a
+  drag reorders the tree (and drops an article into a folder) with one write.
+  Nothing references an article by that title: a reference
   — a workorder's template, a link in another page — carries the **id**.
 - **The document shape**, one definition in `@gilbert/shared/knowledge` read by
   both tiers: the draft and a revision carry the same fields — identity and
@@ -532,10 +538,10 @@ The record is **Accepted**.
     no.** The KB stays a **lookup** — the tail, fetched by name and bounded — and
     the notebook stays the distilled head; the whole KB is never carried into the
     prompt (`docs/adr/0006`, `docs/adr/0020`).
-17. **Structure** — **Settled.** A tree for navigation — the FileNode tree, an
-    article a folder whose children are its sub-articles — plus **tags** for the
-    sets that cut across it; backlinks are a later concern. References are by id,
-    so reorganizing the tree breaks nothing.
+17. **Structure** — **Settled.** A tree for navigation — articles as leaves and
+    **topic folders** that group them by subject, the whole tree draggable to
+    reorder — plus **tags** for the sets that cut across it; backlinks are a later
+    concern. References are by id, so reorganizing the tree breaks nothing.
 18. **Are KB pages also visible in Files?** — **Settled: no.** The KB is its own
     surface, the way chat is not a folder of messages.
 19. **Naming** — **Settled.** The surface is called **KB** in every language —
