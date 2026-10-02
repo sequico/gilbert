@@ -182,6 +182,7 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
       "document.merge",
       "document.split",
       "file.write",
+      "knowledge.review",
       "knowledge.write",
       "mail.draft",
       "mail.extract",
@@ -375,6 +376,7 @@ test("an area grants a group of actions and never a flagged one", () => {
     "document.read",
     "document.split",
     "file.write",
+    "knowledge.review",
     "knowledge.write",
     "notebook.write",
   ]);

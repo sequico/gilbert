@@ -834,7 +834,10 @@ export class AgentStore {
    * blob re-uploaded on every attempt, and the window with it, grow as the
    * month fills. That is recorded as a cost in ADR 0003 resolution 20.
    */
-  async appendAudit(entry: AgentAuditEntry, at = new Date()): Promise<void> {
+  async appendAudit(
+    entry: AgentAuditEntry,
+    at: Date = new Date(entry.at),
+  ): Promise<void> {
     const month = monthOf(at);
     const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
     await this.flushPendingAudits();
