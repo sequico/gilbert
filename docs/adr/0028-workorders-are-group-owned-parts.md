@@ -96,7 +96,9 @@ When a workorder reaches a terminal state — `completed`, `cancelled` or
 `replaced` — the Master moves the **root** into `workorders/closed/`, so listing
 `workorders/` is the active set and listing `closed/` is what is done. The
 `closed/` folder is not a bin: a terminal workorder is **kept for ever**, and
-nothing destroys one. `replaced` means another workorder succeeds it, named in
+nothing destroys one. A terminal state **freezes the checklist** — a check
+after the fact is refused — so the record is what was checked while the work
+ran. `replaced` means another workorder succeeds it, named in
 `replacedBy`, and nothing is copied from the one it replaces. The `closed/` **directory node** sits among the active
 roots in a listing of `workorders/` and is dropped by node type, so the active
 set is the files that remain. The folder is a **projection of the state, not the

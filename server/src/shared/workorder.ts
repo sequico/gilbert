@@ -21,6 +21,11 @@
 export const WORKORDER_FOLDER = "workorders";
 export const WORKORDER_CLOSED_FOLDER = "closed";
 
+/** The path, under the app folder, of the closed registry. One definition. */
+export function workorderClosedPath(): string {
+  return `${WORKORDER_FOLDER}/${WORKORDER_CLOSED_FOLDER}`;
+}
+
 /** Every state a workorder reaches. Only the root carries one. */
 export type WorkorderState = "running" | "completed" | "cancelled" | "replaced";
 
@@ -263,4 +268,26 @@ export interface WorkorderCreateInput {
   template: WorkorderTemplateRef;
   /** The groups the workorder gets a part in, by name; empty is global only. */
   groups: string[];
+}
+
+/**
+ * What checks one step of one part: the global checklist or a group's.
+ *
+ * One wire shape both tiers read: the client composes it and the server's
+ * route narrows to it, so a field added on one side cannot arrive `undefined`
+ * on the other.
+ */
+export interface WorkorderCheckInput {
+  uid: string;
+  scope: WorkorderScope;
+  /** The group's own name for a group part; omitted for the global one. */
+  group?: string;
+  stepId: string;
+  checked: boolean;
+}
+
+/** A reference added to or removed from a workorder. */
+export interface WorkorderRefChange {
+  add?: WorkorderRef;
+  remove?: WorkorderRef;
 }

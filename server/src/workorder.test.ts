@@ -211,3 +211,28 @@ test("a workorder that does not exist is a 404", async () => {
   const missing = await call("/api/workorders/no-such-uid");
   assert.equal(missing.status, 404);
 });
+
+test("a closed workorder's checklist no longer changes", async () => {
+  /*
+   * A terminal state is kept for ever and the checklist is the record of the
+   * work: checking a step afterwards would rewrite history. The guard reads the
+   * root's state, so a part is covered by the same rule.
+   */
+  const template = await templateRef();
+  const created = await post("/api/workorders/create", {
+    name: "Sealed run",
+    template,
+    groups: [],
+  });
+  const uid = workorderOf(created.body).uid;
+  await post("/api/workorders/close", { uid, state: "completed" });
+
+  const checked = await post("/api/workorders/check", {
+    uid,
+    scope: "global",
+    stepId: "s1",
+    checked: true,
+  });
+  assert.equal(checked.status, 409, JSON.stringify(checked.body));
+  assert.equal(checked.body?.error, "workorder_closed");
+});

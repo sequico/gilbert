@@ -14,31 +14,15 @@
  */
 
 import type {
+  WorkorderCheckInput,
   WorkorderCreateInput,
-  WorkorderRef,
-  WorkorderScope,
+  WorkorderRefChange,
   WorkorderState,
   WorkorderSummary,
 } from "@gilbert/shared/workorder";
 import { ApiError, apiFetch } from "@/jmap/client";
 
 export * from "@gilbert/shared/workorder";
-
-/** What checks one step of one part: the global checklist or a group's. */
-export interface WorkorderCheckInput {
-  uid: string;
-  scope: WorkorderScope;
-  /** The group's own name for a group part; omitted for the global one. */
-  group?: string;
-  stepId: string;
-  checked: boolean;
-}
-
-/** A reference added to or removed from a workorder. */
-export interface WorkorderRefChange {
-  add?: WorkorderRef;
-  remove?: WorkorderRef;
-}
 
 /** Every workorder the caller may see, as the route composes it. */
 export async function listWorkorders(): Promise<WorkorderSummary[]> {

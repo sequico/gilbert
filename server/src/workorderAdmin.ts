@@ -65,15 +65,17 @@ import {
   isWorkorderState,
   isWorkorderTemplateRef,
   stepOf,
-  WORKORDER_CLOSED_FOLDER,
   WORKORDER_FOLDER,
+  type WorkorderCheckInput,
   type WorkorderCreateInput,
   type WorkorderDoc,
   type WorkorderPartView,
   type WorkorderRef,
+  type WorkorderRefChange,
   type WorkorderState,
   type WorkorderSummary,
   type WorkorderTemplateRef,
+  workorderClosedPath,
   workorderFileName,
 } from "./shared/workorder.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstream.js";
@@ -198,11 +200,7 @@ async function workorderReach(session: LiveSession): Promise<WorkorderReach> {
  * to every principal (`gilbert-groups`).
  */
 export async function ensureWorkorders(ctx: Ctx, accountId: string): Promise<void> {
-  await ensureFolderPath(
-    ctx,
-    accountId,
-    `${WORKORDER_FOLDER}/${WORKORDER_CLOSED_FOLDER}`,
-  );
+  await ensureFolderPath(ctx, accountId, workorderClosedPath());
 }
 
 /* ------------------------------------------------------------------ */
@@ -248,7 +246,7 @@ async function findRoot(
 ): Promise<WorkorderFound | null> {
   const active = await findActive(ctx, accountId, uid);
   if (active) return active;
-  const path = `${WORKORDER_FOLDER}/${WORKORDER_CLOSED_FOLDER}/${workorderFileName(uid)}`;
+  const path = `${workorderClosedPath()}/${workorderFileName(uid)}`;
   const { folderId, file } = await findAppFileAt(ctx, accountId, path);
   if (!folderId || !file || typeof file.id !== "string") return null;
   const doc = await readAppJsonAt(ctx, accountId, path);
@@ -256,13 +254,51 @@ async function findRoot(
   return { path, folderId, nodeId: file.id, doc };
 }
 
+/**
+ * Read-modify-write one workorder root under the account's compare-and-set,
+ * retried once: JMAP offers no lock, and the state is whole-account, so the
+ * retry is what keeps a write from being lost under two writers.
+ *
+ * `mutate` receives the root as it was read and returns the document to write;
+ * a refusal it throws — a missing step, a reference that is not one — leaves
+ * the function uncaught and reaches the caller unchanged. When the race is lost
+ * twice the surface's own code is thrown, never the raw JMAP `stateMismatch`.
+ */
+async function writeRootUnderCas(
+  ctx: Ctx,
+  accountId: string,
+  uid: string,
+  fail: { code: string; message: string },
+  mutate: (found: WorkorderFound) => WorkorderDoc,
+): Promise<WorkorderFound> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // The token is read before the document, so a write landing between the two
+    // is refused rather than overwritten.
+    const token = await appFolderState(ctx, accountId);
+    const found = await findRoot(ctx, accountId, uid);
+    if (!found)
+      throw new WorkorderAdminError(
+        "workorder_not_found",
+        `No workorder "${uid}" is there.`,
+        404,
+      );
+    const next = mutate(found);
+    try {
+      await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(uid), next, {
+        ifInState: token || undefined,
+      });
+      return found;
+    } catch (err) {
+      if (!isStateMismatch(err)) throw err;
+    }
+  }
+  throw new WorkorderAdminError(fail.code, fail.message, 502);
+}
+
 /** Every valid root under the active folder and under `closed/`. */
 async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
   const out: WorkorderDoc[] = [];
-  for (const path of [
-    WORKORDER_FOLDER,
-    `${WORKORDER_FOLDER}/${WORKORDER_CLOSED_FOLDER}`,
-  ]) {
+  for (const path of [WORKORDER_FOLDER, workorderClosedPath()]) {
     const folderId = await findFolderPath(ctx, accountId, path);
     if (!folderId) continue;
     const children = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
@@ -482,9 +518,16 @@ export async function createWorkorder(
     template.accountId,
     `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(inForce.revision)}`,
   );
-  const stepIds = isKnowledgeRevision(revision)
-    ? checklistStepsFromBlocks(revision.blocks).map((step) => step.id)
-    : [];
+  // The revision the state names is the controlled text of every step; an
+  // unreadable one would silently bind the workorder to an empty checklist, so
+  // it is refused rather than half-created.
+  if (!isKnowledgeRevision(revision))
+    throw new WorkorderAdminError(
+      "template_not_in_force",
+      "The template's revision could not be read, so a checklist cannot be built from it.",
+      404,
+    );
+  const stepIds = checklistStepsFromBlocks(revision.blocks).map((step) => step.id);
   const bound: WorkorderTemplateRef = {
     accountId: template.accountId,
     id: template.id,
@@ -569,55 +612,38 @@ async function applyStep(input: {
   stepId: string;
   checked: boolean;
   by: string;
-  /** Whether the document is the Master's root (it may be closed) or a part. */
-  root: boolean;
 }): Promise<void> {
-  const { ctx, accountId, uid, stepId, checked, by, root } = input;
+  const { ctx, accountId, uid, stepId, checked, by } = input;
   const at = new Date().toISOString();
-  for (let attempt = 0; attempt < 2; attempt++) {
-    // The token is read before the document, so a write landing between the
-    // two is refused rather than overwritten.
-    const token = await appFolderState(ctx, accountId);
-    const found = root
-      ? await findRoot(ctx, accountId, uid)
-      : await findActive(ctx, accountId, uid);
-    if (!found)
-      throw new WorkorderAdminError(
-        "workorder_not_found",
-        `No workorder "${uid}" is there to check.`,
-        404,
-      );
-    if (!stepOf(found.doc.checklist, stepId))
-      throw new WorkorderAdminError(
-        "step_not_found",
-        `That workorder has no step "${stepId}".`,
-        404,
-      );
-    const next: WorkorderDoc = {
-      ...found.doc,
-      checklist: {
-        ...found.doc.checklist,
-        steps: found.doc.checklist.steps.map((step) =>
-          step.id === stepId
-            ? { ...step, state: checked ? "done" : "open", by, at }
-            : step,
-        ),
-      },
-      updated: { by, at },
-    };
-    try {
-      await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(uid), next, {
-        ifInState: token || undefined,
-      });
-      return;
-    } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
-    }
-  }
-  throw new WorkorderAdminError(
-    "workorder_check_failed",
-    "The check could not be saved because another write kept winning the race.",
-    502,
+  await writeRootUnderCas(
+    ctx,
+    accountId,
+    uid,
+    {
+      code: "workorder_check_failed",
+      message:
+        "The check could not be saved because another write kept winning the race.",
+    },
+    (found) => {
+      if (!stepOf(found.doc.checklist, stepId))
+        throw new WorkorderAdminError(
+          "step_not_found",
+          `That workorder has no step "${stepId}".`,
+          404,
+        );
+      return {
+        ...found.doc,
+        checklist: {
+          ...found.doc.checklist,
+          steps: found.doc.checklist.steps.map((step) =>
+            step.id === stepId
+              ? { ...step, state: checked ? "done" : "open", by, at }
+              : step,
+          ),
+        },
+        updated: { by, at },
+      };
+    },
   );
 }
 
@@ -629,15 +655,27 @@ async function applyStep(input: {
  * gates the request with `requireSession` alone, so the two rules live here,
  * where the caller is known.
  */
+/**
+ * Refuse checking a step once the workorder is terminal.
+ *
+ * A closed workorder is kept for ever and its checklist is the record of the
+ * work, not a document that keeps moving. The state lives on the Master's
+ * root — a group's part does not carry one — so the check reads the root in
+ * both cases, from the account the caller's write will reach it through.
+ */
+async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise<void> {
+  const root = await findRoot(ctx, accountId, uid);
+  if (root && isTerminalState(root.doc.state ?? "running"))
+    throw new WorkorderAdminError(
+      "workorder_closed",
+      "That workorder is closed, so its checklist no longer changes.",
+      409,
+    );
+}
+
 export async function checkStep(
   session: LiveSession,
-  input: {
-    uid: string;
-    scope: "global" | "group";
-    group?: string;
-    stepId: string;
-    checked: boolean;
-  },
+  input: WorkorderCheckInput,
 ): Promise<WorkorderSummary> {
   const uid = (input?.uid ?? "").trim();
   if (!uid) throw new WorkorderAdminError("bad_request", "A workorder uid is required.");
@@ -652,6 +690,7 @@ export async function checkStep(
         403,
       );
     const { ctx, accountId } = await masterAccount(session);
+    await refuseTerminal(ctx, accountId, uid);
     await applyStep({
       ctx,
       accountId,
@@ -659,7 +698,6 @@ export async function checkStep(
       stepId,
       checked,
       by: session.username,
-      root: true,
     });
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
@@ -676,9 +714,11 @@ export async function checkStep(
         403,
       );
     // The caller is a member; the Master must hold the group too, or there is
-    // no part to write and the surface names the grant that is missing.
-    const { ctx } = await masterAccount(session);
-    const groupAccount = (await groupAccountsDetailed(ctx)).groups.get(
+    // no part to write and the surface names the grant that is missing. The
+    // root's state is read from the Master's own account before that.
+    const master = await masterAccount(session);
+    await refuseTerminal(master.ctx, master.accountId, uid);
+    const groupAccount = (await groupAccountsDetailed(master.ctx)).groups.get(
       group.toLowerCase(),
     );
     if (!groupAccount)
@@ -688,13 +728,12 @@ export async function checkStep(
         409,
       );
     await applyStep({
-      ctx,
+      ctx: master.ctx,
       accountId: groupAccount,
       uid,
       stepId,
       checked,
       by: session.username,
-      root: false,
     });
   } else
     throw new WorkorderAdminError(
@@ -754,39 +793,26 @@ export async function closeWorkorder(
     );
   const { ctx, accountId } = await masterAccount(session);
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
-  const closedId = await ensureFolderPath(
-    ctx,
-    accountId,
-    `${WORKORDER_FOLDER}/${WORKORDER_CLOSED_FOLDER}`,
-  );
+  const closedId = await ensureFolderPath(ctx, accountId, workorderClosedPath());
   const target = isTerminalState(state) ? closedId : activeId;
   const by = session.username;
   const at = new Date().toISOString();
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await appFolderState(ctx, accountId);
-    const found = await findRoot(ctx, accountId, id);
-    if (!found)
-      throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
-    const next: WorkorderDoc = { ...found.doc, state, updated: { by, at } };
-    try {
-      await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(id), next, {
-        ifInState: token || undefined,
-      });
-    } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
-      continue;
-    }
-    await moveRoot(ctx, accountId, found.nodeId, target);
-    const summary = await readWorkorder(session, id);
-    if (!summary)
-      throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
-    return summary;
-  }
-  throw new WorkorderAdminError(
-    "workorder_close_failed",
-    "The workorder could not be closed because another write kept winning the race.",
-    502,
+  const found = await writeRootUnderCas(
+    ctx,
+    accountId,
+    id,
+    {
+      code: "workorder_close_failed",
+      message:
+        "The workorder could not be closed because another write kept winning the race.",
+    },
+    (root) => ({ ...root.doc, state, updated: { by, at } }),
   );
+  await moveRoot(ctx, accountId, found.nodeId, target);
+  const summary = await readWorkorder(session, id);
+  if (!summary)
+    throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
+  return summary;
 }
 
 /** Whether two references name the same object. */
@@ -806,7 +832,7 @@ function sameRef(a: WorkorderRef, b: WorkorderRef): boolean {
 export async function editRefs(
   session: LiveSession,
   uid: string,
-  change: { add?: WorkorderRef; remove?: WorkorderRef },
+  change: WorkorderRefChange,
 ): Promise<WorkorderSummary> {
   const id = (uid ?? "").trim();
   if (!id) throw new WorkorderAdminError("bad_request", "A workorder uid is required.");
@@ -830,31 +856,24 @@ export async function editRefs(
   const { ctx, accountId } = await masterAccount(session);
   const by = session.username;
   const at = new Date().toISOString();
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await appFolderState(ctx, accountId);
-    const found = await findRoot(ctx, accountId, id);
-    if (!found)
-      throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
-    let refs = found.doc.refs;
-    if (remove) refs = refs.filter((ref) => !sameRef(ref, remove));
-    if (add && !refs.some((ref) => sameRef(ref, add))) refs = [...refs, add];
-    const next: WorkorderDoc = { ...found.doc, refs, updated: { by, at } };
-    try {
-      await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(id), next, {
-        ifInState: token || undefined,
-      });
-    } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
-      continue;
-    }
-    const summary = await readWorkorder(session, id);
-    if (!summary)
-      throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
-    return summary;
-  }
-  throw new WorkorderAdminError(
-    "workorder_ref_failed",
-    "The reference could not be saved because another write kept winning the race.",
-    502,
+  await writeRootUnderCas(
+    ctx,
+    accountId,
+    id,
+    {
+      code: "workorder_ref_failed",
+      message:
+        "The reference could not be saved because another write kept winning the race.",
+    },
+    (root) => {
+      let refs = root.doc.refs;
+      if (remove) refs = refs.filter((ref) => !sameRef(ref, remove));
+      if (add && !refs.some((ref) => sameRef(ref, add))) refs = [...refs, add];
+      return { ...root.doc, refs, updated: { by, at } };
+    },
   );
+  const summary = await readWorkorder(session, id);
+  if (!summary)
+    throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
+  return summary;
 }

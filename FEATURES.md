@@ -942,7 +942,8 @@ KB articles a job of work belongs to, and carries a checklist.
   and the references, while the rest of the app is used beside it. Creating one,
   closing one and editing references are an administrator's; every member checks
   steps. Closing moves the root to `closed/` — `running`, `completed`, `cancelled`
-  or `replaced` — and nothing destroys one.
+  or `replaced` — and nothing destroys one; a closed workorder's checklist no
+  longer changes, so a check after the fact is refused.
 
 ---
 
