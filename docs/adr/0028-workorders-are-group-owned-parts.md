@@ -177,10 +177,14 @@ is **read** from the parts, never stored beside them.
 
 Every checklist — the global as much as a group's part — is bound to the
 revision **in force** of its template when it is created (ADR 0024): a revision
-approved with a future effective date is not yet the one bound. The Master
-chooses each template, as a reference to a template the reader may read. When a
-template changes, rewriting a running checklist is a later concern with its own
-gate.
+approved with a future effective instant is not yet the one bound, and a template
+with **no** revision in force — never approved, or its first still pending —
+cannot be instantiated at all, because there is nothing to bind. The Master
+chooses each template, as a reference to a template the reader may read. A
+retired template is not gone: the reference still resolves to it by id, because
+its revisions are kept, and it is simply no longer in the tree; a changed
+template is a new id. Re-binding a running checklist is a later concern with its
+own gate.
 
 A checked step carries its **last signature**, visible to the workorder's
 readers: who checked it and when — unlike a KB draft's attribution, which is

@@ -864,9 +864,10 @@ a folder of Files.
   the owning account's hidden app folder: a single mutable `draft.json`, the
   immutable approved revisions under `revisions/`, and a `state.json` naming
   which revision is **in force** and which is still **pending** its effective
-  date. Sub-articles are folders inside the folder; tags cut across the tree; a
-  reference carries the article's id, never its title, so renaming or moving one
-  breaks nothing.
+  instant. Sub-articles are folders inside the folder; tags cut across the tree.
+  The article's **id** is stable — its folder is named by the title — so the
+  references a later feature makes (a workorder's template, a link in another
+  page) will carry the id and survive a rename.
 - **One shared draft, an administrator's approval.** Users and agents edit the
   same unapproved draft. Only an installation administrator **approves**, stating
   the instant the revision takes effect: an instant already passed puts it in
@@ -903,7 +904,8 @@ a folder of Files.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
 and Excalidraw diagrams. There are no attachments: a procedure is formatted text
-blocks.
+blocks. **Checklist templates** — the KB articles a workorder instantiates (ADR
+0028) — are not built either.
 
 ---
 

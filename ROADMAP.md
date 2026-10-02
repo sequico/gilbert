@@ -36,6 +36,8 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   [The knowledge base](FEATURES.md#the-knowledge-base). What is deliberately
   later is what ADR 0024 defers: real-time co-editing over Yjs/Hocuspocus (v1
   saves the whole draft under `ifInState` and says so) and Excalidraw diagrams.
+  Checklist templates, and the **workorders** that instantiate them, are a
+  feature of their own (ADR 0028) and are not built.
   The company KB's
   read share on `gilbert/knowledge` is owed the live probe ADR 0023 already names
   for a share of a nested folder that reaches every account.

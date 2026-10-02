@@ -66,11 +66,15 @@ that arrives as a PDF can be read, filed and answered — but the product takes
 no position on revenue. What it supports is the operation underneath: the work
 between something arriving and the matter being closed.
 
-Two surfaces carry that work:
+Three surfaces carry that work:
 
 - **A mailer** — mail, calendars, contacts and files, in a client good enough
   to move a whole company into, self-hosted so nothing of it leaves the
   building.
+- **A knowledge base** — the company's policies and procedures, and each
+  group's, in a **KB** module of its own: one shared draft people and agents
+  edit, an administrator's approval with an effective instant, and every issued
+  revision kept.
 - **An assistant for processes** — agents that read what arrives, file the
   paperwork, read the document inside it, draft the answer, and say in the
   group's chat what they have done, inside a permission list an administrator
@@ -133,6 +137,15 @@ and the mail client is what they live in.
   installation owns and every account reads; an administrator edits it from
   Contacts and everybody else reads it, merged into *All contacts* beside their
   own and their groups'.
+- **A knowledge base of its own.** A fifth module, **KB**, beside Mail, Calendar,
+  Contacts and Files: a company-wide knowledge base owned by the Master and read
+  by every account, plus one per group owned by the group. A page has one shared
+  draft that people and agents edit, an administrator **approves** it into force
+  with an effective instant, and every issued revision is kept — a page that was
+  ever approved is **retired**, never deleted. BlockNote is the editor, Orama
+  searches in-process, and the fleet reads and drafts pages: a multi-page change
+  is a plan whose per-page outcomes and a review's findings are kept on the run's
+  own record.
 - **File management that holds up.** A folder tree that remembers how you left
   it, drag and drop with whole folders (empty ones included), uploads you can
   **cancel** mid-flight, a sort order kept per folder, multi-select with
@@ -169,7 +182,8 @@ and the mail client is what they live in.
 
 **Not in it yet**, and said plainly: agents for individual mailboxes (group
 agents only), more than one agent inside the same group at a time, two-factor
-sign-in without an app password, snooze, and translations no native speaker
+sign-in without an app password, snooze, **workorders** (the checklists a KB
+template instantiates, ADR 0028), and translations no native speaker
 has read yet. The reasons, and the rest, are in [ROADMAP.md](ROADMAP.md).
 
 ## A day with the butler

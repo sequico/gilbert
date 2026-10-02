@@ -15,8 +15,9 @@ records the multi-document plan it applies and a review's findings on the run's
 own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
 was read; `knowledge.review` records the prose), in the trail Q23 names. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
-diagrams). The company KB's read share on `gilbert/knowledge` is owed the live
-probe ADR 0023 carries for a share that reaches every account.
+diagrams), and the checklist templates a workorder instantiates (ADR 0028). The
+company KB's read share on `gilbert/knowledge` is owed the live probe ADR 0023
+carries for a share that reaches every account.
 
 ## Context
 
@@ -216,7 +217,7 @@ A workorder's checklist is an **instance of a template** (ADR 0028): the
 workorder carries the operational state — the step ids, their state, who checked
 them, the references — and never a copy of the controlled text, which the reader
 gets from the KB. The two layers are deliberately different: the KB is versioned,
-reviewed and approved with an effective date; the workorder is lean and moves.
+reviewed and approved with an effective instant; the workorder is lean and moves.
 
 ### The surface in the app
 
@@ -293,10 +294,10 @@ below.
 
 - **One article is one folder**: `gilbert/knowledge/<title>/`, holding the single
   mutable `draft.json`, the immutable approved revisions (`revisions/<rev>.json`,
-  each carrying its approval and effective date), and which revision is in force —
-  a revision approved with a future effective date is recorded and pending until
-  that date, so the article can hold a pending revision beside the one still in
-  force.
+  each carrying its approval and effective instant), and which revision is in
+  force — a revision approved with a future effective instant is recorded and
+  pending until that instant, so the article can hold a pending revision beside
+  the one still in force.
   The article's file name is its title; the tree is the FileNode tree (an article
   is a folder whose children are its sub-articles), so a listing carries titles
   without reading blobs. Nothing references an article by that title: a reference
@@ -306,7 +307,7 @@ below.
   metadata (id, title, tags, created/updated, author), the editor's `blocks` (the
   source of truth for the rich body) and a denormalised `text` for search and for
   agents — and a revision adds what issuance records (the administrator who
-  approved it, the approval instant, the effective date, and the revision it
+  approved it, the approval instant, the effective instant, and the revision it
   supersedes). Neither the search index nor an agent's read has to understand the
   editor's format.
 - **There are no attachments.** A procedure is formatted text blocks and nothing
@@ -404,7 +405,7 @@ decided separately because each has a different cost.
    it (the lifecycle section): one shared draft, edited by users and agents,
    reviewed by the fleet, then **approved by an administrator with an effective
    date**, which puts it in force (or records it as pending, until a future
-   effective date arrives); the revision it replaces stays in history as
+   effective instant arrives); the revision it replaces stays in history as
    `superseded`. This is a document-control feature on top of the versioning
    above, not an access level.
 
@@ -460,7 +461,7 @@ does this is a *document controller*, and it is where the KB earns its keep.
   from: a page changed since the plan was made is refused rather than
   overwritten, and the plan says which page and why.
 - **The agent is not the approver.** It drafts and reviews; **only an
-  administrator approves and sets the effective date**. An agent that could both
+  administrator approves and sets the effective instant**. An agent that could both
   draft and approve would collapse the separation ISO 9001 exists to keep.
 
 ## Questions, settled
@@ -472,8 +473,9 @@ The record is **Proposed** until the owner accepts it.
    member and every agent writes and edits drafts, and only an administrator
    approves. Every **write** goes through a **server route that acts as the
    Master**: the route is the one place that knows whether the caller is an
-   administrator (`session.gilbert.isAdmin`), which is what an approval is gated
-   on, and it is the same door the workorder surface uses (ADR 0028). The company KB
+   administrator — the live `requireAdmin` gate, which re-reads the account's own
+   permissions on every call — which is what an approval is gated on, and it is
+   the same door the workorder surface uses (ADR 0028). The company KB
    is **read** through a read-only Stalwart share on `gilbert/knowledge` — a
    reader is not a member of the Master's account, so the share is how every
    account reaches the folder without the read passing through the Master. A
@@ -501,11 +503,11 @@ The record is **Proposed** until the owner accepts it.
    is the only sense of "public" the KB has; an anonymous surface would be a
    separate trust decision with its own record, and is not built.
 8. **Who may publish/approve?** — **Settled.** Administrators only, with an
-   effective date. No separate quality-manager grant for v1.
+   effective instant. No separate quality-manager grant for v1.
 9. **Is a lifecycle needed?** — **Settled.** One shared draft → agent review →
-   administrator approval with an effective date → in force (pending until a
-   future date, the previous revision still in force); the revision replaced
-   stays as superseded.
+   administrator approval with an effective instant → in force (pending until
+   that instant arrives, the previous revision still in force); the revision
+   replaced stays as superseded.
 10. **Immutability of an approved revision** — **Settled.** Never edited in
     place; the next change is a new draft, and the old revision becomes
     superseded.
@@ -547,8 +549,9 @@ The record is **Proposed** until the owner accepts it.
 21. **What may an agent do unattended?** — **Settled.** Read and draft, including
     the reviews; approval is an administrator's alone.
 22. **When does the consistency pass run** — on change, on operator ask, or on a
-    clock? — **Settled.** On a change and on ask; a schedule is a separate
-    decision with its own cost (`docs/adr/0012`).
+    clock? — **Settled: on ask, in v1.** An operator or a rule asks and it runs.
+    A pass triggered by a KB change is later work with its own cost, and a
+    schedule is a separate decision again (`docs/adr/0012`).
 23. **Where do findings and plans live** — as KB documents or as the fleet's
     job/decision documents? — **Settled.** In the fleet's **job/decision trail**,
     for provenance, with the plan text also attached to the review item a person
@@ -559,7 +562,7 @@ The record is **Proposed** until the owner accepts it.
     approval and door differ. Crossing owners is two plans, each approved by the
     administrator; a parent job that coordinates them is later work.
 25. **Does approving a plan publish, or only write drafts?** — **Settled.**
-    Approval is the act that issues the revision, with the effective date; a plan
+    Approval is the act that issues the revision, with the effective instant; a plan
     produces draft changes that wait for an administrator's approval.
 26. **Who may ask for a multi-document change** — any member, or an
     administrator? — **Settled.** Any member and any agent, since both write

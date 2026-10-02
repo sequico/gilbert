@@ -235,7 +235,7 @@ is, not what a user sees.
   templates a workorder instantiates (ADR 0028). An article has **one shared
   unapproved draft that users and agents both edit**, the fleet reviews it, and
   **only an
-  administrator approves it into force with an effective date**, the revision it
+  administrator approves it into force with an effective instant**, the revision it
   replaces staying in history as superseded. It takes the editor (BlockNote) and
   the search (Orama) off the shelf and builds the rest — storage, ownership,
   versioning, approval — itself, and makes the fleet a **document controller**
