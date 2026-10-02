@@ -874,8 +874,10 @@ a folder of Files.
   the tree. The article's **id** is stable — its folder is named by the title —
   so the references a later feature makes (a workorder's template, a link in
   another page) will carry the id and survive a rename.
-- **One shared draft, an administrator's approval.** Users and agents edit the
-  same unapproved draft. Only an installation administrator **approves**, stating
+- **One shared draft, an administrator's approval.** An administrator **creates,
+  renames, moves and deletes** pages and folders; everyone else writes the
+  **draft** of a page that already exists — users and agents edit the same
+  unapproved draft. Only an installation administrator **approves**, stating
   the instant the revision takes effect: an instant already passed puts it in
   force at once, a future one leaves it **pending** beside the revision still in
   force, and the revision it replaces stays readable as **superseded**. History
@@ -888,8 +890,9 @@ a folder of Files.
 - **Written as the Master.** Every write goes through a server route
   (`/api/knowledge/*`) that acts as the Master, because the company KB is reached
   through a route that acts as the Master and the caller's own session does not
-  hold the Master's folder, and because approval is gated on the administrator
-  the session authenticated. An agent drafts; it never approves.
+  hold the Master's folder, and because approval — and creating, renaming,
+  moving and deleting a page or a folder — is gated on the administrator the
+  session authenticated. An agent drafts; it never approves.
 - **The editor is BlockNote** (core MPL-2.0: ProseMirror/TipTap, with Yjs built
   in for the co-editing phase) and the search is **Orama**, in-process over each
   page's text and rebuilt lazily per search, while the fleet's lookup reads the

@@ -2932,7 +2932,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/create", requireSession, async (c) => {
+  api.post("/knowledge/create", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -2975,7 +2975,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/rename", requireSession, async (c) => {
+  api.post("/knowledge/rename", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -2995,7 +2995,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/restore", requireSession, async (c) => {
+  api.post("/knowledge/restore", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -3053,7 +3053,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/folder", requireSession, async (c) => {
+  api.post("/knowledge/folder", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -3076,7 +3076,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/reorder", requireSession, async (c) => {
+  api.post("/knowledge/reorder", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;
@@ -3119,7 +3119,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  api.post("/knowledge/move", requireSession, async (c) => {
+  api.post("/knowledge/move", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{
       scope?: unknown;
       group?: unknown;

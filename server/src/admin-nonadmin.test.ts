@@ -56,3 +56,18 @@ test("a user without the admin marker signs in with isAdmin false", async () => 
   assert.equal(res.status, 200);
   assert.equal((res.body as { gilbert?: { isAdmin?: boolean } }).gilbert?.isAdmin, false);
 });
+
+test("a non-admin cannot create a page or a folder in the knowledge base", async () => {
+  // Creating the tree is an administrator's (ADR 0024): a member writes the
+  // draft of a page that exists, and nothing else.
+  const page = await call("/api/knowledge/create", {
+    method: "POST",
+    body: JSON.stringify({ scope: "company", title: "Nope" }),
+  });
+  assert.equal(page.status, 403, JSON.stringify(page.body));
+  const folder = await call("/api/knowledge/folder", {
+    method: "POST",
+    body: JSON.stringify({ scope: "company", name: "Nope" }),
+  });
+  assert.equal(folder.status, 403, JSON.stringify(folder.body));
+});

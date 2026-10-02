@@ -458,7 +458,10 @@ export function KnowledgeSidebar() {
      * in their tag and what a click does, so the events live in one place.
      */
     const rowDrag = {
-      draggable: true,
+      // Moving a page or a folder is an administrator's, as the route enforces:
+      // a member's write is the draft. A row a member cannot move is not
+      // draggable at all.
+      draggable: tier.canApprove,
       onDragStart: (e: DragEvent) => dragStart(e, a, tier),
       onDragEnd: dragEnd,
       onDragOver: (e: DragEvent) => dragOver(e, a, tier),
@@ -503,15 +506,17 @@ export function KnowledgeSidebar() {
         <KnowledgeRevBadge rev={a.kind === "article" ? a.rev : null} />
         {a.pending && <span className="hint">{t("Pending")}</span>}
         {a.retired && <span className="hint">{t("Retired")}</span>}
-        <button
-          type="button"
-          className="icon-btn sm nav-row-menu"
-          aria-label={t("More")}
-          title={t("More")}
-          onClick={(e) => openRowMenu(e, a, tier)}
-        >
-          <MoreHorizontal size={15} />
-        </button>
+        {tier.canApprove && (
+          <button
+            type="button"
+            className="icon-btn sm nav-row-menu"
+            aria-label={t("More")}
+            title={t("More")}
+            onClick={(e) => openRowMenu(e, a, tier)}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+        )}
       </>
     );
     // A folder's row carries the twisty button, which a button row could not
@@ -685,24 +690,26 @@ export function KnowledgeSidebar() {
             <Fragment key={`${tier.scope}:${tier.accountId}`}>
               <div className="nav-section">
                 <span title={tierLabel(tier)}>{tierLabel(tier)}</span>
-                <span className="row" style={{ gap: 2 }}>
-                  <button
-                    className="icon-btn sm"
-                    title={t("New page")}
-                    aria-label={t("New page")}
-                    onClick={() => void addPage(tier)}
-                  >
-                    <Plus size={14} />
-                  </button>
-                  <button
-                    className="icon-btn sm"
-                    title={t("New folder")}
-                    aria-label={t("New folder")}
-                    onClick={() => void addFolder(tier, null)}
-                  >
-                    <FolderPlus size={14} />
-                  </button>
-                </span>
+                {tier.canApprove && (
+                  <span className="row" style={{ gap: 2 }}>
+                    <button
+                      className="icon-btn sm"
+                      title={t("New page")}
+                      aria-label={t("New page")}
+                      onClick={() => void addPage(tier)}
+                    >
+                      <Plus size={14} />
+                    </button>
+                    <button
+                      className="icon-btn sm"
+                      title={t("New folder")}
+                      aria-label={t("New folder")}
+                      onClick={() => void addFolder(tier, null)}
+                    >
+                      <FolderPlus size={14} />
+                    </button>
+                  </span>
+                )}
               </div>
               {renderTree(tier)}
               {tier.articles.length === 0 && (

@@ -233,7 +233,7 @@ Calendar, Contacts and Files** in the module bar — and not a folder inside Fil
 | --- | --- | --- |
 | Owner | the **Master** account (the installation) | the **group** account |
 | Who reads | everyone (through the route, as the Master) | members (membership is the grant) |
-| Who writes | every member and every agent, **drafts only** | members and the group's agent, drafts only |
+| Who writes | **administrators** create, rename, move and delete pages and folders; every member and every agent write the **draft** | administrators the same in a group; members and the group's agent write the draft |
 | Who approves | **administrators only** | **administrators only** |
 | Created | at boot, as `ensureGlobalContacts` is | on first use, as `gilbert/chat` is |
 | Store | `gilbert/knowledge/…` in the Master | `gilbert/knowledge/…` in the group |
@@ -259,6 +259,11 @@ below.
   and agents alike write and modify the same draft — multi-edit by everybody —
   rather than opening a competing draft of their own. A second intent is an edit
   of that draft, not a second document.
+- **Creating, renaming, moving and deleting a page or a folder is an
+  administrator's.** The shape of the tree is the installation's decision; the
+  route refuses those writes for anybody else. A member's write is the **draft**
+  of a page that already exists — there is no member-made page outside the
+  administrator who made it and the approval that issues it.
 - **A change request carries who asked for it.** The request that produces a
   change — a person's instruction or a plan — names the requester, and that
   attribution is shown only to them; a paragraph edited inside the one shared

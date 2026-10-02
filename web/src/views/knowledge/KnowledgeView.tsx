@@ -308,9 +308,13 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         <button className="btn btn-sm" onClick={() => setHistoryOpen(true)}>
           {t("History")}
         </button>
-        <button className="btn btn-sm" onClick={() => void doRename()}>
-          {t("Rename")}
-        </button>
+        {/* Creating, renaming and deleting pages is an administrator's; a
+            member's write is the draft itself (ADR 0024). */}
+        {activeTier?.canApprove && (
+          <button className="btn btn-sm" onClick={() => void doRename()}>
+            {t("Rename")}
+          </button>
+        )}
         {/* Deleting is an administrator's, as the route enforces; the button is
             drawn only where the server would accept it, and named for what it
             does: an approved article is retired, a draft is deleted. */}
@@ -487,19 +491,21 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
                 {t("In force from {date}", { date: dateText(rev.effectiveAt) })}
               </div>
             </div>
-            <button
-              className="btn btn-sm"
-              onClick={async () => {
-                try {
-                  await restore(rev.revision);
-                  setHistoryOpen(false);
-                } catch (err) {
-                  toast.error((err as Error).message);
-                }
-              }}
-            >
-              {t("Restore")}
-            </button>
+            {activeTier?.canApprove && (
+              <button
+                className="btn btn-sm"
+                onClick={async () => {
+                  try {
+                    await restore(rev.revision);
+                    setHistoryOpen(false);
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  }
+                }}
+              >
+                {t("Restore")}
+              </button>
+            )}
           </div>
         ))}
       </Dialog>
