@@ -502,8 +502,10 @@ still standing. The open ones are the reasons this record is still Proposed.
 16. **Does the company KB enter the model's context automatically?** — **Open.**
     *Recommend the KB stays a lookup (the tail), never wholesale — the
     `docs/adr/0006` two-speed rule.*
-17. **Structure** — **Open.** *Recommend tree (FileNode) plus tags; backlinks are
-    a later concern.*
+17. **Structure** — **Settled.** A tree for navigation — the FileNode tree, an
+    article a folder whose children are its sub-articles — plus **tags** for the
+    sets that cut across it; backlinks are a later concern. References are by id,
+    so reorganizing the tree breaks nothing.
 18. **Are KB pages also visible in Files?** — **Open.** *Recommend no: the KB is
     its own surface, the way chat is not a folder of messages.*
 19. **Naming** — **Settled.** The surface is called **KB** in every language —
