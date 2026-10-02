@@ -52,6 +52,9 @@ export const SEEN_KEYWORD = "$seen";
 /** The keyword that marks a message a draft. */
 export const DRAFT_KEYWORD = "$draft";
 
+/** The keyword that marks a message answered. */
+export const ANSWERED_KEYWORD = "$answered";
+
 /** The parsed `labels.json`. */
 export interface LabelCatalog {
   labels: LabelCatalogEntry[];
