@@ -95,12 +95,12 @@ interface KnowledgeStore {
     tier: KnowledgeTierState,
     title: string,
     parentFolder: string | null,
-  ): Promise<void>;
-  save(): Promise<void>;
-  approve(effectiveAt: string): Promise<void>;
-  restore(revision: string): Promise<void>;
-  rename(title: string): Promise<void>;
-  remove(): Promise<void>;
+  ): Promise<boolean>;
+  save(): Promise<boolean>;
+  approve(effectiveAt: string): Promise<boolean>;
+  restore(revision: string): Promise<boolean>;
+  rename(title: string): Promise<boolean>;
+  remove(): Promise<boolean>;
   setSearch(term: string): void;
   runSearch(): Promise<void>;
   reset(): void;
@@ -113,6 +113,9 @@ function snippetOf(text: string, term: string): string {
   const start = Math.max(0, at - 60);
   return text.slice(start, start + 180).trim();
 }
+
+/** A load asked for while one is already running, run again when it ends. */
+let loadPending = false;
 
 export const useKnowledge = create<KnowledgeStore>((set, get) => {
   /** The open article's write target: its scope, its group and its folder. */
@@ -187,7 +190,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     results: [],
 
     async load() {
-      if (get().loading) return;
+      if (get().loading) {
+        // A probe that lands mid-load is not dropped: the tiers are rebuilt
+        // again once this one finishes, so a group discovered meanwhile appears.
+        loadPending = true;
+        return;
+      }
       set({ loading: true, error: null });
       const canApprove = useSession.getState().session?.gilbert?.isAdmin === true;
       const tiers: KnowledgeTierState[] = [];
@@ -243,6 +251,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       }
 
       set({ tiers, loaded: true, loading: false });
+      if (loadPending) {
+        loadPending = false;
+        void get().load();
+      }
     },
 
     async reload() {
@@ -306,16 +318,18 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       try {
         await createArticle(target, title, parentFolder);
         await get().reload();
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 
     async save() {
       const { article, edit } = get();
-      if (!article || !edit) return;
+      if (!article || !edit) return false;
       const target = targetOf(article);
-      if (!target) return;
+      if (!target) return false;
       const input: KnowledgeArticleInput = {
         title: edit.title,
         tags: edit.tags,
@@ -323,65 +337,78 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         text: edit.text,
       };
       try {
-        // The route echoes the summary the write produced: a title change moves
-        // the folder too, and the re-open must follow the name it now has.
+        // A save rewrites the document; only a rename moves the folder, so the
+        // re-open follows the folder the article already has.
         const summary = await saveDraft(target, input);
         await reopen(article.accountId, summary);
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 
     async approve(effectiveAt) {
       const { article } = get();
-      if (!article) return;
+      if (!article) return false;
       const target = targetOf(article);
-      if (!target) return;
+      if (!target) return false;
       try {
         const summary = await approveArticle(target, effectiveAt);
         await reopen(article.accountId, summary);
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 
     async restore(revision) {
       const { article } = get();
-      if (!article) return;
+      if (!article) return false;
       const target = targetOf(article);
-      if (!target) return;
+      if (!target) return false;
       try {
         const summary = await restoreArticle(target, revision);
         await reopen(article.accountId, summary);
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 
     async rename(title) {
       const { article } = get();
-      if (!article) return;
+      if (!article) return false;
       const target = targetOf(article);
-      if (!target) return;
+      if (!target) return false;
       try {
         const summary = await renameArticle(target, title);
         await reopen(article.accountId, summary);
+        // The folder moved, and the sidebar still carries the old path; the
+        // tiers are re-listed so a click sends the path the door resolves.
+        await get().reload();
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 
     async remove() {
       const { article } = get();
-      if (!article) return;
+      if (!article) return false;
       const target = targetOf(article);
-      if (!target) return;
+      if (!target) return false;
       try {
         await deleteArticle(target);
         set({ article: null, edit: null, articleLoading: false });
         await get().reload();
+        return true;
       } catch (err) {
         set({ error: (err as Error).message });
+        return false;
       }
     },
 

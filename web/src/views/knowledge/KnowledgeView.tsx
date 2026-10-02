@@ -117,11 +117,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       if (!tier) return;
       const name = window.prompt(t("New page"));
       if (!name?.trim()) return;
-      try {
-        await create(tier, name.trim(), null);
-      } catch (err) {
-        toast.error((err as Error).message);
-      }
+      await create(tier, name.trim(), null);
     };
     window.addEventListener("ihm:knowledge-new", onNew);
     return () => window.removeEventListener("ihm:knowledge-new", onNew);
@@ -164,8 +160,9 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   };
 
   const doSave = async () => {
-    await save();
-    setEditing(false);
+    // Only leave edit mode when the save landed: a failed save keeps the
+    // working draft on screen so it is not quietly thrown away.
+    if (await save()) setEditing(false);
   };
 
   const doRename = async () => {
@@ -174,11 +171,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       defaultValue: readerTitle,
     });
     if (!name?.trim() || name === readerTitle) return;
-    try {
-      await rename(name.trim());
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
+    await rename(name.trim());
   };
 
   const doRemove = async () => {
@@ -189,11 +182,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       danger: true,
     });
     if (!ok) return;
-    try {
-      await remove();
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
+    await remove();
   };
 
   return (
@@ -275,9 +264,13 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         <button className="btn btn-sm" onClick={() => void doRename()}>
           {t("Rename")}
         </button>
-        <button className="btn btn-sm btn-danger" onClick={() => void doRemove()}>
-          {t("Delete")}
-        </button>
+        {/* Deleting is an administrator's, as the route enforces; the button is
+            drawn only where the server would accept it. */}
+        {activeTier?.canApprove && (
+          <button className="btn btn-sm btn-danger" onClick={() => void doRemove()}>
+            {t("Delete")}
+          </button>
+        )}
       </div>
 
       <div style={{ padding: "16px 16px 0" }}>
@@ -365,12 +358,11 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             <button
               className="btn btn-primary"
               onClick={async () => {
-                try {
-                  await approve(approveDate);
-                  setApproveOpen(false);
-                } catch (err) {
-                  toast.error((err as Error).message);
-                }
+                // The date input is a calendar date; it is sent as local
+                // midnight so "today" is in force in every timezone and renders
+                // back as the day that was chosen.
+                const at = new Date(`${approveDate}T00:00:00`).toISOString();
+                if (await approve(at)) setApproveOpen(false);
               }}
             >
               {t("Approve")}

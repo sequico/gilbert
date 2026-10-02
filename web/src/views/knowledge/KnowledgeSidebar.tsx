@@ -3,7 +3,6 @@ import { Fragment, type ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import type { KnowledgeSummary, KnowledgeTierView } from "@/lib/knowledge";
 import { useKnowledge } from "@/store/knowledge";
-import { toast } from "@/ui/toast";
 
 /**
  * The knowledge base's tree of articles (ADR 0024).
@@ -57,6 +56,7 @@ export function KnowledgeSidebar() {
   const article = useKnowledge((s) => s.article);
   const open = useKnowledge((s) => s.open);
   const create = useKnowledge((s) => s.create);
+  const reload = useKnowledge((s) => s.reload);
   const setSearch = useKnowledge((s) => s.setSearch);
   const runSearch = useKnowledge((s) => s.runSearch);
 
@@ -85,11 +85,7 @@ export function KnowledgeSidebar() {
       article && article.scope === tier.scope && article.accountId === tier.accountId
         ? article.summary.folder
         : null;
-    try {
-      await create(tier, name.trim(), under);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
+    await create(tier, name.trim(), under);
   };
 
   const articleRow = (a: KnowledgeSummary, depth: number, tier: KnowledgeTierView) => {
@@ -207,7 +203,18 @@ export function KnowledgeSidebar() {
                 title={hit.title}
                 onClick={() => {
                   const tier = tierOf(hit.accountId, hit.nodeId);
-                  if (tier) void open(tier.accountId, folderOf(hit.nodeId), hit.nodeId);
+                  const folder = folderOf(hit.nodeId);
+                  if (tier && folder) {
+                    void open(tier.accountId, folder, hit.nodeId);
+                    return;
+                  }
+                  // The index outran the tier list: re-list, then resolve it,
+                  // rather than opening a page with no folder.
+                  void reload().then(() => {
+                    const t2 = tierOf(hit.accountId, hit.nodeId);
+                    const f2 = folderOf(hit.nodeId);
+                    if (t2 && f2) void open(t2.accountId, f2, hit.nodeId);
+                  });
                 }}
               >
                 <span className="truncate">{hit.title}</span>
