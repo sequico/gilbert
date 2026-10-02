@@ -282,6 +282,26 @@ describe("finding a file in the app folder", () => {
     expect(await findInFolder(ACCOUNT, FOLDER, "settings.json")).toBeUndefined();
   });
 
+  it("finds a directory by name, not only a file", async () => {
+    // The knowledge folder is a directory: the same read must return it, or a
+    // group's KB reads as "No pages yet" for ever even after a page is created
+    // (the regression this pins). Only the file *writer* cares about the type.
+    fakeServer([
+      file("f1", "settings.json", "b1"),
+      {
+        id: "k1",
+        parentId: FOLDER,
+        name: "knowledge",
+        nodeType: "directory",
+        blobId: null,
+        type: null,
+        size: null,
+      },
+    ]);
+    const found = await findInFolderWithState(ACCOUNT, FOLDER, "knowledge");
+    expect(found.file?.id).toBe("k1");
+  });
+
   it("answers a state even when no file carries that name", async () => {
     const server = fakeServer();
     const found = await findInFolderWithState(ACCOUNT, FOLDER, "settings.json");

@@ -218,16 +218,10 @@ export async function findInFolderWithState(
   name: string,
 ): Promise<{ file?: FoundNode; state: string }> {
   const { list, state } = await listChildrenWithState(accountId, folderId, fileProps);
-  // A node that carries the name must also be the file: a directory somebody
-  // gave a document's name is not the document, and updating it would write a
-  // blob onto a folder. The server's twin (`findInFolder`) reads it the same.
-  const found = list.find(
-    (n) =>
-      n.nodeType === "file" &&
-      typeof n.blobId === "string" &&
-      n.name === name &&
-      n.parentId === folderId,
-  );
+  // Anything carrying the name: this same read finds a **directory** too (the
+  // knowledge folder, a folder path), so it must not require a file. The writer
+  // that would put bytes on a node checks the type itself (`putFile`).
+  const found = list.find((n) => n.name === name && n.parentId === folderId);
   // One state per type per account, so any node changing anywhere in the
   // account invalidates the token — the comparison `FileNode/set` makes.
   return { file: found ? { ...found, state } : undefined, state };
@@ -281,6 +275,10 @@ export async function putFile(
   const existing = await findInFolder(accountId, folderId, name);
   const conditional = opts.ifInState ? { ifInState: opts.ifInState } : {};
   if (existing) {
+    // A directory somebody gave this name is not the file: updating it would
+    // write a blob onto a folder. Nothing here writes over a non-file.
+    if (existing.nodeType !== "file")
+      throw new Error(`"${name}" is a folder, not a file, so it is not written over.`);
     const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
       accountId,
       ...conditional,
