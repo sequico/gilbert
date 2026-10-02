@@ -81,7 +81,7 @@ export function shortName(a: EmailAddress | null | undefined): string {
 export function initials(
   a: EmailAddress | { name?: string | null; email?: string } | string | null | undefined,
 ): string {
-  const name = typeof a === "string" ? a : a?.name || a?.email || "";
+  const name = typeof a === "string" ? a : a?.name?.trim() || a?.email || "";
   const parts = name
     .replace(/[<>"]/g, "")
     .split(/[\s._@-]+/)

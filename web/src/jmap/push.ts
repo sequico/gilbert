@@ -97,6 +97,11 @@ class PushManager {
     this.es?.close();
     this.es = null;
     this.everConnected = false;
+    // Dedupe state belongs to one session: a sign-out and sign-in on the same
+    // singleton must not let an opaque state from the last session suppress a
+    // first StateChange of this one.
+    this.lastStates.clear();
+    this.wasOpen = false;
     this.setState("disconnected");
   }
 

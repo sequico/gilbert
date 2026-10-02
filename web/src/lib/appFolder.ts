@@ -243,16 +243,10 @@ export async function findInFolderWithState(
  * refusal reaches the caller through `putFile` and has to be recognisable
  * there. Stalwart 0.16 answers exactly this type rather than masking it as
  * `invalidArguments` (live, `scripts/probe-conditional-writes.mjs`), and the
- * server tier recognises the same refusal the same way (`isStateMismatch`,
- * `server/src/jmap.ts`).
+ * server tier recognises the same refusal through the same shared predicate
+ * (`@gilbert/shared/errors`).
  */
-export function isStateMismatch(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as { type?: unknown }).type === "stateMismatch"
-  );
-}
+export { isStateMismatch } from "@gilbert/shared/errors";
 
 /**
  * One file write, whatever the bytes came from: create when the name is new
@@ -271,7 +265,10 @@ export function isStateMismatch(err: unknown): boolean {
  * re-reading. A caller with nothing to lose omits `opts.ifInState` and takes the
  * unconditional write; nothing here is conditional unless it is asked for. The
  * server's own twin, `writeFile` in `server/src/appFolder.ts`, is the shape this
- * mirrors.
+ * mirrors; it can also skip a write whose bytes are unchanged, because it holds
+ * the bytes before uploading. This client is handed an already-uploaded
+ * `blobId`, so the upload has happened by the time it is called and there is
+ * nothing left to skip here — the callers that would benefit compare first.
  */
 export async function putFile(
   accountId: Id,

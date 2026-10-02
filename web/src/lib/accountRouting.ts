@@ -79,7 +79,7 @@ export function ownAccountForCapability(
   const primary = session.primaryAccounts[cap];
   // A primary account is the reader's own by definition, but check rather than
   // assume: a server that named a shared one here would otherwise be trusted.
-  if (primary && session.accounts[primary]?.isPersonal !== false) return primary;
+  if (primary && session.accounts[primary]?.isPersonal === true) return primary;
   const own = Object.entries(session.accounts).find(
     ([, a]) => a.isPersonal && advertises(a, cap),
   );

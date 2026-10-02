@@ -460,7 +460,7 @@ export class JmapClient {
         "content-type",
         opts.type || data.type || "application/octet-stream",
       );
-      xhr.setRequestHeader("x-requested-with", "gilbert");
+      xhr.setRequestHeader("x-requested-with", HEADERS["x-requested-with"]);
       xhr.responseType = "json";
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);

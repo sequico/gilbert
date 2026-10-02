@@ -407,7 +407,12 @@ export function sanitizeEmailHtml(
     const url = raw.trim();
     if (/^cid:/i.test(url)) {
       const cid = url.slice(4).replace(/^<|>$/g, "");
-      const mapped = cidMap[cid] ?? cidMap[cid.toLowerCase()];
+      const lower = cid.toLowerCase();
+      const mapped = Object.hasOwn(cidMap, cid)
+        ? cidMap[cid]
+        : Object.hasOwn(cidMap, lower)
+          ? cidMap[lower]
+          : undefined;
       return mapped ? { url: mapped, keep: true } : { url: "", keep: false };
     }
     if (/^data:image\//i.test(url)) return { url, keep: true };
@@ -654,7 +659,7 @@ export function relativeLuminance(color: string): number | null {
     g: number,
     b: number,
     a = 1;
-  const named = NAMED[raw];
+  const named = Object.hasOwn(NAMED, raw) ? NAMED[raw] : undefined;
   const hex = (named ?? raw).match(/^#([0-9a-f]{3,8})$/);
   if (hex) {
     const h = hex[1]!;

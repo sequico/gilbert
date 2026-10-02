@@ -19,3 +19,21 @@ export const sharedKey = (accountId: string, id: string): string => `${accountId
  */
 export const accountOfSharedKey = (key: string, id: string): string =>
   key.slice(0, key.length - id.length - 1);
+
+/**
+ * The key in `shared` whose id segment is exactly `id`, or null.
+ *
+ * The match is on the colon boundary, never `endsWith`: a card id `1` must not
+ * be found under the key for card `21`, which is what the suffix test does —
+ * and the account read off that key would then be wrong too.
+ */
+export function sharedKeyForId(
+  shared: Record<string, unknown>,
+  id: string,
+): string | null {
+  for (const key of Object.keys(shared)) {
+    const at = key.lastIndexOf(":");
+    if (at >= 0 && key.slice(at + 1) === id) return key;
+  }
+  return null;
+}

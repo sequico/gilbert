@@ -41,14 +41,18 @@ export interface DebouncedReload {
  * account must not hold up the other's.
  */
 export function debouncedReload(delayMs: number = RELOAD_DEBOUNCE_MS): DebouncedReload {
-  const timers: Record<string, number> = {};
+  const timers = new Map<string, number>();
   return {
     schedule(key, read) {
-      if (timers[key]) clearTimeout(timers[key]);
-      timers[key] = window.setTimeout(() => {
-        delete timers[key];
-        read();
-      }, delayMs);
+      const running = timers.get(key);
+      if (running !== undefined) clearTimeout(running);
+      timers.set(
+        key,
+        window.setTimeout(() => {
+          timers.delete(key);
+          read();
+        }, delayMs),
+      );
     },
   };
 }

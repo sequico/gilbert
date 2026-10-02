@@ -15,7 +15,7 @@
  * this means and keeps meaning.
  */
 import type { ContactCard, Id } from "@/jmap/types";
-import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
 
 /** The id a card is opened by, and the account holding it (null = the reader's own). */
 export interface CardAddress {
@@ -80,6 +80,8 @@ export function cardAt(
     if (held) return { card: held, accountId };
   }
   if (cards[id]) return { card: cards[id], accountId: null };
-  const hit = Object.entries(sharedCards).find(([key]) => key.endsWith(`:${id}`));
-  return hit ? { card: hit[1], accountId: accountOfSharedKey(hit[0], id) } : undefined;
+  const key = sharedKeyForId(sharedCards, id);
+  return key
+    ? { card: sharedCards[key]!, accountId: accountOfSharedKey(key, id) }
+    : undefined;
 }
