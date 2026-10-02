@@ -146,6 +146,14 @@ and the mail client is what they live in.
   searches in-process, and the fleet reads and drafts pages: a multi-page change
   is a plan whose per-page outcomes and a review's findings are kept on the run's
   own record.
+- **Workorders, from a factory icon beside chat.** A **workorder** gathers, by
+  reference, the folders, files and KB articles that belong to it, and carries a
+  checklist that is an **instance of a KB template** bound to the revision in
+  force — the operational state, step by step, with the last signature of who
+  checked it. It is one **uid** with a **root** in the Master's registry and a
+  **part** per group in that group's own account; opening one shows the global
+  checklist and the reader's groups' parts. The launcher is a factory in the top
+  bar, and it opens a large panel.
 - **File management that holds up.** A folder tree that remembers how you left
   it, drag and drop with whole folders (empty ones included), uploads you can
   **cancel** mid-flight, a sort order kept per folder, multi-select with
@@ -182,8 +190,7 @@ and the mail client is what they live in.
 
 **Not in it yet**, and said plainly: agents for individual mailboxes (group
 agents only), more than one agent inside the same group at a time, two-factor
-sign-in without an app password, snooze, **workorders** (the checklists a KB
-template instantiates, ADR 0028), and translations no native speaker
+sign-in without an app password, snooze, and translations no native speaker
 has read yet. The reasons, and the rest, are in [ROADMAP.md](ROADMAP.md).
 
 ## A day with the butler

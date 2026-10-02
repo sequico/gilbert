@@ -2,7 +2,15 @@
 
 Status: Proposed
 
-Implementation: Not built.
+Implementation: Built. The shape, its validators and the wire views are one
+definition (`server/src/shared/workorder.ts`); the Master-owned door and its
+`/api/workorders` routes are `server/src/workorderAdmin.ts` and
+`server/src/app.ts`, with the boot ensure in `server/src/index.ts`; the client
+reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`)
+and the surface is a factory launcher in the top bar beside chat's opening a
+large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
+checklist binds to a KB template revision the KB now carries a helper for
+(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`).
 
 ## Context
 

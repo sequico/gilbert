@@ -287,6 +287,9 @@ is, not what a user sees.
   membership; a checked step keeps the last signature, taken from the
   authenticated session, and a friendly name beside the uid. A checklist
   instantiates a KB template in force (ADR 0024), which is a separate decision.
+  **Built** — the shape (`server/src/shared/workorder.ts`), the Master-owned door
+  and its `/api/workorders` routes, the boot ensure, the route-only client and
+  the factory launcher's large panel (`web/src/views/workorder/`).
 - **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for

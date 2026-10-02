@@ -904,8 +904,39 @@ a folder of Files.
 
 Later phases, deliberately (ADR 0024): real-time co-editing over Yjs/Hocuspocus,
 and Excalidraw diagrams. There are no attachments: a procedure is formatted text
-blocks. **Checklist templates** — the KB articles a workorder instantiates (ADR
-0028) — are not built either.
+blocks.
+
+---
+
+# Workorders
+
+A surface of its own, opened from a **factory icon** in the top bar beside chat
+(ADR 0028): it gathers, **by reference, never by copy**, the folders, files and
+KB articles a job of work belongs to, and carries a checklist.
+
+- **One uid, a root and its parts.** The Master's copy is the **root** — identity,
+  friendly name, global checklist and state — and its `gilbert/workorders/`
+  folder is the **registry**; `workorders/closed/` holds the terminal ones, which
+  are kept for ever. A group's copy is its **part**, in the group's own account,
+  holding that group's checklist and references. Everything gathered is a
+  reference by id, so renaming or moving the target breaks nothing.
+- **A checklist is an instance of a KB template**, bound to the revision **in
+  force** at creation (ADR 0024): the workorder stores the step ids and each
+  step's state and last signature — who checked it and when — and never a copy of
+  the controlled text, which the reader gets from the KB. The global checklist is
+  the Master's; each group has its own, checked by its members.
+- **The route is the door, and the Master writes.** A workorder is **route-only** —
+  never read through a share — and the server route acts as the Master, deciding
+  what each caller may reach by their group membership alone: an administrator
+  sees every part, a member sees the global checklist and their own groups'. A
+  check is signed with the caller's own address, taken from the session, never a
+  name the client could assert.
+- **A large panel.** The factory launcher opens a wide, tall panel: the list of
+  workorders and the open one's global checklist, the reader's groups' checklists
+  and the references, while the rest of the app is used beside it. Creating one,
+  closing one and editing references are an administrator's; every member checks
+  steps. Closing moves the root to `closed/` — `running`, `completed`, `cancelled`
+  or `replaced` — and nothing destroys one.
 
 ---
 

@@ -15,9 +15,9 @@ records the multi-document plan it applies and a review's findings on the run's
 own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
 was read; `knowledge.review` records the prose), in the trail Q23 names. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
-diagrams), and the checklist templates a workorder instantiates (ADR 0028). The
-company KB's read share on `gilbert/knowledge` is owed the live probe ADR 0023
-carries for a share that reaches every account.
+diagrams). The checklist templates a workorder instantiates are built
+(ADR 0028). The company KB's read share on `gilbert/knowledge` is owed the live
+probe ADR 0023 carries for a share that reaches every account.
 
 ## Context
 
