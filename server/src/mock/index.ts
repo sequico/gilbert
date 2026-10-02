@@ -10,7 +10,7 @@ import { MASKED } from "../shared/accountSecurity.js";
 import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
-import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
+import { holdUntilOf, NO_HOLD, undoStatusOf } from "./futurerelease.js";
 import {
   eventGetView,
   expandOccurrences,
@@ -3666,7 +3666,7 @@ const handlers: Record<string, Handler> = {
         continue;
       }
       // Stalwart rejects MAIL FROM outright past its own limit.
-      if (hold !== null && hold > now() + MAX_DELAYED_SEND * 1000) {
+      if (hold !== NO_HOLD && hold > now() + MAX_DELAYED_SEND * 1000) {
         notCreated[cid] = {
           type: "forbiddenMailFrom",
           description: `Server rejected MAIL-FROM: 501 5.5.4 Requested release time exceeds maximum of ${new Date(now() + MAX_DELAYED_SEND * 1000).toISOString()}.`,
@@ -3674,7 +3674,7 @@ const handlers: Record<string, Handler> = {
         continue;
       }
       // With the MTA extension off, the hold is dropped in silence.
-      const sendAt = hold !== null && !NO_FUTURE_RELEASE ? hold : now();
+      const sendAt = hold !== NO_HOLD && !NO_FUTURE_RELEASE ? hold : now();
       const rec: Obj = {
         id: `s${randomUUID().slice(0, 6)}`,
         identityId: sub.identityId ?? null,

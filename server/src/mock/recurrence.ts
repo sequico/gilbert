@@ -155,7 +155,11 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
     }
 
     // A rule with byDay walks day by day and keeps the days it names; without
-    // one it steps by its own frequency.
+    // one it steps by its own frequency. This is exact for a daily rule but
+    // expands `INTERVAL` on weekly or monthly ones (it emits every matching
+    // day, not every interval-th week or month) — a divergence the web editor
+    // never asks for, since it offers one weekday at interval 1, and bounded
+    // here by `MAX_ITERATIONS` rather than left to run.
     if (byDay) cursor.setDate(cursor.getDate() + 1);
     else if (rule.frequency === "daily") cursor.setDate(cursor.getDate() + interval);
     else if (rule.frequency === "weekly") cursor.setDate(cursor.getDate() + 7 * interval);
@@ -167,13 +171,20 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
   return out;
 }
 
-/** Fields that describe the series and never travel down to one instance. */
-const SERIES_ONLY = [
-  "recurrenceRule",
-  "recurrenceRules",
-  "excludedRecurrenceRules",
-  "recurrenceOverrides",
+/**
+ * Series-only fields, and what a synthetic id answers for each: `null` where a
+ * named property reads as present-but-null, `delete` where it is absent. One
+ * table, so the two views cannot disagree about which field is which.
+ */
+const SERIES_FIELDS: ReadonlyArray<readonly [string, "delete" | "null"]> = [
+  ["recurrenceRule", "null"],
+  ["recurrenceRules", "delete"],
+  ["excludedRecurrenceRules", "delete"],
+  ["recurrenceOverrides", "null"],
 ];
+
+/** Fields that describe the series and never travel down to one instance. */
+const SERIES_ONLY = SERIES_FIELDS.map(([k]) => k);
 
 /**
  * The object a `CalendarEvent/get` returns for one occurrence.
@@ -197,7 +208,9 @@ export function occurrenceView(base: Obj, occ: Occurrence): Obj {
 }
 
 /** Series properties a synthetic id answers `null` for, when they are named. */
-const NULL_ON_OCCURRENCE = new Set(["recurrenceRule", "recurrenceOverrides"]);
+const NULL_ON_OCCURRENCE = new Set(
+  SERIES_FIELDS.filter(([, kind]) => kind === "null").map(([k]) => k),
+);
 
 /**
  * The object a `CalendarEvent/get` with a `properties` list returns. Omitted or

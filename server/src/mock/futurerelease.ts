@@ -15,6 +15,15 @@ export const NO_HOLD = null;
 /** The parameters are contradictory or unparseable; the create must fail. */
 export const BAD_HOLD = NaN;
 
+/**
+ * The shapes Stalwart's RFC 5321 parameter parser accepts: a full RFC 3339
+ * date-time and a plain run of digits. `Date.parse` alone also accepts
+ * `"2026-11-20"` and `"11/20/2026"`, and `Number` accepts `"0x10"` and `"1e3"`,
+ * so a mock without these gates accepts messages the real server refuses.
+ */
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const DIGITS = /^\d+$/;
+
 function lookup(params: Obj, name: string): string | undefined {
   const key = Object.keys(params).find((k) => k.toUpperCase() === name);
   return key === undefined ? undefined : String(params[key]);
@@ -31,12 +40,16 @@ export function holdUntilOf(envelope: Obj | undefined, now: number): number | nu
   // "501 5.5.4 Only one of HOLDFOR or HOLDUNTIL may be specified."
   if (until !== undefined && forSecs !== undefined) return BAD_HOLD;
   if (until !== undefined) {
-    const t = Date.parse(until);
+    const value = until.trim();
+    if (!RFC3339.test(value)) return BAD_HOLD;
+    const t = Date.parse(value);
     return Number.isNaN(t) ? BAD_HOLD : t;
   }
   if (forSecs !== undefined) {
-    const secs = Number(forSecs);
-    return Number.isFinite(secs) && secs > 0 ? now + secs * 1000 : BAD_HOLD;
+    const value = forSecs.trim();
+    if (!DIGITS.test(value)) return BAD_HOLD;
+    const secs = Number(value);
+    return secs > 0 ? now + secs * 1000 : BAD_HOLD;
   }
   return NO_HOLD;
 }

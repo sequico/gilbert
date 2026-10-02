@@ -44,6 +44,11 @@ describe("FUTURERELEASE parameters", () => {
     assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDFOR: "soon" }), NOW)));
     assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDFOR: "0" }), NOW)));
     assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDFOR: "-60" }), NOW)));
+    // `Date.parse` and `Number` accept more than Stalwart's parser does.
+    assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDUNTIL: "2026-11-20" }), NOW)));
+    assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDUNTIL: "11/20/2026" }), NOW)));
+    assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDFOR: "0x10" }), NOW)));
+    assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDFOR: "1e3" }), NOW)));
   });
 
   it("accepts a Unix timestamp only as the date it is not", () => {
