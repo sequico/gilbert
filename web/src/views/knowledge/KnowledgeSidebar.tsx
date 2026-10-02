@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  X,
 } from "lucide-react";
 import {
   type CSSProperties,
@@ -245,6 +246,12 @@ export function KnowledgeSidebar() {
       void runSearch();
     }, 250);
   };
+  const clearSearch = () => {
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+    setSearch("");
+    void runSearch();
+  };
 
   /*
    * A row's own menu: rename or delete the node the row names, whichever kind
@@ -279,6 +286,19 @@ export function KnowledgeSidebar() {
       : tiers.find((tier) => tier.articles.some((a) => a.nodeId === nodeId));
   const folderOf = (nodeId: string): string =>
     tiers.flatMap((tier) => tier.articles).find((a) => a.nodeId === nodeId)?.folder ?? "";
+
+  /*
+   * Where a hit lives, as a small breadcrumb: the tier and the folders above
+   * the page. The page's own name is left off, because the row already says it.
+   */
+  const pathOf = (accountId: string, nodeId: string): string => {
+    const tier = tierOf(accountId, nodeId);
+    const label = tier ? tierLabel(tier) : "";
+    const folder = folderOf(nodeId);
+    const at = folder.lastIndexOf("/");
+    const parent = at >= 0 ? folder.slice(0, at) : "";
+    return parent ? `${label}/${parent}` : label;
+  };
 
   /*
    * "New page" opens an inline input in the tree — no `window.prompt`: the row
@@ -715,6 +735,17 @@ export function KnowledgeSidebar() {
             }}
           />
           {searching && <span className="spinner" />}
+          {search.trim() && (
+            <button
+              type="button"
+              className="icon-btn sm"
+              title={t("Clear search")}
+              aria-label={t("Clear search")}
+              onClick={clearSearch}
+            >
+              <X size={15} />
+            </button>
+          )}
           <button
             type="button"
             className="icon-btn sm"
@@ -775,6 +806,7 @@ export function KnowledgeSidebar() {
                 }}
               >
                 <span className="truncate">{hit.title}</span>
+                <span className="hint truncate">{pathOf(hit.accountId, hit.nodeId)}</span>
                 {hit.snippet && <span className="hint truncate">{hit.snippet}</span>}
               </button>
             );
