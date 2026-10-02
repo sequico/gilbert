@@ -225,7 +225,7 @@ export function ConfirmHost() {
       footer={
         req.kind === "choice" ? (
           <button className="btn" onClick={() => done(null)}>
-            {req.cancelLabel ?? "Cancel"}
+            {req.cancelLabel ?? t("Cancel")}
           </button>
         ) : (
           <>
@@ -233,13 +233,13 @@ export function ConfirmHost() {
               className="btn"
               onClick={() => done(req.kind === "prompt" ? null : false)}
             >
-              {req.cancelLabel ?? "Cancel"}
+              {req.cancelLabel ?? t("Cancel")}
             </button>
             <button
               className={`btn ${req.danger ? "btn-danger" : "btn-primary"}`}
               onClick={() => done(req.kind === "prompt" ? value : true)}
             >
-              {req.confirmLabel ?? (req.kind === "prompt" ? "OK" : "Confirm")}
+              {req.confirmLabel ?? (req.kind === "prompt" ? t("OK") : t("Confirm"))}
             </button>
           </>
         )

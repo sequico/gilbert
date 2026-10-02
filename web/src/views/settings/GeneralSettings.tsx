@@ -213,8 +213,8 @@ export function GeneralSettings() {
                       update({ listSortLevels: next });
                     }}
                   >
-                    <option value="desc">{DIRECTION_LABELS[level.field]![0]}</option>
-                    <option value="asc">{DIRECTION_LABELS[level.field]![1]}</option>
+                    <option value="desc">{t(DIRECTION_LABELS[level.field]![0])}</option>
+                    <option value="asc">{t(DIRECTION_LABELS[level.field]![1])}</option>
                   </select>
                 )}
               </div>
@@ -270,6 +270,7 @@ export function GeneralSettings() {
           <label>{t("Time zone")}</label>
           <select
             className="select"
+            disabled={isEnforced("timeZone")}
             value={s.timeZone ?? ""}
             onChange={(e) => update({ timeZone: e.target.value || null })}
           >

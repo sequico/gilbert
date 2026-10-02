@@ -19,6 +19,9 @@ export function SecuritySettings() {
   const [state, setState] = useState<SecurityState | null>(null);
   /** Set when the server has no self-service API at all (a proxy, say). */
   const [unsupported, setUnsupported] = useState<string | null>(null);
+  /** Set when the read failed for any other reason: a failure, not a capability. */
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
 
@@ -27,20 +30,27 @@ export function SecuritySettings() {
       .then((r) => {
         setRows(r.sessions);
         setCurrent(r.current);
+        setSessionsError(null);
       })
-      .catch(() => setRows([]));
+      .catch((err) => setSessionsError((err as Error).message));
 
   const loadSecurity = useCallback(async () => {
     try {
       setState(await apiFetch<SecurityState>("/api/account/security"));
       setUnsupported(null);
+      setSecurityError(null);
     } catch (err) {
       setState(null);
-      setUnsupported(
-        err instanceof ApiError && err.status === 501
-          ? err.message
-          : (err as Error).message,
-      );
+      // A 501 is the server saying it has no self-service API; anything else is
+      // a failure and must read as one, not as an installation that manages
+      // passwords elsewhere.
+      if (err instanceof ApiError && err.status === 501) {
+        setUnsupported(err.message);
+        setSecurityError(null);
+      } else {
+        setUnsupported(null);
+        setSecurityError((err as Error).message);
+      }
     }
   }, []);
 
@@ -66,7 +76,9 @@ export function SecuritySettings() {
       </p>
 
       <h2>{t("Password")}</h2>
-      {unsupported ? (
+      {securityError ? (
+        <p className="hint">{securityError}</p>
+      ) : unsupported ? (
         <p className="hint">{unsupported}</p>
       ) : (
         <PasswordForm
@@ -77,7 +89,7 @@ export function SecuritySettings() {
         />
       )}
 
-      {!unsupported && state?.otpEnabled && (
+      {!unsupported && !securityError && state?.otpEnabled && (
         <>
           <h2>{t("Two-factor authentication")}</h2>
           <TwoFactorOff
@@ -90,7 +102,9 @@ export function SecuritySettings() {
       )}
 
       <h2>{t("App passwords")}</h2>
-      {unsupported ? (
+      {securityError ? (
+        <p className="hint">{securityError}</p>
+      ) : unsupported ? (
         <p className="hint">
           {t("App passwords are managed by your mail administrator.")}
         </p>
@@ -99,7 +113,9 @@ export function SecuritySettings() {
       )}
 
       <h2>{t("Active webmail sessions")}</h2>
-      {rows === null ? (
+      {sessionsError ? (
+        <p className="hint">{sessionsError}</p>
+      ) : rows === null ? (
         <p className="hint">{t("Loading…")}</p>
       ) : (
         <table className="sessions-table">

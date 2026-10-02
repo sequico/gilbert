@@ -242,11 +242,13 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
 /**
  * A cadence in words.
  *
- * The intervals are `AGENT_SCHEDULE_PRESETS`'s, checked below, so the editor
- * and this sentence cannot offer different cadences. One table serves both
- * surfaces: a sentence reads it as it is, a select label title-cases it. A
- * value the select cannot produce — a document written by hand, or by a build
- * that had other presets — is said in minutes rather than dropped.
+ * The intervals are `AGENT_SCHEDULE_PRESETS`'s: the record below is typed to
+ * every preset, so a preset added to the shared table does not compile until it
+ * is given words here, and the editor and this sentence cannot offer different
+ * cadences. One table serves both surfaces: a sentence reads it as it is, a
+ * select label title-cases it. A value the select cannot produce — a document
+ * written by hand, or by a build that had other presets — is said in minutes
+ * rather than dropped.
  */
 const SCHEDULE_WORDS: Record<AgentScheduleMinutes, string> = {
   60: "every hour",

@@ -67,6 +67,7 @@ export function NotificationsSettings() {
           update({ desktopNotifications: v });
         }}
         label={t("Desktop notifications while Gilbert is open")}
+        locked={isEnforced("desktopNotifications")}
         hint={
           perm === "denied"
             ? t("Notifications are blocked in your browser settings.")

@@ -101,7 +101,7 @@ export function RuleDialog({
             onClick={() => onSave(r, applyNow && Boolean(applyMailbox))}
             disabled={nameMissing || hasInvalidRedirect}
           >
-            {saveLabel ?? "Done"}
+            {saveLabel ?? translate("Done")}
           </button>
         </>
       }
