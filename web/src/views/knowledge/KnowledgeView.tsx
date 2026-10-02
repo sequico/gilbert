@@ -394,6 +394,11 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
               {title}
             </h2>
           )}
+          {article.effective && (
+            <span className="hint" style={{ whiteSpace: "nowrap" }}>
+              {t("In force")} · {dateText(article.effective.effectiveAt)}
+            </span>
+          )}
           <KnowledgeRevBadge rev={article.summary.rev} />
         </div>
 
@@ -446,13 +451,8 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         </div>
 
         <div className="row" style={{ gap: 10, marginTop: 10 }}>
-          {/* In force and pending can both be true: an issued revision is what
-              readers see until a future-dated one takes over. */}
-          {article.effective && (
-            <span className="hint">
-              {t("In force")} · {dateText(article.effective.effectiveAt)}
-            </span>
-          )}
+          {/* A pending revision and an unpublished draft are what is left to
+              say once the in-force line sits beside the title above. */}
           {article.summary.pending && (
             <span className="hint">
               {t("Pending until {date}", {
