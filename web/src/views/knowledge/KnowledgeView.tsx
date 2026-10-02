@@ -266,39 +266,154 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         className="row"
         style={{
           gap: 8,
-          flexWrap: "wrap",
           padding: "10px 16px",
           borderBottom: "1px solid var(--border)",
         }}
       >
-        {/*
-         * The tier can be switched here, but the page is the sidebar's to
-         * choose: picking a tier opens its first page, which is the only page
-         * this control could name without a tree of its own.
-         */}
-        <select
-          className="select"
-          style={{ width: "auto", maxWidth: 240, flex: "0 0 auto" }}
-          value={activeTier ? `${activeTier.scope}:${activeTier.accountId}` : ""}
-          aria-label={t("KB")}
-          onChange={(e) => {
-            const tier = tiers.find(
-              (x) => `${x.scope}:${x.accountId}` === e.target.value,
-            );
-            const first = tier?.articles.find((a) => a.kind !== "folder");
-            if (tier && first) void open(tier.accountId, first.folder, first.nodeId);
+        {/* The area the page belongs to on the left, the page's own title on
+            the right: the tier is the sidebar's to choose, so this is a name
+            rather than a control. */}
+        {activeTier && <span className="hint">{tierLabel(activeTier)}</span>}
+        <span className="spacer" />
+        {editing && edit ? (
+          <input
+            className="input"
+            style={{ flex: "0 1 480px", minWidth: 0, textAlign: "right" }}
+            value={edit.title}
+            aria-label={t("Title")}
+            placeholder={t("Title")}
+            onChange={(e) => setEdit({ title: e.target.value })}
+          />
+        ) : (
+          <h2
+            className="truncate"
+            style={{
+              margin: 0,
+              flex: "0 1 auto",
+              minWidth: 0,
+              textAlign: "right",
+            }}
+          >
+            {title}
+          </h2>
+        )}
+      </div>
+
+      {/* Tags on the left, then what the page's lifecycle is — in force and its
+          instant, a pending revision or a plain draft, and the revision number
+          — on the one row under the title. */}
+      <div
+        className="row"
+        style={{
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+          padding: "10px 16px 0",
+        }}
+      >
+        <div
+          className="row"
+          style={{ gap: 6, flexWrap: "wrap", minWidth: 0, flex: "1 1 auto" }}
+        >
+          {editing && edit ? (
+            <input
+              className="input sm grow"
+              value={edit.tags.join(", ")}
+              aria-label={t("Tags")}
+              placeholder={t("Tags, comma separated")}
+              onChange={(e) =>
+                setEdit({
+                  tags: e.target.value
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          ) : (
+            tags.map((tag) => (
+              <span key={tag} className="chip">
+                {tag}
+              </span>
+            ))
+          )}
+        </div>
+        <span
+          className="row"
+          style={{
+            gap: 8,
+            alignItems: "center",
+            flex: "0 0 auto",
+            whiteSpace: "nowrap",
           }}
         >
-          {!activeTier && <option value="">{t("KB")}</option>}
-          {tiers.map((tier) => (
-            <option
-              key={`${tier.scope}:${tier.accountId}`}
-              value={`${tier.scope}:${tier.accountId}`}
+          {article.effective && (
+            <span className="hint">
+              {t("In force")} · {dateText(article.effective.effectiveAt)}
+            </span>
+          )}
+          {article.summary.pending && (
+            <span className="hint">
+              {t("Pending until {date}", {
+                date: dateText(article.summary.pending.effectiveAt),
+              })}
+            </span>
+          )}
+          {!article.effective && !article.summary.pending && (
+            <span className="hint">{t("Draft")}</span>
+          )}
+          <KnowledgeRevBadge rev={article.summary.rev} />
+        </span>
+      </div>
+
+      {isTemplate && (
+        <div
+          className="row"
+          style={{ gap: 6, flexWrap: "wrap", padding: "8px 16px 0" }}
+        >
+          <span className="hint">
+            {usedBy.length ? t("Used by") : t("Not used by any workorder yet.")}
+          </span>
+          {usedBy.map((u) => (
+            <button
+              key={u.uid}
+              type="button"
+              className="chip"
+              onClick={() => {
+                void import("@/store/workorder").then(({ useWorkorders }) => {
+                  useWorkorders.getState().show(u.uid);
+                  useWorkorders.getState().openPanel();
+                });
+              }}
             >
-              {tierLabel(tier)}
-            </option>
+              {u.name}
+            </button>
           ))}
-        </select>
+        </div>
+      )}
+
+      <div className="files-scroll">
+        {/* BlockNote is uncontrolled, so a new article -- or a switch between
+            reading and editing, which seeds different blocks -- remounts it. */}
+        <KnowledgeEditor
+          key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
+          blocks={body}
+          editable={editing}
+          onChange={(blocks, text) => setEdit({ blocks, text })}
+        />
+      </div>
+
+      {/* The page's actions, in the room the title freed at the top. The border
+          is the hairline between them and the page. */}
+      <div
+        className="row"
+        style={{
+          gap: 8,
+          flexWrap: "wrap",
+          padding: "10px 16px",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
         {/* Retired pages are hidden by default so they do not confuse the tree;
             this toggle is how a reader asks to see them. A labelled pill with a
             pressed state, not a loose checkbox. */}
@@ -311,9 +426,9 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         >
           <Eye size={14} /> {t("Retired")}
         </button>
-        <span className="spacer" />
         <button
           className="btn btn-sm"
+          style={{ marginLeft: "auto" }}
           disabled={editing}
           onClick={() => setEditing(true)}
         >
@@ -373,108 +488,6 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             {everApproved ? t("Retire") : t("Delete")}
           </button>
         )}
-      </div>
-
-      <div style={{ padding: "16px 16px 0" }}>
-        {/* The in-force revision number sits beside the title, read-only: it is
-            the lifecycle's fact, never part of the title string the editor
-            writes, so it stays out of the input and out of `edit`. */}
-        <div className="row" style={{ gap: 8, alignItems: "center" }}>
-          {editing && edit ? (
-            <input
-              className="input"
-              style={{ flex: 1, minWidth: 0 }}
-              value={edit.title}
-              aria-label={t("Title")}
-              placeholder={t("Title")}
-              onChange={(e) => setEdit({ title: e.target.value })}
-            />
-          ) : (
-            <h2 className="truncate" style={{ margin: 0, flex: 1, minWidth: 0 }}>
-              {title}
-            </h2>
-          )}
-          {article.effective && (
-            <span className="hint" style={{ whiteSpace: "nowrap" }}>
-              {t("In force")} · {dateText(article.effective.effectiveAt)}
-            </span>
-          )}
-          <KnowledgeRevBadge rev={article.summary.rev} />
-        </div>
-
-        {isTemplate && (
-          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-            <span className="hint">
-              {usedBy.length ? t("Used by") : t("Not used by any workorder yet.")}
-            </span>
-            {usedBy.map((u) => (
-              <button
-                key={u.uid}
-                type="button"
-                className="chip"
-                onClick={() => {
-                  void import("@/store/workorder").then(({ useWorkorders }) => {
-                    useWorkorders.getState().show(u.uid);
-                    useWorkorders.getState().openPanel();
-                  });
-                }}
-              >
-                {u.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-          {editing && edit ? (
-            <input
-              className="input sm grow"
-              value={edit.tags.join(", ")}
-              aria-label={t("Tags")}
-              placeholder={t("Tags, comma separated")}
-              onChange={(e) =>
-                setEdit({
-                  tags: e.target.value
-                    .split(",")
-                    .map((tag) => tag.trim())
-                    .filter(Boolean),
-                })
-              }
-            />
-          ) : (
-            tags.map((tag) => (
-              <span key={tag} className="chip">
-                {tag}
-              </span>
-            ))
-          )}
-        </div>
-
-        <div className="row" style={{ gap: 10, marginTop: 10 }}>
-          {/* A pending revision and an unpublished draft are what is left to
-              say once the in-force line sits beside the title above. */}
-          {article.summary.pending && (
-            <span className="hint">
-              {t("Pending until {date}", {
-                date: dateText(article.summary.pending.effectiveAt),
-              })}
-            </span>
-          )}
-          {!article.effective && !article.summary.pending && (
-            <span className="hint">{t("Draft")}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="files-scroll">
-        {/* BlockNote is uncontrolled, so a new article -- or a switch between
-            reading and editing, which seeds different blocks -- remounts it. */}
-        <KnowledgeEditor
-          key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
-          blocks={body}
-          editable={editing}
-          onChange={(blocks, text) => setEdit({ blocks, text })}
-        />
       </div>
 
       <Dialog
