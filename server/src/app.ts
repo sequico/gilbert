@@ -2946,8 +2946,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       folder?: unknown;
     }>(c);
     try {
-      await deleteArticle(c.get("session"), knowledgeTarget(body), bodyFolder(body));
-      return c.json({ ok: true });
+      const result = await deleteArticle(
+        c.get("session"),
+        knowledgeTarget(body),
+        bodyFolder(body),
+      );
+      return c.json({ ok: true, retired: result.retired });
     } catch (err) {
       return knowledgeFailure(c, err);
     }

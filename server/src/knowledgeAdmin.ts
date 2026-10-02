@@ -52,6 +52,7 @@ import {
   isKnowledgeRevision,
   isKnowledgeState,
   isReservedArticleName,
+  isRetired,
   KNOWLEDGE_FOLDER,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
@@ -445,6 +446,7 @@ function summaryOf(input: {
     parentId,
     inForce: state?.inForce ?? null,
     pending: state?.pending ?? null,
+    retired: state?.retired ?? null,
     created: state?.created ?? draft?.created ?? null,
     updated: state?.updated ?? draft?.updated ?? null,
     saved,
@@ -471,6 +473,7 @@ async function listArticlesUnder(
   folderId: string,
   prefix: string,
   parentId: string | null,
+  includeRetired: boolean,
 ): Promise<KnowledgeSummary[]> {
   const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
   const direct: KnowledgeSummary[] = [];
@@ -485,6 +488,9 @@ async function listArticlesUnder(
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`),
     );
+    // A retired article is withdrawn from the tree but kept for traceability:
+    // it and its sub-articles are listed only where a caller asks for them.
+    if (state && isRetired(state) && !includeRetired) continue;
     direct.push(
       summaryOf({
         state,
@@ -495,7 +501,16 @@ async function listArticlesUnder(
         saved: state !== null,
       }),
     );
-    nested.push(...(await listArticlesUnder(ctx, accountId, childId, folder, childId)));
+    nested.push(
+      ...(await listArticlesUnder(
+        ctx,
+        accountId,
+        childId,
+        folder,
+        childId,
+        includeRetired,
+      )),
+    );
   }
   direct.sort((a, b) => a.title.localeCompare(b.title));
   return [...direct, ...nested];
@@ -506,8 +521,16 @@ export async function listArticles(
   ctx: Ctx,
   accountId: string,
   folderId: string,
+  opts: { includeRetired?: boolean } = {},
 ): Promise<KnowledgeSummary[]> {
-  return listArticlesUnder(ctx, accountId, folderId, "", null);
+  return listArticlesUnder(
+    ctx,
+    accountId,
+    folderId,
+    "",
+    null,
+    opts.includeRetired === true,
+  );
 }
 
 /** Read every readable revision of an article, newest first by approval. */
@@ -729,6 +752,14 @@ export async function saveDraft(
     const by = ctx.username;
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();
     const created = existingDraft?.created ?? existingState?.created ?? { by, at: now };
+    // A retired article is kept on record and read-only: editing it would
+    // silently revive a procedure somebody withdrew.
+    if (existingState?.retired)
+      throw new KnowledgeAdminError(
+        "article_retired",
+        "That article is retired and is kept on record, so it is not edited.",
+        409,
+      );
     // The builders mint the fields this version owns; merging over what was
     // read carries any field a later version added through untouched, and the
     // lifecycle pointers (which this save does not change) with them.
@@ -756,6 +787,7 @@ export async function saveDraft(
         created,
         inForce: existingState?.inForce ?? null,
         pending: existingState?.pending ?? null,
+        retired: existingState?.retired ?? null,
       }),
     };
     try {
@@ -1112,12 +1144,78 @@ export async function renameArticle(
   );
 }
 
-/** Remove an article and everything under it. */
+/** Retire an approved article, or destroy one that was never approved. */
 export async function deleteArticle(
   admin: LiveSession,
   target: KnowledgeTarget,
   folder: string,
-): Promise<void> {
+): Promise<{ retired: boolean }> {
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
-  await destroyAppNode(ctx, accountId, article.nodeId, { removeChildren: true });
+  const articlePath = articlePathOf(article);
+  const state = asState(
+    await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+  );
+  const revisions = await readRevisions(ctx, accountId, articlePath);
+  // Traceability: an article something was issued from is never destroyed. One
+  // no approval ever touched is a draft nobody depended on, and it goes.
+  const everApproved =
+    Boolean(state?.inForce) || Boolean(state?.pending) || revisions.length > 0;
+  if (!everApproved) {
+    await destroyAppNode(ctx, accountId, article.nodeId, { removeChildren: true });
+    return { retired: false };
+  }
+  await retireArticle(ctx, accountId, article);
+  return { retired: true };
+}
+
+/**
+ * Withdraw an article from the tree, keeping its folder and its revisions.
+ *
+ * The marker lives on the lifecycle document, so a listing that does not ask for
+ * retired articles skips it without reading a draft, and every revision stays
+ * exactly where it was. Re-read inside the compare-and-set loop so a save that
+ * landed first is carried into the retired document rather than overwritten.
+ */
+async function retireArticle(
+  ctx: Ctx,
+  accountId: string,
+  article: ArticleFolder,
+): Promise<void> {
+  const articlePath = articlePathOf(article);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = await appFolderState(ctx, accountId);
+    const state = asState(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    );
+    if (state?.retired) return;
+    const now = new Date().toISOString();
+    const by = ctx.username;
+    const base =
+      state ??
+      buildState({
+        id: article.nodeId,
+        title: article.folder,
+        tags: [],
+        by,
+        at: now,
+      });
+    const next: KnowledgeState = {
+      ...base,
+      retired: { by, at: now },
+      updated: { by, at: now },
+    };
+    try {
+      await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, next, {
+        ifInState: token || undefined,
+      });
+      return;
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+  throw new KnowledgeAdminError(
+    "knowledge_retire_failed",
+    "The article could not be retired because another write kept winning the race.",
+    502,
+  );
 }

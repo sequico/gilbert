@@ -38,6 +38,7 @@ import {
   isKnowledgeDraft,
   isKnowledgeState,
   isReservedArticleName,
+  isRetired,
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
   knowledgeId,
@@ -795,6 +796,10 @@ async function runOne(
           );
         const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
         const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
+        if (priorState && isRetired(priorState))
+          throw new Error(
+            "knowledge.write: this article is retired and kept on record, so it is not edited",
+          );
         const id = prior?.id ?? priorState?.id ?? knowledgeId();
         const draft = {
           ...(prior ?? {}),
@@ -818,6 +823,7 @@ async function runOne(
           created: priorState?.created ?? prior?.created,
           inForce: priorState?.inForce ?? null,
           pending: priorState?.pending ?? null,
+          retired: priorState?.retired ?? null,
         });
         try {
           await writeAppFileAt(ctx, accountId, draftPath, draft, {

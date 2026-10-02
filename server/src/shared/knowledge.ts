@@ -92,6 +92,13 @@ export interface KnowledgeState {
   inForce: KnowledgeIssued | null;
   /** A revision approved with a future effective date, until that date. */
   pending: KnowledgeIssued | null;
+  /**
+   * When the article was **retired**: withdrawn from the tree but kept, with
+   * its revisions, for traceability. An article that was never approved is
+   * destroyed instead; a retired one is found only through a search that asks
+   * for it. Null while it stands.
+   */
+  retired: KnowledgeTimes | null;
   created: KnowledgeTimes;
   updated: KnowledgeTimes;
 }
@@ -121,6 +128,8 @@ export interface KnowledgeSummary {
   parentId: string | null;
   inForce: KnowledgeIssued | null;
   pending: KnowledgeIssued | null;
+  /** When the article was retired, or null while it stands. */
+  retired: KnowledgeTimes | null;
   created: KnowledgeTimes | null;
   updated: KnowledgeTimes | null;
   /** True when a `draft.json` is present; a folder alone is not an article. */
@@ -237,6 +246,7 @@ export function isKnowledgeState(x: unknown): x is KnowledgeState {
     isTags(x.tags) &&
     (x.inForce === null || isKnowledgeIssued(x.inForce)) &&
     (x.pending === null || isKnowledgeIssued(x.pending)) &&
+    (x.retired === null || isTimes(x.retired)) &&
     isTimes(x.created) &&
     isTimes(x.updated)
   );
@@ -373,6 +383,7 @@ export function buildState(input: {
   created?: KnowledgeTimes;
   inForce?: KnowledgeIssued | null;
   pending?: KnowledgeIssued | null;
+  retired?: KnowledgeTimes | null;
 }): KnowledgeState {
   const times: KnowledgeTimes = { by: input.by, at: input.at };
   return {
@@ -382,9 +393,15 @@ export function buildState(input: {
     tags: normalizeKnowledgeTags(input.tags),
     inForce: input.inForce ?? null,
     pending: input.pending ?? null,
+    retired: input.retired ?? null,
     created: input.created ?? times,
     updated: times,
   };
+}
+
+/** Whether an article has been retired: withdrawn but kept for traceability. */
+export function isRetired(state: Pick<KnowledgeState, "retired">): boolean {
+  return state.retired !== null;
 }
 
 /* ------------------------------------------------------------------ */

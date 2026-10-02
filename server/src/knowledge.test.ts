@@ -36,7 +36,9 @@ const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
 const { fileChildren, findFolderPath } = await import("./appFolder.js");
 const { signInAsMaster } = await import("./bootstrap.js");
-const { readArticle: readArticleDoor } = await import("./knowledgeAdmin.js");
+const { readArticle: readArticleDoor, listArticles: listArticlesDoor } = await import(
+  "./knowledgeAdmin.js"
+);
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -255,4 +257,57 @@ test("an article nothing can find is a 404, and a delete removes it", async () =
     folder: article.folder,
   });
   assert.equal(removed.status, 200, JSON.stringify(removed.body));
+});
+
+test("an article that was approved is retired, not destroyed", async () => {
+  /*
+   * Traceability (ADR 0024): an article something was issued from is never
+   * removed — it is retired, kept with its revisions, and hidden from the tree
+   * until a listing asks for retired articles.
+   */
+  const article = await create("Retire demo");
+  const saved = await save(article.folder, "issued body");
+  await approve(article.folder, new Date().toISOString());
+
+  const removed = await post("/api/knowledge/delete", {
+    scope: "company",
+    folder: article.folder,
+  });
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(
+    removed.body?.retired,
+    true,
+    "an approved article is retired, not removed",
+  );
+
+  const view = await readBack(article.folder);
+  assert.ok(view, "the retired article is still there");
+  assert.ok(view.summary.retired, "and is marked retired");
+  assert.ok(view.revisions.length > 0, "with its revisions kept");
+
+  const where = await company();
+  const listed = await listArticlesDoor(ctx, where.accountId, where.folderId);
+  assert.ok(
+    !listed.some((a) => a.id === saved.id),
+    "a retired article is not in the standing tree",
+  );
+  const withRetired = await listArticlesDoor(ctx, where.accountId, where.folderId, {
+    includeRetired: true,
+  });
+  assert.ok(
+    withRetired.some((a) => a.id === saved.id),
+    "but a listing that asks for retired articles finds it",
+  );
+});
+
+test("an article that was never approved is destroyed outright", async () => {
+  const article = await create("Discard demo");
+  await save(article.folder, "draft only");
+  const removed = await post("/api/knowledge/delete", {
+    scope: "company",
+    folder: article.folder,
+  });
+  assert.equal(removed.status, 200, JSON.stringify(removed.body));
+  assert.equal(removed.body?.retired, false, "a draft nobody depended on is removed");
+  assert.equal(await readBack(article.folder), null, "and it is gone");
 });

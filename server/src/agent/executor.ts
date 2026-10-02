@@ -45,6 +45,7 @@ import {
   isKnowledgeDraft,
   isKnowledgeState,
   isReservedArticleName,
+  isRetired,
   KNOWLEDGE_FOLDER,
   type KnowledgeState,
   plainTextFromBlocks,
@@ -1435,14 +1436,15 @@ export class Executor {
         return `${lookupHeading(lookup)}: no knowledge article has the id ${lookup.id}`;
       return renderItem(lookup, boundedText(found.text));
     }
+    const standing = articles.filter((article) => !article.retired);
     const needle = (lookup.query ?? "").trim().toLowerCase();
     const matching = needle
-      ? articles.filter(
+      ? standing.filter(
           (article) =>
             article.title.toLowerCase().includes(needle) ||
             article.text.toLowerCase().includes(needle),
         )
-      : articles;
+      : standing;
     const limit = Math.min(
       lookup.limit ?? AGENT_LOOKUP_ARTICLES_MAX,
       AGENT_LOOKUP_ARTICLES_MAX,
@@ -1509,6 +1511,7 @@ export class Executor {
           title: draft?.title ?? state?.title ?? name,
           tags: draft?.tags ?? state?.tags ?? [],
           state: knowledgeStateLabel(state),
+          retired: state !== null && isRetired(state),
           // `plainTextFromBlocks` when the denormalised body is empty: the
           // editor's blocks are the source of truth and `text` is the copy a
           // search or a run reads, so a page whose copy nobody rendered still
@@ -3595,7 +3598,9 @@ interface KnowledgeArticleRef {
   id: string;
   title: string;
   tags: string[];
-  state: "in force" | "pending" | "draft";
+  state: "in force" | "pending" | "draft" | "retired";
+  /** Withdrawn but kept: listed only when a lookup asks for it by id. */
+  retired: boolean;
   text: string;
 }
 
@@ -3608,6 +3613,7 @@ interface KnowledgeArticleRef {
  * issued revision is a draft.
  */
 function knowledgeStateLabel(state: KnowledgeState | null): KnowledgeArticleRef["state"] {
+  if (state?.retired) return "retired";
   if (state?.pending) return "pending";
   if (state?.inForce) return "in force";
   return "draft";
