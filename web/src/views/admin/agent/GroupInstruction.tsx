@@ -24,6 +24,7 @@ export function GroupInstruction({ group }: { group: string }) {
     );
   return (
     <ProsePanel
+      key={group}
       scope={group}
       heading={t("Standing instruction")}
       lead={t(

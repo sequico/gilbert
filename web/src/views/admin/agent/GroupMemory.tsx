@@ -21,6 +21,7 @@ import { fetchGroupNotebook, saveAgentNotebook } from "@/lib/agents";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { toast } from "@/ui/toast";
+import { proseStampText } from "@/views/agent/agentText";
 
 /** One fact being edited: the id it came with, and the text as typed. */
 interface FactDraft {
@@ -73,15 +74,22 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
     setFacts(null);
     setChanged(false);
     setProblem(null);
+    // A read for the previous group may still be in flight and its `finally`
+    // will no longer match, so clear the flag here or the controls stay stuck.
+    setBusy(false);
     if (group && known) void load();
   }, [group, known, load]);
 
   const write = async () => {
     if (!group || !facts) return;
+    const g = group;
     setBusy(true);
     setProblem(null);
     try {
-      const view = await saveAgentNotebook(group, facts);
+      const view = await saveAgentNotebook(g, facts);
+      // A save that lands after the picker moved on belongs to a group nobody
+      // is looking at: do not write it into the newly selected group's panel.
+      if (picked.current !== g) return;
       setFacts(
         view.facts.map((fact: AgentNotebookFact) => ({ id: fact.id, text: fact.text })),
       );
@@ -89,9 +97,10 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
       setChanged(false);
       toast.success(t("Memory saved"));
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      if (picked.current === g)
+        setProblem(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (picked.current === g) setBusy(false);
     }
   };
 
@@ -204,12 +213,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
           </div>
 
           <p className="hint">
-            {stamps.by
-              ? t("Last written by {who} on {when}.", {
-                  who: stamps.by,
-                  when: stamps.at ? new Date(stamps.at).toLocaleString() : "",
-                })
-              : t("Nobody has written here yet.")}
+            {proseStampText({ updatedAt: stamps.at, updatedBy: stamps.by })}
           </p>
           <p className="hint">
             {t("A fact is at most {n} characters, and a notebook holds {m}.", {

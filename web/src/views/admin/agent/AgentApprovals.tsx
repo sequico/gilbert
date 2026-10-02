@@ -17,7 +17,22 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { inboxOf } from "@/lib/mailAccounts";
 import { useAgents } from "@/store/agents";
+import { useMail } from "@/store/mail";
+
+/**
+ * The route that opens one group's mailbox, or `/mail` when its Inbox is not
+ * cached yet. The link names the folder, and `MailView` switches the active
+ * account to its owner, so the click lands on the group's mail rather than on
+ * whichever mailbox happens to be open.
+ */
+function groupMailboxHref(group: string): string {
+  const mail = useMail.getState();
+  const account = mail.mailAccounts.find((a) => a.name === group);
+  const inbox = account ? inboxOf(mail.accountTrees[account.accountId]) : null;
+  return inbox ? `/mail/${inbox}` : "/mail";
+}
 
 export function AgentApprovals() {
   const approvals = useAgents((s) => s.approvals);
@@ -65,7 +80,7 @@ export function AgentApprovals() {
                 <td>{formatListDate(a.createdAt)}</td>
                 <td style={{ textAlign: "right" }}>
                   <Link
-                    href="/mail"
+                    href={groupMailboxHref(a.group)}
                     className="btn btn-sm btn-ghost"
                     title={t("Open {group} and its chat", { group: a.group })}
                   >

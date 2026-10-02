@@ -194,11 +194,18 @@ function ProviderEditor({
    * save is a button whose only outcome is the same document again. A typed key
    * counts on its own, because that field is never seeded -- the stored one is
    * not handed back.
+   *
+   * An emptied or non-integer bound falls back to the seeded value rather than
+   * becoming `0`, which would pass the dirty check and be refused by the server.
    */
+  const boundValue = (raw: string, fallback: number): number => {
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 1 ? n : fallback;
+  };
   const boundPatch = (): AgentBounds => ({
-    maxOutputTokens: Number(typed.maxOutputTokens),
-    maxChainHops: Number(typed.maxChainHops),
-    maxPages: Number(typed.maxPages),
+    maxOutputTokens: boundValue(typed.maxOutputTokens, bounds.maxOutputTokens),
+    maxChainHops: boundValue(typed.maxChainHops, bounds.maxChainHops),
+    maxPages: boundValue(typed.maxPages, bounds.maxPages),
   });
   const dirty =
     apiKey.trim() !== "" ||

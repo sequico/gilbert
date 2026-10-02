@@ -9,12 +9,11 @@
  * either, so "what did it propose, and what did it find" is a surface of its
  * own rather than a column nobody can read.
  */
-import { useEffect } from "react";
 import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
-import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
-import { automationText, outcomeText } from "@/views/agent/agentText";
+import { outcomeText } from "@/views/agent/agentText";
+import { useGroupView } from "./groupView";
 
 /** The outcome of one page of a plan, in the reader's words. */
 function pageOutcomeText(outcome: string): string {
@@ -28,36 +27,16 @@ function pageOutcomeText(outcome: string): string {
     case "failed":
       return t("failed");
     default:
-      return outcome;
+      return t(outcome);
   }
 }
 
 export function GroupKnowledge({ group, known }: { group: string; known: boolean }) {
-  const groupViews = useAgents((s) => s.groupViews);
-  const busyReads = useAgents((s) => s.busy);
-  const problems = useAgents((s) => s.problems);
-  const loadGroup = useAgents((s) => s.loadGroup);
-
-  const op = group ? groupOperation(group) : "";
-  const view = group ? groupViews[agentViewKey(group)] : undefined;
-  const loading = op ? busyReads[op] === true : false;
-  const problem = op ? (problems[op] ?? null) : null;
-
-  useEffect(() => {
-    if (group && known) void loadGroup(group);
-  }, [group, known, loadGroup]);
-
-  const entries = view?.granted
-    ? [...view.audit].sort((a, b) => (a.at < b.at ? 1 : -1))
-    : [];
+  const { view, loading, problem, entries, nameOf } = useGroupView(group, known);
   // Only the runs that carried a plan or a review: the rest belong to Activity.
   const knowledge = entries.filter(
     (e) => (e.plan?.pages.length ?? 0) > 0 || (e.findings?.length ?? 0) > 0,
   );
-  const nameOf = (ruleId: string) =>
-    view?.granted
-      ? automationText(view.rules.find((r) => r.id === ruleId) ?? { trigger: undefined })
-      : "";
 
   return (
     <section>

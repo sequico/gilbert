@@ -10,46 +10,22 @@
  * this table is for reading without downloading anything.
  */
 import { Download } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { fetchAgentAuditExport } from "@/lib/agents";
 import { downloadFile } from "@/lib/download";
 import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
-import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
-import { automationText, lookupText, outcomeText } from "@/views/agent/agentText";
+import { lookupText, outcomeText } from "@/views/agent/agentText";
+import { useGroupView } from "./groupView";
 
 /** How many of the most recent entries this table shows before pointing at the export. */
 const MAX_ROWS = 200;
 
 export function GroupAudit({ group, known }: { group: string; known: boolean }) {
-  const groupViews = useAgents((s) => s.groupViews);
-  const busyReads = useAgents((s) => s.busy);
-  const problems = useAgents((s) => s.problems);
-  const loadGroup = useAgents((s) => s.loadGroup);
+  const { view, loading, problem, entries, nameOf } = useGroupView(group, known);
   const [downloading, setDownloading] = useState(false);
   const [downloadProblem, setDownloadProblem] = useState<string | null>(null);
-
-  const op = group ? groupOperation(group) : "";
-  const view = group ? groupViews[agentViewKey(group)] : undefined;
-  const loading = op ? busyReads[op] === true : false;
-  const problem = op ? (problems[op] ?? null) : null;
-
-  useEffect(() => {
-    if (group && known) void loadGroup(group);
-  }, [group, known, loadGroup]);
-
-  // Newest first: the same order the member panel reads its own window in.
-  const entries = view?.granted
-    ? [...view.audit].sort((a, b) => (a.at < b.at ? 1 : -1))
-    : [];
-  // The name of the automation a line belongs to: derived from the trigger the
-  // rule carries, or from the entry's own detail when the rule is gone (the
-  // trail already names what it was).
-  const nameOf = (ruleId: string) =>
-    view?.granted
-      ? automationText(view.rules.find((r) => r.id === ruleId) ?? { trigger: undefined })
-      : "";
 
   async function download() {
     if (!group) return;
