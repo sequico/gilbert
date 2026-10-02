@@ -308,3 +308,80 @@ test("an article that was never approved is destroyed outright", async () => {
   assert.equal(removed.body?.retired, false, "a draft nobody depended on is removed");
   assert.equal(await readBack(article.folder), null, "and it is gone");
 });
+
+test("the company tree and article are read through the route, not a share", async () => {
+  /*
+   * ADR 0024 reads the company tier through these two routes as the Master,
+   * because a `shareWith` cannot name every account (the live probe's 10-share
+   * cap). A boot that answered the location but not the tree would leave the
+   * surface with nothing to draw, so both are pinned here.
+   */
+  const article = await create("Route read");
+  await save(article.folder, "read through the route");
+
+  const tree = await call("/api/knowledge/company/tree");
+  assert.equal(tree.status, 200, JSON.stringify(tree.body));
+  const articles = tree.body?.articles as Array<{ folder: string }> | undefined;
+  assert.ok(
+    articles?.some((a) => a.folder === article.folder),
+    "the created article is in the tree the route answers",
+  );
+
+  const one = await call(
+    `/api/knowledge/company/article?folder=${encodeURIComponent(article.folder)}`,
+  );
+  assert.equal(one.status, 200, JSON.stringify(one.body));
+  const view = one.body?.article as { draft?: { text?: string } } | null;
+  assert.equal(view?.draft?.text, "read through the route");
+});
+
+test("a topic folder groups an article without becoming a page", async () => {
+  const folderRes = await post("/api/knowledge/folder", {
+    scope: "company",
+    name: "Policies",
+    parentFolder: null,
+  });
+  assert.equal(folderRes.status, 200, JSON.stringify(folderRes.body));
+  const topic = summaryOf(folderRes.body);
+  assert.equal(topic.saved, false, "a topic folder is not an article");
+
+  const leafRes = await post("/api/knowledge/create", {
+    scope: "company",
+    title: "Returns",
+    parentFolder: topic.folder,
+  });
+  assert.equal(leafRes.status, 200, JSON.stringify(leafRes.body));
+  const leaf = summaryOf(leafRes.body);
+  assert.equal(leaf.folder, `${topic.folder}/Returns`, "the leaf nests in the folder");
+
+  const tree = await call("/api/knowledge/company/tree");
+  const articles = tree.body?.articles as
+    | Array<{ folder: string; kind: string }>
+    | undefined;
+  assert.ok(
+    articles?.some((a) => a.folder === topic.folder && a.kind === "folder"),
+    "the topic folder is in the tree as a group",
+  );
+  assert.ok(
+    articles?.some((a) => a.folder === leaf.folder && a.kind === "article"),
+    "the nested article is in the tree",
+  );
+
+  await save(leaf.folder, "nested body");
+  const one = await call(
+    `/api/knowledge/company/article?folder=${encodeURIComponent(leaf.folder)}`,
+  );
+  const view = one.body?.article as { draft?: { text?: string } } | null;
+  assert.equal(view?.draft?.text, "nested body");
+});
+
+test("the revision number is minted from the article's own history", async () => {
+  const article = await create("Numbered");
+  await save(article.folder, "one");
+  await approve(article.folder, new Date().toISOString());
+  await save(article.folder, "two");
+  await approve(article.folder, new Date().toISOString());
+  const view = await readBack(article.folder);
+  const revs = (view?.revisions ?? []).map((r) => r.rev).sort((a, b) => a - b);
+  assert.deepEqual(revs, [1, 2], "each approval numbers one past the last");
+});

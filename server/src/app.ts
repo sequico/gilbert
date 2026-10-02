@@ -2873,8 +2873,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * The surface reads the articles through `/knowledge/company/tree` and
    * `/knowledge/company/article`; this answers the **location** a caller that
    * composes the tree itself names (the door test reaching the folder id, and a
-   * future reader of the same shape). No company KB is a state, not a failure —
-   * an absent one answers `company: null` rather than an error.
+   * future reader of the same shape). The folder is made on demand, so there is
+   * no absent state to report: a failure here is a deployment error
+   * (`agent_not_configured`, `no_knowledge_account`) and is answered as one.
    */
   api.get("/knowledge/company", requireSession, async (c) => {
     try {
@@ -2884,7 +2885,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         company: { accountId: tier.accountId, folderId: tier.folderId },
       });
     } catch (err) {
-      if (err instanceof KnowledgeAdminError) return c.json({ ok: true, company: null });
       return knowledgeFailure(c, err);
     }
   });

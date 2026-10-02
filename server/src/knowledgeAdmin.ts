@@ -94,6 +94,16 @@ export class KnowledgeAdminError extends Error {
   }
 }
 
+/**
+ * The last order a create minted.
+ *
+ * A create lands last among its siblings; the clock alone hands two creates in
+ * the same millisecond the same number, which leaves their order to the node
+ * id. Kept strictly above the clock, so a create always follows the one before
+ * it.
+ */
+let lastCreateOrder = 0;
+
 /* ------------------------------------------------------------------ */
 /* Where a tier's knowledge base lives                                 */
 /* ------------------------------------------------------------------ */
@@ -318,6 +328,38 @@ async function resolveArticleFolder(
       404,
     );
   return found;
+}
+
+/**
+ * The **topic folder** a new node may land in, or null for the tier root.
+ *
+ * Only a directory with no `state.json` groups anything: an article is a leaf,
+ * so nesting under one would put a leaf inside a leaf, invisible to the tree
+ * walk. The check is on the resolved path, so it holds for a create, a folder
+ * and a move alike.
+ */
+async function resolveParentFolder(
+  ctx: Ctx,
+  accountId: string,
+  tierFolderId: string,
+  parentFolder: string | null,
+): Promise<ArticleFolder | null> {
+  if (!parentFolder) return null;
+  const parent = await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder);
+  const state = asState(
+    await readAppJsonAt(
+      ctx,
+      accountId,
+      `${KNOWLEDGE_FOLDER}/${parent.folder}/${STATE_FILE}`,
+    ),
+  );
+  if (state)
+    throw new KnowledgeAdminError(
+      "parent_is_article",
+      `"${parentFolder}" is an article, not a topic folder: an article cannot hold another.`,
+      400,
+    );
+  return parent;
 }
 
 /** Resolve the tier and one article in it for an editor or lifecycle write. */
@@ -690,9 +732,7 @@ export async function createArticle(
       `"${wantedName}" is reserved for an article's revision store; choose another title.`,
       400,
     );
-  const parent = parentFolder
-    ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
-    : null;
+  const parent = await resolveParentFolder(ctx, accountId, tierFolderId, parentFolder);
   const parentPath = parent ? `${KNOWLEDGE_FOLDER}/${parent.folder}` : KNOWLEDGE_FOLDER;
   // A create never lands on an existing directory — an article or a topic
   // folder. One helper answers both, so the two creators cannot disagree.
@@ -715,15 +755,16 @@ export async function createArticle(
     by,
     at: now,
   });
-  // A fresh article lands last among its siblings, by the order the clock
-  // mints; a drag writes its own number over this.
+  // A fresh article lands last among its siblings, by a number the clock mints
+  // and the counter keeps strictly increasing; a drag writes its own over this.
+  lastCreateOrder = Math.max(Date.now(), lastCreateOrder + 1);
   const state = buildState({
     id,
     title: docTitle,
     tags: [],
     by,
     at: now,
-    order: Date.now(),
+    order: lastCreateOrder,
   });
   await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
   await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);
@@ -793,9 +834,7 @@ export async function createFolder(
       `"${wantedName}" is reserved for an article's revision store; choose another name.`,
       400,
     );
-  const parent = parentFolder
-    ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
-    : null;
+  const parent = await resolveParentFolder(ctx, accountId, tierFolderId, parentFolder);
   const parentPath = parent ? `${KNOWLEDGE_FOLDER}/${parent.folder}` : KNOWLEDGE_FOLDER;
   const parentNodeId = parent ? parent.nodeId : tierFolderId;
   const folderName = await freeChildFolderName(ctx, accountId, parentNodeId, wantedName);
@@ -889,6 +928,9 @@ export async function saveDraft(
         inForce: existingState?.inForce ?? null,
         pending: existingState?.pending ?? null,
         retired: existingState?.retired ?? null,
+        // The position is the tier's, not the save's: spelled back so the
+        // builder's default does not send the article to the top.
+        order: existingState?.order ?? 0,
       }),
     };
     try {
@@ -965,9 +1007,17 @@ export async function approveArticle(
   const revision = knowledgeId();
   // The article's own revision number, minted here: the highest number any
   // issued revision carried, plus one, so a pending approval that overtakes an
-  // in-force one still numbers forward rather than reusing it.
+  // in-force one still numbers forward rather than reusing it. The issued
+  // revisions are read as well as the state, so a `state.json` that is missing
+  // or corrupt while the store still holds revisions resumes after them rather
+  // than restarting at one.
+  const priorRevisions = await readRevisions(ctx, accountId, articlePath);
   const revNumber =
-    Math.max(existingState?.inForce?.rev ?? 0, existingState?.pending?.rev ?? 0) + 1;
+    Math.max(
+      existingState?.inForce?.rev ?? 0,
+      existingState?.pending?.rev ?? 0,
+      ...priorRevisions.map((r) => r.rev),
+    ) + 1;
   const issued: KnowledgeIssued = {
     revision,
     rev: revNumber,
@@ -1398,9 +1448,20 @@ export async function moveArticle(
     folderId: tierFolderId,
     article,
   } = await articleTarget(admin, target, folder);
-  const parent = parentFolder
-    ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
-    : null;
+  const parent = await resolveParentFolder(ctx, accountId, tierFolderId, parentFolder);
+  // A folder cannot be moved into itself or a descendant: that would make a
+  // cycle the tree walk cannot survive.
+  if (
+    parent &&
+    (parent.nodeId === article.nodeId ||
+      parent.folder === article.folder ||
+      parent.folder.startsWith(`${article.folder}/`))
+  )
+    throw new KnowledgeAdminError(
+      "knowledge_move_cycle",
+      "An article cannot be moved into itself or one of its own folders.",
+      400,
+    );
   const leaf = article.folder.split("/").pop() ?? article.folder;
   const nextFolder = parent ? `${parent.folder}/${leaf}` : leaf;
   // The FileNode sits under the tier's own KB folder at the root; only the
@@ -1540,14 +1601,22 @@ async function retireArticle(
     );
     if (state?.retired) return;
     const now = new Date().toISOString();
+    // A state that is missing while a draft exists: the article's own id and
+    // title are the draft's, so retirement neither mints an id a reference
+    // already points past nor renames the article to its path.
+    const draft = asDraft(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    );
+    const leaf = article.folder.split("/").pop() ?? article.folder;
     const base =
       state ??
       buildState({
-        id: article.nodeId,
-        title: article.folder,
-        tags: [],
+        id: draft?.id ?? article.nodeId,
+        title: draft?.title ?? leaf,
+        tags: draft?.tags ?? [],
         by,
         at: now,
+        created: draft?.created,
       });
     const next: KnowledgeState = {
       ...base,

@@ -233,6 +233,8 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
     typeof x.approvedBy === "string" &&
     typeof x.approvedAt === "string" &&
     typeof x.rev === "number" &&
+    Number.isInteger(x.rev) &&
+    x.rev >= 1 &&
     typeof x.title === "string" &&
     isTags(x.tags)
   );
@@ -257,6 +259,8 @@ export function isKnowledgeRevision(x: unknown): x is KnowledgeRevision {
     isKnowledgeDraft(x) &&
     typeof (x as KnowledgeRevision).revision === "string" &&
     typeof (x as KnowledgeRevision).rev === "number" &&
+    Number.isInteger((x as KnowledgeRevision).rev) &&
+    (x as KnowledgeRevision).rev >= 1 &&
     typeof (x as KnowledgeRevision).approvedBy === "string" &&
     typeof (x as KnowledgeRevision).approvedAt === "string" &&
     typeof (x as KnowledgeRevision).effectiveAt === "string" &&
@@ -275,6 +279,7 @@ export function isKnowledgeState(x: unknown): x is KnowledgeState {
     (x.inForce === null || isKnowledgeIssued(x.inForce)) &&
     (x.pending === null || isKnowledgeIssued(x.pending)) &&
     typeof x.order === "number" &&
+    Number.isFinite(x.order) &&
     (x.retired === null || isTimes(x.retired)) &&
     isTimes(x.created) &&
     isTimes(x.updated)

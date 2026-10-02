@@ -27,6 +27,7 @@ import {
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
+import { ownIdentityAccount } from "../identityAdmin.js";
 import { isStateMismatch, JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
@@ -777,7 +778,15 @@ async function runOne(
         throw new Error(
           `knowledge.write: scope must be "group" or "company", not "${scope}"`,
         );
-      const account = scope === "company" ? filesAccountId(ctx) || accountId : accountId;
+      // The company KB is the Master's own account, resolved the same way the
+      // route resolves it; a run whose session cannot name it must not write
+      // the company article into its group instead.
+      const companyAccount = filesAccountId(ctx) || ownIdentityAccount(ctx);
+      if (scope === "company" && !companyAccount)
+        throw new Error(
+          "knowledge.write: the installation's own account could not be read, so the company knowledge base cannot be written",
+        );
+      const account = scope === "company" ? companyAccount : accountId;
       // The folder name is normalised even when the model named one: a slash or
       // a control character in a FileNode name would split or corrupt the path.
       const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
