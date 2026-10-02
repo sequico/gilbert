@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import type { CalendarEvent } from "@/jmap/types";
-import { toLocalDateOnly } from "@/lib/dates";
+import { addDays, toLocalDateOnly } from "@/lib/dates";
 import { formatClock, formatDayMonth } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
 import {
@@ -20,6 +20,7 @@ import {
   type EventScope,
   isOccurrence,
   isRecurring,
+  myParticipantKeys,
   useCalendar,
 } from "@/store/calendar";
 import { useSettings } from "@/store/settings";
@@ -31,6 +32,31 @@ import { askDeleteScope, askEditScope, droppedMessage, runScoped } from "./scope
 export type CalendarContext =
   | { kind: "event"; inst: EventInstance; anchor: Anchor }
   | { kind: "slot"; start: Date; end: Date; allDay: boolean; anchor: Anchor };
+
+/**
+ * Whether this event can be edited, by one rule every entry point shares: the
+ * reader holds write-all rights on its calendar, or write-own rights and
+ * organised it, or the event has no calendar to ask.
+ *
+ * It lives here rather than in the popover so the grid's double-click, the
+ * popover's Edit button and this context menu cannot disagree. The popover
+ * re-exports it for its existing callers.
+ */
+export function canEditInstance(inst: EventInstance): boolean {
+  const ev = inst.event;
+  const cal = useCalendar.getState();
+  const myKeys = myParticipantKeys(ev, cal.identities);
+  const participants = Object.entries(ev.participants ?? {});
+  const isOrganizer =
+    ev.isOrigin !== false &&
+    (!participants.length ||
+      participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)));
+  return Boolean(
+    inst.calendar?.myRights.mayWriteAll ||
+      (inst.calendar?.myRights.mayWriteOwn && isOrganizer) ||
+      !inst.calendar,
+  );
+}
 
 interface Props {
   ctx: CalendarContext;
@@ -89,7 +115,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
             onClick={() => {
               const d = new Date(start);
               d.setHours(0, 0, 0, 0);
-              onCreate(d, new Date(d.getTime() + 86400000), true);
+              onCreate(d, addDays(d, 1), true);
             }}
           />
         )}
@@ -110,10 +136,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
 
   const { inst } = ctx;
   const ev = inst.event;
-  const canEdit =
-    inst.calendar?.myRights.mayWriteAll ||
-    inst.calendar?.myRights.mayWriteOwn ||
-    !inst.calendar;
+  const canEdit = canEditInstance(inst);
   const currentCat = categoryOf(ev, categories);
   const participants = Object.keys(ev.participants ?? {}).length;
 

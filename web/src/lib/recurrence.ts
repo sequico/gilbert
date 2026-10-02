@@ -17,6 +17,22 @@ import { formatList, weekdayName, weekdayNames } from "./datetime";
  */
 export { WEEKDAY_KEYS };
 
+/**
+ * The weekday and day-of-month of an instant as one zone's wall clock.
+ *
+ * The calendar dialog and the recurrence editor both need "the day the series
+ * repeats from" and both must read it the same way: a browser-local day and the
+ * event zone's day are different days whenever the two disagree. One helper, so
+ * a preset and the editor's summary cannot name different weekdays.
+ */
+export function zonedWeekdayAndDay(
+  start: Date,
+  tz?: string | null,
+): { weekday: JSCalendarNDay["day"]; day: number } {
+  const zoned = zonedDay(start, tz);
+  return { weekday: WEEKDAY_KEYS[(zoned.dow + 6) % 7]!, day: zoned.day };
+}
+
 export function weekdayOptions(): Array<{
   key: JSCalendarNDay["day"];
   label: string;
@@ -73,8 +89,8 @@ export function ruleFromPreset(
   start: Date,
   tz?: string | null,
 ): JSCalendarRecurrenceRule | undefined {
-  const zoned = zonedDay(start, tz);
-  const dow = WEEKDAY_KEYS[(zoned.dow + 6) % 7]!;
+  const zoned = zonedWeekdayAndDay(start, tz);
+  const dow = zoned.weekday;
   switch (preset) {
     case "daily":
       return { "@type": "RecurrenceRule", frequency: "daily" };

@@ -20,6 +20,7 @@ import { useLocation } from "wouter";
 import type { Calendar, Id } from "@/jmap/types";
 import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
 import {
+  addDays,
   addMonths,
   isSameDay,
   isToday,
@@ -286,7 +287,7 @@ export function CalendarSidebar() {
       </button>
     </div>
   );
-  const instances = cal.instancesIn(grid[0]!, new Date(grid[41]!.getTime() + 86400000));
+  const instances = cal.instancesIn(grid[0]!, addDays(grid[41]!, 1));
   const dow = useMemo(
     () => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")),
     [grid, locale],
@@ -348,7 +349,7 @@ export function CalendarSidebar() {
           {grid.map((d) => (
             <div
               key={d.toISOString()}
-              className={`mc-day ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""} ${isSameDay(d, selected) ? "selected" : ""} ${instances.some((i) => i.start < new Date(d.getTime() + 86400000) && i.end > d) ? "has-events" : ""}`}
+              className={`mc-day ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""} ${isSameDay(d, selected) ? "selected" : ""} ${instances.some((i) => i.start < addDays(d, 1) && i.end > d) ? "has-events" : ""}`}
               onClick={() =>
                 navigate(
                   `/calendar/${view === "month" ? "day" : view}/${toLocalDateOnly(d)}`,
@@ -518,7 +519,7 @@ export function CalendarSidebar() {
           (() => {
             const shared = menuAccountId !== null && menuAccountId !== cal.accountId;
             const groupCal = menuAccountId !== null && groupIds.has(menuAccountId);
-            const hidKey = shared ? `${menuAccountId}:${menuCal.id}` : menuCal.id;
+            const hidKey = shared ? sharedKey(menuAccountId, menuCal.id) : menuCal.id;
             const hidden = Boolean(cal.hidden[hidKey]);
             return (
               <>

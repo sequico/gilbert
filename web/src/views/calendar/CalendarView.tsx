@@ -5,7 +5,6 @@ import {
   addDays,
   addMonths,
   DAY_MS,
-  endOfDay,
   isSameDay,
   isToday,
   monthGrid,
@@ -43,7 +42,7 @@ import {
   type EventInstance,
   isOccurrence,
   isRecurring,
-  participantAddresses,
+  myParticipantKeys,
   useCalendar,
 } from "@/store/calendar";
 import { useSettings } from "@/store/settings";
@@ -657,15 +656,12 @@ function MonthView({
 
 function statusClass(i: EventInstance): string {
   const ev = i.event;
-  const mine = useCalendar.getState().identities;
-  const ids = mine.flatMap((m) => [
-    m.calendarAddress.toLowerCase(),
-    ...Object.values(m.sendTo ?? {}).map((x) => x.toLowerCase()),
-  ]);
-  let my: string | undefined;
-  for (const p of Object.values(ev.participants ?? {})) {
-    if (participantAddresses(p).some((a) => ids.includes(a))) my = p.participationStatus;
-  }
+  const cal = useCalendar.getState();
+  // The one "which participants are me" rule the popover's RSVP actions use, so
+  // the chip's status and the actions cannot disagree about who the reader is.
+  const myKeys = myParticipantKeys(ev, cal.identities);
+  const my = Object.entries(ev.participants ?? {}).find(([k]) => myKeys.includes(k))?.[1]
+    .participationStatus;
   if (ev.status === "cancelled") return "cancelled";
   if (my === "declined") return "declined";
   if (my === "tentative" || my === "needs-action" || ev.status === "tentative")
@@ -1200,7 +1196,10 @@ function layoutOverlaps(
   width: number;
 }> {
   const dayStart = day.getTime();
-  const dayEnd = dayStart + DAY_MS;
+  // The next local day, not `+ 24h`: on a DST-transition day the day is 23 or
+  // 25 hours long, and the geometry must match the filter that selected these
+  // events with the same `addDays`.
+  const dayEnd = addDays(day, 1).getTime();
   const items = evs
     .map((inst) => {
       const s = Math.max(inst.start.getTime(), dayStart);
@@ -1328,5 +1327,3 @@ function AgendaView({
     </div>
   );
 }
-
-export { endOfDay };

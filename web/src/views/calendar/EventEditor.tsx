@@ -24,7 +24,6 @@ import {
   parseDuration,
   toInputDateTime,
   toLocalDateOnly,
-  zonedDay,
   zonedToDate,
 } from "@/lib/dates";
 import {
@@ -40,8 +39,8 @@ import {
   presetFor,
   type RecurrencePreset,
   ruleFromPreset,
-  WEEKDAY_KEYS,
   weekdayOptions,
+  zonedWeekdayAndDay,
 } from "@/lib/recurrence";
 import {
   accountOfCalendarId,
@@ -112,8 +111,7 @@ function recurrenceStart(
   start: Date,
   zone: string | null,
 ): { weekday: JSCalendarNDay["day"]; day: number } {
-  const zoned = zonedDay(start, zone);
-  return { weekday: WEEKDAY_KEYS[(zoned.dow + 6) % 7]!, day: zoned.day };
+  return zonedWeekdayAndDay(start, zone);
 }
 
 function parseCalOptionKey(
@@ -320,7 +318,8 @@ function EventForm({
   const baseEnd = ev
     ? new Date(
         baseStart.getTime() +
-          (parseDuration(ev.duration) || (ev.showWithoutTime ? 86400 : 3600)) * 1000,
+          ((parseDuration(ev.duration) ?? 0) * 1000 ||
+            (ev.showWithoutTime ? DAY_MS : 3_600_000)),
       )
     : init.end;
 
