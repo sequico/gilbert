@@ -2499,6 +2499,7 @@ function genericSet(
   onCreate: ((o: Obj) => void) | undefined,
   type: string,
   onDestroy?: (o: Obj, a: Obj) => SetError | undefined,
+  onUpdate?: (o: Obj, patch: Obj) => void,
 ) {
   return (a: Obj) => {
     /* Compare-and-set first, before anything is touched: a stale `ifInState`
@@ -2526,6 +2527,13 @@ function genericSet(
     for (const [id, patch] of Object.entries((a.update as Obj) ?? {})) {
       const o = list.find((x) => x.id === id);
       if (o) {
+        try {
+          onUpdate?.(o, patch as Obj);
+        } catch (err) {
+          if (!(err instanceof SetError)) throw err;
+          notUpdated[id] = err.toJSON();
+          continue;
+        }
         applyPatch(o, patch as Obj);
         updated[id] = null;
       } else {
@@ -4397,6 +4405,27 @@ const handlers: Record<string, Handler> = {
      * has it in `existingId`, the second does not (see below).
      */
     const committed = new Set(family.map((n) => String(n.id)));
+    /*
+     * A name a sibling already carries, refused the way 0.16 refuses it — on a
+     * create and on an update alike. `committed` is what tells a collision with
+     * a committed sibling (which carries `existingId`) from one with a twin
+     * created earlier in the same request (which does not).
+     */
+    const refuseSiblingClash = (o: Obj) => {
+      const clash = family.find(
+        (n) =>
+          n.id !== o.id &&
+          (n.parentId ?? null) === (o.parentId ?? null) &&
+          n.name === o.name,
+      );
+      if (clash)
+        throw new SetError(
+          "alreadyExists",
+          "The name is already in use.",
+          undefined,
+          committed.has(String(clash.id)) ? String(clash.id) : undefined,
+        );
+    };
     const res = genericSet(
       family,
       "f",
@@ -4445,28 +4474,13 @@ const handlers: Record<string, Handler> = {
          * to write the new bytes into (ADR 0013). Without it a second identical
          * create looked like success here and would be refused on a real server.
          *
-         * Not reproduced: the same check on **update**. A real 0.16 runs
-         * `find_sibling_collision` on the update path too
+         * The same check runs on **update** (`onUpdate` below): a real 0.16
+         * runs `find_sibling_collision` on the update path too
          * (`crates/jmap/src/file/set.rs`, `'update` branch), so renaming a node
-         * onto a name a sibling holds is refused there and accepted here. The
-         * client's rename surfaces that message when the server sends it; the
-         * mock does not send it, and nothing in the suite depends on the
-         * difference. Whoever needs it adds it here rather than trusting this
-         * comment.
+         * onto a name a sibling holds is refused there, and the client's rename
+         * surfaces that message.
          */
-        const clash = family.find(
-          (n) =>
-            n.id !== o.id &&
-            (n.parentId ?? null) === (o.parentId ?? null) &&
-            n.name === o.name,
-        );
-        if (clash)
-          throw new SetError(
-            "alreadyExists",
-            "The name is already in use.",
-            undefined,
-            committed.has(String(clash.id)) ? String(clash.id) : undefined,
-          );
+        refuseSiblingClash(o);
       },
       "FileNode",
       /*
@@ -4513,6 +4527,14 @@ const handlers: Record<string, Handler> = {
         return holds
           ? new SetError("nodeHasChildren", "Cannot delete non-empty folder.")
           : undefined;
+      },
+      /*
+       * A rename or a move must not land on a name a sibling holds. The check
+       * runs on the node the patch would leave behind, before it is applied, so
+       * the name and parent the update asks for are what is compared.
+       */
+      (o, patch) => {
+        refuseSiblingClash({ ...o, ...patch });
       },
     )(a);
     /* A real server pushes a FileNode StateChange after a set, and the chat
