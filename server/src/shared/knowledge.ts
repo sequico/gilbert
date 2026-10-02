@@ -308,6 +308,19 @@ function inlineText(content: unknown): string {
   return parts.join("");
 }
 
+/**
+ * Mint a minimal block document from an agent's plain text.
+ *
+ * The KB's body is the editor's blocks; an agent writes text. One paragraph
+ * holding the text is a valid BlockNote document whose `plainTextFromBlocks`
+ * is the text itself, so an agent-authored page reads back as what was written
+ * rather than as an empty document beside a full `text` field.
+ */
+export function blocksFromText(text: string): unknown[] {
+  const value = String(text ?? "");
+  return value ? [{ type: "paragraph", content: [{ type: "text", text: value }] }] : [];
+}
+
 /** Mint a draft from a writer's input. */
 export function buildDraft(input: {
   id: string;
@@ -398,19 +411,22 @@ export function pendingIsDue(
 
 /**
  * The state after an approval, without any clock: a date already passed puts
- * the revision in force at once, a future date leaves it pending. An approval
- * replaces any earlier pending revision, which the new revision supersedes
- * just as it supersedes the one in force.
+ * the revision in force at once, a future date leaves it pending.
+ *
+ * A future approval names the revision in force at that instant as the one it
+ * supersedes, and that revision may itself be a pending one whose date has just
+ * arrived. The pending revision it replaces is no longer pointed at: an
+ * approval that never took effect is not the record a reader needs, and its own
+ * `supersedes` chain is the only trace it leaves.
  */
 export function stateAfterApproval(
   state: KnowledgeState,
   issued: KnowledgeIssued,
   now: Date = new Date(),
 ): KnowledgeState {
-  const inForceNow =
-    Date.parse(issued.effectiveAt) <= now.getTime() ? issued : state.inForce;
-  const pendingNow = Date.parse(issued.effectiveAt) <= now.getTime() ? null : issued;
-  return { ...state, inForce: inForceNow, pending: pendingNow };
+  if (Date.parse(issued.effectiveAt) <= now.getTime())
+    return { ...state, inForce: issued, pending: null };
+  return { ...state, inForce: revisionInForceAt(state, now), pending: issued };
 }
 
 /** A fresh opaque id, for an article or a revision. */

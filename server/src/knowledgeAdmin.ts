@@ -51,6 +51,7 @@ import {
   isKnowledgeDraft,
   isKnowledgeRevision,
   isKnowledgeState,
+  isReservedArticleName,
   KNOWLEDGE_FOLDER,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
@@ -662,6 +663,12 @@ export async function createArticle(
   const clean = (title ?? "").trim();
   const docTitle = titleFor(clean);
   const wantedName = knowledgeFolderName(clean);
+  if (isReservedArticleName(wantedName))
+    throw new KnowledgeAdminError(
+      "reserved_title",
+      `"${wantedName}" is reserved for an article's revision store; choose another title.`,
+      400,
+    );
   const parent = parentFolder
     ? await resolveArticleFolder(ctx, accountId, tierFolderId, parentFolder)
     : null;
@@ -820,7 +827,10 @@ export async function approveArticle(
   const issued: KnowledgeIssued = {
     revision,
     effectiveAt: when,
-    approvedBy: ctx.username,
+    // The administrator's own address, not the Master's: the door writes as the
+    // Master, whose username is the installation's agent, and an approval the
+    // agent signed would be exactly the separation ADR 0024 exists to keep.
+    approvedBy: admin.username,
     approvedAt: now,
   };
   const supersedes = existingState
@@ -830,7 +840,7 @@ export async function approveArticle(
     : null;
   const rev = buildRevision(draft, {
     revision,
-    approvedBy: ctx.username,
+    approvedBy: admin.username,
     approvedAt: now,
     effectiveAt: when,
     supersedes,
@@ -867,7 +877,7 @@ export async function approveArticle(
       ...stateAfterApproval(base, issued, new Date(now)),
       title: draft.title,
       tags: draft.tags,
-      updated: { by: ctx.username, at: now },
+      updated: { by: admin.username, at: now },
     };
     const token = await appFolderState(ctx, accountId);
     try {
@@ -911,8 +921,10 @@ export async function restoreArticle(
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
   const articlePath = articlePathOf(article);
   const revisionId = (revision ?? "").trim();
-  if (!revisionId)
-    throw new KnowledgeAdminError("bad_request", "A revision is required.");
+  // The id is a path segment; anything that could climb out of the article
+  // folder is refused here rather than relied on to miss.
+  if (!revisionId || !/^[A-Za-z0-9_-]+$/.test(revisionId))
+    throw new KnowledgeAdminError("bad_request", "A revision id is required.");
   const raw = await readAppJsonAt(
     ctx,
     accountId,
@@ -925,59 +937,79 @@ export async function restoreArticle(
       `The article has no revision "${revisionId}".`,
       404,
     );
-  const existingDraft = asDraft(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-  );
-  const existingState = asState(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-  );
-  const now = new Date().toISOString();
+  await ensureFolderPath(ctx, accountId, articlePath);
   const by = ctx.username;
-  const id = existingDraft?.id ?? existingState?.id ?? rev.id;
-  const created = existingDraft?.created ?? existingState?.created ?? rev.created;
-  const draft = buildDraft({
-    id,
-    title: rev.title,
-    tags: rev.tags,
-    blocks: rev.blocks,
-    text: rev.text,
-    by,
-    at: now,
-    created,
-  });
-  const base =
-    existingState ??
-    buildState({
-      id,
-      title: rev.title,
-      tags: rev.tags,
-      by,
-      at: now,
-      created,
-    });
-  const nextState: KnowledgeState = {
-    ...base,
-    id: draft.id,
-    title: draft.title,
-    tags: draft.tags,
-    updated: { by, at: now },
-  };
-  const token = await appFolderState(ctx, accountId);
-  await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
-    ifInState: token || undefined,
-  });
-  const after = await appFolderState(ctx, accountId);
-  await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
-    ifInState: after || undefined,
-  });
-  return summaryOf({
-    state: nextState,
-    draft,
-    folder: article.folder,
-    nodeId: article.nodeId,
-    parentId: article.parentId,
-    saved: true,
-  });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // The token is read before the documents, as `saveDraft` reads it: a token
+    // read after them is still valid while the documents it would be compared
+    // against have already moved, which is the lost update this guards.
+    const token = await appFolderState(ctx, accountId);
+    const existingDraft = asDraft(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    );
+    const existingState = asState(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    );
+    const now = new Date().toISOString();
+    const id = existingDraft?.id ?? existingState?.id ?? rev.id;
+    const created = existingDraft?.created ?? existingState?.created ?? rev.created;
+    // Merged over what was read, so a field a later document version added is
+    // carried through the restore rather than dropped.
+    const draft: KnowledgeDraft = {
+      ...(existingDraft ?? {}),
+      ...buildDraft({
+        id,
+        title: rev.title,
+        tags: rev.tags,
+        blocks: rev.blocks,
+        text: rev.text,
+        by,
+        at: now,
+        created,
+      }),
+    };
+    const base =
+      existingState ??
+      buildState({
+        id,
+        title: rev.title,
+        tags: rev.tags,
+        by,
+        at: now,
+        created,
+      });
+    const nextState: KnowledgeState = {
+      ...base,
+      id: draft.id,
+      title: draft.title,
+      tags: draft.tags,
+      updated: { by, at: now },
+    };
+    try {
+      await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
+        ifInState: token || undefined,
+      });
+      const after = await appFolderState(ctx, accountId);
+      await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
+        ifInState: after || undefined,
+      });
+      return summaryOf({
+        state: nextState,
+        draft,
+        folder: article.folder,
+        nodeId: article.nodeId,
+        parentId: article.parentId,
+        saved: true,
+      });
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+  throw new KnowledgeAdminError(
+    "knowledge_restore_failed",
+    "The revision could not be restored because another write kept winning the race.",
+    502,
+  );
 }
 
 /**
@@ -995,55 +1027,89 @@ export async function renameArticle(
   title: string,
 ): Promise<KnowledgeSummary> {
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
-  const articlePath = articlePathOf(article);
-  // Read the documents before the move, so the paths they were found at are
-  // still valid; the writes go by node id and survive the rename.
-  const draft = asDraft(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-  );
-  const state = asState(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-  );
   const clean = (title ?? "").trim();
   const docTitle = titleFor(clean);
   const wantedName = knowledgeFolderName(clean);
-  const currentLeaf = article.folder.split("/").pop() ?? article.folder;
-  let nextFolder = article.folder;
-  if (wantedName !== currentLeaf) {
-    const parentPath = article.folder.includes("/")
-      ? article.folder.slice(0, article.folder.lastIndexOf("/"))
-      : "";
-    const appParentPath = parentPath
-      ? `${KNOWLEDGE_FOLDER}/${parentPath}`
-      : KNOWLEDGE_FOLDER;
-    const name = await freeArticleFolderName(ctx, accountId, appParentPath, wantedName);
-    await new JmapClient(ctx).call(
-      "FileNode/set",
-      { accountId, update: { [article.nodeId]: { name } } },
-      [FILENODE_CAP],
+  if (isReservedArticleName(wantedName))
+    throw new KnowledgeAdminError(
+      "reserved_title",
+      `"${wantedName}" is reserved for an article's revision store; choose another title.`,
+      400,
     );
-    nextFolder = parentPath ? `${parentPath}/${name}` : name;
+  const currentLeaf = article.folder.split("/").pop() ?? article.folder;
+  const client = new JmapClient(ctx);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // The token is read before the documents, so a save landing between them and
+    // the writes is refused rather than silently overwritten.
+    const token = await appFolderState(ctx, accountId);
+    const articlePath = articlePathOf(article);
+    const draft = asDraft(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    );
+    const state = asState(
+      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    );
+    let nextFolder = article.folder;
+    try {
+      if (wantedName !== currentLeaf) {
+        const parentPath = article.folder.includes("/")
+          ? article.folder.slice(0, article.folder.lastIndexOf("/"))
+          : "";
+        const appParentPath = parentPath
+          ? `${KNOWLEDGE_FOLDER}/${parentPath}`
+          : KNOWLEDGE_FOLDER;
+        const name = await freeArticleFolderName(
+          ctx,
+          accountId,
+          appParentPath,
+          wantedName,
+        );
+        await client.call(
+          "FileNode/set",
+          {
+            accountId,
+            ...(token ? { ifInState: token } : {}),
+            update: { [article.nodeId]: { name } },
+          },
+          [FILENODE_CAP],
+        );
+        nextFolder = parentPath ? `${parentPath}/${name}` : name;
+      }
+      const now = new Date().toISOString();
+      const by = ctx.username;
+      const nextDraft = draft
+        ? { ...draft, title: docTitle, updated: { by, at: now } }
+        : null;
+      const nextState = state
+        ? { ...state, title: docTitle, updated: { by, at: now } }
+        : null;
+      const after = await appFolderState(ctx, accountId);
+      if (nextDraft)
+        await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, nextDraft, {
+          ifInState: after || undefined,
+        });
+      const after2 = await appFolderState(ctx, accountId);
+      if (nextState)
+        await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
+          ifInState: after2 || undefined,
+        });
+      return summaryOf({
+        state: nextState,
+        draft: nextDraft,
+        folder: nextFolder,
+        nodeId: article.nodeId,
+        parentId: article.parentId,
+        saved: nextDraft !== null,
+      });
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
   }
-  const now = new Date().toISOString();
-  const by = ctx.username;
-  const nextDraft = draft
-    ? { ...draft, title: docTitle, updated: { by, at: now } }
-    : null;
-  const nextState = state
-    ? { ...state, title: docTitle, updated: { by, at: now } }
-    : null;
-  if (nextDraft)
-    await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, nextDraft);
-  if (nextState)
-    await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState);
-  return summaryOf({
-    state: nextState,
-    draft: nextDraft,
-    folder: nextFolder,
-    nodeId: article.nodeId,
-    parentId: article.parentId,
-    saved: nextDraft !== null,
-  });
+  throw new KnowledgeAdminError(
+    "knowledge_rename_failed",
+    "The article could not be renamed because another write kept winning the race.",
+    502,
+  );
 }
 
 /** Remove an article and everything under it. */

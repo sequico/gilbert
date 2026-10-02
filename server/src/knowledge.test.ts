@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import type { Ctx } from "./appFolder.js";
 import { postWith } from "./testkit.js";
 
 /**
@@ -33,11 +34,26 @@ const DEMO = "demo@example.com";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
+const { fileChildren, findFolderPath } = await import("./appFolder.js");
+const { signInAsMaster } = await import("./bootstrap.js");
+const { readArticle: readArticleDoor } = await import("./knowledgeAdmin.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
   { ttlSeconds: 3600, rememberTtlSeconds: 86_400 },
 );
+
+/** The Master's own session, for reading a document back after a write. */
+const master = await signInAsMaster({
+  stalwartUrl: `http://127.0.0.1:${PORT}`,
+  masterAddress: "gilbert@example.com",
+  masterPassword: "gilbert-password",
+});
+const ctx: Ctx = {
+  authorization: master.authorization,
+  session: master.session,
+  username: master.address,
+};
 
 const app = createApp();
 let cookie = "";
@@ -80,6 +96,29 @@ const summaryOf = (body: Record<string, unknown> | null): Summary => {
   return summary;
 };
 
+/** The company KB's location, as the client's read share discovers it. */
+async function company(): Promise<{ accountId: string; folderId: string }> {
+  const res = await call("/api/knowledge/company");
+  const where = res.body?.company as { accountId: string; folderId: string } | null;
+  assert.ok(where?.folderId, "the company knowledge base is there at boot");
+  return where;
+}
+
+/** The article as the door reads it — the document a route does not return. */
+async function readBack(folder: string) {
+  const where = await company();
+  return readArticleDoor(ctx, where.accountId, where.folderId, folder);
+}
+
+/** How many `draft.json` documents an article folder holds. */
+async function draftCount(folder: string): Promise<number> {
+  const where = await company();
+  const folderId = await findFolderPath(ctx, where.accountId, `knowledge/${folder}`);
+  assert.ok(folderId, "the article folder is there");
+  const nodes = await fileChildren(ctx, where.accountId, folderId);
+  return nodes.filter((node) => node.name === "draft.json").length;
+}
+
 async function create(title: string): Promise<Summary> {
   const res = await post("/api/knowledge/create", { scope: "company", title });
   assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -119,26 +158,40 @@ after(() => {
 });
 
 test("the company KB exists and the door creates, drafts and approves it", async () => {
-  const company = await call("/api/knowledge/company");
-  assert.equal(company.status, 200);
-  const where = company.body?.company as { accountId: string; folderId: string } | null;
-  assert.ok(where?.folderId, "the company knowledge base is there at boot");
+  const where = await company();
+  assert.ok(where.folderId, "the company knowledge base is there at boot");
 
   const article = await create("Quality manual");
   assert.equal(article.title, "Quality manual");
   assert.equal(article.saved, true);
   assert.equal(article.inForce, null, "nothing is in force before an approval");
 
-  // One shared draft: saving twice changes the one draft, never the article.
+  // One shared draft: two saves change one document, and the second save is
+  // what the article now holds.
   const first = await save(article.folder, "first");
   const second = await save(article.folder, "second");
   assert.equal(first.id, article.id);
   assert.equal(second.id, article.id, "one draft, one identity");
+  assert.equal(await draftCount(article.folder), 1, "one draft.json, never a second");
+  assert.equal((await readBack(article.folder))?.draft?.text, "second");
 
   // A date already passed issues the revision at once.
   const issued = await approve(article.folder, new Date().toISOString());
   assert.ok(issued.inForce?.revision, "approval mints and points at a revision");
   assert.equal(issued.pending, null);
+});
+
+test("approval records the administrator who approved, never the agent", async () => {
+  const article = await create("Attribution");
+  const issued = await approve(article.folder, new Date().toISOString());
+  assert.ok(issued.inForce?.revision);
+  const view = await readBack(article.folder);
+  const revision = view?.revisions.find((r) => r.revision === issued.inForce!.revision);
+  assert.equal(
+    revision?.approvedBy,
+    DEMO,
+    "the approver is the authenticated administrator, not the Master the door writes as",
+  );
 });
 
 test("a future effective date leaves the revision pending beside the one in force", async () => {
@@ -158,11 +211,14 @@ test("a future effective date leaves the revision pending beside the one in forc
   assert.notEqual(pending.pending?.revision, current);
 });
 
-test("a restore opens a new draft and keeps the article's identity", async () => {
+test("a restore copies the revision into a new draft and keeps the identity", async () => {
   const article = await create("Restore demo");
-  const saved = await save(article.folder, "revised");
+  const saved = await save(article.folder, "revision body");
   const issued = await approve(article.folder, new Date().toISOString());
   assert.ok(issued.inForce?.revision);
+  // The draft moves on; the revision does not.
+  await save(article.folder, "later draft");
+  assert.equal((await readBack(article.folder))?.draft?.text, "later draft");
 
   const restored = await post("/api/knowledge/restore", {
     scope: "company",
@@ -170,10 +226,18 @@ test("a restore opens a new draft and keeps the article's identity", async () =>
     revision: issued.inForce!.revision,
   });
   assert.equal(restored.status, 200, JSON.stringify(restored.body));
+  assert.equal(summaryOf(restored.body).id, saved.id);
+  // The invariant the route name promises: the revision's own body becomes the
+  // draft, and the revision that was read is still there unchanged.
+  const view = await readBack(article.folder);
   assert.equal(
-    summaryOf(restored.body).id,
-    saved.id,
-    "history is read into the draft, not replaced",
+    view?.draft?.text,
+    "revision body",
+    "the restore opened the revision as a draft",
+  );
+  assert.ok(
+    view?.revisions.some((r) => r.revision === issued.inForce!.revision),
+    "the revision is still in history, never edited",
   );
 });
 

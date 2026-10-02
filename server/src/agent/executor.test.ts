@@ -43,6 +43,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const {
   filesAccountId,
   FILENODE_CAP,
+  findFolderPath,
   readAppJsonAt,
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
@@ -57,6 +58,8 @@ const {
   isKnowledgeState,
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
+  plainTextFromBlocks,
+  REVISIONS_FOLDER,
   STATE_FILE,
 } = await import("../shared/knowledge.js");
 const { fetchEmailRecord, findMailboxByName, mailboxIdByRole } = await import(
@@ -1354,7 +1357,11 @@ test("a run writes a knowledge base draft through knowledge.write", async () => 
   if (!isKnowledgeDraft(draft)) assert.fail("the action created the article's draft");
   assert.equal(draft.title, "Packing procedure");
   assert.equal(draft.text, "Open the box and count the parts.");
-  assert.deepEqual(draft.blocks, [], "the body is the text an agent wrote");
+  assert.equal(
+    plainTextFromBlocks(draft.blocks),
+    "Open the box and count the parts.",
+    "the editor's blocks carry the text an agent wrote",
+  );
   const state = await readAppJsonAt(
     ctx,
     GROUP,
@@ -1362,6 +1369,91 @@ test("a run writes a knowledge base draft through knowledge.write", async () => 
   );
   if (!isKnowledgeState(state)) assert.fail("the article's lifecycle pointer was minted");
   assert.equal(state.inForce, null, "the action drafts and never approves");
+});
+
+test("knowledge.write updates a draft without erasing its body or undoing an approval", async () => {
+  /*
+   * The data-loss edge ADR 0024 Q15/Q21 has to keep: an update by folder
+   * rewrites the draft but preserves the article's identity and creation stamp,
+   * mints the editor's blocks from the new text so the body is not emptied, and
+   * carries the lifecycle over untouched — an agent never un-approves an issued
+   * article, and never mints a revision.
+   */
+  const id = "k-issued";
+  const title = "Issued procedure";
+  const folder = knowledgeFolderName(title);
+  const at = new Date().toISOString();
+  const path = `${KNOWLEDGE_FOLDER}/${folder}`;
+  const issued = {
+    revision: "r-1",
+    effectiveAt: at,
+    approvedBy: "demo@example.com",
+    approvedAt: at,
+  };
+  await writeAppFileAt(
+    ctx,
+    GROUP,
+    `${path}/${DRAFT_FILE}`,
+    buildDraft({
+      id,
+      title,
+      tags: ["iso"],
+      blocks: [],
+      text: "old body",
+      by: AGENT,
+      at,
+    }),
+  );
+  await writeAppFileAt(
+    ctx,
+    GROUP,
+    `${path}/${STATE_FILE}`,
+    buildState({ id, title, tags: ["iso"], by: AGENT, at, inForce: issued }),
+  );
+
+  const heard = await createMessage("update the issued procedure");
+  const writer = rule({ id: "kb-updater", capabilities: ["knowledge.write"] });
+  await store.writeRules([writer]);
+  answerSequence("Mail automation", [
+    {
+      summary: "Updated the procedure.",
+      confidence: 1,
+      actions: [{ do: "knowledge.write", with: { folder, title, text: "new body" } }],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "kb-update-job",
+    accountId: GROUP,
+    rule: { id: "kb-updater", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, writer, claim);
+
+  const draft = await readAppJsonAt(ctx, GROUP, `${path}/${DRAFT_FILE}`);
+  if (!isKnowledgeDraft(draft)) assert.fail("the draft survived the update");
+  assert.equal(draft.id, id, "the article keeps its identity");
+  assert.equal(draft.created.at, at, "and its creation stamp");
+  assert.equal(draft.text, "new body");
+  assert.equal(
+    plainTextFromBlocks(draft.blocks),
+    "new body",
+    "the update replaced the body rather than emptying it",
+  );
+  const state = await readAppJsonAt(ctx, GROUP, `${path}/${STATE_FILE}`);
+  if (!isKnowledgeState(state)) assert.fail("the lifecycle survived the update");
+  assert.deepEqual(
+    state.inForce,
+    issued,
+    "the approval is not undone by an agent's write",
+  );
+  assert.equal(
+    await findFolderPath(ctx, GROUP, `${path}/${REVISIONS_FOLDER}`),
+    null,
+    "the action never creates a revision",
+  );
 });
 
 test("a run that would rather keep looking than decide is stopped by the bound", async () => {

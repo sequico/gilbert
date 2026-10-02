@@ -1468,8 +1468,12 @@ export class Executor {
     prefix: string,
     depth: number,
     out: KnowledgeArticleRef[],
+    visited = { n: 0 },
   ): Promise<void> {
-    if (depth > AGENT_LOOKUP_DEPTH_MAX || out.length >= AGENT_LOOKUP_FILES_MAX) return;
+    // The bound is on the folders the walk *visits*, not on the articles it
+    // happens to find: a KB of many plain folders would otherwise traverse far
+    // past the cap while `out` stayed small.
+    if (depth > AGENT_LOOKUP_DEPTH_MAX || visited.n >= AGENT_LOOKUP_FILES_MAX) return;
     const children = await fileChildren(
       this.deps.ctx,
       accountId,
@@ -1478,10 +1482,11 @@ export class Executor {
       AGENT_LOOKUP_FILES_MAX,
     );
     for (const node of children) {
-      if (out.length >= AGENT_LOOKUP_FILES_MAX) return;
+      if (visited.n >= AGENT_LOOKUP_FILES_MAX) return;
       if (node.nodeType !== "directory" || !node.id) continue;
       const name = String(node.name ?? "");
       if (!name || isReservedArticleName(name)) continue;
+      visited.n += 1;
       const path = prefix ? `${prefix}/${name}` : name;
       const [draftRaw, stateRaw] = await Promise.all([
         readAppJsonAt(
@@ -1517,6 +1522,7 @@ export class Executor {
         path,
         depth + 1,
         out,
+        visited,
       );
     }
   }
