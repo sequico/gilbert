@@ -247,8 +247,10 @@ below.
   and agents alike write and modify the same draft — multi-edit by everybody —
   rather than opening a competing draft of their own. A second intent is an edit
   of that draft, not a second document.
-- **A change carries who asked for it.** The draft's record names the person who
-  requested or made the change, and that attribution is shown only to them.
+- **A change request carries who asked for it.** The request that produces a
+  change — a person's instruction or a plan — names the requester, and that
+  attribution is shown only to them; a paragraph edited inside the one shared
+  draft is not a record of its own.
 - **Gilbert writes in its own right or on behalf of a person.** An agent's write
   is Gilbert's own; a member's is on behalf of that member, and what was written
   on a person's behalf is theirs to see.
@@ -451,7 +453,7 @@ still standing. The open ones are the reasons this record is still Proposed.
    reader is not a member of the Master's account, so the share is how every
    account reaches the folder without the read passing through the Master. A
    group's KB is read with the reader's own session, membership being the grant
-   (the table below).
+   (the table above).
 2. **Where does the company KB live — hidden or visible?** — **Settled: hidden.**
    `gilbert/knowledge` inside the app folder — the Master's account for the
    company's KB and each account's own for a group's — the app folder's name
@@ -576,6 +578,10 @@ still standing. The open ones are the reasons this record is still Proposed.
 - The company KB is read through a Stalwart share that reaches every account and
   has to expose nothing but `gilbert/knowledge`; a new account is a share kept
   current, the same debt Global contacts carries.
+- The read share hands over the folder, not a rendered view: the unapproved draft
+  and the per-change attribution are readable at the byte level by every account,
+  and only the surface decides what to show. It is a product rule, not a
+  boundary, like the rest of the app folder.
 
 ## References
 

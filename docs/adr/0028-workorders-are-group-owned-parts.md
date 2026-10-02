@@ -38,10 +38,12 @@ invented: the app folder's own name is the whole rule, and the file is stored th
 way every app-folder document is.
 
 - The **Master's** copy, in the Master's account, is the workorder's **root**: its
-  identity, its **global checklist** and its state. It is also the **registry** —
-  the list of every workorder and where it stands — because `FileNode/query`
-  cannot filter by name and no search spans accounts, so a workorder nothing
-  registers cannot be found at all.
+  identity, its **global checklist** and its state. The Master's `workorders/`
+  folder is the **registry** — listing it yields every workorder, and each root
+  carries where it stands — because `FileNode/query` cannot filter by name and no
+  search spans accounts, so a workorder nothing registers cannot be found at all.
+  No separate index document is kept: it would be one hot node every write in the
+  account compares against.
 - A **group's** copy, in that group's own account, is the group's **part**: the
   group's checklist and the group's references.
 - The **same uid** names every copy. The account tells them apart and decides
@@ -57,9 +59,9 @@ way every app-folder document is.
 Everything a workorder gathers is a reference `{accountId, kind, id}` — a folder,
 a file, a KB article — never a copy and never a marker planted in a work folder.
 **Mail is not part of it**: an email is not referenced and no mailbox is a part.
-What a workorder's mail looks like is a **folder named after the workorder**,
-created **by hand** in the group's mail for the reader to see — a convention, not
-a reference the product follows.
+A workorder's mail is a **folder named after it** (its friendly name), created in
+the group's mail **by hand** or **by Gilbert on an explicit instruction** — a
+convention for the reader to see, not a reference the product follows.
 
 **The pointers by id are the truth.** A folder belongs to a workorder because a
 reference names it, never because it sits under another folder: no per-workorder
@@ -94,30 +96,38 @@ at all: an administrator sees every part **without being a member of every
 group**, because the view served is read as the Master, while a member sees the
 global checklist and the parts of their own groups.
 
-What a reader may reach is decided by **group membership alone**: the Master
-looks at the groups the reader belongs to — every group, for an administrator —
-and a part is there for them or it is not. Nothing lists the parts in the root;
-the membership is the list.
+What a reader may reach is decided by **group membership alone**: for a part, the
+Master lists `workorders/` in each group the reader belongs to — every group, for
+an administrator — and matches the uid, because the name cannot be asked of the
+server. Nothing lists the parts in the root; the membership is the list, and a
+member's workorders are the union of their groups' parts. The Master's own
+registry is the administrator's index, not the member's: the member reaches their
+groups, not the Master's account.
 
 The door is therefore the **server route**, not the membership: the route answers
 the workorder surface as the Master and decides, per request, whether the caller
 may see or act on a part by checking the **caller's own** group membership — the
 decision made where the request arrives (ADR 0017). A member never holds the
-document; they hold what the route serves them.
+document; they hold what the route serves them. Nothing on this surface is read
+through a Stalwart share: a workorder is route-only, unlike the KB's company
+tier, which is read through its own share (ADR 0024).
 
 ### The checklist, and its signature
 
 A workorder's checklist is **one per (workorder, group)**: a group's part holds
-that group's steps, the Master's root holds the **global** checklist — the
-workorder's own steps, which are the Master's to keep, checked and edited by the
-Master, the agent or a human administrator. The global is only global: each group
-has its own checklist beside it, and the global is nobody else's detail. State is
-operational and lives only in the document — the root holds the global checklist,
-and the combined picture is **read** from the parts, never stored beside them.
+that group's steps, and the group's members are who check them; the Master's root
+holds the **global** checklist — the workorder's own steps, which are the
+Master's to keep, checked and edited by the Master, the agent or a human
+administrator. The global is only global: each group has its own checklist beside
+it, and the global is nobody else's detail. State is operational and lives only
+in the document — the root holds the global checklist, and the combined picture
+is **read** from the parts, never stored beside them.
 
-A checklist is bound to the **last approved revision** of its template (ADR
-0024). When a template changes, rewriting a running checklist is a later concern
-with its own gate.
+A checklist is bound to the revision **in force** of its template when the part
+is created (ADR 0024) — a revision approved with a future effective date is not
+yet the one bound. The Master chooses that template when it creates the part, as
+a reference to a template the reader may read. When the template changes,
+rewriting a running checklist is a later concern with its own gate.
 
 A checked step carries its **last signature**: who checked it and when.
 
@@ -144,19 +154,20 @@ account**, so it is the group's; the Master seeds it as a member.
 
 ## Decision
 
-A workorder is a **uid** with a root document in the Master's app folder —
-identity, friendly name, global checklist, and the registry of every workorder —
-and a **part** in the app folder of each group competent for it, holding that
-group's checklist — the operational instance of a KB template (ADR 0024) — and
-its references to that group's own folders and files. Everything
-gathered is a reference by id; nothing is copied and no marker is planted in a
-work folder. The Master does every read and write: it composes the surface from
-the root and the parts, an administrator sees every part through it, and a member
-sees the global checklist and their own groups' parts, the server route deciding
-what each caller may reach by their group membership alone. A checked step keeps
-the last signature — who, taken from the authenticated session, and when.
-Creation is the Master's or an administrator's, and no folder tree and no
-per-file share beside the documents is created.
+A workorder is a **uid** whose root document sits in the Master's
+`gilbert/workorders/` — identity, friendly name and global checklist — and that
+folder is the registry of every workorder; a **part** sits in the app folder of
+each group competent for it, holding that group's checklist — the operational
+instance of a KB template (ADR 0024) in force — and its references to that
+group's own folders and files. Everything gathered is a reference by id; nothing
+is copied and no marker is planted in a work folder. The Master does every read
+and write: it composes the surface from the root and the parts, an administrator
+sees every part through it, and a member sees the global checklist and their own
+groups' parts, the server route deciding what each caller may reach by their
+group membership alone. A checked step keeps the last signature — who, taken from
+the authenticated session, and when. Creation is the Master's or an
+administrator's, and no folder tree and no per-file share beside the documents is
+created.
 
 ## Consequences
 
@@ -173,6 +184,9 @@ per-file share beside the documents is created.
   writers racing.
 - A workorder's history is operational, not revisioned: a checked step keeps its
   last signature, so an earlier state is not kept the way a KB revision is.
+- Reaching a part costs one listing of the group's `workorders/` folder per
+  lookup, because the server matches no name; that is the price of the registry
+  being a folder rather than an index.
 
 ## Open questions
 
