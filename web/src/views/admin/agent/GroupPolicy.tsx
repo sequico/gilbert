@@ -22,7 +22,7 @@
  * owns one pick for all of its tabs.
  */
 import type { AgentReviewMode } from "@gilbert/agent/documents";
-import { AGENT_REVIEW_MODES } from "@gilbert/agent/documents";
+import { AGENT_REVIEW_MODES, EMPTY_GROUP_POLICY } from "@gilbert/agent/documents";
 import { useEffect, useState } from "react";
 import { fetchGroupPolicy, saveGroupPolicy } from "@/lib/agents";
 import { t } from "@/lib/i18n";
@@ -33,13 +33,16 @@ import {
 } from "@/views/agent/agentText";
 
 export function GroupPolicy({ group }: { group: string }) {
-  const [review, setReview] = useState<AgentReviewMode>("always");
+  const [review, setReview] = useState<AgentReviewMode>(EMPTY_GROUP_POLICY.review);
   const [allowExternal, setAllowExternal] = useState(false);
   const [present, setPresent] = useState(false);
   const [baseline, setBaseline] = useState<{
     review: AgentReviewMode;
     allowExternal: boolean;
-  }>({ review: "always", allowExternal: false });
+  }>({
+    review: EMPTY_GROUP_POLICY.review,
+    allowExternal: EMPTY_GROUP_POLICY.allowExternal,
+  });
   const [saved, setSaved] = useState<{ at: string | null; by: string | null }>({
     at: null,
     by: null,

@@ -31,6 +31,9 @@ interface GroupLabelsState {
   reset: () => void;
 }
 
+/** A read asked for while one was in flight, re-run when that one lands. */
+const pendingLoads = new Set<Id>();
+
 export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   byAccount: {},
   loading: {},
@@ -40,20 +43,30 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
     // group mailbox and not merely somebody else's: one classifier, the mail
     // store's probe (`isGroupMailboxAccount`).
     if (!isGroupMailboxAccount(accountId, useMail.getState().mailAccounts)) return;
-    if (get().loading[accountId]) return;
+    if (get().loading[accountId]) {
+      // A push while a read is in flight is a newer catalog: re-read when this
+      // one lands rather than dropping the change until the next event.
+      pendingLoads.add(accountId);
+      return;
+    }
     set((s) => ({ loading: { ...s.loading, [accountId]: true } }));
-    const labels = await readGroupLabels(accountId);
-    set((s) => ({
-      loading: { ...s.loading, [accountId]: false },
-      // An unreadable file keeps whatever is cached (or nothing) rather than wiping it.
-      byAccount: labels === null ? s.byAccount : { ...s.byAccount, [accountId]: labels },
-    }));
-    // The sidebar's counts come from the mail store, and a catalog that lands
-    // after the account tree — or is edited by an administrator — changes them.
-    // The recount belongs to the one place that writes `byAccount`, so the two
-    // stores do not need to observe each other.
-    if (labels !== null && accountId === useMail.getState().accountId)
-      void useMail.getState().loadLabelCounts();
+    try {
+      const labels = await readGroupLabels(accountId);
+      set((s) => ({
+        // An unreadable file keeps whatever is cached (or nothing) rather than wiping it.
+        byAccount:
+          labels === null ? s.byAccount : { ...s.byAccount, [accountId]: labels },
+      }));
+      // The sidebar's counts come from the mail store, and a catalog that lands
+      // after the account tree — or is edited by an administrator — changes them.
+      // The recount belongs to the one place that writes `byAccount`, so the two
+      // stores do not need to observe each other.
+      if (labels !== null && accountId === useMail.getState().accountId)
+        void useMail.getState().loadLabelCounts();
+    } finally {
+      set((s) => ({ loading: { ...s.loading, [accountId]: false } }));
+      if (pendingLoads.delete(accountId)) void get().load(accountId);
+    }
   },
   reset: () => set({ byAccount: {}, loading: {} }),
 }));

@@ -43,6 +43,8 @@ import {
   saveAgentRules,
 } from "@/lib/agents";
 import { debouncedReload } from "@/lib/fileNodeReload";
+import { isGroupMailboxAccount } from "@/lib/mailAccounts";
+import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 
 /**
@@ -332,10 +334,13 @@ export const useAgents = create<AgentsState>((set, get) => ({
 
 /** The group a FileNode change belongs to, when it is one this client knows. */
 function groupNameForAccount(accountId: string): string | null {
+  // The mail store's probe is the one classifier (as in `groupLabels`): a
+  // calendar or files share is non-personal too, and reading agent documents
+  // in one would be a directory of the wrong things.
+  if (!isGroupMailboxAccount(accountId, useMail.getState().mailAccounts)) return null;
   const accounts = useSession.getState().session?.accounts ?? {};
   const account = accounts[accountId];
-  if (account?.isPersonal !== false) return null;
-  return typeof account.name === "string" ? agentViewKey(account.name) : null;
+  return typeof account?.name === "string" ? agentViewKey(account.name) : null;
 }
 
 const reloads = debouncedReload();
