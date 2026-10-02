@@ -887,6 +887,11 @@ a folder of Files.
   that was ever approved is **retired**, never
   deleted: it leaves the tree and is found only by showing retired articles,
   while a draft no approval ever touched is deleted outright.
+- **Checklist templates are pages.** A page whose body holds checklist steps is
+  a **checklist template** — what a workorder instantiates, below. The tree
+  marks it with a red checklist icon so it is told from an ordinary page, and the
+  workorder names the page it came from. The steps are the template; the checked
+  state and the signature live only in the instantiated workorder.
 - **Written as the Master.** Every write goes through a server route
   (`/api/knowledge/*`) that acts as the Master, because the company KB is reached
   through a route that acts as the Master and the caller's own session does not

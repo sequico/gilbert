@@ -121,6 +121,12 @@ export interface KnowledgeState {
   retired: KnowledgeTimes | null;
   created: KnowledgeTimes;
   updated: KnowledgeTimes;
+  /**
+   * What the page is a template of — a **checklist** template, whose steps a
+   * workorder instantiates — or null for an ordinary page. Derived from the
+   * draft's blocks and written down so a listing carries it.
+   */
+  template?: KnowledgeTemplate | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,6 +164,8 @@ export interface KnowledgeSummary {
   retired: KnowledgeTimes | null;
   created: KnowledgeTimes | null;
   updated: KnowledgeTimes | null;
+  /** What the page is a template of, or null for an ordinary page. */
+  template: KnowledgeTemplate | null;
   /** True when a `draft.json` is present; a folder alone is not an article. */
   saved: boolean;
 }
@@ -308,6 +316,7 @@ export function isKnowledgeState(x: unknown): x is KnowledgeState {
     typeof x.order === "number" &&
     Number.isFinite(x.order) &&
     (x.retired === null || isTimes(x.retired)) &&
+    (x.template === undefined || x.template === null || x.template === "checklist") &&
     isTimes(x.created) &&
     isTimes(x.updated)
   );
@@ -423,6 +432,21 @@ export function checklistStepsFromBlocks(blocks: unknown): KnowledgeChecklistSte
   return out;
 }
 
+/** What a page is a template **of**, or null when it is an ordinary page. */
+export type KnowledgeTemplate = "checklist";
+
+/**
+ * Whether a page's body makes it a checklist template.
+ *
+ * The steps **are** the template (ADR 0028): a page with `checkListItem` blocks
+ * can instantiate a workorder's checklist, and one without cannot. The flag this
+ * derives is stored on the article's `state.json` (see `saveDraft`) so a listing
+ * carries it without reading every draft.
+ */
+export function blocksHaveChecklist(blocks: unknown): boolean {
+  return checklistStepsFromBlocks(blocks).length > 0;
+}
+
 /** Mint a draft from a writer's input. */
 export function buildDraft(input: {
   id: string;
@@ -478,6 +502,7 @@ export function buildState(input: {
   pending?: KnowledgeIssued | null;
   retired?: KnowledgeTimes | null;
   order?: number;
+  template?: KnowledgeTemplate | null;
 }): KnowledgeState {
   const times: KnowledgeTimes = { by: input.by, at: input.at };
   return {
@@ -491,6 +516,7 @@ export function buildState(input: {
     order: input.order ?? 0,
     created: input.created ?? times,
     updated: times,
+    template: input.template ?? null,
   };
 }
 
@@ -614,6 +640,7 @@ export function knowledgeSummary(input: {
     retired: state?.retired ?? null,
     created: state?.created ?? draft?.created ?? null,
     updated: state?.updated ?? draft?.updated ?? null,
+    template: state?.template ?? null,
     saved,
   };
 }

@@ -2933,6 +2933,10 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: var(--accent-soft); border-color: var(--accent); color: var(--fg);
 }
 .workorder-list-pane .workorder-scroll { padding: 12px; }
+
+/* A checklist template in the KB tree: red, so it is told from an ordinary
+   page at a glance. Scoped to the row so it beats `.nav-item svg`. */
+.nav-item .kb-checklist-icon { color: var(--danger); flex: 0 0 auto; }
 @media (max-width: 860px) {
   .workorder-body { flex-direction: column; }
   .workorder-list-pane {

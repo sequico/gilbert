@@ -326,31 +326,38 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
 async function labelsFor(
   ctx: Ctx,
   template: WorkorderTemplateRef,
-): Promise<Record<string, string>> {
+): Promise<{ labels: Record<string, string>; title: string | null }> {
   const labels: Record<string, string> = {};
+  let title: string | null = null;
   try {
     const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
-    if (!tierFolder) return labels;
+    if (!tierFolder) return { labels, title };
     const article = await findArticleById(
       ctx,
       template.accountId,
       tierFolder,
       template.id,
     );
-    if (!article) return labels;
+    if (!article) return { labels, title };
+    const state = await readAppJsonAt(
+      ctx,
+      template.accountId,
+      `${KNOWLEDGE_FOLDER}/${article.folder}/${STATE_FILE}`,
+    );
+    title = isKnowledgeState(state) ? state.title : null;
     const revision = await readAppJsonAt(
       ctx,
       template.accountId,
       `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(template.revision)}`,
     );
-    if (!isKnowledgeRevision(revision)) return labels;
+    if (!isKnowledgeRevision(revision)) return { labels, title };
     for (const step of checklistStepsFromBlocks(revision.blocks))
       labels[step.id] = step.label;
   } catch {
     // A template that cannot be read leaves the labels empty; the checklist
     // itself is still served, so the workorder reads rather than disappears.
   }
-  return labels;
+  return { labels, title };
 }
 
 /**
@@ -371,13 +378,15 @@ async function summaryOf(
   const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own]).sort(
     (a, b) => a.localeCompare(b),
   );
+  const global = await labelsFor(reach.ctx, root.checklist.template);
   const parts: WorkorderPartView[] = [
     {
       scope: "global",
       accountId: null,
       group: null,
       checklist: root.checklist,
-      labels: await labelsFor(reach.ctx, root.checklist.template),
+      labels: global.labels,
+      templateTitle: global.title,
       canCheck: reach.admin,
     },
   ];
@@ -386,12 +395,14 @@ async function summaryOf(
     if (!groupAccount) continue;
     const part = await findActive(reach.ctx, groupAccount, root.uid);
     if (!part) continue;
+    const info = await labelsFor(reach.ctx, part.doc.checklist.template);
     parts.push({
       scope: "group",
       accountId: groupAccount,
       group: name,
       checklist: part.doc.checklist,
-      labels: await labelsFor(reach.ctx, part.doc.checklist.template),
+      labels: info.labels,
+      templateTitle: info.title,
       canCheck: reach.own.has(name),
     });
   }

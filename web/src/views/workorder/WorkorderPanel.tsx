@@ -110,6 +110,13 @@ function PartSection({
     <section className="card workorder-part">
       <div className="card-head">
         <h3 className="grow truncate">{title}</h3>
+        {/* The KB page this checklist instantiates, named: a workorder's steps
+            are a template's, and the reader can see which. */}
+        {part.templateTitle && (
+          <span className="hint truncate" title={part.templateTitle}>
+            {t("From {template}", { template: part.templateTitle })}
+          </span>
+        )}
       </div>
       {part.checklist.steps.length === 0 ? (
         <p className="hint">{t("No steps")}</p>
@@ -327,6 +334,9 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
         setTemplates(
           useKnowledge.getState().tiers.flatMap((tier) =>
             tier.articles.flatMap((a) => {
+              // Only a checklist template instantiates a workorder: a page
+              // whose body holds checklist steps and no other (ADR 0028).
+              if (a.template !== "checklist") return [];
               /*
                * The revision in force is the one a checklist may bind to, and it
                * is `revisionInForceAt`'s answer rather than `a.inForce`: a

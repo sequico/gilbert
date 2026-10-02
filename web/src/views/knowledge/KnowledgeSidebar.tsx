@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   FileText,
   Folder,
   FolderOpen,
@@ -494,10 +495,13 @@ export function KnowledgeSidebar() {
               <Folder size={16} aria-hidden="true" />
             )}
           </>
+        ) : /* A checklist template — a page whose body holds checklist steps a
+             workorder instantiates — is marked in red so it is told apart from
+             an ordinary page at a glance. A page without a `draft.json` is one
+             that exists but was never saved; the faint glyph says so. */
+        a.template === "checklist" ? (
+          <ClipboardCheck size={16} className="kb-checklist-icon" aria-hidden="true" />
         ) : (
-          /* A page without a `draft.json` is one that exists but was never
-             saved; the faint glyph is what says so, and `saved` is what it
-             reads. */
           <FileText size={16} className={a.saved ? "" : "faint"} aria-hidden="true" />
         )}
         <span className="grow truncate">{a.title}</span>

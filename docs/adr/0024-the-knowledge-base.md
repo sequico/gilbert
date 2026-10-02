@@ -221,6 +221,15 @@ them, the references — and never a copy of the controlled text, which the read
 gets from the KB. The two layers are deliberately different: the KB is versioned,
 reviewed and approved with an effective instant; the workorder is lean and moves.
 
+A template is told from an ordinary page by its **own body**: a page whose draft
+holds `checkListItem` blocks **is** a checklist template, and one without them is
+not. The body is the authority, and the writer writes that verdict down as a
+`template: "checklist"` field on the article's `state.json`, so a listing carries
+it without reading every draft. The tree draws a checklist template with a
+**red checklist icon** rather than the page icon, and the workorder that
+instantiates it names the page it came from. Nothing else marks it: a marker a
+person types can disagree with the body, and the steps are the template.
+
 ### The surface in the app
 
 The KB is a top-level section of its own — the **fifth**, placed after **Mail,

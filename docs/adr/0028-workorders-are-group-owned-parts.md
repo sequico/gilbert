@@ -192,6 +192,10 @@ approved with a future effective instant is not yet the one bound, and a templat
 with **no** revision in force — never approved, or its first still pending —
 cannot be instantiated at all, because there is nothing to bind. The Master
 chooses each template, as a reference to a template the reader may read. A
+**template is a KB page whose body holds checklist steps** (ADR 0024): the
+picker offers only those, the tree marks them with a red checklist icon, and the
+checklist names the page it came from. The page's steps are the controlled text;
+the workorder's are the checked state, with each step's last signature. A
 retired template is not gone: the reference still resolves to it by id, because
 its revisions are kept, and it is simply no longer in the tree; a changed
 template is a new id. Re-binding a running checklist is a later concern with its

@@ -47,6 +47,7 @@ import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import {
+  blocksHaveChecklist,
   buildDraft,
   buildFolderDoc,
   buildRevision,
@@ -906,6 +907,10 @@ export async function saveDraft(
         // The position is the tier's, not the save's: spelled back so the
         // builder's default does not send the article to the top.
         order: existingState?.order ?? 0,
+        // The body decides whether the page is a checklist template: any
+        // `checkListItem` block makes it one, and removing them makes it an
+        // ordinary page again (ADR 0028).
+        template: blocksHaveChecklist(input.blocks) ? "checklist" : null,
       }),
     };
     try {

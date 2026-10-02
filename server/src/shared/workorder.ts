@@ -233,6 +233,8 @@ export interface WorkorderPartView {
   checklist: WorkorderChecklist;
   /** Each step's label, read from the template revision, keyed by step id. */
   labels: Record<string, string>;
+  /** The KB page this checklist instantiates, by title, or null if unreadable. */
+  templateTitle: string | null;
   /** Whether the caller may check this part's steps. */
   canCheck: boolean;
 }
