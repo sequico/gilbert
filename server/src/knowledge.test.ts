@@ -385,3 +385,40 @@ test("the revision number is minted from the article's own history", async () =>
   const revs = (view?.revisions ?? []).map((r) => r.rev).sort((a, b) => a - b);
   assert.deepEqual(revs, [1, 2], "each approval numbers one past the last");
 });
+
+test("a family is renumbered in one request when a drop's midpoint collapses", async () => {
+  /*
+   * A drop orders two neighbours by their midpoint, and the fractional gap runs
+   * out of precision after enough drops into one slot. The client then sends the
+   * whole family's new places at once; the route applies each, and the tree
+   * reads back in the order the drop left it.
+   */
+  const a = await create("Renumber A");
+  const b = await create("Renumber B");
+  const c = await create("Renumber C");
+
+  // A, B, C → C, A, B: the whole family renumbered 1..3 in the drop's order.
+  const res = await post("/api/knowledge/reorder", {
+    scope: "company",
+    orders: [
+      { folder: c.folder, order: 1 },
+      { folder: a.folder, order: 2 },
+      { folder: b.folder, order: 3 },
+    ],
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+
+  const tree = await call("/api/knowledge/company/tree");
+  const articles = (tree.body?.articles as Array<{ folder: string }> | undefined) ?? [];
+  const positions = [c.folder, a.folder, b.folder].map((f) =>
+    articles.findIndex((x) => x.folder === f),
+  );
+  assert.ok(
+    positions.every((p) => p >= 0),
+    "every renumbered article is listed",
+  );
+  assert.ok(
+    positions[0]! < positions[1]! && positions[1]! < positions[2]!,
+    "the tree reads back in the order the renumber set",
+  );
+});

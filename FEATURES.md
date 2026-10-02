@@ -867,7 +867,10 @@ a folder of Files.
   instant. An article is a **leaf**; a **topic folder** — a directory with no
   `state.json`, its own order in a `folder.json` — groups articles by subject, and
   the whole tree is **draggable** to reorder, with an article droppable into a
-  folder. Siblings carry a free order, so a drag costs one write. Tags cut across
+  folder. Siblings carry a free order, so a drag costs one write — and when the
+  midpoint between two neighbours has run out of floating-point room, the family
+  is renumbered `1..N` in one request rather than writing a number that would
+  tie. Tags cut across
   the tree. The article's **id** is stable — its folder is named by the title —
   so the references a later feature makes (a workorder's template, a link in
   another page) will carry the id and survive a rename.

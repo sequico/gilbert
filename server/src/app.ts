@@ -3075,11 +3075,33 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       group?: unknown;
       folder?: unknown;
       order?: unknown;
+      orders?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      /*
+       * A family renumbered at once. A drop orders two neighbours by their
+       * midpoint, and the fractional gap runs out of precision after enough
+       * drops into one slot; the client then sends every sibling's new place in
+       * one request, so the tree is never briefly half-ordered (ADR 0024).
+       */
+      if (Array.isArray(body?.orders)) {
+        for (const item of body.orders as Array<{
+          folder?: unknown;
+          order?: unknown;
+        }>) {
+          await reorderArticle(
+            c.get("session"),
+            target,
+            typeof item?.folder === "string" ? item.folder : "",
+            typeof item?.order === "number" ? item.order : Number.NaN,
+          );
+        }
+        return c.json({ ok: true });
+      }
       const summary = await reorderArticle(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         bodyFolder(body),
         typeof body?.order === "number" ? body.order : Number.NaN,
       );

@@ -38,6 +38,7 @@ import {
   type KnowledgeSummary,
   type KnowledgeTarget,
   knowledgeSummary,
+  orderBetween,
   REVISIONS_FOLDER,
   revisionInForceAt,
   STATE_FILE,
@@ -428,6 +429,61 @@ export async function reorderKnowledgeArticle(
     body: JSON.stringify({ ...target, folder, order }),
   });
   return res.summary;
+}
+
+/**
+ * Set several siblings' places in one request.
+ *
+ * Used when a drop's fractional order has run out of precision: the whole
+ * family is renumbered, and one request keeps the tree from being briefly
+ * half-ordered (ADR 0024).
+ */
+export async function reorderKnowledgeArticles(
+  target: KnowledgeTarget,
+  orders: Array<{ folder: string; order: number }>,
+): Promise<void> {
+  await apiFetch<{ ok: true }>("/api/knowledge/reorder", {
+    method: "POST",
+    body: JSON.stringify({ ...target, orders }),
+  });
+}
+
+/**
+ * What a before/after drop does, from the family it lands in.
+ *
+ * The ordinary drop takes the midpoint of its neighbours and writes one number.
+ * When that number is one a sibling already carries, the fractional gap has run
+ * out of precision: the family is renumbered `1..N` in the order the drop
+ * leaves it, and every changed place travels in one request.
+ */
+export type SiblingDrop =
+  | { kind: "order"; folder: string; order: number }
+  | { kind: "renumber"; orders: Array<{ folder: string; order: number }> };
+
+export function siblingDropPlan(
+  siblings: KnowledgeSummary[],
+  movedNodeId: string,
+  targetNodeId: string,
+  mode: "before" | "after",
+): SiblingDrop | null {
+  const rest = siblings.filter((s) => s.nodeId !== movedNodeId);
+  const moved = siblings.find((s) => s.nodeId === movedNodeId);
+  const at = rest.findIndex((s) => s.nodeId === targetNodeId);
+  if (!moved || at < 0) return null;
+  const prev = mode === "before" ? rest[at - 1] : rest[at];
+  const next = mode === "before" ? rest[at] : rest[at + 1];
+  const order = orderBetween(prev?.order ?? null, next?.order ?? null);
+  if (!siblings.some((s) => s.order === order))
+    return { kind: "order", folder: moved.folder, order };
+  const ordered = [...rest];
+  ordered.splice(mode === "before" ? at : at + 1, 0, moved);
+  return {
+    kind: "renumber",
+    orders: ordered
+      .map((s, index) => ({ folder: s.folder, order: index + 1, was: s.order }))
+      .filter((place) => place.was !== place.order)
+      .map(({ folder, order }) => ({ folder, order })),
+  };
 }
 
 /** Move a node under another folder, or back to the tier root when null. */

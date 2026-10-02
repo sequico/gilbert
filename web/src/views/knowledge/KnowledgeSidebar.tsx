@@ -21,7 +21,7 @@ import {
   compareKnowledgeSiblings,
   type KnowledgeSummary,
   type KnowledgeTierView,
-  orderBetween,
+  siblingDropPlan,
 } from "@/lib/knowledge";
 import { useKnowledge } from "@/store/knowledge";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
@@ -41,7 +41,9 @@ import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
  *
  * Reordering is a free `order` among siblings (shared `KnowledgeSummary`), so a
  * drop lands between two neighbours by taking the midpoint of their orders and
- * only the moved row is written. Moving a row onto a folder nests it there.
+ * only the moved row is written — unless the midpoint has collapsed onto a
+ * sibling, when the family is renumbered in one request. Moving a row onto a
+ * folder nests it there.
  */
 
 /**
@@ -205,6 +207,7 @@ export function KnowledgeSidebar() {
   const article = useKnowledge((s) => s.article);
   const open = useKnowledge((s) => s.open);
   const reorder = useKnowledge((s) => s.reorder);
+  const renumber = useKnowledge((s) => s.renumber);
   const move = useKnowledge((s) => s.move);
   const creating = useKnowledge((s) => s.creating);
   const beginCreate = useKnowledge((s) => s.beginCreate);
@@ -334,16 +337,20 @@ export function KnowledgeSidebar() {
       return;
     }
     if ((drag.summary.parentId ?? "") !== (a.parentId ?? "")) return;
-    const siblings = siblingsOf(tier, a.parentId);
-    const at = siblings.findIndex((s) => s.nodeId === a.nodeId);
-    if (at < 0) return;
-    const prev = target.mode === "before" ? siblings[at - 1] : siblings[at];
-    const next = target.mode === "before" ? siblings[at] : siblings[at + 1];
-    void reorder(
-      tier,
-      drag.summary.folder,
-      orderBetween(prev?.order ?? null, next?.order ?? null),
+    const plan = siblingDropPlan(
+      siblingsOf(tier, a.parentId),
+      drag.summary.nodeId,
+      a.nodeId,
+      target.mode,
     );
+    if (!plan) return;
+    // A collapsed midpoint renumbers the whole family in one request; an
+    // ordinary drop writes the one number between its neighbours.
+    if (plan.kind === "renumber") {
+      if (plan.orders.length) void renumber(tier, plan.orders);
+      return;
+    }
+    void reorder(tier, plan.folder, plan.order);
   }
 
   /*

@@ -43,6 +43,7 @@ import {
   readArticle,
   renameArticle,
   reorderKnowledgeArticle,
+  reorderKnowledgeArticles,
   restoreArticle,
   saveDraft,
 } from "@/lib/knowledge";
@@ -108,6 +109,15 @@ interface KnowledgeStore {
     parentFolder: string | null,
   ): Promise<boolean>;
   reorder(tier: KnowledgeTierState, folder: string, order: number): Promise<boolean>;
+  /**
+   * Renumber a family of siblings in one request, when a drop's fractional
+   * order has run out of precision. The `orders` are the changed places; a row
+   * not named keeps its own.
+   */
+  renumber(
+    tier: KnowledgeTierState,
+    orders: Array<{ folder: string; order: number }>,
+  ): Promise<boolean>;
   move(
     tier: KnowledgeTierState,
     folder: string,
@@ -408,6 +418,25 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         await reorderKnowledgeArticle(target, folder, order);
         // Ordering is the tier's fact, not the open article's, so a re-list
         // refreshes the tree without losing what is open.
+        await get().reload();
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async renumber(tier, orders) {
+      if (!orders.length) return true;
+      // The tier is the caller's, not one open page's: a renumber spans a whole
+      // family, and each order carries its own folder.
+      const target: KnowledgeTarget = {
+        scope: tier.scope,
+        ...(tier.group ? { group: tier.group } : {}),
+      };
+      try {
+        set({ error: null });
+        await reorderKnowledgeArticles(target, orders);
         await get().reload();
         return true;
       } catch (err) {

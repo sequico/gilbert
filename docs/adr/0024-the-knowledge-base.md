@@ -308,7 +308,10 @@ below.
   folder** — a directory with no `state.json`, pure grouping with its own order
   in a `folder.json` — holds articles and other folders, so a tree groups by
   subject without touching a single article. Siblings carry a free `order`, so a
-  drag reorders the tree (and drops an article into a folder) with one write.
+  drag reorders the tree (and drops an article into a folder) with one write;
+  when the midpoint between two neighbours has run out of floating-point room,
+  the family is renumbered `1..N` in one request instead of writing a number
+  that would tie.
   Nothing references an article by that title: a reference
   — a workorder's template, a link in another page — carries the **id**.
 - **The document shape**, one definition in `@gilbert/shared/knowledge` read by
