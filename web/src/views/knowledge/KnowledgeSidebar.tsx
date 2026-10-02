@@ -170,7 +170,7 @@ function InlineCreateRow({
     <div
       className="nav-item"
       style={{
-        paddingLeft: 12 + depth * 16,
+        paddingLeft: 12 + depth * 30,
         display: "flex",
         alignItems: "center",
         gap: 6,
@@ -489,7 +489,7 @@ export function KnowledgeSidebar() {
     const className = `nav-item ${selected ? "active" : ""} ${inside ? "drop-target" : ""}`;
     const style: CSSProperties = {
       width: "100%",
-      paddingLeft: 12 + depth * 16,
+      paddingLeft: 12 + depth * 30,
       textAlign: "left",
       ...dropStyle(a.nodeId),
     };
