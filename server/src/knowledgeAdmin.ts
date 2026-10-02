@@ -52,7 +52,6 @@ import {
   buildFolderDoc,
   buildRevision,
   buildState,
-  checklistStepsFromBlocks,
   compareKnowledgeSiblings,
   compareRevisionsNewestFirst,
   DRAFT_FILE,
@@ -77,6 +76,7 @@ import {
   knowledgeId,
   knowledgeSummary,
   MAX_TITLE,
+  plainTextFromBlocks,
   REVISIONS_FOLDER,
   revisionFileName,
   revisionInForceAt,
@@ -725,9 +725,7 @@ export async function createArticle(
     title: docTitle,
     tags: [],
     blocks,
-    text: checklistStepsFromBlocks(blocks)
-      .map((step) => step.label)
-      .join("\n"),
+    text: plainTextFromBlocks(blocks),
     by,
     at: now,
   });

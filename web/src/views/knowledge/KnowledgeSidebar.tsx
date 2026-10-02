@@ -16,6 +16,7 @@ import {
   Fragment,
   type MouseEvent,
   type ReactNode,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -222,6 +223,28 @@ export function KnowledgeSidebar() {
   const removeNode = useKnowledge((s) => s.removeNode);
   const setSearch = useKnowledge((s) => s.setSearch);
   const runSearch = useKnowledge((s) => s.runSearch);
+  const searchedTerm = useKnowledge((s) => s.searchedTerm);
+
+  /*
+   * The box searches as the reader types: the term lands at once and the run
+   * follows a beat later, so the tree does not blink on every letter and each
+   * page is read once rather than once per keystroke.
+   */
+  const searchTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    },
+    [],
+  );
+  const onSearch = (term: string) => {
+    setSearch(term);
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      searchTimer.current = null;
+      void runSearch();
+    }, 250);
+  };
 
   /*
    * A row's own menu: rename or delete the node the row names, whichever kind
@@ -681,10 +704,12 @@ export function KnowledgeSidebar() {
             value={search}
             placeholder={t("Search pages")}
             aria-label={t("Search pages")}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => onSearch(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
+                if (searchTimer.current) window.clearTimeout(searchTimer.current);
+                searchTimer.current = null;
                 void runSearch();
               }
             }}
@@ -711,7 +736,7 @@ export function KnowledgeSidebar() {
           <div className="nav-section">
             <span>{t("Results")}</span>
           </div>
-          {results.length === 0 && !searching && (
+          {results.length === 0 && !searching && searchedTerm === search.trim() && (
             <p className="hint" style={{ padding: "4px 12px" }}>
               {t("Nothing found.")}
             </p>

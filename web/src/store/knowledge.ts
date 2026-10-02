@@ -91,6 +91,8 @@ interface KnowledgeStore {
   edit: KnowledgeEdit | null;
   search: string;
   searching: boolean;
+  /** The term the last run searched; gates "Nothing found." while typing. */
+  searchedTerm: string;
   /** Show retired articles beside the standing ones, off by default. */
   showRetired: boolean;
   results: KnowledgeSearchResult[];
@@ -177,6 +179,16 @@ function snippetOf(text: string, term: string): string {
 /** A load asked for while one is already running, run again when it ends. */
 let loadPending = false;
 
+/**
+ * The text a search reads, kept for the session and dropped on every re-list.
+ *
+ * The box searches as the reader types, so a page must be read once rather than
+ * once per keystroke; and a page changed since — any write re-lists the tree —
+ * is read again rather than searched at its old body, which is the staleness
+ * the per-search rebuild exists to avoid.
+ */
+const searchText = new Map<string, string>();
+
 export const useKnowledge = create<KnowledgeStore>((set, get) => {
   /** The open article's write target: its scope, its group and its folder. */
   function targetOf(view: KnowledgeArticleView): KnowledgeTarget | null {
@@ -251,6 +263,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     edit: null,
     search: "",
     searching: false,
+    searchedTerm: "",
     showRetired: false,
     creating: null,
     results: [],
@@ -313,6 +326,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         });
       }
 
+      searchText.clear();
       set({ tiers, loaded: true, loading: false });
       if (loadPending) {
         loadPending = false;
@@ -674,10 +688,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     async runSearch() {
       const term = get().search.trim();
       if (!term) {
-        set({ results: [], searching: false });
+        set({ results: [], searching: false, searchedTerm: "" });
         return;
       }
-      set({ searching: true });
+      set({ searching: true, searchedTerm: term });
       try {
         set({ error: null });
         const docs: Array<{ id: string; title: string; text: string; tags: string }> = [];
@@ -690,17 +704,24 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             // A topic folder groups articles; it is not a page to find.
             if (summary.kind === "folder") continue;
             const key = articleKey(tier.accountId, summary.nodeId);
+            let text = searchText.get(key);
+            if (text === undefined) {
+              text = await textOf(tier, summary);
+              searchText.set(key, text);
+            }
             docs.push({
               id: key,
               title: summary.title,
-              text: await textOf(tier, summary),
+              text,
               tags: summary.tags.join(" "),
             });
             index.set(key, { tier, summary });
           }
         }
         // Rebuilt per search, on purpose: the container is disposable and a
-        // cached index is a second store that can disagree with Stalwart.
+        // cached index is a second store that can disagree with Stalwart. What
+        // it indexes is the session's own read of each page's text, dropped
+        // whenever the tree is re-listed, so a changed page is read again.
         const db = createIndex({
           schema: { title: "string", text: "string", tags: "string" },
         });
@@ -737,6 +758,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         edit: null,
         search: "",
         searching: false,
+        searchedTerm: "",
         showRetired: false,
         creating: null,
         results: [],
