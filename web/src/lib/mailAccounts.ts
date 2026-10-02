@@ -121,7 +121,7 @@ export interface PushTarget {
 }
 
 /** The Inbox of one account's tree, or null when it names none. */
-function inboxOf(
+export function inboxOf(
   tree: Record<string, { id: string; role?: string | null }> | undefined,
 ): string | null {
   return Object.values(tree ?? {}).find((m) => m.role === "inbox")?.id ?? null;

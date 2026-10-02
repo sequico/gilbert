@@ -39,8 +39,10 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import {
   type DeleteContext,
   type DeleteFailure,
+  deleteEffect,
   destroyRefusal,
   FINAL_FOLDER_ROLES,
+  finalFoldersOf,
   folderDestroyTakesMail,
   mayDestroy,
 } from "@/lib/mailDelete";
@@ -62,6 +64,7 @@ import {
 import { countRows, listKey, mergeEmail, pick } from "./list";
 import {
   adoptMailboxes,
+  movedTo,
   moveToDestinations,
   moveUndo,
   threadMessagesFor,
@@ -212,14 +215,21 @@ export const useMail = create<MailState>((set, get) => ({
         const session = useSession.getState().session;
         const candidates = mailAccountCandidates(session);
         const current = get().mailAccounts;
+        /*
+         * Skip only when every account already known is still among the
+         * candidates. Comparing the two lengths instead would never skip: a
+         * candidate list holds every non-personal account, while `mailAccounts`
+         * holds only the ones the probe found to be mailboxes, so a single
+         * calendar/files/address-book share makes the lists different for ever
+         * and the probe runs on every beat.
+         */
+        const byCandidate = new Map(candidates.map((c) => [c.accountId, c]));
         if (
-          candidates.length === current.length &&
-          candidates.every(
-            (c, i) =>
-              current[i]?.accountId === c.accountId &&
-              current[i]?.kind === c.kind &&
-              current[i]?.name === c.name,
-          )
+          current.length > 0 &&
+          current.every((a) => {
+            const c = byCandidate.get(a.accountId);
+            return c?.kind === a.kind && c.name === a.name;
+          })
         )
           return;
         const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
@@ -740,24 +750,14 @@ export const useMail = create<MailState>((set, get) => ({
         // is looking at in the sidebar rather than the server's own word for it.
         const name =
           mailboxDisplayName(mailboxes[toMailboxId]) || opts.label || t("folder");
-        toast.show(
-          plural(
-            ids.length,
-            {
-              one: "Conversation moved to {folder}",
-              other: "{n} conversations moved to {folder}",
-            },
-            { folder: name },
-          ),
-          {
-            action: !undoable
-              ? undefined
-              : {
-                  label: "Undo",
-                  onClick: moveUndo(ids, prev, accountId, set, get),
-                },
-          },
-        );
+        toast.show(movedTo(ids.length, name), {
+          action: !undoable
+            ? undefined
+            : {
+                label: "Undo",
+                onClick: moveUndo(ids, prev, accountId, set, get),
+              },
+        });
       }
       void get().loadMailboxes();
     } catch (err) {
@@ -796,13 +796,13 @@ export const useMail = create<MailState>((set, get) => ({
   },
 
   async trash(ids) {
-    const { roleId, emails } = get();
-    const trashId = roleId("trash");
-    const inTrash = ids.filter(
-      (id) =>
-        (trashId && emails[id]?.mailboxIds[trashId]) ||
-        (roleId("junk") && emails[id]?.mailboxIds[roleId("junk")!]),
-    );
+    const { mailboxes, emails } = get();
+    // Which messages a delete ends is the one rule in `lib/mailDelete`, not a
+    // re-derivation from the roles here: a third final folder is one edit
+    // there, and this decides from the same list the list menu and the swipe do.
+    const folders = finalFoldersOf(mailboxes);
+    const trashId = folders.trash;
+    const inTrash = ids.filter((id) => deleteEffect(emails[id], folders) === "final");
     const toMove = ids.filter((id) => !inTrash.includes(id));
     /*
      * A delete does two different things, and in a group only one of them is
@@ -1056,7 +1056,10 @@ export const useMail = create<MailState>((set, get) => ({
           ? {
               ...get().list!,
               ids: get().list!.mailboxId === mailboxId ? [] : get().list!.ids,
-              total: 0,
+              // The total follows the ids: a reader who switched folders while
+              // the empty was in flight keeps the count that belongs to the
+              // folder now on screen.
+              total: get().list!.mailboxId === mailboxId ? 0 : get().list!.total,
             }
           : null,
       });

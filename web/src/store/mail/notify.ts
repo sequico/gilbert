@@ -1,6 +1,7 @@
 import { client } from "@/jmap/client";
 import type { Email, GetResponse, Id } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
+import { inboxOf } from "@/lib/mailAccounts";
 import { playNewMailSound, showNotification } from "@/lib/notify";
 import { settings } from "../settings";
 import type { MailState } from "./types";
@@ -72,9 +73,9 @@ export async function notifyGroupMail(
 ): Promise<void> {
   const s = settings();
   if (!s.desktopNotifications && !s.notificationSound) return;
-  const inbox = Object.values(get().accountTrees[accountId] ?? {}).find(
-    (m) => m.role === "inbox",
-  )?.id;
+  // The Inbox, through the one helper that answers which folder it is, so a
+  // notification and the push target can never name two different folders.
+  const inbox = inboxOf(get().accountTrees[accountId]);
   if (!inbox) return;
   const q = await client.call<{ ids?: Id[] }>("Email/query", {
     accountId,
