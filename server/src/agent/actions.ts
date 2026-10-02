@@ -773,6 +773,10 @@ async function runOne(
       const body = textOf(action.with?.text);
       const basedOn = textOf(action.with?.basedOn).trim();
       const scope = textOf(action.with?.scope).trim();
+      if (scope && scope !== "group" && scope !== "company")
+        throw new Error(
+          `knowledge.write: scope must be "group" or "company", not "${scope}"`,
+        );
       const account = scope === "company" ? filesAccountId(ctx) || accountId : accountId;
       // The folder name is normalised even when the model named one: a slash or
       // a control character in a FileNode name would split or corrupt the path.
@@ -813,6 +817,7 @@ async function runOne(
               outcome: "moved",
               basedOn: prior.updated.at,
               intent: body,
+              account,
               detail: "the page changed since the plan was read",
             },
           };
@@ -863,6 +868,7 @@ async function runOne(
               outcome: prior ? "written" : "created",
               basedOn: prior?.updated.at ?? "",
               intent: body,
+              account,
             },
           };
         } catch (err) {

@@ -122,6 +122,8 @@ test("the lifecycle: a past date is in force, a future date is pending", () => {
       effectiveAt: "2026-10-05T00:00:00.000Z",
       approvedBy: "gilbert@example.com",
       approvedAt: "2026-10-04T00:00:00.000Z",
+      title: "Policy",
+      tags: [],
     },
     now,
   );
@@ -136,6 +138,8 @@ test("the lifecycle: a past date is in force, a future date is pending", () => {
       effectiveAt: "2026-11-01T00:00:00.000Z",
       approvedBy: "gilbert@example.com",
       approvedAt: "2026-10-11T00:00:00.000Z",
+      title: "Policy",
+      tags: [],
     },
     now,
   );
@@ -170,6 +174,8 @@ test("approving again replaces the pending revision, never the one in force", ()
       effectiveAt: "2026-11-01T00:00:00.000Z",
       approvedBy: "g",
       approvedAt: "2026-10-09T00:00:00.000Z",
+      title: "Policy",
+      tags: [],
     },
     now,
   );
@@ -180,6 +186,8 @@ test("approving again replaces the pending revision, never the one in force", ()
       effectiveAt: "2026-12-01T00:00:00.000Z",
       approvedBy: "g",
       approvedAt: "2026-10-10T00:00:00.000Z",
+      title: "Policy",
+      tags: [],
     },
     now,
   );

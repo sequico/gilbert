@@ -10,7 +10,7 @@ import { postWith } from "./testkit.js";
  * every account; every write goes through the route, which acts as the Master
  * and gates approval on the caller being an administrator. What these pin is
  * the lifecycle the ADR is built on: one shared draft per article, a revision
- * minted only at approval, an effective date that puts the revision in force
+ * minted only at approval, an effective instant that puts the revision in force
  * now or leaves it pending, and history that is opened as a new draft rather
  * than edited. Each fails if the mechanism is removed.
  *
@@ -196,7 +196,7 @@ test("approval records the administrator who approved, never the agent", async (
   );
 });
 
-test("a future effective date leaves the revision pending beside the one in force", async () => {
+test("a future effective instant leaves the revision pending beside the one in force", async () => {
   const article = await create("Pending demo");
   const now = await approve(article.folder, new Date().toISOString());
   const current = now.inForce?.revision;

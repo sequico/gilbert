@@ -276,6 +276,7 @@ function knowledgePlanPage(
       : "written";
   const basedOn = typeof r.basedOn === "string" && r.basedOn ? r.basedOn : undefined;
   const intent = typeof r.intent === "string" && r.intent ? r.intent : undefined;
+  const account = typeof r.account === "string" && r.account ? r.account : undefined;
   const detail = typeof r.detail === "string" ? r.detail : undefined;
   return {
     folder,
@@ -283,6 +284,7 @@ function knowledgePlanPage(
     outcome,
     ...(basedOn ? { basedOn } : {}),
     ...(intent ? { intent } : {}),
+    ...(account ? { account } : {}),
     ...(detail ? { detail } : {}),
   };
 }
@@ -301,9 +303,20 @@ function withKnowledgeOutcome(
   result: ActionResult,
   at: string,
 ): AgentJob {
-  const page = knowledgePlanPage(action, result);
+  const raw = knowledgePlanPage(action, result);
   const findings = knowledgeFindings(action, result);
-  if (!page && !findings) return latest;
+  if (!raw && !findings) return latest;
+  // A plan is one owner's (ADR 0024 Q24): a page in another account cannot be
+  // part of it, so it is recorded as failed rather than silently folded in.
+  const owner = latest.plan?.pages.find((p) => p.account)?.account;
+  const page =
+    raw?.account && owner && raw.account !== owner
+      ? {
+          ...raw,
+          outcome: "failed" as const,
+          detail: "a plan is one owner's; this page is in another account",
+        }
+      : raw;
   return {
     ...latest,
     ...(page ? { plan: { at, pages: [...(latest.plan?.pages ?? []), page] } } : {}),

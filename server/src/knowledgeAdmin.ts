@@ -217,7 +217,9 @@ export async function companyKnowledgeAccount(
       "The Master's own account could not be read, so the company knowledge base cannot be reached.",
       409,
     );
-  const folderId = await knowledgeFolder(ctx, accountId, true);
+  // No share here: `ensureKnowledge` applied it at boot, and a read-only
+  // discovery must not write. The root share reaches every nested article.
+  const folderId = await knowledgeFolder(ctx, accountId, false);
   return { ctx, accountId, folderId };
 }
 
@@ -437,10 +439,19 @@ function summaryOf(input: {
   saved: boolean;
 }): KnowledgeSummary {
   const { state, draft, folder, nodeId, parentId, saved } = input;
+  // The listing mirrors the revision a reader sees, selected by the clock: a
+  // pending revision whose instant has arrived is what the tree shows, with no
+  // write needed at that instant.
+  const effective = state ? revisionInForceAt(state) : null;
   return {
     id: state?.id ?? draft?.id ?? nodeId,
-    title: state?.title ?? draft?.title ?? folder.split("/").pop() ?? folder,
-    tags: state?.tags ?? draft?.tags ?? [],
+    title:
+      effective?.title ??
+      state?.title ??
+      draft?.title ??
+      folder.split("/").pop() ??
+      folder,
+    tags: effective?.tags ?? state?.tags ?? draft?.tags ?? [],
     folder,
     nodeId,
     parentId,
@@ -533,6 +544,47 @@ export async function listArticles(
   );
 }
 
+/**
+ * The article with a given id anywhere in a tier, or null.
+ *
+ * A durable reference — a workorder's template — carries the article's **id**,
+ * never its folder (the folder is the title, which a rename changes). The walk
+ * reads each article's small `state.json`, which is where the id lives.
+ */
+export async function findArticleById(
+  ctx: Ctx,
+  accountId: string,
+  tierFolderId: string,
+  id: string,
+): Promise<ArticleFolder | null> {
+  const walk = async (
+    folderId: string,
+    prefix: string,
+    parentId: string | null,
+  ): Promise<ArticleFolder | null> => {
+    const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+    for (const child of children) {
+      if (child.nodeType !== "directory") continue;
+      const name = typeof child.name === "string" ? child.name : "";
+      const childId = typeof child.id === "string" ? child.id : "";
+      if (!name || !childId || name === REVISIONS_FOLDER) continue;
+      const folder = prefix ? `${prefix}/${name}` : name;
+      const state = asState(
+        await readAppJsonAt(
+          ctx,
+          accountId,
+          `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
+        ),
+      );
+      if (state?.id === id) return { nodeId: childId, parentId, folder };
+      const nested = await walk(childId, folder, childId);
+      if (nested) return nested;
+    }
+    return null;
+  };
+  return walk(tierFolderId, "", null);
+}
+
 /** Read every readable revision of an article, newest first by approval. */
 async function readRevisions(
   ctx: Ctx,
@@ -579,6 +631,7 @@ function revisionSummary(revision: KnowledgeRevision): KnowledgeRevisionSummary 
     approvedBy: revision.approvedBy,
     approvedAt: revision.approvedAt,
     title: revision.title,
+    tags: revision.tags,
     supersedes: revision.supersedes,
   };
 }
@@ -700,7 +753,7 @@ export async function createArticle(
   const nodeId = await ensureFolderPath(ctx, accountId, `${parentPath}/${name}`);
   const id = knowledgeId();
   const now = new Date().toISOString();
-  const by = ctx.username;
+  const by = admin.username;
   const draft = buildDraft({
     id,
     title: docTitle,
@@ -749,7 +802,7 @@ export async function saveDraft(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
     const now = new Date().toISOString();
-    const by = ctx.username;
+    const by = admin.username;
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();
     const created = existingDraft?.created ?? existingState?.created ?? { by, at: now };
     // A retired article is kept on record and read-only: editing it would
@@ -842,8 +895,8 @@ export async function approveArticle(
   const when = (effectiveAt ?? "").trim();
   if (!when || Number.isNaN(Date.parse(when)))
     throw new KnowledgeAdminError(
-      "invalid_effective_date",
-      "An approval needs the date the revision takes effect.",
+      "invalid_effective_instant",
+      "An approval needs the instant the revision takes effect.",
     );
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
   const articlePath = articlePathOf(article);
@@ -859,6 +912,12 @@ export async function approveArticle(
   const existingState = asState(
     await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
   );
+  if (existingState?.retired)
+    throw new KnowledgeAdminError(
+      "article_retired",
+      "That article is retired and kept on record, so it is not approved.",
+      409,
+    );
   const now = new Date().toISOString();
   const revision = knowledgeId();
   const issued: KnowledgeIssued = {
@@ -869,6 +928,8 @@ export async function approveArticle(
     // agent signed would be exactly the separation ADR 0024 exists to keep.
     approvedBy: admin.username,
     approvedAt: now,
+    title: draft.title,
+    tags: draft.tags,
   };
   const supersedes = existingState
     ? (revisionInForceAt(existingState)?.revision ??
@@ -979,7 +1040,7 @@ export async function restoreArticle(
       404,
     );
   await ensureFolderPath(ctx, accountId, articlePath);
-  const by = ctx.username;
+  const by = admin.username;
   for (let attempt = 0; attempt < 2; attempt++) {
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while the documents it would be compared
@@ -991,6 +1052,12 @@ export async function restoreArticle(
     const existingState = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
+    if (existingState?.retired)
+      throw new KnowledgeAdminError(
+        "article_retired",
+        "That article is retired and kept on record, so it is not restored into a draft.",
+        409,
+      );
     const now = new Date().toISOString();
     const id = existingDraft?.id ?? existingState?.id ?? rev.id;
     const created = existingDraft?.created ?? existingState?.created ?? rev.created;
@@ -1022,8 +1089,10 @@ export async function restoreArticle(
     const nextState: KnowledgeState = {
       ...base,
       id: draft.id,
-      title: draft.title,
-      tags: draft.tags,
+      // The listing mirrors the in-force revision, as `saveDraft` keeps it: a
+      // restored superseded revision changes the draft, never what readers see.
+      title: base.inForce ? base.title : draft.title,
+      tags: base.inForce ? base.tags : draft.tags,
       updated: { by, at: now },
     };
     try {
@@ -1090,6 +1159,12 @@ export async function renameArticle(
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
+    if (state?.retired)
+      throw new KnowledgeAdminError(
+        "article_retired",
+        "That article is retired and kept on record, so it is not renamed.",
+        409,
+      );
     let nextFolder = article.folder;
     try {
       if (wantedName !== currentLeaf) {
@@ -1105,7 +1180,9 @@ export async function renameArticle(
           appParentPath,
           wantedName,
         );
-        await client.call(
+        const renamed = await client.call<{
+          notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
+        }>(
           "FileNode/set",
           {
             accountId,
@@ -1114,10 +1191,18 @@ export async function renameArticle(
           },
           [FILENODE_CAP],
         );
+        const nameRefused = renamed.notUpdated?.[article.nodeId];
+        if (nameRefused)
+          throw new KnowledgeAdminError(
+            "article_name_taken",
+            refusalOf(nameRefused) ||
+              `The folder name "${name}" collided with another; nothing was renamed.`,
+            409,
+          );
         nextFolder = parentPath ? `${parentPath}/${name}` : name;
       }
       const now = new Date().toISOString();
-      const by = ctx.username;
+      const by = admin.username;
       const nextDraft = draft
         ? { ...draft, title: docTitle, updated: { by, at: now } }
         : null;
@@ -1202,7 +1287,7 @@ export async function deleteArticle(
   const everApproved =
     Boolean(state?.inForce) || Boolean(state?.pending) || revisions.length > 0;
   if (everApproved) {
-    await retireArticle(ctx, accountId, article);
+    await retireArticle(ctx, accountId, article, admin.username);
     return { retired: true };
   }
   if (await subtreeHasApproval(ctx, accountId, articlePath))
@@ -1227,6 +1312,7 @@ async function retireArticle(
   ctx: Ctx,
   accountId: string,
   article: ArticleFolder,
+  by: string,
 ): Promise<void> {
   const articlePath = articlePathOf(article);
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -1236,7 +1322,6 @@ async function retireArticle(
     );
     if (state?.retired) return;
     const now = new Date().toISOString();
-    const by = ctx.username;
     const base =
       state ??
       buildState({

@@ -79,6 +79,13 @@ export interface KnowledgeIssued {
   effectiveAt: string;
   approvedBy: string;
   approvedAt: string;
+  /**
+   * The title and tags this revision carries, so a listing can mirror it the
+   * instant it becomes the one in force — a pending revision whose date arrives
+   * changes what readers see without any write.
+   */
+  title: string;
+  tags: string[];
 }
 
 /** An article's mutable lifecycle pointer. */
@@ -207,7 +214,9 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
     typeof x.revision === "string" &&
     typeof x.effectiveAt === "string" &&
     typeof x.approvedBy === "string" &&
-    typeof x.approvedAt === "string"
+    typeof x.approvedAt === "string" &&
+    typeof x.title === "string" &&
+    isTags(x.tags)
   );
 }
 
@@ -331,6 +340,37 @@ export function blocksFromText(text: string): unknown[] {
   return value ? [{ type: "paragraph", content: [{ type: "text", text: value }] }] : [];
 }
 
+/** One checklist item of a template article: the block's id and its text. */
+export interface KnowledgeChecklistStep {
+  id: string;
+  label: string;
+}
+
+/**
+ * The checklist a template article's body carries, as a workorder reads it.
+ *
+ * A template is an article like any other whose body is a checklist (ADR 0024),
+ * so its steps are the editor's `checkListItem` blocks: the block's own **id**
+ * is the stable identity a workorder's step state is keyed by, and the label is
+ * the text the reader sees. Kept in the one definition both tiers read, so the
+ * KB and the workorder agree on what a step is.
+ */
+export function checklistStepsFromBlocks(blocks: unknown): KnowledgeChecklistStep[] {
+  const out: KnowledgeChecklistStep[] = [];
+  const walk = (list: unknown): void => {
+    if (!Array.isArray(list)) return;
+    for (const block of list) {
+      if (!isRecord(block)) continue;
+      if (block.type === "checkListItem" && typeof block.id === "string") {
+        out.push({ id: block.id, label: inlineText(block.content) });
+      }
+      walk(block.children);
+    }
+  };
+  walk(blocks);
+  return out;
+}
+
 /** Mint a draft from a writer's input. */
 export function buildDraft(input: {
   id: string;
@@ -358,7 +398,7 @@ export function buildDraft(input: {
 /** Mint an issued revision from the draft an administrator approved. */
 export function buildRevision(
   draft: KnowledgeDraft,
-  issued: Omit<KnowledgeIssued, "effectiveAt"> & {
+  issued: Omit<KnowledgeIssued, "effectiveAt" | "title" | "tags"> & {
     effectiveAt: string;
     supersedes: string | null;
   },

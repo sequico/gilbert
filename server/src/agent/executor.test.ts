@@ -1389,6 +1389,8 @@ test("knowledge.write updates a draft without erasing its body or undoing an app
     effectiveAt: at,
     approvedBy: "demo@example.com",
     approvedAt: at,
+    title,
+    tags: ["iso"],
   };
   await writeAppFileAt(
     ctx,

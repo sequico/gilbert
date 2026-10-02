@@ -1365,6 +1365,8 @@ export interface AgentKnowledgePlanPage {
   basedOn?: string;
   /** The body the plan intended to write, so "what changed" is in the trail. */
   intent?: string;
+  /** The account the page lives in; a plan is one owner's (ADR 0024 Q24). */
+  account?: string;
   detail?: string;
 }
 
@@ -1380,7 +1382,7 @@ export function isAgentKnowledgePlanPage(x: unknown): x is AgentKnowledgePlanPag
   if (!isRecord(x)) return false;
   if (typeof x.folder !== "string" || typeof x.title !== "string") return false;
   if (!PLAN_OUTCOMES.includes(x.outcome as string)) return false;
-  for (const k of ["basedOn", "intent", "detail"] as const)
+  for (const k of ["basedOn", "intent", "account", "detail"] as const)
     if (x[k] !== undefined && typeof x[k] !== "string") return false;
   return true;
 }
@@ -2177,6 +2179,12 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
     if (
       a.lookups !== undefined &&
       (!Array.isArray(a.lookups) || !a.lookups.every(isAgentLookup))
+    )
+      return false;
+    if (a.plan !== undefined && !isAgentKnowledgePlan(a.plan)) return false;
+    if (
+      a.findings !== undefined &&
+      (!Array.isArray(a.findings) || a.findings.some((f) => typeof f !== "string"))
     )
       return false;
     return isActionList(a.actions);
