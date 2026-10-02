@@ -105,6 +105,7 @@ export function KnowledgeSidebar() {
         <FileText size={16} className={a.saved ? "" : "faint"} aria-hidden="true" />
         <span className="grow truncate">{a.title}</span>
         {a.pending && <span className="hint">{t("Pending")}</span>}
+        {a.retired && <span className="hint">{t("Retired")}</span>}
       </button>
     );
   };

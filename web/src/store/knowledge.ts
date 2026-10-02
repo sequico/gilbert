@@ -77,6 +77,8 @@ interface KnowledgeStore {
   edit: KnowledgeEdit | null;
   search: string;
   searching: boolean;
+  /** Show retired articles beside the standing ones, off by default. */
+  showRetired: boolean;
   results: Array<{
     accountId: Id;
     nodeId: Id;
@@ -102,6 +104,7 @@ interface KnowledgeStore {
   rename(title: string): Promise<boolean>;
   remove(): Promise<boolean>;
   setSearch(term: string): void;
+  setShowRetired(on: boolean): void;
   runSearch(): Promise<void>;
   reset(): void;
 }
@@ -187,6 +190,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     edit: null,
     search: "",
     searching: false,
+    showRetired: false,
     results: [],
 
     async load() {
@@ -211,7 +215,11 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         if (company) {
           let articles: KnowledgeSummary[] = [];
           try {
-            articles = await listArticles(company.accountId, company.folderId);
+            articles = await listArticles(
+              company.accountId,
+              company.folderId,
+              get().showRetired,
+            );
           } catch {
             articles = [];
           }
@@ -237,7 +245,8 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         let articles: KnowledgeSummary[] = [];
         try {
           const folderId = await findKnowledgeFolder(group.accountId);
-          if (folderId) articles = await listArticles(group.accountId, folderId);
+          if (folderId)
+            articles = await listArticles(group.accountId, folderId, get().showRetired);
         } catch {
           articles = [];
         }
@@ -416,6 +425,11 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       set({ search: term });
     },
 
+    setShowRetired(on) {
+      set({ showRetired: on });
+      void get().reload();
+    },
+
     async runSearch() {
       const term = get().search.trim();
       if (!term) {
@@ -479,6 +493,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         edit: null,
         search: "",
         searching: false,
+        showRetired: false,
         results: [],
       });
     },

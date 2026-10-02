@@ -22,6 +22,7 @@ import {
   isKnowledgeDraft,
   isKnowledgeRevision,
   isKnowledgeState,
+  isRetired,
   KNOWLEDGE_FOLDER,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
@@ -127,6 +128,7 @@ async function summarizeArticle(
   node: FileNode,
   parentId: Id | null,
   path: string,
+  includeRetired: boolean,
 ): Promise<KnowledgeSummary[]> {
   const { list } = await listChildrenWithState(accountId, node.id, ARTICLE_PROPS);
   const state = await readDocument(
@@ -134,6 +136,9 @@ async function summarizeArticle(
     fileNode(list, STATE_FILE),
     isKnowledgeState,
   );
+  // A retired article is withdrawn from the tree but kept for traceability: it
+  // and its sub-articles are shown only where a caller asks for them.
+  if (state && isRetired(state) && !includeRetired) return [];
   const summary: KnowledgeSummary = {
     id: state?.id ?? node.id,
     title: state?.title ?? node.name,
@@ -143,6 +148,7 @@ async function summarizeArticle(
     parentId,
     inForce: state?.inForce ?? null,
     pending: state?.pending ?? null,
+    retired: state?.retired ?? null,
     created: state?.created ?? null,
     updated: state?.updated ?? null,
     saved: Boolean(fileNode(list, DRAFT_FILE)?.blobId),
@@ -150,7 +156,13 @@ async function summarizeArticle(
   const out = [summary];
   for (const child of articleFolders(list)) {
     out.push(
-      ...(await summarizeArticle(accountId, child, node.id, `${path}/${child.name}`)),
+      ...(await summarizeArticle(
+        accountId,
+        child,
+        node.id,
+        `${path}/${child.name}`,
+        includeRetired,
+      )),
     );
   }
   return out;
@@ -169,11 +181,14 @@ async function summarizeArticle(
 export async function listArticles(
   accountId: Id,
   folderId: Id,
+  includeRetired = false,
 ): Promise<KnowledgeSummary[]> {
   const { list } = await listChildrenWithState(accountId, folderId, ARTICLE_PROPS);
   const out: KnowledgeSummary[] = [];
   for (const child of articleFolders(list)) {
-    out.push(...(await summarizeArticle(accountId, child, null, child.name)));
+    out.push(
+      ...(await summarizeArticle(accountId, child, null, child.name, includeRetired)),
+    );
   }
   return out.sort((a, b) => a.title.localeCompare(b.title));
 }
@@ -284,6 +299,7 @@ export async function readArticle(
     parentId: resolvedParent,
     inForce: state?.inForce ?? null,
     pending: state?.pending ?? null,
+    retired: state?.retired ?? null,
     created: state?.created ?? null,
     updated: state?.updated ?? null,
     saved: Boolean(fileNode(list, DRAFT_FILE)?.blobId),
@@ -370,12 +386,15 @@ export async function approveArticle(
   return res.summary;
 }
 
-/** Remove an article and its folder. */
-export async function deleteArticle(target: KnowledgeTarget): Promise<void> {
-  await apiFetch<{ ok: true }>("/api/knowledge/delete", {
+/** Retire an approved article (or remove an unapproved one), as the route decides. */
+export async function deleteArticle(
+  target: KnowledgeTarget,
+): Promise<{ retired: boolean }> {
+  const res = await apiFetch<{ ok: true; retired: boolean }>("/api/knowledge/delete", {
     method: "POST",
     body: JSON.stringify({ ...target }),
   });
+  return { retired: res.retired === true };
 }
 
 /**

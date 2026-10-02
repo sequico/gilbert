@@ -1,6 +1,6 @@
 import { BookOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { formatDate } from "@/lib/datetime";
+import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
 import { articleKey } from "@/lib/knowledge";
 import { useKnowledge } from "@/store/knowledge";
@@ -20,18 +20,18 @@ import { tierLabel } from "./KnowledgeSidebar";
  * in-progress edit; this view only decides what to draw and when to ask.
  */
 
-/** Today in the `yyyy-mm-dd` a native date input reads and writes. */
-function todayInput(): string {
+/** Now in the `yyyy-mm-ddThh:mm` a native datetime input reads and writes. */
+function nowInput(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** A stored instant as a calendar date, unchanged when it cannot be read. */
+/** A stored instant in the reader's own locale, unchanged when unreadable. */
 function dateText(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : formatDate(d);
+  return Number.isNaN(d.getTime()) ? iso : formatDateTime(d);
 }
 
 export function KnowledgeView({ nodeId }: { nodeId?: string }) {
@@ -50,9 +50,11 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   const restore = useKnowledge((s) => s.restore);
   const rename = useKnowledge((s) => s.rename);
   const remove = useKnowledge((s) => s.remove);
+  const showRetired = useKnowledge((s) => s.showRetired);
+  const setShowRetired = useKnowledge((s) => s.setShowRetired);
 
   const [approveOpen, setApproveOpen] = useState(false);
-  const [approveDate, setApproveDate] = useState(todayInput);
+  const [approveDate, setApproveDate] = useState(nowInput);
   const [historyOpen, setHistoryOpen] = useState(false);
   /*
    * Reading and editing are two modes over one open article. The store seeds
@@ -141,6 +143,12 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     article.effective?.title ?? article.draft?.title ?? article.summary.title;
   const readerTags =
     article.effective?.tags ?? article.draft?.tags ?? article.summary.tags;
+  // An article something was issued from is retired, not destroyed; one no
+  // approval ever touched is removed outright (ADR 0024).
+  const everApproved =
+    article.revisions.length > 0 ||
+    Boolean(article.summary.inForce) ||
+    Boolean(article.summary.pending);
   const title = editing && edit ? edit.title : readerTitle;
   const tags = editing && edit ? edit.tags : readerTags;
   const body =
@@ -175,12 +183,22 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   };
 
   const doRemove = async () => {
-    const ok = await confirmDialog({
-      title: t("Delete “{title}”?", { title: readerTitle }),
-      message: t("This cannot be undone."),
-      confirmLabel: t("Delete"),
-      danger: true,
-    });
+    const ok = await confirmDialog(
+      everApproved
+        ? {
+            title: t("Retire “{title}”?", { title: readerTitle }),
+            message: t(
+              "It leaves the tree but stays on record, with its revisions; find it again by showing retired articles.",
+            ),
+            confirmLabel: t("Retire"),
+          }
+        : {
+            title: t("Delete “{title}”?", { title: readerTitle }),
+            message: t("This cannot be undone."),
+            confirmLabel: t("Delete"),
+            danger: true,
+          },
+    );
     if (!ok) return;
     await remove();
   };
@@ -223,6 +241,16 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             </option>
           ))}
         </select>
+        {/* Retired articles are hidden by default so they do not confuse the
+            tree; this is how a reader asks to see them. */}
+        <label className="row" style={{ gap: 6, alignItems: "center", fontSize: 13 }}>
+          <input
+            type="checkbox"
+            checked={showRetired}
+            onChange={(e) => setShowRetired(e.target.checked)}
+          />
+          {t("Show retired")}
+        </label>
         <span className="spacer" />
         <button
           className="btn btn-sm"
@@ -251,7 +279,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           <button
             className="btn btn-sm"
             onClick={() => {
-              setApproveDate(todayInput());
+              setApproveDate(nowInput());
               setApproveOpen(true);
             }}
           >
@@ -265,10 +293,14 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           {t("Rename")}
         </button>
         {/* Deleting is an administrator's, as the route enforces; the button is
-            drawn only where the server would accept it. */}
+            drawn only where the server would accept it, and named for what it
+            does: an approved article is retired, a draft is deleted. */}
         {activeTier?.canApprove && (
-          <button className="btn btn-sm btn-danger" onClick={() => void doRemove()}>
-            {t("Delete")}
+          <button
+            className={`btn btn-sm ${everApproved ? "" : "btn-danger"}`}
+            onClick={() => void doRemove()}
+          >
+            {everApproved ? t("Retire") : t("Delete")}
           </button>
         )}
       </div>
@@ -358,10 +390,9 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             <button
               className="btn btn-primary"
               onClick={async () => {
-                // The date input is a calendar date; it is sent as local
-                // midnight so "today" is in force in every timezone and renders
-                // back as the day that was chosen.
-                const at = new Date(`${approveDate}T00:00:00`).toISOString();
+                // The instant the administrator chose, in their own timezone,
+                // stored as one UTC instant so every reader sees it in theirs.
+                const at = new Date(approveDate).toISOString();
                 if (await approve(at)) setApproveOpen(false);
               }}
             >
@@ -376,7 +407,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         <input
           id="kb-effective"
           className="input"
-          type="date"
+          type="datetime-local"
           value={approveDate}
           onChange={(e) => setApproveDate(e.target.value)}
         />
