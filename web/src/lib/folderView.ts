@@ -11,14 +11,15 @@ import { useSession } from "@/store/session";
  * Which folders are open in a sidebar tree.
  *
  * **Absence is not "shut" -- it is "whatever this tree does by default",** and
- * the two trees in the sidebar default differently. The reader's own mailbox
- * opens shut: it is theirs, they know its shape, and a dozen folders they rarely
- * use are noise in front of the one they want. A tree that is not theirs -- a
- * group they are a member of -- opens its folders, because its shape is not
- * something they chose, its folders are the reason they are looking, and a
- * member who has just been added has to be able to see where the group's mail
- * lives without being told to click. A folder the reader opens or closes is
- * recorded as exactly that, either way, so the one they shut stays shut.
+ * the sidebar trees default differently. The reader's own mail opens shut: it
+ * is theirs, they know its shape, and a dozen folders they rarely use are noise
+ * in front of the one they want, and the knowledge base opens shut too. A tree
+ * that is not theirs -- a group they are a member of -- opens its folders,
+ * because its shape is not something they chose, its folders are the reason
+ * they are looking, and a member who has just been added has to be able to see
+ * where the group's mail lives without being told to click. A folder the reader
+ * opens or closes is recorded as exactly that, either way, so the one they shut
+ * stays shut.
  *
  * The record is the reader's, kept beside the place their trees were left in
  * (`lastPlace.ts`): device-local, one per reader, and read back on the next
@@ -26,11 +27,11 @@ import { useSession } from "@/store/session";
  * preference to inherit on another machine, and syncing it would rewrite the
  * account's settings file on every click in a tree.
  *
- * Keys are **per account and per folder** (`folderKey`). Mailbox and file ids
- * come from the server and are only unique within one account, so a bare id
- * remembered under one account would open whatever happens to carry it in the
- * next -- which is what a tree that looks expanded after switching to a group
- * mailbox is: somebody else's ids, read as this account's.
+ * Keys are **per account and per folder** (`folderKey`). Mailbox, file and
+ * knowledge-folder ids come from the server and are only unique within one
+ * account, so a bare id remembered under one account would open whatever happens
+ * to carry it in the next -- which is what a tree that looks expanded after
+ * switching to a group mailbox is: somebody else's ids, read as this account's.
  *
  * **Nothing prunes the record.** A folder leaves it when the reader deletes
  * that folder, and a sign-out clears the whole thing; a folder deleted elsewhere
