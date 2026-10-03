@@ -198,10 +198,13 @@ apart. What is **not** part of the unit is its check: only biome/tsc run, at the
 end of the turn (the rule below), so a unit commit is the change and its message
 and nothing else.
 **Single source of truth, no code duplication (global user rule, owner-confirmed
-2026-09-08):** every concept, constant, classifier, schema and helper has one
-canonical definition; everything else imports or derives from it. Before
-writing a new definition, search for the existing one; a found duplicate is
-deleted and routed through the canonical source in the same change.
+2026-09-08):** within the same artifact type — code↔code and docs↔docs — every
+concept, constant, classifier, schema and helper has one canonical definition;
+everything else imports or derives from it. The rule does not cross the
+docs↔code boundary: docs may duplicate values from the code or a config to stay
+self-contained and readable. Before writing a new definition, search for the
+existing one; a found duplicate is deleted and routed through the canonical
+source in the same change.
 **Dispatched sub-agents are health-checked automatically, never on request:**
 poll each running agent at least every ~60 s (steps advancing, live tool
 calls, processes, worktree writes / file mtimes). An agent with no progress
