@@ -1,5 +1,10 @@
 # Known issues and verified behaviour
 
+> **The whole `gilbertagents` part is not functional, and a refactor is
+> planned.** The Master principal, the agent fleet, the automations, the
+> approvals and the audit are present in the tree but do not work; nothing in
+> `gilbertagents` should be relied on.
+
 What was checked, against which Stalwart, and when. For what is not built yet,
 see [ROADMAP.md](ROADMAP.md).
 
