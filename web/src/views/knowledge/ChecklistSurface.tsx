@@ -54,7 +54,13 @@ export default function ChecklistSurface({
         />
       )}
       <section style={{ marginTop: 24 }}>
-        <h3 style={{ margin: "0 0 8px" }}>{t("Preview")}</h3>
+        <h3 style={{ margin: "0 0 4px" }}>{t("Preview")}</h3>
+        {/* The preview is where a variant is tried to see which steps apply; it
+            is interactive while editing on purpose, and nothing here is stored —
+            a check in the preview is not a signature. The line says so. */}
+        <p className="hint" style={{ margin: "0 0 8px" }}>
+          {t("Try a variant value to see which steps apply. Nothing here is saved.")}
+        </p>
         <PreviewForm
           schema={schema}
           uiSchema={uiSchema}
