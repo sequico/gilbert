@@ -210,6 +210,15 @@ export function makeConnectionWatcher(): (state: PushState) => void {
 
 export function startBuildWatch(): void {
   push.onConnection(makeConnectionWatcher());
+  /*
+   * A lazy route's chunk 404s in the window between a deploy and the wait's
+   * next check: the running bundle asks for a filename the new build replaced,
+   * the dynamic import rejects and the route goes blank until the reader
+   * reloads by hand. Vite reports exactly that as `vite:preloadError`, so the
+   * reload is made for them -- and `reloadIfServerRebuilt` still decides it, so
+   * a chunk that fails with no deploy behind it changes nothing.
+   */
+  window.addEventListener("vite:preloadError", () => void reloadIfServerRebuilt());
   // A hidden tab is not being read, and is checked when it surfaces; the poll
   // and the return-to-tab read are one policy, shared with the other watchers
   // (`lib/visiblePoll.ts`).

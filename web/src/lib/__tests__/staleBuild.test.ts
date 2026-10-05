@@ -136,6 +136,14 @@ describe("noticing without being asked", () => {
     ]);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+  it("checks and reloads when a lazy route's chunk fails after a deploy", async () => {
+    vi.stubGlobal("fetch", healthReplies({ ok: true, version: "9.9.9" }));
+    startBuildWatch();
+    window.dispatchEvent(new Event("vite:preloadError"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(reload).toHaveBeenCalledOnce();
+  });
 });
 
 describe("the poll is what the guarantee rests on", () => {
