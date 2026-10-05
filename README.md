@@ -139,14 +139,29 @@ carries its own. Upgrading from 0.15 is a one-way migration — see
 
 ## Quick start
 
+**With Docker** — the published image, against a Stalwart 0.16+ you already run.
+Gilbert expects a TLS reverse proxy in front of it (see [INSTALL.md](INSTALL.md)):
+
+```bash
+cat > .env <<'EOF'
+STALWART_URL=https://mail.example.com
+GILBERT_AGENT_ADDRESS=gilbert@example.com
+GILBERT_AGENT_PASSWORD=change-me
+EOF
+docker run -d --name gilbert --restart unless-stopped \
+  --env-file .env -p 127.0.0.1:8080:8080 ghcr.io/sequico/gilbert:latest
+```
+
+**From source (development)** — the whole app against an in-memory mock:
+
 ```bash
 npm install
 npm run dev:mock        # complete Gilbert against an in-memory mock Stalwart
 ```
 
 Then open http://localhost:5173 and sign in with `demo@example.com` / `demo`.
-`npm run dev:mock:agent` is the same stack with an agent process running. Running
-Gilbert for real is [INSTALL.md](INSTALL.md).
+`npm run dev:mock:agent` is the same stack with an agent process running. The full
+install and operation guide is [INSTALL.md](INSTALL.md).
 
 ## Where to read more
 
