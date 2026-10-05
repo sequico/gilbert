@@ -189,8 +189,19 @@ function ConditionField({
   );
 }
 
+/** The display name of a group id, falling back to the id. */
+function groupName(groups: { id: string; name: string }[], id: string): string {
+  return groups.find((g) => g.id === id)?.name ?? id;
+}
+
 /** The read-only rendering of a template's process. */
-function StructuredView({ checklist }: { checklist: KnowledgeChecklist }) {
+function StructuredView({
+  checklist,
+  groups,
+}: {
+  checklist: KnowledgeChecklist;
+  groups: { id: string; name: string }[];
+}) {
   const { variants, sections } = checklist;
   if (!variants.length && !sections.length)
     return <p className="hint">{t("No process defined yet.")}</p>;
@@ -225,6 +236,9 @@ function StructuredView({ checklist }: { checklist: KnowledgeChecklist }) {
             {section.condition && (
               <span className="hint nowrap">{conditionClause(section.condition)}</span>
             )}
+            {section.group && (
+              <span className="chip nowrap">{groupName(groups, section.group)}</span>
+            )}
           </div>
           {section.steps.length === 0 ? (
             <p className="hint">{t("No steps.")}</p>
@@ -255,9 +269,11 @@ function StructuredView({ checklist }: { checklist: KnowledgeChecklist }) {
  */
 function ProcessBuilder({
   checklist,
+  groups,
   onChange,
 }: {
   checklist: KnowledgeChecklist;
+  groups: { id: string; name: string }[];
   onChange: (checklist: KnowledgeChecklist) => void;
 }) {
   const { variants, sections } = checklist;
@@ -512,6 +528,28 @@ function ProcessBuilder({
                 onChange={(condition) => patchSection(i, { condition })}
               />
 
+              {groups.length > 0 && (
+                <div className="row wrap gap-8 mt-8">
+                  <span className="hint nowrap">{t("Group")}</span>
+                  <select
+                    className="select"
+                    style={{ width: "auto" }}
+                    value={section.group ?? ""}
+                    aria-label={t("Competent group")}
+                    onChange={(e) =>
+                      patchSection(i, { group: e.target.value || undefined })
+                    }
+                  >
+                    <option value="">{t("Global")}</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <label className="row gap-8 mt-8">
                 <input
                   type="checkbox"
@@ -613,13 +651,17 @@ function ProcessBuilder({
 
 export default function ChecklistSurface({
   checklist,
+  groups = [],
   editable,
   onChange,
 }: {
   checklist: KnowledgeChecklist;
+  /** The groups a section may be assigned to; empty hides the control. */
+  groups?: { id: string; name: string }[];
   editable: boolean;
   onChange?: (checklist: KnowledgeChecklist) => void;
 }) {
-  if (!editable || !onChange) return <StructuredView checklist={checklist} />;
-  return <ProcessBuilder checklist={checklist} onChange={onChange} />;
+  if (!editable || !onChange)
+    return <StructuredView checklist={checklist} groups={groups} />;
+  return <ProcessBuilder checklist={checklist} groups={groups} onChange={onChange} />;
 }

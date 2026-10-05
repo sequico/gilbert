@@ -208,6 +208,10 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     editing && edit
       ? (edit.checklist ?? emptyChecklist())
       : (article.effective?.checklist ?? article.draft?.checklist ?? emptyChecklist());
+  // The groups a section may be assigned to: the probed group tiers.
+  const groupChoices = tiers
+    .filter((tier) => tier.scope === "group" && tier.group)
+    .map((tier) => ({ id: tier.accountId, name: tier.group as string }));
 
   /*
    * Leaving edit mode re-opens the page, which re-seeds the store's draft and
@@ -392,6 +396,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
           <Suspense fallback={<Spinner size="lg" />}>
             <ChecklistSurface
               checklist={checklistBody}
+              groups={groupChoices}
               editable={editing}
               onChange={(checklist) => setEdit({ checklist })}
             />

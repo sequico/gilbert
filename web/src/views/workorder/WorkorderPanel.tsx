@@ -23,11 +23,10 @@
  */
 import type { KnowledgeChecklist, KnowledgeRepeat } from "@gilbert/shared/knowledge";
 import { ArrowLeft, MoreHorizontal, Plus, RefreshCw, Trash2, X } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
   isStepComplete,
   type WorkorderCreateInput,
@@ -41,7 +40,6 @@ import {
   type WorkorderStepView,
   type WorkorderSummary,
 } from "@/lib/workorder";
-import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
 import { Spinner, useIsNarrow } from "@/ui/misc";
@@ -476,8 +474,9 @@ interface ItemDraft {
 }
 
 /**
- * The administrator's creation form: a friendly name, a KB template, the
- * groups the workorder gets a part in, and the template's own choices.
+ * The administrator's creation form: a friendly name, a KB template and the
+ * template's own choices. The parts follow the template — the groups its
+ * sections are assigned to, and the global checklist for the rest (ADR 0030).
  *
  * A template is offered only when it has a revision in force (ADR 0028): a
  * checklist is the operational instance of a revision, and one that was never
@@ -491,11 +490,10 @@ interface ItemDraft {
  * the template binds to, so the revision is read when a template is chosen and
  * the choices are drawn from it.
  */
-function NewWorkorderForm({ groups }: { groups: string[] }) {
+function NewWorkorderForm() {
   const create = useWorkorders((s) => s.create);
   const [name, setName] = useState("");
   const [templateIdx, setTemplateIdx] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [knowledgeLoaded, setKnowledgeLoaded] = useState(false);
   const [checklist, setChecklist] = useState<KnowledgeChecklist | null>(null);
@@ -640,14 +638,13 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
         id: chosen.id,
         revision: chosen.revision,
       },
-      groups: selected,
+      groups: [],
       variants: chosenVariants,
       items: chosenItems,
     };
     void create(input);
     setName("");
     setTemplateIdx("");
-    setSelected([]);
   };
 
   return (
@@ -788,26 +785,12 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
         <p className="hint">{t("The template's steps could not be read.")}</p>
       )}
 
-      {groups.length > 0 && (
-        <div className="field">
-          <label>{t("Groups")}</label>
-          <div className="row" style={{ flexWrap: "wrap", gap: 12 }}>
-            {groups.map((g) => (
-              <label key={g} className="row" style={{ gap: 6 }}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(g)}
-                  onChange={(e) =>
-                    setSelected((prev) =>
-                      e.target.checked ? [...prev, g] : prev.filter((x) => x !== g),
-                    )
-                  }
-                />
-                <span className="truncate">{g}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+      {chosen && checklistReady && (
+        <p className="hint">
+          {t(
+            "The parts are the groups the template assigns sections to; the global checklist holds the rest.",
+          )}
+        </p>
       )}
       <button type="submit" className="btn btn-sm btn-primary" disabled={!ready}>
         {t("Create")}
@@ -830,12 +813,6 @@ export function WorkorderPanel() {
   const removeRef = useWorkorders((s) => s.removeRef);
 
   const sessionAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
-  const mailAccounts = useMail((s) => s.mailAccounts);
-  const groups = useMemo(
-    () => groupMailboxAccounts(mailAccounts).map((a) => a.name),
-    [mailAccounts],
-  );
-
   const open = useWorkorders(openWorkorder);
   /*
    * The route decides in the end; this only decides what to offer. A summary
@@ -994,7 +971,7 @@ export function WorkorderPanel() {
                 )}
                 {canAdminister && (
                   <div style={{ marginTop: 16 }}>
-                    <NewWorkorderForm groups={groups} />
+                    <NewWorkorderForm />
                   </div>
                 )}
               </div>

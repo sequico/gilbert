@@ -649,7 +649,10 @@ checklists and the folders, files and pages it gathers. A refresh re-reads it.
 ## Checklists, and who checked what
 
 A workorder's checklist is an **instance of a KB checklist template**, bound to
-the revision in force when it is created. On creation the creator chooses the
+the revision in force when it is created. A template section may be **assigned to
+a group** (by that group's account), so the workorder's parts are exactly the
+groups the template names: the **global** checklist holds the unassigned sections
+and each group's part holds its own. On creation the creator chooses the
 **value of every variant** and the **items of every repeat that applies** (the
 containers); the applicable steps are materialised from the template, and a
 step's **path** carries

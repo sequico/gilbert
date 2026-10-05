@@ -34,8 +34,8 @@ on the page's draft and every revision:
 - **Variants** are named choices with values. A workorder picks **one value per
   variant**, and that value holds **everywhere** — across every section and at
   any depth, including inside a repeat.
-- **Sections** are ordered; each holds **steps**, an optional **condition** and
-  an optional **repeat**.
+- **Sections** are ordered; each holds **steps**, an optional **condition**, an
+  optional **repeat** and an optional **group** it is competent for.
 - **Steps** are boolean checks with a stable key, a controlled label and an
   optional condition.
 - A **condition** is `{ variant, equals }`. It may sit on a section or a step and
@@ -48,6 +48,13 @@ on the page's draft and every revision:
   **path**, which carries the item (`loading[CONT-1].seal`), so the same step in
   two items is two entries and never collides. A repeat may declare per-item
   **data fields**; the instance stores each item's values beside its key.
+- A **section may be assigned to a group**, by that group's **account id**
+  (`section.group`); a section with no assignment is the **global** checklist. A
+  workorder's part resolves only its own target (`resolveChecklist` takes it), so
+  a section assigned to the freight group lands in the freight group's part and
+  the global holds the rest. This is **competence**, not a variable: the workorder
+  does not choose it, and it is not a fork of the template — one template serves
+  every group, and a workorder's parts are exactly the groups its sections name.
 - The page's **body and search text are derived** from the rules
   (`checklistBlocks`), so the rules are the one copy.
 - The **authoring surface is Gilbert's own**, not a generic form builder:
@@ -74,6 +81,9 @@ tiers reading `@gilbert/shared/*`.
   wrong tool.
 - Step identity is a **path**, so a repeated section materialises per item
   without collisions and its history is per item.
+- Competence is **data**: which group does what is a property of the template's
+  sections, so a workorder derives its parts from the template rather than an
+  administrator listing groups by hand.
 - Content a condition **excludes is not instantiated** — another line's section
   simply does not exist for this job. A step that applies but the operator
   decides the case does not need is **`not-applicable`** (dimmed, out of

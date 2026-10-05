@@ -210,9 +210,12 @@ chooses the **value of every variant** and the **items of every repeat that
 applies**, and the applicable steps are **materialised from the definition** — a
 step's path carries
 its section and, for a repeat, its item, so the same step in two items is two
-entries; content a condition excludes is not instantiated. The page's steps are
-the controlled text; the workorder's are their state and last signature, never a
-copy. A
+entries; content a condition excludes is not instantiated. The workorder's
+**parts** are the groups the template **assigns sections to** (ADR 0030) — the
+global checklist holds the unassigned sections, each group's part holds that
+group's — so competence is read from the template rather than listed by hand at
+creation. The page's steps are the controlled text; the workorder's are their
+state and last signature, never a copy. A
 retired template is not gone: the reference still resolves to it by id, because
 its revisions are kept, and it is simply no longer in the tree; a changed
 template is a new **revision** of the same page, never a new id; a change to a

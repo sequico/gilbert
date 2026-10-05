@@ -107,12 +107,14 @@ export interface KnowledgeStep {
   condition?: KnowledgeCondition;
 }
 
-/** One section: steps, an optional condition and an optional repeat. */
+/** One section: steps, an optional condition, repeat and group. */
 export interface KnowledgeSection {
   key: string;
   label: string;
   condition?: KnowledgeCondition;
   repeat?: KnowledgeRepeat;
+  /** The account id of the group competent for this section; absent = global. */
+  group?: string;
   steps: KnowledgeStep[];
 }
 
@@ -385,6 +387,7 @@ function isKnowledgeSection(x: unknown): x is KnowledgeSection {
     typeof x.label === "string" &&
     (x.condition === undefined || isKnowledgeCondition(x.condition)) &&
     (x.repeat === undefined || isKnowledgeRepeat(x.repeat)) &&
+    (x.group === undefined || typeof x.group === "string") &&
     Array.isArray(x.steps) &&
     x.steps.every(isKnowledgeStep)
   );
@@ -599,6 +602,7 @@ export function checklistBlocks(checklist: KnowledgeChecklist): unknown[] {
     const suffix = [
       section.repeat ? `per ${section.repeat.item}` : "",
       conditionClause(section.condition),
+      section.group ? `group ${section.group}` : "",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -614,6 +618,15 @@ export function checklistBlocks(checklist: KnowledgeChecklist): unknown[] {
     }
   }
   return blocks;
+}
+
+/** The group account ids the sections assign, in order of first appearance. */
+export function checklistGroups(checklist: KnowledgeChecklist): string[] {
+  const out: string[] = [];
+  for (const section of checklist.sections) {
+    if (section.group && !out.includes(section.group)) out.push(section.group);
+  }
+  return out;
 }
 
 /** One step of a resolved section, with the path a workorder stores. */
@@ -661,9 +674,12 @@ export function resolveChecklist(
   checklist: KnowledgeChecklist,
   values: Record<string, string>,
   items: Record<string, string[]>,
+  /** The part being resolved: a group account id, or null for the global one. */
+  target: string | null,
 ): ResolvedSection[] {
   const out: ResolvedSection[] = [];
   for (const section of checklist.sections) {
+    if ((section.group ?? null) !== target) continue;
     if (!conditionHolds(section.condition, values)) continue;
     const steps = section.steps.filter((step) => conditionHolds(step.condition, values));
     const resolved: ResolvedSection = {

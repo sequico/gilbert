@@ -47,6 +47,7 @@ import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
 import {
+  checklistGroups,
   isKnowledgeRevision,
   isKnowledgeState,
   KNOWLEDGE_FOLDER,
@@ -387,9 +388,15 @@ function itemKeysOf(items: Record<string, WorkorderItem[]>): Record<string, stri
 function groupsFor(
   def: KnowledgeChecklist | null,
   checklist: WorkorderChecklist,
+  target: string | null,
 ): WorkorderGroupView[] {
   if (!def) return [];
-  const resolved = resolveChecklist(def, checklist.variants, itemKeysOf(checklist.items));
+  const resolved = resolveChecklist(
+    def,
+    checklist.variants,
+    itemKeysOf(checklist.items),
+    target,
+  );
   return resolved.map((section) => ({
     key: section.key,
     label: section.label,
@@ -480,8 +487,9 @@ function applicableStepPaths(
   def: KnowledgeChecklist,
   variants: Record<string, string>,
   items: Record<string, WorkorderItem[]>,
+  target: string | null,
 ): string[] {
-  return resolveChecklist(def, variants, itemKeysOf(items)).flatMap((section) =>
+  return resolveChecklist(def, variants, itemKeysOf(items), target).flatMap((section) =>
     section.items.flatMap((item) => item.steps.map((step) => step.path)),
   );
 }
@@ -511,7 +519,7 @@ async function summaryOf(
       accountId: null,
       group: null,
       checklist: root.checklist,
-      groups: groupsFor(global.checklist, root.checklist),
+      groups: groupsFor(global.checklist, root.checklist, null),
       templateTitle: global.title,
       canCheck: reach.admin,
     },
@@ -527,7 +535,7 @@ async function summaryOf(
       accountId: groupAccount,
       group: name,
       checklist: part.doc.checklist,
-      groups: groupsFor(info.checklist, part.doc.checklist),
+      groups: groupsFor(info.checklist, part.doc.checklist, groupAccount),
       templateTitle: info.title,
       canCheck: reach.own.has(name),
     });
@@ -611,13 +619,6 @@ export async function createWorkorder(
       "bad_request",
       "A workorder needs the template it instantiates.",
     );
-  const rawGroups = input?.groups;
-  const groups = Array.isArray(rawGroups)
-    ? rawGroups
-        .filter((group): group is string => typeof group === "string")
-        .map((group) => group.trim().toLowerCase())
-        .filter(Boolean)
-    : [];
   const { ctx, accountId } = await masterAccount(session);
   const masterGroups = (await groupAccountsDetailed(ctx)).groups;
 
@@ -679,22 +680,28 @@ export async function createWorkorder(
   // The choices a create names are checked against the rules before anything is
   // written: a branch left undecided refuses the whole request.
   const { variants, items } = checklistChoices(def, input);
-  const stepPaths = applicableStepPaths(def, variants, items);
-  const buildInstance = () =>
-    buildChecklist({ template: bound, variants, items, stepPaths });
+  const buildInstance = (target: string | null) =>
+    buildChecklist({
+      template: bound,
+      variants,
+      items,
+      stepPaths: applicableStepPaths(def, variants, items, target),
+    });
 
-  // Resolve every named group before writing anything: a request that names a
-  // group the Master does not hold is refused whole, not half written.
-  const targets: string[] = [];
-  for (const group of groups) {
-    const groupAccount = masterGroups.get(group);
-    if (!groupAccount)
+  // The parts are the groups the template **assigns sections to** (ADR 0030):
+  // the global checklist holds the unassigned sections and each assigned group's
+  // part holds its own. Resolve every assigned group before writing anything, so
+  // a group the Master does not hold refuses the whole request rather than a
+  // half-written workorder.
+  const heldAccounts = new Set(masterGroups.values());
+  const targets = checklistGroups(def);
+  for (const groupAccount of targets) {
+    if (!heldAccounts.has(groupAccount))
       throw new WorkorderAdminError(
         "group_not_granted",
-        `The installation's agent is not a member of ${group}, so its part cannot be written.`,
+        "The installation's agent is not a member of the group a section is assigned to, so its part cannot be written.",
         409,
       );
-    targets.push(groupAccount);
   }
 
   const uid = randomUUID();
@@ -706,7 +713,7 @@ export async function createWorkorder(
     at,
     name,
     state: "running",
-    checklist: buildInstance(),
+    checklist: buildInstance(null),
   });
   await writeAppFileIn(
     ctx,
@@ -720,7 +727,7 @@ export async function createWorkorder(
       uid,
       by,
       at,
-      checklist: buildInstance(),
+      checklist: buildInstance(targetAccount),
     });
     await writeAppFileIn(
       ctx,

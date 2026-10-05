@@ -5,6 +5,7 @@ import {
   buildRevision,
   buildState,
   checklistBlocks,
+  checklistGroups,
   conditionClause,
   emptyChecklist,
   isChecklistTemplate,
@@ -337,6 +338,7 @@ test("the rules decide which sections, items and steps apply", () => {
     {
       loading: ["CONT-1", "CONT-2"],
     },
+    null,
   );
   assert.deepEqual(
     resolved.map((section) => section.key),
@@ -373,6 +375,7 @@ test("the rules decide which sections, items and steps apply", () => {
     {
       loading: ["CONT-1"],
     },
+    null,
   );
   assert.deepEqual(
     south[0]!.items[0]!.steps.map((step) => step.path),
@@ -395,14 +398,45 @@ test("a section's own condition gates the whole section", () => {
     ],
   };
   assert.deepEqual(
-    resolveChecklist(gated, { company: "north" }, { hazmat: ["CONT-1"] }),
+    resolveChecklist(gated, { company: "north" }, { hazmat: ["CONT-1"] }, null),
     [],
     "a section whose condition does not hold is left out whole",
   );
-  const south = resolveChecklist(gated, { company: "south" }, { hazmat: ["CONT-1"] });
+  const south = resolveChecklist(
+    gated,
+    { company: "south" },
+    { hazmat: ["CONT-1"] },
+    null,
+  );
   assert.deepEqual(
     south[0]!.items[0]!.steps.map((step) => step.path),
     ["hazmat[CONT-1].plate"],
+  );
+});
+
+test("a section assigned to a group resolves only for that group", () => {
+  const grouped: KnowledgeChecklist = {
+    variants: [],
+    sections: [
+      { key: "global", label: "Global", steps: [{ key: "g", label: "G" }] },
+      {
+        key: "customs",
+        label: "Customs",
+        group: "acct-customs",
+        steps: [{ key: "decl", label: "Declare" }],
+      },
+    ],
+  };
+  assert.deepEqual(checklistGroups(grouped), ["acct-customs"]);
+  assert.deepEqual(
+    resolveChecklist(grouped, {}, {}, null).map((section) => section.key),
+    ["global"],
+    "the global part holds the unassigned sections",
+  );
+  assert.deepEqual(
+    resolveChecklist(grouped, {}, {}, "acct-customs").map((section) => section.key),
+    ["customs"],
+    "a group's part holds only its assigned sections",
   );
 });
 
