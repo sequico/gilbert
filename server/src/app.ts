@@ -2951,7 +2951,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }>(c);
     try {
       const parentFolder = body?.parentFolder;
-      const checklist = body?.checklist ?? null;
+      const rawChecklist = body?.checklist ?? null;
+      // A create refuses a malformed definition rather than silently making an
+      // ordinary page of it, so a caller never believes it created a template.
+      if (rawChecklist !== null && !isKnowledgeChecklist(rawChecklist))
+        throw new KnowledgeAdminError(
+          "bad_request",
+          "A checklist definition must carry a schema and a uiSchema.",
+        );
       const summary = await createArticle(
         c.get("session"),
         knowledgeTarget(body),
@@ -2960,7 +2967,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           ? parentFolder.trim()
           : null,
         Array.isArray(body?.blocks) ? body.blocks : [],
-        isKnowledgeChecklist(checklist) ? checklist : null,
+        rawChecklist as KnowledgeChecklist | null,
       );
       return c.json({ ok: true, summary });
     } catch (err) {

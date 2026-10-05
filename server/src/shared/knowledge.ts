@@ -294,7 +294,14 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
 }
 
 export function isKnowledgeChecklist(x: unknown): x is KnowledgeChecklist {
-  return isRecord(x) && isRecord(x.schema) && isRecord(x.uiSchema);
+  // The root of a builder's schema is an object of fields. A definition that is
+  // not one is refused rather than stored as a "template" that derives no steps.
+  return (
+    isRecord(x) &&
+    isRecord(x.schema) &&
+    x.schema.type === "object" &&
+    isRecord(x.uiSchema)
+  );
 }
 
 export function isKnowledgeDraft(x: unknown): x is KnowledgeDraft {
