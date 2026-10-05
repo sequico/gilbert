@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
+import { readCssVar } from "@/lib/cssVars";
 import {
   type DateFormat,
   setDateTimePrefs,
@@ -869,13 +870,7 @@ export function applyTheme(s: Settings = useSettings.getState().settings): void 
  * not have to be listed twice and cannot drift from it.
  */
 function paletteThemeColor(_palette: PaletteId, mode: "light" | "dark"): string {
-  if (typeof getComputedStyle === "function") {
-    const value = getComputedStyle(document.documentElement)
-      .getPropertyValue("--bg")
-      .trim();
-    if (value) return value;
-  }
-  return mode === "dark" ? THEME_COLOR.dark : THEME_COLOR.light;
+  return readCssVar("--bg", mode === "dark" ? THEME_COLOR.dark : THEME_COLOR.light);
 }
 
 /** Whether a theme paints dark, resolving "system" against the OS. */
