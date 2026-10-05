@@ -300,12 +300,15 @@ zero in the same shell invocation. Verification is per write step, never
 batched at the end of a long run. Whole-tree rename scans (e.g. for
 `ihasmail`) are never truncated with head/tail — scan per file with bounded
 output instead.
-**Every push is gated by the fast CI** (`npm run check:ci`: typecheck + Biome
-lint + the check scripts + tests + build); a pre-push hook enforces it — hook in `.githooks/pre-push`,
-enabled per clone with `git config core.hooksPath .githooks`, bypass only
-deliberately with `--no-verify`. `ci.yml` does not run on push: it is the
-release pre-check, and only Dependabot's pull requests start it, because their
-branches never pass through the local hook.
+**Every push is gated** (`npm run check:ci`: typecheck + Biome lint + the check
+scripts + tests + build); the `.githooks/pre-push` hook enforces it, enabled per
+clone with `git config core.hooksPath .githooks`. The hook is checkpoint-driven:
+the default runs the full gate; `GATE=fast` runs only typecheck+lint; `GATE=off`
+skips deliberately. It also skips when the push touches no file a gate reads
+(`*.md` outside `docs/adr/`) or when the exact tree already passed in that mode
+(cache `.git/gate-cache`). Bypass a single push with `--no-verify`. `ci.yml` does
+not run on push: it is the release pre-check, and only Dependabot's pull requests
+start it, because their branches never pass through the local hook.
 
 **An action's `uses:` names a full commit SHA**, with the version it is in a
 comment beside it (owner decision 2026-09-23): a tag is a moving target, and

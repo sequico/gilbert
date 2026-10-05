@@ -1,9 +1,11 @@
 #!/bin/sh
-# Fast CI gate before every push: the same `npm run check:ci` the release
-# pre-check runs (typecheck, Biome, the check scripts, i18n, the tests under
-# UTC and the build).
-# Enabled per clone with `git config core.hooksPath .githooks`; see
-# AGENTS.md. Bypass deliberately with `git push --no-verify`.
+# Pre-push gate, driven by `scripts/gate-prepush.sh` (see AGENTS.md).
+#
+# Default: the full gate (`npm run check:ci`). `GATE=fast` runs only
+# typecheck+lint; `GATE=off` skips. It also skips when nothing a gate reads
+# changed, or when this exact tree already passed. Enabled per clone with
+# `git config core.hooksPath .githooks`; bypass a run deliberately with
+# `git push --no-verify`.
 #
 # Code scanning is not here: GitHub runs it on the push itself, and its
 # toolchain is a 686 MB bundle. `npm run prepush:full` is both gates, for a
@@ -11,13 +13,8 @@
 set -u
 
 if [ ! -x node_modules/.bin/tsc ]; then
-    echo "pre-push: dependencies missing -- run 'npm install' first" >&2
-    exit 1
+	echo "pre-push: dependencies missing -- run 'npm install' first" >&2
+	exit 1
 fi
 
-echo "pre-push: running the fast CI gate (npm run prepush)…"
-if ! npm run prepush; then
-    echo "pre-push: gate failed. Fix the failure, or bypass deliberately with --no-verify." >&2
-    exit 1
-fi
-exit 0
+exec bash scripts/gate-prepush.sh
