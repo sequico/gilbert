@@ -15,6 +15,11 @@
   <a href="https://github.com/sponsors/sequico"><img alt="Sponsor Gilbert on GitHub" src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?style=flat-square"></a>
 </p>
 
+> **Try it live: <https://gilbertdemo.sequi.company>** — sign in with
+> **`demo@example.com`** / **`demo`**. It is a **mock Stalwart held in memory**:
+> no real mail and no real data, and it **restarts every night**, so nothing you
+> leave there survives.
+
 # Gilbert
 
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
