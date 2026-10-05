@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The guard that refuses to force another Gilbert administrator (ADR 0001):
@@ -11,7 +12,7 @@ import { after, before, test } from "node:test";
  * the refusal path is exercised end to end.
  */
 
-const PORT = 18802;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

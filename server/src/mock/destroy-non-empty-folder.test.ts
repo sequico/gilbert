@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * Destroying a folder that still holds something.
@@ -24,12 +25,9 @@ import { after, test } from "node:test";
  * folder." — and pinned here so that a mock which stopped modelling it fails
  * this file rather than letting the merge look correct against a server that
  * would have accepted anything.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18873;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

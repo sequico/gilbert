@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { loginWith } from "./testkit.js";
+import { freePort, loginWith } from "./testkit.js";
 
 /**
  * Identities an administrator sets (ADR 0007): a person's through impersonation,
@@ -24,7 +24,7 @@ import { loginWith } from "./testkit.js";
  *    fact to the administrator who has to act on it.
  */
 
-const PORT = 18809;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

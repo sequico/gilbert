@@ -1,3 +1,4 @@
+import { freePort } from "./testkit.js";
 /**
  * The invariant behind the one-command installation (ADR 0003): the function the
  * server calls to start a fleet really does start one, and stopping it gives the
@@ -23,7 +24,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
-const PORT = 18857;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.GILBERT_AGENT_ADDRESS = "gilbert@example.com";

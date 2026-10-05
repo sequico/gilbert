@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * System Sieve scripts (ADR 0008) sit behind `requireAdmin` like every other
@@ -8,7 +9,7 @@ import { after, before, test } from "node:test";
  * processes (see `admin-nonadmin.test.ts`).
  */
 
-const PORT = 18862;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

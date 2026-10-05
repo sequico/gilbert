@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The ceiling that answers without the body.
@@ -14,10 +15,10 @@ import { test } from "node:test";
  *
  * The limit is left at its floor so the ceiling (twenty times it) is reachable
  * in a few requests, and nothing here reaches Stalwart: the answer is settled
- * before any upstream is asked. Port must not collide with any other test file.
+ * before any upstream is asked.
  */
 
-const PORT = 18872;
+const PORT = await freePort();
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-login-flood";
 process.env.LOGIN_RATE_LIMIT = "1";

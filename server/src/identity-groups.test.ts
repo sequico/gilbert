@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { postWith } from "./testkit.js";
+import { freePort, postWith } from "./testkit.js";
 
 /**
  * A group's identities, and the roster they belong to (ADR 0007).
@@ -18,12 +18,9 @@ import { postWith } from "./testkit.js";
  * which is refused by name instead of being written through. The member an
  * identity belongs to is the caller's to say: it is the `name` in the patch,
  * and nothing about the account decides it.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 19933;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

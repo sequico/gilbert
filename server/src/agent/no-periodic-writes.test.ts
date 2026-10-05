@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * Idle costs nothing, and that is the whole incident this pins.
@@ -20,7 +21,7 @@ import { after, test } from "node:test";
  * the loop.
  */
 
-const PORT = 18861;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

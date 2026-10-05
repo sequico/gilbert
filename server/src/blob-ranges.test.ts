@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * Byte ranges on a download, end to end through the proxy.
@@ -13,11 +14,9 @@ import { after, before, test } from "node:test";
  *
  * The blob is uploaded by this file, so the bytes and their offsets are known
  * rather than borrowed from a fixture.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18875;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

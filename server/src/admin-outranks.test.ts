@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * An account that outranks the administrator acting on it (ADR 0001).
@@ -16,7 +17,7 @@ import { after, before, test } from "node:test";
  * `outranks` is for.
  */
 
-const PORT = 18864;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

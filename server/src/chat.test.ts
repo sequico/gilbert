@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * Group chat on the mock (ADR 0005): a member writes message documents into
@@ -9,7 +10,7 @@ import { after, before, test } from "node:test";
  * client re-syncs from. This is the mock parity the chat store depends on.
  */
 
-const PORT = 18804;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("./mock/index.js");

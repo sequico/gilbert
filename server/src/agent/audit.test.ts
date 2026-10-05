@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * The trail's one builder and the month it lands in (ADR 0003).
@@ -9,7 +10,7 @@ import { after, test } from "node:test";
  * into that month's document and no other.
  */
 
-const PORT = 18852;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { type MethodCall, responseOf } from "../testkit.js";
+import { freePort, type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The agent fixture (ADR 0003): the principal the worker authenticates as, and
@@ -14,12 +14,9 @@ import { type MethodCall, responseOf } from "../testkit.js";
  * The mock reproduces each of those, because a fixture missing the grant would
  * leave every agent test passing against nothing at all. What it does not
  * reproduce is recorded where it matters -- in the mock itself.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18842;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_AGENT_ADDRESS = "gilbert@example.com";
 process.env.MOCK_AGENT_PASSWORD = "gilbert-password";

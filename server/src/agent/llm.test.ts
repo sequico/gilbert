@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, before, test } from "node:test";
 import zlib from "node:zlib";
 import { PDFDocument, rgb } from "pdf-lib";
-import { blankPdf } from "../testkit.js";
+import { blankPdf, freePort } from "../testkit.js";
 
 /**
  * The model client against a stub OpenAI-compatible endpoint.
@@ -19,7 +19,7 @@ import { blankPdf } from "../testkit.js";
  * is read as text, and a page that has none reaches the model as an image.
  */
 
-const PORT = 18850;
+const PORT = await freePort();
 
 interface Seen {
   url: string;

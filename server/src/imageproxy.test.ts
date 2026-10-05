@@ -7,6 +7,7 @@ import {
 } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-image-proxy";
@@ -80,7 +81,7 @@ test("addresses we must never reach are recognised", () => {
  * depending on how this machine resolves anything: `localhost` reaches one of
  * them, and the pin has to reach the other.
  */
-const PORT = 18811;
+const PORT = await freePort();
 const RESOLVED = "::1"; // what "localhost" gets you
 const PINNED = "127.0.0.2"; // somewhere only an explicit address reaches
 let viaName: Server;

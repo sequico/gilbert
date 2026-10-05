@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Ctx } from "./appFolder.js";
-import { postWith } from "./testkit.js";
+import { freePort, postWith } from "./testkit.js";
 
 /**
  * The knowledge base's Master-owned door (ADR 0024), end to end.
@@ -13,11 +13,9 @@ import { postWith } from "./testkit.js";
  * minted only at approval, an effective instant that puts the revision in force
  * now or leaves it pending, and history that is opened as a new draft rather
  * than edited. Each fails if the mechanism is removed.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18876;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

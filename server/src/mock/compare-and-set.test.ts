@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { type MethodCall, responseOf } from "../testkit.js";
+import { freePort, type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The mock's compare-and-set, its FileNode change log and its clock.
@@ -16,12 +16,9 @@ import { type MethodCall, responseOf } from "../testkit.js";
  *
  * `MOCK_NOW` is set before the mock is imported, so the boot override is
  * exercised too.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18841;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_NOW = "2026-09-10T09:00:00Z";
 process.env.MOCK_USER = "demo@example.com";

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * The demo the mock ships (ADR 0024, 0028, 0030): the company knowledge base and
@@ -9,11 +10,9 @@ import { after, before, test } from "node:test";
  * workorder's steps carry the states the seed preset. A seed that answered a
  * different account, or stored paths the resolution never produces, would leave
  * the demo empty while every unit test stayed green.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18879;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

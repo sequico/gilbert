@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * A sibling's name, refused on both write paths.
@@ -14,12 +15,9 @@ import { after, test } from "node:test";
  * The client's rename and move are updates, so a mock that checked only creates
  * would let a rename onto a taken name look correct here that a live server
  * refuses. Both paths are pinned; each fails if its check is removed.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18878;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

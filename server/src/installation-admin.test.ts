@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { InstallationPublished, InstallationView } from "./installationAdmin.js";
-import { loginWith } from "./testkit.js";
+import { freePort, loginWith } from "./testkit.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /**
@@ -28,12 +28,9 @@ import type { UpstreamSession } from "./upstream.js";
  * publish that loses its race is refused with its own code and leaves the
  * stored document exactly as it was, and a save from a stale editor cannot move
  * the stored epoch backwards.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18863;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

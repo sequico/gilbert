@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * A group's roster, as the member door answers it (ADR 0005).
@@ -14,17 +15,14 @@ import { after, before, test } from "node:test";
  * deliberately leaves unset: the roster is read as the installation, because a
  * member's own credential can never open `x:Account` (live on 0.16.21,
  * 2026-09-13 — `sysAccountGet` is not in the built-in user role).
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18870;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_ADMIN = "0";
-process.env.STALWART_URL = `http://127.0.0.1:18870`;
+process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-agent-members";
 process.env.LOGIN_RATE_LIMIT = "10000";
 process.env.GILBERT_AGENT_ADDRESS = "gilbert@example.com";
@@ -32,7 +30,7 @@ process.env.GILBERT_AGENT_PASSWORD = "gilbert-password";
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
-const BASE = `http://127.0.0.1:18870`;
+const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { groupMembers } = await import("./agentAdmin.js");

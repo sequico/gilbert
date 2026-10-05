@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * The agent's second entrypoint against the mock (ADR 0003, v1 scope).
@@ -13,7 +14,7 @@ import { after, test } from "node:test";
  * upload counter's business, in `no-periodic-writes.test.ts`.
  */
 
-const PORT = 18849;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

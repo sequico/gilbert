@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { blankPdf } from "../testkit.js";
+import { blankPdf, freePort } from "../testkit.js";
 
 /**
  * The capability runner against the mock (ADR 0003 resolution 2).
@@ -13,7 +13,7 @@ import { blankPdf } from "../testkit.js";
  * `mail.send` is covered through the executor's approval test instead of here.
  */
 
-const PORT = 18843;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

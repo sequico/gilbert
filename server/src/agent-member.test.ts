@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The member's read of a group's agent, from a session that is not an
@@ -22,12 +23,9 @@ import { after, before, test } from "node:test";
  * `memberAgentView` runs on the same membership rule with a session that is an
  * administrator as well as a member — the member route never asks which, so the
  * two read the same thing.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18847;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

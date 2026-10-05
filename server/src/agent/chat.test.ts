@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { sleep } from "../shared/async.js";
 import type { ChatMessage } from "../shared/chat.js";
+import { freePort } from "../testkit.js";
 
 /**
  * The agent's side of the group chat against the mock (ADR 0005, resolution 11).
@@ -13,7 +14,7 @@ import type { ChatMessage } from "../shared/chat.js";
  * milliseconds rather than assuming two writes land in different milliseconds.
  */
 
-const PORT = 18846;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

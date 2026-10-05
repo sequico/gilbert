@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * Gilbert requires Stalwart 0.16 or newer. Sign-in is where that is enforced,
@@ -14,7 +15,7 @@ import { after, before, test } from "node:test";
  * it is not would send them round in circles.
  */
 
-const PORT = 18803;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

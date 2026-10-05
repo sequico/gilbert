@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * A blob download that the mail server refuses for credentials.
@@ -9,11 +10,9 @@ import { after, before, test } from "node:test";
  * used to answer a 502 for any non-OK upstream, so an expired credential on a
  * download surfaced as a server error and that branch was unreachable. This
  * pins the route to the same 401 the `/api/jmap` route answers.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18908;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

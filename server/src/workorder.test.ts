@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { isStepComplete } from "./shared/workorder.js";
-import { postWith } from "./testkit.js";
+import { freePort, postWith } from "./testkit.js";
 
 /**
  * Workorders (ADR 0028), end to end against the mock.
@@ -12,11 +12,9 @@ import { postWith } from "./testkit.js";
  * path and its last signature — never a copy of the controlled text. Closing
  * moves the root to `closed/` and keeps it. Each test fails if the mechanism is
  * removed.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18877;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

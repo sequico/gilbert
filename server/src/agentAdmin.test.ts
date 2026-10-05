@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The agent fleet's admin and member surfaces (ADR 0003), end to end against
@@ -25,7 +26,7 @@ import { after, before, test } from "node:test";
  * be reached, and one that names none at all, are reported rather than invented.
  */
 
-const PORT = 18830;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 // The stub model these suites call lives on loopback: the deployment says so,
 // which is the operator's statement and never a document's.

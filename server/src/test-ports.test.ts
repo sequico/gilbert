@@ -4,18 +4,15 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 /**
- * One mock port per test file.
+ * Every test file that binds a mock takes a port the OS handed back.
  *
  * The runner executes files as parallel child processes and each binds its own
- * mock, so two files naming the same port race for it: whichever loses either
- * fails to start or, worse, talks to the other file's mock and its in-memory
- * state. Every file that declares one says so in a comment ("Mock port: must not
- * collide with any other test file"), which is a rule nothing enforced -- and it
- * had already been broken twice over, by `agent/chat.test.ts` and
- * `mock/destroy-non-empty-folder.test.ts` both taking 18846.
- *
- * A comment cannot fail, so this can. It is cheap enough to run with everything
- * else: it reads the test files and nothing else.
+ * mock, so a port named in the source goes wrong two ways: two files naming the
+ * same one race for it, and a port that is fine in CI collides with whatever
+ * else runs on the machine — a service co-hosted on the developer's box, or a
+ * sibling file. `freePort()` (in `testkit.ts`) asks the OS for a port it has
+ * just handed back, so no file names one; a comment cannot fail, so this can.
+ * It reads the test files and nothing else.
  */
 const HERE = import.meta.dirname ?? new URL(".", import.meta.url).pathname;
 
@@ -29,32 +26,43 @@ function testFiles(dir: string): string[] {
   return out;
 }
 
-/** The port a file binds its mock on, or null when it binds none. */
-function mockPort(source: string): number | null {
-  // Only files that hand the port to the mock: `MODEL_PORT`, or a port used for
-  // something else entirely, is not one to keep unique.
-  if (!source.includes("process.env.MOCK_PORT = String(PORT)")) return null;
-  const declared = /^const PORT = (\d+);$/m.exec(source);
-  return declared ? Number(declared[1]) : null;
+/** How a file hands its mock a port, or null when it binds none. */
+/** Whether a file hands its mock a port through `MOCK_PORT`. */
+function bindsMock(source: string): boolean {
+  return /^process\.env\.MOCK_PORT = String\(PORT\);$/m.test(source);
 }
 
-test("no two test files bind the same mock port", () => {
-  const seen = new Map<number, string[]>();
+/** Whether the file takes its port from `freePort()` rather than naming one. */
+function usesFreePort(source: string): boolean {
+  return /^const PORT = await freePort\(\);$/m.test(source);
+}
+
+/** A port the file names in the source, or null. */
+function fixedPort(source: string): number | null {
+  const fixed = /^const PORT = (\d+);$/m.exec(source);
+  return fixed ? Number(fixed[1]) : null;
+}
+
+test("no test file names a fixed port, and a mock binds through freePort", () => {
   const files = testFiles(HERE).sort();
   assert.ok(files.length > 50, `expected the suite's files, read ${files.length}`);
   let declared = 0;
+  const offenders: string[] = [];
   for (const file of files) {
-    const port = mockPort(readFileSync(file, "utf8"));
-    if (port == null) continue;
-    declared += 1;
+    const source = readFileSync(file, "utf8");
     const rel = file.slice(HERE.length + 1);
-    seen.set(port, [...(seen.get(port) ?? []), rel]);
+    if (bindsMock(source)) {
+      declared += 1;
+      if (!usesFreePort(source))
+        offenders.push(`${rel} (binds a mock but not through freePort)`);
+    }
+    const named = fixedPort(source);
+    if (named != null) offenders.push(`${rel} (names the fixed port ${named})`);
   }
   assert.ok(declared > 30, `expected most files to bind a mock, saw ${declared}`);
-  const clashes = [...seen.entries()].filter(([, owners]) => owners.length > 1);
   assert.deepEqual(
-    clashes,
+    offenders,
     [],
-    `two files on one mock port race for it: ${clashes.map(([p, o]) => `${p} (${o.join(", ")})`).join("; ")}`,
+    `test files must take a free port: ${offenders.join("; ")}`,
   );
 });

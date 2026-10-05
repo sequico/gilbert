@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * Stalwart's directory query, as the mock stands in for it: `Principal/query`
@@ -18,12 +19,9 @@ import { after, before, test } from "node:test";
  * `allow_directory_query` answers 400 or 403 and whether the refusal is the
  * whole request or one refused method call; the mock keeps modelling the 403
  * the code already reads.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18805;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

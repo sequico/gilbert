@@ -6,7 +6,7 @@ import type {
   SessionList,
   SessionSummary,
 } from "./shared/accountSecurity.js";
-import { postWith } from "./testkit.js";
+import { freePort, postWith } from "./testkit.js";
 
 /**
  * End-to-end self-service credential flows against the mock, which enforces
@@ -15,7 +15,7 @@ import { postWith } from "./testkit.js";
  * TOTP code — except one authenticating with an app password.
  */
 
-const PORT = 18797;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

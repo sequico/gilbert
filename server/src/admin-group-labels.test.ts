@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The admin group-label catalog surface (ADR 0005), end to end against the
@@ -16,7 +17,7 @@ import { after, before, test } from "node:test";
  * group's own mailbox.
  */
 
-const PORT = 18820;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

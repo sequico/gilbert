@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * An installation that offers no administration at all (ADR 0017).
@@ -16,7 +17,7 @@ import { after, before, test } from "node:test";
  * administrator on a session that did not ask to be remembered keeps working.
  */
 
-const PORT = 18866;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { PublishJob, PublishOutcome } from "./app.js";
+import { freePort } from "./testkit.js";
 
 /**
  * A publish into an installation where one account refuses (ADR 0001).
@@ -13,7 +14,7 @@ import type { PublishJob, PublishOutcome } from "./app.js";
  * refuses to be.
  */
 
-const PORT = 18906;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

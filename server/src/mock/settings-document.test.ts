@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * The mock serves the account's own settings document (ADR 0007): a
@@ -14,12 +15,9 @@ import { after, test } from "node:test";
  * and the download path serves the bytes back. These are the behaviours the
  * identity surfaces rest on; a mock that answered any of them differently would
  * make their tests pass against a server that does not exist.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18853;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

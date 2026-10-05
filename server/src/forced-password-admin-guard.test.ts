@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The admin half of the forced-password-change endpoints (ADR 0001): without
@@ -11,7 +12,7 @@ import { after, before, test } from "node:test";
  * MOCK_ADMIN at import, so this case needs its own process.
  */
 
-const PORT = 18792;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

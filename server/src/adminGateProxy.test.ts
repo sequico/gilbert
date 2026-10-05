@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The administration gate on the JMAP proxy (ADR 0017), end to end.
@@ -15,7 +16,7 @@ import { after, before, test } from "node:test";
  * rather than a door in front of the operator's decision.
  */
 
-const PORT = 18865;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

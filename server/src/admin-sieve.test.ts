@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * System Sieve scripts (ADR 0008): create, list, read, update, activate and
@@ -11,7 +12,7 @@ import { after, before, test } from "node:test";
  * scripts: more than one system script can be active at once.
  */
 
-const PORT = 18860;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

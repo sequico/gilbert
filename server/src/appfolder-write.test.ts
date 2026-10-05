@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { isAppFolder } from "./shared/appFolder.js";
-import { waitForPort } from "./testkit.js";
+import { freePort, waitForPort } from "./testkit.js";
 
 /**
  * The write funnel's no-op rule, against the mock Stalwart.
@@ -23,7 +23,7 @@ import { waitForPort } from "./testkit.js";
  * invalidate another writer's compare-and-set token for nothing.
  */
 
-const PORT = 18868;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

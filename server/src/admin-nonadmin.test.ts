@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The admin flag's other half: without the admin marker in the `/api/account`
  * permission list, isAdmin is false. Separate file on purpose — the mock
  * reads MOCK_ADMIN at import, so the two cases need separate processes.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18812;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

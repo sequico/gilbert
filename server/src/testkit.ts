@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:net";
 import { PDFDocument } from "pdf-lib";
 
 /**
@@ -30,6 +31,32 @@ export function responseOf(responses: MethodCall[], callId: string): MethodCall 
   const found = responses.find((r) => r[2] === callId);
   assert.ok(found, `${callId} should answer`);
   return found;
+}
+
+/**
+ * A free loopback port for a suite's mock Stalwart.
+ *
+ * The mock binds a real socket, and a fixed port collides with whatever else
+ * runs on the machine: a sibling test file racing for it, or a service
+ * co-hosted on the developer's box (nanobot's gateway holds 18790, which a test
+ * used to name). Asking the OS for a port it has just handed back keeps the
+ * suite runnable anywhere, and the `test-ports` guard fails if a file goes back
+ * to naming a number.
+ */
+export function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      probe.close((error) => {
+        if (error) reject(error);
+        else if (port) resolve(port);
+        else reject(new Error("the OS handed back no port"));
+      });
+    });
+  });
 }
 
 /** The mock is listening by the time its import resolves; give it a moment. */

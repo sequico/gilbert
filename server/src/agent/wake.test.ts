@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { sleep } from "../shared/async.js";
+import { freePort } from "../testkit.js";
 
 /**
  * Push as the wake-up and polling as the fallback (ADR 0003).
@@ -13,7 +14,7 @@ import { sleep } from "../shared/async.js";
  * connection is provably up rather than guessing when it opened.
  */
 
-const PORT = 18848;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");

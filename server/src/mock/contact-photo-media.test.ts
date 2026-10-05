@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * What a contact card's `media` may hold.
@@ -15,12 +16,9 @@ import { after, test } from "node:test";
  * failed once it reached one. This file is the assumption pinned next to the
  * simulation, so a mock that stopped refusing it fails here rather than letting
  * the editor look correct again.
- *
- * Mock port: must not collide with any other test file -- the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18874;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

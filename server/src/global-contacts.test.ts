@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { postWith } from "./testkit.js";
+import { freePort, postWith } from "./testkit.js";
 
 /**
  * The Global contacts directory (ADR 0023), as an administrator writes it.
  *
  * The directory is written as the Master: the book is found or made, and the
  * card is created, checked against the book and destroyed.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 19934;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

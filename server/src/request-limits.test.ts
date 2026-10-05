@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * How much a request may make the proxy hold in memory.
@@ -9,12 +10,9 @@ import { after, before, test } from "node:test";
  * that may administer; for one that may not it reads the body to check it
  * (ADR 0017), and that read is bounded three ways — in size, in how many one
  * session runs at once, and in bytes across everyone.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18871;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

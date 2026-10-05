@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { freePort } from "./testkit.js";
 
 /**
  * The forced-password-change door (ADR 0001), end to end against the mock.
@@ -14,7 +15,7 @@ import { after, before, test } from "node:test";
  * corrupt directive reads as absent.
  */
 
-const PORT = 18790;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

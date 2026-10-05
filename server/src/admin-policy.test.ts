@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { PublishJob, PublishOutcome } from "./app.js";
+import { freePort } from "./testkit.js";
 
 /**
  * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
@@ -10,7 +11,7 @@ import type { PublishJob, PublishOutcome } from "./app.js";
  * `GET /api/account/policy` answers with what the publish just wrote there.
  */
 
-const PORT = 18799;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

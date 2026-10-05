@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
 import { after, before, beforeEach, test } from "node:test";
 import { sleep } from "../shared/async.js";
-import { blankPdf } from "../testkit.js";
+import { blankPdf, freePort } from "../testkit.js";
 import type {
   AgentGroupPolicyDoc,
   AgentJob,
@@ -28,7 +28,7 @@ import type { ScheduleGuard } from "./executor.js";
  * established, so a failure here is worth re-running before it is believed.
  */
 
-const PORT = 18845;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 // The stub model this suite calls lives on loopback: the deployment says so,
 // which is the operator's statement and never a document's.

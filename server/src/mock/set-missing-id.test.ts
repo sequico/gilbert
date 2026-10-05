@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { freePort } from "../testkit.js";
 
 /**
  * A `/set` that names an id the account does not hold.
@@ -9,11 +10,9 @@ import { after, test } from "node:test";
  * `/set` used to skip a missing id without a word for both update and destroy,
  * so a client acting on a stale id looked correct here and would be refused on
  * a real server. Pinned here so a mock that stops modelling it fails this file.
- *
- * Mock port: must not collide with any other test file.
  */
 
-const PORT = 18907;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

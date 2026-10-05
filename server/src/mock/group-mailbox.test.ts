@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { postWith } from "../testkit.js";
+import { freePort, postWith } from "../testkit.js";
 
 /**
  * The mock models a group (team) mailbox the demo user is a member of: an extra
  * non-personal account that answers with its own folder tree, messages and
  * identity. This pins the mock's half of the group-mailbox feature so the
  * client can be built against it.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18813;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

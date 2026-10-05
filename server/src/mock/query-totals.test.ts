@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { postWith } from "../testkit.js";
+import { freePort, postWith } from "../testkit.js";
 
 /**
  * What the mock answers for a query's total, which is the one number the
@@ -13,12 +13,9 @@ import { postWith } from "../testkit.js";
  * pinned here, next to the simulation that stands in for Stalwart — a thread of
  * several messages is one total collapsed and several uncollapsed, and the
  * totals the mock reports agree with the ids it answers.
- *
- * Mock port: must not collide with any other test file — the runner executes
- * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18901;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

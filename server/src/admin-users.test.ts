@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { loginWith } from "./testkit.js";
+import { freePort, loginWith } from "./testkit.js";
 
 /**
  * The admin Users surface (ADR 0001): the directory
@@ -9,7 +9,7 @@ import { loginWith } from "./testkit.js";
  * session may act, and non-admins get 403.
  */
 
-const PORT = 18801;
+const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
