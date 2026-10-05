@@ -638,7 +638,6 @@ function NewWorkorderForm() {
         id: chosen.id,
         revision: chosen.revision,
       },
-      groups: [],
       variants: chosenVariants,
       items: chosenItems,
     };

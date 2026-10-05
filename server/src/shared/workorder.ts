@@ -375,12 +375,10 @@ export interface WorkorderItemInput {
   data?: Record<string, string>;
 }
 
-/** What a creation names: a friendly name, a template, the groups and choices. */
+/** What a creation names: a friendly name, a template and the template's choices. */
 export interface WorkorderCreateInput {
   name: string;
   template: WorkorderTemplateRef;
-  /** The groups the workorder gets a part in, by name; empty is global only. */
-  groups: string[];
   /** The chosen value per variant key; every variant must be named. */
   variants?: Record<string, string>;
   /** The chosen items per repeated section key; every repeat must name one. */

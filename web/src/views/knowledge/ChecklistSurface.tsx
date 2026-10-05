@@ -528,7 +528,7 @@ function ProcessBuilder({
                 onChange={(condition) => patchSection(i, { condition })}
               />
 
-              {groups.length > 0 && (
+              {(groups.length > 0 || section.group) && (
                 <div className="row wrap gap-8 mt-8">
                   <span className="hint nowrap">{t("Group")}</span>
                   <select
@@ -546,6 +546,11 @@ function ProcessBuilder({
                         {g.name}
                       </option>
                     ))}
+                    {/* A group no longer among the probed tiers still shows, by
+                        id, so a stored assignment is never silently rewritten. */}
+                    {section.group && !groups.some((g) => g.id === section.group) && (
+                      <option value={section.group}>{section.group}</option>
+                    )}
                   </select>
                 </div>
               )}

@@ -3185,9 +3185,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const input: WorkorderCreateInput = {
       name: r.name,
       template: r.template,
-      groups: Array.isArray(r.groups)
-        ? r.groups.filter((group): group is string => typeof group === "string")
-        : [],
     };
     if (isRecord(r.variants)) {
       const variants: Record<string, string> = {};
