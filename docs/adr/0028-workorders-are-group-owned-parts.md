@@ -256,7 +256,8 @@ A workorder is a **uid** whose root document sits in the Master's
 of each group competent for it, holding that group's checklist — the operational
 instance of a KB template (ADR 0024) in force — and its references to that
 group's own folders and files — a template may branch on the workorder's chosen
-variant values, and a step is `open`, `done` or `not applicable` (ADR 0030).
+variant values, and a step is `open`, `done`, `skipped` or `not-applicable`
+(ADR 0030).
 Everything gathered is a reference by id; nothing
 is copied and no marker is planted in a work folder. The Master does every read
 and write: it composes the surface from the root and the parts, an administrator
@@ -300,5 +301,5 @@ created.
 - `docs/adr/0007` — the agent as a member of every group it is granted on
 - `docs/adr/0017` — administration is a door, not a menu
 - `docs/adr/0030` — a checklist template branches on data, not on groups: the
-  variants, the step conditions and the `not applicable` state
+  variants, the step conditions, a section's group and the step states
 - `.opencode/skills/gilbert-groups/SKILL.md` — membership is the grant

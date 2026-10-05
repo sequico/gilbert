@@ -41,8 +41,8 @@ on the page's draft and every revision:
 - A **condition** is `{ variant, equals }`. It may sit on a section or a step and
   resolves against the workorder's chosen values **wherever it is** — the
   cross-scope rule a JSON Schema form cannot express. `resolveChecklist(def,
-  values, items)` is the **one** resolver, read by a workorder's instantiation
-  and by its view.
+  values, items, target)` is the **one** resolver, read by a workorder's
+  instantiation and by its view.
 - A **repeat** (`{ item, fields }`) is instantiated once per **item** the
   workorder names (the containers, stated at creation). A step's identity is its
   **path**, which carries the item (`loading[CONT-1].seal`), so the same step in
@@ -58,13 +58,13 @@ on the page's draft and every revision:
 - The page's **body and search text are derived** from the rules
   (`checklistBlocks`), so the rules are the one copy.
 - The **authoring surface is Gilbert's own**, not a generic form builder:
-  variants, sections, steps, conditions and repeats are edited with the app's own
-  controls. JSON Schema and an off-the-shelf form builder are deliberately **not
-  used** — the model is a process, not a form, and cross-scope conditions and
-  repeats fall outside what a form expresses.
+  variants, sections, steps, conditions, repeats and a section's group are edited
+  with the app's own controls. JSON Schema and an off-the-shelf form builder are
+  deliberately **not used** — the model is a process, not a form, and cross-scope
+  conditions and repeats fall outside what a form expresses.
 - Branching resolves from the **bound revision**, never the template's current
-  state; changing a variant, a section, a step, a condition or a repeat is a new
-  revision.
+  state; changing a variant, a section, a step, a condition, a repeat or a
+  section's group is a new revision.
 - A **genuinely different procedure** is a different template, not a branch of
   the generic one.
 
