@@ -19,19 +19,20 @@
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.
 
-Gilbert is a self-hosted mail suite — mail, calendars, contacts, files — with
-**AI agents inside it**. Agents read incoming mail and files, file documents
-into the right folder, read the document inside them, draft replies and report
-what they did in the group's chat. What they may do is a capability list an
-administrator writes and code enforces; every effect is recorded before it
-happens; and anything that leaves the group waits for a person to approve it,
-in words.
+Gilbert is **company mail and operations with AI agents inside** — self-hosted
+mail, calendar, contacts and files, a knowledge base and the procedures a job
+follows. Agents read incoming mail and files, file documents into the right
+folder, read the document inside them, draft replies and report what they did in
+the group's chat. What they may do is a capability list an administrator writes
+and code enforces; every effect is recorded before it happens; and anything that
+leaves the group waits for a person to approve it, in words.
 
-Everything Gilbert keeps — mail, files, rules, audit trail — is a document in
-your own [Stalwart](https://stalw.art) mail server, under the account it belongs
-to. There is no Gilbert database: no index, no cache tier, no writable disk,
-nothing to back up twice, and a redeploy that loses nothing. The only thing that
-leaves the installation is the model call the installation itself configures.
+Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
+is a document in your own [Stalwart](https://stalw.art) mail server, under the
+account it belongs to. There is no Gilbert database: no index, no cache tier, no
+writable disk, nothing to back up twice, and a redeploy that loses nothing. The
+only thing that leaves the installation is the model call the installation itself
+configures.
 
 ## Who it is for
 
@@ -90,12 +91,12 @@ The short version; [FEATURES.md](FEATURES.md) is the inventory.
   by the group; chat is one conversation per group in that account; **Global
   contacts** is one directory the installation owns and every account reads.
 - **A knowledge base and workorders** (Gilbert's own modules): a company-wide KB
-  and one per group, with a shared draft, an administrator's approval and every
-  issued revision kept; checklist templates authored with a **checklist builder**
-  — a choice that holds throughout, sections that differ by it, a section that
-  loops per item and a section assigned to a group, not markup; and workorders
-  that gather the folders, files and pages of one job with a checklist bound to a
-  KB template.
+  and one per group, holding the company's policies and procedures, with a shared
+  draft, an administrator's approval and every issued revision kept; checklist
+  templates authored with a **checklist builder** — a choice that holds
+  throughout, sections that differ by it, a section that loops per item and a
+  section assigned to a group, not markup; and workorders that gather the
+  folders, files and pages of one job with a checklist bound to a KB template.
 - **A mail client you would keep anyway.** Three-pane and keyboard-driven, with
   conversations, labels, search grammar, undo send, scheduled send, read
   receipts, S/MIME signature checking, calendars with invitations and free/busy,
