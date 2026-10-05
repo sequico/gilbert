@@ -22,6 +22,7 @@
  */
 
 import { isRecord } from "./json.js";
+import { type KnowledgeChecklist, resolveChecklist } from "./knowledge.js";
 
 export const WORKORDER_FOLDER = "workorders";
 export const WORKORDER_CLOSED_FOLDER = "closed";
@@ -291,6 +292,34 @@ export function stepOf(
   path: string,
 ): WorkorderStep | undefined {
   return checklist.steps.find((step) => step.path === path);
+}
+
+/** The chosen item keys per repeated section, the shape `resolveChecklist` reads. */
+export function itemKeysOf(
+  items: Record<string, WorkorderItem[]>,
+): Record<string, string[]> {
+  const keys: Record<string, string[]> = {};
+  for (const [key, list] of Object.entries(items))
+    keys[key] = list.map((item) => item.key);
+  return keys;
+}
+
+/**
+ * The applicable step paths, in template order, for chosen values and items.
+ *
+ * The one resolution a create, a read and the demo seed all share: the steps a
+ * workorder stores are exactly the ones the template's rules name for the
+ * chosen values, items and part (ADR 0030).
+ */
+export function applicableStepPaths(
+  def: KnowledgeChecklist,
+  variants: Record<string, string>,
+  items: Record<string, WorkorderItem[]>,
+  target: string | null,
+): string[] {
+  return resolveChecklist(def, variants, itemKeysOf(items), target).flatMap((section) =>
+    section.items.flatMap((item) => item.steps.map((step) => step.path)),
+  );
 }
 
 /* ------------------------------------------------------------------ */

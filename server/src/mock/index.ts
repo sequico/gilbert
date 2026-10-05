@@ -11,6 +11,7 @@ import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, NO_HOLD, undoStatusOf } from "./futurerelease.js";
+import { demoSeedNodes } from "./knowledgeSeed.js";
 import {
   eventGetView,
   expandOccurrences,
@@ -2011,6 +2012,8 @@ const sharedFileNodes: Obj[] = [
     shareWith: {},
   },
 ];
+/** The group's own `gilbert` app folder, named once for the fixture and the seed. */
+const GROUP_APP_FOLDER = "gf3";
 /** The node list an account owns. */
 const groupFileNodes: Obj[] = [
   {
@@ -2048,7 +2051,7 @@ const groupFileNodes: Obj[] = [
    * state every other member of this fixture is in.
    */
   {
-    id: "gf3",
+    id: GROUP_APP_FOLDER,
     parentId: null,
     nodeType: "directory",
     blobId: null,
@@ -2062,7 +2065,7 @@ const groupFileNodes: Obj[] = [
   },
   {
     id: "gf4",
-    parentId: "gf3",
+    parentId: GROUP_APP_FOLDER,
     nodeType: "file",
     blobId: putBlob(
       JSON.stringify({ v: 1, members: { [USER]: "gi2" } }),
@@ -2097,12 +2100,31 @@ const group2FileNodes: Obj[] = [];
 const targetFileNodes: Obj[] = [];
 
 /**
- * The agent's own Files (ADR 0003): where its configuration documents live.
- * Empty on purpose -- the mock seeds nothing the code under test is supposed to
- * create itself, so the `gilbert/agent` folders appear only once a write asks
- * for them.
+ * The agent's own Files (ADR 0003): where its configuration documents live. A
+ * write makes the `gilbert/agent` folders on demand; the demo seed below puts
+ * the company KB and the workorder registry in the same `gilbert` folder, so the
+ * mock shows the product's own features rather than only what a test creates.
  */
 const agentFileNodes: Obj[] = [];
+
+/*
+ * The demo's company knowledge base and workorders (see `knowledgeSeed.ts`),
+ * seeded into the Master's account and, for the group-assigned section, the
+ * group's own. Everything is derived from the shared builders, so a field or a
+ * branching rule the model gains appears in the demo without a second
+ * definition.
+ */
+const demoSeed = demoSeedNodes({
+  putBlob,
+  at: new Date(now()).toISOString(),
+  master: AGENT_ACCOUNT,
+  author: AGENT_ADDRESS,
+  worker: USER,
+  group: GROUP_ACCOUNT,
+  groupAppFolder: GROUP_APP_FOLDER,
+});
+agentFileNodes.push(...demoSeed.master);
+groupFileNodes.push(...demoSeed.group);
 function fr() {
   return {
     mayRead: true,

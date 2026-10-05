@@ -59,6 +59,7 @@ import {
   STATE_FILE,
 } from "./shared/knowledge.js";
 import {
+  applicableStepPaths,
   buildChecklist,
   buildWorkorderDoc,
   isTerminalState,
@@ -67,6 +68,7 @@ import {
   isWorkorderState,
   isWorkorderStepState,
   isWorkorderTemplateRef,
+  itemKeysOf,
   stepOf,
   WORKORDER_FOLDER,
   type WorkorderCheckInput,
@@ -368,14 +370,6 @@ async function templateDef(
   }
 }
 
-/** The chosen item keys per repeated section, the shape `resolveChecklist` reads. */
-function itemKeysOf(items: Record<string, WorkorderItem[]>): Record<string, string[]> {
-  const keys: Record<string, string[]> = {};
-  for (const [key, list] of Object.entries(items))
-    keys[key] = list.map((item) => item.key);
-  return keys;
-}
-
 /**
  * One checklist's sections as a reader sees them (ADR 0030).
  *
@@ -480,18 +474,6 @@ function checklistChoices(
     items[section.key] = chosen;
   }
   return { variants, items };
-}
-
-/** The applicable step paths, in template order, for chosen values and items. */
-function applicableStepPaths(
-  def: KnowledgeChecklist,
-  variants: Record<string, string>,
-  items: Record<string, WorkorderItem[]>,
-  target: string | null,
-): string[] {
-  return resolveChecklist(def, variants, itemKeysOf(items), target).flatMap((section) =>
-    section.items.flatMap((item) => item.steps.map((step) => step.path)),
-  );
 }
 
 /**
