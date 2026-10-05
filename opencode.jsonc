@@ -9,11 +9,9 @@
   // Skills are the OpenCode default: directories under `.opencode/skills/` are
   // discovered automatically, so nothing has to be named here.
 
-  // DeepSeek's context caching is automatic and provider-side: a repeated
-  // request prefix is served from DeepSeek's cache, and the model catalog
-  // already prices it (cache read is a fraction of input, cache write is 0).
-  // There is no OpenCode switch to turn it on. The settings below are the token
-  // savers OpenCode itself exposes.
+  // Token savers OpenCode itself exposes: compact a long conversation before it
+  // outgrows the model's usable input, and cap how much of a large tool result is
+  // kept, so a session does not keep resending the whole history.
   "compaction": {
     "auto": true,
     "keep": { "tokens": 15000 },
@@ -29,12 +27,6 @@
       "max_width": 2000,
       "max_height": 2000,
       "max_base64_bytes": 5242880
-    }
-  },
-  "providers": {
-    "deepseek": {
-      // Owner rule: every provider request must be zero-retention.
-      "headers": { "X-Data-Opt-Out": "true" }
     }
   },
 

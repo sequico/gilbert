@@ -80,7 +80,8 @@ is, not what a user sees.
   provider's own prompt caching and widen the untrusted-content surface at
   once. The one-automation-per-trigger rule, the areas, the policy and the two
   speeds of context — the notebook a run may write, and the named lookup it may
-  ask for (ADR 0020) — are what the code does.
+  ask for (ADR 0020) — are the intended shape; the code is present but the agent
+  part is not functional yet (see `ROADMAP.md`).
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
