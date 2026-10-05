@@ -611,6 +611,10 @@ running workorder.
 
 ## For the agents
 
+> **Not functional yet.** The agent part is designed and present in the tree but
+> does not work; a refactor is planned. See
+> [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 The installation's agents read the company KB and the groups' ones, and write
 **drafts**: a page they propose to change, a consistency review across pages, or a
 multi-page plan that names the revision each page was read from, so a page changed
@@ -685,8 +689,9 @@ A workorder is **running** until it is closed: **completed**, **cancelled**, or
 ## Who can do what
 
 An administrator creates a workorder, closes it and edits its references; an agent
-can be asked for one in a group's chat. Every member checks their own groups'
-steps. A member sees the global checklist and their own groups' parts, an
+is designed to be asked for one in a group's chat, though the agent part is not
+functional yet (see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)). Every member checks
+their own groups' steps. A member sees the global checklist and their own groups' parts, an
 administrator sees every part, and an unreachable part is simply not there.
 
 ## What a workorder is not
