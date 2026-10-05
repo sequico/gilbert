@@ -30,6 +30,8 @@ const DEMO = "demo@example.com";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
+const { signInAsMaster } = await import("./bootstrap.js");
+const { groupAccountsDetailed } = await import("./agent/actions.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -37,6 +39,24 @@ await useDurableSessions(
 );
 
 const app = createApp();
+
+// The Master's own session, to read the groups it holds: a section is assigned
+// to a group by that group's account id (ADR 0030), so the test needs one.
+const master = await signInAsMaster({
+  stalwartUrl: `http://127.0.0.1:${PORT}`,
+  masterAddress: "gilbert@example.com",
+  masterPassword: "gilbert-password",
+});
+const masterGroups = (
+  await groupAccountsDetailed({
+    authorization: master.authorization,
+    session: master.session,
+    username: master.address,
+  })
+).groups;
+/** One group the Master holds: its name and account id, for a section's assignment. */
+const firstGroup = [...masterGroups.entries()][0];
+
 let cookie = "";
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
@@ -265,6 +285,51 @@ test("a repeat whose section condition is false needs no items", async () => {
     global.checklist.steps.map((s) => s.path),
     ["final.dispatch"],
     "the excluded repeat contributed no items and no steps",
+  );
+});
+
+test("a section assigned to a group lands in that group's part", async () => {
+  /*
+   * Competence is data (ADR 0030): a section names the group it is assigned to,
+   * by that group's account id, so a workorder's parts are derived from the
+   * template — the global holds the unassigned sections and the group's part
+   * holds its own. Nothing about the group is named at creation.
+   */
+  assert.ok(firstGroup, "the mock has a group the Master holds");
+  const [groupName, groupAccount] = firstGroup;
+  const grouped = {
+    variants: [],
+    sections: [
+      { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
+      {
+        key: "teamwork",
+        label: "Team work",
+        group: groupAccount,
+        steps: [{ key: "t", label: "Team step" }],
+      },
+    ],
+  };
+  const template = await templateRef(grouped, "Grouped checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Grouped",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const workorder = workorderOf(created.body);
+  assert.deepEqual(
+    partOf(workorder, "global").checklist.steps.map((s) => s.path),
+    ["global.g"],
+    "the global part holds the unassigned section",
+  );
+  const part = workorder.parts.find((p) => p.group === groupName);
+  assert.ok(part, "the assigned group has a part");
+  assert.deepEqual(
+    part.checklist.steps.map((s) => s.path),
+    ["teamwork.t"],
+    "the group's part holds only its assigned section",
   );
 });
 
