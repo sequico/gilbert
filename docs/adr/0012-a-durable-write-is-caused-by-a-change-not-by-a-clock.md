@@ -2,7 +2,9 @@
 
 Status: Accepted
 
-Implementation: Built. The claims, the sessions and the heartbeats write no
+Implementation: Not built. The code is present in the tree but the agent part
+does not work; a refactor is planned (see `ROADMAP.md`). The claims, the
+sessions and the heartbeats write no
 document that would store what is already there, pinned by
 `server/src/agent/no-periodic-writes.test.ts`.
 

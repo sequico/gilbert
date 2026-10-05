@@ -81,6 +81,11 @@ The application listens on `127.0.0.1:8080`; put a TLS reverse proxy in front
 
 ## Turning the agents on
 
+> **Not functional yet.** The agent part is designed and present in the tree but
+> does not work, and a refactor is planned — see
+> [KNOWN-ISSUES.md](KNOWN-ISSUES.md). The steps below are how it is meant to be
+> turned on.
+
 An agent is a Stalwart account, and its grant is group membership — there is no
 second switch in the product. The whole of it is:
 

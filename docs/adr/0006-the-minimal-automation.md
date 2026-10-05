@@ -2,7 +2,9 @@
 
 Status: Accepted
 
-Implementation: Built. Decisions one, two and four: the rule
+Implementation: Not built. The code is present in the tree but the agent part
+does not work; a refactor is planned (see `ROADMAP.md`). Decisions one, two and
+four: the rule
 shape the editor writes (`server/src/agent/documents.ts` — `AgentRule`,
 `AGENT_TRIGGERS`, `rulesProblem`, `areaActions`), the three areas with the two
 entries that stand beside them (`AGENT_AREAS`, `standaloneActions`,

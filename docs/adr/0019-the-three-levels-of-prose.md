@@ -2,7 +2,9 @@
 
 Status: Accepted
 
-Implementation: Built. `AgentProseDoc`/`AGENT_PREAMBLE_FILE`/`AGENT_INSTRUCTION_FILE`
+Implementation: Not built. The code is present in the tree but the agent part
+does not work; a refactor is planned (see `ROADMAP.md`).
+`AgentProseDoc`/`AGENT_PREAMBLE_FILE`/`AGENT_INSTRUCTION_FILE`
 and `proseFor` in `server/src/agent/documents.ts`; `AgentStore.readProse`/
 `writeProse` in `server/src/agent/store.ts`; `preambleBlock`/`proseHead` in
 `server/src/agent/llm.ts`; `readAgentProse`/`saveAgentProse` and the two routes

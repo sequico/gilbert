@@ -7,6 +7,13 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
+- **`gilbertagents` is not functional, and a refactor is planned.** The whole
+  agent part — the Master principal, the fleet, the automations, the approvals
+  and the audit — is present in the tree but does not work, and it is being
+  reworked. Everything below about chains of agents, claims, heartbeats and
+  automation limits is therefore not yet reachable in a running installation;
+  see [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 - **A scheduling view of its own.** The grid is built in the event editor — a row
   per participant, steppable, clickable to place the event — but there is no
   destination to visit with nothing in progress. A separate surface could only
@@ -83,65 +90,11 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
     described honestly.
 
 - **The knowledge base's later phases.** The KB ships (storage, lifecycle and
-  approval, the surface and BlockNote editor, Orama search, the fleet's
-  `knowledge` read/write/review — [The knowledge
-  base](FEATURES.md#the-knowledge-base)). ADR 0024 defers real-time co-editing
-  over Yjs/Hocuspocus (v1 saves the whole draft under `ifInState`) and Excalidraw
-  diagrams. The company KB is read through the server route ADR 0023's probe
+  approval, the surface and its editor, search — [The knowledge
+  base](FEATURES.md#the-knowledge-base)). ADR 0024 defers real-time co-editing and
+  diagram pages. The company KB is read through the server route ADR 0023's probe
   settled on: a `shareWith` naming every account cannot work (Stalwart caps a
   share at 10 principals per item), so no share probe is owed.
-
-- **Checks on an agent that is hung rather than gone.** An agent that stops
-  making progress is recovered but never diagnosed: three missed heartbeats, the
-  claim lapses, a successor takes over the work left mid-run, and an abandoned job
-  is recorded as a `timeout`. Missing is *what it was doing and where it stopped*
-  — the account and job in flight, the call it waits on, and errors swallowed
-  into one log line per account and pass. It is optimisation, not a hole in the
-  guarantee that the work moves.
-  - It matters because the server can run an agent beside the web tier in one
-    process (ADR 0003), so "agent hung" and "server hung" are one restart, and a
-    quiet fleet inside a responsive process is the state nothing would name.
-  - The shape is decided (ADR 0003: nothing supervises the fleet): the heartbeat
-    record gains the unit and job with their start instant; the model's and JMAP
-    clients' `AbortSignal.timeout` timeouts are named where a person looks; the
-    health endpoint reports both, so a restart policy tells *working* from
-    *stuck*. No supervisor — it would be a second coordinator beside the claims,
-    and restarting what looks stuck is the double execution a claim prevents.
-    Diagnosis first; concurrency, if it comes, is a bounded fan-out over units
-    holding their own claim.
-
-- **More than one agent inside one group.** The account is the unit of
-  exclusivity — a claim on `<group>/gilbert/agent/claim.json` held by one agent at
-  a time (ADR 0003), which keeps two agents from acting on the same mail twice.
-  Between groups, work spreads by lease; inside one group everything is serial.
-  The shape for parallelism: the account claim becomes the pieces needing
-  exclusivity (a lease per reconcile type carrying its catch-up anchor, an entry
-  per schedule rule); job execution keeps its lease; job *creation* stops
-  depending on one holder — name derived from rule and trigger, created under a
-  folder-state compare-and-set, so two matchers racing produce one document. It
-  rests on an unverified premise: that `FileNode/set` refuses a create whose
-  `ifInState` no longer matches, making a create a mutex (`writeAppFileAt` passes
-  `ifInState`; a create conditioned on folder state has not been tried live). So
-  the first step is a probe, then job identity, the per-type leases with a race
-  test, the schedule, and the admin surface (which today says which agent holds a
-  group). Worth doing when a measurement shows an intra-group bottleneck; it buys
-  a bounded fan-out over units holding their own claim, never a child-process pool
-  contending for the same account claim.
-
-- **The prose still says "worker" where the product says "agent".** The vocabulary
-  is one **master**, its **agents**, its **automations**, and "worker" for the
-  browser's service worker. The identifiers follow: entrypoint
-  `server/src/agent/agent.ts` and built path `server/dist/agent/agent.js`
-  (package script, imports, `docker-compose.yml`, `.env.example`, README, ADRs);
-  `AgentHandle`, `AgentDeps`, `startAgent`/`startAgents`, `AgentRecord`,
-  `AgentStatusRow`, `LiveAgent`; the admin status carries `agents`; a claim names
-  its holder in `agent`, with heartbeats under `agent/agents/`
-  (`AGENT_HEARTBEATS_DIR`). What still says worker is prose in comments outside
-  the fleet's directory.
-
-- **The environment variables stay as they are** (owner decision 2026-09-12):
-  `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and a
-  rename is a change to somebody's deployment file, not a codebase.
 
 - **The web's test suites still fake the JMAP envelope.** Thirty wrote the same
   loop (parse `methodCalls`, one `methodResponses` per call in its id, own method

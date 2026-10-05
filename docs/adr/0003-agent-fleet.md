@@ -2,11 +2,10 @@
 
 Status: Accepted
 
-Implementation: Built in the main: the fleet, the claim and the executor
+Implementation: Not built. The fleet, the claim and the executor
 (`server/src/agent/agent.ts`, `lease.ts`, `executor.ts`), the capability
-allowlist, and the three admin surfaces. Decided here and not built: diagnosing
-an agent that is hung rather than gone, and more than one agent inside one group
-(both in `ROADMAP.md`).
+allowlist and the three admin surfaces are present in the tree but do not work;
+a refactor is planned (see `ROADMAP.md`).
 
 This is **gilbertagents**, one of the four blocks `README.md` names: agents
 that act on Stalwart events and on time schedules, inside mail and file

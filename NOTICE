@@ -96,6 +96,14 @@ Jenkins, used unmodified under the MIT licence as the `squire-rte` package.
 
 Copyright © 2011–2023 by Neil Jenkins
 
+## Emoji images
+
+The emoticon images bundled for chat (`web/public/img/emoji/`, mapped by
+`web/src/lib/emoji.ts`) are **Twemoji**, version 14.0.2, by Twitter, Inc and
+other contributors (https://github.com/twitter/twemoji), under the **CC-BY 4.0**
+licence (https://creativecommons.org/licenses/by/4.0/). Unlike the palettes and
+Squire, they are not MIT.
+
 ---
 
 The MIT licence, under which the palettes and Squire above are used:

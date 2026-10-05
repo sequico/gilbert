@@ -2,7 +2,9 @@
 
 Status: Accepted
 
-Implementation: Built. The closed catalogue, its validation and the lookup
+Implementation: Not built. The code is present in the tree but the agent part
+does not work; a refactor is planned (see `ROADMAP.md`). The closed catalogue,
+its validation and the lookup
 renderer are in `server/src/agent/documents.ts` (`AgentLookup`,
 `AGENT_LOOKUP_*`, `isAgentLookup`, `lookupLabel`); the answer that may name one
 is in `server/src/agent/llm.ts` (`decideActions`); the bounded loop and the
