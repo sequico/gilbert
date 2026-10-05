@@ -306,3 +306,17 @@ is, not what a user sees.
   is taken unmodified — ADR 0002's download-only stance applied to a library —
   and its releases arrive through Dependabot's npm channel. Its MIT notice is in
   `NOTICE`.
+- **0030 — A checklist template branches on data, not on groups (accepted).**
+  One generic template per kind of job, in the company KB or a group's, and every
+  group instantiates it; a group owns the **instance** and signs it, and is never
+  a template of its own. The template declares **variants** (named fields and
+  values) and a step may carry a **condition** on one of them; the step state is
+  `open`, `done` or **not applicable**, and at instantiation a step whose
+  condition does not match is marked `not applicable` — dimmed, out of progress,
+  reversible — never removed: every step id and the chosen values are stored. The
+  rules are a **JSON Schema** in the approved revision, authored with
+  `@ginkgo-bioworks/react-json-schema-form-builder` (Apache-2.0) and previewed
+  through `@rjsf/core` (Apache-2.0). The builder **round-trips** a template
+  (edit, not re-create), and an instance resolves its `not applicable` set from
+  its **bound revision**, so editing a template never disturbs a running
+  workorder. **Not built.**
