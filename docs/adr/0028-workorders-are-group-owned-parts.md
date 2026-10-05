@@ -206,8 +206,9 @@ chooses each template, as a reference to a template the reader may read. A
 **template is a KB page whose draft carries a checklist definition** (ADR 0024,
 ADR 0030): the picker offers only those, the tree marks them with a red checklist
 icon, and the checklist names the page it came from. On creation the creator
-chooses the **value of every variant** and the **items of every repeat**, and the
-applicable steps are **materialised from the definition** — a step's path carries
+chooses the **value of every variant** and the **items of every repeat that
+applies**, and the applicable steps are **materialised from the definition** — a
+step's path carries
 its section and, for a repeat, its item, so the same step in two items is two
 entries; content a condition excludes is not instantiated. The page's steps are
 the controlled text; the workorder's are their state and last signature, never a

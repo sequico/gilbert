@@ -436,10 +436,10 @@ function checklistChoices(
   const variants: Record<string, string> = {};
   for (const variant of def.variants) {
     const value = (rawVariants[variant.key] ?? "").trim();
-    if (!value)
+    if (!value || !variant.values.some((v) => v.value === value))
       throw new WorkorderAdminError(
         "workorder_choices_missing",
-        `The choice "${variant.label}" needs a value.`,
+        `The choice "${variant.label}" needs one of its values.`,
       );
     variants[variant.key] = value;
   }
@@ -448,6 +448,14 @@ function checklistChoices(
   for (const section of def.sections) {
     const repeat = section.repeat;
     if (!repeat) continue;
+    // A section whose condition the chosen values do not meet does not
+    // materialise (ADR 0030), so its repeat names no items and none are
+    // required — only a section that will appear needs at least one.
+    if (
+      section.condition &&
+      variants[section.condition.variant] !== section.condition.equals
+    )
+      continue;
     const chosen: WorkorderItem[] = [];
     for (const entry of rawItems[section.key] ?? []) {
       const key = entry.key.trim();

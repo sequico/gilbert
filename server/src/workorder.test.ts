@@ -170,7 +170,10 @@ after(() => {
 });
 
 /** A KB checklist template, in force, and the reference a workorder binds to. */
-async function templateRef(): Promise<{
+async function templateRef(
+  process: unknown = PROCESS,
+  title = "Packing checklist",
+): Promise<{
   accountId: string;
   id: string;
   revision: string;
@@ -181,8 +184,8 @@ async function templateRef(): Promise<{
   assert.ok(company);
   const created = await post("/api/knowledge/create", {
     scope: "company",
-    title: "Packing checklist",
-    checklist: PROCESS,
+    title,
+    checklist: process,
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const summary = created.body?.summary as { id: string; folder: string };
@@ -214,6 +217,56 @@ async function createWorkorder(
   assert.equal(created.status, 200, JSON.stringify(created.body));
   return workorderOf(created.body);
 }
+
+test("a repeat whose section condition is false needs no items", async () => {
+  /*
+   * A section the chosen value excludes does not materialise (ADR 0030), so its
+   * repeat names no items and none are required — only a section that will
+   * appear needs at least one. The create succeeds and the excluded repeat
+   * contributes no item and no step.
+   */
+  const conditional = {
+    variants: [
+      {
+        key: "company",
+        label: "Company",
+        values: [
+          { value: "north", label: "North" },
+          { value: "south", label: "South" },
+        ],
+      },
+    ],
+    sections: [
+      {
+        key: "loading",
+        label: "Loading",
+        condition: { variant: "company", equals: "north" },
+        repeat: { item: "Container", fields: [] },
+        steps: [{ key: "load", label: "Load" }],
+      },
+      {
+        key: "final",
+        label: "Final",
+        steps: [{ key: "dispatch", label: "Dispatch" }],
+      },
+    ],
+  };
+  const template = await templateRef(conditional, "Conditional repeat");
+  const created = await post("/api/workorders/create", {
+    name: "South sea",
+    template,
+    groups: [],
+    variants: { company: "south" },
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const global = partOf(workorderOf(created.body), "global");
+  assert.deepEqual(
+    global.checklist.steps.map((s) => s.path),
+    ["final.dispatch"],
+    "the excluded repeat contributed no items and no steps",
+  );
+});
 
 test("a workorder instantiates a template's process and checks steps by path", async () => {
   const template = await templateRef();

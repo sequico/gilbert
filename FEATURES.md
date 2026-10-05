@@ -650,8 +650,9 @@ checklists and the folders, files and pages it gathers. A refresh re-reads it.
 
 A workorder's checklist is an **instance of a KB checklist template**, bound to
 the revision in force when it is created. On creation the creator chooses the
-**value of every variant** and the **items of every repeat** (the containers); the
-applicable steps are materialised from the template, and a step's **path** carries
+**value of every variant** and the **items of every repeat that applies** (the
+containers); the applicable steps are materialised from the template, and a
+step's **path** carries
 its section and, for a repeat, its item, so the same step in two containers is two
 entries. A repeated section is shown grouped by item. Every workorder has its own
 **global** checklist and each group one beside it. Each step shows its **state** —
