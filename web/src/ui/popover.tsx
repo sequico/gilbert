@@ -98,10 +98,15 @@ export function Popover({
   useEffect(() => {
     if (!anchor) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Element | null;
+      if (ref.current && !ref.current.contains(target as Node)) {
         // The trigger's own press is not an outside press: its toggle closes
         // the menu (see useMenu), and closing here would race it.
-        if (trigger?.contains(e.target as Node)) return;
+        if (trigger?.contains(target as Node)) return;
+        // A press that starts a drag on a pane splitter is a layout gesture,
+        // not a dismissal: dragging the handle between panes must not close
+        // what is open (the chat panel sits beside one).
+        if (target?.closest?.(".splitter")) return;
         onClose();
       }
     };
@@ -111,7 +116,14 @@ export function Popover({
         onClose();
       }
     };
-    const onScroll = () => onClose();
+    const onScroll = (e: Event) => {
+      // A popover closing on the page scrolling under it is intended -- it is
+      // positioned from viewport coordinates and would drift off its anchor.
+      // Its own content scrolling is not the page moving, so it is ignored.
+      const target = e.target;
+      if (ref.current && target instanceof Node && ref.current.contains(target)) return;
+      onClose();
+    };
     // Defer so the opening click doesn't immediately close.
     const t = window.setTimeout(() => {
       document.addEventListener("mousedown", onDown, true);

@@ -121,4 +121,39 @@ describe("chat launcher toggle", () => {
     await click(launcher());
     expect(panel()).toBeNull();
   });
+
+  it("stays open when a press starts a splitter drag", async () => {
+    await click(launcher());
+    await settle();
+    expect(panel()).not.toBeNull();
+
+    // A pane splitter's drag begins with a press outside the panel; it is a
+    // layout gesture, not a dismissal, so the panel must not close.
+    const handle = document.createElement("div");
+    handle.className = "splitter";
+    document.body.appendChild(handle);
+    await mouseDown(handle);
+    expect(panel()).not.toBeNull();
+    handle.remove();
+  });
+
+  it("stays open when the panel's own content scrolls", async () => {
+    await click(launcher());
+    await settle();
+    const inside = panel()!;
+    await act(async () => {
+      inside.dispatchEvent(new Event("scroll", { bubbles: false }));
+    });
+    expect(panel()).not.toBeNull();
+  });
+
+  it("still closes when the page scrolls under it", async () => {
+    await click(launcher());
+    await settle();
+    expect(panel()).not.toBeNull();
+    await act(async () => {
+      document.dispatchEvent(new Event("scroll", { bubbles: false }));
+    });
+    expect(panel()).toBeNull();
+  });
 });
