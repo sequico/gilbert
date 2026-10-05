@@ -2240,8 +2240,11 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .cal-toolbar { flex-wrap: wrap; row-gap: 6px; }
   .cal-toolbar .view-switch { flex: 1 1 100%; }
   .cal-toolbar .view-switch button { flex: 1 1 0; padding: 0 6px; }
-  /* Basis zero, so the date stays on the first row and truncates instead of
-     wrapping to a line of its own. */
+  /* The spacer that pushes the switch to the right on a desktop only steals the
+     date's row here, where the switch already takes a row of its own. Collapse
+     it so the date gets the leftover; basis zero keeps it on the first row and
+     truncating rather than wrapping to a line of its own. */
+  .cal-toolbar .spacer { display: none; }
   .cal-toolbar h2 { flex: 1 1 0; margin: 0 4px; font-size: 1em; }
   /*
     A settings table is wider than a phone, and the pane it sits in would pan
