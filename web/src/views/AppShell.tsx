@@ -674,7 +674,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 aria-current={mod?.id === m.id ? "page" : undefined}
               >
                 <m.icon size={22} />
-                {t(m.label)}
+                <span className="tabbar-label">{t(m.label)}</span>
               </Link>
             ))}
           </nav>
