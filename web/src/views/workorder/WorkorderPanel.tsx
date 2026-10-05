@@ -36,7 +36,6 @@ import {
   type WorkorderState,
   type WorkorderStepState,
   type WorkorderStepView,
-  type WorkorderSummary,
 } from "@/lib/workorder";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
@@ -84,21 +83,22 @@ interface TemplateOption {
   parentId: string | null;
 }
 
-/** The groups a workorder has a part for, deduplicated and in listing order. */
-function partGroups(w: WorkorderSummary): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const part of w.parts) {
-    if (part.scope !== "group" || !part.group || seen.has(part.group)) continue;
-    seen.add(part.group);
-    out.push(part.group);
-  }
-  return out;
-}
-
 /** Every step of a part, flattened from its sections and items. */
 function partSteps(part: WorkorderPartView): WorkorderStepView[] {
   return part.groups.flatMap((group) => group.items.flatMap((item) => item.steps));
+}
+
+/**
+ * A part's progress: the steps that finish the job (`done` and `skipped`) over
+ * all of them. The one definition the open panel and the list cards both read,
+ * so the fraction cannot differ between the card and the part it opens.
+ */
+function partProgress(part: WorkorderPartView): { complete: number; total: number } {
+  const steps = partSteps(part);
+  return {
+    complete: steps.filter((step) => isStepComplete(step.state)).length,
+    total: steps.length,
+  };
 }
 
 function StateBadge({ state }: { state: WorkorderState }) {
@@ -242,9 +242,7 @@ function PartSection({
   ) => void;
 }) {
   const title = part.scope === "global" ? t("Global") : (part.group ?? "");
-  const steps = partSteps(part);
-  const total = steps.length;
-  const complete = steps.filter((step) => isStepComplete(step.state)).length;
+  const { complete, total } = partProgress(part);
   const check = (path: string, state: WorkorderStepState, note?: string) =>
     onCheck(part.scope, part.group, path, state, note);
 
@@ -894,35 +892,49 @@ export function WorkorderPanel() {
                   <p className="hint">{t("No workorders yet")}</p>
                 ) : (
                   <div className="workorder-list">
-                    {filtered.map((w) => {
-                      const gs = partGroups(w);
-                      return (
-                        <div
-                          key={w.uid}
-                          role="button"
-                          tabIndex={0}
-                          className={`card clickable ${open?.uid === w.uid ? "active" : ""}`}
-                          style={{ textAlign: "left", marginBottom: 0 }}
-                          onClick={() => show(w.uid)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              show(w.uid);
-                            }
-                          }}
-                        >
-                          <div className="card-head">
-                            <h3 className="grow truncate">{w.name}</h3>
-                            <StateBadge state={w.state} />
-                          </div>
-                          <div className="hint" style={{ marginTop: 6 }}>
-                            {gs.length
-                              ? t("Groups: {groups}", { groups: gs.join(", ") })
-                              : t("Global")}
-                          </div>
+                    {filtered.map((w) => (
+                      <div
+                        key={w.uid}
+                        role="button"
+                        tabIndex={0}
+                        className={`card clickable ${open?.uid === w.uid ? "active" : ""}`}
+                        style={{ textAlign: "left", marginBottom: 0 }}
+                        onClick={() => show(w.uid)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            show(w.uid);
+                          }
+                        }}
+                      >
+                        <div className="card-head">
+                          <h3 className="grow truncate">{w.name}</h3>
+                          <StateBadge state={w.state} />
                         </div>
-                      );
-                    })}
+                        {/* One line per part -- the global checklist and each
+                            group's -- each with its progress, the same fraction
+                            the open panel shows beside the part's name. */}
+                        <div className="hint" style={{ marginTop: 6 }}>
+                          {w.parts.map((part) => {
+                            const { complete, total } = partProgress(part);
+                            return (
+                              <div
+                                key={
+                                  part.scope === "global"
+                                    ? "global"
+                                    : (part.group ?? "group")
+                                }
+                              >
+                                {part.scope === "global"
+                                  ? t("Global")
+                                  : (part.group ?? "")}{" "}
+                                {complete}/{total}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
