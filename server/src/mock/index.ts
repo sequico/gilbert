@@ -1775,13 +1775,15 @@ const masterAddressBooks: Obj[] = [
     myRights: abRights(),
   },
 ];
-/* Two people the installation's directory carries, in the agent's own book. */
+/* Two people the installation's directory carries, in the agent's own book.
+   Deliberately nobody the account also keeps in its own book (`cards` above):
+   a name in both would read as a duplicate row in "All contacts". */
 const masterCards: Obj[] = [
   {
     id: "gc1c1",
     addressBookIds: { gc1: true },
-    name: { full: "Ada Lovelace" },
-    emails: { e1: { address: "ada@example.org", contexts: {} } },
+    name: { full: "Katherine Johnson" },
+    emails: { e1: { address: "katherine@example.org", contexts: {} } },
     phones: { p1: { number: "+44 20 7946 0001" } },
     organizations: {},
     nicknames: {},
@@ -1792,8 +1794,8 @@ const masterCards: Obj[] = [
   {
     id: "gc1c2",
     addressBookIds: { gc1: true },
-    name: { full: "Alan Turing" },
-    emails: { e1: { address: "alan@example.org", contexts: {} } },
+    name: { full: "Barbara Liskov" },
+    emails: { e1: { address: "barbara@example.org", contexts: {} } },
     phones: { p1: { number: "+44 20 7946 0002" } },
     organizations: {},
     nicknames: {},

@@ -147,8 +147,8 @@ test("every account reads the directory through the route", async () => {
   const names = ((read.body?.contacts as Array<{ name: string }> | undefined) ?? []).map(
     (c) => c.name,
   );
-  assert.ok(names.includes("Ada Lovelace"), "the directory's seeded cards are read");
-  assert.ok(names.includes("Alan Turing"));
+  assert.ok(names.includes("Katherine Johnson"), "the directory's seeded cards are read");
+  assert.ok(names.includes("Barbara Liskov"));
 
   // A card written through the administration route is read back at once.
   const created = await post("/api/admin/global-contacts", {
