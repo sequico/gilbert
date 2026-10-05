@@ -77,6 +77,9 @@ else a member does to move mail around still works.
 
 # Agents
 
+> **Not functional yet.** This part is designed and present in the tree but does
+> not work; a refactor is planned. See [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 Gilbert's own agents: a Stalwart account of its own — a *structure agent*, e.g.
 `gilbert@…` — that acts inside mail and file storage for the groups the operator
 has granted it (ADR 0003). For the full design, see

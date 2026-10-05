@@ -28,6 +28,9 @@ the group's chat. What they may do is a capability list an administrator writes
 and code enforces; every effect is recorded before it happens; and anything that
 leaves the group waits for a person to approve it, in words.
 
+> **The agent part (`gilbertagents`) is designed but not yet functional, and is
+> being reworked** — see [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
 account it belongs to. There is no Gilbert database: no index, no cache tier, no
@@ -78,7 +81,7 @@ the boundary, is [ADR 0002](docs/adr/0002-upstream-contribution-model.md).
 
 The short version; [FEATURES.md](FEATURES.md) is the inventory.
 
-- **Agents that work mail and files.** An agent is a Stalwart account of its own
+- **Agents for mail and files.** An agent is a Stalwart account of its own
   (`gilbert@…`) granted on a group like any colleague. An **automation** is a
   trigger (mail, chat, a file, the clock), an instruction in prose and a
   **capability allowlist**. The allowlist is checked in code on every answer, so
