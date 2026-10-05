@@ -16,9 +16,10 @@ records the multi-document plan it applies and a review's findings on the run's
 own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
 was read; `knowledge.review` records the prose), in the trail Q23 names. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
-diagrams). The checklist templates a workorder instantiates are built
-(ADR 0028); their **branching** of ADR 0030 — variants, conditions and the
-`not applicable` step state — is not. The company KB is read through the route, not a share: a `shareWith`
+diagrams). The checklist templates a workorder instantiates, and the **checklist builder**
+that authors their variants and conditions (ADR 0030), are built; the workorder
+side of that branch — the `not applicable` step state and the resolved set — is
+not. The company KB is read through the route, not a share: a `shareWith`
 naming every account cannot work — Stalwart caps a share at 10 principals per
 item, as ADR 0023's live probe found (2026-10-02).
 
@@ -168,8 +169,9 @@ aligned are Gilbert's and exist nowhere to import.
 - **Orama** — the search engine (Apache-2.0), in-process over the pages' `text`,
   read by both tiers.
 - **The checklist builder** (ADR 0030) — `@ginkgo-bioworks/react-json-schema-form-builder`
-  and `@rjsf/core` (Apache-2.0), when the template branching is built: the rules
-  a checklist template declares, over the page the KB already holds.
+  with `@rjsf/core` and `@rjsf/mui` (Apache-2.0): the surface a checklist
+  template's variants, steps and conditions are authored and rendered with, a
+  lazy chunk over the page's rules.
 - **Yjs + Hocuspocus** — real-time co-editing, when that phase comes: Hocuspocus
   is a library that mounts in the existing Node process (no new service); the
   CRDT state checkpoints into the page documents.
@@ -217,10 +219,10 @@ The KB is the **strategic, controlled** layer — what the company has decided a
 how its work is done. Beside policies and procedures it holds **checklist
 templates**: the steps a job of that kind must take and what each step means. A
 template is an **article like any other** — the same folder, the same draft and
-revisions, the same approval — only its body is a checklist. A template may also
-declare **variants** and a per-step **condition** (ADR 0030), so one generic
-template carries the cases of a job rather than one template per case, and every
-group instantiates it.
+revisions, the same approval — only its body is **derived from its rules** rather
+than written as prose. A template declares **variants** and per-step
+**conditions** (ADR 0030), so one generic template carries the cases of a job
+rather than one template per case, and every group instantiates it.
 
 A workorder's checklist is an **instance of a template** (ADR 0028): the
 workorder carries the operational state — the step ids, their state, who checked
@@ -228,17 +230,18 @@ them, the references — and never a copy of the controlled text, which the read
 gets from the KB. The two layers are deliberately different: the KB is versioned,
 reviewed and approved with an effective instant; the workorder is lean and moves.
 
-A template is told from an ordinary page by its **own body**: a page whose draft
-holds `checkListItem` blocks **is** a checklist template, and one without them is
-not. The body is the authority, and the writer writes that verdict down as a
-`template: "checklist"` field on the article's `state.json`, so a listing carries
-it without reading every draft. The tree draws a checklist template with a
-**red checklist icon** rather than the page icon, the surface has a **Templates**
-filter and a **New checklist template** action that seeds the first step, and the
-page lists the workorders that use it — the reference made visible from the KB
-side. The workorder that instantiates it names the page it came from. Nothing
-else marks it: a marker a person types can disagree with the body, and the steps
-and their rules (ADR 0030) are the template.
+A template is told from an ordinary page by its **rules**: a page whose draft
+carries a checklist **definition** — the JSON Schema and uiSchema a builder
+authors (ADR 0030) — **is** a checklist template, and one that carries prose
+blocks is not. The body blocks and the search text are **derived** from the
+definition, so the rules are the one copy; the writer writes that verdict down as
+a `template: "checklist"` field on the article's `state.json`, so a listing
+carries it without reading every draft. The tree draws a checklist template with
+a **red checklist icon** rather than the page icon, the surface has a
+**Templates** filter and a **New checklist template** action, and the page lists
+the workorders that use it — the reference made visible from the KB side. The
+workorder that instantiates it names the page it came from. Nothing else marks
+it: the rules are the template.
 
 ### The surface in the app
 
@@ -341,17 +344,17 @@ below.
 - **The document shape**, one definition in `@gilbert/shared/knowledge` read by
   both tiers: the draft and a revision carry the same fields — identity and
   metadata (id, title, tags, created/updated, author), the editor's `blocks` (the
-  source of truth for the rich body), a **checklist template's rules** — a JSON
-  Schema of its variants and its per-step conditions, keyed by the step's block
-  id (ADR 0030) — and a denormalised `text` for search and for
+  source of truth for an ordinary page's rich body), a **checklist template's
+  rules** — the JSON Schema and uiSchema of its variants, steps and per-step
+  conditions (ADR 0030), whose blocks and text are derived from them — and a
+  denormalised `text` for search and for
   agents — and a revision adds what issuance records (the administrator who
   approved it, the approval instant, the effective instant, and the revision it
   supersedes). Neither the search index nor an agent's read has to understand the
   editor's format.
-- **There are no attachments.** A procedure is formatted text blocks and nothing
-  else, so a revision snapshots the whole document and nothing can change under
-  it. A checklist template adds its **rules** (ADR 0030), which are part of the
-  same document, so a revision still snapshots all of it.
+- **There are no attachments.** An ordinary page is formatted text blocks and a
+  checklist template is its **rules** (ADR 0030), both part of the same document,
+  so a revision snapshots the whole document and nothing can change under it.
 - **Who owns a page** follows the account it is created in, never a `shareWith`
   written later (`gilbert-groups`).
 

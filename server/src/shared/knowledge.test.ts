@@ -4,6 +4,10 @@ import {
   buildDraft,
   buildRevision,
   buildState,
+  checklistBlocks,
+  emptyChecklist,
+  isChecklistTemplate,
+  isKnowledgeChecklist,
   isKnowledgeDraft,
   isKnowledgeRevision,
   isKnowledgeState,
@@ -239,4 +243,91 @@ test("a block document flattens to the text search and agents read", () => {
 
 test("the tier's folder is the one name both tiers walk", () => {
   assert.equal(KNOWLEDGE_FOLDER, "knowledge");
+});
+
+test("a checklist template's rules build its body and its text", () => {
+  const checklist = {
+    schema: {
+      type: "object",
+      properties: {
+        shipping: {
+          type: "object",
+          title: "Shipping",
+          properties: {
+            load: { type: "boolean", title: "Load at the depot" },
+            seal: { type: "boolean", title: "Seal the container" },
+          },
+        },
+      },
+    },
+    uiSchema: {},
+  };
+  const blocks = checklistBlocks(checklist);
+  assert.deepEqual(
+    blocks.map((block) => (block as { type?: unknown }).type),
+    ["heading", "checkListItem", "checkListItem"],
+    "a section is a heading, each boolean field is a step",
+  );
+  const steps = blocks.filter(
+    (block) => (block as { type?: unknown }).type === "checkListItem",
+  ) as Array<{ id?: unknown }>;
+  assert.deepEqual(
+    steps.map((step) => step.id),
+    ["shipping.load", "shipping.seal"],
+    "a step's id is its path, the stable key a workorder stores",
+  );
+  const text = plainTextFromBlocks(blocks);
+  assert.match(text, /Shipping/);
+  assert.match(text, /Load at the depot/);
+  assert.match(text, /Seal the container/);
+});
+
+test("a draft built from rules derives its body and travels with the definition", () => {
+  const checklist = {
+    schema: { type: "object", properties: { pack: { type: "boolean", title: "Pack" } } },
+    uiSchema: {},
+  };
+  const draft = buildDraft({
+    id: "a1",
+    title: "Packing",
+    tags: [],
+    blocks: [],
+    text: "ignored on purpose",
+    checklist,
+    by: "g",
+    at: "2026-10-01T00:00:00.000Z",
+  });
+  assert.equal(isKnowledgeDraft(draft), true);
+  assert.equal(isChecklistTemplate(draft), true);
+  assert.deepEqual(draft.checklist, checklist);
+  assert.equal(draft.text, "Pack", "the text is derived, never the caller's");
+  assert.equal(
+    isKnowledgeDraft({ ...draft, checklist: "nope" }),
+    false,
+    "a definition that is not a schema and a uiSchema is refused",
+  );
+});
+
+test("a page with blocks alone is not a checklist template", () => {
+  const draft = buildDraft({
+    id: "a1",
+    title: "Policy",
+    tags: [],
+    blocks: [{ type: "checkListItem", id: "s1", content: [{ type: "text", text: "x" }] }],
+    text: "x",
+    by: "g",
+    at: "2026-10-01T00:00:00.000Z",
+  });
+  assert.equal(
+    isChecklistTemplate(draft),
+    false,
+    "checklist-looking blocks alone do not make a template (ADR 0030)",
+  );
+  assert.equal(draft.checklist, null);
+});
+
+test("an empty checklist is valid rules with no steps", () => {
+  const empty = emptyChecklist();
+  assert.equal(isKnowledgeChecklist(empty), true);
+  assert.deepEqual(checklistBlocks(empty), []);
 });

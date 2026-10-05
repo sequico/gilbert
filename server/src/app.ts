@@ -157,7 +157,12 @@ import {
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES, STALWART_MIN_VERSION } from "./shared/capabilities.js";
 import type { GlobalContactInput } from "./shared/globalContacts.js";
-import type { KnowledgeArticleInput, KnowledgeTarget } from "./shared/knowledge.js";
+import {
+  isKnowledgeChecklist,
+  type KnowledgeArticleInput,
+  type KnowledgeChecklist,
+  type KnowledgeTarget,
+} from "./shared/knowledge.js";
 import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
@@ -2853,11 +2858,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   /** The editor's small shape, narrowed to what the draft writes. */
   const knowledgeInput = (raw: unknown): KnowledgeArticleInput => {
     const r = (raw ?? {}) as Record<string, unknown>;
+    const checklist = r.checklist ?? null;
     if (
       typeof r.title !== "string" ||
       !Array.isArray(r.tags) ||
       !Array.isArray(r.blocks) ||
-      typeof r.text !== "string"
+      typeof r.text !== "string" ||
+      (checklist !== null && !isKnowledgeChecklist(checklist))
     )
       throw new KnowledgeAdminError(
         "bad_request",
@@ -2868,6 +2875,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       tags: r.tags.filter((tag): tag is string => typeof tag === "string"),
       blocks: r.blocks,
       text: r.text,
+      checklist: (checklist as KnowledgeChecklist | null) ?? null,
     };
   };
 
@@ -2939,9 +2947,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       title?: unknown;
       parentFolder?: unknown;
       blocks?: unknown;
+      checklist?: unknown;
     }>(c);
     try {
       const parentFolder = body?.parentFolder;
+      const checklist = body?.checklist ?? null;
       const summary = await createArticle(
         c.get("session"),
         knowledgeTarget(body),
@@ -2950,6 +2960,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           ? parentFolder.trim()
           : null,
         Array.isArray(body?.blocks) ? body.blocks : [],
+        isKnowledgeChecklist(checklist) ? checklist : null,
       );
       return c.json({ ok: true, summary });
     } catch (err) {

@@ -91,8 +91,9 @@ The short version; [FEATURES.md](FEATURES.md) is the inventory.
   contacts** is one directory the installation owns and every account reads.
 - **A knowledge base and workorders** (Gilbert's own modules): a company-wide KB
   and one per group, with a shared draft, an administrator's approval and every
-  issued revision kept; and workorders that gather the folders, files and pages
-  of one job with a checklist bound to a KB template.
+  issued revision kept; checklist templates authored with a **checklist builder**
+  — variants and per-step conditions, not markup; and workorders that gather the
+  folders, files and pages of one job with a checklist bound to a KB template.
 - **A mail client you would keep anyway.** Three-pane and keyboard-driven, with
   conversations, labels, search grammar, undo send, scheduled send, read
   receipts, S/MIME signature checking, calendars with invitations and free/busy,

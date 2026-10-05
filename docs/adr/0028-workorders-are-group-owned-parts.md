@@ -10,9 +10,9 @@ reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts
 and the surface is a factory launcher in the top bar beside chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision the KB now carries a helper for
-(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`). The checklist
-**branching** of ADR 0030 — variants, conditions and the `not applicable` step
-state — is not built.
+(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`). The workorder
+side of ADR 0030's branching — resolving the chosen variant values and the
+`not applicable` step state — is not built.
 
 ## Context
 
@@ -201,10 +201,11 @@ chooses each template, as a reference to a template the reader may read. The
 **variant values** a branching template declares (ADR 0030) are the workorder's,
 chosen once when it is created and carried on the root, and each checklist
 resolves its conditions from those values. A
-**template is a KB page whose body holds checklist steps** (ADR 0024): the
-picker offers only those, the tree marks them with a red checklist icon, and the
-checklist names the page it came from. The page's steps are the controlled text;
-the workorder's are the checked state, with each step's last signature. A
+**template is a KB page whose draft carries a checklist definition** (ADR 0024,
+ADR 0030): the picker offers only those, the tree marks them with a red checklist
+icon, and the checklist names the page it came from. The page's steps, derived
+from that definition, are the controlled text; the workorder's are the checked
+state, with each step's last signature. A
 retired template is not gone: the reference still resolves to it by id, because
 its revisions are kept, and it is simply no longer in the tree; a changed
 template is a new **revision** of the same page, never a new id; a change to a

@@ -33,6 +33,7 @@ import {
   KNOWLEDGE_FOLDER_FILE,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
+  type KnowledgeChecklist,
   type KnowledgeRevision,
   type KnowledgeScope,
   type KnowledgeSummary,
@@ -377,12 +378,18 @@ interface Written {
   summary: KnowledgeSummary;
 }
 
-/** Create an article folder, optionally under a parent article's folder name. */
+/**
+ * Create an article folder, optionally under a parent article's folder name.
+ *
+ * A checklist template is created with its (empty) rules so the builder has a
+ * definition to edit from the first moment (ADR 0030).
+ */
 export async function createArticle(
   target: KnowledgeTarget,
   title: string,
   parentFolder: string | null,
   blocks?: unknown[],
+  checklist?: KnowledgeChecklist | null,
 ): Promise<KnowledgeSummary> {
   const res = await apiFetch<Written>("/api/knowledge/create", {
     method: "POST",
@@ -391,6 +398,7 @@ export async function createArticle(
       title,
       parentFolder,
       ...(blocks ? { blocks } : {}),
+      ...(checklist ? { checklist } : {}),
     }),
   });
   return res.summary;

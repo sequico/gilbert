@@ -1,8 +1,8 @@
 import { BookOpen, Eye } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
-import { articleKey } from "@/lib/knowledge";
+import { articleKey, emptyChecklist } from "@/lib/knowledge";
 import { useKnowledge } from "@/store/knowledge";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { Empty, Spinner } from "@/ui/misc";
@@ -10,6 +10,13 @@ import { toast } from "@/ui/toast";
 import { KnowledgeEditor } from "./KnowledgeEditor";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 import { tierLabel } from "./KnowledgeSidebar";
+
+/*
+ * The checklist builder is a lazy chunk: MUI, the form builder and the schema
+ * renderer are heavy and belong to template authoring, never to the app's first
+ * paint (ADR 0030).
+ */
+const ChecklistSurface = lazy(() => import("./ChecklistSurface"));
 
 /**
  * The knowledge base's reading and editing pane (ADR 0024).
@@ -196,6 +203,12 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     editing && edit
       ? edit.blocks
       : (article.effective?.blocks ?? article.draft?.blocks ?? []);
+  // A checklist template's rules are its body; a page switched to one, or a
+  // template with no rules yet, edits from an empty definition (ADR 0030).
+  const checklistBody =
+    editing && edit
+      ? (edit.checklist ?? emptyChecklist())
+      : (article.effective?.checklist ?? article.draft?.checklist ?? emptyChecklist());
 
   /*
    * Leaving edit mode re-opens the page, which re-seeds the store's draft and
@@ -374,14 +387,26 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       )}
 
       <div className="files-scroll" style={{ marginTop: 20 }}>
-        {/* BlockNote is uncontrolled, so a new article -- or a switch between
-            reading and editing, which seeds different blocks -- remounts it. */}
-        <KnowledgeEditor
-          key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
-          blocks={body}
-          editable={editing}
-          onChange={(blocks, text) => setEdit({ blocks, text })}
-        />
+        {isTemplate ? (
+          /* A checklist template is its rules, not prose: the builder authors
+             them and the surface renders them (ADR 0030). */
+          <Suspense fallback={<Spinner size="lg" />}>
+            <ChecklistSurface
+              checklist={checklistBody}
+              editable={editing}
+              onChange={(checklist) => setEdit({ checklist })}
+            />
+          </Suspense>
+        ) : (
+          /* BlockNote is uncontrolled, so a new article -- or a switch between
+             reading and editing, which seeds different blocks -- remounts it. */
+          <KnowledgeEditor
+            key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
+            blocks={body}
+            editable={editing}
+            onChange={(blocks, text) => setEdit({ blocks, text })}
+          />
+        )}
       </div>
 
       {/* The page's actions, in the room the title freed at the top. The border

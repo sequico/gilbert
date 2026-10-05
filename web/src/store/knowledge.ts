@@ -27,6 +27,7 @@ import type { Id } from "@/jmap/types";
 import {
   approveArticle,
   articleKey,
+  checklistBlocks,
   companyArticle,
   companyTree,
   createArticle,
@@ -35,6 +36,7 @@ import {
   findKnowledgeFolder,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
+  type KnowledgeChecklist,
   type KnowledgeSummary,
   type KnowledgeTarget,
   listArticles,
@@ -67,6 +69,8 @@ export interface KnowledgeEdit {
   tags: string[];
   blocks: unknown[];
   text: string;
+  /** A checklist template's rules, or null for an ordinary page (ADR 0030). */
+  checklist: KnowledgeChecklist | null;
   dirty: boolean;
 }
 
@@ -107,8 +111,10 @@ interface KnowledgeStore {
     tier: KnowledgeTierState,
     title: string,
     parentFolder: string | null,
-    /** Initial blocks: a checklist template is created with its first step. */
+    /** Initial blocks, for an ordinary page. */
     blocks?: unknown[],
+    /** Initial rules, for a checklist template (ADR 0030). */
+    checklist?: KnowledgeChecklist | null,
   ): Promise<boolean>;
   createFolder(
     tier: KnowledgeTierState,
@@ -379,6 +385,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             tags: draft?.tags ?? [],
             blocks: draft?.blocks ?? [],
             text: draft?.text ?? "",
+            checklist: draft?.checklist ?? null,
             dirty: false,
           },
           articleLoading: false,
@@ -396,20 +403,27 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       const edit = get().edit;
       if (!edit) return;
       const next: KnowledgeEdit = { ...edit, ...patch, dirty: true };
-      // The editor's blocks are the source of truth for the body; the plain text
-      // is derived from them so search and every reader see the same bytes.
-      if (patch.blocks !== undefined) next.text = plainTextFromBlocks(patch.blocks);
+      // A template's rules are the source of truth for its body and the editor's
+      // blocks are for an ordinary page: whichever moved, the plain text follows
+      // it so search and every reader see the same bytes.
+      if (patch.checklist !== undefined) {
+        next.text = patch.checklist
+          ? plainTextFromBlocks(checklistBlocks(patch.checklist))
+          : "";
+      } else if (patch.blocks !== undefined) {
+        next.text = plainTextFromBlocks(patch.blocks);
+      }
       set({ edit: next });
     },
 
-    async create(tier, title, parentFolder, blocks) {
+    async create(tier, title, parentFolder, blocks, checklist) {
       const target: KnowledgeTarget = {
         scope: tier.scope,
         ...(tier.group ? { group: tier.group } : {}),
       };
       try {
         set({ error: null });
-        await createArticle(target, title, parentFolder, blocks);
+        await createArticle(target, title, parentFolder, blocks, checklist);
         await get().reload();
         return true;
       } catch (err) {
@@ -501,6 +515,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         tags: edit.tags,
         blocks: edit.blocks,
         text: edit.text,
+        checklist: edit.checklist,
       };
       try {
         set({ error: null });

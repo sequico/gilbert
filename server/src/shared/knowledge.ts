@@ -53,6 +53,20 @@ export interface KnowledgeTimes {
   at: string;
 }
 
+/**
+ * A checklist template's **rules**, as the builder authors them (ADR 0030).
+ *
+ * The builder produces a JSON Schema of the template's fields — the variants a
+ * workorder chooses and the boolean step fields it checks — and a uiSchema
+ * carrying the order, the labels, the widgets and the **dependencies** that
+ * branch a step off a variant value. Both travel with the revision, and the
+ * template's body is **derived** from them rather than authored by hand.
+ */
+export interface KnowledgeChecklist {
+  schema: Record<string, unknown>;
+  uiSchema: Record<string, unknown>;
+}
+
 /** The working draft: identity, the editor's blocks, and the search text. */
 export interface KnowledgeDraft {
   v: 1;
@@ -63,6 +77,8 @@ export interface KnowledgeDraft {
   blocks: unknown[];
   /** The denormalised plain text: what search and an agent read. */
   text: string;
+  /** A checklist template's rules, or null for an ordinary page (ADR 0030). */
+  checklist?: KnowledgeChecklist | null;
   created: KnowledgeTimes;
   updated: KnowledgeTimes;
 }
@@ -237,6 +253,8 @@ export interface KnowledgeArticleInput {
   tags: string[];
   blocks: unknown[];
   text: string;
+  /** A checklist template's rules, when the page is one (ADR 0030). */
+  checklist?: KnowledgeChecklist | null;
 }
 
 /** The tag of a request that names an article: its scope and its folder. */
@@ -275,6 +293,10 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
   );
 }
 
+export function isKnowledgeChecklist(x: unknown): x is KnowledgeChecklist {
+  return isRecord(x) && isRecord(x.schema) && isRecord(x.uiSchema);
+}
+
 export function isKnowledgeDraft(x: unknown): x is KnowledgeDraft {
   return (
     isRecord(x) &&
@@ -284,6 +306,9 @@ export function isKnowledgeDraft(x: unknown): x is KnowledgeDraft {
     isTags(x.tags) &&
     Array.isArray(x.blocks) &&
     typeof x.text === "string" &&
+    (x.checklist === undefined ||
+      x.checklist === null ||
+      isKnowledgeChecklist(x.checklist)) &&
     isTimes(x.created) &&
     isTimes(x.updated)
   );
@@ -435,16 +460,89 @@ export function checklistStepsFromBlocks(blocks: unknown): KnowledgeChecklistSte
 /** What a page is a template **of**, or null when it is an ordinary page. */
 export type KnowledgeTemplate = "checklist";
 
+/** An empty checklist definition, so a new template has rules to edit. */
+export function emptyChecklist(): KnowledgeChecklist {
+  return { schema: { type: "object", properties: {} }, uiSchema: {} };
+}
+
+/** Whether a draft defines a checklist template (ADR 0030). */
+export function isChecklistTemplate(
+  draft: Pick<KnowledgeDraft, "checklist"> | null | undefined,
+): boolean {
+  return Boolean(draft?.checklist);
+}
+
+/** A heading block for a template section, in BlockNote's own shape. */
+function headingBlock(text: string, level: number): unknown {
+  return {
+    type: "heading",
+    props: { level },
+    content: text ? [{ type: "text", text }] : [],
+  };
+}
+
+/** A checklist-item block for a template step, in BlockNote's own shape. */
+function checklistBlock(id: string, label: string): unknown {
+  return {
+    type: "checkListItem",
+    id,
+    props: { checked: false },
+    content: label ? [{ type: "text", text: label }] : [],
+    children: [],
+  };
+}
+
+/** The keys of an object in the order its `ui:order` names, then the rest. */
+function orderedKeys(
+  properties: Record<string, unknown>,
+  uiSchema: Record<string, unknown> | undefined,
+): string[] {
+  const keys = Object.keys(properties);
+  const order = uiSchema?.["ui:order"];
+  if (!Array.isArray(order)) return keys;
+  const named = order.filter(
+    (key): key is string => typeof key === "string" && keys.includes(key),
+  );
+  return [...named, ...keys.filter((key) => !named.includes(key))];
+}
+
 /**
- * Whether a page's body makes it a checklist template.
+ * Build a checklist template's body from its rules (ADR 0030).
  *
- * The steps **are** the template (ADR 0028): a page with `checkListItem` blocks
- * can instantiate a workorder's checklist, and one without cannot. The flag this
- * derives is stored on the article's `state.json` (see `saveDraft`) so a listing
- * carries it without reading every draft.
+ * The rules are the source and the body is the rendering every reader walks: a
+ * section is a heading, and a boolean field is a `checkListItem` whose **id** is
+ * the field's path — the stable identity a workorder's step state keys on — and
+ * whose label is the field's title. A `ui:order` reorders a level when the
+ * builder set one. `plainTextFromBlocks` of the result is the template's `text`,
+ * so search and an agent read the steps without a second derivation.
  */
-export function blocksHaveChecklist(blocks: unknown): boolean {
-  return checklistStepsFromBlocks(blocks).length > 0;
+export function checklistBlocks(checklist: KnowledgeChecklist): unknown[] {
+  const blocks: unknown[] = [];
+  const walk = (
+    properties: unknown,
+    uiSchema: Record<string, unknown> | undefined,
+    prefix: string,
+    level: number,
+  ): void => {
+    if (!isRecord(properties)) return;
+    for (const key of orderedKeys(properties, uiSchema)) {
+      const field = properties[key];
+      if (!isRecord(field)) continue;
+      const path = prefix ? `${prefix}.${key}` : key;
+      const title = typeof field.title === "string" && field.title ? field.title : key;
+      if (field.type === "object" && isRecord(field.properties)) {
+        blocks.push(headingBlock(title, level));
+        const childUi = isRecord(uiSchema?.[key])
+          ? (uiSchema?.[key] as Record<string, unknown>)
+          : undefined;
+        walk(field.properties, childUi, path, Math.min(level + 1, 3));
+      } else if (field.type === "boolean") {
+        blocks.push(checklistBlock(path, title));
+      }
+    }
+  };
+  walk(checklist.schema.properties, checklist.uiSchema, "", 2);
+  return blocks;
 }
 
 /** Mint a draft from a writer's input. */
@@ -457,15 +555,23 @@ export function buildDraft(input: {
   by: string;
   at: string;
   created?: KnowledgeTimes;
+  checklist?: KnowledgeChecklist | null;
 }): KnowledgeDraft {
   const times: KnowledgeTimes = { by: input.by, at: input.at };
+  const checklist = input.checklist ?? null;
+  // A checklist template's body is **derived** from its rules (ADR 0030): the
+  // definition is the one source, so the blocks and the text are the rendering
+  // every reader walks rather than a second copy somebody could edit apart.
+  const blocks = checklist ? checklistBlocks(checklist) : input.blocks;
+  const text = checklist ? plainTextFromBlocks(blocks) : input.text;
   return {
     v: 1,
     id: input.id,
     title: input.title,
     tags: normalizeKnowledgeTags(input.tags),
-    blocks: input.blocks,
-    text: input.text.slice(0, MAX_TEXT),
+    blocks,
+    text: text.slice(0, MAX_TEXT),
+    checklist,
     created: input.created ?? times,
     updated: times,
   };

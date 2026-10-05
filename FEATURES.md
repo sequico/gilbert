@@ -590,13 +590,20 @@ draft — people and agents together; there are no competing drafts to merge.
 
 ## Checklist templates
 
-A page whose body holds checklist steps is a **checklist template**: the steps a
-job of that kind must take. The tree marks it with a red checklist icon, and it is
-made with **New checklist template**, which seeds the first step. The **Templates**
-filter narrows the tree to the templates and the folders that lead to them, and the
-page itself lists the **workorders that use it**. The steps are the template: a
-workorder that starts from it keeps only the checked state and the signature, so a
-template can be approved and versioned without disturbing a running workorder.
+A **checklist template** is the steps a job of that kind must take, and the rules
+that decide which of them apply. It is authored with a **checklist builder** — a
+form over the page's own JSON Schema, not markup: you add a section, add a step,
+and, where the job varies, add a **variant** (a named field with its values) and
+give a step the condition that shows it for one value. The rules are the template
+an administrator approves and versions, and the page's body and search text are
+**derived** from them, so the rules are the one copy.
+
+The tree marks a template with a red checklist icon; it is made with **New
+checklist template**; the **Templates** filter narrows the tree to the templates
+and the folders that lead to them; and the page lists the **workorders that use
+it**. A workorder that starts from it keeps only the checked state and the
+signature, so a template can be approved and versioned without disturbing a
+running workorder.
 
 ## For the agents
 
@@ -609,8 +616,8 @@ administrator; an agent never approves.
 ## What the KB is not
 
 - **Not a folder in Files**, and its pages do not appear there.
-- **No attachments** — a page is formatted text, so approving one fixes everything
-  it holds.
+- **No attachments** — a page is formatted text, and a checklist template its rules,
+  so approving one fixes everything it holds.
 - **No per-page restrictions**: every member reads the whole company KB. Where a
   real access boundary is wanted, the design says so rather than pretending.
 - **No anonymous access**: reached by signed-in accounts only.

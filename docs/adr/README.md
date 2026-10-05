@@ -309,14 +309,13 @@ is, not what a user sees.
 - **0030 — A checklist template branches on data, not on groups (accepted).**
   One generic template per kind of job, in the company KB or a group's, and every
   group instantiates it; a group owns the **instance** and signs it, and is never
-  a template of its own. The template declares **variants** (named fields and
-  values) and a step may carry a **condition** on one of them; the step state is
-  `open`, `done` or **not applicable**, and at instantiation a step whose
-  condition does not match is marked `not applicable` — dimmed, out of progress,
-  reversible — never removed: every step id and the chosen values are stored. The
-  rules are a **JSON Schema** in the approved revision, authored with
+  a template of its own. The template **is** a **JSON Schema** and uiSchema — its
+  variants (fields with values), its boolean steps and the conditions that branch
+  a step on a variant — authored with
   `@ginkgo-bioworks/react-json-schema-form-builder` (Apache-2.0) and previewed
-  through `@rjsf/core` (Apache-2.0). The builder **round-trips** a template
-  (edit, not re-create), and an instance resolves its `not applicable` set from
-  its **bound revision**, so editing a template never disturbs a running
-  workorder. **Not built.**
+  through `@rjsf/core` and `@rjsf/mui` (Apache-2.0); the page's body and text are
+  **derived** from the rules. The builder **round-trips** a template (edit, not
+  re-create). The workorder side — the step state `open`, `done` or **not
+  applicable**, the chosen values carried on the root, and the resolved set read
+  from the **bound revision** — is **partly built**: the template and its builder
+  are, the workorder branching is not.

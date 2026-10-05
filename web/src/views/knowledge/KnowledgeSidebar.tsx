@@ -22,10 +22,10 @@ import {
   useState,
 } from "react";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
-import { uid } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import {
   compareKnowledgeSiblings,
+  emptyChecklist,
   type KnowledgeSummary,
   type KnowledgeTierView,
   siblingDropPlan,
@@ -106,24 +106,6 @@ export function tierLabel(tier: KnowledgeTierView): string {
 }
 
 /**
- * The first step a new checklist template starts with.
- *
- * A template is a page whose body holds checklist steps (ADR 0024), so a create
- * that starts with one makes the page a template from its first moment rather
- * than after a save. The author renames it and adds more.
- */
-function checklistSeedBlocks(): unknown[] {
-  return [
-    {
-      type: "checkListItem",
-      id: uid("step"),
-      content: [{ type: "text", text: "" }],
-      children: [],
-    },
-  ];
-}
-
-/**
  * The inline "new page / new folder / new checklist template" row.
  *
  * Creation happens where the node will land: a text input appears in the tree at
@@ -165,7 +147,8 @@ function InlineCreateRow({
     if (!value) return;
     if (kind === "page") void create(tier, value, parentFolder);
     else if (kind === "template")
-      void create(tier, value, parentFolder, checklistSeedBlocks());
+      // A new template starts with empty rules, which the builder edits (ADR 0030).
+      void create(tier, value, parentFolder, undefined, emptyChecklist());
     else void createFolder(tier, value, parentFolder);
   };
 

@@ -47,7 +47,6 @@ import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import {
-  blocksHaveChecklist,
   buildDraft,
   buildFolderDoc,
   buildRevision,
@@ -55,6 +54,7 @@ import {
   compareKnowledgeSiblings,
   compareRevisionsNewestFirst,
   DRAFT_FILE,
+  isChecklistTemplate,
   isKnowledgeDraft,
   isKnowledgeFolderDoc,
   isKnowledgeRevision,
@@ -65,6 +65,7 @@ import {
   KNOWLEDGE_FOLDER_FILE,
   type KnowledgeArticleInput,
   type KnowledgeArticleView,
+  type KnowledgeChecklist,
   type KnowledgeDraft,
   type KnowledgeIssued,
   type KnowledgeRevision,
@@ -695,6 +696,7 @@ export async function createArticle(
   title: string,
   parentFolder: string | null,
   blocks: unknown[] = [],
+  checklist: KnowledgeChecklist | null = null,
 ): Promise<KnowledgeSummary> {
   const { ctx, accountId, folderId: tierFolderId } = await tierAccount(admin, target);
   const clean = (title ?? "").trim();
@@ -726,6 +728,7 @@ export async function createArticle(
     tags: [],
     blocks,
     text: plainTextFromBlocks(blocks),
+    checklist,
     by,
     at: now,
   });
@@ -739,9 +742,9 @@ export async function createArticle(
     by,
     at: now,
     order: lastCreateOrder,
-    // A create that starts from checklist steps is a checklist template from
-    // its first moment, exactly as a save that adds them would make it.
-    template: blocksHaveChecklist(blocks) ? "checklist" : null,
+    // A create that carries a checklist definition is a template from its
+    // first moment, exactly as a save that adds one would make it.
+    template: isChecklistTemplate(draft) ? "checklist" : null,
   });
   await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
   await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);
@@ -887,6 +890,7 @@ export async function saveDraft(
         tags: input.tags,
         blocks: input.blocks,
         text: input.text,
+        checklist: input.checklist ?? null,
         by,
         at: now,
         created,
@@ -912,10 +916,10 @@ export async function saveDraft(
         // The position is the tier's, not the save's: spelled back so the
         // builder's default does not send the article to the top.
         order: existingState?.order ?? 0,
-        // The body decides whether the page is a checklist template: any
-        // `checkListItem` block makes it one, and removing them makes it an
-        // ordinary page again (ADR 0028).
-        template: blocksHaveChecklist(input.blocks) ? "checklist" : null,
+        // The rules decide whether the page is a checklist template: a
+        // definition makes it one, and clearing it makes an ordinary page again
+        // (ADR 0030).
+        template: isChecklistTemplate(draft) ? "checklist" : null,
       }),
     };
     try {
@@ -1158,6 +1162,7 @@ export async function restoreArticle(
         tags: rev.tags,
         blocks: rev.blocks,
         text: rev.text,
+        checklist: rev.checklist ?? null,
         by,
         at: now,
         created,
