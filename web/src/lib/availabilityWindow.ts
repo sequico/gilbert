@@ -1,0 +1,105 @@
+import { addDays, DAY_MS, startOfDay } from "@/lib/dates";
+
+/**
+ * The span an availability bar covers, and the marks along it.
+ *
+ * The span is whole days and covers every day the event touches, up to
+ * `maxDays`: an event running over two days shows both, and `daysHidden` says
+ * how many the bar could not show. The marks along it answer "is this the whole
+ * day or only working hours" without dragging the event around to see where its
+ * own outline moves. That is issue #172, parts 1 and 2.
+ *
+ * Whole days, always: a bar that started at the event's own start time would
+ * move under the reader every time they adjusted it, and "busy from about a
+ * third of the way along" is not a time anybody can read.
+ */
+export interface AvailabilityWindow {
+  /** Midnight at the start of the first day shown. */
+  start: Date;
+  /** Midnight at the end of the last day shown. */
+  end: Date;
+  /** Milliseconds between the two, which a DST change makes not a multiple of a day. */
+  span: number;
+  /** Days actually shown. */
+  days: number;
+  /**
+   * Marks along the bar. `at` is a fraction of the span, so a caller positions
+   * one with a percentage and never does date arithmetic of its own. Only
+   * `major` marks are worth a label; the rest are there to read a block against.
+   */
+  ticks: { at: number; time: Date; major: boolean }[];
+  /** Whether marks fall on hours or on days, which decides how to label them. */
+  scale: "hours" | "days";
+  /**
+   * Days the event covers that the bar does not. An event long enough to need
+   * this is not one anybody is checking for a free slot, and drawing a month at
+   * eight pixels a day would say nothing; saying how much is left out is more
+   * use than showing it.
+   */
+  daysHidden: number;
+}
+
+/** How far apart the marks go, in hours, and which of them get a label. */
+function spacing(days: number): { every: number; label: number } {
+  if (days <= 1) return { every: 3, label: 6 };
+  if (days <= 2) return { every: 6, label: 12 };
+  return { every: 24, label: 24 };
+}
+
+export function availabilityWindow(
+  start: Date,
+  end: Date,
+  opts: { maxDays?: number; offsetDays?: number } = {},
+): AvailabilityWindow {
+  const maxDays = opts.maxDays ?? 7;
+  /*
+   * Days moved from where the event sits, for looking around it without
+   * changing it. The whole window slides rather than growing: keeping the span
+   * fixed means what you compare when you step forward is the same width as
+   * what you were looking at, which is the point of stepping.
+   */
+  const from = addDays(startOfDay(start), opts.offsetDays ?? 0);
+  // The last day is the one the event ends *on*. An event ending exactly at
+  // midnight ends on the day before, not at the start of a day it never
+  // touches -- that is the whole of what all-day events do.
+  const lastDay = addDays(
+    startOfDay(new Date(Math.max(end.getTime() - 1, start.getTime()))),
+    opts.offsetDays ?? 0,
+  );
+  const total = Math.max(
+    1,
+    Math.round((lastDay.getTime() - from.getTime()) / DAY_MS) + 1,
+  );
+  const days = Math.min(total, maxDays);
+  const to = addDays(from, days);
+  const span = to.getTime() - from.getTime();
+
+  const { every, label } = spacing(days);
+  const ticks: AvailabilityWindow["ticks"] = [];
+  for (let hour = 0; ; hour += every) {
+    // Stepped on the wall clock (`setHours`), not by adding raw milliseconds:
+    // a span crossing a DST transition has a 23- or 25-hour day in it, and
+    // adding `hour * 3600_000` ms would land a tick meant to read "3 PM" on
+    // the instant that actually reads 2 PM or 4 PM once the clocks change.
+    // `startOfDay`/`addDays` above already use `setHours`/`setDate` for the
+    // same reason.
+    const time = new Date(from);
+    time.setHours(from.getHours() + hour);
+    if (time.getTime() >= to.getTime()) break;
+    ticks.push({
+      at: (time.getTime() - from.getTime()) / span,
+      time,
+      major: hour % label === 0,
+    });
+  }
+
+  return {
+    start: from,
+    end: to,
+    span,
+    days,
+    ticks,
+    scale: days <= 2 ? "hours" : "days",
+    daysHidden: total - days,
+  };
+}

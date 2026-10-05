@@ -1,0 +1,34 @@
+{
+  "name": "@gilbert/server",
+  "version": "2.16.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test src/*.test.ts src/**/*.test.ts",
+    "mock": "tsx src/mock/index.ts",
+    "mock:no-future-release": "MOCK_NO_FUTURE_RELEASE=1 tsx src/mock/index.ts",
+    "mock:no-keyword-sort": "MOCK_NO_KEYWORD_SORT=1 tsx src/mock/index.ts",
+    "agent": "tsx src/agent/agent.ts"
+  },
+  "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@e965/xlsx": "0.20.3",
+    "@hono/node-server": "^2.1.3",
+    "@hyzyla/pdfium": "^2.1.13",
+    "hono": "^4.13.12",
+    "mammoth": "^1.13.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.3"
+  }
+}

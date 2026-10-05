@@ -1,0 +1,66 @@
+# ADR 0002 — Upstream is download-only
+
+Status: Accepted
+
+Implementation: Built, and carried by the repository's own shape rather than by
+code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
+a release is fetched by the merge that takes it in, and `docs/upstream.md`
+carries the per-commit record.
+
+Gilbert's mail client is based on **ihasmail**, by **Coffey Labs**; `NOTICE`
+carries the attribution and the addresses. Upstream is consumed here and never
+contributed to: releases arrive, nothing goes back.
+
+## How it works
+
+A merge that takes a release in adds upstream's repository as a remote (its
+address, with the attribution, is in `NOTICE`), fetches its tags into a
+namespace of their own (`refs/upstream/tags/*`, never `refs/tags` — this
+repository keeps its own release tags), and merges the release; the mail core
+lands with Gilbert's identifiers applied by the rename layer
+(`gilbert-branding`). There is no mirror branch: nothing has to be pushed to
+keep upstream close, and no credential is kept to push it.
+
+`.github/workflows/upstream-watch.yml` runs the same fetch once a day, takes
+the newest upstream release, and asks one question: is that release's commit
+an ancestor of `main`? If it is, nothing has been missed. If it is not, the
+watch opens an issue that names the owner and closes it once the commit lands.
+The workflow pushes nothing and holds no secret.
+
+The ancestry check has one false positive, and it is the common case here: a
+release whose work was **hand-taken** commit by commit never makes the release's
+own commit an ancestor, so it keeps being reported as missing. `docs/upstream.md`
+is the record that answers it — one row per upstream commit and what became of
+it — and every hand-take records the upstream sha in its own message
+(`Upstream: <sha>`), so the mapping lives in the history and the table is rebuilt
+from it rather than maintained by hand.
+
+No upstream-shaped fork is kept, no un-renaming patches exist, and nothing is
+proposed back upstream: work that upstream might once have accepted simply lives
+here, renamed or not. Attribution stays intact — the mail core is a derivative
+work of ihasmail, `NOTICE` carries Coffey Labs' attribution and the addresses
+of that project's own site, documentation and issue archive, and the copyright
+in this derivative is Sequi Company's.
+
+Two GitHub facts shape the mechanism rather than a preference for it: a
+workflow's own token cannot create or update a file under `.github/workflows`
+at any permission setting, and a copy of an upstream release necessarily
+carries upstream's own workflow files — so fetch-and-merge, not a mirror
+branch, is what a public repository's token model allows. The watch's
+ancestry check holds only for as long as upstream keeps arriving by merge; a
+release taken in by cherry-pick instead would keep being reported as missing
+— a false alarm, which is the direction the check is built to fail in.
+
+## Consequences
+
+- No fork maintenance, no extraction projects, no upstream review cycle.
+- Divergence from upstream is accepted and can grow; sync conflicts are
+  resolved at merge time.
+- The rename layer runs over every merged delta.
+
+## References
+
+- `.github/workflows/upstream-watch.yml` — the fetch, the ancestry check, the issue
+- `docs/upstream.md` — the per-commit record the watch's false positive needs
+- upstream's repository — the remote a merge fetches from; the address is in `NOTICE`
+- upstream's GitHub-era issue archive — the issues and pull requests from GitHub, whose numbers match GitHub's; the address is in `NOTICE`

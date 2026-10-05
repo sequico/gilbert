@@ -1,0 +1,63 @@
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  hkdfSync,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+
+/**
+ * Credentials are sealed with a key derived from the per-session cookie secret
+ * combined with the app secret. The server persists only the ciphertext plus a
+ * hash of the cookie secret, so a stolen session file cannot be turned back into
+ * passwords without also holding the users' cookies.
+ */
+export function deriveKey(cookieSecret: string, appSecret: string, salt: Buffer): Buffer {
+  const ikm = Buffer.from(`${cookieSecret}\u0000${appSecret}`, "utf8");
+  return Buffer.from(hkdfSync("sha256", ikm, salt, "gilbert-session-v1", 32));
+}
+
+export function seal(plaintext: string, key: Buffer): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
+  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, ct]).toString("base64url");
+}
+
+export function open(sealed: string, key: Buffer): string | null {
+  try {
+    const buf = Buffer.from(sealed, "base64url");
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const ct = buf.subarray(28);
+    const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+export function sha256(input: string): string {
+  return createHash("sha256").update(input).digest("base64url");
+}
+
+/**
+ * Whether two secrets are the same, without the comparison's timing saying so.
+ *
+ * Here rather than beside the callers: `timingSafeEqual` is node:crypto's, and
+ * the agent tier's modules are in the client's program, where a node built-in
+ * drags node's own globals in with it.
+ */
+export function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
+export function randomToken(bytes = 32): string {
+  return randomBytes(bytes).toString("base64url");
+}

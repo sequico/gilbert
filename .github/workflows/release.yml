@@ -1,0 +1,221 @@
+# Cut a release when the user calls one, by hand -- never automatically.
+# Upstream's weekly schedule was removed on 2026-09-04 at the owner's request;
+# releases are manual (workflow_dispatch, with dry_run to preview).
+#
+# Releases had drifted 184 commits behind main, which made `:latest` describe
+# a build nobody was running -- the demo, prod and anyone building from source
+# were all ahead of it. Publishing on release is the right trigger only if
+# releases actually happen, so this is the workflow that makes that true when
+# one is called.
+#
+# It does nothing on a quiet run. A release with no commits in it is worse
+# than no release: it moves `:latest` to an identical build, spends a version
+# number, and mails everybody watching the repository about nothing.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Work out what would be released, then stop"
+        type: boolean
+        default: false
+
+# One at a time. Two overlapping runs would race to create the same tag, and
+# the loser fails noisily for a reason that has nothing to do with the code.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # Hardcoded rather than derived from github.repository: a registry path must
+  # be lowercase. This is this repository's own package -- never upstream's.
+  IMAGE: ghcr.io/sequico/gilbert
+
+jobs:
+  # Release pre-check: the full CI stack (typecheck, tests, build, Docker
+  # smoke build) must pass before anything is cut. Nothing ships on a red
+  # check.
+  ci:
+    # The called workflow can only lose permissions, never gain them, so this is
+    # the ceiling it needs: an empty set would leave actions/checkout in ci.yml
+    # without contents: read, and the pre-check would fail rather than tighten.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  # The CodeQL analysis beside CI: a release must not ship a finding any more
+  # than it may ship a failing test. Called rather than triggered, so it runs
+  # exactly when a release is being prepared -- a dry run included -- and the
+  # per-push cost stays where AGENTS.md puts it.
+  codeql:
+    needs: [check]
+    if: needs.check.outputs.should_release == 'true'
+    permissions:
+      contents: read
+      # The analysis reads its own workflow run for status and telemetry and
+      # publishes nothing, so no write permission is granted.
+      actions: read
+    uses: ./.github/workflows/codeql.yml
+
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_release: ${{ steps.decide.outputs.should_release }}
+      tag: ${{ steps.decide.outputs.tag }}
+      title: ${{ steps.decide.outputs.title }}
+      sha: ${{ steps.decide.outputs.sha }}
+      previous: ${{ steps.decide.outputs.previous }}
+      count: ${{ steps.decide.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The supply-chain preflight: a release must not fail later -- or ship --
+      # on a dependency advisory. It runs here and not on every push because it
+      # is network-bound and advisory-driven: a new advisory should refuse a
+      # release, not a push that changed nothing.
+      - run: npm ci --ignore-scripts
+      - run: npm run audit
+      - id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # The newest published release, or empty on a repository that has
+          # never had one -- in which case everything counts as new. Drafts are
+          # excluded: an unpublished draft is not a release anybody has, so
+          # counting from it would hide commits that have never shipped.
+          previous="$(gh release list --limit 1 --exclude-drafts --json tagName --jq '.[0].tagName // ""')"
+          # A tag named by a release is normally present after a full checkout,
+          # but a release can outlive its tag. Falling back to the whole
+          # history is the safe direction to be wrong in: it over-counts, which
+          # cuts a release that was due anyway, where under-counting would skip
+          # one that was.
+          if [ -n "$previous" ] && git rev-parse -q --verify "refs/tags/${previous}" >/dev/null; then
+            count="$(git rev-list --count "${previous}..HEAD")"
+          else
+            count="$(git rev-list --count HEAD)"
+          fi
+
+          version="$(node scripts/version.mjs)"
+          # A Docker tag may not contain '+', and neither should the git tag,
+          # so the two always agree about what to call a build.
+          tag="v${version/+/-}"
+          title="v${version%%+*}"
+          sha="$(git rev-parse HEAD)"
+
+          should_release=true
+          reason=""
+          if [ "$count" -eq 0 ]; then
+            should_release=false
+            reason="no commits since ${previous}"
+          elif git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            # Same commit, different week: the version is derived from the
+            # commit, so nothing new means the tag already exists.
+            should_release=false
+            reason="tag ${tag} already exists"
+          fi
+
+          {
+            echo "should_release=$should_release"
+            echo "tag=$tag"
+            echo "title=$title"
+            echo "sha=$sha"
+            echo "previous=$previous"
+            echo "count=$count"
+          } >> "$GITHUB_OUTPUT"
+
+          # Written to the run summary so a skipped week reads as a decision
+          # rather than as a workflow that quietly did nothing.
+          {
+            echo "### Weekly release"
+            echo
+            if [ "$should_release" = "true" ]; then
+              echo "Releasing **${tag}** — ${count} commit(s) since ${previous:-the beginning}."
+            else
+              echo "Nothing to release: ${reason}."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cut:
+    needs: [check, ci, codeql]
+    if: needs.check.outputs.should_release == 'true' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          args=(--target "${{ needs.check.outputs.sha }}"
+                --title "${{ needs.check.outputs.title }}"
+                --generate-notes)
+          # Bound the notes to what is actually new. Without a start tag the
+          # generator reaches back to whatever it decides is previous, which on
+          # a repository with older tag shapes is not always the last release.
+          if [ -n "${{ needs.check.outputs.previous }}" ]; then
+            args+=(--notes-start-tag "${{ needs.check.outputs.previous }}")
+          fi
+          gh release create "${{ needs.check.outputs.tag }}" "${args[@]}"
+
+  # Called rather than left to the `release` trigger on purpose: see the note
+  # at the top of publish.yml. A release created with GITHUB_TOKEN raises no
+  # event, so without this the tag would exist and no image would follow it.
+  publish:
+    needs: [check, cut]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      ref: ${{ needs.check.outputs.sha }}
+      tag_latest: true
+
+  # A release is not done when the image is pushed: it is done when what was
+  # pushed is what the tag names. The manifest is read back from the registry
+  # and both architectures are asserted -- a half-failed digest push, one
+  # platform short, must not pass as a release -- and :latest must name the
+  # same index.
+  verify:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: The tag resolves on both architectures, and :latest names it
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The git tag carries a leading `v`; the image tag does not.
+          image_tag="${TAG#v}"
+          docker buildx imagetools inspect "$IMAGE:$image_tag" > tag.txt
+          cat tag.txt
+          grep -q 'linux/amd64' tag.txt
+          grep -q 'linux/arm64' tag.txt
+          tag_digest="$(awk '/^Digest:/{print $2; exit}' tag.txt)"
+          test -n "$tag_digest"
+          docker buildx imagetools inspect "$IMAGE:latest" > latest.txt
+          latest_digest="$(awk '/^Digest:/{print $2; exit}' latest.txt)"
+          test "$tag_digest" = "$latest_digest"
+          echo "Verified $IMAGE:$image_tag on linux/amd64 and linux/arm64 ($tag_digest); :latest names it." >> "$GITHUB_STEP_SUMMARY"

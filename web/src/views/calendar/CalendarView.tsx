@@ -1,0 +1,1329 @@
+import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
+import {
+  addDays,
+  addMonths,
+  DAY_MS,
+  isSameDay,
+  isToday,
+  monthGrid,
+  roundToNext,
+  startOfDay,
+  startOfWeek,
+  toLocalDateOnly,
+  weekDays,
+} from "@/lib/dates";
+import {
+  formatClock,
+  formatDate,
+  formatDateLong,
+  formatDayMonth,
+  formatHourLabel,
+  formatMonthYear,
+  formatWeekday,
+  formatWeekdayDate,
+} from "@/lib/datetime";
+import {
+  canDragEvent,
+  type DragPatch,
+  dayDelta,
+  moveBothPatch,
+  moveByDaysPatch,
+  movePatch,
+  pixelsToMinutes,
+  resizePatch,
+  snap,
+} from "@/lib/eventDrag";
+import { t as translate } from "@/lib/i18n";
+import { keyboard } from "@/lib/keyboard";
+import { useSwipeNav } from "@/lib/touch";
+import {
+  type EventInstance,
+  isOccurrence,
+  isRecurring,
+  myParticipantKeys,
+  useCalendar,
+} from "@/store/calendar";
+import { useSettings } from "@/store/settings";
+import { Empty, useIsMobile, useIsTouch } from "@/ui/misc";
+import type { Anchor } from "@/ui/popover";
+import { toast } from "@/ui/toast";
+import {
+  type CalendarContext,
+  CalendarContextMenu,
+  eventColor,
+} from "./CalendarContextMenu";
+import { type EditorInit, EventEditor } from "./EventEditor";
+import { canEditInstance, EventPopover } from "./EventPopover";
+import { askEditScope, droppedMessage, runScoped } from "./scope";
+
+type View = "month" | "week" | "day" | "agenda";
+
+/**
+ * The switcher labels, spelled out rather than derived from the view id.
+ *
+ * `v[0].toUpperCase() + v.slice(1)` is correct English and untranslatable in
+ * every other language: the extractor cannot see a string that is computed, so
+ * the four buttons would stay English even in a catalogue that has all four
+ * words. Called rather than looked up, because a module-level object would
+ * capture the labels for whichever language loaded first.
+ */
+const VIEW_LABELS: Record<View, () => string> = {
+  day: () => translate("Day"),
+  week: () => translate("Week"),
+  month: () => translate("Month"),
+  agenda: () => translate("Agenda"),
+};
+
+const HOUR_H = 48;
+
+/*
+ * How far the pointer has to move before a press counts as a drag rather than
+ * a (double) click. A double click is rarely perfectly still; below this the
+ * press is a click and must not leave the event or open an editor behind.
+ */
+const DRAG_SLOP_PX = 5;
+
+export function CalendarView({
+  view: viewParam,
+  date,
+}: {
+  view?: string;
+  date?: string;
+}) {
+  const [, navigate] = useLocation();
+  const cal = useCalendar();
+  const settings = useSettings((s) => s.settings);
+  const isMobile = useIsMobile();
+  const view: View = (
+    ["month", "week", "day", "agenda"].includes(viewParam ?? "")
+      ? viewParam
+      : settings.calendarDefaultView
+  ) as View;
+  const anchor = useMemo(() => {
+    const d = date ? new Date(`${date}T00:00:00`) : new Date();
+    return Number.isNaN(d.getTime()) ? startOfDay(new Date()) : startOfDay(d);
+  }, [date]);
+  const [popover, setPopover] = useState<{ inst: EventInstance; anchor: Anchor } | null>(
+    null,
+  );
+  const [editor, setEditor] = useState<EditorInit | null>(null);
+  const [ctx, setCtx] = useState<CalendarContext | null>(null);
+  const weekStart = settings.weekStart;
+  const effectiveView: View = isMobile && view === "week" ? "day" : view;
+
+  // Range to load
+  const range = useMemo(() => {
+    if (effectiveView === "month") {
+      const g = monthGrid(anchor, weekStart);
+      return { start: g[0]!, end: addDays(g[41]!, 1) };
+    }
+    if (effectiveView === "week") {
+      const s = startOfWeek(anchor, weekStart);
+      return { start: s, end: addDays(s, 7) };
+    }
+    if (effectiveView === "day") return { start: anchor, end: addDays(anchor, 1) };
+    return { start: anchor, end: addDays(anchor, 60) };
+  }, [effectiveView, anchor, weekStart]);
+
+  useEffect(() => {
+    if (cal.available) void cal.loadRange(range.start, range.end);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cal.available, range.start.getTime(), range.end.getTime()]);
+
+  /*
+   * An event begun elsewhere -- from a message -- opens here, because this is
+   * where the editor lives. Cleared as it is taken: a draft left in the store
+   * would reopen the editor on every later visit to the calendar.
+   */
+  /*
+   * Shared calendars are loaded by the store at sign-in and when the session
+   * account set changes, but a group membership that lands after this
+   * sign-in can still be missed on the first visit — opening Mail first
+   * refreshes the session and masks it. Re-asking on mount is the belt a view
+   * wears for the same reason; the cost is one Calendar/get per non-personal
+   * account.
+   */
+  const loadSharedCalendars = useCalendar((s) => s.loadSharedCalendars);
+  useEffect(() => {
+    void loadSharedCalendars();
+  }, [loadSharedCalendars]);
+
+  useEffect(() => {
+    if (!cal.draft) return;
+    const { title, description, attendees, ...when } = cal.draft;
+    setEditor({ ...when, seed: { title, description, attendees } });
+    cal.setDraft(null);
+  }, [cal.draft]);
+
+  const go = useCallback(
+    (v: View, d: Date) => navigate(`/calendar/${v}/${toLocalDateOnly(d)}`),
+    [navigate],
+  );
+  const step = (n: number) => {
+    if (effectiveView === "month") go(view, addMonths(anchor, n));
+    else if (effectiveView === "week") go(view, addDays(anchor, 7 * n));
+    else if (effectiveView === "day") go(view, addDays(anchor, n));
+    else go(view, addDays(anchor, 30 * n));
+  };
+
+  /*
+   * Swipe sideways to step the calendar, on a touchscreen only and only in the
+   * two views where a period is a page: day and month. Week and agenda scroll
+   * through a range rather than turning to the next one, so there is nothing a
+   * sideways flick would obviously mean.
+   *
+   * The buttons in the toolbar stay, and so does n/p. A gesture with no
+   * visible control is one only the people who already know about it can use.
+   */
+  const [mainEl, setMainEl] = useState<HTMLDivElement | null>(null);
+  const isTouch = useIsTouch();
+  useSwipeNav(mainEl, {
+    enabled: isTouch && (effectiveView === "day" || effectiveView === "month"),
+    onStep: (n) => step(n),
+    // Buttons live in the toolbar; an event is where a future drag-to-move
+    // gesture has to start, so this one keeps out of both.
+    ignore: ".cal-toolbar, .ev-chip, .ev-block, .agenda-ev",
+  });
+
+  /*
+   * Saving a move or a resize.
+   *
+   * The same path a menu edit takes: ask which of a series it is meant for,
+   * then run it through `runScoped` so a date the server will only change as
+   * part of a whole series offers that rather than failing. Invitations are
+   * not sent -- a drag is a scheduling gesture, and mailing every guest on
+   * each nudge of a block is not what the hand was asking for. The editor is
+   * still where a change goes out with notice.
+   */
+  const commitDrag = useCallback(
+    async (inst: EventInstance, patch: DragPatch) => {
+      const ev = inst.event;
+      if (!patch.start && !patch.duration) return;
+      // Only a recurring occurrence has a scope question; everything else is
+      // a whole-series change answered without a dialog. Skipping the dialog
+      // round-trip keeps the drop synchronous, so the optimistic move in
+      // `updateEvent` lands in the same frame and the chip does not snap back
+      // to its old slot before jumping forward.
+      const scope =
+        isRecurring(ev) && isOccurrence(ev) ? await askEditScope(ev) : "series";
+      if (!scope) return;
+      try {
+        const dropped = await runScoped(scope, (sc) =>
+          cal.updateEvent(ev, { ...patch }, false, sc, { accountId: inst.accountId }),
+        );
+        if (!dropped) return;
+        const message = droppedMessage(dropped);
+        if (message) toast.success(message);
+      } catch (err) {
+        toast.error((err as Error).message);
+      }
+    },
+    [cal],
+  );
+
+  const openNew = useCallback(
+    (start?: Date, end?: Date, allDay = false) => {
+      const s = start ?? roundToNext(new Date(), 30);
+      const e = end ?? new Date(s.getTime() + settings.defaultEventDuration * 60_000);
+      setEditor({ start: s, end: e, allDay });
+    },
+    [settings.defaultEventDuration],
+  );
+
+  useEffect(() => {
+    const onNew = () => openNew();
+    window.addEventListener("ihm:new-event", onNew);
+    return () => window.removeEventListener("ihm:new-event", onNew);
+  }, [openNew]);
+
+  useEffect(
+    () =>
+      keyboard.pushScope("calendar", [
+        {
+          keys: "t",
+          description: "Today",
+          group: "Calendar",
+          handler: () => go(view, new Date()),
+        },
+        {
+          keys: "n",
+          description: "Next period",
+          group: "Calendar",
+          handler: () => step(1),
+        },
+        {
+          keys: "p",
+          description: "Previous period",
+          group: "Calendar",
+          handler: () => step(-1),
+        },
+        {
+          keys: "d",
+          description: "Day view",
+          group: "Calendar",
+          handler: () => go("day", anchor),
+        },
+        {
+          keys: "w",
+          description: "Week view",
+          group: "Calendar",
+          handler: () => go("week", anchor),
+        },
+        {
+          keys: "m",
+          description: "Month view",
+          group: "Calendar",
+          handler: () => go("month", anchor),
+        },
+        {
+          keys: "a",
+          description: "Agenda view",
+          group: "Calendar",
+          handler: () => go("agenda", anchor),
+        },
+        {
+          keys: "c",
+          description: "New event",
+          group: "Calendar",
+          handler: () => openNew(),
+        },
+      ]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, anchor, openNew],
+  );
+
+  if (!cal.available) {
+    return (
+      <div className="p-16">
+        <Empty
+          icon={<CalIcon size={40} />}
+          title={translate("Calendar is not available")}
+        >
+          {translate("This account is not set up for calendars.")}
+        </Empty>
+      </div>
+    );
+  }
+
+  const title =
+    effectiveView === "month"
+      ? formatMonthYear(anchor)
+      : effectiveView === "week"
+        ? `${formatDayMonth(range.start)} – ${formatDate(addDays(range.end, -1))}`
+        : effectiveView === "day"
+          ? formatWeekdayDate(anchor, true)
+          : translate("Agenda from {date}", { date: formatDayMonth(anchor) });
+
+  const onEvent = (inst: EventInstance, el: Element) => {
+    const r = el.getBoundingClientRect();
+    setPopover({ inst, anchor: { x: r.left, y: r.top, w: r.width, h: r.height } });
+  };
+  /*
+   * Opening the editor for an event.
+   *
+   * The one action a double click means everywhere: an empty slot asks for a
+   * new event there, an event asks to be edited. A single click does neither —
+   * it opens nothing, so selecting and dragging are never interrupted by a
+   * dialog — and the popover stays reachable for touch (a tap) and for the
+   * context menu's Open.
+   */
+  const openEditor = (inst: EventInstance) => {
+    setEditor({
+      event: inst.event,
+      accountId: inst.accountId,
+      start: inst.start,
+      end: inst.end,
+      allDay: inst.allDay,
+    });
+  };
+  const onEventContext = (inst: EventInstance, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPopover(null);
+    setCtx({ kind: "event", inst, anchor: { x: e.clientX, y: e.clientY, w: 0, h: 0 } });
+  };
+
+  /*
+   * Double click on an event: edit it when it can be edited, otherwise show
+   * the details it cannot change — an invitation the reader has to answer is
+   * not something editing can help with.
+   */
+  const onOpenEvent = (inst: EventInstance, el: Element) => {
+    if (canEditInstance(inst)) openEditor(inst);
+    else onEvent(inst, el);
+  };
+
+  const onSlotContext = (
+    start: Date,
+    end: Date,
+    allDay: boolean,
+    e: React.MouseEvent,
+  ) => {
+    e.preventDefault();
+    setCtx({
+      kind: "slot",
+      start,
+      end,
+      allDay,
+      anchor: { x: e.clientX, y: e.clientY, w: 0, h: 0 },
+    });
+  };
+
+  return (
+    <div className="cal-main" ref={setMainEl}>
+      <div className="cal-toolbar">
+        <button className="btn btn-sm" onClick={() => go(view, new Date())}>
+          {translate("Today")}
+        </button>
+        <button
+          className="icon-btn sm"
+          onClick={() => step(-1)}
+          aria-label={translate("Previous")}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <button
+          className="icon-btn sm"
+          onClick={() => step(1)}
+          aria-label={translate("Next")}
+        >
+          <ChevronRight size={18} />
+        </button>
+        <h2 className="truncate">{title}</h2>
+        <span className="spacer" />
+        {cal.loading && <span className="spinner" />}
+        <div className="view-switch">
+          {(["day", "week", "month", "agenda"] as View[])
+            .filter((v) => !(isMobile && v === "week"))
+            .map((v) => (
+              <button
+                key={v}
+                className={effectiveView === v ? "active" : ""}
+                onClick={() => go(v, anchor)}
+              >
+                {VIEW_LABELS[v]()}
+              </button>
+            ))}
+        </div>
+        {!isMobile && (
+          <button className="btn btn-primary btn-sm" onClick={() => openNew()}>
+            <Plus size={16} /> {translate("Event")}
+          </button>
+        )}
+      </div>
+      {cal.error && (
+        <div className="error-box" style={{ margin: 12 }}>
+          {cal.error}
+        </div>
+      )}
+      {effectiveView === "month" && (
+        <MonthView
+          onDragCommit={(i, patch) => void commitDrag(i, patch)}
+          anchor={anchor}
+          weekStart={weekStart}
+          onDay={(d) => go("day", d)}
+          onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
+          onEventContext={onEventContext}
+          onSlotContext={onSlotContext}
+          onCreate={(d) => openNew(new Date(d.getTime() + 9 * 3600_000))}
+        />
+      )}
+      {(effectiveView === "week" || effectiveView === "day") && (
+        <TimeGrid
+          onDragCommit={(i, patch) => void commitDrag(i, patch)}
+          days={effectiveView === "week" ? weekDays(anchor, weekStart) : [anchor]}
+          onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
+          onEventContext={onEventContext}
+          onSlotContext={onSlotContext}
+          onCreate={(s, e, allDay) => openNew(s, e, allDay)}
+          onDayHeader={(d) => go("day", d)}
+          workStart={settings.workDayStart}
+          workEnd={settings.workDayEnd}
+        />
+      )}
+      {effectiveView === "agenda" && (
+        <AgendaView
+          start={anchor}
+          onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
+          onEventContext={onEventContext}
+        />
+      )}
+      {ctx && (
+        <CalendarContextMenu
+          ctx={ctx}
+          onClose={() => setCtx(null)}
+          onOpen={(inst, a) => setPopover({ inst, anchor: a })}
+          onEdit={(inst) => openEditor(inst)}
+          onCreate={(s, e, allDay) => {
+            setCtx(null);
+            openNew(s, e, allDay);
+          }}
+        />
+      )}
+      {popover && (
+        <EventPopover
+          inst={popover.inst}
+          anchor={popover.anchor}
+          onClose={() => setPopover(null)}
+          onEdit={() => {
+            openEditor(popover.inst);
+            setPopover(null);
+          }}
+        />
+      )}
+      {editor && <EventEditor init={editor} onClose={() => setEditor(null)} />}
+    </div>
+  );
+}
+
+/* ---------------- Month ---------------- */
+
+type EvCtx = (i: EventInstance, e: React.MouseEvent) => void;
+type SlotCtx = (start: Date, end: Date, allDay: boolean, e: React.MouseEvent) => void;
+
+function MonthView({
+  anchor,
+  weekStart,
+  onDay,
+  onEvent,
+  onOpenEvent,
+  onEventContext,
+  onSlotContext,
+  onCreate,
+  onDragCommit,
+}: {
+  anchor: Date;
+  weekStart: number;
+  onDay: (d: Date) => void;
+  onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
+  onEventContext: EvCtx;
+  onSlotContext: SlotCtx;
+  onCreate: (d: Date) => void;
+  onDragCommit: (i: EventInstance, patch: DragPatch) => void;
+}) {
+  const cal = useCalendar();
+  const grid = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart]);
+  const instances = cal.instancesIn(grid[0]!, addDays(grid[41]!, 1));
+  const weeks = [...Array(6)].map((_, w) => grid.slice(w * 7, w * 7 + 7));
+  const dow = weeks[0]!.map((d) => formatWeekday(d));
+  const maxPer = 4;
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const draggedRef = useRef(false);
+
+  /*
+   * A month cell is a day and nothing finer, so the only question a drag here
+   * asks is "which day". The cell under the pointer is found by asking the
+   * document rather than by tracking enter and leave on forty-two cells: one
+   * question at the end beats bookkeeping throughout.
+   */
+  const beginChipDrag = (inst: EventInstance, e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    if (!canDragEvent(inst.event, inst.calendar)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let landedOn: string | null = null;
+    const onPointerMove = (ev: PointerEvent) => {
+      if (
+        !draggedRef.current &&
+        (Math.abs(ev.clientX - startX) >= DRAG_SLOP_PX ||
+          Math.abs(ev.clientY - startY) >= DRAG_SLOP_PX)
+      )
+        draggedRef.current = true;
+      const cell = document
+        .elementFromPoint(ev.clientX, ev.clientY)
+        ?.closest<HTMLElement>(".month-cell");
+      const date = cell?.dataset.date ?? null;
+      if (date) landedOn = date;
+      setDraggingKey(inst.key);
+    };
+    const finish = () => {
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", finish);
+      el.removeEventListener("pointercancel", finish);
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* already released */
+      }
+      setDraggingKey(null);
+      // Built from the parts rather than parsed: `new Date("2026-09-04")` is
+      // read as UTC and lands on the day before wherever the offset is negative.
+      const parts = landedOn?.split("-").map(Number);
+      const target =
+        parts && parts.length === 3
+          ? new Date(parts[0]!, parts[1]! - 1, parts[2]!)
+          : null;
+      // How far the hand moved it, in local days -- see moveByDaysPatch for
+      // why the target date itself is the wrong thing to write.
+      if (draggedRef.current && target && !isSameDay(target, inst.start)) {
+        onDragCommit(
+          inst,
+          moveByDaysPatch(inst.event.start, dayDelta(inst.start, target)),
+        );
+      }
+      window.setTimeout(() => (draggedRef.current = false), 0);
+    };
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", finish);
+    el.addEventListener("pointercancel", finish);
+  };
+
+  return (
+    <div className="month-grid">
+      <div className="dow-row">
+        {dow.map((d) => (
+          <div key={d}>{d}</div>
+        ))}
+      </div>
+      {weeks.map((days, wi) => (
+        <div key={wi} className="week-row">
+          {days.map((d) => {
+            const dayEnd = addDays(d, 1);
+            const evs = instances.filter((i) => i.start < dayEnd && i.end > d);
+            const shown = evs.slice(0, maxPer);
+            return (
+              <div
+                key={d.toISOString()}
+                data-date={toLocalDateOnly(d)}
+                className={`month-cell ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""}`}
+                /* Creating needs a deliberate double click, so a stray single
+                   click on a day never opens the editor by accident. */
+                onDoubleClick={() => onCreate(d)}
+                onContextMenu={(e) =>
+                  onSlotContext(
+                    new Date(d.getTime() + 9 * 3600_000),
+                    new Date(d.getTime() + 10 * 3600_000),
+                    false,
+                    e,
+                  )
+                }
+              >
+                <span
+                  className="day-num"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDay(d);
+                  }}
+                >
+                  {d.getDate() === 1 ? formatDayMonth(d) : d.getDate()}
+                </span>
+                {shown.map((i) => (
+                  <EventChip
+                    key={i.key}
+                    inst={i}
+                    day={d}
+                    onClick={(el) => onEvent(i, el)}
+                    onOpen={(el) => onOpenEvent(i, el)}
+                    onContext={(e) => onEventContext(i, e)}
+                    onDragStart={
+                      canDragEvent(i.event, i.calendar)
+                        ? (e) => beginChipDrag(i, e)
+                        : undefined
+                    }
+                    dragging={draggingKey === i.key}
+                    suppressClick={() => draggedRef.current}
+                  />
+                ))}
+                {evs.length > maxPer && (
+                  <span
+                    className="more"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDay(d);
+                    }}
+                  >
+                    {translate("+{n} more", { n: evs.length - maxPer })}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function statusClass(i: EventInstance): string {
+  const ev = i.event;
+  const cal = useCalendar.getState();
+  // The one "which participants are me" rule the popover's RSVP actions use, so
+  // the chip's status and the actions cannot disagree about who the reader is.
+  const myKeys = myParticipantKeys(ev, cal.identities);
+  const my = Object.entries(ev.participants ?? {}).find(([k]) => myKeys.includes(k))?.[1]
+    .participationStatus;
+  if (ev.status === "cancelled") return "cancelled";
+  if (my === "declined") return "declined";
+  if (my === "tentative" || my === "needs-action" || ev.status === "tentative")
+    return "tentative";
+  return "";
+}
+
+function useEventColor() {
+  const categories = useSettings((s) => s.settings.eventCategories);
+  return (inst: EventInstance) =>
+    eventColor(inst.event, inst.calendar?.color, categories);
+}
+
+function EventChip({
+  inst,
+  day,
+  onClick,
+  onOpen,
+  onContext,
+  onDragStart,
+  dragging,
+  suppressClick,
+}: {
+  inst: EventInstance;
+  day: Date;
+  onClick: (el: Element) => void;
+  onOpen?: (el: Element) => void;
+  onContext?: (e: React.MouseEvent) => void;
+  onDragStart?: (e: React.PointerEvent) => void;
+  dragging?: boolean;
+  suppressClick?: () => boolean;
+}) {
+  const color = useEventColor()(inst);
+  const isTouch = useIsTouch();
+  const spansDay =
+    inst.allDay ||
+    inst.end.getTime() - inst.start.getTime() >= DAY_MS ||
+    (!isSameDay(inst.start, inst.end) && inst.start < day);
+  return (
+    <div
+      className={`ev-chip ${spansDay ? "" : "timed"} ${statusClass(inst)} ${dragging ? "dragging" : ""} ${onDragStart ? "draggable" : ""}`}
+      style={{ background: color, borderColor: color }}
+      onPointerDown={onDragStart}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (suppressClick?.()) return;
+        /* Same rule as the timed blocks: a mouse click opens nothing, a touch
+           tap opens the popover, and a double click opens the editor (or the
+           popover, for an event the reader cannot edit). */
+        if (isTouch) onClick(e.currentTarget);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (suppressClick?.()) return;
+        if (isTouch) onClick(e.currentTarget);
+        else onOpen?.(e.currentTarget);
+      }}
+      onContextMenu={onContext}
+      title={inst.event.title ?? ""}
+    >
+      {!spansDay && <span className="ev-dot" style={{ background: color }} />}
+      {!spansDay && <span className="ev-time">{formatClock(inst.start)}</span>}
+      <span className="truncate">{inst.event.title || "(untitled)"}</span>
+    </div>
+  );
+}
+
+/* ---------------- Week / Day ---------------- */
+
+function TimeGrid({
+  days,
+  onEvent,
+  onOpenEvent,
+  onEventContext,
+  onSlotContext,
+  onCreate,
+  onDayHeader,
+  onDragCommit,
+  workStart,
+  workEnd,
+}: {
+  days: Date[];
+  onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
+  onEventContext: EvCtx;
+  onSlotContext: SlotCtx;
+  onCreate: (s: Date, e: Date | undefined, allDay: boolean) => void;
+  onDayHeader: (d: Date) => void;
+  onDragCommit: (i: EventInstance, patch: DragPatch) => void;
+  workStart: number;
+  workEnd: number;
+}) {
+  const cal = useCalendar();
+  const colorOf = useEventColor();
+  const isTouch = useIsTouch();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const start = days[0]!;
+  const end = addDays(days[days.length - 1]!, 1);
+  const instances = cal.instancesIn(start, end);
+  const [now, setNow] = useState(new Date());
+  const [drag, setDrag] = useState<{
+    day: Date;
+    startMin: number;
+    endMin: number;
+  } | null>(null);
+  /*
+   * A press on empty grid only becomes a drag once the pointer has moved a
+   * few pixels; until then it is a click, and a click must do nothing (the
+   * second click of a double click included). The press itself is held here
+   * so the pointerup after a drag can read the last span even when the final
+   * move and the release arrive in quick succession.
+   */
+  const pressRef = useRef<{
+    day: Date;
+    el: HTMLElement;
+    x: number;
+    y: number;
+    startMin: number;
+    endMin: number;
+    active: boolean;
+  } | null>(null);
+  /*
+   * Dragging an event, as opposed to dragging out a new one on empty grid --
+   * which is what `drag` above is. Held as a delta in minutes rather than as a
+   * new time, so the preview is one number and the commit is the same
+   * arithmetic the tests cover.
+   */
+  const [moving, setMoving] = useState<{
+    key: string;
+    deltaMin: number;
+    mode: "move" | "resize";
+    /** Live pointer deltas, in px, so the dragged block follows the hand
+        (wysiwyg) instead of jumping column by column. */
+    dx: number;
+    dy: number;
+  } | null>(null);
+  /* A drag ends with a pointerup, and a pointerup on the same element is also
+     a click. Without this, letting go of a moved event opens its popover. */
+  const draggedRef = useRef(false);
+
+  const beginDrag = (
+    inst: EventInstance,
+    mode: "move" | "resize",
+    e: React.PointerEvent,
+  ) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    if (!canDragEvent(inst.event, inst.calendar)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const startY = e.clientY;
+    const startX = e.clientX;
+    let dx = 0;
+    let dy = 0;
+    let delta = 0;
+    el.setPointerCapture(e.pointerId);
+    const onPointerMove = (ev: PointerEvent) => {
+      dx = ev.clientX - startX;
+      dy = ev.clientY - startY;
+      delta = snap(pixelsToMinutes(dy, HOUR_H));
+      if (
+        !draggedRef.current &&
+        (Math.abs(dx) >= DRAG_SLOP_PX || Math.abs(dy) >= DRAG_SLOP_PX)
+      )
+        draggedRef.current = true;
+      /* The preview is snapped the same way the commit is (15-minute
+         slots), so what is on screen when the pointer lifts is exactly what
+         lands: raw-pixel follow looked free, then the event jumped to the
+         nearest slot on release. */
+      const snappedPx = (delta * HOUR_H) / 60;
+      setMoving({
+        key: inst.key,
+        deltaMin: delta,
+        mode,
+        dx: mode === "resize" ? 0 : dx,
+        dy: snappedPx,
+      });
+    };
+    const finish = (ev: PointerEvent) => {
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", finish);
+      el.removeEventListener("pointercancel", finish);
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* already released, which is fine */
+      }
+      /* Dragging sideways across the week moves the event to another day: the
+         pointer's column, not a number of pixels, decides the target, so a
+         drag that ends over the next day's column moves it one day whatever
+         the mouse did in between.
+
+         The column is measured from the day columns themselves, never from the
+         body width: `.week-body` is a grid whose first column is the 56px
+         time gutter, so dividing the whole width by the day count put the
+         boundaries a gutter's width off and drops near a column edge landed a
+         day late. */
+      let dayShift = 0;
+      if (mode === "move") {
+        const bodyEl = el.closest(".week-body");
+        const cols = bodyEl?.querySelectorAll<HTMLElement>(".day-col");
+        if (cols && days.length > 1) {
+          let col = -1;
+          cols.forEach((c, i) => {
+            const r = c.getBoundingClientRect();
+            if (ev.clientX >= r.left && ev.clientX < r.right) col = i;
+          });
+          const origin = days.findIndex((d) => isSameDay(d, inst.start));
+          if (origin >= 0 && col >= 0) dayShift = col - origin;
+        }
+      }
+      const moved = draggedRef.current && (delta !== 0 || dayShift !== 0);
+      setMoving(null);
+      if (moved) {
+        const seconds = (inst.end.getTime() - inst.start.getTime()) / 1000;
+        if (mode === "resize") {
+          onDragCommit(inst, resizePatch(seconds, delta));
+        } else if (dayShift === 0) {
+          onDragCommit(inst, movePatch(inst.event.start, delta));
+        } else {
+          /* Both halves of the hand's move have to land — see `moveBothPatch`
+             for why the minutes come first. */
+          onDragCommit(inst, moveBothPatch(inst.event.start, delta, dayShift));
+        }
+      }
+      // Cleared after the click that follows this pointerup has been swallowed.
+      window.setTimeout(() => (draggedRef.current = false), 0);
+    };
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", finish);
+    el.addEventListener("pointercancel", finish);
+  };
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  useEffect(() => {
+    // scroll to 7am-ish on mount
+    if (scrollRef.current)
+      scrollRef.current.scrollTop = Math.max(0, (Math.min(workStart, 8) - 0.5) * HOUR_H);
+  }, [workStart, days.length]);
+
+  const allDay = (d: Date) =>
+    instances.filter(
+      (i) =>
+        (i.allDay || i.end.getTime() - i.start.getTime() >= DAY_MS) &&
+        i.start < addDays(d, 1) &&
+        i.end > d,
+    );
+  const timed = (d: Date) =>
+    instances.filter(
+      (i) =>
+        !(i.allDay || i.end.getTime() - i.start.getTime() >= DAY_MS) &&
+        i.start < addDays(d, 1) &&
+        i.end > d,
+    );
+
+  const minutesFromEvent = (e: { clientY: number }, col: HTMLElement) => {
+    const r = col.getBoundingClientRect();
+    const y = e.clientY - r.top + 0; // col is full height
+    return Math.max(0, Math.min(24 * 60, Math.round(((y / HOUR_H) * 60) / 15) * 15));
+  };
+
+  return (
+    <div className="week-view" style={{ "--cols": days.length } as React.CSSProperties}>
+      <div className="week-head">
+        <div />
+        {days.map((d) => (
+          <div
+            key={d.toISOString()}
+            className={`wh-day ${isToday(d) ? "today" : ""}`}
+            onClick={() => onDayHeader(d)}
+          >
+            <div className="dow">{formatWeekday(d)}</div>
+            <div className="dnum">{d.getDate()}</div>
+          </div>
+        ))}
+      </div>
+      <div className="week-allday">
+        <div className="ad-label">{translate("all-day")}</div>
+        {days.map((d) => (
+          <div
+            key={d.toISOString()}
+            className="ad-cell"
+            /* Same rule as the month grid: creating is a double click. */
+            onDoubleClick={() => onCreate(d, addDays(d, 1), true)}
+            onContextMenu={(e) => onSlotContext(d, addDays(d, 1), true, e)}
+          >
+            {allDay(d).map((i) => (
+              <EventChip
+                key={i.key}
+                inst={i}
+                day={d}
+                onClick={(el) => onEvent(i, el)}
+                onOpen={(el) => onOpenEvent(i, el)}
+                onContext={(e) => onEventContext(i, e)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="week-scroll" ref={scrollRef}>
+        <div
+          className="week-body"
+          style={{ "--hour-h": `${HOUR_H}px` } as React.CSSProperties}
+        >
+          <div className="time-col">
+            {[...Array(24)].map(
+              (_, h) =>
+                h > 0 && (
+                  <span key={h} className="hour-label" style={{ top: h * HOUR_H }}>
+                    {formatHourLabel(h)}
+                  </span>
+                ),
+            )}
+          </div>
+          {days.map((d) => {
+            const evs = layoutOverlaps(timed(d), d);
+            const today = isToday(d);
+            const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_H;
+            return (
+              <div
+                key={d.toISOString()}
+                className={`day-col ${today ? "today" : ""}`}
+                /*
+                 * Creating an event here needs a double click, so a single
+                 * click — which is what half a double click is — does nothing.
+                 * A press that becomes a drag (past a few pixels) still draws
+                 * the span out: a drag is a deliberate gesture, the click that
+                 * starts one is not. Touch is left out of the drag — a finger
+                 * swipe scrolls the week, and the FAB is how a touch reader
+                 * adds an event.
+                 */
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  if (e.pointerType === "touch") return;
+                  if ((e.target as HTMLElement).closest(".ev-block")) return;
+                  const m = minutesFromEvent(e, e.currentTarget);
+                  pressRef.current = {
+                    day: d,
+                    el: e.currentTarget,
+                    x: e.clientX,
+                    y: e.clientY,
+                    startMin: m,
+                    endMin: m + 30,
+                    active: false,
+                  };
+                }}
+                onPointerMove={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  if (!p.active) {
+                    if (
+                      Math.abs(e.clientX - p.x) < DRAG_SLOP_PX &&
+                      Math.abs(e.clientY - p.y) < DRAG_SLOP_PX
+                    )
+                      return;
+                    p.active = true;
+                    try {
+                      p.el.setPointerCapture(e.pointerId);
+                    } catch {
+                      /* already released */
+                    }
+                  }
+                  const m = minutesFromEvent(e, p.el);
+                  p.endMin = Math.max(p.startMin + 15, m);
+                  setDrag({ day: d, startMin: p.startMin, endMin: p.endMin });
+                }}
+                onPointerUp={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  pressRef.current = null;
+                  setDrag(null);
+                  try {
+                    p.el.releasePointerCapture(e.pointerId);
+                  } catch {
+                    /* already released */
+                  }
+                  if (!p.active) return; // a plain click: nothing happens
+                  const s = new Date(d.getTime() + p.startMin * 60_000);
+                  const en = new Date(d.getTime() + p.endMin * 60_000);
+                  onCreate(s, en, false);
+                }}
+                onPointerCancel={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  pressRef.current = null;
+                  setDrag(null);
+                  try {
+                    p.el.releasePointerCapture(e.pointerId);
+                  } catch {
+                    /* already released */
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement).closest(".ev-block")) return;
+                  const m = minutesFromEvent(e, e.currentTarget);
+                  const s = new Date(d.getTime() + m * 60_000);
+                  /* The end is the reader's default duration: openNew fills it. */
+                  onCreate(s, undefined, false);
+                }}
+                onContextMenu={(e) => {
+                  if ((e.target as HTMLElement).closest(".ev-block")) return;
+                  const m = minutesFromEvent(e, e.currentTarget);
+                  const st = new Date(d.getTime() + Math.floor(m / 30) * 30 * 60_000);
+                  onSlotContext(st, new Date(st.getTime() + 60 * 60_000), false, e);
+                }}
+              >
+                <div
+                  className="work-hours"
+                  style={{
+                    top: workStart * HOUR_H,
+                    height: Math.max(0, workEnd - workStart) * HOUR_H,
+                  }}
+                />
+                {[...Array(24)].map((_, h) => (
+                  <div key={h} className="hour-line" style={{ top: h * HOUR_H }} />
+                ))}
+                {[...Array(24)].map((_, h) => (
+                  <div
+                    key={`h${h}`}
+                    className="half-line"
+                    style={{ top: h * HOUR_H + HOUR_H / 2 }}
+                  />
+                ))}
+                {today && <div className="now-line" style={{ top: nowTop }} />}
+                {evs.map(({ inst, top, height, left, width }) => {
+                  const color = colorOf(inst);
+                  return (
+                    <div
+                      key={inst.key}
+                      className={`ev-block ${statusClass(inst)} ${moving?.key === inst.key ? "dragging" : ""} ${canDragEvent(inst.event, inst.calendar) ? "draggable" : ""}`}
+                      style={{
+                        top,
+                        height: Math.max(
+                          height +
+                            (moving?.key === inst.key && moving.mode === "resize"
+                              ? moving.dy
+                              : 0),
+                          18,
+                        ),
+                        left: `${left}%`,
+                        width: `calc(${width}% - 3px)`,
+                        background: color,
+                        /* Wysiwyg drag: while a move is in flight the block
+                           follows the pointer in both axes (the day columns do
+                           not clip it), and sits above whatever it crosses.
+                           Releasing snaps the day by column, as before. */
+                        ...(moving?.key === inst.key && moving.mode === "move"
+                          ? {
+                              transform: `translate(${moving.dx}px, ${moving.dy}px)`,
+                              zIndex: 20,
+                            }
+                          : {}),
+                      }}
+                      onPointerDown={(e) => beginDrag(inst, "move", e)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (draggedRef.current) return;
+                        /* A mouse click opens nothing: it is how a drag
+                           starts, and how a selection is made. A touch tap
+                           still opens the popover — there is no hover to
+                           discover details with, and a tap is the touch
+                           equivalent of right-clicking. */
+                        if (isTouch) onEvent(inst, e.currentTarget);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        if (draggedRef.current) return;
+                        if (isTouch) onEvent(inst, e.currentTarget);
+                        else onOpenEvent(inst, e.currentTarget);
+                      }}
+                      onContextMenu={(e) => onEventContext(inst, e)}
+                      title={inst.event.title ?? ""}
+                    >
+                      {canDragEvent(inst.event, inst.calendar) && (
+                        /* Its own element rather than an edge zone on the block,
+                           so a thumb has something to aim at and the move drag
+                           does not have to guess which one was meant. */
+                        <div
+                          className="ev-resize"
+                          onPointerDown={(e) => beginDrag(inst, "resize", e)}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className="ev-title">{inst.event.title || "(untitled)"}</div>
+                      {height > 30 && (
+                        <div className="ev-time">
+                          {formatClock(inst.start)} – {formatClock(inst.end)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {drag && isSameDay(drag.day, d) && (
+                  <div
+                    className="ev-block draft-new"
+                    style={{
+                      top: (drag.startMin / 60) * HOUR_H,
+                      height: ((drag.endMin - drag.startMin) / 60) * HOUR_H,
+                      left: 0,
+                      width: "calc(100% - 3px)",
+                      background: "var(--accent)",
+                    }}
+                  >
+                    <div className="ev-title">{translate("(new event)")}</div>
+                    <div className="ev-time">
+                      {formatClock(new Date(d.getTime() + drag.startMin * 60_000))} –{" "}
+                      {formatClock(new Date(d.getTime() + drag.endMin * 60_000))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Simple column layout for overlapping events. */
+function layoutOverlaps(
+  evs: EventInstance[],
+  day: Date,
+): Array<{
+  inst: EventInstance;
+  top: number;
+  height: number;
+  left: number;
+  width: number;
+}> {
+  const dayStart = day.getTime();
+  // The next local day, not `+ 24h`: on a DST-transition day the day is 23 or
+  // 25 hours long, and the geometry must match the filter that selected these
+  // events with the same `addDays`.
+  const dayEnd = addDays(day, 1).getTime();
+  const items = evs
+    .map((inst) => {
+      const s = Math.max(inst.start.getTime(), dayStart);
+      const e = Math.min(inst.end.getTime(), dayEnd);
+      return { inst, s, e, col: 0, cols: 1 };
+    })
+    .sort((a, b) => a.s - b.s || b.e - a.e);
+  // Greedy column assignment within clusters
+  const clusters: Array<typeof items> = [];
+  let cur: typeof items = [];
+  let curEnd = -1;
+  for (const it of items) {
+    if (cur.length && it.s >= curEnd) {
+      clusters.push(cur);
+      cur = [];
+      curEnd = -1;
+    }
+    cur.push(it);
+    curEnd = Math.max(curEnd, it.e);
+  }
+  if (cur.length) clusters.push(cur);
+  for (const cl of clusters) {
+    const colEnds: number[] = [];
+    for (const it of cl) {
+      let c = colEnds.findIndex((end) => end <= it.s);
+      if (c < 0) {
+        c = colEnds.length;
+        colEnds.push(0);
+      }
+      colEnds[c] = it.e;
+      it.col = c;
+    }
+    for (const it of cl) it.cols = colEnds.length;
+  }
+  return items.map((it) => ({
+    inst: it.inst,
+    top: ((it.s - dayStart) / 3_600_000) * HOUR_H,
+    height: ((it.e - it.s) / 3_600_000) * HOUR_H,
+    left: (it.col / it.cols) * 100,
+    width: 100 / it.cols,
+  }));
+}
+
+/* ---------------- Agenda ---------------- */
+
+function AgendaView({
+  start,
+  onEvent,
+  onOpenEvent,
+  onEventContext,
+}: {
+  start: Date;
+  onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
+  onEventContext: EvCtx;
+}) {
+  const cal = useCalendar();
+  const colorOf = useEventColor();
+  const isTouch = useIsTouch();
+  const end = addDays(start, 60);
+  const instances = cal.instancesIn(start, end);
+  const byDay = useMemo(() => {
+    const map = new Map<string, { day: Date; items: EventInstance[] }>();
+    for (const i of instances) {
+      let d = startOfDay(i.start < start ? start : i.start);
+      const last = startOfDay(new Date(i.end.getTime() - 1));
+      while (d <= last && d < end) {
+        const k = toLocalDateOnly(d);
+        const e = map.get(k) ?? { day: new Date(d), items: [] };
+        e.items.push(i);
+        map.set(k, e);
+        d = addDays(d, 1);
+        if (!i.allDay && isSameDay(i.start, i.end)) break;
+      }
+    }
+    return [...map.values()].sort((a, b) => a.day.getTime() - b.day.getTime());
+  }, [instances, start, end]);
+  if (!byDay.length)
+    return (
+      <Empty icon={<CalIcon size={36} />} title={translate("Nothing scheduled")}>
+        {translate("No events in the next 60 days.")}
+      </Empty>
+    );
+  return (
+    <div className="agenda">
+      {byDay.map(({ day, items }) => (
+        <div key={day.toISOString()} className="agenda-day">
+          <div className={`ad-date ${isToday(day) ? "today" : ""}`}>
+            {formatWeekday(day, "long")}
+            <small>{formatDateLong(day, false)}</small>
+          </div>
+          <div>
+            {items.map((i) => (
+              <div
+                key={i.key + day.toISOString()}
+                className={`agenda-ev ${statusClass(i)}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                  else onOpenEvent(i, e.currentTarget);
+                }}
+                onContextMenu={(e) => onEventContext(i, e)}
+              >
+                <span className="ev-dot" style={{ background: colorOf(i) }} />
+                <span className="ev-when">
+                  {i.allDay
+                    ? "All day"
+                    : `${formatClock(i.start)} – ${formatClock(i.end)}`}
+                </span>
+                <span className="grow truncate">{i.event.title || "(untitled)"}</span>
+                {Object.values(i.event.locations ?? {})[0]?.name && (
+                  <span className="hint truncate" style={{ maxWidth: 200 }}>
+                    {Object.values(i.event.locations ?? {})[0]!.name}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

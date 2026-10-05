@@ -1,0 +1,267 @@
+/**
+ * System Sieve (ADR 0008): the admin editor for Stalwart's own trusted,
+ * server-wide Sieve scripts — `x:SieveSystemScript`, not an account's own
+ * script (that is `ScriptsEditor` in `../settings/FiltersSettings.tsx`,
+ * which this view's list/edit shape deliberately mirrors). More than one
+ * script can be active at once, unlike a person's own filters: each is
+ * invoked by name from Stalwart's own configuration, which this surface does
+ * not manage.
+ *
+ * Stalwart compiles the script on save (`x:SieveSystemScript/set`); there is
+ * no separate validate call for a system script the way there is for a
+ * personal one, so a bad script surfaces as a save error rather than a
+ * preflight check.
+ *
+ * Every write carries the `state` its data was last read with, so Stalwart
+ * refuses (409) a write built on a since-changed read instead of silently
+ * overwriting whatever changed it — `list`'s own `state` backs the
+ * list-level actions (activate/deactivate, delete), reloaded after every one
+ * of them whether it succeeded or not so the next attempt starts fresh.
+ */
+import { AlertTriangle, Plus, Power, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  deleteSystemSieveScript,
+  getSystemSieveScript,
+  listSystemSieveScripts,
+  type SystemSieveScript,
+  saveSystemSieveScript,
+  setSystemSieveScriptActive,
+} from "@/lib/adminSieve";
+import { t } from "@/lib/i18n";
+import { useUnsavedChanges } from "@/lib/unsavedChanges";
+import { confirmDialog } from "@/ui/dialog";
+import { Spinner } from "@/ui/misc";
+import { toast } from "@/ui/toast";
+import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
+
+interface Opened {
+  name: string;
+  description: string;
+  content: string;
+}
+
+export function SystemSieve() {
+  const [scripts, setScripts] = useState<SystemSieveScript[] | null>(null);
+  const [listState, setListState] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sel, setSel] = useState<SystemSieveScript | null>(null);
+  const [openState, setOpenState] = useState<string | undefined>(undefined);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [content, setContent] = useState("");
+  const [opened, setOpened] = useState<Opened | null>(null);
+  const [busy, setBusy] = useState(false);
+  const dirty =
+    opened !== null &&
+    (name !== opened.name ||
+      description !== opened.description ||
+      content !== opened.content);
+
+  async function load() {
+    setLoadError(null);
+    try {
+      const res = await listSystemSieveScripts();
+      setScripts(res.scripts);
+      setListState(res.state);
+    } catch (err) {
+      setLoadError((err as Error).message);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const start = (script: SystemSieveScript | null, source: string, state?: string) => {
+    setSel(script);
+    setOpenState(state);
+    setName(script?.name ?? "");
+    setDescription(script?.description ?? "");
+    setContent(source);
+    setOpened({
+      name: script?.name ?? "",
+      description: script?.description ?? "",
+      content: source,
+    });
+  };
+
+  const close = () => {
+    setSel(null);
+    setOpenState(undefined);
+    setName("");
+    setDescription("");
+    setContent("");
+    setOpened(null);
+  };
+
+  const open = async (script: SystemSieveScript | null) => {
+    if (!script) {
+      start(null, 'require ["fileinto"];\n\n');
+      return;
+    }
+    try {
+      const full = await getSystemSieveScript(script.id);
+      start(script, full.contents, full.state);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const save = async (activate: boolean): Promise<boolean> => {
+    if (!name.trim()) {
+      toast.error(t("Script name is required"));
+      return false;
+    }
+    setBusy(true);
+    try {
+      await saveSystemSieveScript(sel?.id ?? null, {
+        name: name.trim(),
+        description: description.trim() || null,
+        contents: content,
+        activate,
+        state: openState,
+      });
+      toast.success(t("System script saved"));
+      close();
+      await load();
+      return true;
+    } catch (err) {
+      toast.error((err as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // A hand-written system script is the worst thing here to lose, and
+  // leaving the page would take it without asking — the same guard the
+  // personal script editor registers for itself.
+  useUnsavedChanges({
+    dirty,
+    message: t("Your system Sieve script has changes that have not been saved."),
+    save: () => save(sel?.isActive ?? false),
+    discard: close,
+  });
+
+  if (loadError) {
+    return (
+      <div className="warn-box">
+        <div className="row gap-8" style={{ marginBottom: 8 }}>
+          <AlertTriangle size={18} /> <b>{t("Could not load system Sieve scripts.")}</b>
+        </div>
+        <p style={{ margin: "0 0 8px" }}>{loadError}</p>
+        <button className="btn" onClick={() => void load()}>
+          {t("Retry")}
+        </button>
+      </div>
+    );
+  }
+
+  if (!scripts) return <Spinner />;
+
+  if (opened !== null) {
+    return (
+      <SieveScriptPanel
+        form={{
+          name,
+          setName,
+          nameLocked: Boolean(sel),
+          description,
+          setDescription,
+          content,
+          setContent,
+          dirty,
+          busy,
+          // Saving a system script leaves it as active as it was; the other
+          // button is the one that turns it on.
+          onSave: () => void save(sel?.isActive ?? false),
+          onSaveActivate: () => void save(true),
+          onClose: close,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <p className="hint">
+        {t(
+          "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.",
+        )}
+      </p>
+      {scripts.length === 0 && (
+        <div className="empty" style={{ padding: 32 }}>
+          <h3>{t("No system scripts yet")}</h3>
+        </div>
+      )}
+      {scripts.map((s) => (
+        <div key={s.id} className="card">
+          <div className="card-head">
+            <h3>
+              <span>{s.name} </span>
+              {s.isActive && (
+                <span className="tag" style={{ background: "var(--success)" }}>
+                  {t("active")}
+                </span>
+              )}
+            </h3>
+            <button className="btn btn-sm" onClick={() => void open(s)}>
+              {t("Edit")}
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={async () => {
+                try {
+                  await setSystemSieveScriptActive(
+                    s.id,
+                    !s.isActive,
+                    listState ?? undefined,
+                  );
+                } catch (err) {
+                  toast.error((err as Error).message);
+                } finally {
+                  // Reload whether it worked or not: a lost race is exactly
+                  // when the list this button reads from is stale, and the
+                  // next attempt needs the current state to have a chance.
+                  await load();
+                }
+              }}
+            >
+              <Power size={14} /> {s.isActive ? t("Deactivate") : t("Activate")}
+            </button>
+            <button
+              className="icon-btn sm danger"
+              aria-label={t("Delete script")}
+              onClick={async () => {
+                if (
+                  await confirmDialog({
+                    title: t("Delete script “{name}”?", { name: s.name }),
+                    confirmLabel: t("Delete"),
+                    danger: true,
+                  })
+                ) {
+                  try {
+                    await deleteSystemSieveScript(s.id, listState ?? undefined);
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  } finally {
+                    await load();
+                  }
+                }
+              }}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+          {s.description && <p className="hint">{s.description}</p>}
+        </div>
+      ))}
+      <div className="row save-bar">
+        <button className="btn" onClick={() => void open(null)}>
+          <Plus size={16} /> {t("New script")}
+        </button>
+      </div>
+    </div>
+  );
+}

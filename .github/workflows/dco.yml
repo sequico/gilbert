@@ -1,0 +1,29 @@
+name: DCO
+
+# Every commit in a pull request is certified under the Developer Certificate
+# of Origin in `DCO`. This runs on every pull request, including the ones from
+# a fork whose commits never pass through this repository's pre-push hook --
+# which is the case the check exists for. It is not part of `check:ci`, which
+# runs on a developer's machine where the sign-off is the contributor's own.
+on:
+  pull_request:
+
+# Reading the pull request's own commits is the whole of this workflow.
+permissions:
+  contents: read
+
+jobs:
+  sign-off:
+    name: Every commit is signed off
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The head of the pull request, so a fork's commits are what is
+          # checked; the base branch is fetched alongside for the range below.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Check the sign-off on every commit
+        env:
+          BASE: origin/${{ github.event.pull_request.base.ref }}
+        run: node scripts/dco-check.mjs "$BASE" HEAD

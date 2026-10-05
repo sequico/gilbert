@@ -1,0 +1,39 @@
+/**
+ * The key a shared item is held under, in one place.
+ *
+ * A calendar or an address book shared with this account arrives with ids that
+ * are only unique inside the account they came from, so everything that keys
+ * such an item — the events in the store, the hidden-calendar toggles, the
+ * `addedShares` list that records what the reader subscribed to — keys it by
+ * account **and** id. One separator, one function, because the list is what the
+ * reader's own settings document stores: a second spelling of the same key is
+ * not a cosmetic difference, it is a selection that stops being found. The
+ * format is stored data and cannot change without a migration of
+ * `settings.addedShares`.
+ */
+export const sharedKey = (accountId: string, id: string): string => `${accountId}:${id}`;
+
+/**
+ * The account a shared key names, given the id it holds: the inverse of
+ * `sharedKey`, so the format is read in one place as well as written in one.
+ */
+export const accountOfSharedKey = (key: string, id: string): string =>
+  key.slice(0, key.length - id.length - 1);
+
+/**
+ * The key in `shared` whose id segment is exactly `id`, or null.
+ *
+ * The match is on the colon boundary, never `endsWith`: a card id `1` must not
+ * be found under the key for card `21`, which is what the suffix test does —
+ * and the account read off that key would then be wrong too.
+ */
+export function sharedKeyForId(
+  shared: Record<string, unknown>,
+  id: string,
+): string | null {
+  for (const key of Object.keys(shared)) {
+    const at = key.lastIndexOf(":");
+    if (at >= 0 && key.slice(at + 1) === id) return key;
+  }
+  return null;
+}

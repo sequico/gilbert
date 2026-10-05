@@ -1,0 +1,97 @@
+services:
+  gilbert:
+    build:
+      context: .
+      args:
+        # Passed to the build as well as the run because the web bundle writes
+        # its own asset URLs: a build that does not know the prefix produces an
+        # app that cannot load itself under one. Empty is the domain root.
+        BASE_PATH: ${BASE_PATH:-}
+    image: gilbert:2
+    restart: unless-stopped
+    # Loopback only: Gilbert expects a TLS reverse proxy in front of it. On
+    # every interface the app is reachable over plain HTTP, passwords and all,
+    # and with TRUST_PROXY any machine on a private network can set its own
+    # X-Forwarded-For. A proxy running in Docker reaches the service by name on
+    # the compose network and needs no published port at all.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # The app needs no privileges and, with IMMUTABLE set, writes nowhere: the
+    # whole of its state lives in Stalwart.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # The handshake: the one thing this container has to be told. Where
+      # Stalwart is, and, when a deployment runs an agent here, the account it
+      # signs in as. Everything else the installation decides lives in its own
+      # document, in Stalwart -- the app name, the proxy posture, the rate
+      # limits, the live-update mode, the agent's timers -- and is published
+      # from Administration > Installation.
+      STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
+      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
+      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
+      # The container's own facts, and the facts about the image rather than
+      # the installation: what it serves, and where its source can be had.
+      IMMUTABLE: "1"
+      BASE_PATH: ${BASE_PATH:-}
+      SOURCE_URL: ${SOURCE_URL:-https://github.com/sequico/gilbert}
+      # The operator's own statement: may the agent reach a model endpoint
+      # inside this network. Not the installation's to decide (ADR 0003).
+      GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
+  # The agent worker in a container of its own: the same image, a second
+  # process, no port and no writable path of its own -- everything it knows
+  # lives in Stalwart, so a replacement picks the work up from the documents
+  # (ADR 0003). Whether the server runs a worker beside itself or a deployment
+  # puts it in a container of its own is the installation's own decision
+  # (`agent.inProcess` in its document, ADR 0003), so this profile is for a
+  # deployment that wants the two apart: bring this service up and leave the
+  # server's own worker out of its document.
+  #
+  # The pair is read from the environment and is not required to bring the stack
+  # up: the server service above starts without it, and Admin > Agents names the
+  # state (`agent_not_configured`) beside how to set the two. A worker started
+  # without the pair serves nothing, warns once and keeps its health endpoint
+  # up -- so leaving the profile out is how a deployment runs with no agent at
+  # all.
+  gilbert-agent:
+    profiles: ["agent"]
+    build:
+      context: .
+      args:
+        BASE_PATH: ${BASE_PATH:-}
+    image: gilbert:2
+    restart: unless-stopped
+    command: ["node", "server/dist/agent/agent.js"]
+    environment:
+      STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
+      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
+      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
+      GILBERT_AGENT_HEALTH_PORT: "8081"
+      IMMUTABLE: "1"
+    # The same posture as the server above: nothing to write, nothing to gain
+    # and no way to gain it.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # What the restart policy asks: is this worker serving what it claimed.
+    # `restart: unless-stopped` restarts a dead process; this catches one that
+    # is up and holding nothing.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

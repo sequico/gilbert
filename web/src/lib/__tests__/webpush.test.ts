@@ -1,0 +1,511 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
+import { setDeviceTrusted } from "@/lib/storage";
+import {
+  applicationServerKey,
+  decodeApplicationServerKey,
+  encodeKey,
+  findSubscription,
+  type JmapPushSubscription,
+  needsRenewal,
+  pushEnabledHere,
+  pushOptedOutHere,
+  RENEW_WITHIN_MS,
+  setPushEnabledHere,
+  setPushOptedOutHere,
+  subscriptionPayload,
+  supportsEmailPush,
+  unsubscribeThisDevice,
+  webPushAvailable,
+  webPushBlocker,
+} from "@/lib/webpush";
+
+/**
+ * The key encoding is where this breaks silently. `subscribe()` fails with an
+ * opaque error on a mis-decoded VAPID key, and Stalwart 0.16 had to be fixed to
+ * accept the *unpadded* base64url the W3C Push API produces — so re-padding on
+ * the way out would be sending a shape the server has not been tested against.
+ *
+ * The real key from the live 0.16.19 is used below rather than a made-up one:
+ * its length is what exercises the padding arithmetic.
+ */
+const LIVE_KEY =
+  "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY";
+
+function session(caps: Record<string, unknown>): JmapSession {
+  return {
+    capabilities: caps,
+    accounts: {},
+    primaryAccounts: {},
+    state: "s",
+  } as unknown as JmapSession;
+}
+
+afterEach(() => {
+  client.session = null;
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe("the VAPID key", () => {
+  it("is read from the capability the server publishes", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    expect(applicationServerKey()).toBe(LIVE_KEY);
+  });
+
+  it("is null when the server does not do Web Push, rather than an empty string", () => {
+    client.session = session({ "urn:ietf:params:jmap:core": {} });
+    expect(applicationServerKey()).toBeNull();
+  });
+
+  it("decodes to the 65 bytes of an uncompressed P-256 point", () => {
+    const buf = decodeApplicationServerKey(LIVE_KEY);
+    expect(buf.byteLength).toBe(65);
+    // 0x04 marks an uncompressed EC point; the Push API rejects anything else.
+    expect(new Uint8Array(buf)[0]).toBe(0x04);
+  });
+
+  it("handles base64url without padding, which is how it arrives", () => {
+    expect(LIVE_KEY).not.toContain("=");
+    expect(LIVE_KEY).toMatch(/[-_]/);
+    expect(() => decodeApplicationServerKey(LIVE_KEY)).not.toThrow();
+  });
+
+  it("returns an ArrayBuffer, which is what subscribe() accepts", () => {
+    expect(decodeApplicationServerKey(LIVE_KEY)).toBeInstanceOf(ArrayBuffer);
+  });
+});
+
+describe("encoding keys for the server", () => {
+  it("produces unpadded base64url, the form Stalwart was fixed to accept", () => {
+    // 5 bytes: a length that would be padded with "===" in standard base64.
+    const buf = new Uint8Array([1, 2, 3, 4, 5]).buffer;
+    const out = encodeKey(buf);
+    expect(out).not.toContain("=");
+    expect(out).not.toContain("+");
+    expect(out).not.toContain("/");
+  });
+
+  it("round-trips through the decoder", () => {
+    const bytes = new Uint8Array([0, 255, 128, 64, 32, 16]);
+    expect(new Uint8Array(decodeApplicationServerKey(encodeKey(bytes.buffer)))).toEqual(
+      bytes,
+    );
+  });
+
+  it("gives an empty string rather than throwing on a missing key", () => {
+    expect(encodeKey(null)).toBe("");
+  });
+});
+
+/** Shape of what subscriptionPayload registers, for the assertions below. */
+type WebPushPayload = {
+  url: string;
+  keys: { p256dh: string; auth: string };
+  emailPush: Record<string, { properties: string[]; filter: Record<string, unknown> }>;
+};
+
+/** One account the subscription covers, with the Inbox its filter names. */
+const target = (accountId: string, inboxId: string | null) => ({
+  accountId,
+  inboxId,
+});
+
+describe("what gets registered", () => {
+  const fakeSub = {
+    endpoint: "https://push.example/abc",
+    toJSON: () => ({ keys: { p256dh: "cGRoLWtleQ", auth: "YXV0aA" } }),
+    getKey: () => null,
+  } as unknown as PushSubscription;
+
+  it("asks for the message itself when the server supports emailpush", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb-inbox"),
+    ]) as WebPushPayload;
+    expect(body.url).toBe("https://push.example/abc");
+    expect(body.keys).toEqual({ p256dh: "cGRoLWtleQ", auth: "YXV0aA" });
+    const entry = body.emailPush.a1!;
+    expect(entry.properties).toContain("subject");
+    expect(entry.properties).toContain("from");
+    // Order is priority: the server drops from the end when the payload is
+    // too large, so the sender must outrank the preview.
+    const props: string[] = entry.properties;
+    expect(props.indexOf("from")).toBeLessThan(props.indexOf("preview"));
+  });
+
+  it("omits emailPush entirely when the server does not support it", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    expect(supportsEmailPush()).toBe(false);
+    expect(subscriptionPayload(fakeSub, [target("a1", "mb-inbox")])).not.toHaveProperty(
+      "emailPush",
+    );
+  });
+
+  it("makes one entry per account with a known Inbox, and none for an unknown one", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb-own"),
+      target("g1", "g-inbox"),
+      target("g2", null),
+    ]) as WebPushPayload;
+    expect(Object.keys(body.emailPush).sort()).toEqual(["a1", "g1"]);
+    expect(body.emailPush.a1!.filter.inMailbox).toBe("mb-own");
+    expect(body.emailPush.g1!.filter.inMailbox).toBe("g-inbox");
+    expect(body.emailPush).not.toHaveProperty("g2");
+  });
+
+  it("omits emailPush when no account has an Inbox", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    expect(subscriptionPayload(fakeSub, [target("a1", null)])).not.toHaveProperty(
+      "emailPush",
+    );
+    expect(subscriptionPayload(fakeSub, [])).not.toHaveProperty("emailPush");
+  });
+
+  it("subscribes to delivered mail only, so reading or moving says nothing", () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    /*
+     * `Email` would wake this device on every read, flag and move made from
+     * any client, and the worker could only render each one as "New mail". A
+     * subscription with an `emailPush` filter is sent a delivery as an
+     * `EmailPush` alone, so subscribing to `EmailDelivery` is what makes the
+     * channel mean "mail arrived" and nothing else.
+     */
+    expect(
+      (subscriptionPayload(fakeSub, [target("a1", "mb")]) as Record<string, unknown>)
+        .types,
+    ).toEqual(["EmailDelivery"]);
+  });
+
+  it("asks for FileNode too when the reader has a group to be woken for", () => {
+    /*
+     * A chat message is one JSON node in a group's Files, which `emailpush`
+     * has no vocabulary for -- so `FileNode` is the only type that wakes a
+     * closed client for it. A reader in no group asks for neither, and is not
+     * woken by their own file writes.
+     */
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    expect(
+      (
+        subscriptionPayload(fakeSub, [target("a1", "mb")], true) as Record<
+          string,
+          unknown
+        >
+      ).types,
+    ).toEqual(["EmailDelivery", "FileNode"]);
+    expect(
+      (
+        subscriptionPayload(fakeSub, [target("a1", "mb")], false) as Record<
+          string,
+          unknown
+        >
+      ).types,
+    ).toEqual(["EmailDelivery"]);
+  });
+
+  it("asks for the id, so a notification can be tagged and acted on", () => {
+    // Stalwart sends only the properties named, and `sw.js` draws its Archive
+    // and Mark-read buttons only for a payload that carries an id -- so a list
+    // without one is a notification that can never be acted on.
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    const props = (subscriptionPayload(fakeSub, [target("a1", "mb")]) as WebPushPayload)
+      .emailPush.a1!.properties;
+    expect(props).toContain("id");
+    expect(props).toContain("threadId");
+  });
+});
+
+describe("availability", () => {
+  it("is false without a push key, however capable the browser", () => {
+    client.session = session({ "urn:ietf:params:jmap:core": {} });
+    expect(webPushAvailable()).toBe(false);
+  });
+});
+
+/**
+ * The reason, not just the answer.
+ *
+ * A boolean made three different situations read the same, and one of them —
+ * an iOS browser that was never added to the Home Screen — is the one the
+ * reader can fix in a tap. Every case below is a sentence somebody acts on, so
+ * the code has to tell them apart.
+ */
+describe("why background notifications cannot be offered", () => {
+  const withKey = () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+  };
+
+  /*
+   * The presence of `PushManager` is the question, so an own property set to
+   * `undefined` still counts as present. It is deleted rather than blanked.
+   */
+  const stubBrowser = (
+    userAgent: string,
+    platform: string,
+    maxTouchPoints: number,
+    push: boolean,
+  ) => {
+    const w = { ...window } as Record<string, unknown>;
+    delete w.PushManager;
+    if (push) w.PushManager = class {};
+    vi.stubGlobal("window", w);
+    vi.stubGlobal("navigator", {
+      ...window.navigator,
+      serviceWorker: {},
+      userAgent,
+      platform,
+      maxTouchPoints,
+    });
+  };
+
+  const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+  const IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
+
+  it("is nothing at all on a browser that can be pushed", () => {
+    withKey();
+    stubBrowser(CHROME, "Win32", 0, true);
+    expect(webPushBlocker()).toBeNull();
+    expect(webPushAvailable()).toBe(true);
+  });
+
+  it("names the server's missing key, not the browser", () => {
+    client.session = session({ "urn:ietf:params:jmap:core": {} });
+    stubBrowser(CHROME, "Win32", 0, true);
+    expect(webPushBlocker()).toBe("no-server-key");
+  });
+
+  it("tells an iOS browser to install the app rather than to give up", () => {
+    withKey();
+    // A Safari tab on iOS: no PushManager to find, and not because the platform
+    // lacks push.
+    stubBrowser(IOS, "iPhone", 5, false);
+    expect(webPushBlocker()).toBe("needs-install");
+  });
+
+  it("calls anything else without the Push API unsupported", () => {
+    withKey();
+    stubBrowser(CHROME, "Win32", 0, false);
+    expect(webPushBlocker()).toBe("unsupported-browser");
+  });
+});
+
+describe("the emailPush filter", () => {
+  /**
+   * This is the bug that reached production: `inMailbox: null` read as "the
+   * inbox" and meant nothing to the server, which answered "Invalid filter"
+   * and refused the subscription outright. The original tests checked the
+   * property ordering and never looked at the filter at all.
+   */
+  const fakeSub = {
+    endpoint: "https://push.example/abc",
+    toJSON: () => ({ keys: { p256dh: "cGRoLWtleQ", auth: "YXV0aA" } }),
+    getKey: () => null,
+  } as unknown as PushSubscription;
+
+  const withEmailPush = () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+  };
+
+  it("never sends a condition with a null or undefined value", () => {
+    withEmailPush();
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mb1"),
+      target("g1", "g-inbox"),
+    ]) as WebPushPayload;
+    for (const [id, entry] of Object.entries(body.emailPush)) {
+      for (const [k, v] of Object.entries(entry.filter)) {
+        expect(v, `${id}.${k} was ${String(v)}`).not.toBeNull();
+        expect(v, `${id}.${k}`).not.toBeUndefined();
+      }
+    }
+  });
+
+  it("uses the real mailbox id when it knows one", () => {
+    withEmailPush();
+    const body = subscriptionPayload(fakeSub, [
+      target("a1", "mbInbox"),
+    ]) as WebPushPayload;
+    expect(body.emailPush.a1!.filter.inMailbox).toBe("mbInbox");
+  });
+
+  it("makes no entry for an account whose Inbox is unknown", () => {
+    // An entry carries that account's own Inbox filter; without one the
+    // delivery stays a state change, which the worker names from the briefing
+    // -- rather than an entry that would notify over the whole account.
+    withEmailPush();
+    expect(subscriptionPayload(fakeSub, [target("a1", null)])).not.toHaveProperty(
+      "emailPush",
+    );
+  });
+});
+
+/**
+ * Keeping a subscription alive.
+ *
+ * The failure this guards against leaves no trace anywhere: the switch says
+ * background notifications are on, the browser still holds a subscription, and
+ * the server quietly stopped delivering days ago because the registration
+ * expired and nothing renewed it. Nobody reports that as a bug — they report
+ * that push "doesn't really work".
+ */
+const sub = (deviceClientId: string, expires: string | null): JmapPushSubscription => ({
+  id: `i-${deviceClientId}`,
+  deviceClientId,
+  url: "https://push.example/x",
+  expires,
+});
+
+const MINE = "gilbert-this-browser";
+const NOW = Date.parse("2026-09-01T12:00:00Z");
+const inDays = (n: number) => new Date(NOW + n * 24 * 60 * 60 * 1000).toISOString();
+
+describe("finding this browser's subscription", () => {
+  it("matches on the device id rather than taking the first one", () => {
+    const subs = [
+      sub("gilbert-desktop", null),
+      sub(MINE, null),
+      sub("gilbert-tablet", null),
+    ];
+    expect(findSubscription(subs, MINE)?.deviceClientId).toBe(MINE);
+  });
+
+  it("finds nothing when only other devices are registered", () => {
+    // The bug this replaces: any subscription at all counted as this one, so a
+    // phone that had never registered read as already on and stayed silent.
+    expect(findSubscription([sub("gilbert-desktop", null)], MINE)).toBe(null);
+  });
+});
+
+describe("needsRenewal", () => {
+  it("renews when this browser is not registered at all", () => {
+    expect(needsRenewal([], MINE, NOW)).toBe(true);
+    expect(needsRenewal([sub("gilbert-desktop", inDays(6))], MINE, NOW)).toBe(true);
+  });
+
+  it("leaves a subscription alone while it has time on it", () => {
+    expect(needsRenewal([sub(MINE, inDays(6))], MINE, NOW)).toBe(false);
+    expect(needsRenewal([sub(MINE, inDays(3))], MINE, NOW)).toBe(false);
+  });
+
+  it("renews inside the window, so a weekend does not lose it", () => {
+    expect(needsRenewal([sub(MINE, inDays(2))], MINE, NOW)).toBe(true);
+    expect(needsRenewal([sub(MINE, inDays(1))], MINE, NOW)).toBe(true);
+    expect(RENEW_WITHIN_MS).toBeLessThan(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it("renews one that has already lapsed", () => {
+    expect(needsRenewal([sub(MINE, inDays(-1))], MINE, NOW)).toBe(true);
+  });
+
+  it("leaves a subscription with no expiry alone", () => {
+    // A server that never expires one has nothing to renew, and rewriting the
+    // registration on every cold start would be a JMAP call for nothing.
+    expect(needsRenewal([sub(MINE, null)], MINE, NOW)).toBe(false);
+  });
+
+  it("renews rather than trusts an expiry it cannot read", () => {
+    expect(needsRenewal([sub(MINE, "whenever")], MINE, NOW)).toBe(true);
+  });
+});
+
+/**
+ * Whether push is on *in this browser* is the flag the renewal on app start
+ * keys off, so the two endings that can clear it have to be told apart.
+ *
+ * Signing out clears it, alongside destroying the subscription itself: a
+ * browser left notifying for a mailbox nobody is signed into is somebody
+ * else's mail on a shared machine. A session merely expiring must not, because
+ * that path -- which is what a deploy does to everyone at once -- leaves the
+ * subscription registered and has no session left to remove it with. That half
+ * is enforced by `KEEP_ON_SIGN_OUT` and tested in storage.test.ts.
+ */
+describe("remembering that push is on here", () => {
+  let store: Map<string, string>;
+
+  beforeEach(() => {
+    store = new Map();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    });
+    setDeviceTrusted(true);
+  });
+
+  afterEach(() => {
+    setDeviceTrusted(false);
+    Reflect.deleteProperty(globalThis, "localStorage");
+  });
+
+  it("round-trips, and is off until something turns it on", () => {
+    expect(pushEnabledHere()).toBe(false);
+    setPushEnabledHere(true);
+    expect(pushEnabledHere()).toBe(true);
+    setPushEnabledHere(false);
+    expect(pushEnabledHere()).toBe(false);
+  });
+
+  it("remembers a deliberate off, apart from never having turned it on", () => {
+    // What the automatic registration reads: "never turned on" is not a reason
+    // to leave push off, "turned off" is.
+    expect(pushOptedOutHere()).toBe(false);
+    setPushOptedOutHere(true);
+    expect(pushOptedOutHere()).toBe(true);
+    setPushOptedOutHere(false);
+    expect(pushOptedOutHere()).toBe(false);
+  });
+
+  it("reads the opt-out only on a device that is ours", () => {
+    setPushOptedOutHere(true);
+    setDeviceTrusted(false);
+    expect(pushOptedOutHere()).toBe(false);
+  });
+
+  it("stays off on a device nobody said was theirs", () => {
+    // Push is refused there anyway; reading the flag as set would start the
+    // renewal trying on every load for a subscription that cannot exist.
+    setPushEnabledHere(true);
+    setDeviceTrusted(false);
+    expect(pushEnabledHere()).toBe(false);
+  });
+
+  it("is cleared by signing out, even when the server end cannot be reached", () => {
+    setPushEnabledHere(true);
+    vi.spyOn(client, "call").mockRejectedValue(new Error("offline"));
+    return unsubscribeThisDevice().then(() => {
+      // The subscription may well survive at the server; this browser must
+      // still stop believing it has push, or renewal would resurrect it.
+      expect(pushEnabledHere()).toBe(false);
+    });
+  });
+});

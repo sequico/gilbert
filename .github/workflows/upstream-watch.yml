@@ -1,0 +1,116 @@
+# Say so, once a day, when upstream has cut a release main has not taken in.
+#
+# This repository does not mirror upstream: upstream is fetched directly by the
+# merge that takes it in (ADR 0002). What is left to automate is noticing. The
+# fetch is cheap and needs no credential, and the only thing this job does with
+# what it finds is open an issue a person reads — so it needs no permission
+# beyond the ones a workflow is given, and holds nothing that could be stolen
+# from a public repository.
+name: Watch upstream releases
+
+on:
+  schedule:
+    # Once a day, off the hour. Upstream cuts release tags on merges, so a
+    # daily check is well inside their cadence.
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+# One watch at a time, so two runs cannot open two issues for one release.
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Find the newest upstream release, and whether main has it
+        id: newest
+        run: |
+          set -euo pipefail
+          git remote add upstream https://git.coffeylabs.org/coffey-labs/ihasmail.git
+          # Fetched into their own namespace, never refs/tags: this repository
+          # carries its own release tags (v2026.9.5-*), and the two mixed
+          # together made the newest-upstream-release check pick one of ours.
+          git fetch upstream '+refs/tags/*:refs/upstream/tags/*'
+          # Upstream's release tags are the versioned ones (v2026.9.3-pr272);
+          # the v2.16.* and stalwart-* tags are older shapes or branches, not
+          # releases. Newest by creation date, from the upstream-only namespace.
+          full="$(
+            git for-each-ref --sort=-creatordate \
+              --format '%(refname)' \
+              'refs/upstream/tags/v20[0-9][0-9].*' | head -1
+          )"
+          if [ -z "$full" ]; then
+            echo "No upstream release tag found." >&2
+            exit 1
+          fi
+          tag="${full#refs/upstream/tags/}"
+          # Peeled with rev-parse because the tag may be lightweight:
+          # for-each-ref's peeled field is only filled for annotated tags, and
+          # an empty sha took the merge down with it on 2026-09-06.
+          sha="$(git rev-parse "${full}^{commit}")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          # The whole of the detection: a release this history has not taken in
+          # is one whose commit is not an ancestor of main. Nothing is written
+          # down to compare against, so nothing can drift out of step with what
+          # the history says.
+          if git merge-base --is-ancestor "$sha" HEAD; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Say so where a person will see it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          TAG: ${{ steps.newest.outputs.tag }}
+          NEW: ${{ steps.newest.outputs.new }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          # Through the REST API rather than the GraphQL one the CLI defaults to:
+          # a workflow's own token reads issues either way, but its
+          # `createIssue` mutation is refused as "Resource not accessible by
+          # integration" however `issues: write` is declared. The REST endpoints
+          # are the ones it does carry.
+          open="$(gh api "/repos/${repo}/issues?state=open&per_page=100" \
+            --jq '[.[] | select(.title | startswith("Upstream release"))][0].number // empty')"
+          if [ "$NEW" = "true" ]; then
+            {
+              echo "@${OWNER} — upstream cut **${TAG}**, and its commit is not an"
+              echo "ancestor of \`main\`, so no merge has taken it in yet."
+              echo
+              echo "- Release: https://git.coffeylabs.org/coffey-labs/ihasmail/releases/tag/${TAG}"
+              echo "- Take it in as ADR 0002 says: fetch upstream directly into the"
+              echo "  merge, and rename the merged delta before it lands (the"
+              echo "  \`gilbert-upstream-rebrand\` checklist)."
+              echo
+              echo "This issue closes itself on the next run once the release's"
+              echo "commit is an ancestor of \`main\`."
+            } > /tmp/upstream-issue.md
+            if [ -n "$open" ]; then
+              gh api -X POST "/repos/${repo}/issues/${open}/comments" \
+                -F body=@/tmp/upstream-issue.md >/dev/null
+            else
+              # Found by title rather than by label: a label is one more thing
+              # to create and keep in step, and this list is never long.
+              gh api -X POST "/repos/${repo}/issues" \
+                -f title="Upstream release ${TAG} has not been taken in" \
+                -F body=@/tmp/upstream-issue.md >/dev/null
+            fi
+          elif [ -n "$open" ]; then
+            # The release is in the history now, so whatever this issue was
+            # opened for has happened: closing it is the bookkeeping, and it is
+            # the only state this watch keeps.
+            gh api -X POST "/repos/${repo}/issues/${open}/comments" \
+              -f body="The release's commit is an ancestor of \`main\`: a merge has taken it in." >/dev/null
+            gh api -X PATCH "/repos/${repo}/issues/${open}" -f state=closed >/dev/null
+          fi

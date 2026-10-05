@@ -1,0 +1,1847 @@
+import { htmlSignatureBlock, textSignatureBlock } from "@gilbert/shared/signature";
+import { create } from "zustand";
+import { client, setErrorMessage } from "@/jmap/client";
+import type {
+  Email,
+  EmailAddress,
+  EmailBodyPart,
+  Id,
+  Identity,
+  SetResponse,
+} from "@/jmap/types";
+import { formatAddress, parseMailto, sameAddress, uniqueAddresses } from "@/lib/address";
+import { BASE_PATH } from "@/lib/basePath";
+import { emlFilename } from "@/lib/emlName";
+import { formatFullDate, uid } from "@/lib/format";
+import { sanitizeEditorHtml, sanitizeEmailHtml } from "@/lib/html";
+import { t as translate } from "@/lib/i18n";
+import { remoteImagesAllowed } from "@/lib/remoteImages";
+import { formatScheduleTime, holdUntil } from "@/lib/schedule";
+import { type SharedContent, shareBody } from "@/lib/shareTarget";
+import { fillPlaceholders, type PlaceholderContext } from "@/lib/templatePlaceholders";
+import { escapeHtml, htmlToText, quoteText, replySubject, textToHtml } from "@/lib/text";
+import { toast } from "@/ui/toast";
+import { useContacts } from "./contacts";
+import { BODY_PROPS, FULL_PROPS, useMail } from "./mail";
+import { ensureScheduledMailbox, useScheduled } from "./scheduled";
+import { useSession } from "./session";
+import { settings } from "./settings";
+
+export interface ComposeAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  blobId: Id | null;
+  progress: number;
+  error: string | null;
+  file?: File;
+  cid?: string;
+  inline?: boolean;
+  abort?: AbortController;
+}
+
+/** A file in Files, enough of it to attach. */
+export interface AttachableFile {
+  accountId: Id;
+  name: string;
+  type: string | null;
+  size: number | null;
+  blobId: Id;
+}
+
+export type Priority = "high" | "normal" | "low";
+
+/**
+ * The undo window, in seconds: a product constant, not a setting.
+ *
+ * Every sender gets the same five-second hold before the message is submitted,
+ * and nothing in the client or an installation policy changes it. It lives
+ * here because the send path is the one reader.
+ */
+export const UNDO_SEND_SECONDS = 5;
+
+/**
+ * How a message is being answered, which decides who the draft is addressed to:
+ * one partner for a reply, everyone for a reply all.
+ */
+export type ReplyMode = "reply" | "replyAll" | "forward";
+
+export interface Draft {
+  key: string;
+  draftId: Id | null;
+  identityId: Id | null;
+  to: EmailAddress[];
+  cc: EmailAddress[];
+  bcc: EmailAddress[];
+  /** Per-message Reply-To (defaults to the identity's Reply-To). */
+  replyTo: EmailAddress[];
+  subject: string;
+  html: string;
+  text: string;
+  format: "html" | "text";
+  attachments: ComposeAttachment[];
+  inReplyTo: string[] | null;
+  references: string[] | null;
+  relatedEmailId: Id | null;
+  relatedKeyword: "$answered" | "$forwarded" | null;
+  requestReceipt: boolean;
+  priority: Priority;
+  showCc: boolean;
+  showBcc: boolean;
+  showReplyTo: boolean;
+  minimized: boolean;
+  maximized: boolean;
+  dirty: boolean;
+  savedAt: number | null;
+  saving: boolean;
+  error: string | null;
+  /** Original identity signature HTML currently embedded, to replace on identity switch. */
+  signatureHtml: string;
+  replyMode: ReplyMode | null;
+  mailboxIdOnSend?: Id | null;
+  /** When set, hand the message to the server held until this instant. */
+  sendAt: number | null;
+}
+
+interface ComposeState {
+  drafts: Draft[];
+  activeKey: string | null;
+  pendingSends: Record<
+    string,
+    { timer: number; toastId: number; draft: Draft; run: () => Promise<void> }
+  >;
+  /**
+   * Send everything still inside its undo window, now. For signing out, while
+   * the session can still send.
+   */
+  flushPendingSends(): Promise<void>;
+  open(init?: Partial<Draft>): string;
+  /** Open a draft holding what the operating system's share sheet sent us. */
+  openFromShare(share: SharedContent): string;
+  openDraftEmail(email: Email): Promise<string>;
+  /** Open a message again as a mail that has not been sent yet. */
+  composeAsNew(email: Email): Promise<string>;
+  /**
+   * The reply the app's one-tap affordances open.
+   *
+   * Reply all, and not a preference: answering the list is what a conversation
+   * with more than one other person means, and a one-tap control cannot say
+   * which of the two it did. The explicit "Reply" -- to the sender alone -- is
+   * the item beside it wherever there is room for a choice, and every surface
+   * that shows it says what it does.
+   */
+  reply(email: Email, mode: ReplyMode): Promise<string>;
+  /** Forward the message whole, as an attachment, rather than quoted into a new one. */
+  forwardAsAttachment(email: Email): string;
+  update(key: string, patch: Partial<Draft>): void;
+  close(key: string, opts?: { discard?: boolean }): Promise<void>;
+  focus(key: string): void;
+  addFiles(key: string, files: File[]): void;
+  /** Attach files already in Files, by reference where the account allows it. */
+  addFromFiles(key: string, nodes: AttachableFile[]): Promise<void>;
+  removeAttachment(key: string, attId: string): void;
+  saveDraft(key: string, opts?: { silent?: boolean }): Promise<Id | null>;
+  send(key: string): Promise<void>;
+  undoSend(key: string): void;
+  setIdentity(key: string, identityId: Id): void;
+  insertTemplate(key: string, html: string, subject?: string): void;
+}
+
+const AUTOSAVE_MS = 20_000;
+const autosaveTimers = new Map<string, number>();
+
+/*
+ * Draft saves, one at a time per draft.
+ *
+ * Saving a draft is Email/set create + destroy of the draft it replaces, so
+ * two saves that overlap each destroy only the id they captured and the one
+ * that finishes last leaves its create behind: an autosave that lands after
+ * Send or Discard leaves an orphan $draft of a message that is gone, and two
+ * overlapping saves leave two drafts. A save that finishes last would also
+ * clear `dirty` over content typed while it was in flight, so a close that
+ * follows skips its own save and drops that content.
+ *
+ * Every save for a key therefore runs on one chain (`enqueueSave`), and send
+ * and discard wait for the chain to drain and destroy the draft the last save
+ * actually created (`lastId`), not the id they captured earlier. Completion
+ * clears `dirty` only when the draft still holds what was saved.
+ */
+const saveChains = new Map<string, { tail: Promise<unknown>; lastId: Id | null }>();
+
+/** Run `job` after every save already queued for this draft has settled. */
+function enqueueSave<T>(key: string, job: () => Promise<T>): Promise<T> {
+  let q = saveChains.get(key);
+  if (!q) {
+    q = { tail: Promise.resolve(), lastId: null };
+    saveChains.set(key, q);
+  }
+  const p = q.tail.then(job, job);
+  q.tail = p.catch(() => undefined);
+  return p;
+}
+
+/** Wait until every save queued for this draft has settled. */
+async function drainSaves(key: string): Promise<void> {
+  const q = saveChains.get(key);
+  if (!q) return;
+  try {
+    await q.tail;
+  } catch {
+    /* each job reports its own failure to whoever queued it */
+  }
+}
+
+function blankDraft(init: Partial<Draft> = {}): Draft {
+  const s = settings();
+  return {
+    key: uid("d"),
+    draftId: null,
+    identityId: null,
+    to: [],
+    cc: [],
+    bcc: [],
+    replyTo: [],
+    subject: "",
+    html: "",
+    text: "",
+    format: s.composeFormat,
+    attachments: [],
+    inReplyTo: null,
+    references: null,
+    relatedEmailId: null,
+    relatedKeyword: null,
+    requestReceipt: s.requestReadReceipt,
+    priority: "normal",
+    showCc: false,
+    showBcc: false,
+    showReplyTo: false,
+    minimized: false,
+    maximized: false,
+    dirty: false,
+    savedAt: null,
+    saving: false,
+    error: null,
+    signatureHtml: "",
+    replyMode: null,
+    sendAt: null,
+    ...init,
+  };
+}
+
+export function signatureBlock(
+  identity: Identity | undefined,
+  format: "html" | "text",
+): string {
+  if (!identity) return "";
+  if (format === "text") return textSignatureBlock(identity.textSignature);
+  if (identity.htmlSignature)
+    return `<div class="ihm-signature" data-ihm-sig="1"><br>${sanitizeEditorHtml(identity.htmlSignature)}</div>`;
+  if (identity.textSignature) {
+    const body = textToHtml(identity.textSignature, { quoteColors: false }).replace(
+      /\n/g,
+      "<br>",
+    );
+    return `<div class="ihm-signature" data-ihm-sig="1">${htmlSignatureBlock(body)}</div>`;
+  }
+  return "";
+}
+
+/**
+ * Whether a draft field still holds exactly what the identity it was opened
+ * with put there -- the test for "the reader has not touched this", which is
+ * what decides whether switching identity may replace the field.
+ *
+ * Compared by address with `sameAddress`, because the two sides are a draft
+ * that has been through the composer and a list the server answered, and the
+ * question is about who is reached rather than about how a name was spelled.
+ */
+function stillTheIdentitys(
+  current: EmailAddress[],
+  ident: Identity | undefined,
+  field: "replyTo" | "bcc",
+): boolean {
+  const opened = ident?.[field] ?? [];
+  return (
+    current.length === opened.length &&
+    current.every((x, i) => sameAddress(x.email, opened[i]?.email ?? ""))
+  );
+}
+
+function defaultIdentity(
+  identities: Identity[],
+  email?: Email | null,
+): Identity | undefined {
+  if (!identities.length) return undefined;
+  if (email) {
+    const candidates = [...(email.to ?? []), ...(email.cc ?? []), ...(email.bcc ?? [])];
+    for (const c of candidates) {
+      const m = identities.find((i) => sameAddress(i.email, c.email));
+      if (m) return m;
+    }
+  }
+  return useMail.getState().defaultIdentity() ?? identities[0];
+}
+
+/**
+ * The identity's Bcc, written into a draft as recipients of its own.
+ *
+ * RFC 8621 leaves `Identity.bcc` for the client to apply, and this is where it
+ * is applied: **once**, when the draft is created, rather than on the way out.
+ * What the composer shows is then the whole truth about who the message
+ * reaches, and the field is the reader's -- somebody who takes the address off
+ * for one message has taken it off, which an addition at send time would
+ * silently undo.
+ *
+ * So it is deliberately not mirrored at send time the way `replyTo` is (see
+ * `buildEmailObject`), and a draft written before the address was set does not
+ * gain it: a copy nobody can see leaving the composer is the one thing this
+ * field must never be.
+ *
+ * `uniqueAddresses` drops what the draft was already addressed with -- a
+ * `mailto:` naming the archive, a resend of a message that was copied there --
+ * so nothing arrives twice, and it drops an address with nothing in it.
+ */
+function identityBcc(
+  ident: Identity | undefined,
+  addressed: EmailAddress[] = [],
+): EmailAddress[] {
+  return uniqueAddresses([...addressed, ...(ident?.bcc ?? [])]);
+}
+
+/**
+ * The body, the attachments and the headers a draft made from a stored message
+ * carries.
+ *
+ * `openDraftEmail` and `composeAsNew` build a draft out of the same message and
+ * need the same seven things from it: the two body parts, the cid map an inline
+ * image resolves through, the attachment list, the rendered body, the format it
+ * decided, and the receipt and priority headers the message asked for. The
+ * identity and the recipients stay with the caller, because the two paths
+ * differ there on purpose. Spelled once here so a change to the extraction
+ * cannot silently change only one of them.
+ */
+function bodyFromEmail(
+  full: Email,
+  accountId: Id,
+): {
+  html: string;
+  text: string;
+  format: "html" | "text";
+  attachments: ComposeAttachment[];
+  requestReceipt: boolean;
+  priority: Priority;
+} {
+  const htmlPart = full.htmlBody?.[0];
+  const textPart = full.textBody?.[0];
+  const html = htmlPart?.partId ? (full.bodyValues?.[htmlPart.partId]?.value ?? "") : "";
+  const text = textPart?.partId ? (full.bodyValues?.[textPart.partId]?.value ?? "") : "";
+  const cidMap: Record<string, string> = {};
+  const attachments: ComposeAttachment[] = [];
+  for (const a of full.attachments ?? []) {
+    const inline =
+      Boolean(a.cid) && (a.disposition === "inline" || a.type.startsWith("image/"));
+    if (inline && a.cid && a.blobId)
+      cidMap[a.cid] = client.downloadUrl(
+        accountId,
+        a.blobId,
+        a.name ?? "image",
+        a.type,
+        true,
+      );
+    attachments.push({
+      id: uid("a"),
+      name: a.name ?? "attachment",
+      type: a.type,
+      size: a.size,
+      blobId: a.blobId,
+      progress: 100,
+      error: null,
+      cid: a.cid ?? undefined,
+      inline,
+    });
+  }
+  return {
+    html: html
+      ? sanitizeEmailHtml(html, {
+          cidMap,
+          allowRemote: quoteAllowsRemote(full.from?.[0]),
+        }).html
+      : textToHtml(text).replace(/\n/g, "<br>"),
+    text: text || (html ? htmlToText(html) : ""),
+    format: html ? "html" : settings().composeFormat,
+    attachments,
+    requestReceipt: Boolean(
+      full["header:Disposition-Notification-To:asAddresses"]?.length,
+    ),
+    priority: /^[12]/.test(full["header:X-Priority:asText"] ?? "")
+      ? "high"
+      : /^[45]/.test(full["header:X-Priority:asText"] ?? "")
+        ? "low"
+        : "normal",
+  };
+}
+
+/**
+ * The reply the app's one-tap affordances open: reply all.
+ *
+ * One definition, because the answer has to be the same wherever the app offers
+ * the single-button reply -- a header button that reached the list and a reply
+ * strip that reached the sender would be the same decision half-applied. It is
+ * not a setting: it is what the app does, and every surface that offers a
+ * choice says which action each choice is (see `reply`).
+ */
+export const REPLY_ALL: ReplyMode = "replyAll";
+export const REPLY: ReplyMode = "reply";
+export const DEFAULT_REPLY_MODE: ReplyMode = REPLY_ALL;
+
+/**
+ * The keys that answer a conversation, and which reply each one opens.
+ *
+ * One definition, so the pair cannot drift and a test can read it without
+ * rendering the mail view. The plain reply is the plain key and the reply to
+ * everyone is the one whose letter says so: `r` and `a`, which is also the
+ * order they are offered in.
+ */
+export const REPLY_KEYS: ReadonlyArray<{
+  keys: string;
+  mode: ReplyMode;
+  description: string;
+}> = [
+  { keys: "r", mode: REPLY, description: "Reply" },
+  { keys: "a", mode: REPLY_ALL, description: "Reply all" },
+];
+
+export const useCompose = create<ComposeState>((set, get) => ({
+  drafts: [],
+  activeKey: null,
+  pendingSends: {},
+
+  open(init = {}) {
+    const identities = useMail.getState().identities;
+    const ident = init.identityId
+      ? identities.find((i) => i.id === init.identityId)
+      : useMail.getState().defaultIdentity();
+    const bcc = identityBcc(ident, init.bcc ?? []);
+    const d = blankDraft({
+      identityId: ident?.id ?? null,
+      replyTo: ident?.replyTo ?? [],
+      showReplyTo: Boolean(ident?.replyTo?.length),
+      ...init,
+      // After the caller's own fields: the identity's address is added to
+      // whatever this draft was addressed with, not replaced by it.
+      bcc,
+      showBcc: Boolean(bcc.length) || Boolean(init.showBcc),
+    });
+    if (!init.html && !init.text && ident) {
+      d.signatureHtml = signatureBlock(ident, "html");
+      d.html = `<div><br></div>${d.signatureHtml}`;
+      d.text = signatureBlock(ident, "text");
+    }
+    set((s) => ({
+      drafts: [
+        ...s.drafts.map((x) => ({
+          ...x,
+          minimized: s.drafts.length >= 1 ? x.minimized : x.minimized,
+        })),
+        d,
+      ],
+      activeKey: d.key,
+    }));
+    return d.key;
+  },
+
+  /*
+   * A share from the operating system, as a message being written.
+   *
+   * The subject and body are filled in but nothing is addressed and nothing is
+   * sent: a share says what to send, never who to. What arrives is somebody
+   * part-way through a thought, and the composer is where the rest of it goes.
+   *
+   * Opened empty first and the body pushed in above afterwards, rather than
+   * passed to `open()`. `open()` only fits a signature when it is given no
+   * body at all, so handing it the shared text would quietly drop the
+   * signature from every message that started as a share.
+   */
+  openFromShare(share) {
+    const body = shareBody(share);
+    const key = get().open({ subject: share.title.trim() });
+    if (body) {
+      const d = get().drafts.find((x) => x.key === key);
+      if (d)
+        get().update(key, {
+          html: `<div>${textToHtml(body)}</div>${d.html}`,
+          text: `${body}\n${d.text}`,
+        });
+    }
+    if (share.files.length) get().addFiles(key, share.files);
+    return key;
+  },
+
+  async openDraftEmail(email) {
+    const existing = get().drafts.find((d) => d.draftId === email.id);
+    if (existing) {
+      get().focus(existing.key);
+      return existing.key;
+    }
+    const full = (await useMail.getState().getEmails([email.id], true))[0] ?? email;
+    const identities = useMail.getState().identities;
+    const ident =
+      identities.find((i) => full.from?.some((f) => sameAddress(f.email, i.email))) ??
+      useMail.getState().defaultIdentity() ??
+      identities[0];
+    const body = bodyFromEmail(full, useMail.getState().accountId!);
+    const d = blankDraft({
+      draftId: full.id,
+      identityId: ident?.id ?? null,
+      to: full.to ?? [],
+      cc: full.cc ?? [],
+      // The draft's own recipients, and not the identity's Bcc as well: this
+      // draft was written once, and what it carries is what it was written
+      // with (`identityBcc`).
+      bcc: full.bcc ?? [],
+      replyTo: full.replyTo ?? ident?.replyTo ?? [],
+      showReplyTo: Boolean(full.replyTo?.length || ident?.replyTo?.length),
+      showCc: Boolean(full.cc?.length),
+      showBcc: Boolean(full.bcc?.length),
+      subject: full.subject ?? "",
+      ...body,
+      inReplyTo: full.inReplyTo ?? null,
+      references: full.references ?? null,
+    });
+    set((s) => ({ drafts: [...s.drafts, d], activeKey: d.key }));
+    return d.key;
+  },
+
+  /*
+   * The same mail again, as a mail that has never been sent.
+   *
+   * Not a forward and not a reply: a mail that was rejected, or went to an
+   * address with a typo in it, is one you want to send *again* rather than pass
+   * on. So there is no Fwd: on the subject, no quote wrapper around the body,
+   * and the recipients it already had are the recipients it keeps.
+   *
+   * What makes it new is what is left out. `draftId` stays null, or sending
+   * would destroy the message this was made from; `inReplyTo`, `references`,
+   * `relatedEmailId` and `relatedKeyword` stay null, so nothing is threaded
+   * onto the old message and the old message is not marked answered or
+   * forwarded by sending this. The Message-ID and the date are the server's and
+   * `buildEmailObject`'s respectively, and neither is copied from anywhere, so
+   * both are new without anything here asking for it.
+   */
+  async composeAsNew(email) {
+    const mail = useMail.getState();
+    const full = (await mail.getEmails([email.id], true))[0] ?? email;
+    const identities = mail.identities.length
+      ? mail.identities
+      : await mail.loadIdentities();
+    // Sent by you, so send it as you again -- the same rule that reopens a
+    // draft. A mail somebody else sent has no identity of yours to match, and
+    // guessing from who it was addressed to would put a resend behind an alias
+    // that was only ever the receiving end; the account's own default is the
+    // honest answer there.
+    const ident =
+      identities.find((i) => full.from?.some((f) => sameAddress(f.email, i.email))) ??
+      mail.defaultIdentity() ??
+      identities[0];
+    const body = bodyFromEmail(full, mail.accountId!);
+    const d = blankDraft({
+      identityId: ident?.id ?? null,
+      to: full.to ?? [],
+      cc: full.cc ?? [],
+      bcc: identityBcc(ident, full.bcc ?? []),
+      // The message's own Reply-To if it carried one, which is the setting the
+      // report asks to keep; the identity's only when it did not.
+      replyTo: full.replyTo ?? ident?.replyTo ?? [],
+      showReplyTo: Boolean(full.replyTo?.length || ident?.replyTo?.length),
+      showCc: Boolean(full.cc?.length),
+      showBcc: Boolean(full.bcc?.length || ident?.bcc?.length),
+      subject: full.subject ?? "",
+      ...body,
+      // No signature is added, and `signatureHtml` is left empty on purpose.
+      // The body is the sent one, which already ends in whatever signature it
+      // was sent with; appending the identity's would give it two.
+    });
+    set((st) => ({ drafts: [...st.drafts, d], activeKey: d.key }));
+    return d.key;
+  },
+
+  async reply(email, mode) {
+    const mail = useMail.getState();
+    const full = (await mail.getEmails([email.id], true))[0] ?? email;
+    const identities = mail.identities.length
+      ? mail.identities
+      : await mail.loadIdentities();
+    const ident = defaultIdentity(identities, full);
+    const ownEmails = identities.map((i) => i.email);
+    /* `sameAddress` rather than a lowercased `includes`, because an identity
+       address can carry whitespace and a hand-typed one does. */
+    const isOwn = (a: EmailAddress) => ownEmails.some((e) => sameAddress(e, a.email));
+    const withoutOwn = (list: EmailAddress[]) =>
+      uniqueAddresses(list).filter((a) => !isOwn(a));
+    const s = settings();
+
+    /*
+     * Was this message mine?
+     *
+     * The folder answers it before the addresses do, and has to: the address
+     * test fails in exactly the cases where the mistake is least visible. A
+     * message sent from an alias or a shared mailbox that `Identity/get` does
+     * not list is not recognisably mine, and neither is anything at all if the
+     * identities have not loaded yet -- and the failure is silent, addressing
+     * the reply back to me with everyone I actually wrote to moved to Cc.
+     *
+     * A message in Sent is mine whatever address it went out as.
+     */
+    const sentId = mail.roleId("sent");
+    const sentByMe =
+      (Boolean(full.from?.length) && (full.from ?? []).every(isOwn)) ||
+      Boolean(sentId && full.mailboxIds?.[sentId]);
+
+    let to: EmailAddress[] = [];
+    let cc: EmailAddress[] = [];
+    if (mode === "reply" || mode === "replyAll") {
+      /*
+       * Who a plain reply answers, and who a reply all answers.
+       *
+       * A plain reply reaches **one** partner, and that is the whole difference
+       * between the two actions -- the one a reader can see in the draft, since
+       * reply all is the action that puts a list there. It is the sender, their
+       * Reply-To first, that being what that header is for.
+       *
+       * A message of mine has no sender to answer, so the one partner is the
+       * person I wrote to -- and my own address when the message went nowhere
+       * else, because an empty To is worse than the only address there was.
+       * Reaching all of them is what Reply all is for.
+       */
+      const senders = uniqueAddresses(
+        full.replyTo?.length ? full.replyTo : (full.from ?? []),
+      );
+      const others = withoutOwn(
+        uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]),
+      );
+      if (mode === "reply") {
+        to = (sentByMe ? (others.length ? others : senders) : senders).slice(0, 1);
+      } else if (sentByMe && (full.to?.length || full.cc?.length)) {
+        /*
+         * Replying to something I sent continues the conversation with the
+         * people I wrote to. Not with myself, and not with my own Reply-To
+         * either -- that address is where replies *to me* belong, and following
+         * it here would send my own reply to my own desk.
+         */
+        to = withoutOwn(full.to ?? []);
+        cc = withoutOwn(full.cc ?? []);
+        // Addressed only to myself, or only in Cc: there is still somebody this
+        // is a reply to, and an empty To is not it.
+        if (!to.length) {
+          to = cc;
+          cc = [];
+        }
+        if (!to.length) to = uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]);
+      } else {
+        to = senders;
+        cc = others.filter((a) => !to.some((t) => sameAddress(t.email, a.email)));
+      }
+    }
+
+    const htmlPart = full.htmlBody?.[0];
+    const textPart = full.textBody?.[0];
+    const origHtml = htmlPart?.partId
+      ? (full.bodyValues?.[htmlPart.partId]?.value ?? "")
+      : "";
+    const origText = textPart?.partId
+      ? (full.bodyValues?.[textPart.partId]?.value ?? "")
+      : "";
+    const accountId = mail.accountId!;
+    const attachments: ComposeAttachment[] = [];
+    const cidMap: Record<string, string> = {};
+    for (const a of full.attachments ?? []) {
+      const inline = Boolean(a.cid) && a.type.startsWith("image/");
+      if (inline && a.cid && a.blobId)
+        cidMap[a.cid] = client.downloadUrl(
+          accountId,
+          a.blobId,
+          a.name ?? "image",
+          a.type,
+          true,
+        );
+      if (mode === "forward" || inline) {
+        attachments.push({
+          id: uid("a"),
+          name: a.name ?? "attachment",
+          type: a.type,
+          size: a.size,
+          blobId: a.blobId,
+          progress: 100,
+          error: null,
+          cid: a.cid ?? undefined,
+          inline,
+        });
+      }
+    }
+    // Inline images are shown via their blob URLs in the editor and converted back to cid: at send time.
+    //
+    // `<style>` blocks go: what comes out of here is quoted into the composer,
+    // which is a live document of ours and not a scoped view of a message, so a
+    // style block carried in with the quote would restyle the app around it.
+    const quotedHtmlBody = origHtml
+      ? sanitizeEmailHtml(origHtml, {
+          cidMap,
+          allowRemote: quoteAllowsRemote(full.from?.[0]),
+          proxyRemote: false,
+          stripStyleBlocks: true,
+        }).html
+      : textToHtml(origText).replace(/\n/g, "<br>");
+    const fromStr = escapeHtml((full.from ?? []).map(formatAddress).join(", "));
+    const date = formatFullDate(full.receivedAt);
+    let quoteHtml = "";
+    let quoteTxt = "";
+    if (mode === "forward") {
+      const hdr = [
+        `From: ${(full.from ?? []).map(formatAddress).join(", ")}`,
+        `Date: ${date}`,
+        `Subject: ${full.subject ?? ""}`,
+        `To: ${(full.to ?? []).map(formatAddress).join(", ")}`,
+        ...(full.cc?.length ? [`Cc: ${full.cc.map(formatAddress).join(", ")}`] : []),
+      ];
+      quoteHtml = `<div class="ihm-quote"><br><div>---------- Forwarded message ---------</div><div>${hdr.map(escapeHtml).join("<br>")}</div><br>${quotedHtmlBody}</div>`;
+      quoteTxt = `\n\n---------- Forwarded message ---------\n${hdr.join("\n")}\n\n${origText || (origHtml ? htmlToText(origHtml) : "")}`;
+    } else if (s.includeQuote) {
+      quoteHtml = `<div class="ihm-quote"><br><div>On ${escapeHtml(date)}, ${fromStr} wrote:</div><blockquote style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex">${quotedHtmlBody}</blockquote></div>`;
+      quoteTxt = `\n\nOn ${date}, ${(full.from ?? []).map(formatAddress).join(", ")} wrote:\n${quoteTextOf(origText, origHtml)}`;
+    }
+    const sigHtml = signatureBlock(ident, "html");
+    const sigText = signatureBlock(ident, "text");
+    const html = s.signatureAboveQuote
+      ? `<div><br></div>${sigHtml}${quoteHtml}`
+      : `<div><br></div>${quoteHtml}${sigHtml}`;
+    const text = s.signatureAboveQuote
+      ? `${sigText}${quoteTxt}`
+      : `${quoteTxt}${sigText}`;
+    const messageId = full.messageId?.[0];
+    const d = blankDraft({
+      identityId: ident?.id ?? null,
+      to,
+      cc,
+      showCc: cc.length > 0,
+      replyTo: ident?.replyTo ?? [],
+      showReplyTo: Boolean(ident?.replyTo?.length),
+      bcc: identityBcc(ident),
+      showBcc: Boolean(ident?.bcc?.length),
+      subject: replySubject(full.subject, mode === "forward" ? "Fwd" : "Re"),
+      html,
+      text,
+      format: s.composeFormat,
+      attachments,
+      inReplyTo: mode === "forward" ? null : messageId ? [messageId] : null,
+      references:
+        mode === "forward"
+          ? null
+          : messageId
+            ? [...(full.references ?? []), messageId]
+            : (full.references ?? null),
+      relatedEmailId: full.id,
+      relatedKeyword: mode === "forward" ? "$forwarded" : "$answered",
+      signatureHtml: sigHtml,
+      replyMode: mode,
+    });
+    set((st) => ({ drafts: [...st.drafts, d], activeKey: d.key }));
+    return d.key;
+  },
+
+  forwardAsAttachment(email) {
+    const accountId = useMail.getState().accountId;
+    const key = get().open({
+      subject: replySubject(email.subject, "Fwd"),
+      relatedEmailId: email.id,
+      relatedKeyword: "$forwarded",
+      replyMode: "forward",
+    });
+    // A message's own blobId *is* its RFC822 blob, and it already lives in this
+    // account -- so this goes through the same path as attach-from-Files and
+    // uploads nothing at all, however large the message.
+    //
+    // It inherits that path's size check as well, which is measured against
+    // `maxSizeUpload` even though nothing is being uploaded. That is worth
+    // knowing rather than working around here: the check belongs to
+    // `addFromFiles` and applies to every by-reference attachment, so if it is
+    // wrong it is wrong in one place and should be fixed there.
+    if (accountId) {
+      void get().addFromFiles(key, [
+        {
+          accountId,
+          name: emlFilename(email.subject),
+          type: "message/rfc822",
+          size: email.size,
+          blobId: email.blobId,
+        },
+      ]);
+    }
+    return key;
+  },
+
+  update(key, patch) {
+    set((s) => ({
+      drafts: s.drafts.map((d) =>
+        d.key === key
+          ? { ...d, ...patch, dirty: patch.dirty ?? (d.dirty || isContentPatch(patch)) }
+          : d,
+      ),
+    }));
+    if (isContentPatch(patch)) scheduleAutosave(key, get);
+  },
+
+  async close(key, opts = {}) {
+    const d = get().drafts.find((x) => x.key === key);
+    if (!d) return;
+    const t = autosaveTimers.get(key);
+    if (t) window.clearTimeout(t);
+    autosaveTimers.delete(key);
+    for (const a of d.attachments) a.abort?.abort();
+    set((s) => ({
+      drafts: s.drafts.filter((x) => x.key !== key),
+      activeKey:
+        s.activeKey === key
+          ? (s.drafts.find((x) => x.key !== key)?.key ?? null)
+          : s.activeKey,
+    }));
+    if (opts.discard) {
+      /*
+       * A save that was in flight when the draft closed may still create the
+       * next draft; destroying the id captured here would leave that one
+       * behind. Wait for the saves, then destroy the draft the last one
+       * actually produced.
+       */
+      try {
+        await drainSaves(key);
+        const q = saveChains.get(key);
+        const id = q?.lastId ?? d.draftId;
+        saveChains.delete(key);
+        if (id) {
+          await client.call("Email/set", {
+            accountId: useMail.getState().accountId,
+            destroy: [id],
+          });
+          void useMail.getState().refreshList();
+          void useMail.getState().loadMailboxes();
+        }
+      } catch {
+        /* ignore */
+      }
+      toast.show(translate("Draft discarded"));
+      return;
+    }
+    if (d.dirty && (d.to.length || d.subject || hasContent(d))) {
+      try {
+        // Queued behind any save already running, so the final copy is written
+        // after it and replaces the draft it created rather than racing it.
+        await enqueueSave(key, () =>
+          saveDraftInternal(d, get, set, { silent: true, final: true }),
+        );
+        saveChains.delete(key);
+        toast.show(translate("Draft saved"));
+      } catch (err) {
+        toast.error(
+          translate("Could not save draft: {error}", { error: (err as Error).message }),
+        );
+      }
+    } else {
+      saveChains.delete(key);
+    }
+  },
+
+  focus(key) {
+    set((s) => ({
+      activeKey: key,
+      drafts: s.drafts.map((d) => (d.key === key ? { ...d, minimized: false } : d)),
+    }));
+  },
+
+  addFiles(key, files) {
+    const accountId = useMail.getState().accountId;
+    if (!accountId) return;
+    const max = client.maxSizeUpload;
+    const atts: ComposeAttachment[] = files.map((f) => ({
+      id: uid("a"),
+      name: f.name,
+      type: f.type || "application/octet-stream",
+      size: f.size,
+      blobId: null,
+      progress: 0,
+      error:
+        f.size > max
+          ? translate("Larger than {size} MB limit", { size: Math.round(max / 1048576) })
+          : null,
+      file: f,
+    }));
+    get().update(key, {
+      attachments: [
+        ...(get().drafts.find((d) => d.key === key)?.attachments ?? []),
+        ...atts,
+      ],
+    });
+    for (const a of atts) {
+      if (a.error || !a.file) continue;
+      const abort = new AbortController();
+      a.abort = abort;
+      client
+        .upload(accountId, a.file, {
+          type: a.type,
+          signal: abort.signal,
+          onProgress: (loaded, total) =>
+            patchAtt(key, a.id, { progress: Math.round((loaded / total) * 100) }, set),
+        })
+        .then((res) =>
+          patchAtt(
+            key,
+            a.id,
+            {
+              blobId: res.blobId,
+              progress: 100,
+              type: res.type || a.type,
+              size: res.size,
+            },
+            set,
+          ),
+        )
+        .catch((err) =>
+          patchAtt(
+            key,
+            a.id,
+            { error: (err as Error).message || translate("Upload failed") },
+            set,
+          ),
+        );
+    }
+  },
+
+  /*
+   * Attach something already in Files.
+   *
+   * A blob the account can already see needs no upload: an attachment carrying
+   * a `blobId` is exactly what a forward produces, so the send path already
+   * knows what to do with one. Attaching a 20 MB file the server is holding
+   * anyway then costs nothing and takes no time.
+   *
+   * A file in an account somebody *shared* is a different matter. Blobs belong
+   * to the account they were uploaded to, so a draft in your account cannot
+   * reference one in theirs; it is fetched and uploaded to yours. Slower, and
+   * unavoidable, but it happens without the reader having to know any of this.
+   */
+  async addFromFiles(key, nodes) {
+    const accountId = useMail.getState().accountId;
+    if (!accountId || !nodes.length) return;
+    const max = client.maxSizeUpload;
+    const atts: ComposeAttachment[] = nodes.map((n) => {
+      /*
+       * `maxSizeUpload` is what the server will accept for a single *upload*
+       * (RFC 8620), so it only bears on a file that is about to be uploaded.
+       *
+       * A blob already in this account is attached by reference and nothing is
+       * sent, however large it is -- which is the whole point of attaching from
+       * Files, and of forwarding a message as an attachment. Applying the limit
+       * to those would refuse a 60 MB message the server is already holding, on
+       * the grounds that it could not have been uploaded, when it is not being.
+       *
+       * A file from somebody else's account is fetched and re-uploaded into
+       * this one, because a message can only carry blobs from the account
+       * sending it. That upload is real, and the limit is real for it.
+       */
+      const byReference = n.accountId === accountId;
+      const tooLargeToUpload = !byReference && (n.size ?? 0) > max;
+      return {
+        id: uid("a"),
+        name: n.name,
+        type: n.type || "application/octet-stream",
+        size: n.size ?? 0,
+        blobId: byReference ? n.blobId : null,
+        progress: byReference ? 100 : 0,
+        error: tooLargeToUpload
+          ? translate("Larger than {size} MB limit", { size: Math.round(max / 1048576) })
+          : null,
+      };
+    });
+    get().update(key, {
+      attachments: [
+        ...(get().drafts.find((d) => d.key === key)?.attachments ?? []),
+        ...atts,
+      ],
+    });
+
+    for (const [i, a] of atts.entries()) {
+      if (a.error || a.blobId) continue;
+      const node = nodes[i]!;
+      try {
+        const blob = await client.fetchBlob(node.accountId, node.blobId, a.type);
+        const up = await client.upload(accountId, blob, { type: a.type });
+        patchAtt(
+          key,
+          a.id,
+          { blobId: up.blobId, progress: 100, size: up.size || a.size },
+          set,
+        );
+      } catch (err) {
+        patchAtt(
+          key,
+          a.id,
+          { error: (err as Error).message || translate("Could not attach") },
+          set,
+        );
+      }
+    }
+  },
+
+  removeAttachment(key, attId) {
+    const d = get().drafts.find((x) => x.key === key);
+    const a = d?.attachments.find((x) => x.id === attId);
+    a?.abort?.abort();
+    get().update(key, {
+      attachments: (d?.attachments ?? []).filter((x) => x.id !== attId),
+    });
+  },
+
+  async saveDraft(key, opts = {}) {
+    try {
+      return await enqueueSave(key, async () => {
+        // Read at run time, not at queue time: whatever the user typed while an
+        // earlier save was in flight is what this one must persist.
+        const d = get().drafts.find((x) => x.key === key);
+        if (!d) return null;
+        return saveDraftInternal(d, get, set, { silent: opts.silent ?? false });
+      });
+    } catch (err) {
+      if (!opts.silent)
+        toast.error(
+          translate("Could not save draft: {error}", { error: (err as Error).message }),
+        );
+      return null;
+    }
+  },
+
+  async send(key) {
+    const d = get().drafts.find((x) => x.key === key);
+    if (!d) return;
+    const delay = UNDO_SEND_SECONDS;
+    /*
+     * Settled here, when Send is pressed, and carried to the submission: the
+     * undo window is long enough to switch mailbox or sign out, and a send
+     * that resolved its account afterwards would go out from whichever
+     * mailbox is on screen by then -- or from none at all.
+     */
+    const mail = useMail.getState();
+    const identity =
+      mail.identities.find((i) => i.id === d.identityId) ?? mail.defaultIdentity();
+    const target: SendTarget = {
+      accountId: mail.accountId,
+      identityId: identity?.id ?? null,
+    };
+    // A schedule the user left sitting until it passed is just a send now.
+    const scheduling = d.sendAt !== null && d.sendAt > Date.now();
+    // Hide the composer immediately; actually send after the undo window.
+    const t = autosaveTimers.get(key);
+    if (t) window.clearTimeout(t);
+    autosaveTimers.delete(key);
+    set((s) => ({
+      drafts: s.drafts.filter((x) => x.key !== key),
+      activeKey: s.activeKey === key ? null : s.activeKey,
+    }));
+    const doSend = async () => {
+      set((s) => {
+        const { [key]: _drop, ...rest } = s.pendingSends;
+        return { pendingSends: rest };
+      });
+      try {
+        await sendInternal(d, target);
+        toast.success(
+          scheduling
+            ? translate("Send scheduled for {when}", {
+                when: formatScheduleTime(new Date(d.sendAt!)),
+              })
+            : translate("Message sent"),
+        );
+      } catch (err) {
+        toast.error(
+          translate("Send failed: {error}", { error: (err as Error).message }),
+          {
+            action: {
+              label: translate("Open draft"),
+              onClick: () =>
+                set((s) => ({
+                  drafts: [...s.drafts, { ...d, error: (err as Error).message }],
+                  activeKey: d.key,
+                })),
+            },
+            duration: 15000,
+          },
+        );
+      }
+    };
+    // A scheduled send is already delayed, and cancelling it is a server-side
+    // operation from the Scheduled folder -- holding it locally first would
+    // only add a second, different kind of undo.
+    if (scheduling) {
+      await doSend();
+      return;
+    }
+    /*
+     * The toast names the mail so a burst of sends can be told apart, and the
+     * undo it offers is addressed by the draft key -- the message's own id --
+     * never by that subject: two different sends may carry the same one.
+     */
+    const subject = d.subject.trim();
+    const toastId = toast.show(
+      subject ? translate("Sending “{subject}”", { subject }) : translate("Sending…"),
+      {
+        duration: delay * 1000,
+        progress: true,
+        action: { label: translate("Undo"), onClick: () => get().undoSend(key) },
+      },
+    );
+    const timer = window.setTimeout(() => void doSend(), delay * 1000);
+    set((s) => ({
+      pendingSends: {
+        ...s.pendingSends,
+        [key]: { timer, toastId, draft: d, run: doSend },
+      },
+    }));
+  },
+
+  async flushPendingSends() {
+    const pending = Object.values(get().pendingSends);
+    for (const p of pending) {
+      window.clearTimeout(p.timer);
+      toast.dismiss(p.toastId);
+    }
+    await Promise.all(pending.map((p) => p.run()));
+  },
+
+  undoSend(key) {
+    const p = get().pendingSends[key];
+    if (!p) return;
+    window.clearTimeout(p.timer);
+    toast.dismiss(p.toastId);
+    set((s) => {
+      const { [key]: _drop, ...rest } = s.pendingSends;
+      return {
+        pendingSends: rest,
+        drafts: [...s.drafts, p.draft],
+        // Reopen the taken-back mail only when nothing else is open: a send you
+        // take back must not pull you out of the draft you started while it was
+        // in flight.
+        activeKey: s.activeKey ?? key,
+      };
+    });
+  },
+
+  setIdentity(key, identityId) {
+    const d = get().drafts.find((x) => x.key === key);
+    if (!d) return;
+    const ident = useMail.getState().identities.find((i) => i.id === identityId);
+    const newSig = signatureBlock(ident, "html");
+    let html = d.html;
+    if (d.signatureHtml && html.includes(d.signatureHtml))
+      html = html.replace(d.signatureHtml, newSig);
+    else if (!d.signatureHtml && newSig) {
+      // insert before quote if any, else append
+      const idx = html.indexOf('<div class="ihm-quote">');
+      html = idx >= 0 ? html.slice(0, idx) + newSig + html.slice(idx) : html + newSig;
+    }
+    // Plain text: replace trailing signature block
+    const oldSigText = signatureBlock(
+      useMail.getState().identities.find((i) => i.id === d.identityId),
+      "text",
+    );
+    let text = d.text;
+    if (oldSigText && text.includes(oldSigText))
+      text = text.replace(oldSigText, signatureBlock(ident, "text"));
+    const oldIdent = useMail.getState().identities.find((i) => i.id === d.identityId);
+    /*
+     * The two addresses an identity carries and a draft shows are swapped with
+     * it, and only while the draft still holds what the previous identity put
+     * there: an address the reader added, or one they took off, is theirs and
+     * stays. Same rule for both, so the pair cannot drift apart.
+     */
+    const carried = {
+      ...(stillTheIdentitys(d.replyTo, oldIdent, "replyTo")
+        ? {
+            replyTo: ident?.replyTo ?? [],
+            showReplyTo: d.showReplyTo || Boolean(ident?.replyTo?.length),
+          }
+        : {}),
+      ...(stillTheIdentitys(d.bcc, oldIdent, "bcc")
+        ? {
+            bcc: identityBcc(ident),
+            showBcc: d.showBcc || Boolean(ident?.bcc?.length),
+          }
+        : {}),
+    };
+    get().update(key, { identityId, html, text, signatureHtml: newSig, ...carried });
+  },
+
+  insertTemplate(key, html, subject) {
+    const d = get().drafts.find((x) => x.key === key);
+    if (!d) return;
+    // Placeholders are filled against the draft as it stands right now, which
+    // is why this happens on insert rather than on send: what the template is
+    // filled with is visible and editable afterwards, instead of changing
+    // under the message between writing it and sending it.
+    const ident = d.identityId
+      ? useMail.getState().identities.find((i) => i.id === d.identityId)
+      : undefined;
+    const ctx: PlaceholderContext = {
+      to: d.to,
+      from: ident ? { name: ident.name, email: ident.email } : null,
+      subject: d.subject,
+    };
+    // The body is filled once as HTML and the plain-text side derived from the
+    // result, so the two cannot disagree about what a placeholder came to.
+    const filled = fillPlaceholders(html, ctx, { html: true });
+    const patch: Partial<Draft> = {
+      html: `<div>${sanitizeEditorHtml(filled)}</div>${d.html}`,
+      text: `${htmlToText(filled)}\n${d.text}`,
+    };
+    if (subject && !d.subject)
+      patch.subject = fillPlaceholders(subject, ctx, { html: false });
+    get().update(key, patch);
+  },
+}));
+
+function quoteTextOf(text: string, html: string): string {
+  const base = text || (html ? htmlToText(html) : "");
+  return quoteText(base);
+}
+
+/*
+ * Whether the message being turned into a draft may keep its remote images.
+ *
+ * The reader answers this per message from the settings and the sender
+ * (lib/remoteImages); hardcoding "yes" here would fetch the pixels of a
+ * tracking-pixel mail the moment the draft rendered, no consent asked and no
+ * proxy in between. Ask the same question, at quote time. The address book is consulted as of now: it may not have loaded yet,
+ * and erring toward blocking is the safe direction.
+ */
+function quoteAllowsRemote(from: EmailAddress | null | undefined): boolean {
+  const s = settings();
+  const contacts = useContacts.getState();
+  return remoteImagesAllowed({
+    policy: s.imagePolicy,
+    trustedSenders: s.trustedImageSenders,
+    senderEmail: from?.email,
+    inContacts: Boolean(from && contacts.loaded && contacts.lookupByEmail(from.email)),
+  });
+}
+
+function isContentPatch(p: Partial<Draft>): boolean {
+  return [
+    "to",
+    "cc",
+    "bcc",
+    "replyTo",
+    "subject",
+    "html",
+    "text",
+    "attachments",
+    "identityId",
+    "format",
+    "priority",
+    "requestReceipt",
+  ].some((k) => k in p);
+}
+
+/*
+ * Whether two drafts hold the same content, for deciding whether a save that
+ * just finished is still the newest word. Compared field by field, strictly:
+ * anything the user can change that a save persists counts, and anything that
+ * merely describes the save in progress (dirty, saving, draftId, upload
+ * progress) does not.
+ */
+function sameAddressList(a: EmailAddress[], b: EmailAddress[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i];
+      return (
+        y !== undefined && x.email === y.email && (x.name ?? null) === (y.name ?? null)
+      );
+    })
+  );
+}
+
+function sameAttachments(a: ComposeAttachment[], b: ComposeAttachment[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i];
+      return (
+        y !== undefined &&
+        x.id === y.id &&
+        x.name === y.name &&
+        x.type === y.type &&
+        x.size === y.size &&
+        x.blobId === y.blobId &&
+        x.cid === y.cid &&
+        x.inline === y.inline &&
+        x.error === y.error
+      );
+    })
+  );
+}
+
+function sameDraftContent(a: Draft, b: Draft): boolean {
+  return (
+    a.subject === b.subject &&
+    a.html === b.html &&
+    a.text === b.text &&
+    a.format === b.format &&
+    a.identityId === b.identityId &&
+    a.priority === b.priority &&
+    a.requestReceipt === b.requestReceipt &&
+    a.sendAt === b.sendAt &&
+    a.inReplyTo?.join("\u0000") === b.inReplyTo?.join("\u0000") &&
+    a.references?.join("\u0000") === b.references?.join("\u0000") &&
+    a.relatedEmailId === b.relatedEmailId &&
+    a.relatedKeyword === b.relatedKeyword &&
+    sameAddressList(a.to, b.to) &&
+    sameAddressList(a.cc, b.cc) &&
+    sameAddressList(a.bcc, b.bcc) &&
+    sameAddressList(a.replyTo, b.replyTo) &&
+    sameAttachments(a.attachments, b.attachments)
+  );
+}
+
+function hasContent(d: Draft): boolean {
+  const body =
+    d.format === "html"
+      ? htmlToText(d.html.replace(/<div class="ihm-quote">[\s\S]*$/, ""))
+      : d.text;
+  return body.replace(/--\s*[\s\S]*$/, "").trim().length > 0 || d.attachments.length > 0;
+}
+
+function patchAtt(
+  key: string,
+  attId: string,
+  patch: Partial<ComposeAttachment>,
+  set: (fn: (s: ComposeState) => Partial<ComposeState>) => void,
+) {
+  set((s) => ({
+    drafts: s.drafts.map((d) =>
+      d.key === key
+        ? {
+            ...d,
+            dirty: true,
+            attachments: d.attachments.map((a) =>
+              a.id === attId ? { ...a, ...patch } : a,
+            ),
+          }
+        : d,
+    ),
+  }));
+}
+
+function scheduleAutosave(key: string, get: () => ComposeState) {
+  const t = autosaveTimers.get(key);
+  if (t) window.clearTimeout(t);
+  autosaveTimers.set(
+    key,
+    window.setTimeout(() => {
+      autosaveTimers.delete(key);
+      const d = get().drafts.find((x) => x.key === key);
+      if (d?.dirty && (d.to.length || d.subject || hasContent(d)))
+        void get().saveDraft(key, { silent: true });
+    }, AUTOSAVE_MS),
+  );
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/*
+ * How an inline image points at a blob while it is being edited, and how to
+ * find one again on the way out.
+ *
+ * `client.downloadUrl` builds these, so under a subpath they carry the mount
+ * prefix -- and the patterns have to as well. Neither would have failed
+ * loudly. A bare `/api/blob/` still appears *inside* `/mail/api/blob/...`, so
+ * the unanchored replacement would have matched only the tail and left `/mail`
+ * standing in front of a `cid:` reference; the anchored match would simply
+ * have missed, and the message would go out linking to the sender's own
+ * webmail where the picture should be.
+ */
+const BLOB_URL_PREFIX = `${BASE_PATH}/api/blob/`;
+const BLOB_URL_RE = escapeRe(BLOB_URL_PREFIX);
+
+/** Build the JMAP Email creation object from a draft. */
+export async function buildEmailObject(
+  d: Draft,
+  opts: { forSend: boolean; mailboxId?: Id | null },
+): Promise<Record<string, unknown>> {
+  const mail = useMail.getState();
+  const accountId = mail.accountId!;
+  const ident = mail.identities.find((i) => i.id === d.identityId) ?? mail.identities[0];
+  if (!ident) throw new Error(translate("No sending identity available"));
+  const from: EmailAddress = { name: ident.name || null, email: ident.email };
+
+  let html = d.format === "html" ? d.html : "";
+  const text = d.format === "html" ? htmlToText(d.html) : d.text;
+
+  // Inline attachments shown via blob URLs in the editor → back to cid: references.
+  for (const a of d.attachments) {
+    if (a.inline && a.cid && a.blobId && html) {
+      const re = new RegExp(`${BLOB_URL_RE}[^"' )]*${escapeRe(a.blobId)}[^"' )]*`, "g");
+      html = html.replace(re, `cid:${a.cid}`);
+    }
+  }
+  // Inline images (data: URLs from the editor) → upload and reference by cid.
+  const related: EmailBodyPart[] = [];
+  const relatedInline: Array<{ blobId: Id; type: string; name: string; cid: string }> =
+    [];
+  // Images referencing stored blobs (e.g. signature logos kept in Files) → inline cid parts.
+  if (html?.includes(BLOB_URL_PREFIX)) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    for (const img of Array.from(doc.querySelectorAll("img"))) {
+      const src = img.getAttribute("src") ?? "";
+      const m = new RegExp(`^${BLOB_URL_RE}([^/]+)/([^/]+)/([^?]+)(?:\\?([^#]*))?`).exec(
+        src,
+      );
+      if (!m) continue;
+      const blobId = decodeURIComponent(m[2]!);
+      const name = decodeURIComponent(m[3]!);
+      const type = new URLSearchParams(m[4] ?? "").get("accept") ?? "image/png";
+      const cid = `${uid("img")}@gilbert`;
+      img.setAttribute("src", `cid:${cid}`);
+      relatedInline.push({ blobId, type, name, cid });
+    }
+    html = doc.body.innerHTML;
+  }
+  if (html?.includes("data:image/")) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const imgs = Array.from(doc.querySelectorAll("img")).filter((i) =>
+      i.getAttribute("src")?.startsWith("data:image/"),
+    );
+    for (const img of imgs) {
+      const src = img.getAttribute("src")!;
+      const m = /^data:(image\/[\w.+-]+);base64,(.*)$/s.exec(src);
+      if (!m) continue;
+      const bin = atob(m[2]!);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const up = await client.upload(accountId, new Blob([bytes], { type: m[1]! }), {
+        type: m[1]!,
+      });
+      const cid = `${uid("img")}@gilbert`;
+      img.setAttribute("src", `cid:${cid}`);
+      relatedInline.push({
+        blobId: up.blobId,
+        type: m[1]!,
+        name: `image.${m[1]!.split("/")[1]?.replace("jpeg", "jpg") ?? "png"}`,
+        cid,
+      });
+    }
+    html = doc.body.innerHTML;
+  }
+  // Existing inline attachments referenced via cid (from reply/forward/draft) stay as related parts.
+  for (const a of d.attachments) {
+    if (a.inline && a.cid && a.blobId && html.includes(`cid:${a.cid}`))
+      relatedInline.push({ blobId: a.blobId, type: a.type, name: a.name, cid: a.cid });
+  }
+  for (const r of relatedInline) {
+    related.push({
+      partId: null,
+      blobId: r.blobId,
+      size: 0,
+      name: r.name,
+      type: r.type,
+      charset: null,
+      disposition: "inline",
+      cid: r.cid,
+    });
+  }
+
+  const bodyValues: Record<string, { value: string }> = {};
+  const alternative: Record<string, unknown>[] = [];
+  bodyValues.text = { value: text };
+  alternative.push({ partId: "text", type: "text/plain" });
+  if (html) {
+    bodyValues.html = { value: wrapHtmlDocument(html) };
+    const htmlPart: Record<string, unknown> = { partId: "html", type: "text/html" };
+    if (related.length)
+      alternative.push({
+        type: "multipart/related",
+        subParts: [htmlPart, ...related.map(stripPart)],
+      });
+    else alternative.push(htmlPart);
+  }
+  const regular = d.attachments.filter((a) => !a.inline && a.blobId && !a.error);
+  let bodyStructure: Record<string, unknown>;
+  const alt = html
+    ? { type: "multipart/alternative", subParts: alternative }
+    : alternative[0]!;
+  if (regular.length) {
+    bodyStructure = {
+      type: "multipart/mixed",
+      subParts: [
+        alt,
+        ...regular.map((a) => ({
+          blobId: a.blobId,
+          type: a.type,
+          name: a.name,
+          disposition: "attachment",
+        })),
+      ],
+    };
+  } else bodyStructure = alt;
+
+  const obj: Record<string, unknown> = {
+    from: [from],
+    subject: d.subject,
+    sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    bodyStructure,
+    bodyValues,
+    "header:User-Agent:asText": "gilbert/2.0",
+  };
+  // Header properties are omitted when empty, never sent as null: JMAP servers
+  // are entitled to reject null for a header field (Stalwart parses these as
+  // address lists and fails the whole create), and on a create there is no
+  // previous value that would need clearing.
+  const replyTo = d.replyTo.length ? d.replyTo : (ident.replyTo ?? []);
+  if (d.to.length) obj.to = d.to;
+  if (d.cc.length) obj.cc = d.cc;
+  /*
+   * The draft's own Bcc and no fallback to the identity's, unlike `replyTo`
+   * below: that address was written into this draft when it was opened, where
+   * the sender could see it (`identityBcc`), and adding it again here would put
+   * back a copy somebody had deliberately taken off.
+   */
+  if (d.bcc.length) obj.bcc = d.bcc;
+  if (replyTo.length) obj.replyTo = replyTo;
+  if (d.inReplyTo?.length) obj.inReplyTo = d.inReplyTo;
+  if (d.references?.length) obj.references = d.references;
+  if (d.priority === "high") {
+    obj["header:X-Priority:asText"] = "1 (Highest)";
+    obj["header:Importance:asText"] = "High";
+  } else if (d.priority === "low") {
+    obj["header:X-Priority:asText"] = "5 (Lowest)";
+    obj["header:Importance:asText"] = "Low";
+  }
+  if (d.requestReceipt) obj["header:Disposition-Notification-To:asAddresses"] = [from];
+  if (!opts.forSend) {
+    const draftsId = mail.roleId("drafts");
+    obj.mailboxIds = draftsId ? { [draftsId]: true } : { [mail.roleId("inbox")!]: true };
+    obj.keywords = { $draft: true, $seen: true };
+  } else {
+    const sentId = opts.mailboxId ?? mail.roleId("sent") ?? mail.roleId("inbox");
+    obj.mailboxIds = { [sentId!]: true };
+    obj.keywords = { $seen: true };
+  }
+  return obj;
+}
+
+function stripPart(p: EmailBodyPart): Record<string, unknown> {
+  return {
+    blobId: p.blobId,
+    type: p.type,
+    name: p.name,
+    disposition: p.disposition,
+    cid: p.cid,
+  };
+}
+
+function wrapHtmlDocument(body: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;">${body}</body></html>`;
+}
+
+async function saveDraftInternal(
+  d: Draft,
+  _get: () => ComposeState,
+  set: (fn: (s: ComposeState) => Partial<ComposeState>) => void,
+  opts: { silent: boolean; final?: boolean },
+): Promise<Id | null> {
+  const mail = useMail.getState();
+  const accountId = mail.accountId!;
+  if (!opts.final)
+    set((s) => ({
+      drafts: s.drafts.map((x) => (x.key === d.key ? { ...x, saving: true } : x)),
+    }));
+  try {
+    const email = await buildEmailObject(d, { forSend: false });
+    /*
+     * Destroy the draft the previous save produced, not necessarily the id
+     * this snapshot carries: when this save was queued behind one already in
+     * flight, that save has since replaced the draft, and destroying the old
+     * id would orphan its create.
+     */
+    const q = saveChains.get(d.key);
+    const destroyId = q?.lastId ?? d.draftId;
+    const args: Record<string, unknown> = { accountId, create: { draft: email } };
+    if (destroyId) args.destroy = [destroyId];
+    const res = await client.call<SetResponse<Email>>("Email/set", args);
+    const err = res.notCreated?.draft;
+    if (err) throw new Error(setErrorMessage(err));
+    const newId = res.created?.draft?.id ?? null;
+    const chain = saveChains.get(d.key);
+    if (chain && newId) chain.lastId = newId;
+    if (!opts.final)
+      set((s) => ({
+        drafts: s.drafts.map((x) =>
+          x.key === d.key
+            ? {
+                ...x,
+                draftId: newId,
+                saving: false,
+                /*
+                 * `dirty` is cleared only when nothing was typed while the
+                 * save was in flight. A save finishing over newer content
+                 * must not claim to have saved it: the dirty flag is what a
+                 * later close consults before its own final save, and a save
+                 * wrongly cleared there drops the newest content.
+                 */
+                dirty: sameDraftContent(x, d) ? false : x.dirty,
+                savedAt: Date.now(),
+                error: null,
+              }
+            : x,
+        ),
+      }));
+    void mail.loadMailboxes();
+    if (mail.list?.mailboxId && mail.list.mailboxId === mail.roleId("drafts"))
+      void mail.refreshList();
+    return newId;
+  } catch (err) {
+    if (!opts.final)
+      set((s) => ({
+        drafts: s.drafts.map((x) =>
+          x.key === d.key ? { ...x, saving: false, error: (err as Error).message } : x,
+        ),
+      }));
+    throw err;
+  }
+}
+
+/**
+ * The `EmailSubmission/set` create for a message, and the `Email` patch that
+ * files it once the server accepts it.
+ *
+ * A scheduled send differs in two places: the envelope carries a
+ * `HOLDUNTIL` parameter (RFC 4865 FUTURERELEASE, which is how JMAP asks for a
+ * delay -- `sendAt` itself is read-only and server-derived), and the message is
+ * filed under Scheduled rather than Sent, because it has not been sent yet.
+ */
+export function buildSubmission(opts: {
+  identityId: Id;
+  fromEmail: string;
+  emailRef: string;
+  rcpts: { email: string }[];
+  sentId: Id | null;
+  draftsId: Id | null;
+  scheduledId: Id | null;
+  sendAt: number | null;
+}): { create: Record<string, unknown>; onSuccessUpdateEmail: Record<string, unknown> } {
+  const scheduled = opts.sendAt !== null;
+  const mailFrom: Record<string, unknown> = { email: opts.fromEmail };
+  if (scheduled) mailFrom.parameters = { HOLDUNTIL: holdUntil(new Date(opts.sendAt!)) };
+  const filedIn = scheduled ? opts.scheduledId : opts.sentId;
+  const onSuccess: Record<string, unknown> = {
+    "keywords/$draft": null,
+    "keywords/$seen": true,
+  };
+  if (filedIn) onSuccess[`mailboxIds/${filedIn}`] = true;
+  if (opts.draftsId && opts.draftsId !== filedIn)
+    onSuccess[`mailboxIds/${opts.draftsId}`] = null;
+  if (scheduled && opts.sentId && opts.sentId !== filedIn)
+    onSuccess[`mailboxIds/${opts.sentId}`] = null;
+  return {
+    create: {
+      identityId: opts.identityId,
+      emailId: opts.emailRef,
+      envelope: { mailFrom, rcptTo: opts.rcpts },
+    },
+    onSuccessUpdateEmail: onSuccess,
+  };
+}
+
+/**
+ * The mailbox and identity a Send was pressed under, resolved once and
+ * carried to the submission: a message goes out from the mailbox it was
+ * written in, or not at all.
+ */
+interface SendTarget {
+  accountId: Id | null;
+  identityId: Id | null;
+}
+
+async function sendInternal(d: Draft, target: SendTarget): Promise<void> {
+  const mail = useMail.getState();
+  const accountId = target.accountId;
+  if (!accountId) throw new Error(translate("Not signed in"));
+  /*
+   * The account on screen is compared against the one Send was pressed
+   * under, before anything is submitted: the ids below -- the sent mailbox,
+   * the drafts folder, the identity -- are read from whichever account is
+   * active, and writing this message through another account's identity is
+   * not a mistake the reader could undo.
+   */
+  if (mail.accountId !== accountId)
+    throw new Error(translate("The mailbox changed before this message was sent"));
+  const ident =
+    target.identityId === null
+      ? undefined
+      : mail.identities.find((i) => i.id === target.identityId);
+  if (!ident) throw new Error(translate("No sending identity available"));
+  if (d.attachments.some((a) => !a.blobId && !a.error))
+    throw new Error(translate("Attachments are still uploading"));
+  /*
+   * A save that was in flight when Send was clicked may still be creating the
+   * draft this message replaces. Wait for it, and destroy the draft it
+   * actually produced -- otherwise its create lands after this destroy and a
+   * $draft of the sent message is left behind.
+   */
+  await drainSaves(d.key);
+  const draftId = saveChains.get(d.key)?.lastId ?? d.draftId;
+  saveChains.delete(d.key);
+  const scheduled = d.sendAt !== null && d.sendAt > Date.now();
+  const scheduledId = scheduled ? await ensureScheduledMailbox() : null;
+  const email = await buildEmailObject(d, { forSend: true, mailboxId: scheduledId });
+  const sentId = mail.roleId("sent");
+  const draftsId = mail.roleId("drafts");
+  const rcpts = uniqueAddresses([...d.to, ...d.cc, ...d.bcc]).map((a) => ({
+    email: a.email,
+  }));
+  if (!rcpts.length) throw new Error(translate("No recipients"));
+  const sub = buildSubmission({
+    identityId: ident.id,
+    fromEmail: ident.email,
+    emailRef: "#m",
+    rcpts,
+    sentId,
+    draftsId,
+    scheduledId,
+    sendAt: scheduled ? d.sendAt : null,
+  });
+  const calls: Array<[string, Record<string, unknown>, string]> = [
+    [
+      "Email/set",
+      { accountId, create: { m: email }, ...(draftId ? { destroy: [draftId] } : {}) },
+      "e",
+    ],
+    [
+      "EmailSubmission/set",
+      {
+        accountId,
+        create: { s: sub.create },
+        onSuccessUpdateEmail: { "#s": sub.onSuccessUpdateEmail },
+      },
+      "s",
+    ],
+  ];
+  if (d.relatedEmailId && d.relatedKeyword) {
+    calls.push([
+      "Email/set",
+      {
+        accountId,
+        update: { [d.relatedEmailId]: { [`keywords/${d.relatedKeyword}`]: true } },
+      },
+      "k",
+    ]);
+  }
+  const res = await client.chain(calls, { allowErrors: true });
+  const e = res.get("e")?.[0] as unknown as SetResponse<Email> & {
+    __error?: { type: string; description?: string };
+  };
+  if (e.__error) throw new Error(setErrorMessage(e.__error));
+  if (e.notCreated?.m) throw new Error(setErrorMessage(e.notCreated.m));
+  const s = res.get("s")?.[0] as unknown as SetResponse & {
+    __error?: { type: string; description?: string };
+  };
+  if (s.__error || s.notCreated?.s) {
+    // The submission failed, so the message the chain created never left: it is
+    // destroyed rather than left looking sent, whether the refusal was
+    // per-object or for the whole call.
+    const created = e.created?.m?.id;
+    if (created) void client.call("Email/set", { accountId, destroy: [created] });
+    const refusal = s.__error ?? s.notCreated?.s;
+    throw new Error(
+      refusal ? setErrorMessage(refusal) : "the message could not be submitted",
+    );
+  }
+  if (d.relatedEmailId && d.relatedKeyword) {
+    useMail.setState((st) => {
+      const cur = st.emails[d.relatedEmailId!];
+      return cur
+        ? {
+            emails: {
+              ...st.emails,
+              [d.relatedEmailId!]: {
+                ...cur,
+                keywords: { ...cur.keywords, [d.relatedKeyword!]: true },
+              },
+            },
+          }
+        : {};
+    });
+  }
+  if (scheduled) {
+    // The server decides the release time, so take its word for it rather than
+    // ours -- and say so if the two disagree, which means the hold did not land
+    // the way we asked.
+    const created = (s.created?.s ?? {}) as {
+      id?: Id;
+      sendAt?: string;
+      undoStatus?: string;
+    };
+    const settled = created.sendAt ? Date.parse(created.sendAt) : NaN;
+    if (!Number.isNaN(settled) && Math.abs(settled - d.sendAt!) > 60_000) {
+      toast.error(
+        translate("The server scheduled this for {when}, not the time requested.", {
+          when: formatScheduleTime(new Date(settled)),
+        }),
+      );
+    }
+    await useScheduled.getState().load();
+  }
+  void mail.loadMailboxes();
+  void mail.refreshList();
+}
+
+export { BODY_PROPS, FULL_PROPS };
+
+/** Composer fields for a `mailto:` URL, including cc/bcc and a quoted body. */
+export function draftFromMailto(url: string): Partial<Draft> {
+  const m = parseMailto(url);
+  const body = m.body ? `<div>${escapeHtml(m.body).replace(/\n/g, "<br>")}</div>` : "";
+  return {
+    to: m.to,
+    cc: m.cc,
+    bcc: m.bcc,
+    showCc: m.cc.length > 0,
+    showBcc: m.bcc.length > 0,
+    subject: m.subject,
+    ...(body ? { html: body, text: m.body } : {}),
+  };
+}
+
+/*
+ * Nothing written in one session is left open for the next.
+ *
+ * The other stores let go of their data when the session ends, by subscribing
+ * to the sign-in state as this does. This one kept its composers, so on a
+ * shared machine the next person to sign in -- without a reload, after an idle
+ * sign-out, say -- found the last one's draft open and could send it.
+ *
+ * A draft that was saved is still in Drafts on the server, so closing it here
+ * loses nothing. A send still inside its undo window was sent on the way out
+ * if the sign-out was a deliberate one (see `flushPendingSends`, called from
+ * `session.logout`); if the session had already ended there is nothing left to
+ * send it with, so its timer is stopped rather than left to fire under whoever
+ * signs in next.
+ */
+useSession.subscribe((s) => {
+  if (s.status !== "anonymous") return;
+  const { drafts, pendingSends } = useCompose.getState();
+  if (!drafts.length && !Object.keys(pendingSends).length) return;
+  for (const t of autosaveTimers.values()) window.clearTimeout(t);
+  autosaveTimers.clear();
+  for (const p of Object.values(pendingSends)) {
+    window.clearTimeout(p.timer);
+    toast.dismiss(p.toastId);
+  }
+  useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
+});

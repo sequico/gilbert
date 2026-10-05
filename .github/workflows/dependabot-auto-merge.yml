@@ -1,0 +1,86 @@
+name: Dependabot Auto-Merge
+
+# A Dependabot pull request is merged only after the CI that verifies it has
+# concluded green.
+#
+# GitHub's `gh pr merge --auto` has nothing to wait for on a branch with no
+# required checks -- main asks for none -- so an `--auto` merge would land
+# before the CI had run. This does not use it. It triggers on the CI's own
+# completion, which also settles the token: a run started by `workflow_run` is
+# not a Dependabot-triggered run, so its `GITHUB_TOKEN` may write without any
+# repository setting and without a personal token -- the read-only restriction
+# applies to workflows that Dependabot itself triggers. Nothing here checks out
+# or runs pull-request code: it reads the run, the pull request and its title
+# through the API, and merges the exact commit the CI verified
+# (`--match-head-commit`).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# Read-only by default; the write lives in the one job that merges.
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    # Only a successful CI for a pull request. Any other conclusion, and a run
+    # that is not a pull request at all, is no merge.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge the verified Dependabot commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          set -euo pipefail
+
+          # A run with no pull request -- a branch push, a dispatch -- is not
+          # this job's business.
+          if [ -z "$NUMBER" ]; then
+            echo "No pull request on this run; nothing to merge."
+            exit 0
+          fi
+
+          # Only Dependabot's own pull requests, and only an update that
+          # carries no breaking change. The author is read from the API, not
+          # from the run's actor, which the pull request cannot set.
+          meta="$(gh api "repos/$REPO/pulls/$NUMBER" --jq '[.user.login, .title] | @tsv')"
+          author="${meta%%$'\t'*}"
+          title="${meta#*$'\t'}"
+          if [ "$author" != "dependabot[bot]" ]; then
+            echo "Not a Dependabot pull request ($author); nothing to merge."
+            exit 0
+          fi
+
+          # A plain update names its two versions: eligible when the major is
+          # unchanged. A grouped update names no versions, and the only group
+          # this repository configures admits minor and patch alone
+          # (`.github/dependabot.yml`), so it is eligible by construction. Any
+          # other title is one this job cannot classify, and it waits for a
+          # person rather than guess.
+          if [[ "$title" =~ \ from\ ([^ ]+)\ to\ ([^ ]+) ]]; then
+            from="${BASH_REMATCH[1]}" to="${BASH_REMATCH[2]}"
+            if [ "${from%%.*}" != "${to%%.*}" ]; then
+              echo "Major update ($from -> $to); leaving it for review."
+              exit 0
+            fi
+          elif [[ "$title" == *"minor-and-patch group"* ]]; then
+            echo "Grouped minor/patch update; eligible."
+          else
+            echo "Update type not classifiable from \"$title\"; leaving it for review."
+            exit 0
+          fi
+
+          # --match-head-commit: no merge if the branch moved after the run, so
+          # the commit that enters is the one the CI verified.
+          gh pr merge --squash --match-head-commit "$HEAD_SHA" "$NUMBER"
+          echo "Merged $HEAD_SHA after a green CI." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,627 @@
+import type {
+  AppPasswordRow,
+  SecurityState,
+  SessionList,
+  SessionSummary,
+} from "@gilbert/shared/accountSecurity";
+import { Copy, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ApiError, apiFetch } from "@/jmap/client";
+import { formatFullDate } from "@/lib/format";
+import { plural, t, tNode } from "@/lib/i18n";
+import { useSession } from "@/store/session";
+import { confirmDialog, Dialog } from "@/ui/dialog";
+import { toast } from "@/ui/toast";
+
+export function SecuritySettings() {
+  const [rows, setRows] = useState<SessionSummary[] | null>(null);
+  const [current, setCurrent] = useState<string>("");
+  const [state, setState] = useState<SecurityState | null>(null);
+  /** Set when the server has no self-service API at all (a proxy, say). */
+  const [unsupported, setUnsupported] = useState<string | null>(null);
+  /** Set when the read failed for any other reason: a failure, not a capability. */
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const session = useSession((s) => s.session);
+  const logout = useSession((s) => s.logout);
+
+  const load = () =>
+    apiFetch<SessionList>("/api/auth/sessions")
+      .then((r) => {
+        setRows(r.sessions);
+        setCurrent(r.current);
+        setSessionsError(null);
+      })
+      .catch((err) => setSessionsError((err as Error).message));
+
+  const loadSecurity = useCallback(async () => {
+    try {
+      setState(await apiFetch<SecurityState>("/api/account/security"));
+      setUnsupported(null);
+      setSecurityError(null);
+    } catch (err) {
+      setState(null);
+      // A 501 is the server saying it has no self-service API; anything else is
+      // a failure and must read as one, not as an installation that manages
+      // passwords elsewhere.
+      if (err instanceof ApiError && err.status === 501) {
+        setUnsupported(err.message);
+        setSecurityError(null);
+      } else {
+        setUnsupported(null);
+        setSecurityError((err as Error).message);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    void loadSecurity();
+  }, [loadSecurity]);
+
+  return (
+    <div>
+      <h1>{t("Security & sessions")}</h1>
+      <p className="lead">
+        {tNode(
+          "You're signed in as {user}. Your password is never stored in the browser; the server keeps it encrypted per-session for talking to Stalwart.",
+          {
+            user: (
+              <b className="notranslate" translate="no">
+                {session?.username}
+              </b>
+            ),
+          },
+        )}
+      </p>
+
+      <h2>{t("Password")}</h2>
+      {securityError ? (
+        <p className="hint">{securityError}</p>
+      ) : unsupported ? (
+        <p className="hint">{unsupported}</p>
+      ) : (
+        <PasswordForm
+          otpEnabled={state?.otpEnabled ?? false}
+          onChanged={() => {
+            void load();
+          }}
+        />
+      )}
+
+      {!unsupported && !securityError && state?.otpEnabled && (
+        <>
+          <h2>{t("Two-factor authentication")}</h2>
+          <TwoFactorOff
+            reload={async () => {
+              await loadSecurity();
+              await load();
+            }}
+          />
+        </>
+      )}
+
+      <h2>{t("App passwords")}</h2>
+      {securityError ? (
+        <p className="hint">{securityError}</p>
+      ) : unsupported ? (
+        <p className="hint">
+          {t("App passwords are managed by your mail administrator.")}
+        </p>
+      ) : (
+        <AppPasswords state={state} reload={loadSecurity} />
+      )}
+
+      <h2>{t("Active webmail sessions")}</h2>
+      {sessionsError ? (
+        <p className="hint">{sessionsError}</p>
+      ) : rows === null ? (
+        <p className="hint">{t("Loading…")}</p>
+      ) : (
+        <table className="sessions-table">
+          <thead>
+            <tr>
+              <th>{t("Device")}</th>
+              <th>{t("IP")}</th>
+              <th>{t("Last active")}</th>
+              <th>{t("Expires")}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <div className="truncate" style={{ maxWidth: 320 }} title={r.userAgent}>
+                    {shortUa(r.userAgent)}
+                  </div>
+                  {r.id === current && (
+                    <span className="badge" style={{ marginTop: 2 }}>
+                      {t("this device")}
+                    </span>
+                  )}
+                </td>
+                <td className="mono small">{r.ip}</td>
+                <td>{formatFullDate(new Date(r.lastSeenAt).toISOString())}</td>
+                <td>{`${formatFullDate(new Date(r.expiresAt).toISOString())}${r.remember ? " (remembered)" : ""}`}</td>
+                <td />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="row mt-16">
+        <button
+          className="btn"
+          onClick={async () => {
+            if (
+              await confirmDialog({
+                title: t("Sign out other sessions?"),
+                confirmLabel: t("Sign out others"),
+              })
+            ) {
+              const r = await apiFetch<{ revoked: number }>(
+                "/api/auth/sessions/revoke-others",
+                { method: "POST" },
+              );
+              toast.success(
+                plural(r.revoked, {
+                  one: "Signed out {n} other session",
+                  other: "Signed out {n} other sessions",
+                }),
+              );
+              void load();
+            }
+          }}
+        >
+          {t("Sign out all other sessions")}
+        </button>
+        <button className="btn btn-ghost" onClick={() => void logout()}>
+          {t("Sign out here")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Current + new + confirm (and the OTP code when the account has 2FA on).
+ * Exported because the forced-password-change wall (ADR 0001) is the same
+ * form with the same only way out: a successful change. The wall has no
+ * access to /api/account/security (the door gates it), and a session that
+ * can be walled at all holds the account password — 2FA accounts sign in
+ * with an app password and are never forced — so the wall always shows the
+ * form without the OTP field.
+ */
+export function PasswordForm({
+  otpEnabled,
+  onChanged,
+}: {
+  otpEnabled: boolean;
+  onChanged: () => void;
+}) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (next !== confirm) {
+      toast.error(t("The new passwords don't match"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ revokedSessions: number }>("/api/account/password", {
+        method: "POST",
+        body: JSON.stringify({ current, next, otpCode: code || undefined }),
+      });
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setCode("");
+      toast.success(
+        res.revokedSessions
+          ? plural(res.revokedSessions, {
+              one: "Password changed. {n} other session signed out.",
+              other: "Password changed. {n} other sessions signed out.",
+            })
+          : t("Password changed"),
+      );
+      onChanged();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "Changing your password signs out your other webmail sessions. Any app passwords keep working.",
+        )}
+      </p>
+      <div className="field" style={{ maxWidth: 380 }}>
+        <label htmlFor="pw-current">{t("Current password")}</label>
+        <input
+          id="pw-current"
+          type="password"
+          autoComplete="current-password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          required
+        />
+      </div>
+      {otpEnabled && (
+        <div className="field" style={{ maxWidth: 380 }}>
+          <label htmlFor="pw-code">{t("Code from your authenticator")}</label>
+          <input
+            id="pw-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="123456"
+            required
+          />
+        </div>
+      )}
+      <div className="field-row" style={{ maxWidth: 780 }}>
+        <div className="field">
+          <label htmlFor="pw-new">{t("New password")}</label>
+          <input
+            id="pw-new"
+            type="password"
+            autoComplete="new-password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            required
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="pw-confirm">{t("Confirm new password")}</label>
+          <input
+            id="pw-confirm"
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <button className="btn btn-primary" disabled={busy || !current || !next}>
+        {busy ? t("Changing…") : t("Change password")}
+      </button>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * Only the way *out*. There is no way to set two-factor authentication up
+ * until signing in with a code works: Stalwart takes a TOTP code through an
+ * OAuth flow alone and offers no password grant, so Gilbert has nowhere to send
+ * one (#75). Turning it on here would lock the account out of webmail on its
+ * next sign-in. Turning it off is a plain registry write, works today, and has
+ * to stay — whoever is already enrolled needs a way back.
+ */
+function TwoFactorOff({ reload }: { reload: () => Promise<void> }) {
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [disabling, setDisabling] = useState(false);
+
+  const disable = async () => {
+    setBusy(true);
+    try {
+      await apiFetch("/api/account/2fa/disable", {
+        method: "POST",
+        body: JSON.stringify({ current: password, code }),
+      });
+      setDisabling(false);
+      await reload();
+      toast.success(t("Two-factor authentication is off"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.",
+        )}
+      </p>
+      <div className="row" style={{ alignItems: "center", gap: 10 }}>
+        <ShieldCheck size={18} />
+        <b>{t("Enabled")}</b>
+        <button
+          className="btn btn-sm"
+          onClick={() => {
+            setDisabling(true);
+            setCode("");
+            setPassword("");
+          }}
+        >
+          {t("Turn off")}
+        </button>
+      </div>
+
+      <Dialog
+        open={disabling}
+        onClose={() => setDisabling(false)}
+        title={t("Turn off two-factor authentication")}
+        size="sm"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setDisabling(false)}>
+              {t("Cancel")}
+            </button>
+            <button
+              className="btn btn-danger"
+              disabled={busy || !password || code.length < 6}
+              onClick={() => void disable()}
+            >
+              {busy ? t("Working…") : t("Turn off")}
+            </button>
+          </>
+        }
+      >
+        <p>{t("Your password alone will be enough to sign in again.")}</p>
+        <div className="field">
+          <label htmlFor="tfa-off-pw">{t("Your password")}</label>
+          <input
+            id="tfa-off-pw"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="tfa-off-code">{t("Current code")}</label>
+          <input
+            id="tfa-off-code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="123456"
+          />
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+function AppPasswords({
+  state,
+  reload,
+}: {
+  state: SecurityState | null;
+  reload: () => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [current, setCurrent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [issued, setIssued] = useState<{ description: string; secret: string } | null>(
+    null,
+  );
+
+  if (!state) return <p className="hint">{t("Loading…")}</p>;
+
+  const create = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ id: string; secret: string }>(
+        "/api/account/app-passwords",
+        {
+          method: "POST",
+          body: JSON.stringify({ description: name, current }),
+        },
+      );
+      setIssued({ description: name, secret: res.secret });
+      setName("");
+      setCurrent("");
+      await reload();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revoke = async (row: AppPasswordRow) => {
+    const ok = await confirmDialog({
+      title: t("Revoke “{name}”?", { name: row.description }),
+      message: t("Anything signed in with this password stops working immediately."),
+      confirmLabel: t("Revoke"),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await apiFetch("/api/account/app-passwords/revoke", {
+        method: "POST",
+        body: JSON.stringify({ id: row.id }),
+      });
+      await reload();
+      toast.success(t("App password revoked"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  return (
+    <div>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.",
+        )}
+      </p>
+      {state.appPasswords.length > 0 && (
+        <table className="sessions-table">
+          <thead>
+            <tr>
+              <th>{t("Name")}</th>
+              <th>{t("Created")}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {state.appPasswords.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <KeyRound size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
+                  {row.description}
+                </td>
+                <td>{row.createdAt ? formatFullDate(row.createdAt) : "—"}</td>
+                <td style={{ textAlign: "right" }}>
+                  <button
+                    className="btn btn-sm btn-ghost"
+                    onClick={() => void revoke(row)}
+                  >
+                    {t("Revoke")}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <form
+        onSubmit={create}
+        className="row mt-16"
+        style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+      >
+        <div className="field" style={{ marginBottom: 0, minWidth: 240 }}>
+          <label htmlFor="ap-name">{t("New app password for")}</label>
+          <input
+            id="ap-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("Thunderbird on my laptop")}
+            required
+          />
+        </div>
+        <div className="field" style={{ marginBottom: 0, minWidth: 200 }}>
+          <label htmlFor="ap-current">{t("Your current password")}</label>
+          <input
+            id="ap-current"
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            required
+          />
+        </div>
+        <button className="btn" disabled={busy || !name.trim() || !current}>
+          {busy ? t("Creating…") : t("Create")}
+        </button>
+      </form>
+
+      <Dialog
+        open={Boolean(issued)}
+        onClose={() => setIssued(null)}
+        title={t("Your new app password")}
+        size="sm"
+        footer={
+          <button className="btn btn-primary" onClick={() => setIssued(null)}>
+            {t("Done")}
+          </button>
+        }
+      >
+        {issued && (
+          <div>
+            <p>
+              {tNode("Copy it into {name} now — it isn't shown again.", {
+                name: <b>{issued.description}</b>,
+              })}
+            </p>
+            <CopyableSecret value={issued.secret} />
+            <p className="hint mt-8">
+              <Smartphone size={13} style={{ verticalAlign: "-2px" }} />{" "}
+              {t("Use your usual address as the username.")}
+            </p>
+          </div>
+        )}
+      </Dialog>
+    </div>
+  );
+}
+
+/**
+ * A secret rendered exactly once, for the reader to copy (an app password, or
+ * the agent's — both are shown here because neither is ever shown again).
+ * Shared, so the admin surface and the security settings cannot drift into two
+ * slightly different promises about the same kind of value.
+ */
+export function CopyableSecret({ value }: { value: string }) {
+  return (
+    <div className="row" style={{ gap: 6, alignItems: "center" }}>
+      <code
+        className="mono"
+        style={{
+          userSelect: "all",
+          wordBreak: "break-all",
+          flex: 1,
+          padding: "6px 8px",
+          background: "var(--bg-hover)",
+          borderRadius: 6,
+        }}
+      >
+        {value}
+      </code>
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost"
+        title={t("Copy")}
+        onClick={() =>
+          void navigator.clipboard?.writeText(value).then(
+            () => toast.success(t("Copied")),
+            () => toast.error(t("Could not copy")),
+          )
+        }
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  );
+}
+
+function shortUa(ua: string): string {
+  const browser = /Firefox\/(\d+)/.exec(ua)
+    ? `Firefox ${/Firefox\/(\d+)/.exec(ua)![1]}`
+    : /Edg\/(\d+)/.exec(ua)
+      ? `Edge ${/Edg\/(\d+)/.exec(ua)![1]}`
+      : /Chrome\/(\d+)/.exec(ua)
+        ? `Chrome ${/Chrome\/(\d+)/.exec(ua)![1]}`
+        : /Safari\/(\d+)/.exec(ua)
+          ? "Safari"
+          : "Browser";
+  const os = /Windows/.test(ua)
+    ? "Windows"
+    : /Android/.test(ua)
+      ? "Android"
+      : /iPhone|iPad/.test(ua)
+        ? "iOS"
+        : /Mac OS/.test(ua)
+          ? "macOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "";
+  return `${browser}${os ? ` on ${os}` : ""}`;
+}

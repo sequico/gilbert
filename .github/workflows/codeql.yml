@@ -1,0 +1,80 @@
+# The CodeQL analysis, run where a release is prepared rather than on every
+# push.
+#
+# It is a 686 MB toolchain and minutes of analysis, which is why it is not in
+# the per-push gate (`check:ci`): a gate that cannot run on a fresh clone is not
+# a gate. It is called by `release.yml` as part of its pre-check, so nothing is
+# cut on an analysis that is not clean, and it can be dispatched by hand or runs
+# weekly so a query added upstream surfaces without a release.
+#
+# `npm run codeql` (`scripts/codeql.mjs`) runs the same suite on a checkout, for
+# a machine that has the bundle.
+name: CodeQL
+
+on:
+  # Called by release.yml's pre-check, beside ci.yml.
+  workflow_call:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly, off the hour.
+    - cron: "41 3 * * 1"
+
+# Read-only. The analysis reads the run for status and does not publish its
+# SARIF (this repository is private without GitHub Code Security), so no write
+# permission is asked for.
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # JavaScript and TypeScript need no build step for the extractor, which
+      # also reads the GitHub Actions workflows through this suite.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - name: Perform CodeQL analysis
+        id: analyze
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: "/language:javascript-typescript"
+          # The SARIF is not published: this is a private repository without
+          # GitHub Code Security, so code scanning cannot receive it. The
+          # analysis still runs, and the next step holds the gate.
+          upload: never
+      # What publishing would have done: an alert the repository cannot see is
+      # no less an alert. Any result fails the job, the way `npm run codeql`
+      # fails locally, so a release is still never cut on an unclean analysis.
+      - name: Fail on any analysis result
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="${{ steps.analyze.outputs.sarif-output }}"
+          if ! find "$dir" -name '*.sarif' -type f -print -quit | grep -q .; then
+            echo "CodeQL wrote no SARIF under $dir"
+            exit 1
+          fi
+          count="$(find "$dir" -name '*.sarif' -type f -exec cat {} + \
+            | jq -s '[.[].runs[] | (.results // [])[]] | length')"
+          echo "CodeQL: $count result(s)."
+          if [ "$count" -gt 0 ]; then
+            find "$dir" -name '*.sarif' -type f -exec cat {} + \
+              | jq -r '.runs[] | (.results // [])[] | "\(.ruleId) \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' \
+              | sort -u
+            exit 1
+          fi

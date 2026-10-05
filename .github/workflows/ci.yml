@@ -1,0 +1,63 @@
+name: CI
+on:
+  # The release pre-check: release.yml calls this before it cuts anything, so
+  # nothing ships on a red check. There is deliberately no push trigger any
+  # more -- per-push verification is the local fast gate (npm run prepush, the
+  # same `check:ci` this job runs, enforced by the pre-push hook) plus the
+  # security workflow (ci-security.yml); see AGENTS.md. This workflow stays the
+  # release pre-check, and codeql.yml is the release's other one.
+  #
+  # One pull_request exception: Dependabot's branches never pass through the
+  # local pre-push hook, so its PRs get the check automatically. The job-level
+  # guard below means the trigger costs nothing for human PRs (they are still
+  # gated by the local hook and by release.yml's call).
+  workflow_call:
+  pull_request:
+  # Lets CI be run by hand against any ref, including a specific commit.
+  # Without this there is no way to re-run a check that never started: a run
+  # GitHub queues and then orphans -- as it did to every run created during the
+  # Actions outage on 2026-08-26 -- can be neither rerun ("already running")
+  # nor cancelled ("already completed"), and the workflow has no other trigger
+  # to reach for. Useful too for putting a check on a commit that predates a CI
+  # change, without pushing an empty commit to move it.
+  workflow_dispatch:
+# A run per ref, and only a pull request's run may be cancelled by its
+# successor: on main a release's pre-check must not lose its verdict because
+# somebody pushed again while it was reading the tree.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  build:
+    # A human PR does not run here: it has no way through the pre-push hook
+    # anyway, and this workflow stays the release pre-check plus Dependabot.
+    if: github.event_name != 'pull_request' || github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    # Reading the repository is the whole of this job: it checks the tree out,
+    # runs the checks and smoke-builds the image, and nothing here writes back.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # One gate, one source: this is the same `npm run check:ci` the pre-push
+      # hook runs, so the release pre-check and a developer's push cannot
+      # diverge. The Docker smoke build below is the only part that is CI's
+      # alone -- a local gate cannot assume a Docker daemon.
+      - run: npm run check:ci
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Docker build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: gilbert:ci
+          # The image build is the slow stage. This job runs first (it is the
+          # release's pre-check) and caches it under the same scope the release's
+          # image build reads.
+          cache-from: type=gha,scope=linux/amd64
+          cache-to: type=gha,mode=max,scope=linux/amd64

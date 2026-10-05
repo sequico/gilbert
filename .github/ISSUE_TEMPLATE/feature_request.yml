@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a capability Gilbert does not have
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [FEATURES.md](https://github.com/sequico/gilbert/blob/main/FEATURES.md)
+        is what Gilbert does today;
+        [ROADMAP.md](https://github.com/sequico/gilbert/blob/main/ROADMAP.md) is
+        what it deliberately does not. Please check both, and describe the
+        problem rather than only the solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that Gilbert makes hard or impossible?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: A way it could work
+      description: Optional. It is the problem that decides whether this is taken up.
+    validations:
+      required: false

@@ -1,0 +1,55 @@
+name: Bug report
+description: Something does not work the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do **not** open a public issue for a security
+        problem — report it privately through
+        [Security → Report a vulnerability](https://github.com/sequico/gilbert/security/advisories/new),
+        as [SECURITY.md](https://github.com/sequico/gilbert/blob/main/SECURITY.md)
+        explains.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that shows the problem.
+    validations:
+      required: true
+  - type: input
+    id: gilbert-version
+    attributes:
+      label: Gilbert version
+      description: Settings › About, or the image tag you run.
+    validations:
+      required: true
+  - type: input
+    id: stalwart-version
+    attributes:
+      label: Stalwart version
+      description: Gilbert speaks JMAP to Stalwart 0.16 or newer.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and deployment
+      description: Browser and OS, and how Gilbert runs (compose, host install, reverse proxy).
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server logs around the failure, with anything personal removed.
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,9 @@
+# What the security scan reads.
+#
+# The rule packs are aimed at the code that ships. Test files reach the local
+# mock over http and carry fixtures, so the packs' HTTP and credential patterns
+# fire on them by construction rather than because of a defect. Scoping them
+# out is not a silence: a real pattern in production code still fails the job.
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/**

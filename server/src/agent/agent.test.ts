@@ -1,0 +1,418 @@
+import assert from "node:assert/strict";
+import { after, test } from "node:test";
+
+/**
+ * The agent's second entrypoint against the mock (ADR 0003, v1 scope).
+ *
+ * The process-level half — the poll loop, the event stream, signals — is driven
+ * through the same seam with `timers: false`, so one pass is exercised without
+ * the test holding a live fleet. What a pass must do is durable and observable:
+ * claim every group mailbox the principal can see, write what it is holding
+ * **when that changes**, hold the single stream claim, and give the claims back
+ * on stop. What a pass must **not** do is write on a clock: that is the mock's
+ * upload counter's business, in `no-periodic-writes.test.ts`.
+ */
+
+const PORT = 18849;
+process.env.MOCK_PORT = String(PORT);
+
+const mock = await import("../mock/index.js");
+const { fetchUpstreamSession } = await import("../upstream.js");
+const {
+  basicAuth,
+  candidateAccounts,
+  groupNameOf,
+  liveAgents,
+  startAgent,
+  withdrawnAccounts,
+} = await import("./agent.js");
+const { AgentStore } = await import("./store.js");
+const { filesAccountId, readAppJsonAt } = await import("../appFolder.js");
+const { WITHDRAWALS_PATH } = await import("./views.js");
+
+const BASE = `http://127.0.0.1:${PORT}`;
+/** The group mailboxes of the demo session, and the demo's own account. */
+const GROUP = "a3";
+const AGENT = "gilbert@example.com";
+const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
+
+const session = await fetchUpstreamSession(AUTH, BASE);
+const ctx = { authorization: AUTH, session, username: "demo@example.com" };
+const agentStore = new AgentStore(ctx, "a1");
+
+after(() => {
+  (mock as { server?: { close(): void } }).server?.close();
+});
+
+test("the accounts a v1 agent may serve are the group mailboxes", async () => {
+  // The session the daemon runs with is the agent's own (ADR 0003): it holds
+  // the groups it is granted, and nothing of a person's — `design@example.org`
+  // is the agent's group and not the demo user's, which is why the fixture is
+  // this session and not the demo's.
+  const agentAuth = basicAuth(AGENT, mock.AGENT_PASS);
+  const agentSession = await fetchUpstreamSession(agentAuth, BASE);
+  const served = await candidateAccounts({
+    authorization: agentAuth,
+    session: agentSession,
+    username: AGENT,
+  });
+  assert.ok(served.includes(GROUP), "a group mailbox is served");
+  assert.ok(served.includes("a5"), "a second group is served too");
+  assert.ok(!served.includes("a1"), "a person's own account is not v1 work");
+
+  /*
+   * The demo's session holds `grace@example.org` besides: non-personal, with an
+   * address, and **no mail store**. It is somebody's shared folder, not a group,
+   * and the mail store's probe is what tells the two apart — this assertion is
+   * the one that fails when the probe is removed and the session alone decides.
+   */
+  const demo = await candidateAccounts(ctx);
+  assert.ok(demo.includes(GROUP), "the group the demo is a member of is served");
+  assert.ok(
+    !demo.includes("a2"),
+    "a folder share is not a group, however much it looks like one",
+  );
+});
+
+test("the authorization header an agent derives its session with", () => {
+  assert.equal(
+    basicAuth(AGENT, "an-app-password"),
+    `Basic ${Buffer.from(`${AGENT}:an-app-password`).toString("base64")}`,
+  );
+});
+
+test("one pass claims its units, records what it serves, and gives everything back on stop", async () => {
+  const lines: string[] = [];
+  const agent = await startAgent({
+    ctx,
+    address: AGENT,
+    agentId: "w-agent-test",
+    log: (line) => lines.push(line),
+    timers: false,
+  });
+
+  const served = await agent.pass();
+  assert.deepEqual([...served].sort(), [...(await candidateAccounts(ctx))].sort());
+  for (const accountId of served) {
+    const claim = await new AgentStore(ctx, accountId).readClaim();
+    assert.equal(claim?.doc.agent, "w-agent-test", `${accountId}/mail is this agent's`);
+  }
+
+  const record = (await agentStore.listAgents()).find((w) => w.id === "w-agent-test");
+  assert.ok(record, "the agent says what it is doing, in the agent's own account");
+  assert.equal(record.address, AGENT);
+  // The groups it holds, by the names the session gave those accounts: the
+  // admin surface reads one group's agents off this and has nothing else to
+  // read them from — the claim lives in the group's own account, not here.
+  assert.deepEqual(
+    [...(record.serves ?? [])].sort(),
+    served.map((id) => groupNameOf(session, id)).sort(),
+    "the record names the groups it is holding",
+  );
+  assert.ok(
+    Number.isFinite(Date.parse(record.updatedAt)),
+    "and when it last changed, which is the only stamp a record carries",
+  );
+  assert.equal(
+    (await agentStore.readStreamClaim())?.doc.agent,
+    "w-agent-test",
+    "exactly one agent holds the agent's event stream",
+  );
+
+  // A second pass is the same pass: the claim is held, not re-taken, and the
+  // record it wrote is still the record.
+  await agent.pass();
+  const again = await new AgentStore(ctx, GROUP).readClaim();
+  assert.equal(again?.doc.agent, "w-agent-test");
+  assert.equal(
+    (await agentStore.listAgents()).find((w) => w.id === "w-agent-test")?.updatedAt,
+    record.updatedAt,
+    "a pass that changes nothing writes nothing",
+  );
+
+  await agent.stop();
+  assert.equal(await agentStore.readStreamClaim(), null, "the stream claim is released");
+  for (const accountId of served) {
+    assert.equal(
+      await new AgentStore(ctx, accountId).readClaim(),
+      null,
+      "and so are the claims, so a replacement serves at once",
+    );
+  }
+  assert.equal(agent.served().length, 0);
+  assert.equal(
+    (await agentStore.listAgents()).find((w) => w.id === "w-agent-test"),
+    undefined,
+    "a agent that stopped leaves no record behind to be read as a live one",
+  );
+  assert.ok(
+    lines.some((line) => line.includes(`claimed ${GROUP}`)),
+    "a meaningful event is one line",
+  );
+});
+
+test("liveness is the process's own fact, and it goes with the agent", async () => {
+  // The status surface asks the server that hosts the agent, and this is the
+  // answer: a running agent is one this process is running (ADR 0003: the
+  // server starts the fleet and its shutdown stops it). Nothing durable is
+  // consulted, so a record on disk can never make a stopped agent look alive.
+  const agent = await startAgent({
+    ctx,
+    address: AGENT,
+    agentId: "w-live",
+    log: () => {},
+    timers: false,
+  });
+  try {
+    const started = liveAgents().find((w) => w.id === "w-live");
+    assert.ok(started, "a agent that started is alive before it has claimed anything");
+    assert.equal(started.address, AGENT);
+    assert.deepEqual(
+      started.groups,
+      [],
+      "holding nothing is a state, not a missing answer",
+    );
+
+    const served = await agent.pass();
+    const live = liveAgents().find((w) => w.id === "w-live");
+    assert.ok(live);
+    assert.deepEqual(
+      [...live.groups].sort(),
+      served.map((id) => groupNameOf(session, id)).sort(),
+      "and what it is serving right now is what the surface reads",
+    );
+    assert.equal(live.streaming, true, "the stream claim is part of what this agent is");
+  } finally {
+    // A test that leaves a claim behind decides the tests after it: the injected
+    // clocks of the ones below are in the past, and a claim taken in real time
+    // is not theirs to take over.
+    await agent.stop();
+  }
+  assert.equal(
+    liveAgents().find((w) => w.id === "w-live"),
+    undefined,
+    "and a agent that stopped is not alive, with nothing written down to say so",
+  );
+});
+
+test("the health endpoint answers a probe and nothing else", async () => {
+  // Deployment's restart policy asks one question — is this process serving
+  // what it claimed — and a port nobody asked for would be surface for
+  // nothing, which is why the endpoint exists only when one is named.
+  const { startHealthServer } = await import("./agent.js");
+  const healthPort = 18853;
+  const close = startHealthServer({
+    port: healthPort,
+    health: () => ({
+      status: "ok",
+      agent: "w1",
+      address: AGENT,
+      accounts: [GROUP],
+      streaming: true,
+      startedAt: new Date().toISOString(),
+      uptimeSeconds: 3,
+    }),
+  });
+  try {
+    const ok = await fetch(`http://127.0.0.1:${healthPort}/health`);
+    assert.equal(ok.status, 200);
+    const body = (await ok.json()) as { status: string; accounts: string[] };
+    assert.equal(body.status, "ok");
+    assert.deepEqual(body.accounts, [GROUP]);
+    const missing = await fetch(`http://127.0.0.1:${healthPort}/anything`);
+    assert.equal(missing.status, 404);
+  } finally {
+    close();
+  }
+});
+
+test("a process that starts later takes the claim over, and the older one gives it up", async () => {
+  // Two handles are two processes as far as the documents are concerned: the
+  // claim is the only thing that says who serves an account (ADR 0003), and it
+  // records when it was **taken**. The rule is the process's own start: a claim
+  // taken before this process started belongs to a process that was here first
+  // — dead holding it, or replaced — so it is ours to take over; a claim taken
+  // after this process started belongs to a peer that came up while we were
+  // already running, and is left alone, however long we keep running.
+  const store = new AgentStore(ctx, GROUP);
+  const start = new Date("2026-09-10T09:00:00Z");
+  const later = (ms: number) => () => new Date(start.getTime() + ms);
+  const lines: string[] = [];
+
+  const first = await startAgent({
+    ctx,
+    address: AGENT,
+    agentId: "w-first",
+    log: (line) => lines.push(line),
+    timers: false,
+    now: later(0),
+  });
+  await first.pass();
+  const claimed = await store.readClaim();
+  assert.equal(claimed?.doc.agent, "w-first");
+  assert.equal(
+    claimed?.doc.takenAt,
+    start.toISOString(),
+    "the claim says when it was taken",
+  );
+  assert.equal(claimed?.doc.epoch, 0, "the first ownership of the unit");
+
+  // A process that starts half a minute later reads a claim taken before it
+  // existed, and takes it: this is the overlap of a restart, and it is the one
+  // write a takeover costs. The anchor the older process recorded travels with
+  // it, so catch-up continues where it stopped rather than from nothing.
+  const states = { Email: "s-42" };
+  await store.writeClaim({ ...(await store.readClaim())!.doc, states });
+  const second = await startAgent({
+    ctx,
+    address: AGENT,
+    agentId: "w-second",
+    log: () => {},
+    timers: false,
+    now: later(30_000),
+  });
+  await second.pass();
+  const taken = await store.readClaim();
+  assert.equal(taken?.doc.agent, "w-second");
+  assert.equal(taken?.doc.epoch, 1, "a takeover is a new ownership");
+  assert.ok(second.served().includes(GROUP), "the successor serves the unit");
+  assert.equal(
+    typeof taken?.doc.states.Email,
+    "string",
+    "the claim always carries an anchor for the next pass",
+  );
+
+  // The older process finds out on its own next pass — a read, no write — and
+  // does not take it back: the claim it reads was taken after it started, so
+  // the peer that holds it is one that is running now. Its run's late writes
+  // are refused by the epoch (`claimStillMine`), which is the fence at work.
+  const claims = lines.filter((line) => line.includes(`claimed ${GROUP}`)).length;
+  const served = await first.pass();
+  assert.ok(
+    !served.includes(GROUP),
+    "a claim taken after we started is not ours to take back",
+  );
+  assert.equal(
+    (await store.readClaim())?.doc.agent,
+    "w-second",
+    "and it stays the peer's",
+  );
+  assert.ok(
+    lines.some((line) => line === `lost ${GROUP}`),
+    "the older process says it lost the unit instead of working it twice",
+  );
+  assert.equal(
+    lines.filter((line) => line.includes(`claimed ${GROUP}`)).length,
+    claims,
+    "and the pass that found it gone took nothing back from the process running now",
+  );
+
+  // A third process, starting long after, takes it over in turn: what makes a
+  // claim free is the process that reads it starting later, and nothing else.
+  const third = await startAgent({
+    ctx,
+    address: AGENT,
+    agentId: "w-third",
+    log: () => {},
+    timers: false,
+    now: later(10 * 60_000),
+  });
+  await third.pass();
+  assert.equal((await store.readClaim())?.doc.agent, "w-third");
+  await first.stop();
+  await second.stop();
+  await third.stop();
+});
+
+test("a withdrawal is the accounts that left the session, with the names they had", () => {
+  const before = new Map([
+    ["a3", "sales@example.com"],
+    ["a5", "ops@example.com"],
+  ]);
+  assert.deepEqual(withdrawnAccounts(before, ["a3"]), [
+    { account: "a5", name: "ops@example.com" },
+  ]);
+  assert.deepEqual(
+    withdrawnAccounts(before, ["a5", "a3"]),
+    [],
+    "a session that still lists them all reports nothing",
+  );
+  assert.deepEqual(
+    withdrawnAccounts(new Map(), ["a3"]),
+    [],
+    "the first pass has no before to compare, so nothing is a withdrawal",
+  );
+});
+
+/**
+ * The group name is read in one spelling, and one place reads it: the
+ * withdrawal report goes through this, so a session that returns a name with
+ * space around it cannot report a group under one name and serve it under
+ * another.
+ */
+test("the name a group is served under is trimmed and lower-cased, in one place", () => {
+  const named = {
+    accounts: { a9: { name: "  Ops@Example.com " } },
+  } as unknown as Parameters<typeof groupNameOf>[0];
+  assert.equal(groupNameOf(named, "a9"), "ops@example.com");
+  assert.equal(groupNameOf(named, "a8"), "", "an account the session does not name");
+});
+
+test("a grant that is withdrawn is reported, and stops being served", async () => {
+  // The grant is withdrawn in Stalwart's own administration, which is a change
+  // this installation never sees: the group simply leaves the agent's session.
+  // What the pass must do then is stop serving it and say so where it can still
+  // write — its own account — rather than failing against it on every pass
+  // (ADR 0003).
+  const own = {
+    authorization: AUTH,
+    session: await fetchUpstreamSession(AUTH, BASE),
+    username: "demo@example.com",
+  };
+  const start = new Date("2026-09-11T09:00:00Z");
+  const agent = await startAgent({
+    ctx: own,
+    address: AGENT,
+    agentId: "w-withdrawal",
+    log: () => {},
+    timers: false,
+    now: () => new Date(start.getTime()),
+  });
+
+  assert.ok((await agent.pass()).includes(GROUP), "the group is served to begin with");
+  assert.equal(
+    await readAppJsonAt(own, filesAccountId(own), WITHDRAWALS_PATH),
+    null,
+    "and nothing is reported while the grant stands",
+  );
+
+  const accounts = own.session.accounts as Record<string, unknown>;
+  delete accounts[GROUP];
+
+  const after = await agent.pass();
+  assert.ok(!after.includes(GROUP), "the withdrawn account is not served any more");
+  const report = (await readAppJsonAt(
+    own,
+    filesAccountId(own),
+    WITHDRAWALS_PATH,
+  )) as Array<{ account: string; group: string; at: string }>;
+  assert.equal(report.length, 1, "one withdrawal, reported once");
+  assert.equal(report[0].account, GROUP);
+  assert.equal(
+    report[0].group,
+    groupNameOf(session, GROUP),
+    "the name the session had given",
+  );
+  assert.equal(report[0].at, start.toISOString());
+
+  // The claim it held is left where it is: a withdrawal is not a release, and a
+  // agent that deleted another account's documents on its way out would be
+  // taking a trust it was never given. The claim stays in the group's own
+  // account, un-renewed, and the next process to start takes it over.
+  assert.equal(
+    (await new AgentStore(own, GROUP).readClaim())?.doc.agent,
+    "w-withdrawal",
+    "the claim is left for the next process that starts to take over",
+  );
+  await agent.stop();
+});

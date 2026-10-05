@@ -1,0 +1,2235 @@
+import {
+  OCCURRENCE_INHERITED,
+  OCCURRENCE_REJECTED,
+} from "@gilbert/shared/calendarOccurrence";
+import { create } from "zustand";
+import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
+import type {
+  BusyPeriod,
+  Calendar,
+  CalendarEvent,
+  EmailAddress,
+  GetResponse,
+  Id,
+  JSCalendarParticipant,
+  JSCalendarRecurrenceRule,
+  ParticipantIdentity,
+  QueryResponse,
+  SetError,
+  SetResponse,
+} from "@/jmap/types";
+import { withBase } from "@/lib/basePath";
+import {
+  BIRTHDAY_CALENDAR_ID,
+  type Birthday,
+  birthdaysInRange,
+  isBirthdayEvent,
+} from "@/lib/birthdays";
+import { dueReminders, dueSubscriptionReminders } from "@/lib/calendarReminders";
+import {
+  browserTimeZone,
+  DAY_MS,
+  dateToZonedLocal,
+  formatDuration,
+  parseDuration,
+  toLocalDateTime,
+  toUTCDate,
+  zonedToDate,
+} from "@/lib/dates";
+import { shiftStoredStart } from "@/lib/eventDrag";
+import { t } from "@/lib/i18n";
+import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { showNotification } from "@/lib/notify";
+import { toast } from "@/ui/toast";
+import { useContacts } from "./contacts";
+import { useMail } from "./mail";
+import { useSession } from "./session";
+import { settings, useSettings } from "./settings";
+
+/**
+ * The group mailboxes the reader belongs to, per the mail store's probe.
+ *
+ * A group's calendar is subscribed by membership, so `isSubscribed` is not the
+ * member's switch on it: it is drawn whether or not that flag survived, and one
+ * found unsubscribed is put back. Read here the way the contacts store reads
+ * it, so every group surface asks the same classifier.
+ */
+function groupAccountIds(): Set<string> {
+  return new Set(
+    groupMailboxAccounts(useMail.getState().mailAccounts).map((a) => a.accountId),
+  );
+}
+
+/**
+ * Arm the calendar reminders (ADR 0016).
+ *
+ * An event that carries a reminder is announced when it falls due, on every
+ * channel a running client has: the system notification, and an in-app notice.
+ * Only an event with a reminder is announced -- the reminder is the opt-in, and
+ * an event without one says nothing. A closed client is not woken for one, and
+ * cannot be: Stalwart pushes changes, not clocks. So this is what a page can do
+ * while it is open.
+ *
+ * It reads the events already loaded for the ranges on screen: a reminder is
+ * announced for an event the client holds, which is the range the reader has
+ * looked at.
+ */
+let remindersCheckedTo = 0;
+let reminderTimer: number | null = null;
+
+function startReminderTimer(get: () => CalendarState): void {
+  if (reminderTimer !== null) return;
+  remindersCheckedTo = Date.now();
+  reminderTimer = window.setInterval(() => {
+    const now = Date.now();
+    const from = remindersCheckedTo;
+    remindersCheckedTo = now;
+    for (const { event } of dueReminders(
+      Object.values(get().events),
+      get().calendars,
+      from,
+      now,
+      useSession.getState().session?.username ?? "",
+    )) {
+      const title = event.title || t("(untitled)");
+      showNotification(title, {
+        body: t("Calendar reminder"),
+        tag: `gilbert-reminder-${event.id}`,
+        // A reminder is the one notification a focused window must not swallow:
+        // the event is not on screen, which is the whole reason it exists.
+        evenWhenFocused: true,
+      });
+      toast.show(t("Reminder: {title}", { title }));
+    }
+    for (const { key, event } of dueSubscriptionReminders(
+      get().subscriptionEvents,
+      from,
+      now,
+    )) {
+      showNotification(event.summary, {
+        body: t("Calendar reminder"),
+        tag: `gilbert-reminder-${key}`,
+        evenWhenFocused: true,
+      });
+      toast.show(t("Reminder: {title}", { title: event.summary }));
+    }
+  }, 30_000);
+}
+
+/** Stop the reminder timer: a sign-out has no reader to remind. */
+function stopReminderTimer(): void {
+  if (reminderTimer !== null) {
+    window.clearInterval(reminderTimer);
+    reminderTimer = null;
+  }
+}
+
+export interface EventInstance {
+  /** Unique key for rendering: `${id}` (synthetic ids already unique per instance). */
+  key: string;
+  /** The account that holds this event — ids mean nothing outside it. */
+  accountId: Id;
+  event: CalendarEvent;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  calendar: Calendar | undefined;
+}
+
+/*
+ * Asked for by name, so the properties a share is read from are always there.
+ *
+ * A `Calendar/get` with no `properties` came back without `shareWith` on
+ * 0.16.19 -- not null, not empty, absent -- confirmed on 2026-08-27 with a
+ * calendar that was genuinely shared: omit the list and there is no
+ * `shareWith`; name it and the sharee is right there. 0.16.21 returns every
+ * property when none are named (confirmed live on 2026-09-06), which makes
+ * naming them a guarantee rather than a rescue, and it is the guarantee a
+ * server older than that still needs. Omitting it leaves the client with
+ * nothing to read a share from: no badge, no "Stop sharing", and a share
+ * dialog that opens on "not shared with anyone yet" over a live share.
+ *
+ * Files and address books ask for their properties by name for the same reason.
+ */
+export const CALENDAR_PROPS = [
+  "id",
+  "name",
+  "description",
+  "color",
+  "sortOrder",
+  "isSubscribed",
+  "isVisible",
+  "isDefault",
+  "includeInAvailability",
+  "defaultAlertsWithTime",
+  "defaultAlertsWithoutTime",
+  "timeZone",
+  "shareWith",
+  "myRights",
+];
+
+/**
+ * Which of an event's two ids a mutation means.
+ *
+ * `CalendarEvent/query` runs with `expandRecurrences`, so an occurrence arrives
+ * carrying a synthetic `id` of its own *and* a `baseEventId` pointing at the
+ * master it was expanded from. Sending one where the other was meant is not a
+ * distinction the server will make for us:
+ *
+ * - 0.16.19 refuses a synthetic id outright — *"Updating synthetic ids is not
+ *   yet supported"*.
+ * - 0.16.20 accepts it, and writes a `recurrenceOverrides` entry instead: a
+ *   destroy that means the series removes one date and reports success, under
+ *   a dialog that said "Delete all occurrences?".
+ *
+ * So the choice is named and required rather than left to each caller to
+ * remember a `??`. There is exactly one place that turns an event into an id,
+ * and it is below.
+ */
+export type EventScope = "series" | "occurrence";
+
+/**
+ * The id to send for `scope`.
+ *
+ * `series` walks up to the master; `occurrence` sends the instance as it came.
+ * A one-off is safe either way — it has a synthetic id like everything an
+ * expanded query returns, and Stalwart resolves a synthetic id on a component
+ * that is neither recurrent nor an override back to the base event itself.
+ */
+export function eventIdForScope(event: CalendarEvent, scope: EventScope): Id {
+  return scope === "series" ? (event.baseEventId ?? event.id) : event.id;
+}
+
+/** Whether this object is an expanded occurrence rather than a master. */
+export function isOccurrence(event: CalendarEvent): boolean {
+  return event.baseEventId != null && event.baseEventId !== event.id;
+}
+
+/**
+ * What `CalendarEvent/set` will not take on a single occurrence, and why the
+ * client has to know rather than letting the server sort it out.
+ *
+ * 0.16.20's per-occurrence validator sorts properties into three groups, and
+ * only one of them is honest about itself:
+ *
+ * - **Rejected** — `invalidProperties`, *"This property cannot be modified on a
+ *   single occurrence."* Loud, and fine.
+ * - **Inherited** — dropped from the patch, and the response still says the
+ *   update succeeded. Nothing anywhere reports it.
+ * - Everything else, which is applied to the override.
+ *
+ * The middle group is the whole problem. It is the same failure as upstream
+ * issue #26, where a participant map addressed the RFC 8984 way is discarded
+ * without an error and the client shows the guests as saved: a successful
+ * response is not evidence that anything was written. So a per-occurrence patch
+ * is checked here before it is sent — rejected properties throw, inherited ones
+ * are reported to the caller — rather than being posted hopefully and believed.
+ *
+ * Which properties are in which group is `@gilbert/shared/calendarOccurrence`:
+ * the mock splits a patch by the same two lists, so a client that stopped asking
+ * them meets the refusal there instead of on a live instance.
+ */
+
+/**
+ * A `notUpdated`/`notDestroyed` entry, kept whole rather than flattened.
+ *
+ * Some refusals are worth acting on rather than only showing: 0.16.20 will not
+ * edit an occurrence that belongs to a this-and-future change, and the useful
+ * response to that is to offer the series, which needs the reason and not just
+ * its text.
+ */
+export class CalendarSetError extends Error {
+  constructor(
+    readonly setError: { type: string; description?: string; properties?: string[] },
+  ) {
+    super(setErrorMessage(setError));
+    this.name = "CalendarSetError";
+  }
+}
+
+/** Whether a refusal was "this occurrence belongs to a this-and-future change". */
+export function isThisAndFutureRefusal(err: unknown): boolean {
+  return (
+    err instanceof CalendarSetError &&
+    /this-and-future/i.test(err.setError.description ?? "")
+  );
+}
+
+/**
+ * A synthetic id is only true until the next write, so an occurrence is
+ * re-resolved from its `recurrenceId` immediately before it is touched.
+ *
+ * **Confirmed live on 0.16.20 (2026-08-31.)** Stalwart's synthetic ids encode a
+ * position in the expanded series, and writing a `recurrenceOverrides` entry
+ * adds a component that renumbers it. A five-week series held ids `e i m q u`
+ * over 03-01…03-29; after one override was written to 03-08 the *same ids*
+ * addressed 03-01, 03-15, 03-29, 03-08, 03-22. Not one of them was rejected —
+ * `i` simply meant a week later than it had a moment before.
+ *
+ * So an id cached across a write silently points at a different date, and a
+ * delete aimed at one occurrence removes another. `recurrenceId` is the stable
+ * name for a slot in a series — it is the date itself — so that is what we hold
+ * and what we look the current id up by.
+ */
+async function currentOccurrenceId(accountId: Id, event: CalendarEvent): Promise<Id> {
+  const base = event.baseEventId;
+  const rid = event.recurrenceId;
+  // A one-off, or an object with nothing to re-resolve from: its own id is all
+  // there is, and there is no series for a write to have renumbered.
+  if (!base || !rid) return event.id;
+
+  const around = new Date(rid);
+  if (Number.isNaN(around.getTime())) return event.id;
+  const from = new Date(around.getTime() - DAY_MS);
+  const to = new Date(around.getTime() + DAY_MS);
+
+  const res = await client.chain([
+    [
+      "CalendarEvent/query",
+      {
+        accountId,
+        filter: { after: toLocalDateTime(from), before: toLocalDateTime(to) },
+        expandRecurrences: true,
+        limit: 200,
+      },
+      "q",
+    ],
+    [
+      "CalendarEvent/get",
+      {
+        accountId,
+        "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+        properties: ["id", "baseEventId", "recurrenceId"],
+      },
+      "g",
+    ],
+  ]);
+  const list =
+    (res.get("g")?.[0] as unknown as GetResponse<CalendarEvent> | undefined)?.list ?? [];
+  const found = list.find((e) => e.baseEventId === base && e.recurrenceId === rid);
+  if (!found) {
+    // The date is gone -- already excluded, or the series no longer reaches it.
+    // Better to say so than to act on an id that means something else now.
+    throw new Error(
+      "That occurrence is no longer part of this series. Reload the calendar and try again.",
+    );
+  }
+  return found.id;
+}
+
+export class OccurrenceScopeError extends Error {
+  constructor(readonly property: string) {
+    super(
+      `"${property}" applies to the whole series and cannot be changed for one occurrence.`,
+    );
+    this.name = "OccurrenceScopeError";
+  }
+}
+
+/**
+ * A patch narrowed to what one occurrence will actually accept.
+ *
+ * Throws `OccurrenceScopeError` on a property the server would refuse, and
+ * returns the inherited ones it removed so a caller can say what it could not
+ * do for this date alone instead of claiming it did.
+ *
+ * Patch *pointers* are judged on their first token, the way the server does:
+ * `participants/{key}/participationStatus` is allowed, and
+ * `participants/{key}/calendarAddress` is one of the silent drops.
+ */
+export function occurrencePatch(patch: Record<string, unknown>): {
+  patch: Record<string, unknown>;
+  dropped: string[];
+} {
+  const out: Record<string, unknown> = {};
+  const dropped: string[] = [];
+  for (const [key, value] of Object.entries(patch)) {
+    const [head, , third] = key.split("/");
+    const root = head ?? key;
+    if (OCCURRENCE_REJECTED.has(root)) throw new OccurrenceScopeError(root);
+    if (OCCURRENCE_INHERITED.has(root)) {
+      dropped.push(root);
+      continue;
+    }
+    if (root === "participants" && third === "calendarAddress") {
+      dropped.push(key);
+      continue;
+    }
+    // `id` is immutable; the server errors on a value that is not the event's
+    // own, and ignores one that is. Neither is worth sending.
+    if (root === "id") {
+      dropped.push(root);
+      continue;
+    }
+    out[key] = value;
+  }
+  return { patch: out, dropped };
+}
+
+/** A calendar somebody else shared, and the account it lives in. */
+export interface SharedCalendar {
+  accountId: Id;
+  accountName: string;
+  calendar: Calendar;
+}
+
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key shared
+ * calendars by it.
+ */
+import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+
+export { sharedKey };
+
+/**
+ * An event begun outside the calendar -- from a message, so far.
+ *
+ * The editor lives inside CalendarView and the reader is somewhere else when
+ * they ask for this, so the draft waits here until that view mounts and takes
+ * it. It is taken exactly once: a draft left behind would reopen the editor
+ * every time the reader came back to the calendar.
+ */
+export interface EventDraft {
+  title: string;
+  description: string;
+  start: Date;
+  end: Date;
+  allDay: boolean;
+  attendees: EmailAddress[];
+}
+
+interface CalendarState {
+  accountId: Id | null;
+  available: boolean;
+  calendars: Record<Id, Calendar>;
+  /** Calendars shared with the reader, from every non-personal account. */
+  sharedCalendars: SharedCalendar[];
+  /** Their events, keyed by account and id. See `sharedKey`. */
+  sharedEvents: Record<string, CalendarEvent>;
+  /** Which shared keys each loaded window holds, alongside `ranges`. */
+  sharedRanges: Record<string, string[]>;
+  events: Record<Id, CalendarEvent>;
+  /** Loaded ranges keyed "start|end" → event ids */
+  ranges: Record<string, Id[]>;
+  loading: boolean;
+  error: string | null;
+  identities: ParticipantIdentity[];
+  hidden: Record<Id, true>;
+  /** Events from each subscribed calendar, by subscription id. Never persisted. */
+  subscriptionEvents: Record<string, IcsEvent[]>;
+  /** Why a subscription last failed, if it did. */
+  subscriptionErrors: Record<string, string>;
+  subscriptionsLoading: boolean;
+  /** Waiting to be opened in the editor; see `EventDraft`. */
+  draft: EventDraft | null;
+
+  init(): Promise<void>;
+  loadCalendars(): Promise<void>;
+  /** Calendars from accounts that shared with the reader, and their events. */
+  loadSharedCalendars(): Promise<void>;
+  loadSharedRange(start: Date, end: Date): Promise<void>;
+  /** Add a shared calendar to, or remove it from, the reader's own view. */
+  setSharedSubscribed(accountId: Id, calendarId: Id, subscribed: boolean): Promise<void>;
+  loadRange(start: Date, end: Date, force?: boolean): Promise<void>;
+  instancesIn(start: Date, end: Date): EventInstance[];
+  /** Re-fetch every subscribed calendar. */
+  refreshSubscriptions(): Promise<void>;
+  /**
+   * `accountId` defaults to the reader's own. Pass it when the event lives in
+   * a shared or group account: an id means nothing outside the account that
+   * holds it.
+   */
+  getEvent(id: Id, accountId?: Id | null): Promise<CalendarEvent | null>;
+  /**
+   * `accountId` names the account that owns the target calendar. A calendar id
+   * means nothing outside its account — the reader's own and a shared or group
+   * account can both hold a calendar with the same id, and the caller that
+   * picked one of them is the only thing that knows which.
+   */
+  createEvent(
+    event: Partial<CalendarEvent>,
+    calendarId: Id,
+    sendInvites: boolean,
+    accountId?: Id | null,
+  ): Promise<Id>;
+  /**
+   * Returns the properties that had to be left to the series, if any.
+   *
+   * `opts.accountId` names the account that holds `event` (a bare id is
+   * ambiguous when two accounts hold same-id events); `opts.moveTo` names the
+   * calendar the patch is moving it to, account included.
+   */
+  updateEvent(
+    event: CalendarEvent,
+    patch: Record<string, unknown>,
+    sendInvites: boolean,
+    scope: EventScope,
+    opts?: { accountId?: Id | null; moveTo?: { accountId: Id; calendarId: Id } },
+  ): Promise<string[]>;
+  destroyEvent(
+    event: CalendarEvent,
+    sendInvites: boolean,
+    scope: EventScope,
+    accountId?: Id | null,
+  ): Promise<void>;
+  rsvp(
+    event: CalendarEvent,
+    status: "accepted" | "tentative" | "declined",
+    comment?: string,
+    accountId?: Id | null,
+  ): Promise<void>;
+  /** Create a calendar; pass `accountId` to create it in a group account, owned by the group. */
+  createCalendar(data: Partial<Calendar>, accountId?: Id): Promise<Id>;
+  updateCalendar(id: Id, patch: Partial<Calendar>): Promise<void>;
+  /** Rename/colour a calendar that lives in a shared account (a group
+   *  mailbox): the write goes to that account, not the reader's own. */
+  updateSharedCalendar(accountId: Id, id: Id, patch: Partial<Calendar>): Promise<void>;
+  destroyCalendar(id: Id): Promise<void>;
+  toggleHidden(id: Id): void;
+  availability(principalId: Id, start: Date, end: Date): Promise<BusyPeriod[]>;
+  findByUid(uid: string): Promise<CalendarEvent | null>;
+  parseIcs(blobId: Id): Promise<CalendarEvent[]>;
+  importEvent(event: Partial<CalendarEvent>, calendarId: Id): Promise<Id>;
+  /** Import a whole .ics file. Says how many it created and how many it updated. */
+  importIcs(text: string, calendarId: Id): Promise<{ created: number; updated: number }>;
+  /** The whole calendar as one .ics document, and how many events went into it. */
+  exportIcs(calendarId: Id): Promise<{ text: string; count: number }>;
+  applyChanges(types: Set<string>, accountId?: Id): void;
+  refreshWindows(shared?: boolean): void;
+  setDraft(draft: EventDraft | null): void;
+}
+
+/**
+ * Explicit property list: when `properties` is null Stalwart omits the JMAP-only
+ * fields baseEventId / utcStart / utcEnd, and we need baseEventId to update
+ * recurring instances (synthetic ids can't be patched directly).
+ */
+const EVENT_PROPS = [
+  /*
+   * Asked for by name, because a server that honours `properties` returns
+   * none of the JMAP-only fields above unless they are named.
+   */
+  "@type",
+  "id",
+  "baseEventId",
+  "calendarIds",
+  "isDraft",
+  "isOrigin",
+  "utcStart",
+  "utcEnd",
+  "useDefaultAlerts",
+  "mayInviteSelf",
+  "mayInviteOthers",
+  "hideAttendees",
+  "uid",
+  "relatedTo",
+  "prodId",
+  "created",
+  "updated",
+  "sequence",
+  "title",
+  "description",
+  "descriptionContentType",
+  "showWithoutTime",
+  "locations",
+  "virtualLocations",
+  "links",
+  "locale",
+  "keywords",
+  "categories",
+  "color",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "recurrenceRules",
+  "recurrenceRule",
+  "excludedRecurrenceRules",
+  "recurrenceOverrides",
+  "excluded",
+  "priority",
+  "freeBusyStatus",
+  "privacy",
+  "replyTo",
+  "organizerCalendarAddress",
+  "sentBy",
+  "participants",
+  "requestStatus",
+  "alerts",
+  "timeZone",
+  "start",
+  "duration",
+  "status",
+];
+
+/**
+ * An event as it arrived, minus everything that belonged to where it came from.
+ *
+ * `id` and `calendarIds` are the copy's, not this one's; `baseEventId`,
+ * `utcStart`, `utcEnd` and `isOrigin` are the server's own bookkeeping and are
+ * recomputed for whatever is created here. `method` is the scheduling verb of
+ * the message that carried it -- REQUEST, CANCEL -- and an event filed into a
+ * calendar is no longer a message about anything.
+ */
+function forImport(event: Partial<CalendarEvent>): Partial<CalendarEvent> {
+  const {
+    id: _id,
+    calendarIds: _c,
+    baseEventId: _b,
+    utcStart: _us,
+    utcEnd: _ue,
+    isOrigin: _io,
+    method: _m,
+    ...rest
+  } = event as CalendarEvent & { method?: string };
+  return rest;
+}
+
+/**
+ * The events a calendar already holds, for recognising a re-import.
+ *
+ * A UID is what makes an event the same event across calendars, and the import
+ * keeps the file's own wherever there is one -- which is what makes a re-import
+ * recognisable. Asked for
+ * once per import rather than once per event: `CalendarEvent/query` does take a
+ * `uid` filter, but a file of two thousand events would be two thousand
+ * queries.
+ *
+ * Read without `expandRecurrences`, so a weekly series is one event with one
+ * UID rather than one per occurrence, and filtered to the target calendar here
+ * rather than in the query -- the same event legitimately lives in two
+ * calendars, and `calendarIds` says which without relying on a filter this
+ * client has not confirmed the server supports.
+ */
+async function eventsInCalendar(
+  accountId: Id,
+  calendarId: Id,
+  properties: string[],
+): Promise<CalendarEvent[]> {
+  const found: CalendarEvent[] = [];
+  const page = client.maxObjectsInGet;
+  for (let position = 0; ; ) {
+    const q = await client.call<QueryResponse>("CalendarEvent/query", {
+      accountId,
+      position,
+      limit: page,
+    });
+    const ids = q.ids ?? [];
+    if (!ids.length) break;
+    for (const part of chunk(ids, page)) {
+      const g = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+        accountId,
+        ids: part,
+        properties,
+      });
+      for (const e of g.list) if (e.calendarIds?.[calendarId]) found.push(e);
+    }
+    position += ids.length;
+    // `total` is optional, so the empty page above is what actually ends this;
+    // this only saves the round trip that would find it.
+    if (q.total != null && position >= q.total) break;
+  }
+  return found;
+}
+
+/**
+ * uid -> the id of the event carrying it, for deciding what a re-import updates.
+ *
+ * The id and not just the UID, because an event already here is updated rather
+ * than skipped, and updating needs something to address -- the same
+ * arrangement, and for the same reason, as contacts' `scanBook`. A UID the
+ * calendar somehow holds twice keeps the first: two events with one UID is
+ * already a state nothing here can make sense of, and addressing one of them
+ * is better than writing the file over both.
+ */
+async function eventIdsByUid(accountId: Id, calendarId: Id): Promise<Map<string, Id>> {
+  const events = await eventsInCalendar(accountId, calendarId, ["uid", "calendarIds"]);
+  const byUid = new Map<string, Id>();
+  for (const e of events) if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e.id);
+  return byUid;
+}
+
+/* Coalesces `refreshWindows` (see there): one silent refresh per burst of
+   writes/pushes instead of one per event, and per kind of window -- the
+   reader's own, and the shared ones drawn beside them. */
+const calendarWindowsQueued = { own: false, shared: false };
+
+/**
+ * How many loaded windows are held.
+ *
+ * Every week or month the reader visited used to stay, and each was queried
+ * again whenever any event changed, and walked by every render. A window
+ * dropped here is simply loaded again if the reader goes back to it.
+ */
+export const RANGES_KEPT = 4;
+
+/** `ranges` with `key` set and moved to the end, trimmed to the most recent `RANGES_KEPT`. */
+export function keepRecent(
+  ranges: Record<string, Id[]>,
+  key: string,
+  ids: Id[],
+): Record<string, Id[]> {
+  const { [key]: _previous, ...rest } = ranges;
+  const entries = [...Object.entries(rest), [key, ids] as [string, Id[]]];
+  return Object.fromEntries(entries.slice(-RANGES_KEPT));
+}
+
+/** `map` restricted to the windows still held. */
+function onlyKeys<T>(
+  map: Record<string, T>,
+  held: Record<string, unknown>,
+): Record<string, T> {
+  return Object.fromEntries(Object.entries(map).filter(([k]) => k in held));
+}
+
+/* Shift an event's cached times by `deltaMs` for the optimistic copy of a
+   move: the zoned `start`, and — when present — the utc pair that toInstance
+   reads first. */
+function shiftEvent(e: CalendarEvent, deltaMs: number): CalendarEvent {
+  const next = { ...e };
+  if (typeof e.start === "string") {
+    const s = shiftStoredStart(e.start, deltaMs);
+    if (s) next.start = s;
+  }
+  if (e.utcStart && e.utcEnd) {
+    const us = new Date(e.utcStart).getTime();
+    const ue = new Date(e.utcEnd).getTime();
+    if (!Number.isNaN(us)) next.utcStart = new Date(us + deltaMs).toISOString();
+    if (!Number.isNaN(ue)) next.utcEnd = new Date(ue + deltaMs).toISOString();
+  }
+  return next;
+}
+
+export const useCalendar = create<CalendarState>((set, get) => ({
+  accountId: null,
+  available: false,
+  calendars: {},
+  sharedCalendars: [],
+  sharedEvents: {},
+  sharedRanges: {},
+  events: {},
+  ranges: {},
+  loading: false,
+  error: null,
+  identities: [],
+  hidden: {},
+  subscriptionEvents: {},
+  subscriptionErrors: {},
+  subscriptionsLoading: false,
+  draft: null,
+
+  async init() {
+    // The reader's own: a shared calendar is shown beside theirs, not instead.
+    const accountId = useSession.getState().ownAccountFor(CAP.calendars);
+    const available = Boolean(accountId && client.hasCapability(CAP.calendars));
+    if (accountId !== get().accountId)
+      set({ accountId, calendars: {}, events: {}, ranges: {} });
+    set({ available });
+    if (!available) return;
+    /*
+     * Side by side. None of the three waits on another, and calls made in one
+     * tick share a request -- so awaiting one before starting the next, as this
+     * did, cost a round trip apiece at sign-in.
+     */
+    const identities = client
+      .call<GetResponse<ParticipantIdentity>>("ParticipantIdentity/get", {
+        accountId,
+        ids: null,
+      })
+      .then(
+        (res) => set({ identities: res.list }),
+        () => set({ identities: [] }),
+      );
+    void get().loadSharedCalendars();
+    await Promise.all([get().loadCalendars(), identities]);
+    startReminderTimer(get);
+  },
+
+  /*
+   * Calendars other people shared, and the events in them.
+   *
+   * Kept apart from the reader's own and keyed by account, for the reason ids
+   * force: they are unique only within an account. Loaded from the same window
+   * the reader is looking at, so a colleague's calendar fills in beside their
+   * own rather than after a separate wait.
+   *
+   * An account that answers with no calendars is simply not listed. Sharing a
+   * file does not make somebody's calendar worth a heading.
+   */
+  async loadSharedCalendars() {
+    const session = useSession.getState();
+    const own = session.ownAccountFor(CAP.calendars);
+    const accounts = Object.entries(session.session?.accounts ?? {}).filter(
+      ([id, a]) => a.isPersonal === false && id !== own,
+    );
+    const unread = new Set<string>();
+    /*
+     * Every account at once: calls made in one tick share a request, where the
+     * loop this replaces sent one after another. `Promise.all` preserves the
+     * input order, so the list is still the session's.
+     */
+    const answers = await Promise.all(
+      accounts.map(async ([accountId, account]): Promise<SharedCalendar[]> => {
+        try {
+          const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
+            accountId,
+            ids: null,
+            properties: CALENDAR_PROPS,
+          });
+          return res.list.map((calendar) => ({
+            accountId,
+            accountName: account.name,
+            calendar,
+          }));
+        } catch (err) {
+          unread.add(accountId);
+          /* Named, because an account whose calendars cannot be read is
+             otherwise indistinguishable from one that has none -- and the
+             calendars a group owns live in exactly such an account. */
+          console.warn(
+            `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
+          );
+          return [];
+        }
+      }),
+    );
+    const found = answers.flat();
+    if (!found.length && accounts.length > 0 && unread.size) return; // transient
+    set((s) => ({
+      /* An account that could not be read keeps the calendars it already had:
+         dropping them would empty a colleague's grid for the rest of the
+         session over one failed request, and nothing would say why. */
+      sharedCalendars: [
+        ...found,
+        ...s.sharedCalendars.filter((x) => unread.has(x.accountId)),
+      ],
+      /* Every shared account is gone and the server said so -- a revoke, or
+         the reader left the team. Its events must not linger in the store,
+         because the grid reads the ranges. On a partial answer the caches
+         stay untouched: what is not in `found` is dropped by the calendar set
+         alone. */
+      sharedEvents:
+        found.length || !Object.keys(s.sharedEvents).length ? s.sharedEvents : {},
+      sharedRanges:
+        found.length || !Object.keys(s.sharedRanges).length ? s.sharedRanges : {},
+    }));
+    /*
+     * A group's calendar is subscribed by membership, so one left unsubscribed
+     * is put back on the group's own object here: the client once let a member
+     * unsubscribe one, which stranded it with no way back. Repairing the shared
+     * object restores it for every reader, not only this one. Where the server
+     * refuses the write, `setSharedSubscribed` records it for this reader
+     * instead and the calendar is drawn all the same.
+     */
+    const groupIds = groupAccountIds();
+    const addedShares = new Set(settings().addedShares);
+    for (const c of found)
+      if (
+        groupIds.has(c.accountId) &&
+        !c.calendar.isSubscribed &&
+        !addedShares.has(sharedKey(c.accountId, c.calendar.id))
+      )
+        void get().setSharedSubscribed(c.accountId, c.calendar.id, true);
+    // Fill in whatever windows are already on screen.
+    for (const key of Object.keys(get().ranges)) {
+      const [from, to] = key.split("|").map((n) => new Date(Number(n)));
+      if (from && to) void get().loadSharedRange(from, to);
+    }
+  },
+
+  async setSharedSubscribed(accountId, calendarId, subscribed) {
+    // See the note in the contacts store: subscribing writes to another
+    // account, so a refusal is an ordinary answer and arrives in `notUpdated`
+    // rather than as a thrown error.
+    /*
+     * Server first, settings when it refuses -- the same arrangement the
+     * contacts store explains. Stalwart takes this write on a shared calendar
+     * where it will not on a shared address book, but the difference is the
+     * server's to change and not worth relying on from here.
+     */
+    let stored = false;
+    try {
+      const res = await client.call<SetResponse>("Calendar/set", {
+        accountId,
+        update: { [calendarId]: { isSubscribed: subscribed } },
+      });
+      const err = res.notUpdated?.[calendarId];
+      if (err) throw new Error(setErrorMessage(err));
+      stored = true;
+    } catch {
+      stored = false;
+    }
+    if (!stored) {
+      const added = new Set(settings().addedShares);
+      if (subscribed) added.add(sharedKey(accountId, calendarId));
+      else added.delete(sharedKey(accountId, calendarId));
+      useSettings.getState().update({ addedShares: [...added] });
+    }
+    set((s) => ({
+      sharedCalendars: s.sharedCalendars.map((c) =>
+        c.accountId === accountId && c.calendar.id === calendarId
+          ? { ...c, calendar: { ...c.calendar, isSubscribed: subscribed } }
+          : c,
+      ),
+    }));
+    // Its events are only fetched for calendars in view, so the windows on
+    // screen have to be asked again either way.
+    for (const key of Object.keys(get().ranges)) {
+      const [from, to] = key.split("|").map((n) => new Date(Number(n)));
+      if (from && to) void get().loadSharedRange(from, to);
+    }
+  },
+
+  /** The same window, from every account that shared a calendar. */
+  async loadSharedRange(start, end) {
+    const shared = get().sharedCalendars;
+    if (!shared.length) return;
+    const key = `${start.getTime()}|${end.getTime()}`;
+    const tz = settings().timeZone ?? browserTimeZone;
+    const accounts = [...new Set(shared.map((c) => c.accountId))];
+    const ids: string[] = [];
+    const events: Record<string, CalendarEvent> = {};
+    for (const accountId of accounts) {
+      try {
+        const res = await client.chain([
+          [
+            "CalendarEvent/query",
+            {
+              accountId,
+              /* after/before are wall-clock times in `timeZone`, so the window's
+                 own instants have to be written as that zone's clock -- the
+                 browser frame would shift the comparison by the offset between
+                 the two and drop the edge hours of every window. */
+              filter: {
+                after: dateToZonedLocal(start, tz),
+                before: dateToZonedLocal(end, tz),
+              },
+              timeZone: tz,
+              sort: [{ property: "start", isAscending: true }],
+              expandRecurrences: true,
+              limit: 2000,
+            },
+            "q",
+          ],
+          [
+            "CalendarEvent/get",
+            {
+              accountId,
+              "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+              properties: EVENT_PROPS,
+              timeZone: tz,
+            },
+            "g",
+          ],
+        ]);
+        const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+        for (const e of g.list) {
+          const k = sharedKey(accountId, e.id);
+          events[k] = e;
+          ids.push(k);
+        }
+      } catch {}
+    }
+    set((s) => ({
+      sharedEvents: { ...s.sharedEvents, ...events },
+      sharedRanges: { ...s.sharedRanges, [key]: ids },
+    }));
+  },
+
+  async loadCalendars() {
+    const accountId = get().accountId;
+    if (!accountId) return;
+    try {
+      const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
+        accountId,
+        ids: null,
+        properties: CALENDAR_PROPS,
+      });
+      const calendars: Record<Id, Calendar> = {};
+      for (const c of res.list) calendars[c.id] = c;
+      set({ calendars, error: null });
+    } catch (err) {
+      set({ error: (err as Error).message });
+    }
+  },
+
+  async loadRange(start, end, force = false) {
+    const accountId = get().accountId;
+    if (!accountId) return;
+    const key = `${start.getTime()}|${end.getTime()}`;
+    const held = get().ranges[key];
+    if (!force && held) {
+      // Shown again, so the most recent: a window the reader comes back to is
+      // not the one dropped next.
+      set((s) => ({ ranges: keepRecent(s.ranges, key, held) }));
+      return;
+    }
+    // Loading stands in only for a window with no data yet: a background
+    // refresh (after a write or a push) must not flash "loading" over
+    // content that is already on screen.
+    if (!get().ranges[key]) set({ loading: true });
+    const tz = settings().timeZone ?? browserTimeZone;
+    try {
+      const res = await client.chain([
+        [
+          "CalendarEvent/query",
+          {
+            accountId,
+            // Stalwart treats after/before as wall-clock times in `timeZone`,
+            // so the window's instants are written as that zone's clock rather
+            // than the browser's (see loadSharedRange).
+            filter: {
+              after: dateToZonedLocal(start, tz),
+              before: dateToZonedLocal(end, tz),
+            },
+            timeZone: tz,
+            sort: [{ property: "start", isAscending: true }],
+            expandRecurrences: true,
+            limit: 2000,
+          },
+          "q",
+        ],
+        [
+          "CalendarEvent/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+            properties: EVENT_PROPS,
+            timeZone: tz,
+          },
+          "g",
+        ],
+      ]);
+      const q = res.get("q")?.[0] as unknown as QueryResponse;
+      const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+      set((s) => {
+        const events = { ...s.events };
+        for (const e of g.list) events[e.id] = e;
+        const ranges = keepRecent(s.ranges, key, q.ids);
+        return {
+          events,
+          ranges,
+          sharedRanges: onlyKeys(s.sharedRanges, ranges),
+          loading: false,
+          error: null,
+        };
+      });
+      void get().loadSharedRange(start, end);
+    } catch (err) {
+      set({ loading: false, error: (err as Error).message });
+    }
+  },
+
+  async refreshSubscriptions() {
+    const subs = settings().icalSubscriptions;
+    if (!subs.length) {
+      if (Object.keys(get().subscriptionEvents).length)
+        set({ subscriptionEvents: {}, subscriptionErrors: {} });
+      return;
+    }
+    set({ subscriptionsLoading: true });
+    const events: Record<string, IcsEvent[]> = {};
+    const errors: Record<string, string> = {};
+    /*
+     * Sequential rather than parallel. These are other people's servers, and a
+     * reader with a dozen subscriptions opening the calendar should not put a
+     * dozen simultaneous requests on them from every device they own.
+     */
+    for (const sub of subs) {
+      try {
+        const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
+          headers: { "X-Requested-With": "gilbert" },
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          errors[sub.id] = body.error ?? `HTTP ${res.status}`;
+          continue;
+        }
+        const text = await res.text();
+        if (!looksLikeCalendar(text)) {
+          // A login page answering 200 is the usual shape of this.
+          errors[sub.id] = "not_calendar";
+          continue;
+        }
+        events[sub.id] = parseIcs(text).events;
+      } catch (err) {
+        errors[sub.id] = (err as Error).message;
+      }
+    }
+    set({
+      subscriptionEvents: events,
+      subscriptionErrors: errors,
+      subscriptionsLoading: false,
+    });
+  },
+
+  instancesIn(start, end) {
+    const {
+      events,
+      ranges,
+      calendars,
+      hidden,
+      sharedEvents,
+      sharedRanges,
+      sharedCalendars,
+    } = get();
+    /*
+     * Built once per call, not once per event. `instancesIn` runs on every
+     * render of the calendar, and the set it used to build sits inside the
+     * loop over every event in range -- a new Set per event, per render, over
+     * a list of settings that has not changed.
+     */
+    const addedShares = new Set(settings().addedShares);
+    /*
+     * Birthdays are derived here rather than fetched, and they go through the
+     * same funnel as everything else so no view has to know they are different.
+     * Nothing is stored: the dates live on the contact cards, and a second copy
+     * of the same fact would drift the first time somebody corrected one.
+     */
+    const birthdays: EventInstance[] = [];
+    const ownAccount = get().accountId ?? "";
+    if (settings().birthdayCalendar && !hidden[BIRTHDAY_CALENDAR_ID]) {
+      const cal = birthdayCalendar();
+      for (const b of birthdaysInRange(
+        Object.values(useContacts.getState().cards),
+        start,
+        end,
+      )) {
+        birthdays.push({
+          key: b.id,
+          accountId: ownAccount,
+          event: synthesiseBirthdayEvent(b),
+          start: b.date,
+          end: new Date(b.date.getTime() + DAY_MS),
+          allDay: true,
+          calendar: cal,
+        });
+      }
+    }
+    /*
+     * Subscribed calendars, from whatever the last refresh fetched. Same funnel
+     * as the birthdays and for the same reason: no view has to know they are
+     * not real calendars, and nothing about them is stored.
+     */
+    for (const sub of settings().icalSubscriptions) {
+      const calId = subscriptionCalendarId(sub.id);
+      if (hidden[calId]) continue;
+      const cal = subscriptionCalendar(sub);
+      for (const e of get().subscriptionEvents[sub.id] ?? []) {
+        if (e.end <= start || e.start >= end) continue;
+        birthdays.push({
+          key: `${calId}:${e.uid}:${e.start.getTime()}`,
+          accountId: ownAccount,
+          event: synthesiseSubscriptionEvent(sub.id, e),
+          start: e.start,
+          end: e.end,
+          allDay: e.allDay,
+          calendar: cal,
+        });
+      }
+    }
+    const ids = new Set<Id>();
+    for (const list of Object.values(ranges)) for (const id of list) ids.add(id);
+    const out: EventInstance[] = [];
+    for (const id of ids) {
+      const e = events[id];
+      if (!e) continue;
+      const calId = Object.keys(e.calendarIds ?? {})[0];
+      if (calId && hidden[calId]) continue;
+      const inst = toInstance(e, calendars, ownAccount);
+      if (!inst) continue;
+      if (inst.end > start && inst.start < end) out.push(inst);
+    }
+    /* Shared events go through the same funnel, so every view gets them
+       without knowing they exist. Their calendars are looked up per account:
+       a shared calendar id means nothing outside the account holding it, and
+       hiding one is remembered under the same account-qualified key. */
+    const groupIds = groupAccountIds();
+    const sharedKeys = new Set<string>();
+    for (const list of Object.values(sharedRanges))
+      for (const k of list) sharedKeys.add(k);
+    for (const k of sharedKeys) {
+      const e = sharedEvents[k];
+      if (!e) continue;
+      const accountId = accountOfSharedKey(k, e.id);
+      const calId = Object.keys(e.calendarIds ?? {})[0];
+      if (calId && hidden[sharedKey(accountId, calId)]) continue;
+      /* Stalwart hands back every calendar in an account the reader can reach,
+         with full rights on each, whether or not anybody meant to share it --
+         an account linked for its files offered its calendar too. `isSubscribed`
+         is the only thing separating "shared with me" from "reachable", so
+         nothing unsubscribed is drawn -- except a group's, where membership is
+         the subscription: it is drawn whether or not `isSubscribed` survived,
+         the same rule a group's books follow (contacts' `wanted`). */
+      const theirs: Record<Id, Calendar> = {};
+      for (const c of sharedCalendars) {
+        if (c.accountId !== accountId) continue;
+        if (
+          !c.calendar.isSubscribed &&
+          !addedShares.has(sharedKey(c.accountId, c.calendar.id)) &&
+          !groupIds.has(c.accountId)
+        )
+          continue;
+        theirs[c.calendar.id] = c.calendar;
+      }
+      if (calId && !theirs[calId]) continue;
+      const inst = toInstance(e, theirs, accountId);
+      if (!inst) continue;
+      // Ids are unique only within an account, so a key that is the bare id
+      // would collide when the reader's own account and a shared one (own
+      // events and the group's) both hold an event with the same id on the
+      // same day -- duplicate React keys, and a drag that grabs both.
+      inst.key = sharedKey(accountId, e.id);
+      if (inst.end > start && inst.start < end) out.push(inst);
+    }
+    out.sort(
+      (a, b) =>
+        a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime(),
+    );
+    return [...out, ...birthdays];
+  },
+
+  async getEvent(id, accountId) {
+    const own = get().accountId;
+    const acc = accountId ?? own;
+    if (!acc) return null;
+    const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+      accountId: acc,
+      ids: [id],
+      properties: EVENT_PROPS,
+    });
+    const e = res.list[0];
+    /* Cached under the own-account map only when it is an own event: an id is
+       unique within an account, so a shared master fetched here must not
+       overwrite a same-id event of the reader's own. */
+    if (e && acc === own) set((s) => ({ events: { ...s.events, [e.id]: e } }));
+    return e ?? null;
+  },
+
+  async createEvent(event, calendarId, sendInvites, accountId) {
+    /*
+     * `accountId` names the account that owns the target calendar — required
+     * when the same calendar id exists in more than one account. Without it,
+     * the account is guessed from the calendars the store has loaded.
+     */
+    const acc =
+      accountId ??
+      accountOfCalendar(
+        calendarId,
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+    if (!acc) throw new Error("Calendar is not available");
+    /*
+     * A shared calendar the reader may write to but has not added is still a
+     * fine place for an event; the event simply would not be drawn back until
+     * the calendar was added. This create is the deliberate act, so the
+     * calendar is added here rather than left invisible.
+     */
+    if (acc !== get().accountId) await ensureCalendarVisible(acc, calendarId);
+    const obj = {
+      "@type": "Event",
+      uid: crypto.randomUUID(),
+      ...event,
+      calendarIds: { [calendarId]: true },
+    };
+    const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+      accountId: acc,
+      create: { e: obj },
+      sendSchedulingMessages: sendInvites,
+    });
+    const err = res.notCreated?.e;
+    if (err) throw new Error(setErrorMessage(err));
+    get().refreshWindows();
+    return res.created!.e!.id;
+  },
+
+  async updateEvent(event, patch, sendInvites, scope, opts) {
+    /*
+     * A derived birthday has no server-side existence, so there is nothing to
+     * write and an id that would mean nothing if sent. The UI already keeps
+     * these out of reach by giving the virtual calendar no write rights; this
+     * is the check that makes that true of the store as well, whatever calls
+     * it.
+     */
+    if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return [];
+    const currentCalId = Object.keys(event.calendarIds ?? {})[0];
+    /*
+     * Which account holds the event. The caller holding the instance knows
+     * (an id means nothing outside its account, and the reader's own and a
+     * shared account can both hold a same-id event), and says so through
+     * `opts.accountId`; the account is only guessed from the calendars
+     * loaded so far when nobody said.
+     */
+    const accountId =
+      opts?.accountId ??
+      accountOfCalendar(
+        currentCalId,
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+    if (!accountId) throw new Error("Calendar is not available");
+    const id =
+      scope === "occurrence"
+        ? await currentOccurrenceId(accountId, event)
+        : eventIdForScope(event, scope);
+    // An occurrence takes less than the series does, and says so about only
+    // half of it. Narrow the patch here rather than posting it hopefully.
+    const { patch: body, dropped } =
+      scope === "occurrence"
+        ? occurrencePatch(patch)
+        : { patch, dropped: [] as string[] };
+    if (!Object.keys(body).length) return dropped;
+
+    /*
+     * Where the patch is moving the event, if it moves it at all. The target
+     * account comes from the caller when it chose one of several same-id
+     * calendars (`opts.moveTo`); without that, it is guessed the same way the
+     * source is.
+     */
+    const targetCalId = Object.keys(
+      (body.calendarIds as Record<string, true> | undefined) ?? {},
+    )[0];
+    const targetAccount =
+      opts?.moveTo?.accountId ??
+      (targetCalId
+        ? accountOfCalendar(
+            targetCalId,
+            get().calendars,
+            get().accountId,
+            get().sharedCalendars,
+          )
+        : accountId);
+    const sameCalendar =
+      !targetCalId || (targetCalId === currentCalId && targetAccount === accountId);
+    /*
+     * Moving the event to a calendar in another account.
+     *
+     * Two accounts are two JMAP accounts, and an event cannot change accounts
+     * by editing `calendarIds` — the id would name a calendar the old account
+     * does not hold, so the event would either be refused or simply stop
+     * being drawn. A move across accounts is re-filing: the reader's edits
+     * land on the event where it is, then the whole event is recreated under
+     * the target account with the same uid (so an attendee's copy updates
+     * rather than duplicating), and the original is destroyed.
+     */
+    if (targetCalId && !sameCalendar && !targetAccount)
+      throw new Error("Calendar is not available");
+    if (targetCalId && !sameCalendar && targetAccount && targetAccount !== accountId) {
+      // An occurrence belongs to the series that holds it and cannot leave
+      // for another account on its own; the editor already disables the
+      // picker for one, and occurrencePatch refused the id above.
+      if (scope === "occurrence") throw new OccurrenceScopeError("calendarIds");
+      /* A calendar that is not on the reader's own account is added first,
+           or the moved event would not be drawn back where it went. */
+      if (targetAccount !== get().accountId)
+        await ensureCalendarVisible(targetAccount, targetCalId);
+      /* 1. The reader's edits, where the event already is. Invitations wait
+              for the re-filed copy, which is what guests will answer. A pure
+              move edits nothing here, so there is nothing to send. */
+      const { calendarIds: _moved, ...sameAccount } = body;
+      if (Object.keys(sameAccount).length) {
+        const res0 = await client.call<SetResponse>("CalendarEvent/set", {
+          accountId,
+          update: { [id]: sameAccount },
+          sendSchedulingMessages: false,
+        });
+        const err0 = res0.notUpdated?.[id];
+        if (err0) throw new CalendarSetError(err0);
+      }
+      /* 2. The event as the source account stores it now — a fresh read, so
+              nothing of it (a recurrence and its overrides among the rest) is
+              lost on the way to the other account. */
+      const stored = await readEvent(accountId, id);
+      if (!stored)
+        throw new Error(
+          "The event could not be read again after saving, so it was not moved.",
+        );
+      /* 3. Recreate it under the target account, same uid. */
+      const res1 = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+        accountId: targetAccount,
+        create: { e: moveCopy(stored, targetCalId) },
+        sendSchedulingMessages: sendInvites,
+      });
+      const err1 = res1.notCreated?.e;
+      if (err1) throw new Error(setErrorMessage(err1));
+      /* 4. Drop the original. A failure here leaves the event in both
+              accounts — better a duplicate than a loss, and the message says
+              which half happened. */
+      const res2 = await client.call<SetResponse>("CalendarEvent/set", {
+        accountId,
+        destroy: [id],
+        sendSchedulingMessages: false,
+      });
+      const err2 = res2.notDestroyed?.[id];
+      get().refreshWindows();
+      if (err2)
+        throw new Error(
+          "The event was moved, but the copy on the old calendar could not be deleted. Delete it by hand.",
+        );
+      return dropped;
+    }
+    // Show the change at once instead of snapping back until the refresh
+    // lands: patch the cached copy now and restore it if the server refuses.
+    // A move shifts every cached copy of the series (a series is cached as its
+    // occurrences, keyed under the base id), so the whole run of chips lands
+    // at once rather than one chip snapping back to its old slot.
+    const delta =
+      typeof body.start === "string" && typeof event.start === "string"
+        ? new Date(body.start).getTime() - new Date(event.start).getTime()
+        : NaN;
+    const moved = !Number.isNaN(delta) && delta !== 0;
+    const previous = get().events[id];
+    const seriesKeys = !previous
+      ? Object.keys(get().events).filter((k) => get().events[k]?.baseEventId === id)
+      : [];
+    const originals = previous
+      ? { [id]: previous }
+      : Object.fromEntries(seriesKeys.map((k) => [k, get().events[k]!]));
+    if (previous || seriesKeys.length) {
+      set((s) => {
+        const events = { ...s.events };
+        if (previous) {
+          events[id] = moved
+            ? shiftEvent(previous, delta)
+            : ({ ...previous, ...(body as object) } as CalendarEvent);
+        } else {
+          for (const k of seriesKeys) events[k] = shiftEvent(events[k]!, delta);
+        }
+        return { events };
+      });
+    }
+    try {
+      const res = await client.call<SetResponse>("CalendarEvent/set", {
+        accountId,
+        update: { [id]: body },
+        sendSchedulingMessages: sendInvites,
+      });
+      const err = res.notUpdated?.[id];
+      if (err) throw new CalendarSetError(err);
+    } catch (err) {
+      if (Object.keys(originals).length)
+        set((s) => ({ events: { ...s.events, ...originals } }));
+      throw err;
+    }
+    get().refreshWindows();
+    return dropped;
+  },
+
+  async destroyEvent(event, sendInvites, scope, accountId) {
+    /*
+     * A derived birthday has no server-side existence, so there is nothing to
+     * write and an id that would mean nothing if sent. The UI already keeps
+     * these out of reach by giving the virtual calendar no write rights; this
+     * is the check that makes that true of the store as well, whatever calls
+     * it.
+     */
+    if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return;
+    const accountId_ =
+      accountId ??
+      accountOfCalendar(
+        Object.keys(event.calendarIds ?? {})[0],
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+    if (!accountId_) throw new Error("Calendar is not available");
+    const id =
+      scope === "occurrence"
+        ? await currentOccurrenceId(accountId_, event)
+        : eventIdForScope(event, scope);
+    const res = await client.call<SetResponse>("CalendarEvent/set", {
+      accountId: accountId_,
+      destroy: [id],
+      sendSchedulingMessages: sendInvites,
+    });
+    const err = res.notDestroyed?.[id];
+    if (err) throw new CalendarSetError(err);
+    set((s) => {
+      const events = { ...s.events };
+      // Drop both ids: the one that was sent, and the object as the caller
+      // held it. An occurrence destroy leaves the master alone on purpose.
+      delete events[id];
+      if (scope === "occurrence") delete events[event.id];
+      return { events };
+    });
+    get().refreshWindows();
+  },
+
+  async rsvp(event, status, comment, accountId) {
+    const mine = myParticipantKeys(event, get().identities);
+    if (!mine.length) throw new Error("You are not a participant of this event");
+    const patch: Record<string, unknown> = {};
+    for (const k of mine) {
+      patch[`participants/${k}/participationStatus`] = status;
+      if (comment) patch[`participants/${k}/participationComment`] = comment;
+    }
+    // Answering for the series, not for one date. The patch itself survives
+    // either scope -- `participants/{key}/participationStatus` is one of the
+    // pointers 0.16.20 allows on an occurrence -- so this would silently mean
+    // "only that day" if it were aimed at an instance. Accepting an invitation
+    // means accepting the series.
+    await get().updateEvent(event, patch, true, "series", { accountId });
+  },
+
+  /**
+   * Create a calendar, owned by `accountId` when given and by the reader's
+   * own account otherwise. A calendar created on a group account belongs to
+   * the group: it is written directly into the group's own account, so every
+   * member -- including one added after the fact -- reaches it through their
+   * session on that account, and no share or per-user ACL is written.
+   *
+   * Subscribed from the start: the reader made the calendar to use it, and a
+   * server that leaves a new calendar unsubscribed unless the client says
+   * otherwise (Stalwart does; the mock hides it by filling the flag in) would
+   * keep it invisible to every client that honours `isSubscribed`.
+   */
+  async createCalendar(data, accountId?: Id) {
+    const own = get().accountId!;
+    const target = accountId ?? own;
+    const res = await client.call<SetResponse<Calendar>>("Calendar/set", {
+      accountId: target,
+      create: { c: { name: "Calendar", isSubscribed: true, ...data } },
+    });
+    const err = res.notCreated?.c;
+    if (err) throw new Error(setErrorMessage(err));
+    if (target === own) await get().loadCalendars();
+    else await get().loadSharedCalendars();
+    return res.created!.c!.id;
+  },
+
+  async updateSharedCalendar(accountId, id, patch) {
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      update: { [id]: patch },
+    });
+    const err = res.notUpdated?.[id];
+    if (err) throw new Error(setErrorMessage(err));
+    await get().loadSharedCalendars();
+    // Its events are only fetched for calendars in view, so the windows on
+    // screen have to be asked again either way.
+    for (const key of Object.keys(get().ranges)) {
+      const [from, to] = key.split("|").map((n) => new Date(Number(n)));
+      if (from && to) void get().loadSharedRange(from, to);
+    }
+  },
+
+  async updateCalendar(id, patch) {
+    const accountId = get().accountId!;
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      update: { [id]: patch },
+    });
+    const err = res.notUpdated?.[id];
+    if (err) throw new Error(setErrorMessage(err));
+    await get().loadCalendars();
+  },
+
+  async destroyCalendar(id) {
+    const accountId = get().accountId!;
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      destroy: [id],
+      onDestroyRemoveEvents: true,
+    });
+    const err = res.notDestroyed?.[id];
+    if (err) throw new Error(setErrorMessage(err));
+    await get().loadCalendars();
+    get().refreshWindows();
+  },
+
+  toggleHidden(id) {
+    set((s) => {
+      const hidden = { ...s.hidden };
+      if (hidden[id]) delete hidden[id];
+      else hidden[id] = true;
+      return { hidden };
+    });
+  },
+
+  async availability(principalId, start, end) {
+    const accountId = useSession.getState().accountFor(CAP.principals);
+    if (!accountId || !client.hasCapability(CAP.availability)) return [];
+    const res = await client.call<{ list: BusyPeriod[] }>(
+      "Principal/getAvailability",
+      {
+        accountId,
+        id: principalId,
+        utcStart: toUTCDate(start),
+        utcEnd: toUTCDate(end),
+        showDetails: false,
+      },
+      [CAP.principals, CAP.availability],
+    );
+    return res.list ?? [];
+  },
+
+  /**
+   * The event with this uid, as a master rather than an occurrence.
+   *
+   * The query deliberately omits `expandRecurrences`, so what comes back is the
+   * stored event and `id` is a real id. Callers rely on that — `InviteCard`
+   * removes a cancelled event by handing this straight to `destroyEvent` — so
+   * it is a property of this method, not an accident of the default.
+   */
+  async findByUid(uid) {
+    const accountId = get().accountId;
+    if (!accountId) return null;
+    try {
+      const res = await client.chain([
+        ["CalendarEvent/query", { accountId, filter: { uid }, limit: 1 }, "q"],
+        [
+          "CalendarEvent/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+            properties: EVENT_PROPS,
+          },
+          "g",
+        ],
+      ]);
+      const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+      const e = g.list[0];
+      if (e) set((s) => ({ events: { ...s.events, [e.id]: e } }));
+      return e ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  async parseIcs(blobId) {
+    const accountId = get().accountId;
+    if (!accountId) return [];
+    const res = await client.call<{
+      parsed?: Record<string, CalendarEvent[] | CalendarEvent>;
+      notParsable?: Id[];
+    }>("CalendarEvent/parse", { accountId, blobIds: [blobId] });
+    const entry = res.parsed?.[blobId];
+    if (!entry) return [];
+    return Array.isArray(entry) ? entry : [entry];
+  },
+
+  async importEvent(event, calendarId) {
+    return get().createEvent(forImport(event), calendarId, false);
+  },
+
+  /*
+   * A file, rather than the single event an invitation carries.
+   *
+   * The parsing is the server's, the same `CalendarEvent/parse` an emailed
+   * invitation goes through -- an .ics is not a format worth reimplementing in
+   * a browser, and the one already in Stalwart handles what a hand-rolled
+   * parser would not.
+   *
+   * The events go out `maxObjectsInSet` at a time -- the ceiling the session
+   * advertises, 500 where a server does not say. A call carrying more than that
+   * is refused whole with `requestTooLarge` and creates nothing, so a real
+   * export -- an 800 KB file is thousands of events -- imports nothing at all
+   * when it goes out in a single call.
+   *
+   * Batches rather than a call per event, though: `createEvent` refreshes on
+   * the way out, and a refresh re-fetches every cached range, so importing a
+   * year of events one at a time would refetch the calendar a few hundred
+   * times. One refreshWindows here, after the last batch.
+   *
+   * No scheduling messages, on a create or an update. Importing a file is
+   * filing something you already have, and mailing its participants would be a
+   * surprise to everyone. That is plainly right for a create and it is a real
+   * cost on an update -- moving an event without telling anyone leaves every
+   * attendee's own copy saying the old time, with nothing anywhere reporting
+   * the disagreement. Weighed on #279 and kept: an import is not the place to
+   * start sending mail on somebody's behalf, and the alternative is a file
+   * dropped into a calendar mailing a room full of people who never asked for
+   * it. Whoever is organising can send the update from the event itself.
+   */
+  async importIcs(text, calendarId) {
+    const accountId = get().accountId!;
+    const up = await client.upload(
+      accountId,
+      new Blob([text], { type: "text/calendar" }),
+      { type: "text/calendar" },
+    );
+    const events = await get().parseIcs(up.blobId);
+    if (!events.length) throw new Error("it has no events in it");
+    const already = await eventIdsByUid(accountId, calendarId);
+    const create: Record<string, unknown> = {};
+    const update: Record<Id, unknown> = {};
+    events.forEach((e, i) => {
+      const rest = forImport(e);
+      /*
+       * A UID is what makes an event the same event across calendars, so the
+       * file's own is kept wherever it has one. Only what arrives without gets
+       * invented, and an event with no UID is not one anything can match to --
+       * which is also why an event without one is imported rather than guessed
+       * about. Re-importing an export without that match leaves second copies of
+       * everything; asked for on #173, decided there.
+       */
+      const existing = rest.uid ? already.get(rest.uid) : undefined;
+      if (existing) {
+        /*
+         * An event this calendar already holds is updated from the file, the
+         * way a re-imported contact is (#242, #274): the reason to import a
+         * file a second time is usually that the first one was not right, and
+         * skipping means a corrected export corrects nothing.
+         *
+         * Two properties are held back, decided on #279. `participants` carries
+         * every attendee's accepted/declined and `recurrenceOverrides` holds
+         * every "just this Wednesday" edit made here -- both are answers and
+         * decisions that happened after the file was written, and a file that
+         * mentions them at all describes them as they were at export. Writing
+         * either one over would destroy work nobody asked to lose, silently,
+         * with no error returned anywhere. So a corrected export fixes the
+         * time, the title and the location and leaves who said yes alone.
+         *
+         * The cost runs the other way: an attendee added at the source since
+         * the last import does not arrive, and nothing here can tell that apart
+         * from an RSVP given in Gilbert. Losing an answer somebody gave is
+         * worse than not gaining an attendee somebody can still be told about.
+         *
+         * `uid` is held back too -- it is what the two were matched on, so it
+         * is already equal, and it is the event's identity rather than a field
+         * of it worth re-asserting.
+         */
+        const { uid: _u, participants: _p, recurrenceOverrides: _r, ...patch } = rest;
+        update[existing] = patch;
+        return;
+      }
+      create[`e${i}`] = {
+        "@type": "Event",
+        ...rest,
+        uid: rest.uid || crypto.randomUUID(),
+        calendarIds: { [calendarId]: true },
+      };
+    });
+    /*
+     * Creates and updates share one budget. Stalwart counts every object in a
+     * `/set` against `maxObjectsInSet` together, so batching the two separately
+     * would send a file of 300 new events and 300 changed ones as two calls of
+     * 300 and be refused for a ceiling of 500 that neither half crosses.
+     * Contacts' `writeCards` splits the same way for the same reason.
+     */
+    const keys = [
+      ...Object.keys(create).map((k) => ["create", k] as const),
+      ...Object.keys(update).map((k) => ["update", k] as const),
+    ];
+    let created = 0;
+    let updated = 0;
+    let refused: SetError | undefined;
+    try {
+      for (const part of chunk(keys, client.maxObjectsInSet)) {
+        const subCreate: Record<string, unknown> = {};
+        const subUpdate: Record<string, unknown> = {};
+        for (const [kind, k] of part) {
+          if (kind === "create") subCreate[k] = create[k];
+          else subUpdate[k] = update[k];
+        }
+        const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+          accountId,
+          create: subCreate,
+          update: subUpdate,
+          sendSchedulingMessages: false,
+        });
+        created += Object.keys(res.created ?? {}).length;
+        updated += Object.keys(res.updated ?? {}).length;
+        refused ??=
+          Object.values(res.notCreated ?? {})[0] ??
+          Object.values(res.notUpdated ?? {})[0];
+      }
+    } catch (err) {
+      // A batch that failed with earlier ones already written: those events are
+      // in the calendar, and an error saying only that the import failed sends
+      // someone looking for events that are already there.
+      if (!created && !updated) throw err;
+      throw new Error(
+        `${created + updated} of ${keys.length} events were imported before this happened: ${(err as Error).message}`,
+      );
+    } finally {
+      if (created || updated) get().refreshWindows();
+    }
+    // Nothing at all got in: say why rather than report importing zero events
+    // as though the file had been empty.
+    if (!created && !updated)
+      throw new Error(
+        refused
+          ? setErrorMessage(refused)
+          : "the server did not accept any of its events",
+      );
+    return { created, updated };
+  },
+
+  /*
+   * The calendar out to a file, which is the import read backwards.
+   *
+   * The masters, not the occurrences: the query runs without
+   * `expandRecurrences`, so a weekly series leaves here as one VEVENT carrying
+   * its RRULE rather than as a year of identical ones. An export that had
+   * flattened the rule would import somewhere else as an unmaintainable pile.
+   *
+   * Written in the browser, unlike the import, which hands the parsing to the
+   * server. There is no `CalendarEvent/serialise` to hand this to -- the JMAP
+   * calendar drafts define parsing and nothing the other way -- so it is done
+   * here from the objects the server already returns.
+   */
+  async exportIcs(calendarId) {
+    const accountId = get().accountId!;
+    const events = await eventsInCalendar(accountId, calendarId, EVENT_PROPS);
+    if (!events.length) throw new Error("there is nothing in it to export");
+    return {
+      text: toIcs(events, get().calendars[calendarId]?.name),
+      count: events.length,
+    };
+  },
+
+  applyChanges(types, accountId) {
+    /*
+     * A change to a shared account (a colleague's share, a group mailbox) is
+     * not aimed at the reader's own account, so the own-account caches do not
+     * cover it. The shared caches do: the calendars of that account and the
+     * windows of its events already on screen.
+     */
+    const own = get().accountId;
+    if (accountId && accountId !== own) {
+      /* An account with nothing listed here has either never been read or lost
+         its read. Either way the answer is to read it now: ignoring what
+         arrives from it is what keeps a group's calendars out of the app for a
+         whole session, since nothing else asks again. */
+      if (!get().sharedCalendars.some((c) => c.accountId === accountId)) {
+        void get().loadSharedCalendars();
+        return;
+      }
+      if (types.has("Calendar")) void get().loadSharedCalendars();
+      /* Through the same coalescing the reader's own windows go through: the
+         events of a shared account arrive one per change too. */
+      if (types.has("CalendarEvent")) get().refreshWindows(true);
+      return;
+    }
+    if (types.has("Calendar")) void get().loadCalendars();
+    if (types.has("CalendarEvent")) get().refreshWindows();
+  },
+
+  refreshWindows(shared = false) {
+    // Re-fetch every window that is loaded, silently: nothing is dropped
+    // first, so what is on screen stays until the fresh answer lands
+    // (stale-while-revalidate). A write or a push must never flash an empty
+    // grid over content that is already there.
+    //
+    // Coalesced per kind: a burst of pushes -- or the reader's own write
+    // followed by its push echo -- refreshes the windows once, not once per
+    // event. A shared account's windows are their own kind, because a change
+    // to a colleague's calendar is not a change to the reader's.
+    const kind = shared ? "shared" : "own";
+    if (calendarWindowsQueued[kind]) return;
+    calendarWindowsQueued[kind] = true;
+    queueMicrotask(() => {
+      calendarWindowsQueued[kind] = false;
+      for (const key of Object.keys(get().ranges)) {
+        const [s, e] = key.split("|").map(Number) as [number, number];
+        if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+        if (shared) void get().loadSharedRange(new Date(s), new Date(e));
+        else void get().loadRange(new Date(s), new Date(e), true);
+      }
+    });
+  },
+
+  setDraft(draft) {
+    set({ draft });
+  },
+}));
+
+/**
+ * Whether an event is part of a series.
+ *
+ * Three facts about a live 0.16.19 decide this, and the mock reproduces none of
+ * them:
+ *
+ * - `baseEventId` says nothing. `CalendarEvent/query` runs with
+ *   `expandRecurrences`, and a one-off comes back as id `eaaaaai` over base
+ *   `i` — an instance id of its own, and a base that is a different id.
+ * - The rules say nothing on an instance. An occurrence of a weekly series
+ *   arrives with no rule attached at all; only the master carries one.
+ * - Stalwart names that rule `recurrenceRule`, singular, not the RFC 8984
+ *   `recurrenceRules` array.
+ *
+ * What an occurrence does carry is a `recurrenceId`, and a one-off never has
+ * one. Master or occurrence, that is what makes this a series.
+ */
+export function isRecurring(ev: CalendarEvent): boolean {
+  return Boolean(
+    ev.recurrenceRule ||
+      ev.recurrenceRules?.length ||
+      ev.excludedRecurrenceRules?.length ||
+      ev.recurrenceId,
+  );
+}
+
+/**
+ * The virtual calendar the birthdays hang off. Not a JMAP calendar and
+ * deliberately not shaped like one: it has no account, cannot be shared, and
+ * every write path checks the id before it does anything.
+ */
+/**
+ * The rights of a calendar Gilbert only reads — a birthday feed, a
+ * subscription. Both synthetic calendars are read-only, and one object is what
+ * says so: an edit affordance reads these fields, so a copy that drifted would
+ * offer an edit the calendar cannot take.
+ */
+const READ_ONLY_RIGHTS = {
+  mayReadItems: true,
+  mayWriteAll: false,
+  mayWriteOwn: false,
+  mayUpdatePrivate: false,
+  mayRSVP: false,
+  mayAdmin: false,
+  mayDelete: false,
+};
+
+function birthdayCalendar(): Calendar {
+  return {
+    id: BIRTHDAY_CALENDAR_ID,
+    name: t("Birthdays"),
+    color: "#e0a33e",
+    isSubscribed: true,
+    isVisible: true,
+    myRights: READ_ONLY_RIGHTS,
+  } as unknown as Calendar;
+}
+
+/** A CalendarEvent shaped enough for the views, and for nothing else. */
+function synthesiseBirthdayEvent(b: Birthday): CalendarEvent {
+  const local = toLocalDateTime(b.date);
+  return {
+    id: b.id,
+    calendarIds: { [BIRTHDAY_CALENDAR_ID]: true },
+    title:
+      b.age === null
+        ? t("{name}\u2019s birthday", { name: b.name })
+        : t("{name}\u2019s birthday ({age})", { name: b.name, age: String(b.age) }),
+    start: local,
+    duration: "P1D",
+    showWithoutTime: true,
+    freeBusyStatus: "free",
+  } as unknown as CalendarEvent;
+}
+
+/** The virtual calendar id for a subscription; never a JMAP id. */
+export function subscriptionCalendarId(subId: string): string {
+  return `ihm-ics:${subId}`;
+}
+
+export function isSubscriptionEvent(id: string | null | undefined): boolean {
+  return Boolean(id?.startsWith("ihm-ics:"));
+}
+
+function subscriptionCalendar(sub: {
+  id: string;
+  name: string;
+  color: string;
+}): Calendar {
+  return {
+    id: subscriptionCalendarId(sub.id),
+    name: sub.name,
+    color: sub.color,
+    isSubscribed: true,
+    isVisible: true,
+    // Read-only, and honestly so: everything that asks before offering an edit
+    // reads these rights, so nothing has to know a subscription is special.
+    myRights: READ_ONLY_RIGHTS,
+  } as unknown as Calendar;
+}
+
+function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent {
+  // The feed's instants carry seconds; a subscribed event is placed to the
+  // minute, which is the precision the grid has for it.
+  const minute = new Date(e.start.getTime());
+  minute.setSeconds(0, 0);
+  const local = toLocalDateTime(minute);
+  // The feed says when the event ends, and a subscribed event drawn without it
+  // is an event of no length: the grid can only place what it is told.
+  const seconds = Math.max(0, Math.round((e.end.getTime() - e.start.getTime()) / 1000));
+  return {
+    id: `${subscriptionCalendarId(subId)}:${e.uid}`,
+    calendarIds: { [subscriptionCalendarId(subId)]: true },
+    title: e.summary,
+    start: local,
+    duration: seconds > 0 ? formatDuration(seconds) : "P0D",
+    showWithoutTime: e.allDay,
+    location: e.location,
+    description: e.description,
+    freeBusyStatus: "free",
+  } as unknown as CalendarEvent;
+}
+
+/**
+ * Which account holds a calendar, from a bare id.
+ *
+ * A calendar id is unique only within its account: the reader's own and a
+ * group's can both be "t1", and two shared accounts can collide too. A bare
+ * id that names more than one reachable calendar is ambiguous and resolves to
+ * null -- "Calendar is not available" at every call site -- rather than to a
+ * guess, because a guess would aim an edit at the wrong account's same-id
+ * calendar. Resolution is unambiguous when exactly one side holds the id:
+ *
+ *  - only the reader's own account holds it → the reader's own account;
+ *  - exactly one shared/group account holds it → that account;
+ *  - nobody reachable holds it → the reader's own account, the historical
+ *    answer for an id whose calendar has not loaded yet (a caller that
+ *    really means a group event passes the account explicitly and never
+ *    reaches this guess);
+ *  - the own account and a shared one both hold it, or two shared accounts
+ *    do → null, since the bare id cannot tell which was meant.
+ *
+ * Callers that know the account (every view path, since an instance carries
+ * its account) pass it explicitly and never reach this guess. No id at all
+ * means a brand-new event, which starts on the reader's own account.
+ */
+function accountOfCalendar(
+  calendarId: string | null | undefined,
+  own: Record<Id, Calendar>,
+  ownAccountId: Id | null,
+  shared: SharedCalendar[],
+): Id | null {
+  if (!calendarId) return ownAccountId;
+  const ownHit = Boolean(own[calendarId]);
+  const sharedHits = shared.filter((c) => c.calendar.id === calendarId);
+  if (ownHit && sharedHits.length) return null;
+  if (sharedHits.length > 1) return null;
+  const onlyShared = sharedHits.length === 1 ? sharedHits[0] : undefined;
+  if (onlyShared) return onlyShared.accountId;
+  return ownAccountId;
+}
+
+/**
+ * The account that holds a calendar id, from what the store has loaded.
+ *
+ * Shared and group calendars are not the reader's own, and an id means nothing
+ * outside the account that holds it — the editor asks for an event's master
+ * with this rather than with the reader's own account.
+ */
+export function accountOfCalendarId(calendarId: string | null | undefined): Id | null {
+  const s = useCalendar.getState();
+  return accountOfCalendar(calendarId, s.calendars, s.accountId, s.sharedCalendars);
+}
+
+/**
+ * Add a shared calendar to the reader's view unless it is there already.
+ *
+ * A write aimed at a shared calendar the reader has not added would land
+ * where they cannot see it — the calendar is drawn only once subscribed or
+ * held in `addedShares`. The write itself (a create or a move) is the
+ * deliberate act, so the calendar is added here rather than left invisible.
+ */
+async function ensureCalendarVisible(accountId: Id, calendarId: Id): Promise<void> {
+  const cal = useCalendar.getState();
+  const known = cal.sharedCalendars.find(
+    (c) => c.accountId === accountId && c.calendar.id === calendarId,
+  );
+  const added = new Set(settings().addedShares);
+  if (!known?.calendar.isSubscribed && !added.has(sharedKey(accountId, calendarId)))
+    await cal.setSharedSubscribed(accountId, calendarId, true);
+}
+
+/** The event, as the account that holds it stores it. */
+async function readEvent(accountId: Id, id: Id): Promise<CalendarEvent | null> {
+  const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+    accountId,
+    ids: [id],
+    properties: EVENT_PROPS,
+  });
+  return res.list[0] ?? null;
+}
+
+/**
+ * Fields that say where an event sits in an account, not what the event is.
+ *
+ * Everything else — the uid, the rule and its overrides, the participants,
+ * the alerts — rides along untouched when an event is re-filed under another
+ * account.
+ */
+const MOVE_STRIP = new Set([
+  "id",
+  "baseEventId",
+  "calendarIds",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "utcStart",
+  "utcEnd",
+  "isOrigin",
+  "created",
+  "updated",
+]);
+
+/** The same event, aimed at another account's calendar. */
+function moveCopy(stored: CalendarEvent, targetCalendarId: Id): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(stored)) if (!MOVE_STRIP.has(k)) copy[k] = v;
+  copy.calendarIds = { [targetCalendarId]: true };
+  return copy;
+}
+
+export function toInstance(
+  e: CalendarEvent,
+  calendars: Record<Id, Calendar>,
+  accountId: Id,
+): EventInstance | null {
+  const allDay = Boolean(e.showWithoutTime);
+  let start: Date;
+  let end: Date;
+  if (e.utcStart && e.utcEnd && !allDay) {
+    start = new Date(e.utcStart);
+    end = new Date(e.utcEnd);
+  } else {
+    const tz = allDay ? null : e.timeZone;
+    start = zonedToDate(e.start, tz);
+    const dur = parseDuration(e.duration);
+    end = new Date(start.getTime() + (dur || (allDay ? 86400 : 0)) * 1000);
+    if (allDay && end.getTime() - start.getTime() < DAY_MS)
+      end = new Date(start.getTime() + DAY_MS);
+  }
+  if (Number.isNaN(start.getTime())) return null;
+  if (end <= start) end = new Date(start.getTime() + (allDay ? DAY_MS : 30 * 60_000));
+  const calId = Object.keys(e.calendarIds ?? {})[0];
+  return {
+    key: e.id,
+    accountId,
+    event: e,
+    start,
+    end,
+    allDay,
+    calendar: calId ? calendars[calId] : undefined,
+  };
+}
+
+/**
+ * Every address a participant answers to, as lowercase `mailto:` URIs.
+ *
+ * Stalwart 0.16 keeps one address under `calendarAddress`; RFC 8984 spreads it
+ * over `sendTo` and `email`. Reading has to accept all three — a mailbox may
+ * hold events written by either, and by other clients besides.
+ */
+export function participantAddresses(p: JSCalendarParticipant): string[] {
+  return [
+    p.calendarAddress ?? "",
+    ...Object.values(p.sendTo ?? {}),
+    p.email ? `mailto:${p.email}` : "",
+  ]
+    .filter(Boolean)
+    .map((a) => a.toLowerCase());
+}
+
+/** The address to show or write to, without the `mailto:`. */
+export function participantEmail(p: JSCalendarParticipant): string {
+  return (participantAddresses(p)[0] ?? "").replace(/^mailto:/i, "");
+}
+
+/** Whether this participant is attending, under any of the role names in use. */
+export function isAttendee(p: JSCalendarParticipant): boolean {
+  return Boolean(
+    p.roles?.attendee || p.roles?.required || p.roles?.optional || p.roles?.chair,
+  );
+}
+
+/** The event's recurrence rule, under either spelling. */
+export function eventRule(ev: CalendarEvent): JSCalendarRecurrenceRule | undefined {
+  return ev.recurrenceRule ?? ev.recurrenceRules?.[0];
+}
+
+/**
+ * Builds a participant the way Stalwart 0.16 stores them: the address under
+ * `calendarAddress`. Sent under RFC 8984's `sendTo`/`email` instead, the server
+ * keeps the event and drops the whole participant map without saying so — which
+ * is why an invitation sent that way vanishes (#26).
+ */
+export function makeParticipant(
+  email: string,
+  name: string | null | undefined,
+  role: "owner" | "attendee",
+  status?: string,
+): JSCalendarParticipant {
+  return {
+    "@type": "Participant",
+    name: name || undefined,
+    calendarAddress: `mailto:${email}`,
+    kind: "individual",
+    roles:
+      role === "owner"
+        ? { owner: true, attendee: true }
+        : { attendee: true, required: true },
+    participationStatus:
+      (status as JSCalendarParticipant["participationStatus"]) ??
+      (role === "owner" ? "accepted" : "needs-action"),
+    expectReply: role !== "owner",
+  };
+}
+
+export function myParticipantKeys(
+  ev: CalendarEvent,
+  identities: ParticipantIdentity[],
+): string[] {
+  const mine = new Set<string>();
+  for (const i of identities) {
+    mine.add(i.calendarAddress.toLowerCase());
+    for (const v of Object.values(i.sendTo ?? {})) mine.add(v.toLowerCase());
+  }
+  const session = useSession.getState().session;
+  if (session?.username?.includes("@"))
+    mine.add(`mailto:${session.username.toLowerCase()}`);
+  const keys: string[] = [];
+  for (const [k, p] of Object.entries(ev.participants ?? {})) {
+    if (participantAddresses(p).some((a) => mine.has(a))) keys.push(k);
+  }
+  return keys;
+}
+
+/*
+ * Calendars from other accounts (a colleague's share, a group mailbox) are
+ * fetched when the calendar store starts. A session refresh can add such an
+ * account later — the mail pane discovers a group mailbox after the calendar
+ * has already asked — so the fetch is repeated whenever the set of
+ * non-personal accounts changes, not only at startup.
+ */
+let lastSharedAccounts = "";
+function sharedAccountsSignature(
+  s: { accounts?: Record<string, { isPersonal?: boolean }> } | null,
+): string {
+  const own = useSession.getState().ownAccountFor(CAP.calendars);
+  return Object.keys(s?.accounts ?? {})
+    .filter((id) => s?.accounts?.[id]?.isPersonal === false && id !== own)
+    .sort()
+    .join("|");
+}
+useSession.subscribe((s, prev) => {
+  if (s.status !== "authenticated") {
+    lastSharedAccounts = "";
+    stopReminderTimer();
+    // A sign-out must not leave the previous reader's shared content behind:
+    // the calendar store outlives the session, and on a shared machine the
+    // next reader would briefly see it.
+    useCalendar.setState({
+      accountId: null,
+      calendars: {},
+      events: {},
+      ranges: {},
+      sharedCalendars: [],
+      sharedEvents: {},
+      sharedRanges: {},
+      identities: [],
+    });
+    return;
+  }
+  const sig = sharedAccountsSignature(s.session);
+  if (prev.status === "authenticated") {
+    if (sig !== lastSharedAccounts) {
+      // Changed -- shrunk to nothing included. A revoke that empties the set
+      // must still clear what was on screen; an empty `Calendar/get` round
+      // over zero accounts is exactly that clearing.
+      lastSharedAccounts = sig;
+      void useCalendar.getState().loadSharedCalendars();
+    }
+  } else {
+    // The store's init (driven by the app on sign-in) does the first fetch.
+    lastSharedAccounts = sig;
+  }
+});

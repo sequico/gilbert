@@ -1,0 +1,343 @@
+import { tNode, t as translate } from "@/lib/i18n";
+import { TRANSLATION_ISSUE_URL, UI_LANGUAGES } from "@/lib/languages";
+import { effectiveMode, type Mode, PALETTES, type PaletteId } from "@/lib/palette";
+import { isEnforced } from "@/lib/settingsPolicy";
+import { SWIPE_CHOICES, type SwipeAction } from "@/lib/swipe";
+import { useSettings } from "@/store/settings";
+import { Switch, useIsTouch } from "@/ui/misc";
+
+/**
+ * A swatch for each palette, drawn from the colours that palette actually
+ * paints, so a card looks like what picking it does. Kept as data rather than
+ * inline ternaries so a sixth palette does not mean editing a conditional in
+ * three places.
+ */
+const PALETTE_PREVIEW: Record<PaletteId, { light: string; dark: string }> = {
+  default: { light: "#f6f8fa", dark: "#0b1220" },
+  // The upstream palette: its background, with its teal and the mark's
+  // orange showing.
+  gilbert: {
+    light:
+      "linear-gradient(135deg,#f4f9f9 0%,#e7f1f2 55%,#379e98 55%,#379e98 78%,#c5813b 78%)",
+    dark: "linear-gradient(135deg,#0d2430 0%,#12303e 55%,#46cac3 55%,#46cac3 78%,#f9a34b 78%)",
+  },
+  dracula: {
+    light:
+      "linear-gradient(135deg,#fffbeb 0%,#fffbeb 55%,#644ac9 55%,#644ac9 78%,#a3144d 78%)",
+    dark: "linear-gradient(135deg,#282a36 0%,#2f3140 55%,#bd93f9 55%,#bd93f9 78%,#ff79c6 78%)",
+  },
+  gruvbox: {
+    light:
+      "linear-gradient(135deg,#fbf1c7 0%,#f2e5bc 55%,#076678 55%,#076678 78%,#af3a03 78%)",
+    dark: "linear-gradient(135deg,#282828 0%,#32302f 55%,#83a598 55%,#83a598 78%,#fe8019 78%)",
+  },
+  "rose-pine": {
+    light:
+      "linear-gradient(135deg,#faf4ed 0%,#fffaf3 55%,#907aa9 55%,#907aa9 78%,#d7827e 78%)",
+    dark: "linear-gradient(135deg,#191724 0%,#1f1d2e 55%,#c4a7e7 55%,#c4a7e7 78%,#ebbcba 78%)",
+  },
+  "tokyo-night": {
+    light:
+      "linear-gradient(135deg,#e6e7ed 0%,#d6d8df 55%,#2959aa 55%,#2959aa 78%,#8c4351 78%)",
+    dark: "linear-gradient(135deg,#1a1b26 0%,#1f2130 55%,#7aa2f7 55%,#7aa2f7 78%,#bb9af7 78%)",
+  },
+  catppuccin: {
+    light:
+      "linear-gradient(135deg,#e6e9ef 0%,#eff1f5 55%,#8839ef 55%,#8839ef 78%,#ea76cb 78%)",
+    dark: "linear-gradient(135deg,#1e1e2e 0%,#313244 55%,#cba6f7 55%,#cba6f7 78%,#f5c2e7 78%)",
+  },
+  solarized: {
+    light:
+      "linear-gradient(135deg,#fdf6e3 0%,#eee8d5 55%,#268bd2 55%,#268bd2 78%,#cb4b16 78%)",
+    dark: "linear-gradient(135deg,#002b36 0%,#073642 55%,#268bd2 55%,#268bd2 78%,#cb4b16 78%)",
+  },
+  ayu: {
+    light:
+      "linear-gradient(135deg,#f8f9fa 0%,#ebeef0 55%,#f29718 55%,#f29718 78%,#55b4d4 78%)",
+    dark: "linear-gradient(135deg,#0d1017 0%,#10141c 55%,#e6b450 55%,#e6b450 78%,#39bae6 78%)",
+  },
+  kanagawa: {
+    light:
+      "linear-gradient(135deg,#e5ddb0 0%,#f2ecbc 55%,#624c83 55%,#624c83 78%,#b35b79 78%)",
+    dark: "linear-gradient(135deg,#1f1f28 0%,#2a2a37 55%,#7e9cd8 55%,#7e9cd8 78%,#d27e99 78%)",
+  },
+  everforest: {
+    light:
+      "linear-gradient(135deg,#efebd4 0%,#fdf6e3 55%,#8da101 55%,#8da101 78%,#df69ba 78%)",
+    dark: "linear-gradient(135deg,#2d353b 0%,#343f44 55%,#a7c080 55%,#a7c080 78%,#d699b6 78%)",
+  },
+  primer: {
+    light:
+      "linear-gradient(135deg,#f6f8fa 0%,#ffffff 55%,#0969da 55%,#0969da 78%,#8250df 78%)",
+    dark: "linear-gradient(135deg,#0d1117 0%,#151b23 55%,#58a6ff 55%,#58a6ff 78%,#d2a8ff 78%)",
+  },
+};
+
+const MODES: Array<{ id: Mode; label: string }> = [
+  { id: "system", label: "Match system" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
+
+const ACCENTS = [
+  { id: "teal", color: "#0f766e" },
+  { id: "blue", color: "#2563eb" },
+  { id: "purple", color: "#7c3aed" },
+  { id: "rose", color: "#e11d48" },
+  { id: "orange", color: "#ea580c" },
+  { id: "green", color: "#16a34a" },
+];
+
+export function AppearanceSettings() {
+  const s = useSettings((st) => st.settings);
+  const update = useSettings((st) => st.update);
+  const prefersDark = Boolean(
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
+  const isTouch = useIsTouch();
+  const chosen = UI_LANGUAGES.find((l) => l.tag === s.uiLanguage);
+  const betaChosen = Boolean(chosen?.beta);
+  return (
+    <div>
+      <h1>{translate("Appearance")}</h1>
+      <p className="lead">{translate("Make Gilbert yours.")}</p>
+      <h2>{translate("Theme")}</h2>
+      <div className="mode-switch" role="group" aria-label={translate("Light or dark")}>
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            className={s.mode === m.id ? "active" : ""}
+            onClick={() => update({ mode: m.id })}
+          >
+            {translate(m.label)}
+          </button>
+        ))}
+      </div>
+      <div className="theme-grid" style={{ marginTop: 12 }}>
+        {PALETTES.map((p) => {
+          const shown = effectiveMode(s.mode, prefersDark);
+          return (
+            <button
+              key={p.id}
+              className={`theme-card ${s.palette === p.id ? "active" : ""}`}
+              onClick={() => update({ palette: p.id })}
+            >
+              <div
+                className="preview"
+                style={{ background: PALETTE_PREVIEW[p.id][shown] }}
+              />
+              {p.translatable ? (
+                <span>{translate(p.name)}</span>
+              ) : (
+                <span className="notranslate" translate="no">
+                  {p.name}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <p className="hint" style={{ marginTop: 10 }}>
+        {translate(
+          "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.",
+        )}
+      </p>
+      <Switch
+        checked={s.themeMessageBody}
+        onChange={(v) =>
+          update({ themeMessageBody: v, ...(v ? {} : { themeStyledMessages: false }) })
+        }
+        label={translate("Apply the theme to messages too")}
+        hint={translate(
+          "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Mail that styles itself keeps the sender's design unless the option below is on too.",
+        )}
+      />
+      <Switch
+        checked={s.themeStyledMessages}
+        disabled={!s.themeMessageBody}
+        onChange={(v) => update({ themeStyledMessages: v })}
+        label={translate("Apply it even to mail that styles itself")}
+        hint={translate(
+          "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.",
+        )}
+      />
+
+      <h2>{translate("Accent color")}</h2>
+      <div className="swatches">
+        {ACCENTS.map((a) => (
+          <button
+            key={a.id}
+            className={`swatch ${s.accent === a.id ? "active" : ""}`}
+            style={{ background: a.color }}
+            onClick={() => update({ accent: a.id })}
+            aria-label={a.id}
+            title={a.id}
+          />
+        ))}
+      </div>
+      <h2>{translate("Density & text")}</h2>
+      <div className="field-row">
+        <div className="field">
+          <label>{translate("Display density")}</label>
+          <select
+            disabled={isEnforced("density")}
+            className="select"
+            value={s.density}
+            onChange={(e) => update({ density: e.target.value as typeof s.density })}
+          >
+            <option value="comfortable">{translate("Comfortable")}</option>
+            <option value="cozy">{translate("Cozy (default)")}</option>
+            <option value="compact">{translate("Compact")}</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>{translate("Text size")}</label>
+          <select
+            disabled={isEnforced("fontSize")}
+            className="select"
+            value={s.fontSize}
+            onChange={(e) => update({ fontSize: e.target.value as typeof s.fontSize })}
+          >
+            <option value="small">{translate("Small")}</option>
+            <option value="medium">{translate("Medium")}</option>
+            <option value="large">{translate("Large")}</option>
+          </select>
+        </div>
+      </div>
+      <h2>{translate("Language")}</h2>
+      <div className="field" style={{ maxWidth: 320 }}>
+        <label htmlFor="ui-language">{translate("Interface language")}</label>
+        <select
+          id="ui-language"
+          disabled={isEnforced("uiLanguage")}
+          className="select"
+          value={s.uiLanguage}
+          onChange={(e) => update({ uiLanguage: e.target.value })}
+        >
+          {UI_LANGUAGES.map((l) => (
+            <option key={l.tag} value={l.tag}>
+              {l.beta ? translate("{name} (Beta)", { name: l.name }) : l.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {/*
+        Said plainly rather than left to be discovered. A picker with one entry
+        looks broken; a picker with one entry and a sentence explaining that
+        more are coming is a roadmap.
+      */}
+      {/*
+        Said plainly rather than buried. A machine translation presented as a
+        finished one is the version of this that does harm: a reader told it was
+        unchecked forgives an odd sentence and reports it, while a reader told
+        it was reviewed reasonably concludes the product is sloppy. The report
+        link is the entire review process, so it belongs one click from the
+        thing being complained about.
+      */}
+      {betaChosen && (
+        <p className="hint">
+          {tNode(
+            "This translation was generated by AI and has not been checked by a native speaker, so it is marked Beta until somebody who speaks it signs it off. Anything that reads wrongly is worth reporting — {report}.",
+            {
+              report: (
+                <a
+                  href={`${TRANSLATION_ISSUE_URL}${encodeURIComponent(chosen?.name ?? "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {translate("tell us about it")}
+                </a>
+              ),
+            },
+          )}
+        </p>
+      )}
+      <p className="hint">
+        {translate("Only languages Gilbert has been translated into appear here.")}
+      </p>
+      <p className="hint">
+        {tNode(
+          "This is separate from {setting} in General, which decides how dates, times and numbers are written. You can read an English interface with German dates, or the other way round.",
+          { setting: <strong>{translate("Language & region")}</strong> },
+        )}
+      </p>
+
+      <h2>{translate("Swiping")}</h2>
+      <p className="hint">
+        {translate(
+          "On a touchscreen, drag a message sideways to act on it. Each direction can do one thing, or nothing. These follow your account, so a phone and a tablet agree; a mouse ignores them and keeps dragging messages into folders instead.",
+        )}
+      </p>
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="swipe-right">{translate("Swipe right")}</label>
+          <select
+            id="swipe-right"
+            className="select"
+            value={s.swipeRight}
+            onChange={(e) => update({ swipeRight: e.target.value as SwipeAction })}
+          >
+            {SWIPE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {translate(c.label)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="swipe-left">{translate("Swipe left")}</label>
+          <select
+            id="swipe-left"
+            className="select"
+            value={s.swipeLeft}
+            onChange={(e) => update({ swipeLeft: e.target.value as SwipeAction })}
+          >
+            {SWIPE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {translate(c.label)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {/*
+        Said once, where it is relevant, rather than greying the pickers out on
+        a desktop: the settings are real and worth setting here for the phone
+        that will read them, and a disabled control invites a hunt for whatever
+        would enable it.
+      */}
+      {!isTouch && (
+        <p className="hint">
+          {translate(
+            "This screen has no touchscreen, so nothing here changes what it does. Your phone or tablet will pick these up.",
+          )}
+        </p>
+      )}
+      <p className="hint">
+        {translate(
+          "Holding a message selects it, and holding a folder opens its menu. Pull the top of the message list down to check for new mail.",
+        )}
+      </p>
+
+      <h2>{translate("Sidebar")}</h2>
+      <Switch
+        locked={isEnforced("labelsSidebar")}
+        checked={s.labelsSidebar}
+        onChange={(v) => update({ labelsSidebar: v })}
+        label={translate("Show labels in the sidebar")}
+      />
+      <Switch
+        locked={isEnforced("showHiddenFolders")}
+        checked={s.showHiddenFolders}
+        onChange={(v) => update({ showHiddenFolders: v })}
+        label={translate("Show unsubscribed (hidden) folders")}
+      />
+      <Switch
+        locked={isEnforced("sidebarCollapsed")}
+        checked={s.sidebarCollapsed}
+        onChange={(v) => update({ sidebarCollapsed: v })}
+        label={translate("Collapse sidebar to icons")}
+      />
+    </div>
+  );
+}

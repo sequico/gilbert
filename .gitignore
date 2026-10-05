@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.env
+# deploy.example.sh keeps its settings in .env.production; any .env.* holds APP_SECRET.
+.env.*
+!.env.example
+*.log
+.DS_Store
+server/data/
+.vite/
+coverage/
+
+# Worktrees: a second checkout of this repository, made by whichever tool is
+# running parallel work. Never part of a commit -- a worktree is a checkout, not
+# content, and `git add -A` in the main checkout would otherwise stage a whole
+# second tree of the files that are already tracked.
+#
+# The canonical location is `.worktree/` at the repository root (owner decision
+# 2026-09-17). The remaining patterns are the older spellings, kept so a checkout
+# left under one of them can never be staged. Git's own registration lives under
+# `.git/`, which is never committed in the first place; this is about the working
+# copy.
+/.worktree/
+worktrees/
+.worktrees/
+*.worktree/
+

@@ -1,0 +1,41 @@
+import { useMemo } from "react";
+import { t, tNode } from "@/lib/i18n";
+import { keyboard } from "@/lib/keyboard";
+import { Kbd } from "@/ui/misc";
+
+export function ShortcutsSettings() {
+  const groups = useMemo(() => keyboard.groups(), []);
+  return (
+    <div>
+      <h1>{t("Keyboard shortcuts")}</h1>
+      <p className="lead">
+        {tNode(
+          "Gmail-style shortcuts are always on. Press {key} anywhere to see this list.",
+          { key: <kbd className="kbd">?</kbd> },
+        )}
+      </p>
+      <div className="shortcut-grid">
+        {groups.map(([group, items]) => (
+          <div key={group}>
+            {/* Group names and descriptions are registered in English at the
+                call sites -- see views/Shortcuts.tsx -- because the binding
+                table is data, not markup, and the English is the catalogue
+                key. Translating at render keeps the registration simple and
+                means a binding added anywhere is translatable without the
+                registrar knowing about i18n. */}
+            <h3>{t(group)}</h3>
+            {items.map((b) => (
+              <div key={b.keys} className="shortcut-row">
+                <span>{t(b.description)}</span>
+                <Kbd keys={b.keys} />
+              </div>
+            ))}
+          </div>
+        ))}
+        {!groups.length && (
+          <p className="hint">{t("Open the Mail view to see all shortcuts.")}</p>
+        )}
+      </div>
+    </div>
+  );
+}

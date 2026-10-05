@@ -1,0 +1,24 @@
+# Gilbert, as a host service. Installed by install/install.sh when the host has
+# no gilbert.service of its own; a deployment that has one keeps it, and the
+# installer layers its hardening over it as a drop-in instead (see
+# gilbert-hardening.conf).
+#
+# The environment file carries the handshake and whatever else this deployment
+# states (see .env.example); everything else lives in Stalwart.
+[Unit]
+Description=Gilbert
+Documentation=https://github.com/sequico/gilbert
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP@
+EnvironmentFile=@ENV@
+ExecStart=@NODE@ server/dist/index.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
