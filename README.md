@@ -12,6 +12,7 @@
   <a href="docs/releasing.md"><img alt="Releases are cut by hand and gated by the same check" src="https://img.shields.io/badge/release-manual-1f6feb?style=flat-square"></a>
   <a href="https://github.com/sequico/gilbert/actions/workflows/codeql.yml"><img alt="CodeQL, run with the release and on demand" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
   <a href="CONTRIBUTING.md"><img alt="Every contributed commit is signed off (DCO)" src="https://img.shields.io/badge/commits-DCO--signed-2dd4bf?style=flat-square"></a>
+  <a href="https://github.com/sponsors/sequico"><img alt="Sponsor Gilbert on GitHub" src="https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?style=flat-square"></a>
 </p>
 
 # Gilbert
@@ -160,6 +161,9 @@ Gilbert for real is [INSTALL.md](INSTALL.md).
 [CONTRIBUTING.md](CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) ·
 [SECURITY.md](SECURITY.md) — report vulnerabilities privately, not in a public
 issue.
+
+Gilbert is free software under the AGPL; if it is useful to you, you can
+[sponsor its development](https://github.com/sponsors/sequico).
 
 ## License
 
