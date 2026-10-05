@@ -2,8 +2,8 @@
  * The workorder panel (ADR 0028): the surface a workorder is worked in.
  *
  * A large fixed panel, not a popover -- wide and tall enough to hold the open
- * workorder (its global checklist, the reader's own groups' checklists, and the
- * references it gathers) while the rest of the app is used beside it. The
+ * workorder (its global checklist and the reader's own groups' checklists)
+ * while the rest of the app is used beside it. The
  * launcher opens it; Escape and the close button put it away; on a phone it is
  * the full screen, the chat sheet's arrangement at a working size.
  *
@@ -32,8 +32,6 @@ import {
   type WorkorderCreateInput,
   type WorkorderItemInput,
   type WorkorderPartView,
-  type WorkorderRef,
-  type WorkorderRefKind,
   type WorkorderScope,
   type WorkorderState,
   type WorkorderStepState,
@@ -56,12 +54,6 @@ const STATE_LABELS: Record<WorkorderState, string> = {
   completed: "Completed",
   cancelled: "Cancelled",
   replaced: "Replaced",
-};
-
-const REF_KIND_LABELS: Record<WorkorderRefKind, string> = {
-  folder: "Folder",
-  file: "File",
-  kb: "KB",
 };
 
 /* The four states a step reaches; translated at the render site. `done` and
@@ -152,7 +144,9 @@ function StepRow({
 
   return (
     <div
-      className={`workorder-step ${complete ? "done" : ""}`}
+      className={`workorder-step ${complete ? "done" : ""} ${
+        step.state === "skipped" ? "skipped" : ""
+      }`}
       style={step.state === "not-applicable" ? { opacity: 0.6 } : undefined}
     >
       {/* The toggle is complete/incomplete, so a skipped step shows checked:
@@ -257,17 +251,21 @@ function PartSection({
   return (
     <section className="card workorder-part">
       <div className="card-head">
-        <h3 className="grow truncate">{title}</h3>
+        <h3 className="truncate">{title}</h3>
+        {/* The part's progress, beside its name: done/total. Formatting, not
+            prose -- no catalogue key. `partSteps` and `isStepComplete` are the
+            same two the step rows count with, so this cannot drift from them. */}
+        {total > 0 && (
+          <span className="hint">
+            {complete}/{total}
+          </span>
+        )}
+        <span className="grow" />
         {/* The KB page this checklist instantiates, named: a workorder's steps
             are a template's, and the reader can see which. */}
         {part.templateTitle && (
           <span className="hint truncate" title={part.templateTitle}>
             {t("From {template}", { template: part.templateTitle })}
-          </span>
-        )}
-        {total > 0 && (
-          <span className="hint">
-            {t("{done} of {total} done", { done: complete, total })}
           </span>
         )}
       </div>
@@ -329,135 +327,56 @@ function PartSection({
 }
 
 /**
- * The references a workorder gathers, and the administrator's control to add
- * one. A reference is `{accountId, kind, id}` and is followed by id -- nothing
- * is copied and nothing is planted in a work folder (ADR 0028).
- */
-function RefsSection({
-  refs,
-  canAdminister,
-  onAdd,
-  onRemove,
-}: {
-  refs: WorkorderRef[];
-  canAdminister: boolean;
-  onAdd: (ref: WorkorderRef) => void;
-  onRemove: (ref: WorkorderRef) => void;
-}) {
-  const [kind, setKind] = useState<WorkorderRefKind>("folder");
-  const [id, setId] = useState("");
-  const [accountId, setAccountId] = useState("");
-
-  const ready = Boolean(id.trim() && accountId.trim());
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!ready) return;
-    onAdd({ accountId: accountId.trim(), kind, id: id.trim() });
-    setId("");
-  };
-
-  return (
-    <section className="card">
-      <div className="card-head">
-        <h3>{t("References")}</h3>
-      </div>
-      {refs.length === 0 ? (
-        <p className="hint">{t("No references yet")}</p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {refs.map((ref) => (
-            <li
-              key={`${ref.kind}:${ref.accountId}:${ref.id}`}
-              className="row"
-              style={{ padding: "4px 0" }}
-            >
-              <span className="grow truncate">
-                {t("{kind}: {id}", {
-                  kind: t(REF_KIND_LABELS[ref.kind]),
-                  id: ref.id,
-                })}
-              </span>
-              {canAdminister && (
-                <button
-                  type="button"
-                  className="icon-btn xs danger"
-                  aria-label={t("Remove reference {id}", { id: ref.id })}
-                  title={t("Remove reference {id}", { id: ref.id })}
-                  onClick={() => onRemove(ref)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {canAdminister && (
-        <form onSubmit={submit} style={{ marginTop: 10 }}>
-          <div className="field-row">
-            <div className="field">
-              <label>{t("Kind")}</label>
-              <select
-                className="select"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as WorkorderRefKind)}
-              >
-                <option value="folder">{t("Folder")}</option>
-                <option value="file">{t("File")}</option>
-                <option value="kb">{t("KB")}</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>{t("ID")}</label>
-              <input
-                className="input"
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                placeholder={t("ID")}
-              />
-            </div>
-            <div className="field">
-              <label>{t("Account")}</label>
-              <input
-                className="input"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                placeholder={t("Account")}
-              />
-            </div>
-          </div>
-          <button type="submit" className="btn btn-sm btn-soft" disabled={!ready}>
-            <Plus size={14} /> {t("Add a reference")}
-          </button>
-        </form>
-      )}
-    </section>
-  );
-}
-
-/**
  * The administrator's control to turn a workorder terminal. The store writes
  * the state and moves the Master's root; nothing here picks a successor's uid,
  * because `replaced` is a state a later concern completes.
  */
-function CloseControl({ onClose }: { onClose: (state: WorkorderState) => void }) {
+function CloseControl({
+  state,
+  openSteps,
+  onClose,
+}: {
+  state: WorkorderState;
+  openSteps: number;
+  onClose: (state: WorkorderState) => void;
+}) {
+  // A completed workorder is not made over an unfinished checklist: the server
+  // refuses it on the effect as well, so this disable is the surface of the one
+  // rule rather than the rule. Finish reads: done, skipped or not-applicable.
+  const blocked = t(
+    "Finish the open steps, or set them skipped with a reason, before completing.",
+  );
   return (
     <section className="card">
       <div className="card-head">
         <h3>{t("Close workorder")}</h3>
       </div>
-      <div className="row">
-        {(["completed", "cancelled", "replaced"] as const).map((state) => (
-          <button
-            key={state}
-            type="button"
-            className="btn btn-sm"
-            onClick={() => onClose(state)}
-          >
-            {t(STATE_LABELS[state])}
-          </button>
-        ))}
-      </div>
+      {state === "running" ? (
+        <>
+          <div className="row">
+            {(["completed", "cancelled", "replaced"] as const).map((next) => {
+              const disallowed = next === "completed" && openSteps > 0;
+              return (
+                <button
+                  key={next}
+                  type="button"
+                  className="btn btn-sm"
+                  disabled={disallowed}
+                  title={disallowed ? blocked : undefined}
+                  onClick={() => onClose(next)}
+                >
+                  {t(STATE_LABELS[next])}
+                </button>
+              );
+            })}
+          </div>
+          {openSteps > 0 && <p className="hint">{blocked}</p>}
+        </>
+      ) : (
+        <button type="button" className="btn btn-sm" onClick={() => onClose("running")}>
+          {t("Reopen")}
+        </button>
+      )}
       <p className="hint" style={{ marginBottom: 0 }}>
         {t("A closed workorder is kept for ever.")}
       </p>
@@ -490,7 +409,7 @@ interface ItemDraft {
  * the template binds to, so the revision is read when a template is chosen and
  * the choices are drawn from it.
  */
-function NewWorkorderForm() {
+function NewWorkorderForm({ onClose }: { onClose: () => void }) {
   const create = useWorkorders((s) => s.create);
   const [name, setName] = useState("");
   const [templateIdx, setTemplateIdx] = useState("");
@@ -644,156 +563,176 @@ function NewWorkorderForm() {
     void create(input);
     setName("");
     setTemplateIdx("");
+    onClose();
   };
 
   return (
-    <form className="card" onSubmit={submit} style={{ marginBottom: 0 }}>
-      <div className="card-head">
-        <h3>{t("New workorder")}</h3>
-      </div>
-      <div className="field">
-        <label>{t("Name")}</label>
-        <input
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t("Name")}
-        />
-      </div>
-      <div className="field">
-        <label>{t("Template")}</label>
-        <select
-          className="select"
-          value={templateIdx}
-          onChange={(e) => setTemplateIdx(e.target.value)}
+    <form
+      className="workorder-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("New workorder")}
+      onSubmit={submit}
+    >
+      <div className="workorder-head">
+        <h2 className="grow truncate">{t("New workorder")}</h2>
+        <button
+          type="button"
+          className="icon-btn sm"
+          aria-label={t("Close")}
+          title={t("Close")}
+          onClick={onClose}
         >
-          <option value="">{t("Select a template")}</option>
-          {templates.map((tpl, i) => (
-            <option key={`${tpl.accountId}:${tpl.id}`} value={String(i)}>
-              {tpl.title}
-            </option>
-          ))}
-        </select>
-        {knowledgeLoaded && templates.length === 0 && (
-          <span className="hint">{t("No template with a revision in force")}</span>
-        )}
+          <X size={18} />
+        </button>
       </div>
-
-      {chosen && checklist && checklist.variants.length > 0 && (
+      <div className="workorder-scroll">
         <div className="field">
-          <label>{t("Values")}</label>
-          {checklist.variants.map((variant) => (
-            <div key={variant.key} className="row" style={{ gap: 8 }}>
-              <span className="truncate" style={{ minWidth: 90 }}>
-                {variant.label}
-              </span>
-              <select
-                className="select grow"
-                value={variants[variant.key] ?? ""}
-                onChange={(e) =>
-                  setVariants((prev) => ({ ...prev, [variant.key]: e.target.value }))
-                }
-              >
-                <option value="">{t("Select…")}</option>
-                {variant.values.map((value) => (
-                  <option key={value.value} value={value.value}>
-                    {value.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+          <label>{t("Name")}</label>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("Name")}
+          />
         </div>
-      )}
+        <div className="field">
+          <label>{t("Template")}</label>
+          <select
+            className="select"
+            value={templateIdx}
+            onChange={(e) => setTemplateIdx(e.target.value)}
+          >
+            <option value="">{t("Select a template")}</option>
+            {templates.map((tpl, i) => (
+              <option key={`${tpl.accountId}:${tpl.id}`} value={String(i)}>
+                {tpl.title}
+              </option>
+            ))}
+          </select>
+          {knowledgeLoaded && templates.length === 0 && (
+            <span className="hint">{t("No template with a revision in force")}</span>
+          )}
+        </div>
 
-      {chosen &&
-        checklist?.sections
-          .filter((section) => section.repeat)
-          .map((section) => {
-            const repeat = section.repeat as KnowledgeRepeat;
-            return (
-              <div key={section.key} className="field">
-                <label>{section.label}</label>
-                <span className="hint">{t("One per {item}", { item: repeat.item })}</span>
-                {(items[section.key] ?? []).map((row, index) => (
-                  <div key={row.id} className="field-row">
-                    <input
-                      className="input"
-                      value={row.key}
-                      placeholder={t("{item} key", { item: repeat.item })}
-                      onChange={(e) =>
-                        updateItems(section.key, (rows) =>
-                          rows.map((r, i) =>
-                            i === index ? { ...r, key: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                    {repeat.fields.map((field) => (
+        {chosen && checklist && checklist.variants.length > 0 && (
+          <div className="field">
+            <label>{t("Values")}</label>
+            {checklist.variants.map((variant) => (
+              <div key={variant.key} className="row" style={{ gap: 8 }}>
+                <span className="truncate" style={{ minWidth: 90 }}>
+                  {variant.label}
+                </span>
+                <select
+                  className="select grow"
+                  value={variants[variant.key] ?? ""}
+                  onChange={(e) =>
+                    setVariants((prev) => ({ ...prev, [variant.key]: e.target.value }))
+                  }
+                >
+                  <option value="">{t("Select…")}</option>
+                  {variant.values.map((value) => (
+                    <option key={value.value} value={value.value}>
+                      {value.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {chosen &&
+          checklist?.sections
+            .filter((section) => section.repeat)
+            .map((section) => {
+              const repeat = section.repeat as KnowledgeRepeat;
+              return (
+                <div key={section.key} className="field">
+                  <label>{section.label}</label>
+                  <span className="hint">
+                    {t("One per {item}", { item: repeat.item })}
+                  </span>
+                  {(items[section.key] ?? []).map((row, index) => (
+                    <div key={row.id} className="field-row">
                       <input
-                        key={field.key}
                         className="input"
-                        value={row.data[field.key] ?? ""}
-                        placeholder={field.label}
+                        value={row.key}
+                        placeholder={t("{item} key", { item: repeat.item })}
                         onChange={(e) =>
                           updateItems(section.key, (rows) =>
                             rows.map((r, i) =>
-                              i === index
-                                ? {
-                                    ...r,
-                                    data: { ...r.data, [field.key]: e.target.value },
-                                  }
-                                : r,
+                              i === index ? { ...r, key: e.target.value } : r,
                             ),
                           )
                         }
                       />
-                    ))}
-                    <button
-                      type="button"
-                      className="icon-btn xs danger"
-                      aria-label={t("Remove item")}
-                      title={t("Remove item")}
-                      onClick={() =>
-                        updateItems(section.key, (rows) =>
-                          rows.filter((_, i) => i !== index),
-                        )
-                      }
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn btn-sm btn-soft"
-                  onClick={() =>
-                    updateItems(section.key, (rows) => [
-                      ...rows,
-                      { id: crypto.randomUUID(), key: "", data: {} },
-                    ])
-                  }
-                >
-                  <Plus size={14} /> {t("Add {item}", { item: repeat.item })}
-                </button>
-              </div>
-            );
-          })}
+                      {repeat.fields.map((field) => (
+                        <input
+                          key={field.key}
+                          className="input"
+                          value={row.data[field.key] ?? ""}
+                          placeholder={field.label}
+                          onChange={(e) =>
+                            updateItems(section.key, (rows) =>
+                              rows.map((r, i) =>
+                                i === index
+                                  ? {
+                                      ...r,
+                                      data: { ...r.data, [field.key]: e.target.value },
+                                    }
+                                  : r,
+                              ),
+                            )
+                          }
+                        />
+                      ))}
+                      <button
+                        type="button"
+                        className="icon-btn xs danger"
+                        aria-label={t("Remove item")}
+                        title={t("Remove item")}
+                        onClick={() =>
+                          updateItems(section.key, (rows) =>
+                            rows.filter((_, i) => i !== index),
+                          )
+                        }
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-soft"
+                    onClick={() =>
+                      updateItems(section.key, (rows) => [
+                        ...rows,
+                        { id: crypto.randomUUID(), key: "", data: {} },
+                      ])
+                    }
+                  >
+                    <Plus size={14} /> {t("Add {item}", { item: repeat.item })}
+                  </button>
+                </div>
+              );
+            })}
 
-      {chosen && checklistReady && !checklist && (
-        <p className="hint">{t("The template's steps could not be read.")}</p>
-      )}
+        {chosen && checklistReady && !checklist && (
+          <p className="hint">{t("The template's steps could not be read.")}</p>
+        )}
 
-      {chosen && checklistReady && (
-        <p className="hint">
-          {t(
-            "The parts are the groups the template assigns sections to; the global checklist holds the rest.",
-          )}
-        </p>
-      )}
-      <button type="submit" className="btn btn-sm btn-primary" disabled={!ready}>
-        {t("Create")}
-      </button>
+        {chosen && checklistReady && (
+          <p className="hint">
+            {t(
+              "The parts are the groups the template assigns sections to; the global checklist holds the rest.",
+            )}
+          </p>
+        )}
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!ready}>
+          {t("Create")}
+        </button>
+      </div>
     </form>
   );
 }
@@ -808,8 +747,6 @@ export function WorkorderPanel() {
   const closePanel = useWorkorders((s) => s.closePanel);
   const check = useWorkorders((s) => s.check);
   const close = useWorkorders((s) => s.close);
-  const addRef = useWorkorders((s) => s.addRef);
-  const removeRef = useWorkorders((s) => s.removeRef);
 
   const sessionAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
   const open = useWorkorders(openWorkorder);
@@ -823,6 +760,10 @@ export function WorkorderPanel() {
     (open?.canAdminister ?? false) ||
     workorders.some((w) => w.canAdminister);
 
+  // The creation dialog rides over the panel; declared before the effects so
+  // the Escape handler below can read it.
+  const [creating, setCreating] = useState(false);
+
   // A store error is shown once, where the reader already is; the panel keeps
   // the last state it had rather than blanking on a failed refresh.
   useEffect(() => {
@@ -833,13 +774,18 @@ export function WorkorderPanel() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      closePanel();
+      // Escape closes the dialog on top: the creation sheet when it is open,
+      // the panel itself otherwise.
+      if (creating) setCreating(false);
+      else closePanel();
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
-  }, [closePanel]);
+  }, [closePanel, creating]);
 
-  const [filter, setFilter] = useState<WorkorderState | "all">("all");
+  // It opens on Running: the live work is what a reader came for, and a
+  // completed pile is one click away.
+  const [filter, setFilter] = useState<WorkorderState | "all">("running");
   const narrow = useIsNarrow();
   const filtered =
     filter === "all" ? workorders : workorders.filter((w) => w.state === filter);
@@ -883,6 +829,17 @@ export function WorkorderPanel() {
             )}
           </h2>
           {open && <StateBadge state={open.state} />}
+          {canAdminister && (
+            <button
+              type="button"
+              className="icon-btn sm"
+              aria-label={t("New workorder")}
+              title={t("New workorder")}
+              onClick={() => setCreating(true)}
+            >
+              <Plus size={18} />
+            </button>
+          )}
           <button
             type="button"
             className="icon-btn sm"
@@ -968,11 +925,6 @@ export function WorkorderPanel() {
                     })}
                   </div>
                 )}
-                {canAdminister && (
-                  <div style={{ marginTop: 16 }}>
-                    <NewWorkorderForm />
-                  </div>
-                )}
               </div>
             </aside>
           )}
@@ -991,14 +943,26 @@ export function WorkorderPanel() {
                         }
                       />
                     ))}
-                    <RefsSection
-                      refs={open.refs}
-                      canAdminister={canAdminister}
-                      onAdd={(ref) => void addRef(open.uid, ref)}
-                      onRemove={(ref) => void removeRef(open.uid, ref)}
-                    />
+                    {/* The references surface is being reworked; until it is,
+                        it is a placeholder rather than a half-working
+                        gatherer. The model itself (references by id, never
+                        copies, ADR 0028) is unchanged in the documents. */}
+                    <section className="card">
+                      <div className="card-head">
+                        <h3>{t("References")}</h3>
+                      </div>
+                      <p className="hint">{t("To be implemented")}</p>
+                    </section>
                     {canAdminister && (
-                      <CloseControl onClose={(state) => void close(open.uid, state)} />
+                      <CloseControl
+                        state={open.state}
+                        openSteps={
+                          open.parts
+                            .flatMap(partSteps)
+                            .filter((step) => step.state === "open").length
+                        }
+                        onClose={(state) => void close(open.uid, state)}
+                      />
                     )}
                   </>
                 ) : (
@@ -1009,6 +973,19 @@ export function WorkorderPanel() {
           )}
         </div>
       </div>
+
+      {creating && (
+        <div
+          className="workorder-overlay"
+          onMouseDown={(e) => {
+            // A press on the creation dialog's backdrop puts it away, leaving
+            // the panel underneath where it was.
+            if (e.target === e.currentTarget) setCreating(false);
+          }}
+        >
+          <NewWorkorderForm onClose={() => setCreating(false)} />
+        </div>
+      )}
     </div>,
     document.body,
   );

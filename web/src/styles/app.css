@@ -2963,6 +2963,10 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .workorder-step + .workorder-step { border-top: 1px solid var(--border); }
 .workorder-step.done { background: var(--accent-soft); }
+/* A skipped step counts as complete, so its box stays ticked -- but it was not
+   actually done, and a tick that looked like the others would lie. Dimmed like
+   a disabled control, so completion is seen at a glance and the tick is not. */
+.workorder-step.skipped { opacity: .6; }
 .workorder-step-label { flex: 1 1 auto; min-width: 0; }
 .workorder-step.done .workorder-step-text { color: var(--fg-muted); }
 .workorder-stamp { display: block; font-size: .8em; color: var(--fg-muted); margin-top: 2px; }

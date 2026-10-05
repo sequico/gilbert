@@ -155,6 +155,29 @@ const stepAt = (workorder: Summary, scope: string, path: string): StepView => {
   return step as StepView;
 };
 
+/**
+ * Finish a workorder's checklist: every open step left **skipped with a reason**,
+ * which is what completing requires (a completed close is refused while a step
+ * is open). A test that wants the completed state finishes the work first.
+ */
+async function resolveAllSteps(uid: string): Promise<void> {
+  const read = await call(`/api/workorders/${uid}`);
+  const workorder = workorderOf(read.body);
+  for (const part of workorder.parts) {
+    for (const step of part.checklist.steps) {
+      if (step.state !== "open") continue;
+      const checked = await post("/api/workorders/check", {
+        uid,
+        scope: part.scope,
+        path: step.path,
+        state: "skipped",
+        note: "Not done in this run.",
+      });
+      assert.equal(checked.status, 200, JSON.stringify(checked.body));
+    }
+  }
+}
+
 async function call(path: string, init: RequestInit = {}) {
   const res = await app.request(path, {
     ...init,
@@ -505,6 +528,7 @@ test("checking a path the checklist does not hold is a 404", async () => {
 test("closing a workorder moves its root to closed/ and keeps it", async () => {
   const template = await templateRef();
   const workorder = await createWorkorder("Closing run", template);
+  await resolveAllSteps(workorder.uid);
 
   const closed = await post("/api/workorders/close", {
     uid: workorder.uid,
@@ -516,6 +540,29 @@ test("closing a workorder moves its root to closed/ and keeps it", async () => {
   const read = await call(`/api/workorders/${workorder.uid}`);
   assert.equal(read.status, 200, "a closed workorder is kept, not destroyed");
   assert.equal((read.body?.workorder as Summary | undefined)?.state, "completed");
+});
+
+test("a workorder is not completed over an open step", async () => {
+  const template = await templateRef();
+  const workorder = await createWorkorder("Unfinished run", template);
+
+  // Completing requires every step resolved: an open one must be done, or
+  // skipped with a reason. The refusal is the workorder's own code, on the
+  // effect, so no surface can complete around it.
+  const refused = await post("/api/workorders/close", {
+    uid: workorder.uid,
+    state: "completed",
+  });
+  assert.equal(refused.status, 409, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "workorder_open_steps");
+
+  // Cancelling is not gated by the checklist: work may end unfinished.
+  const cancelled = await post("/api/workorders/close", {
+    uid: workorder.uid,
+    state: "cancelled",
+  });
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+  assert.equal(workorderOf(cancelled.body).state, "cancelled");
 });
 
 test("a workorder that does not exist is a 404", async () => {
@@ -559,6 +606,7 @@ test("a closed workorder's checklist no longer changes", async () => {
    */
   const template = await templateRef();
   const workorder = await createWorkorder("Sealed run", template);
+  await resolveAllSteps(workorder.uid);
   await post("/api/workorders/close", { uid: workorder.uid, state: "completed" });
 
   const checked = await post("/api/workorders/check", {

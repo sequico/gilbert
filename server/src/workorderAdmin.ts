@@ -937,6 +937,22 @@ export async function closeWorkorder(
       "A workorder state must be running, completed, cancelled or replaced.",
     );
   const { ctx, accountId } = await masterAccount(session);
+  // A workorder is not completed over an unfinished checklist: an open step is
+  // done, or explicitly skipped with a reason, first. The guard is here, on the
+  // effect, so no surface can complete around it.
+  if (state === "completed") {
+    const current = await readWorkorder(session, id);
+    const openSteps = (current?.parts ?? [])
+      .flatMap((part) => part.groups.flatMap((group) => group.items))
+      .flatMap((item) => item.steps)
+      .filter((step) => step.state === "open").length;
+    if (openSteps > 0)
+      throw new WorkorderAdminError(
+        "workorder_open_steps",
+        "The workorder still has open steps: finish them, or set each one skipped with a reason, before completing it.",
+        409,
+      );
+  }
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
   const closedId = await ensureFolderPath(ctx, accountId, workorderClosedPath());
   const target = isTerminalState(state) ? closedId : activeId;
