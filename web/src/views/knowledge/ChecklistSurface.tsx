@@ -12,7 +12,8 @@
  * The module is a lazy chunk: authoring is loaded when a template opens, never
  * with the app's first paint (ADR 0030).
  */
-import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, Plus, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import { t } from "@/lib/i18n";
 import {
   conditionClause,
@@ -58,11 +59,14 @@ function mintKey(label: string, taken: Iterable<string>, fallback: string): stri
 function LabelInput({
   value,
   placeholder,
+  keyHint,
   onChange,
   onCommit,
 }: {
   value: string;
   placeholder: string;
+  /** The stable key derived from the label, shown on hover rather than inline. */
+  keyHint?: string;
   onChange: (value: string) => void;
   /** Called on blur or Enter, where a key is derived from the settled label. */
   onCommit?: () => void;
@@ -73,6 +77,7 @@ function LabelInput({
       value={value}
       placeholder={placeholder}
       aria-label={placeholder}
+      title={keyHint ? t("Key: {key}", { key: keyHint }) : undefined}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onCommit}
       onKeyDown={(e) => {
@@ -82,16 +87,6 @@ function LabelInput({
         }
       }}
     />
-  );
-}
-
-/** The stable key derived from a label, shown read-only beside it. */
-function KeyHint({ value }: { value: string }) {
-  if (!value) return null;
-  return (
-    <span className="hint mono nowrap" title={t("Key")}>
-      {value}
-    </span>
   );
 }
 
@@ -111,10 +106,27 @@ function ConditionField({
   variants: KnowledgeVariant[];
   onChange: (condition: KnowledgeCondition | undefined) => void;
 }) {
+  // A step or section that carries no condition shows a single quiet affordance
+  // rather than a row of selects, so the builder keeps its space for the steps.
+  const [open, setOpen] = useState(Boolean(condition));
   // A condition branches on a variant; with no variant and no existing
-  // condition there is nothing to offer. A condition whose variant was removed
-  // is still shown, so it can be cleared.
+  // condition there is nothing to offer.
   if (!variants.length && !condition) return null;
+  const clear = () => {
+    setOpen(false);
+    onChange(undefined);
+  };
+  if (!open)
+    return (
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost mt-6"
+        style={{ alignSelf: "flex-start" }}
+        onClick={() => setOpen(true)}
+      >
+        <Filter size={13} /> {t("Add condition")}
+      </button>
+    );
   const variantKey = condition?.variant ?? "";
   const selected = variants.find((v) => v.key === variantKey);
   // A condition can name a variant that was removed; the select still offers it
@@ -124,7 +136,7 @@ function ConditionField({
       ? [...variants, { key: variantKey, label: variantKey, values: [] }]
       : variants;
   return (
-    <div className="row wrap gap-8 mt-8">
+    <div className="row wrap gap-8 mt-6">
       <span className="hint nowrap">{t("Show when")}</span>
       <select
         className="select"
@@ -134,7 +146,7 @@ function ConditionField({
         onChange={(e) => {
           const key = e.target.value;
           if (!key) {
-            onChange(undefined);
+            clear();
             return;
           }
           const first = variants.find((v) => v.key === key)?.values[0]?.value ?? "";
@@ -164,6 +176,15 @@ function ConditionField({
           ))}
         </select>
       )}
+      <button
+        type="button"
+        className="icon-btn sm"
+        aria-label={t("Remove condition")}
+        title={t("Remove condition")}
+        onClick={clear}
+      >
+        <X size={13} />
+      </button>
     </div>
   );
 }
@@ -381,10 +402,10 @@ function ProcessBuilder({
                 <LabelInput
                   value={variant.label}
                   placeholder={t("Variant")}
+                  keyHint={variant.key}
                   onChange={(value) => patchVariant(i, { label: value })}
                   onCommit={() => deriveVariantKey(i)}
                 />
-                <KeyHint value={variant.key} />
                 <button
                   type="button"
                   className="icon-btn sm danger"
@@ -401,10 +422,10 @@ function ProcessBuilder({
                     <LabelInput
                       value={value.label}
                       placeholder={t("Value")}
+                      keyHint={value.value}
                       onChange={(label) => patchValue(i, k, { label })}
                       onCommit={() => deriveValueKey(i, k)}
                     />
-                    <KeyHint value={value.value} />
                     <button
                       type="button"
                       className="icon-btn sm danger"
@@ -445,15 +466,15 @@ function ProcessBuilder({
           <p className="hint">{t("No sections yet.")}</p>
         ) : (
           sections.map((section, i) => (
-            <div className="card" key={section.key || `section-${i}`}>
+            <div className="rule-card" key={section.key || `section-${i}`}>
               <div className="card-head">
                 <LabelInput
                   value={section.label}
                   placeholder={t("Section")}
+                  keyHint={section.key}
                   onChange={(label) => patchSection(i, { label })}
                   onCommit={() => deriveSectionKey(i)}
                 />
-                <KeyHint value={section.key} />
                 <button
                   type="button"
                   className="icon-btn sm"
@@ -515,10 +536,10 @@ function ProcessBuilder({
                       <LabelInput
                         value={field.label}
                         placeholder={t("Item field")}
+                        keyHint={field.key}
                         onChange={(label) => patchField(i, k, { label })}
                         onCommit={() => deriveFieldKey(i, k)}
                       />
-                      <KeyHint value={field.key} />
                       <button
                         type="button"
                         className="icon-btn sm danger"
@@ -561,10 +582,10 @@ function ProcessBuilder({
                     <LabelInput
                       value={step.label}
                       placeholder={t("Step")}
+                      keyHint={step.key}
                       onChange={(label) => patchStep(i, k, { label })}
                       onCommit={() => deriveStepKey(i, k)}
                     />
-                    <KeyHint value={step.key} />
                     <button
                       type="button"
                       className="icon-btn sm danger"
