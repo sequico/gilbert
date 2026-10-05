@@ -119,6 +119,9 @@ test("the company KB the demo ships is the Master's and lists every seeded artic
     "Shipping documents",
     "Non-conformance report",
     "Machine setup",
+    "ISO 9001 — quality management system",
+    "Document control",
+    "Internal audit and management review",
     "Container shipment checklist",
     "Machine maintenance checklist",
   ])
@@ -134,6 +137,24 @@ test("the company KB the demo ships is the Master's and lists every seeded artic
   assert.ok(
     articles.every((article) => article.rev === 1),
     "every seeded article is issued in force",
+  );
+});
+
+test("a seeded article carries a structured body, not one line", async () => {
+  const res = await call(
+    "/api/knowledge/company/article?folder=" +
+      encodeURIComponent("ISO 9001 — quality management system"),
+  );
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const article = res.body?.article as {
+    effective: { blocks: Array<{ type: string }> } | null;
+  };
+  const types = article.effective!.blocks.map((block) => block.type);
+  assert.ok(types.includes("heading"), "the article has section headings");
+  assert.ok(types.includes("bulletListItem"), "the article has bullet lists");
+  assert.ok(
+    types.filter((type) => type === "paragraph").length >= 2,
+    "the article has more than one paragraph",
   );
 });
 

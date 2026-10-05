@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  blocksFromText,
   buildDraft,
   buildRevision,
   buildState,
@@ -70,6 +71,48 @@ test("tags normalise: trimmed, deduped, bounded", () => {
     MAX_TAGS,
   );
   assert.ok(normalizeKnowledgeTags(["x".repeat(200)])[0]!.length <= 60);
+});
+
+test("plain text becomes blocks: headings, lists and paragraphs", () => {
+  const text = [
+    "Intro line one",
+    "continues on the next line.",
+    "",
+    "## Section",
+    "- first",
+    "- second",
+    "",
+    "1. one",
+    "2. two",
+    "",
+    "Closing paragraph.",
+  ].join("\n");
+  const blocks = blocksFromText(text) as Array<{
+    type: string;
+    content?: Array<{ text?: string }>;
+    props?: { level?: number };
+  }>;
+  assert.deepEqual(
+    blocks.map((block) => block.type),
+    [
+      "paragraph",
+      "heading",
+      "bulletListItem",
+      "bulletListItem",
+      "numberedListItem",
+      "numberedListItem",
+      "paragraph",
+    ],
+  );
+  assert.equal(
+    blocks[0]?.content?.[0]?.text,
+    "Intro line one continues on the next line.",
+    "consecutive plain lines fold into one paragraph",
+  );
+  assert.equal(blocks[1]?.props?.level, 2);
+  assert.equal(blocks[2]?.content?.[0]?.text, "first");
+  assert.equal(blocks[6]?.content?.[0]?.text, "Closing paragraph.");
+  assert.deepEqual(blocksFromText("   "), [], "blank text mints no block");
 });
 
 test("a draft validates, and a bare folder does not", () => {

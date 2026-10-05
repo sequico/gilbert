@@ -29,6 +29,7 @@ import {
   type KnowledgeChecklist,
   type KnowledgeIssued,
   knowledgeFolderName,
+  plainTextFromBlocks,
   REVISIONS_FOLDER,
   revisionFileName,
   STATE_FILE,
@@ -250,12 +251,16 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
   }): void => {
     const id = idOf(opts.key);
     const revision = "r1";
+    // The body is written as text and minted into blocks; the stored `text` is
+    // what those blocks read back as, so search and an agent see the same
+    // article the editor renders rather than the markup that produced it.
+    const blocks = blocksFromText(opts.body ?? "");
     const draft = buildDraft({
       id,
       title: opts.title,
       tags: opts.tags,
-      blocks: blocksFromText(opts.body ?? ""),
-      text: opts.body ?? "",
+      blocks,
+      text: plainTextFromBlocks(blocks),
       checklist: opts.checklist ?? null,
       by: author,
       at,
@@ -306,49 +311,170 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     key: "production-plan",
     title: "Production planning",
     tags: ["production"],
-    body: "The weekly production plan is issued every Friday. Review capacity before accepting a new order.",
+    body: `The weekly production plan is issued every Friday and covers the next
+      two weeks. It sequences work orders against machine capacity and the
+      promised delivery dates.
+
+      ## Before accepting a new order
+      - Check the capacity of the cell that would run it.
+      - Confirm the raw material is in stock or already on order.
+      - Record who approved any change to the promised date.
+
+      A change inside the frozen week is made by the planner alone, and the
+      reason is written next to it.`,
   });
   article({
     key: "quality-control",
     title: "Quality control",
-    tags: ["quality"],
-    body: "Inspect every batch against the drawing. Record the measurement, the inspector and the result.",
+    tags: ["quality", "iso9001"],
+    body: `Every batch is inspected against the drawing and the inspection plan
+      before it leaves the cell. The record carries the measurement, the
+      instrument, the inspector and the result.
+
+      ## What an inspection record holds
+      - The characteristic measured, its nominal and its tolerance.
+      - The instrument, with its calibration due date.
+      - The result, and the disposition when it is out of tolerance.
+
+      A batch that fails is not scrapped on the spot: it is quarantined and a
+      non-conformance is opened, so the disposition is a recorded decision.`,
   });
   article({
     key: "warehouse",
     title: "Warehouse and inventory",
     tags: ["warehouse"],
-    body: "Goods received are checked against the delivery note and booked into stock the same day. Stock is counted quarterly.",
+    body: `Goods received are checked against the delivery note and booked into
+      stock the same day. Any difference between what arrived and what was
+      ordered is reported to Purchasing before the receipt is closed.
+
+      ## Counting and picking
+      - Stock is counted quarterly, and the count is signed by two people.
+      - A discrepancy is investigated and corrected with a reason.
+      - A lot is picked first-in, first-out unless the drawing says otherwise.`,
   });
   article({
     key: "health-safety",
     title: "Health and safety",
     tags: ["hse"],
-    body: "Every operator wears the required PPE on the shop floor, and an incident is reported the same shift.",
+    body: `Every operator wears the PPE the risk assessment marks as required for
+      the workstation, and nobody starts a job whose guarding is missing.
+
+      ## Reporting
+      - An incident is reported the same shift, however minor it looks.
+      - A near miss is reported too; it is the cheapest lesson available.
+      - A report names what happened, where, and what would prevent it.`,
   });
   article({
     key: "purchasing",
     title: "Purchasing",
-    tags: ["purchasing"],
-    body: "A purchase needs a request, a quote and an approval before the order is placed.",
+    tags: ["purchasing", "iso9001"],
+    body: `A purchase needs a request, a quote and an approval before the order
+      is placed, and the approval is recorded against the order.
+
+      ## Suppliers
+      - A new supplier is approved on its certificate and its first delivery, not on price alone.
+      - An approved supplier is re-evaluated at least once a year.
+      - A supplier that sends a non-conforming lot is put on watch until two clean lots have arrived.`,
   });
   article({
     key: "shipping-documents",
     title: "Shipping documents",
     tags: ["shipping"],
-    body: "The bill of lading, the packing list and the certificate of origin travel with the container.",
+    body: `Three documents travel with every container and are checked against
+      each other before the truck leaves the gate: the bill of lading, the
+      packing list and the certificate of origin.
+
+      ## Before the gate
+      - The packing list must match what was actually loaded, container by container.
+      - The bill of lading must name the consignee the order names.
+      - A missing certificate of origin holds the shipment; it is not sent on afterwards.`,
   });
   article({
     key: "non-conformance",
     title: "Non-conformance report",
-    tags: ["quality"],
-    body: "A failed inspection opens a non-conformance: describe it, contain it, find the cause, close it.",
+    tags: ["quality", "iso9001"],
+    body: `A failed inspection opens a non-conformance. It is a record with a
+      life, not a note: it is described, contained, understood and closed, and
+      each step is signed.
+
+      ## The four steps
+      1. Describe — what was found, on which batch, by whom, against which requirement.
+      2. Contain — stop the affected material moving: quarantine it and mark it.
+      3. Cause — ask why it happened until the answer is a process that can change.
+      4. Close — correct the cause, verify the correction, and record the evidence.
+
+      A non-conformance is not closed by promising to be careful.`,
   });
   article({
     key: "machine-setup",
     title: "Machine setup",
     tags: ["production"],
-    body: "Set the tooling and the offsets from the drawing, then run a first-off and have it inspected.",
+    body: `The tooling and the offsets are set from the drawing and the setup
+      sheet, never from the previous job, and a first-off is inspected before
+      the run continues.
+
+      ## Sign-off
+      - The first-off inspection is recorded against the work order.
+      - A machine idle over a shift is set up again, not resumed.
+      - A setup change is written on the setup sheet, so the next run starts from the same numbers.`,
+  });
+  article({
+    key: "iso9001-qms",
+    title: "ISO 9001 — quality management system",
+    tags: ["iso9001", "quality"],
+    body: `The company runs a quality management system to ISO 9001. The standard
+      is not a document on a shelf: it is the way the work is planned, recorded
+      and improved, and this knowledge base is part of it.
+
+      ## What the system covers
+      - The scope: the processes, sites and products the certificate names.
+      - The processes and their sequence, with what each one needs and what it produces.
+      - The documented information the processes rely on, and who approves it.
+
+      ## How we keep it honest
+      - A requirement becomes a procedure, a work instruction or a checklist a person can follow, and its process owner owns it.
+      - Evidence is recorded as the work happens, not reconstructed before an audit.
+      - Every finding leads to a change and a check that the change worked.
+
+      The certificate is renewed on the audit cycle, but the system is kept
+      alive between audits by the ordinary work, not by preparing for the
+      auditor.`,
+  });
+  article({
+    key: "iso9001-document-control",
+    title: "Document control",
+    tags: ["iso9001"],
+    body: `Documents and records are controlled so that the version in use is the
+      right one, and so that nobody can point afterwards at a sheet nobody
+      approved.
+
+      ## A controlled document
+      - Has an owner, a revision and an effective date.
+      - Is approved before it is issued, and the approval is recorded.
+      - Is withdrawn when it is replaced, and the copy in use is replaced with it.
+
+      ## Records
+      - Are legible, identified and retrievable for their retention period.
+      - Are protected from change once signed.
+      - Are the evidence an audit looks for, so they are made as the work happens.`,
+  });
+  article({
+    key: "iso9001-audit-review",
+    title: "Internal audit and management review",
+    tags: ["iso9001"],
+    body: `The system is audited from the inside at planned intervals, and the
+      results go to management review, so improvement is a schedule rather than
+      an event.
+
+      ## Internal audit
+      - The programme covers every process over the cycle, weighted by risk.
+      - An auditor does not audit their own work.
+      - A finding is recorded against the requirement, with the evidence.
+
+      ## Management review
+      - Reviews audit results, non-conformances, customer feedback and process performance.
+      - Records the decisions and the resources they need.
+      - Sets who does what by when, and the next review checks that it was done.`,
   });
   article({
     key: "container-shipment",

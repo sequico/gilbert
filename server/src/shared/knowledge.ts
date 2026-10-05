@@ -520,16 +520,62 @@ function inlineText(content: unknown): string {
 }
 
 /**
- * Mint a minimal block document from an agent's plain text.
+ * Mint a block document from plain text.
  *
- * The KB's body is the editor's blocks; an agent writes text. One paragraph
- * holding the text is a valid BlockNote document whose `plainTextFromBlocks`
- * is the text itself, so an agent-authored page reads back as what was written
+ * The KB's body is the editor's blocks; an agent or a seed writes text, and
+ * this turns it into blocks: a **blank line** separates blocks, a line starting
+ * with `# `, `## ` or `### ` is a heading, `- ` or `* ` a bullet and `1. ` a
+ * numbered item, and consecutive plain lines fold into one paragraph. Text with
+ * none of that is a single paragraph, so a page reads back as what was written
  * rather than as an empty document beside a full `text` field.
  */
 export function blocksFromText(text: string): unknown[] {
   const value = String(text ?? "");
-  return value ? [{ type: "paragraph", content: [{ type: "text", text: value }] }] : [];
+  if (!value.trim()) return [];
+  const blocks: unknown[] = [];
+  let paragraph: string[] = [];
+  const flush = (): void => {
+    if (!paragraph.length) return;
+    blocks.push({
+      type: "paragraph",
+      content: [{ type: "text", text: paragraph.join(" ") }],
+    });
+    paragraph = [];
+  };
+  for (const raw of value.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    const heading = /^(#{1,3})\s+(.*)$/.exec(line);
+    if (heading) {
+      flush();
+      blocks.push(headingBlock(heading[2] ?? "", heading[1]?.length ?? 1));
+      continue;
+    }
+    const bullet = /^[-*]\s+(.*)$/.exec(line);
+    if (bullet) {
+      flush();
+      blocks.push({
+        type: "bulletListItem",
+        content: [{ type: "text", text: bullet[1] ?? "" }],
+      });
+      continue;
+    }
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(line);
+    if (numbered) {
+      flush();
+      blocks.push({
+        type: "numberedListItem",
+        content: [{ type: "text", text: numbered[1] ?? "" }],
+      });
+      continue;
+    }
+    paragraph.push(line);
+  }
+  flush();
+  return blocks;
 }
 
 /** What a page is a template **of**, or null when it is an ordinary page. */
