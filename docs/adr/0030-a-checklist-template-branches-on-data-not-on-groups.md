@@ -24,30 +24,45 @@ procedure — so a group is never a template of its own.
 ## Decision
 
 A checklist template is **one generic template** for a kind of job, in the
-company KB or in a group's KB, and **every group instantiates it**. The template
-is never forked per group: a group owns the **instance** (its part, per ADR 0028)
-and signs it, and is never a variable of the template.
+company KB or in a group's KB; a workorder instantiates it **once**, its global
+checklist and each competent group's part all reading the same template. The
+template is never forked per group: a group owns the **instance** (its part, per
+ADR 0028) and signs it, and is never a variable of the template.
 
 - The template declares **variants**: named fields and their values (a shipping
   line, a loading point). A step may carry a **condition** naming one variant
   value.
 - The step state is `open`, `done` or **`not applicable`**. A `not applicable`
   step is dimmed, excluded from progress and from completion, and can be set back.
-- At instantiation the creator chooses the variant values. A step whose condition
-  does not match is written `not applicable` in the instance; the instance stores
-  the chosen values and **every** step id — a step is marked, never removed.
+  Whoever may check a step may set it `not applicable` — a group's members for
+  their part, an administrator or the agent for the global one — and the step
+  keeps their signature as a check does. The state is **derived at instantiation
+  from the rule and the chosen values and then stored**, and a person may change
+  it; the stored state is the truth, so a re-read never recomputes it away.
+- At instantiation the creator chooses a value for **every** declared variant — a
+  missing one refuses the instantiation, as a template with no revision in force
+  is refused. A step whose condition does not match is written `not applicable`
+  in the instance; the instance stores the chosen values and **every** step id —
+  a step is marked, never removed. The values are the **workorder's**, chosen
+  once and carried on its root (ADR 0028): every checklist of the workorder — the
+  global and each group's part — resolves from the same values, so branching
+  never differs by group.
 - The template is the controlled text: variants and conditions are part of the
   **approved revision**, so changing a rule is a new revision, exactly as
   changing a step is.
-- The authoring surface is a **checklist builder**: sections, steps, variants and
-  conditions chosen from controls, not written as syntax. The step text and the
-  sections stay the KB body the page already holds; the **variants and the
-  per-step conditions are a JSON Schema bound to the same revision**, keyed by
-  the step's block id — a variant is an `enum`, a condition an `if`/`dependencies`
-  rule. The builder is **`@ginkgo-bioworks/react-json-schema-form-builder`**
+- The authoring surface for a template's **rules** is a **checklist builder**:
+  variants and per-step conditions chosen from controls, not written as syntax.
+  The step text and the sections stay the KB body, authored in the page editor
+  (ADR 0024); the two write into the same draft, so a template is one document.
+  The **variants and the per-step conditions are a JSON Schema bound to the same
+  revision**, keyed by the step's block id — a variant is an `enum`, a condition
+  an `if`/`dependencies` rule. The builder is **`@ginkgo-bioworks/react-json-schema-form-builder`**
   (Apache-2.0; React 19, maintained) editing that schema and previewing it
   through **`@rjsf/core`** (Apache-2.0). One copy of the text, one schema of
-  rules: the reader and the agent read the same structure.
+  rules: the reader and the agent read the same structure. The schema and the
+  body are one template and must agree: every rule names a step id the body
+  holds, a step with no rule is shown unconditionally, and the schema can neither
+  add nor remove a step. A template that disagrees is refused, not half-read.
 - The builder is **round-trip**: a template it created loads back into it and
   re-saves unchanged — every part it does not know is preserved, exactly as a
   stored document is (ADR 0028) — so an existing template is **edited**, never
@@ -60,10 +75,10 @@ and signs it, and is never a variable of the template.
 - A **genuinely different procedure** is a different template, not a branch of
   the generic one.
 
-In `gilbertmailer` this is one authoring surface over the KB body and one
-checklist render in the workorder panel; in `gilbertserver` it is the shared step
-shape and the validation that gates a write, both tiers reading
-`@gilbert/shared/*`.
+In `gilbertmailer` this is the page editor and the rules builder over one
+document, and one checklist render in the workorder panel; in `gilbertserver` it
+is the shared step shape and the validation that gates a write, both tiers
+reading `@gilbert/shared/*`.
 
 ## Consequences
 

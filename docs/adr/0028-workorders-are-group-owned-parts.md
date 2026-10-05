@@ -10,7 +10,9 @@ reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts
 and the surface is a factory launcher in the top bar beside chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision the KB now carries a helper for
-(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`).
+(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`). The checklist
+**branching** of ADR 0030 — variants, conditions and the `not applicable` step
+state — is not built.
 
 ## Context
 
@@ -73,11 +75,15 @@ part are the same shape; the root carries what a part does not.
 - `name` — the friendly name, on the root; a part does not carry it.
 - `state` — on the root: `running`, `completed`, `cancelled` or `replaced`, and
   `replacedBy` names the successor's uid when it is `replaced`.
+- `variants` — on the root: the **chosen variant values** of the template's
+  variants (ADR 0030), chosen once when the workorder is created. Every checklist
+  of the workorder — the global and each group's part — resolves its conditions
+  from these values, so the branching is the workorder's and never a group's.
 - `checklist` — `{ template: { accountId, id, revision }, steps: [step] }`, a
-  step being `{ id, state: "open" | "done", by, at }`: the template step's id and
-  the step's state, never a copy of the controlled text, which is read from the
-  template revision the checklist is bound to; `by` and `at` are the last
-  signature.
+  step being `{ id, state, by, at }` with `state` one of `open`, `done` or
+  `not applicable` (ADR 0030): the template step's id and the step's state, never
+  a copy of the controlled text, which is read from the template revision the
+  checklist is bound to; `by` and `at` are the last signature.
 - `refs` — the references `{ accountId, kind, id }` this document gathers; `kind`
   names what `id` is — `folder`, `file` or `kb` — and a later version may add
   more, which a reader preserves and skips.
@@ -191,15 +197,19 @@ revision **in force** of its template when it is created (ADR 0024): a revision
 approved with a future effective instant is not yet the one bound, and a template
 with **no** revision in force — never approved, or its first still pending —
 cannot be instantiated at all, because there is nothing to bind. The Master
-chooses each template, as a reference to a template the reader may read. A
+chooses each template, as a reference to a template the reader may read. The
+**variant values** a branching template declares (ADR 0030) are the workorder's,
+chosen once when it is created and carried on the root, and each checklist
+resolves its conditions from those values. A
 **template is a KB page whose body holds checklist steps** (ADR 0024): the
 picker offers only those, the tree marks them with a red checklist icon, and the
 checklist names the page it came from. The page's steps are the controlled text;
 the workorder's are the checked state, with each step's last signature. A
 retired template is not gone: the reference still resolves to it by id, because
 its revisions are kept, and it is simply no longer in the tree; a changed
-template is a new id. Re-binding a running checklist is a later concern with its
-own gate.
+template is a new **revision** of the same page, never a new id; a change to a
+**retired** template is a new article (ADR 0024). Re-binding a running checklist
+is a later concern with its own gate.
 
 A checked step carries its **last signature**, visible to the workorder's
 readers: who checked it and when — unlike a KB draft's attribution, which is
@@ -234,7 +244,9 @@ A workorder is a **uid** whose root document sits in the Master's
 `closed/`, is the registry of every workorder; a **part** sits in the app folder
 of each group competent for it, holding that group's checklist — the operational
 instance of a KB template (ADR 0024) in force — and its references to that
-group's own folders and files. Everything gathered is a reference by id; nothing
+group's own folders and files — a template may branch on the workorder's chosen
+variant values, and a step is `open`, `done` or `not applicable` (ADR 0030).
+Everything gathered is a reference by id; nothing
 is copied and no marker is planted in a work folder. The Master does every read
 and write: it composes the surface from the root and the parts, an administrator
 sees every part through it, and a member sees the global checklist and their own
@@ -276,4 +288,6 @@ created.
 - `docs/adr/0006` — the minimal automation (one automation per trigger)
 - `docs/adr/0007` — the agent as a member of every group it is granted on
 - `docs/adr/0017` — administration is a door, not a menu
+- `docs/adr/0030` — a checklist template branches on data, not on groups: the
+  variants, the step conditions and the `not applicable` state
 - `.opencode/skills/gilbert-groups/SKILL.md` — membership is the grant
