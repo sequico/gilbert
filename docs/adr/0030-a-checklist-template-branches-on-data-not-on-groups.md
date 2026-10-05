@@ -2,128 +2,92 @@
 
 Status: Accepted
 
-Implementation: Partly built. The template's rules and their authoring are
-carried: `KnowledgeChecklist`, `checklistBlocks`, `buildDraft` and
-`isChecklistTemplate` (`server/src/shared/knowledge.ts`), the write door
-(`server/src/knowledgeAdmin.ts`, `server/src/app.ts`), and the builder and its
-preview (`web/src/views/knowledge/ChecklistSurface.tsx`, `KnowledgeView.tsx`,
-`store/knowledge.ts`). Not built: the workorder side — the `not applicable` step
-state, the chosen variant values on the root, and the resolved set
-(`server/src/shared/workorder.ts`, ADR 0028).
+Implementation: Built. The rules and their resolver are `KnowledgeChecklist`,
+its `variants`/`sections`/`steps`, the conditions and `resolveChecklist` in
+`server/src/shared/knowledge.ts`; the write door is `server/src/knowledgeAdmin.ts`
+and `server/src/app.ts`; the template's own body is derived (`checklistBlocks`).
+The authoring surface is Gilbert's own (`web/src/views/knowledge/ChecklistSurface.tsx`).
+The instance side is `server/src/shared/workorder.ts` and
+`server/src/workorderAdmin.ts`, with the panel `web/src/views/workorder/` (ADR 0028).
 
 ## Context
 
 A checklist template is a KB page that defines the steps a kind of job takes, as
-**data** rather than prose: a JSON Schema and uiSchema the checklist builder
-authors, carrying the steps, the variants that vary by case and the conditions
-that branch one from another (ADR 0024). A workorder's checklist is an instance
-bound to a revision that stores only each step's state and last signature, never
-the text (ADR 0028). One job is not one list. A booking carries steps only for the
-shipping line it was made with, more when the container is loaded at the depot and
-fewer at the yard; the same file, different work.
+**data**. One job is not one list. A booking carries a choice made once (the
+shipping line), sections whose checklist differs by that choice, and a section
+that repeats once per container. The template is approved and versioned (ADR
+0024), so what varies by case is part of the template, not invented by whichever
+client renders it; the people who write it are administrators, not programmers;
+and the mechanism must be **generic** — any number of variables, any number of
+repeats, one company KB.
 
-The template is approved and versioned (ADR 0024), so what varies by case has to
-be part of the template, not invented by whichever client renders it. And the
-people who write templates are administrators, not programmers: the authoring
-surface must be a form rather than markup. The mechanism must also be **generic for
-every group** — one company KB, one procedure — so a group is never a template of
-its own.
+A JSON Schema form is the wrong tool for this: its conditional visibility
+(`dependencies`) works **inside one object**, so a step inside a repeated section
+could not branch on a value chosen at the top, and a form is data entry, not a
+process with loops.
 
 ## Decision
 
-A checklist template **is** the builder's definition: a **JSON Schema** of the
-template's fields and a **uiSchema** covering order, labels and conditions, both
-stored on the page's draft and revision. A **variant** is a field with values (an
-`enum`), a **step** a boolean field, a **section** an object, and a **condition** a
-dependency that hides a step until a variant matches. The page's body blocks and
-search text are **derived** from the rules (`checklistBlocks`,
-`plainTextFromBlocks`), so the rules are the one copy and no hand-written text
-stands beside them to disagree; a step's **id is its field path** (for example
-`shipping.load`), the stable identity a workorder's step state keys on.
+A checklist template is a **process document**, `{ variants, sections }`, stored
+on the page's draft and every revision:
 
-A checklist template is **one generic template** for a kind of job, in the company
-KB or in a group's KB; a workorder instantiates it **once**, its global checklist
-and each competent group's part all reading the same template. The template is
-never forked per group: a group owns the **instance** (its part, per ADR 0028) and
-signs it, and is never a variable of the template.
+- **Variants** are named choices with values. A workorder picks **one value per
+  variant**, and that value holds **everywhere** — across every section and at
+  any depth, including inside a repeat.
+- **Sections** are ordered; each holds **steps**, an optional **condition** and
+  an optional **repeat**.
+- **Steps** are boolean checks with a stable key, a controlled label and an
+  optional condition.
+- A **condition** is `{ variant, equals }`. It may sit on a section or a step and
+  resolves against the workorder's chosen values **wherever it is** — the
+  cross-scope rule a JSON Schema form cannot express. `resolveChecklist(def,
+  values, items)` is the **one** resolver, read by a workorder's instantiation
+  and by its view.
+- A **repeat** (`{ item, fields }`) is instantiated once per **item** the
+  workorder names (the containers, stated at creation). A step's identity is its
+  **path**, which carries the item (`loading[CONT-1].seal`), so the same step in
+  two items is two entries and never collides. A repeat may declare per-item
+  **data fields**; the instance stores each item's values beside its key.
+- The page's **body and search text are derived** from the rules
+  (`checklistBlocks`), so the rules are the one copy.
+- The **authoring surface is Gilbert's own**, not a generic form builder:
+  variants, sections, steps, conditions and repeats are edited with the app's own
+  controls. JSON Schema and an off-the-shelf form builder are deliberately **not
+  used** — the model is a process, not a form, and cross-scope conditions and
+  repeats fall outside what a form expresses.
+- Branching resolves from the **bound revision**, never the template's current
+  state; changing a variant, a section, a step, a condition or a repeat is a new
+  revision.
+- A **genuinely different procedure** is a different template, not a branch of
+  the generic one.
 
-- The template declares **variants**: named fields and their values (a shipping
-  line, a loading point). A step may carry a **condition** naming one variant
-  value.
-- The step state is `open`, `done` or **`not applicable`**. A `not applicable`
-  step is dimmed, excluded from progress and from completion, and can be set back.
-  Whoever may check a step may set it `not applicable` — a group's members for
-  their part, an administrator or the agent for the global one — and the step keeps
-  their signature as a check does. The state is **derived at instantiation from the
-  rule and the chosen values and then stored**, and a person may change it; the
-  stored state is the truth, so a re-read never recomputes it away.
-- At instantiation the creator chooses a value for **every** declared variant — a
-  missing one refuses the instantiation, as a template with no revision in force is
-  refused. A step whose condition does not match is written `not applicable` in the
-  instance; the instance stores the chosen values and **every** step id — a step is
-  marked, never removed. The values are the **workorder's**, chosen once and
-  carried on its root (ADR 0028): every checklist of the workorder — the global and
-  each group's part — resolves from the same values, so branching never differs by
-  group.
-- The template is the controlled data: the rules are part of the **approved
-  revision**, so changing a variant, a step or a condition is a new revision.
-- The authoring surface is a **checklist builder**: sections, steps, variants and
-  conditions chosen from controls, not written as syntax. It is
-  **`@ginkgo-bioworks/react-json-schema-form-builder`** (Apache-2.0; React 19,
-  maintained) editing the schema, previewing it through **`@rjsf/core`** and
-  **`@rjsf/mui`** (Apache-2.0) — the same renderer a reader sees and a workorder
-  would resolve from, so the reader and the agent read one structure.
-- The builder is **round-trip**: a template it created loads back into it and
-  re-saves unchanged — every part it does not know is preserved, exactly as a
-  stored document is (ADR 0028) — so an existing template is **edited**, never
-  re-created, and a save is a new revision, never an in-place mutation.
-- Branching is resolved **from the revision the workorder is bound to**, not from
-  the template's current state: instantiation writes the `not applicable` set from
-  that revision, and every later read shows the same set. A template edited
-  afterwards changes neither a running workorder nor what it was instantiated with.
-- A **genuinely different procedure** is a different template, not a branch of the
-  generic one.
-
-In `gilbertmailer` this is the builder over the page's rules and the preview a
-reader sees; in `gilbertserver` it is the shared derivation and the validation that
-gates a write, both tiers reading `@gilbert/shared/*`.
+In `gilbertmailer` this is the builder and the checklist render; in
+`gilbertserver` it is the resolver and the validation that gate a write, both
+tiers reading `@gilbert/shared/*`.
 
 ## Consequences
 
-- One generic template serves every group: no per-group template, no per-group
-  configuration, and no second copy of the steps to keep in step (SSOT).
-- The audit says which steps were **not applicable**, by whom and when — the same
-  signature a checked step carries — so a skipped step is accountable rather than
-  invisible.
-- The third step state is a **contract**: a reader that does not know it must still
-  preserve the document (ADR 0028's non-destructive rule), and every reader and
-  writer of `WorkorderStepState` moves in one change.
-- Conditions are data in an approved revision, so the model that reads a template
-  and the client that renders a workorder read the same structure; nothing is
-  hidden by client logic.
-- The rules are the one copy: the body and the search text are derived from them,
-  so a template cannot hold text that disagrees with its own steps.
-- Editability and branching are one property: the builder round-trips a template,
-  and an instance resolves its `not applicable` set from its **bound revision**, so
-  editing a template never disturbs a workorder and re-opening one never
-  re-evaluates it against a newer template.
-- Branch-by-variant keeps the controlled text whole: a step the case excludes is
-  stored, not deleted, so a running workorder bound to an earlier revision is
-  unaffected, and the template can be approved and versioned without disturbing it.
-- The rules are **JSON Schema**, a standard, so the builder and its renderer are
-  replaceable without touching the stored data; the libraries are permissively
-  licensed (Apache-2.0) and their attribution belongs in `NOTICE` beside the
-  others.
-- The builder renders with its own UI kit (MUI and emotion), so it is
-  **lazy-loaded and confined to authoring**: the workorder surface the reader uses
-  stays Gilbert's own, on Gilbert's design system.
-- The builder is real work over the same document — a constrained authoring
-  surface and a schema of rules, not a templating language a non-technical
-  administrator would have to learn.
+- One generic template serves every case: no per-group fork, no per-case copy of
+  the steps (SSOT).
+- The value chosen once is consistent across the whole process, and a condition
+  reads it at any depth — the cross-scope branching that made a form builder the
+  wrong tool.
+- Step identity is a **path**, so a repeated section materialises per item
+  without collisions and its history is per item.
+- Content a condition **excludes is not instantiated** — another line's section
+  simply does not exist for this job. A step that applies but the operator
+  decides the case does not need is **`not-applicable`** (dimmed, out of
+  progress); a step declared **`skipped`** counts as complete but says so, with a
+  note. Every touched step keeps **who and when** — the last signature.
+- The resolver and the authoring are ours, so the rules are plain JSON of our own
+  shape and no heavy builder or second rendering engine ships; the builder is the
+  app's own surface.
+- The repository is the kind of shape a real cycle needs — a global choice,
+  conditional sections, a loop — without pretending it is a form.
 
 ## References
 
 - `docs/adr/0024` — the knowledge base: pages, approval, revisions, and the
   checklist templates a workorder instantiates
-- `docs/adr/0028` — workorders are group-owned parts: the instance, its revision
-  binding, and the non-destructive document rule
+- `docs/adr/0028` — workorders: the instance, its revision binding, its
+  per-path steps and their states

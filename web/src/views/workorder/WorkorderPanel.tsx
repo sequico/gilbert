@@ -12,26 +12,40 @@
  * through a Stalwart share (ADR 0028). This file is the view over the store:
  * the checklist a reader may check, and every reference by id, are the store's
  * answers, and nothing here composes a document of its own.
+ *
+ * A checklist is not a flat list. The server resolves the template revision the
+ * checklist is bound to against the workorder's chosen variant values and its
+ * chosen items (ADR 0030) and answers `groups`: one per applicable section,
+ * each holding the items that apply -- the single item of a plain section, one
+ * per named item of a repeated one -- and each item its steps. The controlled
+ * text of every step, item and section is read from that revision and never
+ * stored on the workorder, so this file renders what it is handed.
  */
-import { ArrowLeft, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import type { KnowledgeChecklist, KnowledgeRepeat } from "@gilbert/shared/knowledge";
+import { ArrowLeft, MoreHorizontal, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import type {
-  WorkorderCreateInput,
-  WorkorderPartView,
-  WorkorderRef,
-  WorkorderRefKind,
-  WorkorderScope,
-  WorkorderState,
-  WorkorderSummary,
+import {
+  isStepComplete,
+  type WorkorderCreateInput,
+  type WorkorderItemInput,
+  type WorkorderPartView,
+  type WorkorderRef,
+  type WorkorderRefKind,
+  type WorkorderScope,
+  type WorkorderState,
+  type WorkorderStepState,
+  type WorkorderStepView,
+  type WorkorderSummary,
 } from "@/lib/workorder";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
 import { Spinner, useIsNarrow } from "@/ui/misc";
+import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 
 /*
@@ -52,15 +66,32 @@ const REF_KIND_LABELS: Record<WorkorderRefKind, string> = {
   kb: "KB",
 };
 
+/* The four states a step reaches; translated at the render site. `done` and
+   `skipped` count as complete, `open` and `not-applicable` do not. */
+const STEP_STATE_LABELS: Record<WorkorderStepState, string> = {
+  open: "Open",
+  done: "Done",
+  skipped: "Skipped",
+  "not-applicable": "Not applicable",
+};
+
 /**
  * One KB article offered as a checklist template: the article's identity, the
- * revision in force to bind to, and the title the picker shows.
+ * revision in force to bind to, the title the picker shows, and where the
+ * revision is read from when the template is chosen.
  */
 interface TemplateOption {
+  scope: "company" | "group";
   accountId: string;
   id: string;
   revision: string;
   title: string;
+  /** The article folder path within its tier, for the read that fetches rules. */
+  folder: string;
+  /** The article folder node id, the group tier's read key. */
+  nodeId: string;
+  /** The parent article node id, as the group tier's read expects it. */
+  parentId: string | null;
 }
 
 /** The groups a workorder has a part for, deduplicated and in listing order. */
@@ -75,6 +106,11 @@ function partGroups(w: WorkorderSummary): string[] {
   return out;
 }
 
+/** Every step of a part, flattened from its sections and items. */
+function partSteps(part: WorkorderPartView): WorkorderStepView[] {
+  return part.groups.flatMap((group) => group.items.flatMap((item) => item.steps));
+}
+
 function StateBadge({ state }: { state: WorkorderState }) {
   // Running is the live, accent-worthy one; the terminal states recede.
   return (
@@ -85,27 +121,141 @@ function StateBadge({ state }: { state: WorkorderState }) {
 }
 
 /**
+ * One step: its controlled label, its state and last signature.
+ *
+ * The checkbox is the ordinary done/open toggle; the menu reaches the two
+ * states a checkbox cannot say -- `skipped`, which counts as complete but says
+ * so, and `not-applicable`, which does not. A skipped or not-applicable step
+ * carries a free-text note, edited inline, and every touched step shows who
+ * set it and when. A step a reader may not check is disabled rather than
+ * hidden: the checklist is the process, and reading it is still the point.
+ */
+function StepRow({
+  step,
+  canCheck,
+  onCheck,
+}: {
+  step: WorkorderStepView;
+  canCheck: boolean;
+  onCheck: (path: string, state: WorkorderStepState, note?: string) => void;
+}) {
+  const menu = useMenu();
+  const [note, setNote] = useState(step.note);
+
+  // A state the server signed replaces the local edit, so the field never
+  // shows a value the document no longer carries.
+  useEffect(() => setNote(step.note), [step.note]);
+
+  const complete = isStepComplete(step.state);
+  const needsNote = step.state === "skipped" || step.state === "not-applicable";
+  const commitNote = () => {
+    if (note !== step.note) onCheck(step.path, step.state, note);
+  };
+
+  return (
+    <div
+      className={`workorder-step ${complete ? "done" : ""}`}
+      style={step.state === "not-applicable" ? { opacity: 0.6 } : undefined}
+    >
+      {/* The toggle is complete/incomplete, so a skipped step shows checked:
+          it counts as done and the menu's tick is where the two tell apart. */}
+      <input
+        type="checkbox"
+        checked={complete}
+        disabled={!canCheck}
+        aria-label={step.label}
+        onChange={(e) => onCheck(step.path, e.target.checked ? "done" : "open")}
+      />
+      <span className="workorder-step-label">
+        <span className="workorder-step-text">{step.label}</span>
+        {needsNote && (
+          <input
+            className="input"
+            style={{ display: "block", marginTop: 4, width: "100%" }}
+            value={note}
+            placeholder={t("Why?")}
+            disabled={!canCheck}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={commitNote}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitNote();
+              }
+            }}
+          />
+        )}
+        {step.by && step.at && (
+          <span className="workorder-stamp">
+            {t("Set by {who} on {when}", {
+              who: step.by,
+              when: formatFullDate(step.at),
+            })}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        className="icon-btn xs"
+        disabled={!canCheck}
+        aria-haspopup="menu"
+        aria-label={t("Set state")}
+        title={t("Set state")}
+        onClick={menu.open}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        ariaLabel={t("Set state")}
+      >
+        {(["done", "skipped", "not-applicable", "open"] as const).map((state) => (
+          <MenuItem
+            key={state}
+            label={t(STEP_STATE_LABELS[state])}
+            checked={step.state === state}
+            onClick={() => {
+              menu.close();
+              onCheck(step.path, state, needsNote ? note : undefined);
+            }}
+          />
+        ))}
+      </Popover>
+    </div>
+  );
+}
+
+/**
  * One part's checklist: the global one or a group's.
  *
- * Every step is its template step's id plus its operational state, never the
- * controlled text, which is read from the template revision the checklist is
- * bound to (`part.labels`) and falls back to the id when the reader cannot
- * reach that revision. A step a reader may not check is disabled rather than
- * hidden: the checklist is the process, and reading it is still the point.
+ * The part arrives grouped by the template's sections (ADR 0030): a plain
+ * section holds its steps once; a repeated section holds one labelled block per
+ * chosen item, its own data fields beside the name, and each block its steps.
+ * Progress counts the states that finish a job -- `done` and `skipped` -- and
+ * leaves `not-applicable` out.
  */
 function PartSection({
   part,
-  onToggle,
+  onCheck,
 }: {
   part: WorkorderPartView;
-  onToggle: (
+  onCheck: (
     scope: WorkorderScope,
     group: string | null,
-    stepId: string,
-    checked: boolean,
+    path: string,
+    state: WorkorderStepState,
+    note?: string,
   ) => void;
 }) {
   const title = part.scope === "global" ? t("Global") : (part.group ?? "");
+  const steps = partSteps(part);
+  const total = steps.length;
+  const complete = steps.filter((step) => isStepComplete(step.state)).length;
+  const check = (path: string, state: WorkorderStepState, note?: string) =>
+    onCheck(part.scope, part.group, path, state, note);
+
   return (
     <section className="card workorder-part">
       <div className="card-head">
@@ -117,40 +267,64 @@ function PartSection({
             {t("From {template}", { template: part.templateTitle })}
           </span>
         )}
+        {total > 0 && (
+          <span className="hint">
+            {t("{done} of {total} done", { done: complete, total })}
+          </span>
+        )}
       </div>
-      {part.checklist.steps.length === 0 ? (
+      {total === 0 ? (
         <p className="hint">{t("No steps")}</p>
       ) : (
-        <div className="workorder-steps">
-          {part.checklist.steps.map((step) => {
-            const done = step.state === "done";
-            return (
-              <label key={step.id} className={`workorder-step ${done ? "done" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={done}
-                  disabled={!part.canCheck}
-                  onChange={(e) =>
-                    onToggle(part.scope, part.group, step.id, e.target.checked)
-                  }
-                />
-                <span className="workorder-step-label">
-                  <span className="workorder-step-text">
-                    {part.labels[step.id] ?? step.id}
-                  </span>
-                  {done && step.by && step.at && (
-                    <span className="workorder-stamp">
-                      {t("Checked by {who} on {when}", {
-                        who: step.by,
-                        when: formatFullDate(step.at),
-                      })}
+        part.groups.map((group) => (
+          <div key={group.key}>
+            <h4 className="hint" style={{ margin: "10px 0 4px" }}>
+              {group.label}
+            </h4>
+            {group.repeat ? (
+              group.items.map((item) => (
+                <div key={item.key} style={{ marginTop: 6 }}>
+                  <div className="row" style={{ gap: 8, alignItems: "baseline" }}>
+                    <span className="truncate" style={{ fontWeight: 600 }}>
+                      {item.label}
                     </span>
-                  )}
-                </span>
-              </label>
-            );
-          })}
-        </div>
+                    {item.fields.map((field) => (
+                      <span key={field.key} className="hint">
+                        {t("{label}: {value}", {
+                          label: field.label,
+                          value: field.value,
+                        })}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="workorder-steps">
+                    {item.steps.map((step) => (
+                      <StepRow
+                        key={step.path}
+                        step={step}
+                        canCheck={part.canCheck}
+                        onCheck={check}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="workorder-steps">
+                {group.items
+                  .flatMap((item) => item.steps)
+                  .map((step) => (
+                    <StepRow
+                      key={step.path}
+                      step={step}
+                      canCheck={part.canCheck}
+                      onCheck={check}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
+        ))
       )}
     </section>
   );
@@ -293,15 +467,29 @@ function CloseControl({ onClose }: { onClose: (state: WorkorderState) => void })
   );
 }
 
+/** One item the form names for a repeated section, before it is submitted. */
+interface ItemDraft {
+  /** A local identity, so a row keeps its place while its key is typed. */
+  id: string;
+  key: string;
+  data: Record<string, string>;
+}
+
 /**
- * The administrator's creation form: a friendly name, a KB template, and the
- * groups the workorder gets a part in.
+ * The administrator's creation form: a friendly name, a KB template, the
+ * groups the workorder gets a part in, and the template's own choices.
  *
  * A template is offered only when it has a revision in force (ADR 0028): a
  * checklist is the operational instance of a revision, and one that was never
  * approved -- or whose first is still pending -- has nothing to bind. The KB
  * may not have been read in this session at all, so the form asks for it when
  * it appears rather than making a visit to /kb a precondition.
+ *
+ * The template's **rules** name what the workorder must choose (ADR 0030): one
+ * value per variant, and one or more items per repeated section, each with its
+ * optional data fields. The rules are not on the listing, only on the revision
+ * the template binds to, so the revision is read when a template is chosen and
+ * the choices are drawn from it.
  */
 function NewWorkorderForm({ groups }: { groups: string[] }) {
   const create = useWorkorders((s) => s.create);
@@ -310,6 +498,10 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [knowledgeLoaded, setKnowledgeLoaded] = useState(false);
+  const [checklist, setChecklist] = useState<KnowledgeChecklist | null>(null);
+  const [checklistReady, setChecklistReady] = useState(false);
+  const [variants, setVariants] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<Record<string, ItemDraft[]>>({});
 
   /*
    * The template picker reads the KB, which may not have been loaded in a
@@ -347,10 +539,14 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
               if (!issued) return [];
               return [
                 {
+                  scope: tier.scope,
                   accountId: tier.accountId,
                   id: a.id,
                   revision: issued.revision,
                   title: a.title,
+                  folder: a.folder,
+                  nodeId: a.nodeId,
+                  parentId: a.parentId,
                 },
               ];
             }),
@@ -369,11 +565,74 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
   }, []);
 
   const chosen = templateIdx === "" ? null : (templates[Number(templateIdx)] ?? null);
-  const ready = Boolean(name.trim() && chosen);
+
+  // Choosing a template reads its revision in force for the rules the choices
+  // are drawn from; a change of template starts the choices over.
+  useEffect(() => {
+    setVariants({});
+    setItems({});
+    setChecklist(null);
+    setChecklistReady(false);
+    if (!chosen) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const { companyArticle, readArticle } = await import("@/lib/knowledge");
+        const view =
+          chosen.scope === "company"
+            ? await companyArticle(chosen.folder)
+            : await readArticle(
+                chosen.accountId,
+                chosen.nodeId,
+                chosen.nodeId,
+                chosen.folder,
+                "group",
+                chosen.parentId,
+              );
+        if (alive) setChecklist(view?.effective?.checklist ?? null);
+      } catch {
+        if (alive) setChecklist(null);
+      } finally {
+        if (alive) setChecklistReady(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [chosen]);
+
+  /** Replace one repeated section's draft item rows. */
+  function updateItems(sectionKey: string, update: (rows: ItemDraft[]) => ItemDraft[]) {
+    setItems((prev) => ({
+      ...prev,
+      [sectionKey]: update(prev[sectionKey] ?? []),
+    }));
+  }
+
+  const variantsChosen =
+    checklist?.variants.every((v) => Boolean(variants[v.key])) ?? false;
+  const itemsNamed =
+    checklist?.sections
+      .filter((section) => section.repeat)
+      .every((section) => (items[section.key] ?? []).some((row) => row.key.trim())) ??
+    false;
+  const ready = Boolean(
+    name.trim() && chosen && checklist && checklistReady && variantsChosen && itemsNamed,
+  );
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!ready || !chosen) return;
+    if (!ready || !chosen || !checklist) return;
+    const chosenVariants: Record<string, string> = {};
+    for (const variant of checklist.variants)
+      chosenVariants[variant.key] = variants[variant.key] ?? "";
+    const chosenItems: Record<string, WorkorderItemInput[]> = {};
+    for (const section of checklist.sections) {
+      if (!section.repeat) continue;
+      chosenItems[section.key] = (items[section.key] ?? [])
+        .filter((row) => row.key.trim())
+        .map((row) => ({ key: row.key.trim(), data: row.data }));
+    }
     const input: WorkorderCreateInput = {
       name: name.trim(),
       template: {
@@ -382,6 +641,8 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
         revision: chosen.revision,
       },
       groups: selected,
+      variants: chosenVariants,
+      items: chosenItems,
     };
     void create(input);
     setName("");
@@ -421,6 +682,112 @@ function NewWorkorderForm({ groups }: { groups: string[] }) {
           <span className="hint">{t("No template with a revision in force")}</span>
         )}
       </div>
+
+      {chosen && checklist && checklist.variants.length > 0 && (
+        <div className="field">
+          <label>{t("Values")}</label>
+          {checklist.variants.map((variant) => (
+            <div key={variant.key} className="row" style={{ gap: 8 }}>
+              <span className="truncate" style={{ minWidth: 90 }}>
+                {variant.label}
+              </span>
+              <select
+                className="select grow"
+                value={variants[variant.key] ?? ""}
+                onChange={(e) =>
+                  setVariants((prev) => ({ ...prev, [variant.key]: e.target.value }))
+                }
+              >
+                <option value="">{t("Select…")}</option>
+                {variant.values.map((value) => (
+                  <option key={value.value} value={value.value}>
+                    {value.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {chosen &&
+        checklist?.sections
+          .filter((section) => section.repeat)
+          .map((section) => {
+            const repeat = section.repeat as KnowledgeRepeat;
+            return (
+              <div key={section.key} className="field">
+                <label>{section.label}</label>
+                <span className="hint">{t("One per {item}", { item: repeat.item })}</span>
+                {(items[section.key] ?? []).map((row, index) => (
+                  <div key={row.id} className="field-row">
+                    <input
+                      className="input"
+                      value={row.key}
+                      placeholder={t("{item} key", { item: repeat.item })}
+                      onChange={(e) =>
+                        updateItems(section.key, (rows) =>
+                          rows.map((r, i) =>
+                            i === index ? { ...r, key: e.target.value } : r,
+                          ),
+                        )
+                      }
+                    />
+                    {repeat.fields.map((field) => (
+                      <input
+                        key={field.key}
+                        className="input"
+                        value={row.data[field.key] ?? ""}
+                        placeholder={field.label}
+                        onChange={(e) =>
+                          updateItems(section.key, (rows) =>
+                            rows.map((r, i) =>
+                              i === index
+                                ? {
+                                    ...r,
+                                    data: { ...r.data, [field.key]: e.target.value },
+                                  }
+                                : r,
+                            ),
+                          )
+                        }
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      className="icon-btn xs danger"
+                      aria-label={t("Remove item")}
+                      title={t("Remove item")}
+                      onClick={() =>
+                        updateItems(section.key, (rows) =>
+                          rows.filter((_, i) => i !== index),
+                        )
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-soft"
+                  onClick={() =>
+                    updateItems(section.key, (rows) => [
+                      ...rows,
+                      { id: crypto.randomUUID(), key: "", data: {} },
+                    ])
+                  }
+                >
+                  <Plus size={14} /> {t("Add {item}", { item: repeat.item })}
+                </button>
+              </div>
+            );
+          })}
+
+      {chosen && checklistReady && !checklist && (
+        <p className="hint">{t("The template's steps could not be read.")}</p>
+      )}
+
       {groups.length > 0 && (
         <div className="field">
           <label>{t("Groups")}</label>
@@ -457,7 +824,7 @@ export function WorkorderPanel() {
   const load = useWorkorders((s) => s.load);
   const show = useWorkorders((s) => s.show);
   const closePanel = useWorkorders((s) => s.closePanel);
-  const toggle = useWorkorders((s) => s.toggle);
+  const check = useWorkorders((s) => s.check);
   const close = useWorkorders((s) => s.close);
   const addRef = useWorkorders((s) => s.addRef);
   const removeRef = useWorkorders((s) => s.removeRef);
@@ -643,8 +1010,8 @@ export function WorkorderPanel() {
                       <PartSection
                         key={part.scope === "global" ? "global" : (part.group ?? "group")}
                         part={part}
-                        onToggle={(scope, group, stepId, checked) =>
-                          void toggle(open.uid, scope, group, stepId, checked)
+                        onCheck={(scope, group, path, state, note) =>
+                          void check(open.uid, scope, group, path, state, note)
                         }
                       />
                     ))}

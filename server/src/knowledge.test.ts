@@ -423,6 +423,20 @@ test("a family is renumbered in one request when a drop's midpoint collapses", a
   );
 });
 
+/** A minimal process definition: one variant, one section with one step. */
+const processDef = {
+  variants: [
+    { key: "company", label: "Company", values: [{ value: "north", label: "North" }] },
+  ],
+  sections: [
+    {
+      key: "deposit",
+      label: "Deposit",
+      steps: [{ key: "load", label: "Load at the depot" }],
+    },
+  ],
+};
+
 test("a page created with a checklist definition is a checklist template", async () => {
   /*
    * A template is told from an ordinary page by its rules (ADR 0030): a create
@@ -433,13 +447,7 @@ test("a page created with a checklist definition is a checklist template", async
   const created = await post("/api/knowledge/create", {
     scope: "company",
     title: "Checklist template",
-    checklist: {
-      schema: {
-        type: "object",
-        properties: { deposit: { type: "boolean", title: "Load at the depot" } },
-      },
-      uiSchema: {},
-    },
+    checklist: processDef,
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const summary = created.body?.summary as { template?: unknown } | undefined;
@@ -461,14 +469,10 @@ test("a page created with a checklist definition is a checklist template", async
 });
 
 test("a template's draft carries the definition and its derived steps", async () => {
-  const checklist = {
-    schema: { type: "object", properties: { pack: { type: "boolean", title: "Pack" } } },
-    uiSchema: {},
-  };
   const res = await post("/api/knowledge/create", {
     scope: "company",
     title: "Derived checklist",
-    checklist,
+    checklist: processDef,
   });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   const summary = summaryOf(res.body);
@@ -476,12 +480,12 @@ test("a template's draft carries the definition and its derived steps", async ()
   assert.ok(view?.draft, "the created article has a draft");
   assert.deepEqual(
     view.draft.checklist,
-    checklist,
+    processDef,
     "the definition travels with the draft",
   );
   assert.deepEqual(
     view.draft.blocks.map((block) => (block as { type?: unknown }).type),
-    ["checkListItem"],
+    ["heading", "checkListItem"],
     "the body is derived from the definition, never authored as blocks",
   );
 });

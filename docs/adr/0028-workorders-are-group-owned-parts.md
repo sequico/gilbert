@@ -9,10 +9,9 @@ definition (`server/src/shared/workorder.ts`); the Master-owned door and its
 reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`)
 and the surface is a factory launcher in the top bar beside chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
-checklist binds to a KB template revision the KB now carries a helper for
-(`checklistStepsFromBlocks`, `server/src/shared/knowledge.ts`). The workorder
-side of ADR 0030's branching — resolving the chosen variant values and the
-`not applicable` step state — is not built.
+checklist binds to a KB template revision, resolves the applicable steps from it
+(`resolveChecklist`, `server/src/shared/knowledge.ts`) and carries the per-path
+steps and their states (ADR 0030).
 
 ## Context
 
@@ -75,15 +74,21 @@ part are the same shape; the root carries what a part does not.
 - `name` — the friendly name, on the root; a part does not carry it.
 - `state` — on the root: `running`, `completed`, `cancelled` or `replaced`, and
   `replacedBy` names the successor's uid when it is `replaced`.
-- `variants` — on the root: the **chosen variant values** of the template's
-  variants (ADR 0030), chosen once when the workorder is created. Every checklist
-  of the workorder — the global and each group's part — resolves its conditions
-  from these values, so the branching is the workorder's and never a group's.
-- `checklist` — `{ template: { accountId, id, revision }, steps: [step] }`, a
-  step being `{ id, state, by, at }` with `state` one of `open`, `done` or
-  `not applicable` (ADR 0030): the template step's id and the step's state, never
-  a copy of the controlled text, which is read from the template revision the
-  checklist is bound to; `by` and `at` are the last signature.
+- `checklist` — `{ template, variants, items, steps }`. `template` names the KB
+  article and the revision it binds to (ADR 0024). `variants` is the **chosen
+  value per variant** and `items` the **chosen items per repeated section**, both
+  taken once when the workorder is created and resolving the template's
+  conditions **everywhere** (ADR 0030) — so the branching is the workorder's and
+  never a group's. `items[sectionKey]` is `{ key, data }`, the `data` holding the
+  repeat's per-item field values.
+- `steps` — the **applicable** steps, one entry per path. A step is
+  `{ path, state, by, at, note }`: the **path** carries the template section and,
+  for a repeat, the item (`loading[CONT-1].seal`), so the same step in two items
+  is two entries and never collides; the **state** is `open`, `done`, `skipped`
+  (counts as complete but says it was not actually done) or `not-applicable`
+  (dimmed, out of progress); `by` and `at` are the last signature. Content a
+  condition excludes is **not** instantiated; the controlled text is read from
+  the template revision, never copied here.
 - `refs` — the references `{ accountId, kind, id }` this document gathers; `kind`
   names what `id` is — `folder`, `file` or `kb` — and a later version may add
   more, which a reader preserves and skips.
@@ -197,15 +202,16 @@ revision **in force** of its template when it is created (ADR 0024): a revision
 approved with a future effective instant is not yet the one bound, and a template
 with **no** revision in force — never approved, or its first still pending —
 cannot be instantiated at all, because there is nothing to bind. The Master
-chooses each template, as a reference to a template the reader may read. The
-**variant values** a branching template declares (ADR 0030) are the workorder's,
-chosen once when it is created and carried on the root, and each checklist
-resolves its conditions from those values. A
+chooses each template, as a reference to a template the reader may read. A
 **template is a KB page whose draft carries a checklist definition** (ADR 0024,
 ADR 0030): the picker offers only those, the tree marks them with a red checklist
-icon, and the checklist names the page it came from. The page's steps, derived
-from that definition, are the controlled text; the workorder's are the checked
-state, with each step's last signature. A
+icon, and the checklist names the page it came from. On creation the creator
+chooses the **value of every variant** and the **items of every repeat**, and the
+applicable steps are **materialised from the definition** — a step's path carries
+its section and, for a repeat, its item, so the same step in two items is two
+entries; content a condition excludes is not instantiated. The page's steps are
+the controlled text; the workorder's are their state and last signature, never a
+copy. A
 retired template is not gone: the reference still resolves to it by id, because
 its revisions are kept, and it is simply no longer in the tree; a changed
 template is a new **revision** of the same page, never a new id; a change to a

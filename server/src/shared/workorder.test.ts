@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   buildChecklist,
   buildWorkorderDoc,
+  isStepComplete,
   isTerminalState,
   isWorkorderDoc,
   isWorkorderState,
@@ -29,21 +30,40 @@ const template: WorkorderTemplateRef = {
 };
 
 test("a checklist is bound to a template revision, every step open", () => {
-  const checklist = buildChecklist(template, ["s1", "s2"]);
+  const checklist = buildChecklist({
+    template,
+    variants: { company: "north" },
+    items: { loading: [{ key: "CONT-1", data: { seal: "S-1" } }] },
+    stepPaths: ["paperwork.ref", "loading[CONT-1].load"],
+  });
   assert.deepEqual(checklist.template, template);
+  assert.deepEqual(checklist.variants, { company: "north" });
+  assert.deepEqual(checklist.items.loading, [{ key: "CONT-1", data: { seal: "S-1" } }]);
   assert.deepEqual(
-    checklist.steps.map((s) => [s.id, s.state, s.by, s.at]),
+    checklist.steps.map((s) => [s.path, s.state, s.by, s.at, s.note]),
     [
-      ["s1", "open", null, null],
-      ["s2", "open", null, null],
+      ["paperwork.ref", "open", null, null, ""],
+      ["loading[CONT-1].load", "open", null, null, ""],
     ],
   );
-  assert.equal(stepOf(checklist, "s2")?.id, "s2");
+  assert.equal(stepOf(checklist, "loading[CONT-1].load")?.path, "loading[CONT-1].load");
   assert.equal(stepOf(checklist, "nope"), undefined);
 });
 
+test("done and skipped count as complete; open and not-applicable do not", () => {
+  assert.equal(isStepComplete("done"), true);
+  assert.equal(isStepComplete("skipped"), true);
+  assert.equal(isStepComplete("open"), false);
+  assert.equal(isStepComplete("not-applicable"), false);
+});
+
 test("a root carries the name and the state; a part does not", () => {
-  const checklist = buildChecklist(template, ["s1"]);
+  const checklist = buildChecklist({
+    template,
+    variants: {},
+    items: {},
+    stepPaths: ["paperwork.ref"],
+  });
   const root = buildWorkorderDoc({
     uid: "u1",
     by: "master@example.com",
@@ -77,7 +97,12 @@ test("the terminal states are the ones that move the root to closed/", () => {
 });
 
 test("a malformed document is refused", () => {
-  const checklist = buildChecklist(template, ["s1"]);
+  const checklist = buildChecklist({
+    template,
+    variants: {},
+    items: {},
+    stepPaths: ["paperwork.ref"],
+  });
   const good = buildWorkorderDoc({ uid: "u1", by: "g", at: "t", checklist });
   assert.equal(isWorkorderDoc({ ...good, v: 2 }), false);
   assert.equal(isWorkorderDoc({ ...good, uid: 7 }), false);
@@ -85,10 +110,18 @@ test("a malformed document is refused", () => {
   assert.equal(
     isWorkorderDoc({
       ...good,
-      checklist: { template, steps: [{ id: "s1", state: "maybe" }] },
+      checklist: { ...checklist, steps: [{ path: "s1", state: "maybe" }] },
     }),
     false,
-    "a step state is open or done",
+    "a step state is one of the four",
+  );
+  assert.equal(
+    isWorkorderDoc({
+      ...good,
+      checklist: { ...checklist, steps: [{ path: "s1", state: "open", by: null }] },
+    }),
+    false,
+    "a step carries its instant and its note too",
   );
   assert.equal(
     isWorkorderDoc({ ...good, refs: [{ accountId: "a", kind: "mail", id: "x" }] }),

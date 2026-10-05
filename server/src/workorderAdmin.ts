@@ -47,11 +47,12 @@ import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
 import {
-  checklistStepsFromBlocks,
   isKnowledgeRevision,
   isKnowledgeState,
   KNOWLEDGE_FOLDER,
+  type KnowledgeChecklist,
   REVISIONS_FOLDER,
+  resolveChecklist,
   revisionFileName,
   revisionInForceAt,
   STATE_FILE,
@@ -63,16 +64,22 @@ import {
   isWorkorderDoc,
   isWorkorderRef,
   isWorkorderState,
+  isWorkorderStepState,
   isWorkorderTemplateRef,
   stepOf,
   WORKORDER_FOLDER,
   type WorkorderCheckInput,
+  type WorkorderChecklist,
   type WorkorderCreateInput,
   type WorkorderDoc,
+  type WorkorderGroupView,
+  type WorkorderItem,
   type WorkorderPartView,
   type WorkorderRef,
   type WorkorderRefChange,
   type WorkorderState,
+  type WorkorderStepState,
+  type WorkorderStepView,
   type WorkorderSummary,
   type WorkorderTemplateRef,
   workorderClosedPath,
@@ -316,29 +323,29 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
 }
 
 /**
- * Each step's label, read from the template revision the checklist is bound to.
+ * The template revision's **rules** and title, read from the KB (ADR 0030).
  *
- * The checklist stores the template's id and revision and never a copy of the
- * controlled text. A template that cannot be read — one the Master cannot
- * reach, or a revision that is not there — leaves its labels unresolved and is
- * a finding, not a surface taken down.
+ * A checklist stores the template's id and revision and never a copy of the
+ * controlled text, so every label and every branch is resolved from the
+ * revision here. A template that cannot be read — one the Master cannot reach,
+ * or a revision that is not there — leaves its rules unresolved and is a
+ * finding, not a surface taken down.
  */
-async function labelsFor(
+async function templateDef(
   ctx: Ctx,
   template: WorkorderTemplateRef,
-): Promise<{ labels: Record<string, string>; title: string | null }> {
-  const labels: Record<string, string> = {};
+): Promise<{ checklist: KnowledgeChecklist | null; title: string | null }> {
   let title: string | null = null;
   try {
     const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
-    if (!tierFolder) return { labels, title };
+    if (!tierFolder) return { checklist: null, title };
     const article = await findArticleById(
       ctx,
       template.accountId,
       tierFolder,
       template.id,
     );
-    if (!article) return { labels, title };
+    if (!article) return { checklist: null, title };
     const state = await readAppJsonAt(
       ctx,
       template.accountId,
@@ -350,14 +357,125 @@ async function labelsFor(
       template.accountId,
       `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(template.revision)}`,
     );
-    if (!isKnowledgeRevision(revision)) return { labels, title };
-    for (const step of checklistStepsFromBlocks(revision.blocks))
-      labels[step.id] = step.label;
+    if (!isKnowledgeRevision(revision)) return { checklist: null, title };
+    return { checklist: revision.checklist ?? null, title };
   } catch {
-    // A template that cannot be read leaves the labels empty; the checklist
-    // itself is still served, so the workorder reads rather than disappears.
+    // A template that cannot be read leaves the rules unresolved; the
+    // checklist itself is still served, so the workorder reads rather than
+    // disappears.
+    return { checklist: null, title };
   }
-  return { labels, title };
+}
+
+/** The chosen item keys per repeated section, the shape `resolveChecklist` reads. */
+function itemKeysOf(items: Record<string, WorkorderItem[]>): Record<string, string[]> {
+  const keys: Record<string, string[]> = {};
+  for (const [key, list] of Object.entries(items))
+    keys[key] = list.map((item) => item.key);
+  return keys;
+}
+
+/**
+ * One checklist's sections as a reader sees them (ADR 0030).
+ *
+ * The instance's own chosen `variants` and item `key`s are resolved through
+ * the template's rules — the one place branching and repeats are decided — and
+ * each applicable step is joined with the state the instance stored for it. A
+ * rule that cannot be read leaves the groups empty: the checklist's own steps
+ * are still served, so a workorder reads rather than disappears.
+ */
+function groupsFor(
+  def: KnowledgeChecklist | null,
+  checklist: WorkorderChecklist,
+): WorkorderGroupView[] {
+  if (!def) return [];
+  const resolved = resolveChecklist(def, checklist.variants, itemKeysOf(checklist.items));
+  return resolved.map((section) => ({
+    key: section.key,
+    label: section.label,
+    repeat: section.repeat ? section.repeat.item : null,
+    items: section.items.map((item) => {
+      const stored = section.repeat
+        ? (checklist.items[section.key] ?? []).find((one) => one.key === item.key)
+        : undefined;
+      const fields = (section.repeat?.fields ?? []).map((field) => ({
+        key: field.key,
+        label: field.label,
+        value: stored?.data[field.key] ?? "",
+      }));
+      const steps: WorkorderStepView[] = item.steps.map((step) => {
+        const instance = stepOf(checklist, step.path);
+        return {
+          path: step.path,
+          label: step.label,
+          state: instance?.state ?? "open",
+          by: instance?.by ?? null,
+          at: instance?.at ?? null,
+          note: instance?.note ?? "",
+        };
+      });
+      return { key: item.key, label: item.label, fields, steps };
+    }),
+  }));
+}
+
+/**
+ * The choices a create names, checked against the template's rules.
+ *
+ * Every variant the template declares needs a value and every repeated section
+ * needs at least one item: a branch left undecided would materialise a process
+ * that is not the one the template describes, so the create is refused whole
+ * (`workorder_choices_missing`) rather than half-built. Each chosen item
+ * carries only the data fields the template declares for it, trimmed.
+ */
+function checklistChoices(
+  def: KnowledgeChecklist,
+  input: WorkorderCreateInput,
+): { variants: Record<string, string>; items: Record<string, WorkorderItem[]> } {
+  const rawVariants = input.variants ?? {};
+  const variants: Record<string, string> = {};
+  for (const variant of def.variants) {
+    const value = (rawVariants[variant.key] ?? "").trim();
+    if (!value)
+      throw new WorkorderAdminError(
+        "workorder_choices_missing",
+        `The choice "${variant.label}" needs a value.`,
+      );
+    variants[variant.key] = value;
+  }
+  const rawItems = input.items ?? {};
+  const items: Record<string, WorkorderItem[]> = {};
+  for (const section of def.sections) {
+    const repeat = section.repeat;
+    if (!repeat) continue;
+    const chosen: WorkorderItem[] = [];
+    for (const entry of rawItems[section.key] ?? []) {
+      const key = entry.key.trim();
+      if (!key) continue;
+      const data: Record<string, string> = {};
+      for (const field of repeat.fields)
+        data[field.key] = (entry.data?.[field.key] ?? "").trim();
+      chosen.push({ key, data });
+    }
+    if (!chosen.length)
+      throw new WorkorderAdminError(
+        "workorder_choices_missing",
+        `The section "${section.label}" needs at least one ${repeat.item}.`,
+      );
+    items[section.key] = chosen;
+  }
+  return { variants, items };
+}
+
+/** The applicable step paths, in template order, for chosen values and items. */
+function applicableStepPaths(
+  def: KnowledgeChecklist,
+  variants: Record<string, string>,
+  items: Record<string, WorkorderItem[]>,
+): string[] {
+  return resolveChecklist(def, variants, itemKeysOf(items)).flatMap((section) =>
+    section.items.flatMap((item) => item.steps.map((step) => step.path)),
+  );
 }
 
 /**
@@ -378,14 +496,14 @@ async function summaryOf(
   const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own]).sort(
     (a, b) => a.localeCompare(b),
   );
-  const global = await labelsFor(reach.ctx, root.checklist.template);
+  const global = await templateDef(reach.ctx, root.checklist.template);
   const parts: WorkorderPartView[] = [
     {
       scope: "global",
       accountId: null,
       group: null,
       checklist: root.checklist,
-      labels: global.labels,
+      groups: groupsFor(global.checklist, root.checklist),
       templateTitle: global.title,
       canCheck: reach.admin,
     },
@@ -395,13 +513,13 @@ async function summaryOf(
     if (!groupAccount) continue;
     const part = await findActive(reach.ctx, groupAccount, root.uid);
     if (!part) continue;
-    const info = await labelsFor(reach.ctx, part.doc.checklist.template);
+    const info = await templateDef(reach.ctx, part.doc.checklist.template);
     parts.push({
       scope: "group",
       accountId: groupAccount,
       group: name,
       checklist: part.doc.checklist,
-      labels: info.labels,
+      groups: groupsFor(info.checklist, part.doc.checklist),
       templateTitle: info.title,
       canCheck: reach.own.has(name),
     });
@@ -529,7 +647,7 @@ export async function createWorkorder(
     template.accountId,
     `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(inForce.revision)}`,
   );
-  // The revision the state names is the controlled text of every step; an
+  // The revision the state names is the controlled process of every step; an
   // unreadable one would silently bind the workorder to an empty checklist, so
   // it is refused rather than half-created.
   if (!isKnowledgeRevision(revision))
@@ -538,12 +656,24 @@ export async function createWorkorder(
       "The template's revision could not be read, so a checklist cannot be built from it.",
       404,
     );
-  const stepIds = checklistStepsFromBlocks(revision.blocks).map((step) => step.id);
+  const def = revision.checklist ?? null;
+  if (!def)
+    throw new WorkorderAdminError(
+      "template_not_a_process",
+      "That template carries no checklist rules, so a workorder cannot be built from it.",
+      409,
+    );
   const bound: WorkorderTemplateRef = {
     accountId: template.accountId,
     id: template.id,
     revision: inForce.revision,
   };
+  // The choices a create names are checked against the rules before anything is
+  // written: a branch left undecided refuses the whole request.
+  const { variants, items } = checklistChoices(def, input);
+  const stepPaths = applicableStepPaths(def, variants, items);
+  const buildInstance = () =>
+    buildChecklist({ template: bound, variants, items, stepPaths });
 
   // Resolve every named group before writing anything: a request that names a
   // group the Master does not hold is refused whole, not half written.
@@ -568,7 +698,7 @@ export async function createWorkorder(
     at,
     name,
     state: "running",
-    checklist: buildChecklist(bound, stepIds),
+    checklist: buildInstance(),
   });
   await writeAppFileIn(
     ctx,
@@ -582,7 +712,7 @@ export async function createWorkorder(
       uid,
       by,
       at,
-      checklist: buildChecklist(bound, stepIds),
+      checklist: buildInstance(),
     });
     await writeAppFileIn(
       ctx,
@@ -607,7 +737,7 @@ export async function createWorkorder(
 /* ------------------------------------------------------------------ */
 
 /**
- * Check (or uncheck) one step, keeping its last signature.
+ * Set one step's state, keeping its signature.
  *
  * The document is the only record of a person's act, so the signature is the
  * caller's own address, taken from the authenticated session and never the
@@ -620,11 +750,12 @@ async function applyStep(input: {
   ctx: Ctx;
   accountId: string;
   uid: string;
-  stepId: string;
-  checked: boolean;
+  path: string;
+  state: WorkorderStepState;
+  note: string;
   by: string;
 }): Promise<void> {
-  const { ctx, accountId, uid, stepId, checked, by } = input;
+  const { ctx, accountId, uid, path, state, note, by } = input;
   const at = new Date().toISOString();
   await writeRootUnderCas(
     ctx,
@@ -636,10 +767,10 @@ async function applyStep(input: {
         "The check could not be saved because another write kept winning the race.",
     },
     (found) => {
-      if (!stepOf(found.doc.checklist, stepId))
+      if (!stepOf(found.doc.checklist, path))
         throw new WorkorderAdminError(
           "step_not_found",
-          `That workorder has no step "${stepId}".`,
+          `That workorder has no step "${path}".`,
           404,
         );
       return {
@@ -647,9 +778,7 @@ async function applyStep(input: {
         checklist: {
           ...found.doc.checklist,
           steps: found.doc.checklist.steps.map((step) =>
-            step.id === stepId
-              ? { ...step, state: checked ? "done" : "open", by, at }
-              : step,
+            step.path === path ? { ...step, state, by, at, note } : step,
           ),
         },
         updated: { by, at },
@@ -658,14 +787,6 @@ async function applyStep(input: {
   );
 }
 
-/**
- * Check the global checklist, or one group's part.
- *
- * The global checklist is the Master's own and is checked by an administrator
- * or the agent; a group's part is checked by a member of that group. The route
- * gates the request with `requireSession` alone, so the two rules live here,
- * where the caller is known.
- */
 /**
  * Refuse checking a step once the workorder is terminal.
  *
@@ -684,15 +805,29 @@ async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise
     );
 }
 
+/**
+ * Set one step's state on the global checklist, or on one group's part.
+ *
+ * The global checklist is the Master's own and is checked by an administrator
+ * or the agent; a group's part is checked by a member of that group. The route
+ * gates the request with `requireSession` alone, so the two rules live here,
+ * where the caller is known.
+ */
 export async function checkStep(
   session: LiveSession,
   input: WorkorderCheckInput,
 ): Promise<WorkorderSummary> {
   const uid = (input?.uid ?? "").trim();
   if (!uid) throw new WorkorderAdminError("bad_request", "A workorder uid is required.");
-  const stepId = (input?.stepId ?? "").trim();
-  if (!stepId) throw new WorkorderAdminError("bad_request", "A step id is required.");
-  const checked = input?.checked === true;
+  const path = (input?.path ?? "").trim();
+  if (!path) throw new WorkorderAdminError("bad_request", "A step path is required.");
+  const state = input?.state;
+  if (!isWorkorderStepState(state))
+    throw new WorkorderAdminError(
+      "bad_request",
+      "A step state must be open, done, skipped or not-applicable.",
+    );
+  const note = typeof input?.note === "string" ? input.note.trim() : "";
   if (input?.scope === "global") {
     if (!(await isAdministrator(session)))
       throw new WorkorderAdminError(
@@ -706,8 +841,9 @@ export async function checkStep(
       ctx,
       accountId,
       uid,
-      stepId,
-      checked,
+      path,
+      state,
+      note,
       by: session.username,
     });
   } else if (input?.scope === "group") {
@@ -742,8 +878,9 @@ export async function checkStep(
       ctx: master.ctx,
       accountId: groupAccount,
       uid,
-      stepId,
-      checked,
+      path,
+      state,
+      note,
       by: session.username,
     });
   } else

@@ -12,9 +12,8 @@ import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 import { tierLabel } from "./KnowledgeSidebar";
 
 /*
- * The checklist builder is a lazy chunk: MUI, the form builder and the schema
- * renderer are heavy and belong to template authoring, never to the app's first
- * paint (ADR 0030).
+ * The checklist builder is a lazy chunk: authoring belongs to a template that
+ * is open, never to the app's first paint (ADR 0030).
  */
 const ChecklistSurface = lazy(() => import("./ChecklistSurface"));
 

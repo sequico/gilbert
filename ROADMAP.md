@@ -91,17 +91,6 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   settled on: a `shareWith` naming every account cannot work (Stalwart caps a
   share at 10 principals per item), so no share probe is owed.
 
-- **The workorder side of checklist branching.** ADR 0030's template half ships —
-  a checklist template is a builder-authored JSON Schema (variants, steps,
-  conditions) whose body is derived, approved and versioned like any page. What
-  is not built is the **instance**: at creation a workorder does not yet resolve a
-  step whose condition excludes it to **not applicable**, and the chosen variant
-  values are not carried on the root. Until then a workorder binds every derived
-  step and no branching. The follow-up is `server/src/shared/workorder.ts`
-  (`WorkorderStepState` gaining `not applicable`), the root's chosen values, the
-  resolved set read from the bound revision, and the workorder panel's dimmed,
-  out-of-progress render.
-
 - **Checks on an agent that is hung rather than gone.** An agent that stops
   making progress is recovered but never diagnosed: three missed heartbeats, the
   claim lapses, a successor takes over the work left mid-run, and an abandoned job

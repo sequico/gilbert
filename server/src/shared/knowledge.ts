@@ -54,17 +54,66 @@ export interface KnowledgeTimes {
 }
 
 /**
- * A checklist template's **rules**, as the builder authors them (ADR 0030).
+ * A checklist template's **rules** — the process, as data (ADR 0030).
  *
- * The builder produces a JSON Schema of the template's fields — the variants a
- * workorder chooses and the boolean step fields it checks — and a uiSchema
- * carrying the order, the labels, the widgets and the **dependencies** that
- * branch a step off a variant value. Both travel with the revision, and the
- * template's body is **derived** from them rather than authored by hand.
+ * A template is not a form: it is an ordered list of **sections**, each holding
+ * steps. *What exists* depends on the **variants** chosen once for a workorder;
+ * *how many times* on a **repeat**. A condition names a variant key and a value
+ * and may sit on a section or a step, at any depth — so a step inside a repeated
+ * section branches on a value chosen at the top, a cross-scope rule a JSON
+ * Schema form cannot express. This is the one definition both tiers read; a
+ * workorder materialises the applicable steps from it and never copies the text.
  */
 export interface KnowledgeChecklist {
-  schema: Record<string, unknown>;
-  uiSchema: Record<string, unknown>;
+  variants: KnowledgeVariant[];
+  sections: KnowledgeSection[];
+}
+
+/** A choice that varies by case; a workorder picks one value per variant. */
+export interface KnowledgeVariant {
+  key: string;
+  label: string;
+  values: KnowledgeVariantValue[];
+}
+
+export interface KnowledgeVariantValue {
+  value: string;
+  label: string;
+}
+
+/** The gate on a section or a step: a variant holds one value. */
+export interface KnowledgeCondition {
+  variant: string;
+  equals: string;
+}
+
+/** A repeat: the section is instantiated once per item a workorder names. */
+export interface KnowledgeRepeat {
+  /** What one item is, e.g. "Container". */
+  item: string;
+  /** Optional per-item data fields (a container number, a seal, a weight). */
+  fields: KnowledgeItemField[];
+}
+
+export interface KnowledgeItemField {
+  key: string;
+  label: string;
+}
+
+/** One check of a template: the step's stable key and its controlled label. */
+export interface KnowledgeStep {
+  key: string;
+  label: string;
+  condition?: KnowledgeCondition;
+}
+
+/** One section: steps, an optional condition and an optional repeat. */
+export interface KnowledgeSection {
+  key: string;
+  label: string;
+  condition?: KnowledgeCondition;
+  repeat?: KnowledgeRepeat;
+  steps: KnowledgeStep[];
 }
 
 /** The working draft: identity, the editor's blocks, and the search text. */
@@ -293,14 +342,61 @@ export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
   );
 }
 
-export function isKnowledgeChecklist(x: unknown): x is KnowledgeChecklist {
-  // The root of a builder's schema is an object of fields. A definition that is
-  // not one is refused rather than stored as a "template" that derives no steps.
+function isKnowledgeVariant(x: unknown): x is KnowledgeVariant {
   return (
     isRecord(x) &&
-    isRecord(x.schema) &&
-    x.schema.type === "object" &&
-    isRecord(x.uiSchema)
+    typeof x.key === "string" &&
+    typeof x.label === "string" &&
+    Array.isArray(x.values) &&
+    x.values.every(
+      (v) => isRecord(v) && typeof v.value === "string" && typeof v.label === "string",
+    )
+  );
+}
+
+function isKnowledgeCondition(x: unknown): x is KnowledgeCondition {
+  return isRecord(x) && typeof x.variant === "string" && typeof x.equals === "string";
+}
+
+function isKnowledgeRepeat(x: unknown): x is KnowledgeRepeat {
+  return (
+    isRecord(x) &&
+    typeof x.item === "string" &&
+    Array.isArray(x.fields) &&
+    x.fields.every(
+      (f) => isRecord(f) && typeof f.key === "string" && typeof f.label === "string",
+    )
+  );
+}
+
+function isKnowledgeStep(x: unknown): x is KnowledgeStep {
+  return (
+    isRecord(x) &&
+    typeof x.key === "string" &&
+    typeof x.label === "string" &&
+    (x.condition === undefined || isKnowledgeCondition(x.condition))
+  );
+}
+
+function isKnowledgeSection(x: unknown): x is KnowledgeSection {
+  return (
+    isRecord(x) &&
+    typeof x.key === "string" &&
+    typeof x.label === "string" &&
+    (x.condition === undefined || isKnowledgeCondition(x.condition)) &&
+    (x.repeat === undefined || isKnowledgeRepeat(x.repeat)) &&
+    Array.isArray(x.steps) &&
+    x.steps.every(isKnowledgeStep)
+  );
+}
+
+export function isKnowledgeChecklist(x: unknown): x is KnowledgeChecklist {
+  return (
+    isRecord(x) &&
+    Array.isArray(x.variants) &&
+    x.variants.every(isKnowledgeVariant) &&
+    Array.isArray(x.sections) &&
+    x.sections.every(isKnowledgeSection)
   );
 }
 
@@ -433,43 +529,12 @@ export function blocksFromText(text: string): unknown[] {
   return value ? [{ type: "paragraph", content: [{ type: "text", text: value }] }] : [];
 }
 
-/** One checklist item of a template article: the block's id and its text. */
-export interface KnowledgeChecklistStep {
-  id: string;
-  label: string;
-}
-
-/**
- * The checklist a template article's body carries, as a workorder reads it.
- *
- * A template is an article like any other whose body is a checklist (ADR 0024),
- * so its steps are the editor's `checkListItem` blocks: the block's own **id**
- * is the stable identity a workorder's step state is keyed by, and the label is
- * the text the reader sees. Kept in the one definition both tiers read, so the
- * KB and the workorder agree on what a step is.
- */
-export function checklistStepsFromBlocks(blocks: unknown): KnowledgeChecklistStep[] {
-  const out: KnowledgeChecklistStep[] = [];
-  const walk = (list: unknown): void => {
-    if (!Array.isArray(list)) return;
-    for (const block of list) {
-      if (!isRecord(block)) continue;
-      if (block.type === "checkListItem" && typeof block.id === "string") {
-        out.push({ id: block.id, label: inlineText(block.content) });
-      }
-      walk(block.children);
-    }
-  };
-  walk(blocks);
-  return out;
-}
-
 /** What a page is a template **of**, or null when it is an ordinary page. */
 export type KnowledgeTemplate = "checklist";
 
 /** An empty checklist definition, so a new template has rules to edit. */
 export function emptyChecklist(): KnowledgeChecklist {
-  return { schema: { type: "object", properties: {} }, uiSchema: {} };
+  return { variants: [], sections: [] };
 }
 
 /** Whether a draft defines a checklist template (ADR 0030). */
@@ -499,57 +564,138 @@ function checklistBlock(id: string, label: string): unknown {
   };
 }
 
-/** The keys of an object in the order its `ui:order` names, then the rest. */
-function orderedKeys(
-  properties: Record<string, unknown>,
-  uiSchema: Record<string, unknown> | undefined,
-): string[] {
-  const keys = Object.keys(properties);
-  const order = uiSchema?.["ui:order"];
-  if (!Array.isArray(order)) return keys;
-  const named = order.filter(
-    (key): key is string => typeof key === "string" && keys.includes(key),
-  );
-  return [...named, ...keys.filter((key) => !named.includes(key))];
+/** The step path of a step in a plain section: `section.step`. */
+export function plainStepPath(sectionKey: string, stepKey: string): string {
+  return `${sectionKey}.${stepKey}`;
+}
+
+/** The step path of a step in one item of a repeated section: `section[item].step`. */
+export function itemStepPath(
+  sectionKey: string,
+  itemKey: string,
+  stepKey: string,
+): string {
+  return `${sectionKey}[${itemKey}].${stepKey}`;
+}
+
+/** A condition, as a short readable clause; "" when there is none. */
+export function conditionClause(condition: KnowledgeCondition | undefined): string {
+  return condition ? `${condition.variant} = ${condition.equals}` : "";
 }
 
 /**
  * Build a checklist template's body from its rules (ADR 0030).
  *
- * The rules are the source and the body is the rendering every reader walks: a
- * section is a heading, and a boolean field is a `checkListItem` whose **id** is
- * the field's path — the stable identity a workorder's step state keys on — and
- * whose label is the field's title. A `ui:order` reorders a level when the
- * builder set one. `plainTextFromBlocks` of the result is the template's `text`,
- * so search and an agent read the steps without a second derivation.
+ * The rules are the source and the body is the **rendering** every reader walks:
+ * a section is a heading and a step a `checkListItem`, with its condition and a
+ * repeated section's item named so the rendering is honest about what varies. A
+ * repeated section is shown once — it materialises per item in a workorder, not
+ * here. `plainTextFromBlocks` of the result is the template's `text`, so search
+ * and an agent read the process without a second derivation.
  */
 export function checklistBlocks(checklist: KnowledgeChecklist): unknown[] {
   const blocks: unknown[] = [];
-  const walk = (
-    properties: unknown,
-    uiSchema: Record<string, unknown> | undefined,
-    prefix: string,
-    level: number,
-  ): void => {
-    if (!isRecord(properties)) return;
-    for (const key of orderedKeys(properties, uiSchema)) {
-      const field = properties[key];
-      if (!isRecord(field)) continue;
-      const path = prefix ? `${prefix}.${key}` : key;
-      const title = typeof field.title === "string" && field.title ? field.title : key;
-      if (field.type === "object" && isRecord(field.properties)) {
-        blocks.push(headingBlock(title, level));
-        const childUi = isRecord(uiSchema?.[key])
-          ? (uiSchema?.[key] as Record<string, unknown>)
-          : undefined;
-        walk(field.properties, childUi, path, Math.min(level + 1, 3));
-      } else if (field.type === "boolean") {
-        blocks.push(checklistBlock(path, title));
-      }
+  for (const section of checklist.sections) {
+    const suffix = [
+      section.repeat ? `per ${section.repeat.item}` : "",
+      conditionClause(section.condition),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    blocks.push(headingBlock(suffix ? `${section.label} (${suffix})` : section.label, 2));
+    for (const step of section.steps) {
+      const clause = conditionClause(step.condition);
+      blocks.push(
+        checklistBlock(
+          plainStepPath(section.key, step.key),
+          clause ? `${step.label} (${clause})` : step.label,
+        ),
+      );
     }
-  };
-  walk(checklist.schema.properties, checklist.uiSchema, "", 2);
+  }
   return blocks;
+}
+
+/** One step of a resolved section, with the path a workorder stores. */
+export interface ResolvedStep {
+  path: string;
+  label: string;
+}
+
+/** One item of a resolved section: a repeated section's item, or the section. */
+export interface ResolvedItem {
+  /** The item's key for a repeated section, or "" when the section is not repeated. */
+  key: string;
+  /** The item's label: the key for a repeated section, the section label otherwise. */
+  label: string;
+  steps: ResolvedStep[];
+}
+
+/** One section of a resolved checklist: the items that apply, with their steps. */
+export interface ResolvedSection {
+  key: string;
+  label: string;
+  repeat: KnowledgeRepeat | null;
+  items: ResolvedItem[];
+}
+
+/** Whether a condition holds under the chosen values. */
+function conditionHolds(
+  condition: KnowledgeCondition | undefined,
+  values: Record<string, string>,
+): boolean {
+  return condition ? values[condition.variant] === condition.equals : true;
+}
+
+/**
+ * The sections, items and steps that apply, given a workorder's chosen values.
+ *
+ * This is the **one** place branching and repeats are resolved, read by a
+ * workorder's instantiation and by its view (ADR 0028, ADR 0030). A section
+ * whose condition does not hold is left out; a repeated section yields one item
+ * per chosen key; a step whose condition does not hold is left out; and a
+ * condition resolves against the **same** values wherever it sits — the
+ * cross-scope rule a JSON Schema form cannot express.
+ */
+export function resolveChecklist(
+  checklist: KnowledgeChecklist,
+  values: Record<string, string>,
+  items: Record<string, string[]>,
+): ResolvedSection[] {
+  const out: ResolvedSection[] = [];
+  for (const section of checklist.sections) {
+    if (!conditionHolds(section.condition, values)) continue;
+    const steps = section.steps.filter((step) => conditionHolds(step.condition, values));
+    const resolved: ResolvedSection = {
+      key: section.key,
+      label: section.label,
+      repeat: section.repeat ?? null,
+      items: [],
+    };
+    if (section.repeat) {
+      for (const itemKey of items[section.key] ?? []) {
+        resolved.items.push({
+          key: itemKey,
+          label: itemKey,
+          steps: steps.map((step) => ({
+            path: itemStepPath(section.key, itemKey, step.key),
+            label: step.label,
+          })),
+        });
+      }
+    } else {
+      resolved.items.push({
+        key: "",
+        label: section.label,
+        steps: steps.map((step) => ({
+          path: plainStepPath(section.key, step.key),
+          label: step.label,
+        })),
+      });
+    }
+    out.push(resolved);
+  }
+  return out;
 }
 
 /** Mint a draft from a writer's input. */

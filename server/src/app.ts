@@ -157,6 +157,7 @@ import {
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES, STALWART_MIN_VERSION } from "./shared/capabilities.js";
 import type { GlobalContactInput } from "./shared/globalContacts.js";
+import { isRecord } from "./shared/json.js";
 import {
   isKnowledgeChecklist,
   type KnowledgeArticleInput,
@@ -170,8 +171,10 @@ import { withoutBidiControls } from "./shared/text.js";
 import {
   isWorkorderRef,
   isWorkorderState,
+  isWorkorderStepState,
   isWorkorderTemplateRef,
   type WorkorderCreateInput,
+  type WorkorderItemInput,
   type WorkorderRef,
 } from "./shared/workorder.js";
 import { staticHandler } from "./static.js";
@@ -2957,7 +2960,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (rawChecklist !== null && !isKnowledgeChecklist(rawChecklist))
         throw new KnowledgeAdminError(
           "bad_request",
-          "A checklist definition must carry a schema and a uiSchema.",
+          "A checklist definition must carry the variants and sections of a process.",
         );
       const summary = await createArticle(
         c.get("session"),
@@ -3179,13 +3182,40 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         "bad_request",
         "A workorder needs a name and the template it instantiates.",
       );
-    return {
+    const input: WorkorderCreateInput = {
       name: r.name,
       template: r.template,
       groups: Array.isArray(r.groups)
         ? r.groups.filter((group): group is string => typeof group === "string")
         : [],
     };
+    if (isRecord(r.variants)) {
+      const variants: Record<string, string> = {};
+      for (const [key, value] of Object.entries(r.variants))
+        if (typeof value === "string") variants[key] = value;
+      input.variants = variants;
+    }
+    if (isRecord(r.items)) {
+      const items: Record<string, WorkorderItemInput[]> = {};
+      for (const [key, list] of Object.entries(r.items)) {
+        if (!Array.isArray(list)) continue;
+        const chosen: WorkorderItemInput[] = [];
+        for (const entry of list) {
+          if (!isRecord(entry) || typeof entry.key !== "string") continue;
+          const one: WorkorderItemInput = { key: entry.key };
+          if (isRecord(entry.data)) {
+            const data: Record<string, string> = {};
+            for (const [field, value] of Object.entries(entry.data))
+              if (typeof value === "string") data[field] = value;
+            one.data = data;
+          }
+          chosen.push(one);
+        }
+        items[key] = chosen;
+      }
+      input.items = items;
+    }
+    return input;
   };
 
   api.get("/workorders", requireSession, async (c) => {
@@ -3221,8 +3251,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       uid?: unknown;
       scope?: unknown;
       group?: unknown;
-      stepId?: unknown;
-      checked?: unknown;
+      path?: unknown;
+      state?: unknown;
+      note?: unknown;
     }>(c);
     const rawScope = body?.scope;
     const scope = rawScope === "global" || rawScope === "group" ? rawScope : null;
@@ -3231,13 +3262,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         { error: "bad_request", message: 'The scope must be "global" or "group".' },
         400,
       );
+    const state = body?.state;
+    if (!isWorkorderStepState(state))
+      return c.json(
+        {
+          error: "bad_request",
+          message: "A step state must be open, done, skipped or not-applicable.",
+        },
+        400,
+      );
     try {
       const workorder = await checkWorkorderStep(c.get("session"), {
         uid: typeof body?.uid === "string" ? body.uid : "",
         scope,
         group: typeof body?.group === "string" ? body.group : undefined,
-        stepId: typeof body?.stepId === "string" ? body.stepId : "",
-        checked: body?.checked === true,
+        path: typeof body?.path === "string" ? body.path : "",
+        state,
+        note: typeof body?.note === "string" ? body.note : undefined,
       });
       return c.json({ ok: true, workorder });
     } catch (err) {

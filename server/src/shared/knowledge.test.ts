@@ -5,6 +5,7 @@ import {
   buildRevision,
   buildState,
   checklistBlocks,
+  conditionClause,
   emptyChecklist,
   isChecklistTemplate,
   isKnowledgeChecklist,
@@ -12,13 +13,17 @@ import {
   isKnowledgeRevision,
   isKnowledgeState,
   isReservedArticleName,
+  itemStepPath,
   KNOWLEDGE_FOLDER,
+  type KnowledgeChecklist,
   type KnowledgeState,
   knowledgeFolderName,
   MAX_TAGS,
   normalizeKnowledgeTags,
   pendingIsDue,
+  plainStepPath,
   plainTextFromBlocks,
+  resolveChecklist,
   revisionInForceAt,
   stateAfterApproval,
 } from "./knowledge.js";
@@ -245,66 +250,185 @@ test("the tier's folder is the one name both tiers walk", () => {
   assert.equal(KNOWLEDGE_FOLDER, "knowledge");
 });
 
-test("a checklist template's rules build its body and its text", () => {
-  const checklist = {
-    schema: {
-      type: "object",
-      properties: {
-        shipping: {
-          type: "object",
-          title: "Shipping",
-          properties: {
-            load: { type: "boolean", title: "Load at the depot" },
-            seal: { type: "boolean", title: "Seal the container" },
-          },
-        },
-      },
+/** A process template: a variant, a plain section, a repeat, a final section. */
+const process: KnowledgeChecklist = {
+  variants: [
+    {
+      key: "company",
+      label: "Company",
+      values: [
+        { value: "north", label: "North" },
+        { value: "south", label: "South" },
+      ],
     },
-    uiSchema: {},
-  };
-  const blocks = checklistBlocks(checklist);
+  ],
+  sections: [
+    {
+      key: "paperwork",
+      label: "Paperwork",
+      steps: [
+        { key: "ref", label: "Record the reference" },
+        {
+          key: "sign",
+          label: "Sign the form",
+          condition: { variant: "company", equals: "north" },
+        },
+      ],
+    },
+    {
+      key: "loading",
+      label: "Loading",
+      repeat: { item: "Container", fields: [{ key: "seal", label: "Seal" }] },
+      steps: [
+        { key: "load", label: "Load the container" },
+        { key: "seal", label: "Seal the container" },
+      ],
+    },
+    {
+      key: "final",
+      label: "Final",
+      steps: [{ key: "dispatch", label: "Dispatch" }],
+    },
+  ],
+};
+
+test("a checklist template's rules build its body and its text", () => {
+  const blocks = checklistBlocks(process);
   assert.deepEqual(
     blocks.map((block) => (block as { type?: unknown }).type),
-    ["heading", "checkListItem", "checkListItem"],
-    "a section is a heading, each boolean field is a step",
+    [
+      "heading",
+      "checkListItem",
+      "checkListItem",
+      "heading",
+      "checkListItem",
+      "checkListItem",
+      "heading",
+      "checkListItem",
+    ],
+    "each section is a heading and each step is a checklist item",
   );
-  const steps = blocks.filter(
-    (block) => (block as { type?: unknown }).type === "checkListItem",
-  ) as Array<{ id?: unknown }>;
+  const headings = blocks
+    .filter((block) => (block as { type?: unknown }).type === "heading")
+    .map((block) => (block as { content?: Array<{ text?: string }> }).content?.[0]?.text);
   assert.deepEqual(
-    steps.map((step) => step.id),
-    ["shipping.load", "shipping.seal"],
-    "a step's id is its path, the stable key a workorder stores",
+    headings,
+    ["Paperwork", "Loading (per Container)", "Final"],
+    "a repeated section names its item and a condition rides on the step",
+  );
+  const steps = blocks
+    .filter((block) => (block as { type?: unknown }).type === "checkListItem")
+    .map((block) => (block as { id?: unknown }).id);
+  assert.deepEqual(
+    steps,
+    ["paperwork.ref", "paperwork.sign", "loading.load", "loading.seal", "final.dispatch"],
+    "a step's id is its plain path, the stable key a workorder stores",
   );
   const text = plainTextFromBlocks(blocks);
-  assert.match(text, /Shipping/);
-  assert.match(text, /Load at the depot/);
-  assert.match(text, /Seal the container/);
+  assert.match(text, /Paperwork/);
+  assert.match(text, /Record the reference/);
+  assert.match(text, /Sign the form \(company = north\)/);
+});
+
+test("the rules decide which sections, items and steps apply", () => {
+  const resolved = resolveChecklist(
+    process,
+    { company: "north" },
+    {
+      loading: ["CONT-1", "CONT-2"],
+    },
+  );
+  assert.deepEqual(
+    resolved.map((section) => section.key),
+    ["paperwork", "loading", "final"],
+  );
+  const paperwork = resolved[0]!;
+  assert.equal(paperwork.repeat, null);
+  assert.deepEqual(
+    paperwork.items.map((item) => [item.key, item.label]),
+    [["", "Paperwork"]],
+    "a plain section is one item named by its section",
+  );
+  assert.deepEqual(
+    paperwork.items[0]!.steps.map((step) => step.path),
+    ["paperwork.ref", "paperwork.sign"],
+    "the north branch keeps the conditional step",
+  );
+  const loading = resolved[1]!;
+  assert.equal(loading.repeat?.item, "Container");
+  assert.deepEqual(
+    loading.items.map((item) => item.key),
+    ["CONT-1", "CONT-2"],
+    "a repeated section instantiates once per chosen item",
+  );
+  assert.deepEqual(
+    loading.items[0]!.steps.map((step) => step.path),
+    ["loading[CONT-1].load", "loading[CONT-1].seal"],
+    "the item's key rides inside the step path so two containers never collide",
+  );
+
+  const south = resolveChecklist(
+    process,
+    { company: "south" },
+    {
+      loading: ["CONT-1"],
+    },
+  );
+  assert.deepEqual(
+    south[0]!.items[0]!.steps.map((step) => step.path),
+    ["paperwork.ref"],
+    "the south branch drops the step whose condition does not hold",
+  );
+});
+
+test("a section's own condition gates the whole section", () => {
+  const gated: KnowledgeChecklist = {
+    variants: process.variants,
+    sections: [
+      {
+        key: "hazmat",
+        label: "Hazardous cargo",
+        condition: { variant: "company", equals: "south" },
+        repeat: { item: "Container", fields: [] },
+        steps: [{ key: "plate", label: "Fix the placard" }],
+      },
+    ],
+  };
+  assert.deepEqual(
+    resolveChecklist(gated, { company: "north" }, { hazmat: ["CONT-1"] }),
+    [],
+    "a section whose condition does not hold is left out whole",
+  );
+  const south = resolveChecklist(gated, { company: "south" }, { hazmat: ["CONT-1"] });
+  assert.deepEqual(
+    south[0]!.items[0]!.steps.map((step) => step.path),
+    ["hazmat[CONT-1].plate"],
+  );
 });
 
 test("a draft built from rules derives its body and travels with the definition", () => {
-  const checklist = {
-    schema: { type: "object", properties: { pack: { type: "boolean", title: "Pack" } } },
-    uiSchema: {},
-  };
   const draft = buildDraft({
     id: "a1",
     title: "Packing",
     tags: [],
     blocks: [],
     text: "ignored on purpose",
-    checklist,
+    checklist: process,
     by: "g",
     at: "2026-10-01T00:00:00.000Z",
   });
   assert.equal(isKnowledgeDraft(draft), true);
   assert.equal(isChecklistTemplate(draft), true);
-  assert.deepEqual(draft.checklist, checklist);
-  assert.equal(draft.text, "Pack", "the text is derived, never the caller's");
+  assert.deepEqual(draft.checklist, process);
+  assert.match(
+    draft.text,
+    /Record the reference/,
+    "the text is derived, never the caller's",
+  );
   assert.equal(
-    isKnowledgeDraft({ ...draft, checklist: "nope" }),
+    isKnowledgeDraft({ ...draft, checklist: { schema: {}, uiSchema: {} } }),
     false,
-    "a definition that is not a schema and a uiSchema is refused",
+    "a definition that is not the process shape is refused",
   );
 });
 
@@ -324,6 +448,16 @@ test("a page with blocks alone is not a checklist template", () => {
     "checklist-looking blocks alone do not make a template (ADR 0030)",
   );
   assert.equal(draft.checklist, null);
+});
+
+test("the path helpers and a condition clause are the contract's", () => {
+  assert.equal(plainStepPath("loading", "seal"), "loading.seal");
+  assert.equal(itemStepPath("loading", "CONT-1", "seal"), "loading[CONT-1].seal");
+  assert.equal(
+    conditionClause({ variant: "company", equals: "north" }),
+    "company = north",
+  );
+  assert.equal(conditionClause(undefined), "");
 });
 
 test("an empty checklist is valid rules with no steps", () => {

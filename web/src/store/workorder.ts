@@ -25,6 +25,7 @@ import {
   type WorkorderRef,
   type WorkorderScope,
   type WorkorderState,
+  type WorkorderStepState,
   type WorkorderSummary,
 } from "@/lib/workorder";
 import { useSession } from "@/store/session";
@@ -43,12 +44,14 @@ export interface WorkorderStore {
   load(): Promise<void>;
   show(uid: string | null): void;
   create(input: WorkorderCreateInput): Promise<boolean>;
-  toggle(
+  /** Set one step's state, and the reason a skipped / not-applicable one carries. */
+  check(
     uid: string,
     scope: WorkorderScope,
     group: string | null,
-    stepId: string,
-    checked: boolean,
+    path: string,
+    state: WorkorderStepState,
+    note?: string,
   ): Promise<boolean>;
   close(uid: string, state: WorkorderState): Promise<boolean>;
   addRef(uid: string, ref: WorkorderRef): Promise<boolean>;
@@ -114,15 +117,16 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
       }
     },
 
-    async toggle(uid, scope, group, stepId, checked) {
+    async check(uid, scope, group, path, state, note) {
       try {
         put(
           await checkWorkorderStep({
             uid,
             scope,
             ...(group ? { group } : {}),
-            stepId,
-            checked,
+            path,
+            state,
+            ...(note !== undefined ? { note } : {}),
           }),
         );
         return true;

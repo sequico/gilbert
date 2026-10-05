@@ -284,9 +284,10 @@ is, not what a user sees.
   agent acts on its own when told to. The Master does every read and write, so an administrator sees every part without
   being a member of every group and a member sees the global checklist and their
   own groups' parts, the door being the server route that checks the caller's
-  membership; a checked step keeps the last signature, taken from the
-  authenticated session, and a friendly name beside the uid. A checklist
-  instantiates a KB template in force (ADR 0024), which is a separate decision.
+  membership; each step keeps its **state** (`open`, `done`, `skipped` or
+  `not-applicable`) and the last signature, taken from the authenticated session,
+  and a friendly name beside the uid. A checklist instantiates a KB template in
+  force (ADR 0024) and materialises its applicable steps **by path** (ADR 0030).
   **Built** — the shape (`server/src/shared/workorder.ts`), the Master-owned door
   and its `/api/workorders` routes, the boot ensure, the route-only client and
   the factory launcher's large panel (`web/src/views/workorder/`).
@@ -309,13 +310,11 @@ is, not what a user sees.
 - **0030 — A checklist template branches on data, not on groups (accepted).**
   One generic template per kind of job, in the company KB or a group's, and every
   group instantiates it; a group owns the **instance** and signs it, and is never
-  a template of its own. The template **is** a **JSON Schema** and uiSchema — its
-  variants (fields with values), its boolean steps and the conditions that branch
-  a step on a variant — authored with
-  `@ginkgo-bioworks/react-json-schema-form-builder` (Apache-2.0) and previewed
-  through `@rjsf/core` and `@rjsf/mui` (Apache-2.0); the page's body and text are
-  **derived** from the rules. The builder **round-trips** a template (edit, not
-  re-create). The workorder side — the step state `open`, `done` or **not
-  applicable**, the chosen values carried on the root, and the resolved set read
-  from the **bound revision** — is **partly built**: the template and its builder
-  are, the workorder branching is not.
+  a template of its own. The template is a **process document** — **variants**
+  (choices with values), **sections** with steps, a **condition** on a section or
+  a step, and a **repeat** that loops a section per item — resolved from the
+  workorder's chosen values **everywhere**, including inside a loop (the
+  cross-scope rule a JSON Schema form cannot express); the page's body and text
+  are **derived**. The authoring surface is Gilbert's own, not an off-the-shelf
+  form builder. The workorder side materialises the applicable steps by **path**,
+  with the four step states. **Built.**
