@@ -10,11 +10,13 @@ validators and the lifecycle arithmetic are one definition
 route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client reads
 and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
-BlockNote editor are `web/src/views/knowledge/`; and the fleet's `knowledge`
-lookup and `knowledge.write` capability live in `server/src/agent/`. The fleet
-records the multi-document plan it applies and a review's findings on the run's
-own job (`knowledge.write`'s `basedOn` refuses a page that moved since the plan
-was read; `knowledge.review` records the prose), in the trail Q23 names. Not
+BlockNote editor are `web/src/views/knowledge/`. The fleet's `knowledge` lookup
+and `knowledge.write`/`knowledge.review` capabilities are **present in the tree
+but the agent part does not work yet; a refactor is planned** (see `ROADMAP.md`):
+the code that records the multi-document plan it applies and a review's findings
+on the run's own job (`knowledge.write`'s `basedOn` refuses a page that moved
+since the plan was read; `knowledge.review` records the prose) lives in
+`server/src/agent/`, in the trail Q23 names. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
 diagrams). The checklist templates a workorder instantiates are built, with their
 **resolver** and the workorder instance side (ADR 0030, ADR 0028); the builder

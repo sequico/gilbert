@@ -11,7 +11,9 @@ and the surface is a factory launcher in the top bar beside chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision, resolves the applicable steps from it
 (`resolveChecklist`, `server/src/shared/knowledge.ts`) and carries the per-path
-steps and their states (ADR 0030).
+steps and their states (ADR 0030). The agent checks a part through the same door
+(ADR 0003), and that agent part is **present in the tree but does not work yet; a
+refactor is planned** (see `ROADMAP.md`).
 
 ## Context
 
