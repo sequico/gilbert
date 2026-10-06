@@ -699,3 +699,121 @@ test("a gated section is hidden until its prerequisite completes once, then stay
     "the opened gate stays open when the prerequisite is reopened",
   );
 });
+
+test("a group section gated on a global section opens across parts", async () => {
+  /*
+   * The gate resolves over the WHOLE workorder (ADR 0030): a section in a
+   * group's part may wait on a section in the global checklist, so completing
+   * the global prerequisite — a write to a different document — opens the group
+   * section for the group. Fails if the cross-part resolution is removed.
+   */
+  assert.ok(firstGroup, "the mock has a group the Master holds");
+  const [groupName, groupAccount] = firstGroup;
+  const cross = {
+    variants: [],
+    sections: [
+      { key: "production", label: "Production", steps: [{ key: "make", label: "Make" }] },
+      {
+        key: "billing",
+        label: "Billing",
+        group: groupAccount,
+        requires: ["production"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  const template = await templateRef(cross, "Cross gated checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Cross gated",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const uid = workorderOf(created.body).uid;
+  const groupKeys = (w: Summary) =>
+    w.parts.find((p) => p.group === groupName)?.groups.map((g) => g.key) ?? [];
+
+  const before = workorderOf((await call(`/api/workorders/${uid}`)).body);
+  assert.deepEqual(
+    groupKeys(before),
+    [],
+    "the group section is hidden before the global prerequisite completes",
+  );
+
+  const opened = await post("/api/workorders/check", {
+    uid,
+    scope: "global",
+    path: "production.make",
+    state: "done",
+  });
+  assert.equal(opened.status, 200, JSON.stringify(opened.body));
+  assert.deepEqual(
+    groupKeys(workorderOf(opened.body)),
+    ["billing"],
+    "the group section opens when the global section completes",
+  );
+});
+
+test("a prerequisite naming no section, and one with no steps, do not block", async () => {
+  /*
+   * Two dead ends the gate must not open into (ADR 0030): a prerequisite naming
+   * a section an editor removed is **tolerated**, and a prerequisite with no
+   * applicable steps is **complete** — neither hides the dependent section for
+   * ever. Fails if either tolerance is removed.
+   */
+  const tolerated = {
+    variants: [],
+    sections: [
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["gone"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  let template = await templateRef(tolerated, "Dangling gate checklist");
+  let created = await post("/api/workorders/create", {
+    name: "Dangling gate",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  assert.deepEqual(
+    partOf(workorderOf(created.body), "global").groups.map((g) => g.key),
+    ["billing"],
+    "an unknown prerequisite is tolerated, not a silent dead end",
+  );
+
+  const vacuous = {
+    variants: [],
+    sections: [
+      { key: "empty", label: "Empty", steps: [] },
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["empty"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  template = await templateRef(vacuous, "Vacuous gate checklist");
+  created = await post("/api/workorders/create", {
+    name: "Vacuous gate",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  assert.ok(
+    partOf(workorderOf(created.body), "global")
+      .groups.map((g) => g.key)
+      .includes("billing"),
+    "a gate on a section with no steps does not block",
+  );
+});

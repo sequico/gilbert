@@ -586,4 +586,6 @@ test("a section's gate is bounded, validated and carried into the resolution", (
     false,
     "more than three prerequisites is refused",
   );
+  const blocks = JSON.stringify(checklistBlocks(checklist));
+  assert.match(blocks, /after production/, "the derived body names the gate");
 });

@@ -388,9 +388,22 @@ interface WorkorderGates {
   latched: Set<string>;
   /** Section key → label, for the reader's marker. */
   labels: Map<string, string>;
+  /**
+   * Every section key the template defines. A prerequisite naming no section —
+   * one an editor removed — is **tolerated**: the gate is treated as satisfied
+   * rather than hiding the section for ever (ADR 0030).
+   */
+  known: Set<string>;
 }
 
-/** One part's resolved sections, right now complete or not, by key. */
+/**
+ * One part's resolved sections, right now complete or not, by key.
+ *
+ * A section is complete when every step of every item it holds is `done` or
+ * `skipped`. A section with **no** steps is complete vacuously — a gate on it
+ * does not block — so a prerequisite the chosen values exclude never hides a
+ * dependent section for ever.
+ */
 function sectionCompletion(
   def: KnowledgeChecklist,
   checklist: WorkorderChecklist,
@@ -406,23 +419,28 @@ function sectionCompletion(
     const paths = section.items.flatMap((item) => item.steps.map((step) => step.path));
     out.set(
       section.key,
-      paths.length > 0 &&
-        paths.every((path) => {
-          const instance = stepOf(checklist, path);
-          return instance ? isStepComplete(instance.state) : false;
-        }),
+      paths.every((path) => {
+        const instance = stepOf(checklist, path);
+        return instance ? isStepComplete(instance.state) : false;
+      }),
     );
   }
   return out;
 }
 
-/** Whether a resolved section's gate is open: latched, or every prerequisite complete. */
-function gateOpen(section: ResolvedSection, gates: WorkorderGates): boolean {
+/**
+ * Whether a section's gate is open: latched, or every prerequisite complete.
+ * A prerequisite naming no section is tolerated, never a silent dead end.
+ */
+function gateOpen(
+  section: { key: string; requires?: string[] },
+  gates: WorkorderGates,
+): boolean {
   const requires = section.requires ?? [];
   if (!requires.length) return true;
   return (
     gates.latched.has(section.key) ||
-    requires.every((key) => gates.completion.get(key) === true)
+    requires.every((key) => !gates.known.has(key) || gates.completion.get(key) === true)
   );
 }
 
@@ -629,11 +647,14 @@ async function summaryOf(
     completion: new Map<string, boolean>(),
     latched: new Set(root.gates ?? []),
     labels: new Map<string, string>(),
+    known: new Set<string>(),
   };
   for (const entry of entries) {
     if (!entry.def) continue;
-    for (const section of entry.def.sections)
+    for (const section of entry.def.sections) {
+      gates.known.add(section.key);
       if (!gates.labels.has(section.key)) gates.labels.set(section.key, section.label);
+    }
     for (const [key, complete] of sectionCompletion(
       entry.def,
       entry.checklist,
@@ -947,6 +968,7 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
   if (!root || isTerminalState(root.doc.state ?? "running")) return;
   const def = (await templateDef(ctx, root.doc.checklist.template)).checklist;
   if (!def) return;
+  const known = new Set(def.sections.map((section) => section.key));
   const gated = def.sections.filter((section) => (section.requires?.length ?? 0) > 0);
   const latched = new Set(root.doc.gates ?? []);
   const pending = gated.filter((section) => !latched.has(section.key));
@@ -964,7 +986,9 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
 
   const opened = pending
     .filter((section) =>
-      (section.requires ?? []).every((key) => completion.get(key) === true),
+      (section.requires ?? []).every(
+        (key) => !known.has(key) || completion.get(key) === true,
+      ),
     )
     .map((section) => section.key);
   if (!opened.length) return;

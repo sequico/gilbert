@@ -194,10 +194,35 @@ function ConditionField({
 }
 
 /**
+ * Whether `from` (transitively) requires `target`. A section that already
+ * depends on this one cannot be made its prerequisite, so a cycle is never
+ * offered in the editor (ADR 0030).
+ */
+function dependsOn(
+  sections: KnowledgeSection[],
+  from: string,
+  target: string,
+  seen: Set<string> = new Set(),
+): boolean {
+  const section = sections.find((s) => s.key === from);
+  if (!section) return false;
+  for (const key of section.requires ?? []) {
+    if (key === target) return true;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (dependsOn(sections, key, target, seen)) return true;
+  }
+  return false;
+}
+
+/**
  * A section's **gate**: up to `MAX_SECTION_REQUIRES` other sections that must
  * have been completed once before this one shows (ADR 0030). The prerequisite
  * may be any other section of the template — the global checklist or another
- * group's — because the gate resolves over the whole workorder.
+ * group's — because the gate resolves over the whole workorder. A section that
+ * already depends on this one is not offered, so a cycle cannot be written; and
+ * a stored prerequisite that no longer names a section is shown, by key, rather
+ * than silently dropped.
  */
 function RequiresField({
   requires,
@@ -210,8 +235,9 @@ function RequiresField({
   selfKey: string;
   onChange: (requires: string[]) => void;
 }) {
-  // A section gate names other sections: a section is never its own prerequisite.
-  const options = sections.filter((s) => s.key && s.key !== selfKey);
+  const options = sections.filter(
+    (s) => s.key && s.key !== selfKey && !dependsOn(sections, s.key, selfKey),
+  );
   const chosen = new Set(requires);
   const canAdd =
     requires.length < MAX_SECTION_REQUIRES && options.some((s) => !chosen.has(s.key));
@@ -222,35 +248,46 @@ function RequiresField({
   return (
     <div className="col gap-8 mt-8" style={{ alignItems: "flex-start" }}>
       <span className="hint nowrap">{t("Show only after")}</span>
-      {requires.map((key, i) => (
-        <div className="row gap-8" key={`${key}-${i}`}>
-          <select
-            className="select"
-            style={{ width: "auto" }}
-            value={key}
-            aria-label={t("Prerequisite section")}
-            onChange={(e) =>
-              onChange(requires.map((k, j) => (j === i ? e.target.value : k)))
-            }
-          >
-            <option value="">{t("Choose a section")}</option>
-            {options.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label || s.key}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="icon-btn sm"
-            aria-label={t("Remove prerequisite")}
-            title={t("Remove prerequisite")}
-            onClick={() => onChange(requires.filter((_, j) => j !== i))}
-          >
-            <X size={13} />
-          </button>
-        </div>
-      ))}
+      {requires.map((key, i) => {
+        const known = !key || options.some((s) => s.key === key);
+        return (
+          <div className="row gap-8" key={`${key}-${i}`}>
+            <select
+              className="select"
+              style={{ width: "auto" }}
+              value={key}
+              aria-label={t("Prerequisite section")}
+              onChange={(e) =>
+                onChange(requires.map((k, j) => (j === i ? e.target.value : k)))
+              }
+            >
+              <option value="">{t("Choose a section")}</option>
+              {options.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label || s.key}
+                </option>
+              ))}
+              {/* A prerequisite naming a section the template no longer has
+                  still shows, by key, rather than becoming a blank control. */}
+              {!known && <option value={key}>{key}</option>}
+            </select>
+            {!known && (
+              <span className="hint nowrap">
+                {t("This prerequisite no longer exists.")}
+              </span>
+            )}
+            <button
+              type="button"
+              className="icon-btn sm"
+              aria-label={t("Remove prerequisite")}
+              title={t("Remove prerequisite")}
+              onClick={() => onChange(requires.filter((_, j) => j !== i))}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        );
+      })}
       {canAdd && (
         <button type="button" className="btn btn-sm btn-ghost" onClick={add}>
           <Plus size={13} /> {t("Add prerequisite")}
@@ -357,6 +394,8 @@ function ProcessBuilder({
   onChange: (checklist: KnowledgeChecklist) => void;
 }) {
   const { variants, sections } = checklist;
+  // The section the right column edits; kept in range as sections come and go.
+  const [selected, setSelected] = useState(0);
   const emit = (next: KnowledgeChecklist) => onChange(next);
   const setVariants = (next: KnowledgeVariant[]) =>
     emit({ ...checklist, variants: next });
@@ -478,7 +517,6 @@ function ProcessBuilder({
     patchStep(i, k, { key: mintKey(step.label, taken, "step") });
   };
 
-  const [selected, setSelected] = useState(0);
   const index = sections.length ? Math.min(selected, sections.length - 1) : -1;
   const current = index >= 0 ? sections[index] : undefined;
 

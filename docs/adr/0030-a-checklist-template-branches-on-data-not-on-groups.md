@@ -53,7 +53,11 @@ on the page's draft and every revision:
   revision does not hide a section a group has already been given — and it
   resolves over the **whole workorder**, so a prerequisite may live in another
   part: the global checklist or a different group's. A gated section whose gate
-  has not opened is not served at all, from any part.
+  has not opened is not served at all, from any part. A section with **no**
+  applicable steps is **complete** (a gate on it does not block), a prerequisite
+  naming no section — one an editor removed — is **tolerated** rather than
+  hiding the section for ever, and the editor never offers a section that
+  already depends on this one, so a cycle cannot be written.
 - A **repeat** (`{ item, fields }`) is instantiated once per **item** the
   workorder names (the containers, stated at creation). A step's identity is its
   **path**, which carries the item (`loading[CONT-1].seal`), so the same step in
