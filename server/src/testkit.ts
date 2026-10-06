@@ -38,10 +38,9 @@ export function responseOf(responses: MethodCall[], callId: string): MethodCall 
  *
  * The mock binds a real socket, and a fixed port collides with whatever else
  * runs on the machine: a sibling test file racing for it, or a service
- * co-hosted on the developer's box (nanobot's gateway holds 18790, which a test
- * used to name). Asking the OS for a port it has just handed back keeps the
- * suite runnable anywhere, and the `test-ports` guard fails if a file goes back
- * to naming a number.
+ * co-hosted on the developer's box. Asking the OS for a port it has just handed
+ * back keeps the suite runnable anywhere, and the `test-ports` guard fails if a
+ * file goes back to naming a number.
  */
 export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
