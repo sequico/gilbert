@@ -542,3 +542,48 @@ test("an empty checklist is valid rules with no steps", () => {
   assert.equal(isKnowledgeChecklist(empty), true);
   assert.deepEqual(checklistBlocks(empty), []);
 });
+
+test("a section's gate is bounded, validated and carried into the resolution", () => {
+  /*
+   * The gate (ADR 0030): a section names up to three prerequisite sections; the
+   * validator refuses a fourth, and `resolveChecklist` carries the keys so the
+   * workorder side can decide whether the section shows. Fails if the bound or
+   * the carry is removed.
+   */
+  const checklist: KnowledgeChecklist = {
+    variants: [],
+    sections: [
+      {
+        key: "production",
+        label: "Production",
+        steps: [{ key: "make", label: "Make" }],
+      },
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["production"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  assert.equal(isKnowledgeChecklist(checklist), true, "a gated section validates");
+  const resolved = resolveChecklist(checklist, {}, {}, null);
+  assert.deepEqual(
+    resolved.find((section) => section.key === "billing")?.requires,
+    ["production"],
+    "the resolution carries the gate's prerequisites",
+  );
+
+  const tooMany = {
+    ...checklist,
+    sections: [
+      checklist.sections[0]!,
+      { ...checklist.sections[1]!, requires: ["a", "b", "c", "d"] },
+    ],
+  };
+  assert.equal(
+    isKnowledgeChecklist(tooMany),
+    false,
+    "more than three prerequisites is refused",
+  );
+});

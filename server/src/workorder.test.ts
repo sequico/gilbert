@@ -115,6 +115,7 @@ interface PartView {
     key: string;
     label: string;
     repeat: string | null;
+    gate?: { requires: string[]; labels: string[] };
     items: Array<{
       key: string;
       label: string;
@@ -617,4 +618,84 @@ test("a closed workorder's checklist no longer changes", async () => {
   });
   assert.equal(checked.status, 409, JSON.stringify(checked.body));
   assert.equal(checked.body?.error, "workorder_closed");
+});
+
+test("a gated section is hidden until its prerequisite completes once, then stays", async () => {
+  /*
+   * The gate (ADR 0030): a section shows only after the sections it names have
+   * been completed **once**, and the latch keeps it shown when a prerequisite is
+   * reopened for a revision — a group never loses a section it was given. Both
+   * halves fail if the mechanism is removed.
+   */
+  const gated = {
+    variants: [],
+    sections: [
+      {
+        key: "production",
+        label: "Production",
+        steps: [{ key: "make", label: "Make" }],
+      },
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["production"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  const template = await templateRef(gated, "Gated checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Gated job",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const uid = workorderOf(created.body).uid;
+
+  // Hidden: the gate has not opened, so the dependent section is not served.
+  const before = partOf(
+    workorderOf((await call(`/api/workorders/${uid}`)).body),
+    "global",
+  );
+  assert.deepEqual(
+    before.groups.map((g) => g.key),
+    ["production"],
+    "the gated section is hidden until its prerequisite completes",
+  );
+
+  // Complete the prerequisite: the gate opens and the section is served with its marker.
+  const opened = await post("/api/workorders/check", {
+    uid,
+    scope: "global",
+    path: "production.make",
+    state: "done",
+  });
+  assert.equal(opened.status, 200, JSON.stringify(opened.body));
+  const afterOpen = partOf(workorderOf(opened.body), "global");
+  assert.deepEqual(
+    afterOpen.groups.map((g) => g.key),
+    ["production", "billing"],
+    "the gate opens once the prerequisite is complete",
+  );
+  assert.deepEqual(afterOpen.groups.find((g) => g.key === "billing")?.gate, {
+    requires: ["production"],
+    labels: ["Production"],
+  });
+
+  // Reopen the prerequisite: the latch keeps what the group has already been given.
+  const reopened = await post("/api/workorders/check", {
+    uid,
+    scope: "global",
+    path: "production.make",
+    state: "open",
+  });
+  assert.equal(reopened.status, 200, JSON.stringify(reopened.body));
+  const afterReopen = partOf(workorderOf(reopened.body), "global");
+  assert.deepEqual(
+    afterReopen.groups.map((g) => g.key),
+    ["production", "billing"],
+    "the opened gate stays open when the prerequisite is reopened",
+  );
 });

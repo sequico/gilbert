@@ -3,12 +3,15 @@
 Status: Accepted
 
 Implementation: Built. The rules and their resolver are `KnowledgeChecklist`,
-its `variants`/`sections`/`steps`, the conditions and `resolveChecklist` in
+its `variants`/`sections`/`steps`, the conditions, the section **gate**
+(`KnowledgeSection.requires`) and `resolveChecklist` in
 `server/src/shared/knowledge.ts`; the write door is `server/src/knowledgeAdmin.ts`
 and `server/src/app.ts`; the template's own body is derived (`checklistBlocks`).
 The authoring surface is Gilbert's own (`web/src/views/knowledge/ChecklistSurface.tsx`).
 The instance side is `server/src/shared/workorder.ts` and
-`server/src/workorderAdmin.ts`, with the panel `web/src/views/workorder/` (ADR 0028).
+`server/src/workorderAdmin.ts`, with the panel `web/src/views/workorder/` (ADR 0028):
+the gate is latched on the root's `gates` (`reconcileGates`) and filtered per
+part in `groupsFor`/`summaryOf`.
 
 ## Context
 
@@ -43,6 +46,14 @@ on the page's draft and every revision:
   cross-scope rule a JSON Schema form cannot express. `resolveChecklist(def,
   values, items, target)` is the **one** resolver, read by a workorder's
   instantiation and by its view.
+- A section may carry a **gate**, `requires`: up to three other section keys
+  that must have been **completed once** (all their steps `done` or `skipped`)
+  before the section is shown. The gate is a **latch** — opened once, it stays
+  open for the rest of the workorder, so re-opening a prerequisite for a
+  revision does not hide a section a group has already been given — and it
+  resolves over the **whole workorder**, so a prerequisite may live in another
+  part: the global checklist or a different group's. A gated section whose gate
+  has not opened is not served at all, from any part.
 - A **repeat** (`{ item, fields }`) is instantiated once per **item** the
   workorder names (the containers, stated at creation). A step's identity is its
   **path**, which carries the item (`loading[CONT-1].seal`), so the same step in
@@ -92,6 +103,10 @@ tiers reading `@gilbert/shared/*`.
 - The resolver and the authoring are ours, so the rules are plain JSON of our own
   shape and no heavy builder or second rendering engine ships; the builder is the
   app's own surface.
+- A group can be given a section only after another has been finished, across
+  competences: this is **order of work**, which a workorder's chosen values
+  cannot express, and the latch keeps a section a group already reached when a
+  prerequisite is later reopened for revision.
 - The repository is the kind of shape a real cycle needs — a global choice,
   conditional sections, a loop — without pretending it is a form.
 

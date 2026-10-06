@@ -53,6 +53,7 @@ import {
   KNOWLEDGE_FOLDER,
   type KnowledgeChecklist,
   REVISIONS_FOLDER,
+  type ResolvedSection,
   resolveChecklist,
   revisionFileName,
   revisionInForceAt,
@@ -62,6 +63,7 @@ import {
   applicableStepPaths,
   buildChecklist,
   buildWorkorderDoc,
+  isStepComplete,
   isTerminalState,
   isWorkorderDoc,
   isWorkorderRef,
@@ -75,11 +77,13 @@ import {
   type WorkorderChecklist,
   type WorkorderCreateInput,
   type WorkorderDoc,
+  type WorkorderGateView,
   type WorkorderGroupView,
   type WorkorderItem,
   type WorkorderPartView,
   type WorkorderRef,
   type WorkorderRefChange,
+  type WorkorderScope,
   type WorkorderState,
   type WorkorderStepState,
   type WorkorderStepView,
@@ -337,18 +341,23 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
 async function templateDef(
   ctx: Ctx,
   template: WorkorderTemplateRef,
-): Promise<{ checklist: KnowledgeChecklist | null; title: string | null }> {
+): Promise<{
+  checklist: KnowledgeChecklist | null;
+  title: string | null;
+  rev: number | null;
+}> {
   let title: string | null = null;
+  let rev: number | null = null;
   try {
     const tierFolder = await findFolderPath(ctx, template.accountId, KNOWLEDGE_FOLDER);
-    if (!tierFolder) return { checklist: null, title };
+    if (!tierFolder) return { checklist: null, title, rev };
     const article = await findArticleById(
       ctx,
       template.accountId,
       tierFolder,
       template.id,
     );
-    if (!article) return { checklist: null, title };
+    if (!article) return { checklist: null, title, rev };
     const state = await readAppJsonAt(
       ctx,
       template.accountId,
@@ -360,14 +369,71 @@ async function templateDef(
       template.accountId,
       `${KNOWLEDGE_FOLDER}/${article.folder}/${REVISIONS_FOLDER}/${revisionFileName(template.revision)}`,
     );
-    if (!isKnowledgeRevision(revision)) return { checklist: null, title };
-    return { checklist: revision.checklist ?? null, title };
+    if (!isKnowledgeRevision(revision)) return { checklist: null, title, rev };
+    rev = revision.rev;
+    return { checklist: revision.checklist ?? null, title, rev };
   } catch {
     // A template that cannot be read leaves the rules unresolved; the
     // checklist itself is still served, so the workorder reads rather than
     // disappears.
-    return { checklist: null, title };
+    return { checklist: null, title, rev };
   }
+}
+
+/** The gate state over one whole workorder (ADR 0030). */
+interface WorkorderGates {
+  /** The sections completed right now, by key. */
+  completion: Map<string, boolean>;
+  /** The section keys whose gate has already opened. */
+  latched: Set<string>;
+  /** Section key → label, for the reader's marker. */
+  labels: Map<string, string>;
+}
+
+/** One part's resolved sections, right now complete or not, by key. */
+function sectionCompletion(
+  def: KnowledgeChecklist,
+  checklist: WorkorderChecklist,
+  target: string | null,
+): Map<string, boolean> {
+  const out = new Map<string, boolean>();
+  for (const section of resolveChecklist(
+    def,
+    checklist.variants,
+    itemKeysOf(checklist.items),
+    target,
+  )) {
+    const paths = section.items.flatMap((item) => item.steps.map((step) => step.path));
+    out.set(
+      section.key,
+      paths.length > 0 &&
+        paths.every((path) => {
+          const instance = stepOf(checklist, path);
+          return instance ? isStepComplete(instance.state) : false;
+        }),
+    );
+  }
+  return out;
+}
+
+/** Whether a resolved section's gate is open: latched, or every prerequisite complete. */
+function gateOpen(section: ResolvedSection, gates: WorkorderGates): boolean {
+  const requires = section.requires ?? [];
+  if (!requires.length) return true;
+  return (
+    gates.latched.has(section.key) ||
+    requires.every((key) => gates.completion.get(key) === true)
+  );
+}
+
+/** The read-only marker on a visible gated section, or null when it has no gate. */
+function openedGate(
+  section: ResolvedSection,
+  gates: WorkorderGates,
+): WorkorderGateView | null {
+  const requires = section.requires ?? [];
+  if (!requires.length) return null;
+  return { requires, labels: requires.map((key) => gates.labels.get(key) ?? key) };
 }
 
 /**
@@ -376,13 +442,16 @@ async function templateDef(
  * The instance's own chosen `variants` and item `key`s are resolved through
  * the template's rules — the one place branching and repeats are decided — and
  * each applicable step is joined with the state the instance stored for it. A
- * rule that cannot be read leaves the groups empty: the checklist's own steps
- * are still served, so a workorder reads rather than disappears.
+ * **gated** section whose gate has not opened is left out entirely: a group
+ * sees a section only once its prerequisites have been completed once. A rule
+ * that cannot be read leaves the groups empty: the checklist's own steps are
+ * still served, so a workorder reads rather than disappears.
  */
 function groupsFor(
   def: KnowledgeChecklist | null,
   checklist: WorkorderChecklist,
   target: string | null,
+  gates: WorkorderGates,
 ): WorkorderGroupView[] {
   if (!def) return [];
   const resolved = resolveChecklist(
@@ -391,33 +460,41 @@ function groupsFor(
     itemKeysOf(checklist.items),
     target,
   );
-  return resolved.map((section) => ({
-    key: section.key,
-    label: section.label,
-    repeat: section.repeat ? section.repeat.item : null,
-    items: section.items.map((item) => {
-      const stored = section.repeat
-        ? (checklist.items[section.key] ?? []).find((one) => one.key === item.key)
-        : undefined;
-      const fields = (section.repeat?.fields ?? []).map((field) => ({
-        key: field.key,
-        label: field.label,
-        value: stored?.data[field.key] ?? "",
-      }));
-      const steps: WorkorderStepView[] = item.steps.map((step) => {
-        const instance = stepOf(checklist, step.path);
-        return {
-          path: step.path,
-          label: step.label,
-          state: instance?.state ?? "open",
-          by: instance?.by ?? null,
-          at: instance?.at ?? null,
-          note: instance?.note ?? "",
-        };
-      });
-      return { key: item.key, label: item.label, fields, steps };
-    }),
-  }));
+  const out: WorkorderGroupView[] = [];
+  for (const section of resolved) {
+    if (!gateOpen(section, gates)) continue;
+    const view: WorkorderGroupView = {
+      key: section.key,
+      label: section.label,
+      repeat: section.repeat ? section.repeat.item : null,
+      items: section.items.map((item) => {
+        const stored = section.repeat
+          ? (checklist.items[section.key] ?? []).find((one) => one.key === item.key)
+          : undefined;
+        const fields = (section.repeat?.fields ?? []).map((field) => ({
+          key: field.key,
+          label: field.label,
+          value: stored?.data[field.key] ?? "",
+        }));
+        const steps: WorkorderStepView[] = item.steps.map((step) => {
+          const instance = stepOf(checklist, step.path);
+          return {
+            path: step.path,
+            label: step.label,
+            state: instance?.state ?? "open",
+            by: instance?.by ?? null,
+            at: instance?.at ?? null,
+            note: instance?.note ?? "",
+          };
+        });
+        return { key: item.key, label: item.label, fields, steps };
+      }),
+    };
+    const gate = openedGate(section, gates);
+    if (gate) view.gate = gate;
+    out.push(view);
+  }
+  return out;
 }
 
 /**
@@ -495,14 +572,32 @@ async function summaryOf(
     (a, b) => a.localeCompare(b),
   );
   const global = await templateDef(reach.ctx, root.checklist.template);
-  const parts: WorkorderPartView[] = [
+
+  /*
+   * Every part this caller may see, gathered before the view is composed so
+   * the **gate** is decided once over the whole workorder: a section of one
+   * part may depend on a section of another (the global checklist or a
+   * different group's), and only the sum of all parts says whether it opens.
+   */
+  interface PartEntry {
+    scope: WorkorderScope;
+    accountId: string | null;
+    group: string | null;
+    def: KnowledgeChecklist | null;
+    title: string | null;
+    rev: number | null;
+    checklist: WorkorderChecklist;
+    canCheck: boolean;
+  }
+  const entries: PartEntry[] = [
     {
       scope: "global",
       accountId: null,
       group: null,
+      def: global.checklist,
+      title: global.title,
+      rev: global.rev,
       checklist: root.checklist,
-      groups: groupsFor(global.checklist, root.checklist, null),
-      templateTitle: global.title,
       canCheck: reach.admin,
     },
   ];
@@ -512,16 +607,52 @@ async function summaryOf(
     const part = await findActive(reach.ctx, groupAccount, root.uid);
     if (!part) continue;
     const info = await templateDef(reach.ctx, part.doc.checklist.template);
-    parts.push({
+    entries.push({
       scope: "group",
       accountId: groupAccount,
       group: name,
+      def: info.checklist,
+      title: info.title,
+      rev: info.rev,
       checklist: part.doc.checklist,
-      groups: groupsFor(info.checklist, part.doc.checklist, groupAccount),
-      templateTitle: info.title,
       canCheck: reach.own.has(name),
     });
   }
+
+  /*
+   * The gate over the whole workorder. Completion is read across every part; a
+   * section key is unique in the template, so one map serves them all. The
+   * ladder is the root's: a gate that opened stays open even if its
+   * prerequisite is reopened later (ADR 0030).
+   */
+  const gates: WorkorderGates = {
+    completion: new Map<string, boolean>(),
+    latched: new Set(root.gates ?? []),
+    labels: new Map<string, string>(),
+  };
+  for (const entry of entries) {
+    if (!entry.def) continue;
+    for (const section of entry.def.sections)
+      if (!gates.labels.has(section.key)) gates.labels.set(section.key, section.label);
+    for (const [key, complete] of sectionCompletion(
+      entry.def,
+      entry.checklist,
+      entry.accountId,
+    ))
+      gates.completion.set(key, complete);
+  }
+
+  const parts: WorkorderPartView[] = entries.map((entry) => ({
+    scope: entry.scope,
+    accountId: entry.accountId,
+    group: entry.group,
+    checklist: entry.checklist,
+    groups: groupsFor(entry.def, entry.checklist, entry.accountId, gates),
+    templateTitle: entry.title,
+    templateRev: entry.rev,
+    canCheck: entry.canCheck,
+  }));
+
   return {
     uid: root.uid,
     name: root.name ?? "",
@@ -803,6 +934,83 @@ async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise
 }
 
 /**
+ * Record on the Master's root every gate a step write has just opened.
+ *
+ * A section's gate opens once its prerequisites are all complete; from then on
+ * the latch keeps it open for the rest of the workorder, so re-opening a
+ * prerequisite never hides a section a group has already been given. The check
+ * is made over every part the Master holds, because a prerequisite may live in
+ * another part (ADR 0030). A workorder with no gate writes nothing.
+ */
+async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise<void> {
+  const root = await findRoot(ctx, accountId, uid);
+  if (!root || isTerminalState(root.doc.state ?? "running")) return;
+  const def = (await templateDef(ctx, root.doc.checklist.template)).checklist;
+  if (!def) return;
+  const gated = def.sections.filter((section) => (section.requires?.length ?? 0) > 0);
+  const latched = new Set(root.doc.gates ?? []);
+  const pending = gated.filter((section) => !latched.has(section.key));
+  if (!pending.length) return;
+
+  const completion = new Map<string, boolean>();
+  for (const [key, value] of sectionCompletion(def, root.doc.checklist, null))
+    completion.set(key, value);
+  for (const groupAccount of (await groupAccountsDetailed(ctx)).groups.values()) {
+    const part = await findActive(ctx, groupAccount, uid);
+    if (!part) continue;
+    for (const [key, value] of sectionCompletion(def, part.doc.checklist, groupAccount))
+      completion.set(key, value);
+  }
+
+  const opened = pending
+    .filter((section) =>
+      (section.requires ?? []).every((key) => completion.get(key) === true),
+    )
+    .map((section) => section.key);
+  if (!opened.length) return;
+
+  await writeRootUnderCas(
+    ctx,
+    accountId,
+    uid,
+    {
+      code: "workorder_check_failed",
+      message: "The opened gates could not be recorded.",
+    },
+    (found) => {
+      const have = new Set(found.doc.gates ?? []);
+      const add = opened.filter((key) => !have.has(key));
+      if (!add.length) return found.doc;
+      return { ...found.doc, gates: [...(found.doc.gates ?? []), ...add] };
+    },
+  );
+}
+
+/**
+ * Reconcile the gates after a step write, without failing the write.
+ *
+ * The step is already saved when this runs, and a gate that could not be
+ * recorded is re-decided from the prerequisites' current state on the next
+ * read, so the section is not hidden while they stay complete. A failed record
+ * is warned about rather than thrown: it only matters if a prerequisite is
+ * reopened before the next write reconciles it.
+ */
+async function recordOpenedGates(
+  ctx: Ctx,
+  accountId: string,
+  uid: string,
+): Promise<void> {
+  try {
+    await reconcileGates(ctx, accountId, uid);
+  } catch (err) {
+    console.warn(
+      `[gilbert] workorder ${uid}: opened gates were not recorded:`,
+      (err as Error).message,
+    );
+  }
+}
+
+/**
  * Set one step's state on the global checklist, or on one group's part.
  *
  * The global checklist is the Master's own and is checked by an administrator
@@ -843,6 +1051,7 @@ export async function checkStep(
       note,
       by: session.username,
     });
+    await recordOpenedGates(ctx, accountId, uid);
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
     if (!group)
@@ -880,6 +1089,7 @@ export async function checkStep(
       note,
       by: session.username,
     });
+    await recordOpenedGates(master.ctx, master.accountId, uid);
   } else
     throw new WorkorderAdminError(
       "bad_request",

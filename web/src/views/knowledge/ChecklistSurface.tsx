@@ -3,11 +3,14 @@
  *
  * A checklist template is a **process**, not a form: **variants** a workorder
  * picks once, and ordered **sections** of **steps**, each carrying an optional
- * **condition** on a variant value and a section an optional **repeat**. This
- * renders that process in the app's own UI — a structured, read-only view when
- * the page is read, a purpose-built builder over the same model when it is
- * edited. No form-builder library and no schema stand between the controls and
- * the stored rules, so a template is exactly what the author sees.
+ * **condition** on a variant value, an optional **gate** on other sections, a
+ * **repeat** and a group. This renders that process in the app's own UI — a
+ * structured, read-only view when the page is read, a purpose-built builder
+ * over the same model when it is edited. The builder is two columns: the
+ * variants and the ordered outline of sections on the left, the selected
+ * section's own controls on the right, so the process stays visible while one
+ * section is written. No form-builder library and no schema stand between the
+ * controls and the stored rules, so a template is exactly what the author sees.
  *
  * The module is a lazy chunk: authoring is loaded when a template opens, never
  * with the app's first paint (ADR 0030).
@@ -25,6 +28,7 @@ import {
   type KnowledgeStep,
   type KnowledgeVariant,
   type KnowledgeVariantValue,
+  MAX_SECTION_REQUIRES,
 } from "@/lib/knowledge";
 
 /** A label turned into a key: lower-case words joined by dashes. */
@@ -189,6 +193,73 @@ function ConditionField({
   );
 }
 
+/**
+ * A section's **gate**: up to `MAX_SECTION_REQUIRES` other sections that must
+ * have been completed once before this one shows (ADR 0030). The prerequisite
+ * may be any other section of the template — the global checklist or another
+ * group's — because the gate resolves over the whole workorder.
+ */
+function RequiresField({
+  requires,
+  sections,
+  selfKey,
+  onChange,
+}: {
+  requires: string[];
+  sections: KnowledgeSection[];
+  selfKey: string;
+  onChange: (requires: string[]) => void;
+}) {
+  // A section gate names other sections: a section is never its own prerequisite.
+  const options = sections.filter((s) => s.key && s.key !== selfKey);
+  const chosen = new Set(requires);
+  const canAdd =
+    requires.length < MAX_SECTION_REQUIRES && options.some((s) => !chosen.has(s.key));
+  const add = () => {
+    const next = options.find((s) => !chosen.has(s.key));
+    if (next) onChange([...requires, next.key]);
+  };
+  return (
+    <div className="col gap-8 mt-8" style={{ alignItems: "flex-start" }}>
+      <span className="hint nowrap">{t("Show only after")}</span>
+      {requires.map((key, i) => (
+        <div className="row gap-8" key={`${key}-${i}`}>
+          <select
+            className="select"
+            style={{ width: "auto" }}
+            value={key}
+            aria-label={t("Prerequisite section")}
+            onChange={(e) =>
+              onChange(requires.map((k, j) => (j === i ? e.target.value : k)))
+            }
+          >
+            <option value="">{t("Choose a section")}</option>
+            {options.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label || s.key}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="icon-btn sm"
+            aria-label={t("Remove prerequisite")}
+            title={t("Remove prerequisite")}
+            onClick={() => onChange(requires.filter((_, j) => j !== i))}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+      {canAdd && (
+        <button type="button" className="btn btn-sm btn-ghost" onClick={add}>
+          <Plus size={13} /> {t("Add prerequisite")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** The display name of a group id, falling back to the id. */
 function groupName(groups: { id: string; name: string }[], id: string): string {
   return groups.find((g) => g.id === id)?.name ?? id;
@@ -203,6 +274,8 @@ function StructuredView({
   groups: { id: string; name: string }[];
 }) {
   const { variants, sections } = checklist;
+  const labelsOf = (keys: string[]) =>
+    keys.map((key) => sections.find((s) => s.key === key)?.label || key).join(", ");
   if (!variants.length && !sections.length)
     return <p className="hint">{t("No process defined yet.")}</p>;
   return (
@@ -236,6 +309,11 @@ function StructuredView({
             {section.condition && (
               <span className="hint nowrap">{conditionClause(section.condition)}</span>
             )}
+            {section.requires && section.requires.length > 0 && (
+              <span className="hint nowrap">
+                {t("after {sections}", { sections: labelsOf(section.requires) })}
+              </span>
+            )}
             {section.group && (
               <span className="chip nowrap">{groupName(groups, section.group)}</span>
             )}
@@ -265,7 +343,9 @@ function StructuredView({
  *
  * The model is the checklist itself: every control writes a `KnowledgeChecklist`
  * through `onChange`, and keys are minted from labels once, so the stored rules
- * are exactly what the panels show.
+ * are exactly what the panels show. Two columns: the variants and the ordered
+ * outline of sections on the left, the selected section's controls on the
+ * right. Adding or reordering sections keeps the current choice in range.
  */
 function ProcessBuilder({
   checklist,
@@ -326,6 +406,7 @@ function ProcessBuilder({
     next[i] = b;
     next[j] = a;
     setSections(next);
+    setSelected(j);
   };
   const deriveSectionKey = (i: number) => {
     const section = sections[i];
@@ -333,6 +414,9 @@ function ProcessBuilder({
     const taken = sections.filter((_, j) => j !== i).map((s) => s.key);
     patchSection(i, { key: mintKey(section.label, taken, "section") });
   };
+  // An empty gate is no gate: the field is dropped rather than stored as `[]`.
+  const patchRequires = (i: number, requires: string[]) =>
+    patchSection(i, { requires: requires.length ? requires : undefined });
 
   const patchRepeat = (i: number, patch: Partial<KnowledgeRepeat>) => {
     const repeat = sections[i]?.repeat;
@@ -394,201 +478,65 @@ function ProcessBuilder({
     patchStep(i, k, { key: mintKey(step.label, taken, "step") });
   };
 
+  const [selected, setSelected] = useState(0);
+  const index = sections.length ? Math.min(selected, sections.length - 1) : -1;
+  const current = index >= 0 ? sections[index] : undefined;
+
   return (
-    <>
-      <div className="card">
-        <div className="card-head">
-          <h3>{t("Variants")}</h3>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm" onClick={addVariant}>
-            <Plus size={14} /> {t("Add variant")}
-          </button>
-        </div>
-        <p className="hint">
-          {t(
-            "A workorder picks one value per variant; a section or a step shows only where the chosen value matches its condition.",
-          )}
-        </p>
-        {variants.length === 0 ? (
-          <p className="hint">{t("No variants yet.")}</p>
-        ) : (
-          variants.map((variant, i) => (
-            <div className="field" key={variant.key || `variant-${i}`}>
-              <div className="row gap-8">
-                <LabelInput
-                  value={variant.label}
-                  placeholder={t("Variant")}
-                  keyHint={variant.key}
-                  onChange={(value) => patchVariant(i, { label: value })}
-                  onCommit={() => deriveVariantKey(i)}
-                />
-                <button
-                  type="button"
-                  className="icon-btn sm danger"
-                  aria-label={t("Remove variant")}
-                  title={t("Remove variant")}
-                  onClick={() => removeVariant(i)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              <div className="col gap-8">
-                {variant.values.map((value, k) => (
-                  <div className="row gap-8" key={value.value || `value-${k}`}>
-                    <LabelInput
-                      value={value.label}
-                      placeholder={t("Value")}
-                      keyHint={value.value}
-                      onChange={(label) => patchValue(i, k, { label })}
-                      onCommit={() => deriveValueKey(i, k)}
-                    />
-                    <button
-                      type="button"
-                      className="icon-btn sm danger"
-                      aria-label={t("Remove value")}
-                      title={t("Remove value")}
-                      onClick={() => removeValue(i, k)}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  style={{ alignSelf: "flex-start" }}
-                  onClick={() => addValue(i)}
-                >
-                  <Plus size={14} /> {t("Add value")}
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <h3>{t("Sections")}</h3>
-          <span className="spacer" />
-          <button type="button" className="btn btn-sm" onClick={addSection}>
-            <Plus size={14} /> {t("Add section")}
-          </button>
-        </div>
-        <p className="hint">
-          {t("Sections run in order, and each holds the steps carried out inside it.")}
-        </p>
-        {sections.length === 0 ? (
-          <p className="hint">{t("No sections yet.")}</p>
-        ) : (
-          sections.map((section, i) => (
-            <div className="rule-card" key={section.key || `section-${i}`}>
-              <div className="card-head">
-                <LabelInput
-                  value={section.label}
-                  placeholder={t("Section")}
-                  keyHint={section.key}
-                  onChange={(label) => patchSection(i, { label })}
-                  onCommit={() => deriveSectionKey(i)}
-                />
-                <button
-                  type="button"
-                  className="icon-btn sm"
-                  aria-label={t("Move up")}
-                  title={t("Move up")}
-                  disabled={i === 0}
-                  onClick={() => moveSection(i, -1)}
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn sm"
-                  aria-label={t("Move down")}
-                  title={t("Move down")}
-                  disabled={i === sections.length - 1}
-                  onClick={() => moveSection(i, 1)}
-                >
-                  <ChevronDown size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-btn sm danger"
-                  aria-label={t("Remove section")}
-                  title={t("Remove section")}
-                  onClick={() => removeSection(i)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-
-              <ConditionField
-                condition={section.condition}
-                variants={variants}
-                onChange={(condition) => patchSection(i, { condition })}
-              />
-
-              {(groups.length > 0 || section.group) && (
-                <div className="row wrap gap-8 mt-8">
-                  <span className="hint nowrap">{t("Group")}</span>
-                  <select
-                    className="select"
-                    style={{ width: "auto" }}
-                    value={section.group ?? ""}
-                    aria-label={t("Competent group")}
-                    onChange={(e) =>
-                      patchSection(i, { group: e.target.value || undefined })
-                    }
-                  >
-                    <option value="">{t("Global")}</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                    {/* A group no longer among the probed tiers still shows, by
-                        id, so a stored assignment is never silently rewritten. */}
-                    {section.group && !groups.some((g) => g.id === section.group) && (
-                      <option value={section.group}>{section.group}</option>
-                    )}
-                  </select>
-                </div>
-              )}
-
-              <label className="row gap-8 mt-8">
-                <input
-                  type="checkbox"
-                  className="select-all"
-                  checked={Boolean(section.repeat)}
-                  onChange={() => toggleRepeat(i)}
-                />
-                {t("Repeat for each item")}
-              </label>
-
-              {section.repeat && (
-                <div className="field mt-8" style={{ marginLeft: 24 }}>
-                  <input
-                    className="input sm"
-                    value={section.repeat.item}
-                    placeholder={t("Item, e.g. Container")}
-                    aria-label={t("Item")}
-                    onChange={(e) => patchRepeat(i, { item: e.target.value })}
+    <div className="ck-editor">
+      <div className="ck-editor-side">
+        <div className="card">
+          <div className="card-head">
+            <h3>{t("Variants")}</h3>
+            <span className="spacer" />
+            <button type="button" className="btn btn-sm" onClick={addVariant}>
+              <Plus size={14} /> {t("Add variant")}
+            </button>
+          </div>
+          <p className="hint">
+            {t(
+              "A workorder picks one value per variant; a section or a step shows only where the chosen value matches its condition.",
+            )}
+          </p>
+          {variants.length === 0 ? (
+            <p className="hint">{t("No variants yet.")}</p>
+          ) : (
+            variants.map((variant, i) => (
+              <div className="field" key={variant.key || `variant-${i}`}>
+                <div className="row gap-8">
+                  <LabelInput
+                    value={variant.label}
+                    placeholder={t("Variant")}
+                    keyHint={variant.key}
+                    onChange={(value) => patchVariant(i, { label: value })}
+                    onCommit={() => deriveVariantKey(i)}
                   />
-                  {section.repeat.fields.map((field, k) => (
-                    <div className="row gap-8" key={field.key || `field-${k}`}>
+                  <button
+                    type="button"
+                    className="icon-btn sm danger"
+                    aria-label={t("Remove variant")}
+                    title={t("Remove variant")}
+                    onClick={() => removeVariant(i)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <div className="col gap-8">
+                  {variant.values.map((value, k) => (
+                    <div className="row gap-8" key={value.value || `value-${k}`}>
                       <LabelInput
-                        value={field.label}
-                        placeholder={t("Item field")}
-                        keyHint={field.key}
-                        onChange={(label) => patchField(i, k, { label })}
-                        onCommit={() => deriveFieldKey(i, k)}
+                        value={value.label}
+                        placeholder={t("Value")}
+                        keyHint={value.value}
+                        onChange={(label) => patchValue(i, k, { label })}
+                        onCommit={() => deriveValueKey(i, k)}
                       />
                       <button
                         type="button"
                         className="icon-btn sm danger"
-                        aria-label={t("Remove field")}
-                        title={t("Remove field")}
-                        onClick={() => removeField(i, k)}
+                        aria-label={t("Remove value")}
+                        title={t("Remove value")}
+                        onClick={() => removeValue(i, k)}
                       >
                         <X size={14} />
                       </button>
@@ -598,59 +546,229 @@ function ProcessBuilder({
                     type="button"
                     className="btn btn-sm btn-ghost"
                     style={{ alignSelf: "flex-start" }}
-                    onClick={() => addField(i)}
+                    onClick={() => addValue(i)}
                   >
-                    <Plus size={14} /> {t("Add field")}
+                    <Plus size={14} /> {t("Add value")}
                   </button>
                 </div>
-              )}
-
-              <div className="row gap-8 mt-16">
-                <span className="hint grow">{t("Steps")}</span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => addStep(i)}
-                >
-                  <Plus size={14} /> {t("Add step")}
-                </button>
               </div>
-              {section.steps.map((step, k) => (
+            ))
+          )}
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <h3>{t("Sections")}</h3>
+            <span className="spacer" />
+            <button type="button" className="btn btn-sm" onClick={addSection}>
+              <Plus size={14} /> {t("Add section")}
+            </button>
+          </div>
+          <p className="hint">
+            {t("Sections run in order, and each holds the steps carried out inside it.")}
+          </p>
+          {sections.length === 0 ? (
+            <p className="hint">{t("No sections yet.")}</p>
+          ) : (
+            <div className="col gap-4">
+              {sections.map((section, i) => (
                 <div
-                  className="field"
-                  key={step.key || `step-${k}`}
-                  style={{ marginLeft: 24, marginBottom: 8 }}
+                  className={`ck-outline ${i === index ? "active" : ""}`}
+                  key={section.key || `section-${i}`}
                 >
-                  <div className="row gap-8">
+                  <button
+                    type="button"
+                    className="ck-outline-title grow truncate"
+                    onClick={() => setSelected(i)}
+                  >
+                    {section.label || section.key || t("Untitled section")}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn sm"
+                    aria-label={t("Move up")}
+                    title={t("Move up")}
+                    disabled={i === 0}
+                    onClick={() => moveSection(i, -1)}
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn sm"
+                    aria-label={t("Move down")}
+                    title={t("Move down")}
+                    disabled={i === sections.length - 1}
+                    onClick={() => moveSection(i, 1)}
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn sm danger"
+                    aria-label={t("Remove section")}
+                    title={t("Remove section")}
+                    onClick={() => removeSection(i)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="ck-editor-main">
+        {current === undefined ? (
+          <p className="hint">{t("Add a section to start writing the process.")}</p>
+        ) : (
+          <div className="rule-card">
+            <div className="card-head">
+              <LabelInput
+                value={current.label}
+                placeholder={t("Section")}
+                keyHint={current.key}
+                onChange={(label) => patchSection(index, { label })}
+                onCommit={() => deriveSectionKey(index)}
+              />
+            </div>
+
+            <ConditionField
+              condition={current.condition}
+              variants={variants}
+              onChange={(condition) => patchSection(index, { condition })}
+            />
+
+            <RequiresField
+              requires={current.requires ?? []}
+              sections={sections}
+              selfKey={current.key}
+              onChange={(requires) => patchRequires(index, requires)}
+            />
+
+            {(groups.length > 0 || current.group) && (
+              <div className="row wrap gap-8 mt-8">
+                <span className="hint nowrap">{t("Group")}</span>
+                <select
+                  className="select"
+                  style={{ width: "auto" }}
+                  value={current.group ?? ""}
+                  aria-label={t("Competent group")}
+                  onChange={(e) =>
+                    patchSection(index, { group: e.target.value || undefined })
+                  }
+                >
+                  <option value="">{t("Global")}</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                  {/* A group no longer among the probed tiers still shows, by
+                      id, so a stored assignment is never silently rewritten. */}
+                  {current.group && !groups.some((g) => g.id === current.group) && (
+                    <option value={current.group}>{current.group}</option>
+                  )}
+                </select>
+              </div>
+            )}
+
+            <label className="row gap-8 mt-8">
+              <input
+                type="checkbox"
+                className="select-all"
+                checked={Boolean(current.repeat)}
+                onChange={() => toggleRepeat(index)}
+              />
+              {t("Repeat for each item")}
+            </label>
+
+            {current.repeat && (
+              <div className="field mt-8" style={{ marginLeft: 24 }}>
+                <input
+                  className="input sm"
+                  value={current.repeat.item}
+                  placeholder={t("Item, e.g. Container")}
+                  aria-label={t("Item")}
+                  onChange={(e) => patchRepeat(index, { item: e.target.value })}
+                />
+                {current.repeat.fields.map((field, k) => (
+                  <div className="row gap-8" key={field.key || `field-${k}`}>
                     <LabelInput
-                      value={step.label}
-                      placeholder={t("Step")}
-                      keyHint={step.key}
-                      onChange={(label) => patchStep(i, k, { label })}
-                      onCommit={() => deriveStepKey(i, k)}
+                      value={field.label}
+                      placeholder={t("Item field")}
+                      keyHint={field.key}
+                      onChange={(label) => patchField(index, k, { label })}
+                      onCommit={() => deriveFieldKey(index, k)}
                     />
                     <button
                       type="button"
                       className="icon-btn sm danger"
-                      aria-label={t("Remove step")}
-                      title={t("Remove step")}
-                      onClick={() => removeStep(i, k)}
+                      aria-label={t("Remove field")}
+                      title={t("Remove field")}
+                      onClick={() => removeField(index, k)}
                     >
-                      <Trash2 size={14} />
+                      <X size={14} />
                     </button>
                   </div>
-                  <ConditionField
-                    condition={step.condition}
-                    variants={variants}
-                    onChange={(condition) => patchStep(i, k, { condition })}
-                  />
-                </div>
-              ))}
+                ))}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() => addField(index)}
+                >
+                  <Plus size={14} /> {t("Add field")}
+                </button>
+              </div>
+            )}
+
+            <div className="row gap-8 mt-16">
+              <span className="hint grow">{t("Steps")}</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => addStep(index)}
+              >
+                <Plus size={14} /> {t("Add step")}
+              </button>
             </div>
-          ))
+            {current.steps.map((step, k) => (
+              <div
+                className="field"
+                key={step.key || `step-${k}`}
+                style={{ marginLeft: 24, marginBottom: 8 }}
+              >
+                <div className="row gap-8">
+                  <LabelInput
+                    value={step.label}
+                    placeholder={t("Step")}
+                    keyHint={step.key}
+                    onChange={(label) => patchStep(index, k, { label })}
+                    onCommit={() => deriveStepKey(index, k)}
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn sm danger"
+                    aria-label={t("Remove step")}
+                    title={t("Remove step")}
+                    onClick={() => removeStep(index, k)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <ConditionField
+                  condition={step.condition}
+                  variants={variants}
+                  onChange={(condition) => patchStep(index, k, { condition })}
+                />
+              </div>
+            ))}
+          </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

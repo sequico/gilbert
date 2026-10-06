@@ -594,10 +594,13 @@ draft — people and agents together; there are no competing drafts to merge.
 ## Checklist templates
 
 A **checklist template** is the steps a job of that kind must take, and the rules
-that decide which of them apply. It is authored with a **checklist builder**:
-**variants** (named choices with values), **sections** with their steps, a
-**condition** on a section or a step that names a variant value, and a **repeat**
-that turns a section into a loop per item (one per container). The chosen variant
+that decide which of them apply. It is authored with a **checklist builder** in
+two columns — the variants and the ordered outline of sections on the left, the
+selected section's controls on the right — holding **variants** (named choices
+with values), **sections** with their steps, a **condition** on a section or a
+step that names a variant value, a **gate** on a section (it shows only after up
+to three other sections have been **completed once**), and a **repeat** that
+turns a section into a loop per item (one per container). The chosen variant
 value holds **everywhere** — across sections and inside a loop. The rules are the
 template an administrator approves and versions, and the page's body and search
 text are **derived** from them, so the rules are the one copy.
@@ -650,8 +653,10 @@ parts together. The same uid names both, and renaming breaks no reference.
 ## The panel
 
 The list is on the left, filtered by **All**, **Running**, **Completed**,
-**Cancelled** and **Replaced**, and the open workorder is on the right: its
-checklists and the folders, files and pages it gathers. A refresh re-reads it.
+**Cancelled** and **Replaced**, and the open workorder is on the right: the
+checklist template and revision it instantiates named in its head, its
+checklists (the global one and each group's part side by side when there is
+room), and the folders, files and pages it gathers. A refresh re-reads it.
 
 ## Checklists, and who checked what
 
@@ -672,6 +677,14 @@ and when** (the last signature, from the signed-in account). A group's members
 check their group's steps; an administrator, or the agent, checks the global one.
 A template with no revision in force cannot be started from; a retired template
 still resolves by id.
+
+A section may carry a **gate**: it is not shown until up to three other sections
+have been **completed once** (all their steps done or skipped), and the gate may
+name a section in any part — the global checklist or another group's. The gate is
+a **latch**: once opened it stays open for the workorder even if a prerequisite
+is later re-opened for a revision, so a group never loses a section it has
+already been given. An opened section carries a small **read-only marker** naming
+what it waited on.
 
 ## References, not copies
 

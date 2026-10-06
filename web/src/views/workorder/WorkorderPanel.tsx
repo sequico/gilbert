@@ -111,6 +111,27 @@ function StateBadge({ state }: { state: WorkorderState }) {
 }
 
 /**
+ * The checklist template a workorder instantiates, named with its revision, in
+ * the panel's head. A workorder binds one template and one revision (ADR 0028),
+ * so every part names the same one; the global part is the one shown.
+ */
+function TemplateChip({ part }: { part: WorkorderPartView }) {
+  if (!part.templateTitle) return null;
+  const label =
+    part.templateRev !== null
+      ? t("{template} · rev {rev}", {
+          template: part.templateTitle,
+          rev: part.templateRev,
+        })
+      : part.templateTitle;
+  return (
+    <span className="hint nowrap truncate" title={part.templateTitle}>
+      {label}
+    </span>
+  );
+}
+
+/**
  * One step: its controlled label, its state and last signature.
  *
  * The checkbox is the ordinary done/open toggle; the menu reaches the two
@@ -272,9 +293,23 @@ function PartSection({
       ) : (
         part.groups.map((group) => (
           <div key={group.key}>
-            <h4 className="hint" style={{ margin: "10px 0 4px" }}>
-              {group.label}
-            </h4>
+            <div
+              className="row gap-8"
+              style={{ margin: "10px 0 4px", alignItems: "center" }}
+            >
+              <h4 className="hint" style={{ margin: 0 }}>
+                {group.label}
+              </h4>
+              {/* The section's gate, once opened: a small read-only marker
+                  naming the sections it waited on (ADR 0030). */}
+              {group.gate && (
+                <span className="chip nowrap">
+                  {t("after {sections}", {
+                    sections: group.gate.labels.join(", "),
+                  })}
+                </span>
+              )}
+            </div>
             {group.repeat ? (
               group.items.map((item) => (
                 <div key={item.key} style={{ marginTop: 6 }}>
@@ -827,6 +862,7 @@ export function WorkorderPanel() {
             )}
           </h2>
           {open && <StateBadge state={open.state} />}
+          {open?.parts[0] && <TemplateChip part={open.parts[0]} />}
           {canAdminister && (
             <button
               type="button"
@@ -946,15 +982,21 @@ export function WorkorderPanel() {
               <div className="workorder-scroll">
                 {open ? (
                   <>
-                    {open.parts.map((part) => (
-                      <PartSection
-                        key={part.scope === "global" ? "global" : (part.group ?? "group")}
-                        part={part}
-                        onCheck={(scope, group, path, state, note) =>
-                          void check(open.uid, scope, group, path, state, note)
-                        }
-                      />
-                    ))}
+                    {open.parts.length > 0 && (
+                      <div className="workorder-parts">
+                        {open.parts.map((part) => (
+                          <PartSection
+                            key={
+                              part.scope === "global" ? "global" : (part.group ?? "group")
+                            }
+                            part={part}
+                            onCheck={(scope, group, path, state, note) =>
+                              void check(open.uid, scope, group, path, state, note)
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
                     {/* The references surface is being reworked; until it is,
                         it is a placeholder rather than a half-working
                         gatherer. The model itself (references by id, never

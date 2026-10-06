@@ -134,3 +134,24 @@ test("the folder names and the file name are the contract's", () => {
   assert.equal(WORKORDER_CLOSED_FOLDER, "closed");
   assert.equal(workorderFileName("abc"), "abc.json");
 });
+
+test("a root carries the opened gates, and a malformed one is refused", () => {
+  /*
+   * The gate's latch lives on the root (ADR 0030): section keys whose gate has
+   * opened. The builder writes them and the validator bounds them, so a reader
+   * trusts what it did not write. Fails if the field or its validator is removed.
+   */
+  const checklist = buildChecklist({ template, variants: {}, items: {}, stepPaths: [] });
+  const doc = buildWorkorderDoc({
+    uid: "u1",
+    by: "x@example.com",
+    at: "2026-01-01T00:00:00.000Z",
+    checklist,
+    name: "N",
+    state: "running",
+    gates: ["billing"],
+  });
+  assert.equal(isWorkorderDoc(doc), true);
+  assert.deepEqual(doc.gates, ["billing"]);
+  assert.equal(isWorkorderDoc({ ...doc, gates: [1] }), false, "a gate is a section key");
+});

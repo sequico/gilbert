@@ -107,7 +107,7 @@ export interface KnowledgeStep {
   condition?: KnowledgeCondition;
 }
 
-/** One section: steps, an optional condition, repeat and group. */
+/** One section: steps, an optional condition, repeat, group and gate. */
 export interface KnowledgeSection {
   key: string;
   label: string;
@@ -115,8 +115,21 @@ export interface KnowledgeSection {
   repeat?: KnowledgeRepeat;
   /** The account id of the group competent for this section; absent = global. */
   group?: string;
+  /**
+   * Sections that must have been completed **once** before this one shows: the
+   * section's **gate**. A gated section is not served to any reader until its
+   * gate opens; the gate opens when every section named here has been completed
+   * (all its steps `done` or `skipped`) and, from then on, stays open for the
+   * rest of the workorder — re-opening a prerequisite does not close it again.
+   * A key may name a section in any part: the global checklist or a group's.
+   * Up to `MAX_SECTION_REQUIRES` keys.
+   */
+  requires?: string[];
   steps: KnowledgeStep[];
 }
+
+/** How many prerequisite sections one gate may name. */
+export const MAX_SECTION_REQUIRES = 3;
 
 /** The working draft: identity, the editor's blocks, and the search text. */
 export interface KnowledgeDraft {
@@ -388,6 +401,10 @@ function isKnowledgeSection(x: unknown): x is KnowledgeSection {
     (x.condition === undefined || isKnowledgeCondition(x.condition)) &&
     (x.repeat === undefined || isKnowledgeRepeat(x.repeat)) &&
     (x.group === undefined || typeof x.group === "string") &&
+    (x.requires === undefined ||
+      (Array.isArray(x.requires) &&
+        x.requires.length <= MAX_SECTION_REQUIRES &&
+        x.requires.every((key) => typeof key === "string"))) &&
     Array.isArray(x.steps) &&
     x.steps.every(isKnowledgeStep)
   );
@@ -649,6 +666,7 @@ export function checklistBlocks(checklist: KnowledgeChecklist): unknown[] {
       section.repeat ? `per ${section.repeat.item}` : "",
       conditionClause(section.condition),
       section.group ? `group ${section.group}` : "",
+      section.requires?.length ? `after ${section.requires.join(", ")}` : "",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -695,6 +713,8 @@ export interface ResolvedSection {
   key: string;
   label: string;
   repeat: KnowledgeRepeat | null;
+  /** The gate's prerequisite section keys, or absent when the section has none. */
+  requires?: string[];
   items: ResolvedItem[];
 }
 
@@ -734,6 +754,7 @@ export function resolveChecklist(
       repeat: section.repeat ?? null,
       items: [],
     };
+    if (section.requires?.length) resolved.requires = section.requires;
     if (section.repeat) {
       for (const itemKey of items[section.key] ?? []) {
         resolved.items.push({

@@ -134,6 +134,13 @@ export interface WorkorderDoc {
   /** The successor's uid, when the state is `replaced`. */
   replacedBy?: string | null;
   checklist: WorkorderChecklist;
+  /**
+   * The sections whose **gate has opened**, by section key: the latch. Written
+   * on the Master's root when a gated section's prerequisites first complete,
+   * and never removed, so re-opening a prerequisite does not hide a section a
+   * group already reached (ADR 0030).
+   */
+  gates?: string[];
   refs: WorkorderRef[];
   created: WorkorderTimes;
   updated: WorkorderTimes;
@@ -232,6 +239,11 @@ export function isWorkorderDoc(x: unknown): x is WorkorderDoc {
   )
     return false;
   if (!isWorkorderChecklist(x.checklist)) return false;
+  if (
+    x.gates !== undefined &&
+    (!Array.isArray(x.gates) || !x.gates.every((key) => typeof key === "string"))
+  )
+    return false;
   if (!Array.isArray(x.refs) || !x.refs.every(isWorkorderRef)) return false;
   return isTimes(x.created) && isTimes(x.updated);
 }
@@ -269,6 +281,7 @@ export function buildWorkorderDoc(input: {
   at: string;
   checklist: WorkorderChecklist;
   refs?: WorkorderRef[];
+  gates?: string[];
   name?: string;
   state?: WorkorderState;
 }): WorkorderDoc {
@@ -281,6 +294,7 @@ export function buildWorkorderDoc(input: {
     created: times,
     updated: times,
   };
+  if (input.gates?.length) doc.gates = [...input.gates];
   if (input.name !== undefined) doc.name = input.name;
   if (input.state !== undefined) doc.state = input.state;
   return doc;
@@ -351,12 +365,26 @@ export interface WorkorderItemView {
   steps: WorkorderStepView[];
 }
 
+/**
+ * The gate on a visible section: which sections it waited on. A gated section
+ * is served only once its gate has opened, so this is shown beside the section
+ * as a small **read-only** marker and never edited from the instance (ADR 0030).
+ */
+export interface WorkorderGateView {
+  /** The prerequisite section keys. */
+  requires: string[];
+  /** Their controlled labels, in the same order, for the reader. */
+  labels: string[];
+}
+
 /** One section of a part, with the items and steps that apply. */
 export interface WorkorderGroupView {
   key: string;
   label: string;
   /** What one item is for a repeated section, or null when it is not repeated. */
   repeat: string | null;
+  /** The section's gate, once opened; absent when the section has none. */
+  gate?: WorkorderGateView;
   items: WorkorderItemView[];
 }
 
@@ -371,6 +399,8 @@ export interface WorkorderPartView {
   groups: WorkorderGroupView[];
   /** The KB page this checklist instantiates, by title, or null if unreadable. */
   templateTitle: string | null;
+  /** The bound revision's number, or null when the revision could not be read. */
+  templateRev: number | null;
   /** Whether the caller may check this part's steps. */
   canCheck: boolean;
 }
