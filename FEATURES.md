@@ -1551,6 +1551,12 @@ The interface language also feeds the *automatic* date locale, so 日本語 give
 Japanese month and weekday names without setting the region, and `<html lang>`
 follows it. Only languages with a catalogue shipped appear in the picker.
 
+The **sign-in form offers the same picker**, before any account is known: the
+choice turns the form there and then, and once the account's own settings load
+it is written into them like any other preference, so it is there again on the
+next device. An installation that *enforces* the interface language still wins
+over the choice.
+
 ## Themes
 
 Two questions, asked separately: **which palette** and **light or dark**.

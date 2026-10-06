@@ -11,3 +11,14 @@
  * three copies of a default is how two of them end up stale.
  */
 export const DEFAULT_APP_NAME = "Gilbert";
+
+/**
+ * The name, expanded: Gilbert is a backronym, and this is what it stands for.
+ *
+ * A name rather than a sentence, so it is never translated -- the sign-in form
+ * shows it in English beside the logo, while the interface around it may be in
+ * any language. It is the one definition: no catalogue carries it and nothing
+ * looks it up.
+ */
+export const ACRONYM_TAGLINE =
+  "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability";

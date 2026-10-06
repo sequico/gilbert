@@ -679,8 +679,6 @@ export const catalog: Catalog = {
     Type: "类型",
     "Email or username": "邮箱或用户名",
     "Use your usual address as the username.": "用户名请使用您平时的邮箱地址。",
-    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
-      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
     "Notifications are blocked in your browser settings.": "浏览器设置中已阻止通知。",
     "Not supported in this browser.": "此浏览器不支持。",
     "Desktop notifications while Gilbert is open": "打开 Gilbert 时显示桌面通知",

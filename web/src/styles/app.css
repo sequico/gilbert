@@ -1977,6 +1977,10 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .login-card h1 { margin: 0; font-size: 1.6em; font-weight: 800; letter-spacing: -.02em; color: #14b8a6; }
 .login-card .sub { color: var(--fg-muted); font-size: .92em; margin: 0; }
 .login-card .tagline { color: var(--fg-muted); font-size: 1em; margin: 4px 0 0; text-align: center; }
+/* The sign-in language picker: the same control Appearance offers, under the
+   tagline. Sized to its content, so it reads as a menu beside the name rather
+   than as another field. */
+.login-card .logo .select { width: auto; min-width: 160px; margin-top: 6px; }
 .login-card .foot a { color: var(--fg-muted); text-decoration: underline; }
 .login-card .foot { margin-top: 20px; font-size: .8em; color: var(--fg-faint); text-align: center; }
 .login-card .pw-wrap { position: relative; }

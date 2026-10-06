@@ -1123,9 +1123,6 @@ export const catalog: Catalog = {
     "Use your usual address as the username.":
       "Usa il tuo indirizzo abituale come nome utente.",
 
-    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
-      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
-
     "Notifications are blocked in your browser settings.":
       "Le notifiche sono bloccate nelle impostazioni del browser.",
 

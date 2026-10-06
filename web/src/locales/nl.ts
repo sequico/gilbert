@@ -689,8 +689,6 @@ export const catalog: Catalog = {
     "Email or username": "E-mail of gebruikersnaam",
     "Use your usual address as the username.":
       "Gebruik uw gebruikelijke adres als gebruikersnaam.",
-    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
-      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
     "Notifications are blocked in your browser settings.":
       "Meldingen zijn geblokkeerd in uw browserinstellingen.",
     "Not supported in this browser.": "Niet ondersteund in deze browser.",

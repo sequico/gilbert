@@ -826,15 +826,28 @@ function applyDateTimePrefs(s: Settings): void {
  * load, which is the thing the whole design avoids.
  */
 export function applyLang(s: Settings = useSettings.getState().settings): void {
-  const tag = resolveUiLanguage(s.uiLanguage);
-  document.documentElement.lang = tag;
+  setInterfaceLanguage(s.uiLanguage);
+}
+
+/**
+ * Put one interface language in force, without the settings store.
+ *
+ * `applyLang` is the store's own door and takes the whole `Settings`; the
+ * sign-in form has no settings to hand -- before the account is known there is
+ * no policy to write through, so `update` refuses -- yet needs the same pairing
+ * of `<html lang>` and catalogue. The pairing lives here once and `applyLang`
+ * calls it rather than repeating it.
+ */
+export function setInterfaceLanguage(tag: string): void {
+  const resolved = resolveUiLanguage(tag);
   /*
    * The catalogue is fetched, so it lands a beat after the attribute. That
    * order is deliberate: `lang` is what stops Chrome offering to translate,
    * and it should not wait on a network request to say something it already
    * knows. English needs no fetch at all and resolves immediately.
    */
-  void loadLanguage(tag);
+  document.documentElement.lang = resolved;
+  void loadLanguage(resolved);
 }
 
 /** Background of each theme, for the browser chrome (`theme-color`). */

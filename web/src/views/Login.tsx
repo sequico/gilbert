@@ -2,12 +2,15 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { ApiError } from "@/jmap/client";
 import { withBase } from "@/lib/basePath";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
-import { t } from "@/lib/i18n";
+import { ACRONYM_TAGLINE, DEFAULT_APP_NAME } from "@/lib/brand";
+import { currentLanguage, t } from "@/lib/i18n";
+import { rememberLoginLanguage } from "@/lib/loginLanguage";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { APP_VERSION } from "@/lib/version";
 import { useSession } from "@/store/session";
+import { setInterfaceLanguage } from "@/store/settings";
 import { BrandLogo } from "@/ui/BrandLogo";
+import { LanguageSelect } from "@/ui/LanguageSelect";
 
 export function LoginPage() {
   const login = useSession((s) => s.login);
@@ -50,6 +53,20 @@ export function LoginPage() {
   const [trustDevice, setTrustDevice] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * The language in force, held locally so the picker answers the click at
+   * once. The form is not keyed on the catalogue, so choosing does not remount
+   * it -- but the catalogue itself lands a beat later, and the control should
+   * not sit on the old value until it does.
+   */
+  const [uiLanguage, setUiLanguage] = useState(() => currentLanguage());
+
+  const changeLanguage = (tag: string) => {
+    setUiLanguage(tag);
+    /* Held for the account, and applied now so the form itself turns. */
+    rememberLoginLanguage(tag);
+    setInterfaceLanguage(tag);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -79,16 +96,19 @@ export function LoginPage() {
       <form className="login-card" onSubmit={submit}>
         <div className="logo">
           <BrandLogo width={120} height={150} />
-          {/* A product name, not a word: not translated, and not guessed at
-              from the page it is on. */}
-          <h1 className="notranslate" translate="no">
-            {appName}
-          </h1>
-          <p className="tagline">
-            {t(
-              "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
-            )}
+          {/* The name, expanded: a name rather than a sentence, so it is not
+              translated and no catalogue carries it. */}
+          <p className="tagline notranslate" translate="no">
+            {ACRONYM_TAGLINE}
           </p>
+          {/* Picked before the account is known. The form is not keyed on the
+              catalogue, so this turns the page in place with whatever has been
+              typed still there. */}
+          <LanguageSelect
+            id="login-language"
+            value={uiLanguage}
+            onChange={changeLanguage}
+          />
         </div>
         {error && (
           <div className="error-box mb-16" role="alert">

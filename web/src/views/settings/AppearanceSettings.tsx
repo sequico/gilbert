@@ -4,6 +4,7 @@ import { effectiveMode, type Mode, PALETTES, type PaletteId } from "@/lib/palett
 import { isEnforced } from "@/lib/settingsPolicy";
 import { SWIPE_CHOICES, type SwipeAction } from "@/lib/swipe";
 import { useSettings } from "@/store/settings";
+import { LanguageSelect } from "@/ui/LanguageSelect";
 import { Switch, useIsTouch } from "@/ui/misc";
 
 /**
@@ -206,20 +207,13 @@ export function AppearanceSettings() {
       </div>
       <h2>{translate("Language")}</h2>
       <div className="field" style={{ maxWidth: 320 }}>
-        <label htmlFor="ui-language">{translate("Interface language")}</label>
-        <select
+        <LanguageSelect
           id="ui-language"
+          label={translate("Interface language")}
           disabled={isEnforced("uiLanguage")}
-          className="select"
           value={s.uiLanguage}
-          onChange={(e) => update({ uiLanguage: e.target.value })}
-        >
-          {UI_LANGUAGES.map((l) => (
-            <option key={l.tag} value={l.tag}>
-              {l.beta ? translate("{name} (Beta)", { name: l.name }) : l.name}
-            </option>
-          ))}
-        </select>
+          onChange={(tag) => update({ uiLanguage: tag })}
+        />
       </div>
       {/*
         Said plainly rather than left to be discovered. A picker with one entry

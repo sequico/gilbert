@@ -7,6 +7,7 @@ import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
+import { applyLoginLanguage } from "@/lib/loginLanguage";
 import { liveMailAccountIds } from "@/lib/mailAccounts";
 import {
   notificationAskDue,
@@ -180,15 +181,22 @@ export function App() {
         });
       }}
     >
-      <Fragment key={languageVersion}>
-        {status === "anonymous" ? (
-          <LoginPage />
-        ) : forcedPasswordChange ? (
-          <ForcedPasswordChange />
-        ) : (
-          <AuthedApp />
-        )}
-      </Fragment>
+      {/*
+       * The sign-in form sits outside the keyed subtree on purpose. A language
+       * change throws the authenticated tree away so every `t()` re-evaluates,
+       * but the form is where that choice is made: keyed, the pick would unmount
+       * the control that offered it and drop whatever had been typed. Nothing is
+       * lost by not keying it -- this component already subscribes to the
+       * language version (above), so the form re-renders in place when the
+       * catalogue lands, state intact.
+       */}
+      {status === "anonymous" ? (
+        <LoginPage />
+      ) : (
+        <Fragment key={languageVersion}>
+          {forcedPasswordChange ? <ForcedPasswordChange /> : <AuthedApp />}
+        </Fragment>
+      )}
       <ToastHost />
       <ConfirmHost />
     </Router>
@@ -231,6 +239,7 @@ function AuthedApp() {
   const [ready, setReady] = useState(() => settingsInHandFor(accountId));
   useEffect(() => {
     if (settingsAlreadyLoadedFor(accountId)) {
+      applyLoginLanguage();
       setReady(true);
       return;
     }
@@ -274,10 +283,18 @@ function AuthedApp() {
       // asks for it; this is waiting for the answer.
       await whenLanguageReady();
       if (cancelled) return;
-      setReady(true);
       // Pushes were held back until now so they could not race the load. A
       // change made while it was in flight was kept, and goes out here.
       armSettingsSync();
+      /*
+       * The language picked on the sign-in form, once the account's own settings
+       * are in hand and the account is claimed. Through the settings door, so an
+       * installation that enforces the interface language still wins; and
+       * claimed first, because this write changes the catalogue and a remount it
+       * triggers must not re-read the account's file over the pick.
+       */
+      applyLoginLanguage();
+      setReady(true);
       // No file yet — seed one from what this browser has, so the next device
       // to sign in starts from these rather than from the defaults.
       if (!remote && settingsSyncAvailable())

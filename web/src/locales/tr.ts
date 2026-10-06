@@ -712,8 +712,6 @@ export const catalog: Catalog = {
     "From: {sender}": "Kimden: {sender}",
     "Full screen": "Tam ekran",
     General: "Genel",
-    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
-      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
     "Gilbert Assistant": "Gilbert Asistanı",
     "Gilbert Mailer": "Gilbert Mailer",
     "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
