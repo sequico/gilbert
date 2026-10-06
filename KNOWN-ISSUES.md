@@ -237,6 +237,15 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
   with `sendAt` as asked and `250 2.1.5 Queued`. If Gilbert is never reopened the
   message still goes out; only the folder waits.
 
+- **A send is guarded against going out twice only within the session that
+  attempted it.** Each send carries its own `Message-ID`, and a failed send that
+  left a copy it could not remove marks the draft so the next send destroys that
+  copy and sends again. Both live on the in-memory draft, not on the saved one —
+  a `Message-ID` is immutable in JMAP, so it cannot be added to a draft that
+  already exists. A reload between a failed send and the retry therefore mints a
+  fresh id and the duplicate guard starts over. The window is a tab reload
+  between a failure and its retry, not a normal send.
+
 - **Stalwart 0.16 and RFC 8984 disagree about the calendar vocabulary, and the
   server only says so half the time.** A participant's address is
   `calendarAddress` (not `sendTo`/`email`), the organizer

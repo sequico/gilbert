@@ -45,24 +45,39 @@ jobs:
           # Fetched into their own namespace, never refs/tags: this repository
           # carries its own release tags (v2026.9.5-*), and the two mixed
           # together made the newest-upstream-release check pick one of ours.
-          git fetch upstream '+refs/tags/*:refs/upstream/tags/*'
+          # --prune drops a tag upstream has deleted, so a re-cut one cannot
+          # linger; the default branch is fetched to tell a release of this line
+          # from a tag cut on a side branch.
+          git fetch --prune upstream \
+            '+refs/tags/*:refs/upstream/tags/*' \
+            '+refs/heads/*:refs/upstream/heads/*'
+          main_ref="refs/upstream/heads/main"
+          has_main=0
+          if git rev-parse --verify -q "$main_ref" >/dev/null; then has_main=1; fi
           # Upstream's release tags are the versioned ones (v2026.9.3-pr272);
           # the v2.16.* and stalwart-* tags are older shapes or branches, not
-          # releases. Newest by creation date, then the one before it, from the
-          # upstream-only namespace: the older tag bounds the work the newest
-          # release adds.
-          newest_full="$(git for-each-ref --sort=-creatordate --format '%(refname)' 'refs/upstream/tags/v20[0-9][0-9].*' | sed -n '1p')"
-          prev_full="$(git for-each-ref --sort=-creatordate --format '%(refname)' 'refs/upstream/tags/v20[0-9][0-9].*' | sed -n '2p')"
+          # releases. Newest by creation date among those on the default branch,
+          # then the one before it: the older release bounds the work the newest
+          # one adds. A tag cut on a side branch is not a release of this line.
+          candidates=()
+          while IFS= read -r ref; do
+            [ -n "$ref" ] || continue
+            if [ "$has_main" = 1 ] && ! git merge-base --is-ancestor "${ref}^{commit}" "$main_ref"; then
+              continue
+            fi
+            candidates+=("$ref")
+          done < <(git for-each-ref --sort=-creatordate --format '%(refname)' 'refs/upstream/tags/v20[0-9][0-9].*')
+          newest_full="${candidates[0]:-}"
           if [ -z "$newest_full" ]; then
             echo "No upstream release tag found." >&2
             exit 1
           fi
+          prev_full="${candidates[1]:-}"
           tag="${newest_full#refs/upstream/tags/}"
           # Peeled with rev-parse because the tag may be lightweight:
           # for-each-ref's peeled field is only filled for annotated tags, and
           # an empty sha took the merge down with it on 2026-09-06.
           sha="$(git rev-parse "${newest_full}^{commit}")"
-          prev_sha="$(git rev-parse "${prev_full}^{commit}")"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           # The first question: a release this history has taken in wholesale is
@@ -73,19 +88,33 @@ jobs:
             echo "new=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The second question, and the one a hand-take needs: every work
-          # commit the release adds has a row in docs/upstream.md. A row is the
-          # record that the commit was read and decided — taken or deliberately
-          # not — so a release whose commits were taken one by one is not
-          # reported as missing.
+          # No previous release to bound the range: nothing says what this
+          # release adds, so report it rather than guess.
           if [ -z "$prev_full" ]; then
             echo "new=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          prev_sha="$(git rev-parse "${prev_full}^{commit}")"
+          # The previous release must bound this one. If it is not an ancestor
+          # of it, `prev..newest` is not "what this release adds" — fail toward
+          # the alarm rather than compute a wrong set of commits.
+          if ! git merge-base --is-ancestor "$prev_sha" "$sha"; then
+            echo "Previous release ${prev_full#refs/upstream/tags/} is not an ancestor of ${tag}: reporting it unaccounted." >&2
+            echo "new=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The second question, and the one a hand-take needs: every work
+          # commit the release adds has a row in docs/upstream.md. A row is the
+          # record that the commit was read and decided — taken or deliberately
+          # not — so a release whose commits were taken one by one is not
+          # reported as missing. Matched as a table row (never a prose mention)
+          # in whichever short form the table writes, 7 or 8 characters.
           missing=0
           while read -r c; do
             [ -n "$c" ] || continue
-            if ! grep -qF "\`${c:0:7}" docs/upstream.md; then
+            s7="$(git rev-parse --short=7 "$c")"
+            s8="$(git rev-parse --short=8 "$c")"
+            if ! grep -qE "^\| \`(${s7}|${s8})\`" docs/upstream.md; then
               echo "Unrecorded upstream commit: $c"
               missing=1
             fi
@@ -104,13 +133,16 @@ jobs:
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
+          title="Upstream release ${TAG} has not been taken in"
           # Through the REST API rather than the GraphQL one the CLI defaults to:
           # a workflow's own token reads issues either way, but its
           # `createIssue` mutation is refused as "Resource not accessible by
           # integration" however `issues: write` is declared. The REST endpoints
           # are the ones it does carry.
+          # Selected by the exact title for this release, so a run for one tag
+          # can never comment on or close the issue opened for another.
           open="$(gh api "/repos/${repo}/issues?state=open&per_page=100" \
-            --jq '[.[] | select(.title | startswith("Upstream release"))][0].number // empty')"
+            | jq -r --arg t "$title" '[.[] | select(.title == $t)][0].number // empty')"
           if [ "$NEW" = "true" ]; then
             {
               echo "@${OWNER} — upstream cut **${TAG}**, and this history has not"
@@ -121,7 +153,8 @@ jobs:
               echo "- Take it in as ADR 0002 says: fetch upstream directly into the"
               echo "  merge, and rename the merged delta before it lands (the"
               echo "  \`gilbert-upstream-rebrand\` checklist). A hand-take that reads"
-              echo "  each commit adds its row to \`docs/upstream.md\` and closes this."
+              echo "  each commit adds its row to \`docs/upstream.md\`, and the next"
+              echo "  run closes this."
               echo
               echo "This issue closes itself on the next run once the release is"
               echo "accounted for."
@@ -133,7 +166,7 @@ jobs:
               # Found by title rather than by label: a label is one more thing
               # to create and keep in step, and this list is never long.
               gh api -X POST "/repos/${repo}/issues" \
-                -f title="Upstream release ${TAG} has not been taken in" \
+                -f title="$title" \
                 -F body=@/tmp/upstream-issue.md >/dev/null
             fi
           elif [ -n "$open" ]; then

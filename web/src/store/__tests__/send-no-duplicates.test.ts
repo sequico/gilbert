@@ -35,7 +35,7 @@ const chainCalls: Array<Array<[string, Record<string, unknown>, string]>> = [];
 const queried: string[] = [];
 
 /** Install a fake Stalwart over the client, and return what it was asked to do. */
-function server(mode: Mode): Server {
+function server(mode: Mode, opts: { destroyFails?: boolean } = {}): Server {
   const st: Server = { emails: [], submissions: [], destroyed: [], creates: 0 };
   let first = true;
   let offline = false;
@@ -114,6 +114,7 @@ function server(mode: Mode): Server {
       return { accountId: "a1", ids, total: ids.length };
     }
     if (method === "Email/set" && args.destroy) {
+      if (opts.destroyFails) throw new ApiError(500, "destroy_failed");
       st.destroyed.push(...(args.destroy as string[]));
       return { accountId: "a1", destroyed: args.destroy };
     }
@@ -218,6 +219,7 @@ describe("sending once, whatever goes wrong on the way back", () => {
     const st = server("gateway");
     await sendOne();
     expect(st.creates).toBe(0);
+    expect(queried).toContain("Email/query");
     expect(toastTexts().some((t) => t.startsWith("Send failed"))).toBe(true);
   });
 
@@ -266,5 +268,27 @@ describe("sending a draft again after a failure", () => {
     toast.action!.onClick();
     const reopened = useCompose.getState().drafts[0]!;
     expect(reopened.sendMessageId).toMatch(/@example\.org$/);
+  });
+
+  it("destroys the copy it never submitted, then sends, when the retry knows it is unsent", async () => {
+    const st = server("ok");
+    // The first attempt created the message and never submitted it, and the
+    // copy survived because the cleanup could not be confirmed.
+    st.emails.push({ id: "e1", messageId: "fixed@example.org" });
+    await sendOne({ sendMessageId: "fixed@example.org", sendOrphan: true });
+    expect(st.destroyed).toEqual(["e1"]);
+    expect(st.creates).toBe(1);
+    expect(toastTexts()).toContain("Message sent");
+  });
+
+  it("remembers a copy it could not remove, so the retry does not call it sent", async () => {
+    server("orphan", { destroyFails: true });
+    await sendOne();
+    const toast = useToasts
+      .getState()
+      .toasts.find((t) => t.message.startsWith("Send failed"))!;
+    toast.action!.onClick();
+    const reopened = useCompose.getState().drafts[0]!;
+    expect(reopened.sendOrphan).toBe(true);
   });
 });

@@ -89,6 +89,11 @@ export function Composer({ draft }: { draft: Draft }) {
   const scheduleMax = canSchedule ? scheduleWindowMs() : 0;
   const d = draft;
   const key = d.key;
+  // Addresses already in the message's other recipient fields, kept referentially
+  // stable so a parent render cannot restart the suggestion debounce.
+  const excludeTo = useMemo(() => [...d.cc, ...d.bcc], [d.cc, d.bcc]);
+  const excludeCc = useMemo(() => [...d.to, ...d.bcc], [d.to, d.bcc]);
+  const excludeBcc = useMemo(() => [...d.to, ...d.cc], [d.to, d.cc]);
   // Where the caret starts, decided once when the composer opens: a blank
   // message starts in the recipients, a reply (already addressed and titled)
   // starts in the body. Deriving this from live state would move the caret
@@ -440,7 +445,7 @@ export function Composer({ draft }: { draft: Draft }) {
             <RecipientInput
               id={`${key}-to`}
               value={d.to}
-              exclude={[...d.cc, ...d.bcc]}
+              exclude={excludeTo}
               onChange={(to) => patch({ to })}
               placeholder={translate("Recipients")}
               autoFocus={initialFocus === "to"}
@@ -502,7 +507,7 @@ export function Composer({ draft }: { draft: Draft }) {
               <RecipientInput
                 id={`${key}-cc`}
                 value={d.cc}
-                exclude={[...d.to, ...d.bcc]}
+                exclude={excludeCc}
                 onChange={(cc) => patch({ cc })}
               />
             </div>
@@ -513,7 +518,7 @@ export function Composer({ draft }: { draft: Draft }) {
               <RecipientInput
                 id={`${key}-bcc`}
                 value={d.bcc}
-                exclude={[...d.to, ...d.cc]}
+                exclude={excludeBcc}
                 onChange={(bcc) => patch({ bcc })}
               />
             </div>

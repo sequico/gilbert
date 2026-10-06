@@ -104,10 +104,19 @@ export interface Draft {
   sendAt: number | null;
   /**
    * The Message-ID this draft goes out under, fixed at its first send and
-   * kept if the draft comes back after a failure. Sending it again asks the
-   * server first whether a message with this id already went out.
+   * kept if the draft comes back after a failure in the same session. It is
+   * not persisted with the draft, so a reload before the retry mints a new
+   * one. Sending it again asks the server first whether a message with this
+   * id already went out.
    */
   sendMessageId?: string;
+  /**
+   * Set when a failed send left a copy on the server that could not be
+   * removed, the cleanup request having been refused while the reply was
+   * already lost. The next send of this draft destroys that copy and sends
+   * again, rather than reading a surviving copy as proof the message went out.
+   */
+  sendOrphan?: boolean;
 }
 
 interface ComposeState {
@@ -1065,6 +1074,9 @@ export const useCompose = create<ComposeState>((set, get) => ({
       try {
         const sent = await sendInternal(d, target, { retry });
         if (sent.alreadySent) {
+          // A scheduled message that was already submitted still needs the
+          // Scheduled folder re-read; the wording is the same either way.
+          if (scheduling) void useScheduled.getState().load();
           toast.success(
             translate("This message had already been sent, so it wasn't sent again."),
           );
@@ -1092,6 +1104,8 @@ export const useCompose = create<ComposeState>((set, get) => ({
           });
           return;
         }
+        const leftOrphan =
+          (err as { sendOutcomeOrphan?: boolean }).sendOutcomeOrphan === true;
         toast.error(
           translate("Send failed: {error}", { error: (err as Error).message }),
           {
@@ -1099,7 +1113,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
               label: translate("Open draft"),
               onClick: () =>
                 set((s) => ({
-                  drafts: [...s.drafts, { ...d, error: (err as Error).message }],
+                  drafts: [
+                    ...s.drafts,
+                    { ...d, error: (err as Error).message, sendOrphan: leftOrphan },
+                  ],
                   activeKey: d.key,
                 })),
             },
@@ -1704,13 +1721,28 @@ export function newMessageId(fromEmail: string): string {
 }
 
 /**
- * Whether a failed request may still have been carried out. A refusal (4xx)
- * means the server did not run it; no answer, or a 5xx from the proxy that
- * lost the upstream reply, means it may have.
+ * Whether a failed request may still have been carried out. A refusal — any
+ * status below 500, a request timeout (408) aside — means the server did not
+ * run it; no answer, a 5xx, or a 408 means it may have.
  */
 export function sendOutcomeUnknown(err: unknown): boolean {
   if (err instanceof ApiError) return err.status >= 500 || err.status === 408;
   return true;
+}
+
+/**
+ * Destroy a set of messages and report whether the server confirmed it. Used
+ * for the copy a failed send created; a refusal is not fatal here, only the
+ * reason to stop trusting that the copy is gone.
+ */
+async function destroyEmails(accountId: Id, ids: Id[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await client.call("Email/set", { accountId, destroy: ids });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1799,7 +1831,10 @@ async function sendInternal(
   if (opts.retry) {
     let found: Awaited<ReturnType<typeof traceSend>>;
     try {
-      found = await traceSend(accountId, messageId, false);
+      // A retry of a draft that left an unsent copy asks about the submission;
+      // one back from an unknown outcome reads any surviving copy as sent, a
+      // submission possibly expunged since.
+      found = await traceSend(accountId, messageId, Boolean(d.sendOrphan));
     } catch {
       throw new SendOutcomeUnknown(
         translate(
@@ -1813,6 +1848,9 @@ async function sendInternal(
       void mail.refreshList();
       return { alreadySent: true };
     }
+    // The copy this send left behind and never submitted: remove it, then send.
+    if (found.trace === "orphan" && found.emailIds.length)
+      await destroyEmails(accountId, found.emailIds);
   }
   const sentId = mail.roleId("sent");
   const draftsId = mail.roleId("drafts");
@@ -1877,9 +1915,13 @@ async function sendInternal(
       void mail.refreshList();
       return {};
     }
-    // Created but never submitted: take it out of Sent, then report the failure.
-    if (found.trace === "orphan")
-      void client.call("Email/set", { accountId, destroy: found.emailIds });
+    // Created but never submitted: take it out of Sent, then report the
+    // failure. If it cannot be removed, mark the failure so the next send
+    // destroys it and sends again instead of reading it as proof it went out.
+    if (found.trace === "orphan") {
+      const cleaned = await destroyEmails(accountId, found.emailIds);
+      if (!cleaned) (err as { sendOutcomeOrphan?: boolean }).sendOutcomeOrphan = true;
+    }
     throw err;
   }
   const e = res.get("e")?.[0] as unknown as SetResponse<Email> & {
