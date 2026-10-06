@@ -1,5 +1,4 @@
 import { LogOut } from "lucide-react";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import { BrandLogo } from "@/ui/BrandLogo";
@@ -16,21 +15,14 @@ import { PasswordForm } from "@/views/settings/SecuritySettings";
  * courtesy; the door is the server.
  */
 export function ForcedPasswordChange() {
-  const session = useSession((s) => s.session);
   const refresh = useSession((s) => s.refresh);
   const logout = useSession((s) => s.logout);
-  const appName = session?.gilbert?.appName || DEFAULT_APP_NAME;
 
   return (
     <div className="login-page">
       <div className="login-card">
         <div className="logo">
           <BrandLogo width={120} height={150} />
-          {/* A product name, not a word: not translated, and not guessed at
-              from the page it is on. */}
-          <h1 className="notranslate" translate="no">
-            {appName}
-          </h1>
         </div>
         <h2 style={{ marginTop: 0, marginBottom: 8 }}>{t("Change your password")}</h2>
         <p className="sub" style={{ marginBottom: 16 }}>
