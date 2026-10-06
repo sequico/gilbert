@@ -2,11 +2,12 @@
 
 Gilbert's mail core is based on upstream ihasmail, and upstream is
 **download-only** (ADR 0002): releases are fetched by the merge that takes them
-in and nothing goes back. `.github/workflows/upstream-watch.yml` asks one
-question once a day — is the newest release tag's commit an ancestor of `main`?
-— and that question has a false positive, which is the common case here: **a
-hand-take never makes the release's own commit an ancestor**, so a release whose
-useful commits were taken one by one keeps being reported as missing.
+in and nothing goes back. `.github/workflows/upstream-watch.yml` asks, once a
+day, whether the newest release is accounted for: its commit an ancestor of
+`main`, **or** every work commit it adds carrying a row here. The second
+question is what a hand-take needs — a hand-take never makes the release's own
+commit an ancestor, so ancestry alone would report a release whose useful
+commits were taken one by one as missing forever.
 
 This file is the record that answers it: one row per upstream commit, with what
 became of it. It is not a mirror and not a second history — the commits are

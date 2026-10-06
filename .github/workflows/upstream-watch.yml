@@ -1,4 +1,4 @@
-# Say so, once a day, when upstream has cut a release main has not taken in.
+# Say so, once a day, when upstream has cut a release nothing has accounted for.
 #
 # This repository does not mirror upstream: upstream is fetched directly by the
 # merge that takes it in (ADR 0002). What is left to automate is noticing. The
@@ -6,6 +6,13 @@
 # what it finds is open an issue a person reads — so it needs no permission
 # beyond the ones a workflow is given, and holds nothing that could be stolen
 # from a public repository.
+#
+# A release is accounted for in one of two ways, and the second is what a
+# hand-take needs: its own commit is an ancestor of `main` (a merge or a
+# wholesale take), or every work commit it adds has a row in `docs/upstream.md`
+# — the record that the commit was read and decided, taken or not. Ancestry
+# alone calls a hand-take missing forever, since taking commits one by one
+# never makes the release's own commit an ancestor.
 name: Watch upstream releases
 
 on:
@@ -30,7 +37,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Find the newest upstream release, and whether main has it
+      - name: Find the newest upstream release, and whether main has accounted for it
         id: newest
         run: |
           set -euo pipefail
@@ -41,31 +48,52 @@ jobs:
           git fetch upstream '+refs/tags/*:refs/upstream/tags/*'
           # Upstream's release tags are the versioned ones (v2026.9.3-pr272);
           # the v2.16.* and stalwart-* tags are older shapes or branches, not
-          # releases. Newest by creation date, from the upstream-only namespace.
-          full="$(
-            git for-each-ref --sort=-creatordate \
-              --format '%(refname)' \
-              'refs/upstream/tags/v20[0-9][0-9].*' | head -1
-          )"
-          if [ -z "$full" ]; then
+          # releases. Newest by creation date, then the one before it, from the
+          # upstream-only namespace: the older tag bounds the work the newest
+          # release adds.
+          newest_full="$(git for-each-ref --sort=-creatordate --format '%(refname)' 'refs/upstream/tags/v20[0-9][0-9].*' | sed -n '1p')"
+          prev_full="$(git for-each-ref --sort=-creatordate --format '%(refname)' 'refs/upstream/tags/v20[0-9][0-9].*' | sed -n '2p')"
+          if [ -z "$newest_full" ]; then
             echo "No upstream release tag found." >&2
             exit 1
           fi
-          tag="${full#refs/upstream/tags/}"
+          tag="${newest_full#refs/upstream/tags/}"
           # Peeled with rev-parse because the tag may be lightweight:
           # for-each-ref's peeled field is only filled for annotated tags, and
           # an empty sha took the merge down with it on 2026-09-06.
-          sha="$(git rev-parse "${full}^{commit}")"
+          sha="$(git rev-parse "${newest_full}^{commit}")"
+          prev_sha="$(git rev-parse "${prev_full}^{commit}")"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          # The whole of the detection: a release this history has not taken in
-          # is one whose commit is not an ancestor of main. Nothing is written
-          # down to compare against, so nothing can drift out of step with what
-          # the history says.
+          # The first question: a release this history has taken in wholesale is
+          # one whose commit is an ancestor of main. Nothing is written down to
+          # compare against, so nothing can drift out of step with what the
+          # history says.
           if git merge-base --is-ancestor "$sha" HEAD; then
             echo "new=false" >> "$GITHUB_OUTPUT"
-          else
+            exit 0
+          fi
+          # The second question, and the one a hand-take needs: every work
+          # commit the release adds has a row in docs/upstream.md. A row is the
+          # record that the commit was read and decided — taken or deliberately
+          # not — so a release whose commits were taken one by one is not
+          # reported as missing.
+          if [ -z "$prev_full" ]; then
             echo "new=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=0
+          while read -r c; do
+            [ -n "$c" ] || continue
+            if ! grep -qF "\`${c:0:7}" docs/upstream.md; then
+              echo "Unrecorded upstream commit: $c"
+              missing=1
+            fi
+          done < <(git rev-list --no-merges "${prev_sha}..${sha}")
+          if [ "$missing" = "1" ]; then
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Say so where a person will see it
         env:
@@ -85,16 +113,18 @@ jobs:
             --jq '[.[] | select(.title | startswith("Upstream release"))][0].number // empty')"
           if [ "$NEW" = "true" ]; then
             {
-              echo "@${OWNER} — upstream cut **${TAG}**, and its commit is not an"
-              echo "ancestor of \`main\`, so no merge has taken it in yet."
+              echo "@${OWNER} — upstream cut **${TAG}**, and this history has not"
+              echo "accounted for it: its commit is not an ancestor of \`main\`, and"
+              echo "not every work commit it adds has a row in \`docs/upstream.md\`."
               echo
               echo "- Release: https://git.coffeylabs.org/coffey-labs/ihasmail/releases/tag/${TAG}"
               echo "- Take it in as ADR 0002 says: fetch upstream directly into the"
               echo "  merge, and rename the merged delta before it lands (the"
-              echo "  \`gilbert-upstream-rebrand\` checklist)."
+              echo "  \`gilbert-upstream-rebrand\` checklist). A hand-take that reads"
+              echo "  each commit adds its row to \`docs/upstream.md\` and closes this."
               echo
-              echo "This issue closes itself on the next run once the release's"
-              echo "commit is an ancestor of \`main\`."
+              echo "This issue closes itself on the next run once the release is"
+              echo "accounted for."
             } > /tmp/upstream-issue.md
             if [ -n "$open" ]; then
               gh api -X POST "/repos/${repo}/issues/${open}/comments" \
@@ -107,10 +137,12 @@ jobs:
                 -F body=@/tmp/upstream-issue.md >/dev/null
             fi
           elif [ -n "$open" ]; then
-            # The release is in the history now, so whatever this issue was
-            # opened for has happened: closing it is the bookkeeping, and it is
-            # the only state this watch keeps.
+            # The release is accounted for now — its commit is an ancestor of
+            # `main`, or every work commit it adds has a row in
+            # `docs/upstream.md` — so whatever this issue was opened for has
+            # happened: closing it is the bookkeeping, and it is the only state
+            # this watch keeps.
             gh api -X POST "/repos/${repo}/issues/${open}/comments" \
-              -f body="The release's commit is an ancestor of \`main\`: a merge has taken it in." >/dev/null
+              -f body="The release is accounted for: its commit is an ancestor of \`main\`, or every work commit it adds has a row in \`docs/upstream.md\`." >/dev/null
             gh api -X PATCH "/repos/${repo}/issues/${open}" -f state=closed >/dev/null
           fi

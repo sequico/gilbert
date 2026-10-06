@@ -4,8 +4,9 @@ Status: Accepted
 
 Implementation: Built, and carried by the repository's own shape rather than by
 code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
-a release is fetched by the merge that takes it in, and `docs/upstream.md`
-carries the per-commit record.
+a release is fetched by the merge that takes it in, `docs/upstream.md` carries
+the per-commit record, and `.github/workflows/upstream-watch.yml` reads it once a
+day to decide whether the newest release is accounted for.
 
 Gilbert's mail client is based on **ihasmail**, by **Coffey Labs**; `NOTICE`
 carries the attribution and the addresses. Upstream is consumed here and never
@@ -22,16 +23,18 @@ lands with Gilbert's identifiers applied by the rename layer
 keep upstream close, and no credential is kept to push it.
 
 `.github/workflows/upstream-watch.yml` runs the same fetch once a day, takes
-the newest upstream release, and asks one question: is that release's commit
-an ancestor of `main`? If it is, nothing has been missed. If it is not, the
-watch opens an issue that names the owner and closes it once the commit lands.
-The workflow pushes nothing and holds no secret.
+the newest upstream release, and asks whether it is accounted for — one way per
+kind of take: its commit is an ancestor of `main` (a merge or a wholesale take),
+or every work commit it adds carries a row in `docs/upstream.md`. If it is,
+nothing has been missed. If it is not, the watch opens an issue that names the
+owner and closes it once the release is accounted for. The workflow pushes
+nothing and holds no secret.
 
-The ancestry check has one false positive, and it is the common case here: a
-release whose work was **hand-taken** commit by commit never makes the release's
-own commit an ancestor, so it keeps being reported as missing. `docs/upstream.md`
-is the record that answers it — one row per upstream commit and what became of
-it — and every hand-take records the upstream sha in its own message
+The second check is what a hand-take needs: a release whose work was
+**hand-taken** commit by commit never makes the release's own commit an ancestor,
+so ancestry alone would keep reporting it as missing. `docs/upstream.md` is the
+record that answers it — one row per upstream commit and what became of it — and
+every hand-take records the upstream sha in its own message
 (`Upstream: <sha>`), so the mapping lives in the history and the table is rebuilt
 from it rather than maintained by hand.
 
@@ -46,10 +49,10 @@ Two GitHub facts shape the mechanism rather than a preference for it: a
 workflow's own token cannot create or update a file under `.github/workflows`
 at any permission setting, and a copy of an upstream release necessarily
 carries upstream's own workflow files — so fetch-and-merge, not a mirror
-branch, is what a public repository's token model allows. The watch's
-ancestry check holds only for as long as upstream keeps arriving by merge; a
-release taken in by cherry-pick instead would keep being reported as missing
-— a false alarm, which is the direction the check is built to fail in.
+branch, is what a public repository's token model allows. The watch's row check
+holds only while a hand-take records its commits: a commit taken without a row
+in `docs/upstream.md` would be reported as missing — a false alarm, which is the
+direction the check is built to fail in.
 
 ## Consequences
 
@@ -60,7 +63,7 @@ release taken in by cherry-pick instead would keep being reported as missing
 
 ## References
 
-- `.github/workflows/upstream-watch.yml` — the fetch, the ancestry check, the issue
-- `docs/upstream.md` — the per-commit record the watch's false positive needs
+- `.github/workflows/upstream-watch.yml` — the fetch, the two checks, the issue
+- `docs/upstream.md` — the per-commit record the watch's row check reads
 - upstream's repository — the remote a merge fetches from; the address is in `NOTICE`
 - upstream's GitHub-era issue archive — the issues and pull requests from GitHub, whose numbers match GitHub's; the address is in `NOTICE`
