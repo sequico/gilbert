@@ -190,7 +190,7 @@ Gilbert is free software under the AGPL; if it is useful to you, you can
 
 ## License
 
-Copyright (C) 2026 Sequi Company — AGPL-3.0-or-later. See [LICENSE](LICENSE).
+Copyright (C) 2026 sequicompany — AGPL-3.0-or-later. See [LICENSE](LICENSE).
 The mail client Gilbert derives from is covered by the attribution in
 [NOTICE](NOTICE).
 
