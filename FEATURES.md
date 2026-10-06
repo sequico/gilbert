@@ -1098,6 +1098,16 @@ minimisable and maximisable; full-screen on mobile.
   **immediately**, with no error and no sign the hold was dropped. Gilbert only
   offers the feature when the account advertises the capability, and the mock has
   `MOCK_NO_FUTURE_RELEASE=1`, which advertises it and then drops every hold.
+- **A message goes out once.** Each send carries its own `Message-ID`
+  (RFC 5322 §3.6.4), fixed at the first attempt and kept on the draft if it comes
+  back after a failure. When a send's request goes out and no answer comes back,
+  Gilbert asks the server what it did — `Email/query` for a message with that id,
+  and `EmailSubmission/query` (RFC 8621 §7.3) for a submission of it — rather than
+  reporting a plain failure and offering a resend that could deliver the message
+  twice. It says the message had been sent, removes one that was created but never
+  submitted, or says plainly that it could not confirm and to check Sent. Sending
+  a draft that came back asks first, and sends nothing when a message with its id
+  already exists.
 
 ---
 
@@ -1543,15 +1553,18 @@ English interface is a real preference, and so is the reverse.
 | | |
 | --- | --- |
 | English | the source language, and what every other catalogue falls back to |
-| Deutsch · Español · Français · Italiano · Nederlands · Português (Brasil) | Beta |
+| Nederlands · Türkçe | read by a native speaker, and no longer Beta |
+| Deutsch · Español · Français · Italiano · Português (Brasil) | Beta |
 | Русский · Українська · 简体中文 · 日本語 | Beta |
-| Türkçe | Beta, contributed by Hakan Arslan |
 
-**All eleven translations are marked Beta.** The catalogues were produced by AI
-against standard dictionaries and have not been read by anybody who speaks the
-language, which is stated in Settings next to a link for reporting anything that
-reads wrongly. A language loses the Beta mark when a speaker has read it and said
-so, which is a deliberate act by a person and not something a percentage earns.
+**Nine of the eleven translations are marked Beta.** The catalogues were produced
+by AI against standard dictionaries and have not been read by anybody who speaks
+the language, which is stated in Settings next to a link for reporting anything
+that reads wrongly. Dutch was read and corrected by a native speaker in September
+2026, and Turkish was contributed and checked by one in October 2026; both ship
+without the Beta mark. A language loses the Beta mark when a speaker has read it
+and said so, which is a deliberate act by a person and not something a percentage
+earns.
 
 - **A missing entry renders its English source**, so deleting a bad line is a valid
   fix and a catalogue is never half-broken.

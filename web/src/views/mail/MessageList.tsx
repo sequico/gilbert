@@ -1397,6 +1397,18 @@ const Row = memo(function Row({
               <span className="truncate">{who}</span>
               {count > 1 && <span className="thread-count"> {count}</span>}
             </span>
+            {/* On the sender's line, which has room to spare: a third line of
+                their own did not fit the row at Cozy or Compact (#35). */}
+            {rowLabels.length > 0 && (
+              <div className="msg-labels">
+                {rowLabels.map((l) => (
+                  <span key={l.keyword} className="tag" style={{ background: l.color }}>
+                    {l.name}
+                  </span>
+                ))}
+                {locations.length > 0 && <FolderTags folders={locations} />}
+              </div>
+            )}
             <span className="msg-meta">
               {hasAtt && <Paperclip size={14} className="msg-attach" />}
               <span className="msg-date">{formatListDate(latest.receivedAt)}</span>
@@ -1424,16 +1436,6 @@ const Row = memo(function Row({
               <Star size={16} fill={starred ? "currentColor" : "none"} />
             </button>
           </div>
-          {rowLabels.length > 0 && (
-            <div className="msg-labels">
-              {rowLabels.map((l) => (
-                <span key={l.keyword} className="tag" style={{ background: l.color }}>
-                  {l.name}
-                </span>
-              ))}
-              {locations.length > 0 && <FolderTags folders={locations} />}
-            </div>
-          )}
         </div>
       ) : (
         <>

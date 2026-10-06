@@ -32,12 +32,13 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 - **A translation anybody has checked.** Twelve languages ship (English plus
   eleven translations), and their extraction is done — see
   [FEATURES.md](FEATURES.md#interface-language). All eleven were AI-produced
-  against standard dictionaries; only Turkish has been checked, by its
-  contributor **Hakan Arslan**, and **none by an independent reviewer of this
-  project**. They ship marked Beta, said in Settings with a link for reporting
-  anything wrong. A language loses Beta when a speaker reads it and says so — a
-  person's act, not a coverage percentage. Reading a few hundred strings is the
-  most useful contribution available right now.
+  against standard dictionaries. Two have since been read by native speakers —
+  Dutch in September 2026, and Turkish, contributed by **Hakan Arslan**, in
+  October 2026 — and ship without the Beta mark. The other nine ship marked
+  Beta, said in Settings with a link for reporting anything wrong. A language
+  loses Beta when a speaker reads it and says so — a person's act, not a
+  coverage percentage. Reading a few hundred strings is the most useful
+  contribution available right now.
 
 - **Right-to-left languages.** Arabic, Hebrew and Persian are held back
   deliberately, not for want of translators: RTL is bidi and layout work

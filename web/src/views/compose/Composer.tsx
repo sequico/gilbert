@@ -440,6 +440,7 @@ export function Composer({ draft }: { draft: Draft }) {
             <RecipientInput
               id={`${key}-to`}
               value={d.to}
+              exclude={[...d.cc, ...d.bcc]}
               onChange={(to) => patch({ to })}
               placeholder={translate("Recipients")}
               autoFocus={initialFocus === "to"}
@@ -501,6 +502,7 @@ export function Composer({ draft }: { draft: Draft }) {
               <RecipientInput
                 id={`${key}-cc`}
                 value={d.cc}
+                exclude={[...d.to, ...d.bcc]}
                 onChange={(cc) => patch({ cc })}
               />
             </div>
@@ -511,6 +513,7 @@ export function Composer({ draft }: { draft: Draft }) {
               <RecipientInput
                 id={`${key}-bcc`}
                 value={d.bcc}
+                exclude={[...d.to, ...d.cc]}
                 onChange={(bcc) => patch({ bcc })}
               />
             </div>

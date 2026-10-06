@@ -1132,6 +1132,12 @@ export const catalog: Catalog = {
     "Send cancelled — the message is back in Drafts":
       "Надсилання скасовано — лист повернувся до чернеток",
     "Send failed: {error}": "Не вдалося надіслати: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.":
+      "Не вдалося перевірити, чи цей лист уже надіслано. Перевірте «Надіслані», перш ніж надсилати його знову.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.":
+      "Не вдалося підтвердити, чи цей лист надіслано. Перевірте «Надіслані», перш ніж надсилати його знову.",
+    "This message had already been sent, so it wasn't sent again.":
+      "Цей лист уже було надіслано, тому повторно його не надсилали.",
     "Send invites": "Надіслати запрошення",
     "Send scheduled for {when}": "Надсилання заплановано на {when}",
     "Send without a subject?": "Надіслати без теми?",

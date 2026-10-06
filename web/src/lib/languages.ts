@@ -41,13 +41,13 @@ export const UI_LANGUAGES: readonly UiLanguage[] = [
   { tag: "es", name: "Español", beta: true },
   { tag: "fr", name: "Français", beta: true },
   { tag: "it", name: "Italiano", beta: true },
-  { tag: "nl", name: "Nederlands", beta: true },
+  { tag: "nl", name: "Nederlands" },
   { tag: "pt-BR", name: "Português (Brasil)", beta: true },
   { tag: "ja", name: "日本語", beta: true },
   { tag: "ru", name: "Русский", beta: true },
   { tag: "uk", name: "Українська", beta: true },
   { tag: "zh-Hans", name: "简体中文", beta: true },
-  { tag: "tr", name: "Türkçe", beta: true },
+  { tag: "tr", name: "Türkçe" },
 ];
 
 /** Where to report a bad translation. Beta languages depend on it. */

@@ -1836,6 +1836,15 @@ export const catalog: Catalog = {
 
     "Send failed: {error}": "Invio non riuscito: {error}",
 
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.":
+      "Non è stato possibile verificare se questo messaggio è già stato inviato. Controlla Posta inviata prima di inviarlo di nuovo.",
+
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.":
+      "Non è stato possibile confermare l'invio di questo messaggio. Controlla Posta inviata prima di inviarlo di nuovo.",
+
+    "This message had already been sent, so it wasn't sent again.":
+      "Questo messaggio era già stato inviato, quindi non è stato inviato di nuovo.",
+
     "Send invites": "Invia inviti",
 
     "Send scheduled for {when}": "Invio pianificato per {when}",

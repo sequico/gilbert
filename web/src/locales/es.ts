@@ -1147,6 +1147,12 @@ export const catalog: Catalog = {
     "Send cancelled — the message is back in Drafts":
       "Envío cancelado: el mensaje ha vuelto a Borradores",
     "Send failed: {error}": "No se pudo enviar: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.":
+      "No se pudo comprobar si este mensaje ya se envió. Revisa Enviados antes de volver a enviarlo.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.":
+      "No se pudo confirmar si este mensaje se envió. Revisa Enviados antes de volver a enviarlo.",
+    "This message had already been sent, so it wasn't sent again.":
+      "Este mensaje ya se había enviado, así que no se ha vuelto a enviar.",
     "Send invites": "Enviar invitaciones",
     "Send scheduled for {when}": "Envío programado para {when}",
     "Send without a subject?": "¿Enviar sin asunto?",

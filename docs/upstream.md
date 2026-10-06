@@ -39,9 +39,9 @@ and the trailers disagree, the trailers are what is true.
 ## The audited range
 
 Every upstream commit since the last wholesale merge — release `v2026.9.10-pr328`
-(`3c4f6a9f`) — up to the newest release, `v2026.9.27-ge5709b4` (`e5709b4`): 107
-commits, of which 43 are in this tree (33 near-verbatim, 10 adapted), and the
-rest are CI/infra (29), the administration surface (19), docs/i18n/process (9),
+(`3c4f6a9f`) — up to release `v2026.9.27-ge5709b4` (`e5709b4`): 107
+commits, of which 44 are in this tree (33 near-verbatim, 11 adapted), and the
+rest are CI/infra (29), the administration surface (19), docs/i18n/process (8),
 dependency bumps (5) and upstream's internal refactors (2).
 
 `upstream/main` is ahead of that release by a further 30 commits (15 work
@@ -154,7 +154,7 @@ UX is left to read.
 | `fecae2ac` | docs/i18n/process — not taken (ours) | 84% | Translate English built from template literals in attributes |
 | `d1731efd` | docs/i18n/process — not taken (ours) | 81% | Use American English spelling throughout |
 | `4cb1945e` | docs/i18n/process — not taken (ours) | 78% | Update nl.ts |
-| `e30fd73d` | docs/i18n/process — not taken (ours) | 64% | Take Dutch out of Beta with the native speaker's final review |
+| `e30fd73d` | in (adapted) | 64% | Take Dutch out of Beta with the native speaker's final review |
 | `860e89fa` | dependency bump — not taken (own Dependabot) | 40% | Bump lucide-react from 0.477.0 to 1.45.0 |
 | `30775292` | dependency bump — not taken (own Dependabot) | 30% | Bump @tanstack/react-virtual in the minor-and-patch group |
 | `1a4377de` | dependency bump — not taken (own Dependabot) | 14% | Bump vitest from 4.1.11 to 5.0.0 |
@@ -163,12 +163,12 @@ UX is left to read.
 | `bd6a605d` | refactor — not taken (collides with our structure) | 99% | Group six more clusters out of web/src/lib |
 | `f7712b1c` | refactor — not taken (collides with our structure) | 38% | Group the admin and calendar modules, and stop calling screenshots docs |
 
-## After the newest release
+## The newest release, `v2026.10.5-g20c32ed`
 
-`upstream/main` is ahead of the newest release: since `v2026.9.27-ge5709b4`
-(`e5709b4`) it carries 30 commits, 15 of them work commits (the rest are
-pull-request merges). Each row records where the reading stands, and a decision
-moves the row.
+Between `v2026.9.27-ge5709b4` (`e5709b4`) and the newest release,
+`v2026.10.5-g20c32ed` (`20c32ed`), upstream carries 36 commits, 18 of them work
+commits (the rest are pull-request merges). Each row records where the reading
+stands, and a decision moves the row.
 
 | upstream | disposition | overlap | subject |
 |---|---|---|---|
@@ -187,6 +187,21 @@ moves the row.
 | `8cb14571` | CI / infra — not taken (GitHub Actions here) | 83% | ci: copy each release to GitHub after the tag build |
 | `c725ba5c` | in (adapted to this tree's key set) | 39% | feat(i18n): add Turkish translation |
 | `d03a9595` | i18n — not taken (the strings belong to the image resize that was not taken) | 38% | Turkish: the three image size strings |
+| `22490d8` | in | 95% | Keep a narrow list's labels inside the row, on the sender's line |
+| `33dc8be` | in (adapted: the same rule moved Dutch too) | 64% | Turkish out of Beta: it comes from a native speaker |
+| `f8d282e` | in (adapted to this tree's send flow) | 90% | Never send a message twice; two small composer and sidebar fixes |
+
+## After the newest release
+
+`upstream/main` is ahead of `v2026.10.5-g20c32ed` (`20c32ed`) by 6 commits, 3 of
+them work commits (the rest are pull-request merges). Each row records where the
+reading stands, and a decision moves the row.
+
+| upstream | disposition | overlap | subject |
+|---|---|---|---|
+| `c1c4740` | in (this tree already counts ten translations) | 90% | Ten translations: count Turkish where the repo states the number |
+| `c6ae1bd` | attribution — not taken (our `NOTICE` names Coffey Labs) | 50% | Name Coffey Labs LLC as the copyright holder |
+| `78eafdb` | process — not taken (SECURITY/CONTRIBUTING/CODE_OF_CONDUCT are ours) | 50% | Send security and conduct reports to Coffey Labs LLC addresses |
 
 ## Keeping it current
 

@@ -1523,6 +1523,12 @@ export const catalog: Catalog = {
     "Send cancelled — the message is back in Drafts":
       "Gönderim iptal edildi — ileti Taslaklara döndü",
     "Send failed: {error}": "Gönderme başarısız: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.":
+      "Bu iletinin daha önce gönderilip gönderilmediği denetlenemedi. Yeniden göndermeden önce Gönderilenler klasörüne bakın.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.":
+      "Bu iletinin gönderilip gönderilmediği doğrulanamadı. Yeniden göndermeden önce Gönderilenler klasörüne bakın.",
+    "This message had already been sent, so it wasn't sent again.":
+      "Bu ileti zaten gönderilmişti, bu yüzden yeniden gönderilmedi.",
     "Send from this identity by default": "Varsayılan olarak bu kimlikten gönder",
     "Send invitation emails to guests": "Konuklara e-posta ile davetiye gönder",
     "Send invites": "Davetleri gönder",
