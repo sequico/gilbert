@@ -74,10 +74,13 @@ test("a gzipped response decodes to the bytes we would have sent plain", async (
   assert.deepEqual(Buffer.from(decoded), Buffer.from(plain));
 });
 
-test("the app shell is gzipped", async () => {
+test("the app shell is gzipped and still tells an edge not to transform it", async () => {
   const res = await createApp().request("/", { headers: { "accept-encoding": "gzip" } });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-encoding"), "gzip");
+  // The directive stops an edge injecting its own scripts into the shell; the
+  // origin's own gzip is not the transform it is about, so both hold at once.
+  assert.match(res.headers.get("cache-control") ?? "", /no-transform/);
 });
 
 test("proxy routes that forward upstream bytes are never compressed", async () => {

@@ -1789,6 +1789,12 @@ signed-in screen.
   'none'`, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`.
   Proxied blobs get a far stricter one — `sandbox; default-src 'none'; style-src
   'unsafe-inline'; img-src data:`.
+- **`no-transform` on HTML**: the app shell's `Cache-Control` carries it, so a
+  transforming proxy in front of a deployment (Cloudflare, in front of the
+  public demo) is told to leave the body alone. Without it the edge injects its
+  own Web Analytics beacon and Bot Fight Mode loader, which `script-src 'self'`
+  then blocks and reports as console violations; the directive keeps the policy
+  strict instead of widening it to admit what the proxy adds.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy:
   no-referrer`, a `Permissions-Policy` denying microphone, camera, geolocation,
   payment and USB, `Cross-Origin-Opener-Policy: same-origin`, HSTS over HTTPS, and

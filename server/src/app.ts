@@ -762,6 +762,7 @@ function compressResponses(basePath: string): MiddlewareHandler {
   const skip = UNCOMPRESSED_ROUTES.map((r) => `${basePath}${r}`);
   if (!config.compressJmap) skip.push(`${basePath}/api/jmap`);
   const offersEncoding = /\b(gzip|deflate)\b/i;
+  const noTransform = /(?:^|,)\s*?no-transform\s*?(?:,|$)/i;
   return async (c, next) => {
     /*
      * A client that did not ask for an encoding must not pay for one. Hono's
@@ -773,7 +774,29 @@ function compressResponses(basePath: string): MiddlewareHandler {
     if (!offersEncoding.test(c.req.header("accept-encoding") ?? "")) return next();
     const path = new URL(c.req.url).pathname;
     if (skip.some((prefix) => path.startsWith(prefix))) return next();
-    return inner(c, next);
+    /*
+     * The app shell carries `no-transform` so a transforming edge leaves the
+     * HTML alone -- its CSP forbids the scripts that edge would inject. Hono's
+     * compressor declines a body that carries the directive, and it should not
+     * here: `no-transform` is aimed at a proxy, not a reason to stop gzipping
+     * our own shell. Hide it while the compressor decides, and put it back on
+     * the response that leaves.
+     */
+    let directive: string | null = null;
+    await inner(c, async () => {
+      await next();
+      const cc = c.res.headers.get("Cache-Control");
+      if (!cc || !noTransform.test(cc)) return;
+      directive = cc;
+      const rest = cc
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => !/^no-transform$/i.test(part))
+        .join(", ");
+      if (rest) c.res.headers.set("Cache-Control", rest);
+      else c.res.headers.delete("Cache-Control");
+    });
+    if (directive) c.res.headers.set("Cache-Control", directive);
   };
 }
 

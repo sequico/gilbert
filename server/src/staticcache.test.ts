@@ -58,6 +58,14 @@ test("index.html was already revalidated, and still is", async () => {
   assert.match(await cacheControl("/"), /no-cache/);
 });
 
+test("HTML is served no-transform, so an edge cannot inject scripts into it", async () => {
+  // The shell's CSP admits no inline or third-party script, so `no-transform`
+  // is what stops a transforming proxy from injecting Cloudflare's Web
+  // Analytics beacon and Bot Fight Mode loader into it -- both of which the
+  // browser would block and report as violations.
+  assert.match(await cacheControl("/"), /no-transform/);
+});
+
 test("hashed assets are still immutable for a year", async () => {
   // The name changes when the bytes do, so there is nothing to go stale --
   // and this is the caching that makes the app load quickly at all.

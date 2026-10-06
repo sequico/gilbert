@@ -75,6 +75,20 @@ export const APP_CSP = [
   "manifest-src 'self'",
 ].join("; ");
 
+/*
+ * The shell's `Cache-Control`, and why `no-transform` is part of it.
+ *
+ * The policy above admits no inline and no third-party script. A transforming
+ * proxy in front of the app answers that by injecting its own scripts into the
+ * HTML anyway -- Cloudflare adds its Web Analytics beacon and its Bot Fight
+ * Mode loader -- and the browser blocks both and reports them as violations.
+ * An origin that says `no-transform` is the documented way to keep the edge's
+ * hands off the body, so the policy stays strict instead of being widened to
+ * admit what the proxy adds. `no-cache` beside it keeps the shell revalidated
+ * on every load.
+ */
+const HTML_CACHE_CONTROL = "no-cache, no-transform";
+
 /**
  * What a file is, for the purpose of "has it changed".
  *
@@ -186,7 +200,7 @@ export function staticHandler(root: string, basePath = ""): Handler {
       }
       warnOnBaseMismatch(indexCache.body);
       c.header("Content-Type", "text/html; charset=utf-8");
-      c.header("Cache-Control", "no-cache");
+      c.header("Cache-Control", HTML_CACHE_CONTROL);
       c.header("Content-Security-Policy", APP_CSP);
       c.header("ETag", indexCache.etag);
       if (notModified(c, indexCache.etag)) return c.body(null, 304);
@@ -223,7 +237,10 @@ export function staticHandler(root: string, basePath = ""): Handler {
       c.header("ETag", etag);
       if (rel.startsWith("/assets/") || rel.startsWith("assets/")) {
         c.header("Cache-Control", "public, max-age=31536000, immutable");
-      } else if (ext === ".html" || isNeverStale(rel, ext)) {
+      } else if (ext === ".html") {
+        c.header("Cache-Control", HTML_CACHE_CONTROL);
+        c.header("Content-Security-Policy", APP_CSP);
+      } else if (isNeverStale(rel, ext)) {
         c.header("Cache-Control", "no-cache");
         c.header("Content-Security-Policy", APP_CSP);
       } else {
