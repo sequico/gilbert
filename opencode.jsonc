@@ -34,5 +34,18 @@
   // wake the session, and the built trees are large.
   "watcher": {
     "ignore": ["node_modules/**", "**/dist/**", ".worktree/**", "coverage/**"]
+  },
+
+  // Codebase memory (codebase-memory-mcp): indexes this repository locally — no
+  // cloud, no API key, no telemetry — so the agent queries the code graph
+  // instead of re-reading files one by one. Declared here, and not globally, so
+  // the server and its context cost exist only while working in this project.
+  "mcp": {
+    "servers": {
+      "cbm": {
+        "type": "local",
+        "command": ["codebase-memory-mcp"]
+      }
+    }
   }
 }
