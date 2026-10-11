@@ -50,7 +50,22 @@ export const useSieve = create<SieveState>((set, get) => ({
   async init() {
     const accountId = useSession.getState().ownAccountFor(CAP.sieve);
     const available = Boolean(accountId && client.hasCapability(CAP.sieve));
-    set({ accountId, available });
+    /*
+     * A different account's session starts from nothing. Scripts and their
+     * contents are that account's own (a script is a file on its server), so a
+     * sign-in that follows another must not read -- or save from -- the text the
+     * previous account's scripts had.
+     */
+    if (get().accountId !== accountId)
+      set({
+        accountId,
+        available,
+        scripts: [],
+        contents: {},
+        loading: false,
+        error: null,
+      });
+    else set({ accountId, available });
     if (available) await get().load();
   },
 
@@ -245,3 +260,23 @@ export const useSieve = create<SieveState>((set, get) => ({
     if (types.has("SieveScript")) void get().load();
   },
 }));
+
+/*
+ * A session ending drops the scripts and the content read for them.
+ *
+ * A script's text belongs to the account it was read from: left in the store,
+ * a second reader's session can show it and `saveScript` can write from it.
+ * The account id goes too, so the next `init` sees a change and starts clean
+ * whatever this left behind.
+ */
+useSession.subscribe((s, prev) => {
+  if (s.status === "authenticated" || prev.status !== "authenticated") return;
+  useSieve.setState({
+    accountId: null,
+    available: false,
+    scripts: [],
+    contents: {},
+    loading: false,
+    error: null,
+  });
+});
