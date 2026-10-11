@@ -164,7 +164,7 @@ function headerLine(name: string, value: string): string {
       }
       const room = HEADER_LINE_MAX - current.length - 1;
       if (rest.length <= room) {
-        lines.push(current);
+        if (current) lines.push(current);
         current = ` ${rest}`;
         rest = "";
         continue;
@@ -175,7 +175,7 @@ function headerLine(name: string, value: string): string {
       rest = rest.slice(room);
     }
   }
-  lines.push(current);
+  if (current) lines.push(current);
   return lines.join("\r\n");
 }
 

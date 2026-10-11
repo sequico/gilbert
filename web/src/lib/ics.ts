@@ -422,6 +422,17 @@ function escText(s: string): string {
     .replace(/\r\n|[\r\n]/g, "\\n");
 }
 
+/**
+ * A URI or CAL-ADDRESS value's line safety. RFC 5545 does not backslash-escape
+ * these values — `URL` is a URI, `ORGANIZER`/`ATTENDEE` are CAL-ADDRESSes — so a
+ * comma or backslash inside one stays as it is (escaping it would corrupt a link
+ * or a quoted local part); the one thing removed is a line break, because a raw
+ * one would start a property line of its own.
+ */
+function flatValue(s: string): string {
+  return s.replace(/\r\n|[\r\n]/g, "");
+}
+
 /** "2026-09-02T09:00:00" -> "20260902T090000"; the date half alone for all-day. */
 function stamp(local: string, dateOnly = false): string {
   const compact = local.replace(/[-:]/g, "").replace(/\.\d+/, "");
@@ -517,7 +528,7 @@ function vevent(
     .map((l) => l.href)
     .filter(Boolean)[0];
   const url = virtual ?? link;
-  if (url) out.push(`URL:${escText(url)}`);
+  if (url) out.push(`URL:${flatValue(url)}`);
 
   const categories = [
     ...Object.keys(e.keywords ?? {}),
@@ -537,7 +548,7 @@ function vevent(
   if (e.color) out.push(`COLOR:${escText(e.color)}`);
 
   const organizer = e.organizerCalendarAddress ?? e.replyTo?.imip;
-  if (organizer) out.push(`ORGANIZER:${escText(organizer)}`);
+  if (organizer) out.push(`ORGANIZER:${flatValue(organizer)}`);
   for (const p of Object.values(e.participants ?? {})) {
     const address = participantAddress(p);
     if (!address) continue;
@@ -550,7 +561,7 @@ function vevent(
       p.expectReply ? "RSVP=TRUE" : "",
     ].filter(Boolean);
     out.push(
-      `ATTENDEE${params.length ? `;${params.join(";")}` : ""}:${escText(address)}`,
+      `ATTENDEE${params.length ? `;${params.join(";")}` : ""}:${flatValue(address)}`,
     );
   }
 
