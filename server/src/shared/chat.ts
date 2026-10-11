@@ -39,10 +39,16 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** A regex matching `@` immediately followed by one of the given addresses. */
+/**
+ * A regex matching `@` immediately followed by one of the given addresses and
+ * ending at a name boundary: `@sam@example.org` is a mention, while
+ * `@sam@example.orgx` is somebody else. It is the same boundary
+ * `mentionsName` draws for a local part, so the client's chip split and the
+ * agent's pre-filter agree on where a mention ends.
+ */
 export function mentionRegex(addresses: ReadonlyArray<string>): RegExp {
   if (!addresses.length) return /(?!)/;
-  return new RegExp(`@(${addresses.map(escapeRegExp).join("|")})`, "g");
+  return new RegExp(`@(${addresses.map(escapeRegExp).join("|")})(?![\\w.@-])`, "g");
 }
 
 /** A principal a message is addressed to, by mention. */

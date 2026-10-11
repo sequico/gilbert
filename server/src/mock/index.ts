@@ -253,31 +253,29 @@ const nextState = () => String(state.n++);
 
 /**
  * State tokens, one per data type (and per `x:` registry type, keyed by its
- * method-name prefix).
+ * method-name prefix), **per account**.
  *
- * A real 0.16 server keeps a state per type: `Email/get` and `FileNode/get`
- * hand back two unrelated tokens, and a client watching mail never sees its
- * `Email` state move because somebody uploaded a file. One counter for every
- * type makes the two indistinguishable -- and the agent's reconcile, which
- * walks `Email/changes` and `FileNode/changes` from separate recorded states
- * and writes back against the state it read (ADR 0003 and §6), cannot be
- * exercised against a mock that answers them from the same number.
- *
- * The tokens are per type but **not** per account: a real server scopes them
- * per account as well, and the mock does not, because the account dimension
- * would have to be threaded through every handler that stamps a state for a
- * difference no single-account test can observe. The direction of that
- * dishonesty is the safe one for compare-and-set: a write in one account moves
- * the token every account of that type sees, so a conditional write can be
- * refused that a real server would have accepted -- never accepted that a real
- * server would have refused.
+ * A real 0.16 server keeps a state per `(account, type)`: `Email/get` and
+ * `FileNode/get` hand back two unrelated tokens, a client watching mail never
+ * sees its `Email` state move because somebody uploaded a file, and a write in
+ * one account does not move the token another account of the same type reads.
+ * Both dimensions matter -- the agent design's reconcile walks `Email/changes`
+ * and `FileNode/changes` from separate recorded states and writes back against
+ * the state it read (ADR 0003 and §6), and its claims live in the group's
+ * account while its own stream claim lives in the agent's own account, so a
+ * mock that pooled the two accounts would refuse conditional writes a real
+ * server accepts.
  */
 const typeStates = new Map<string, number>();
-/** One data type's state, without moving it. */
-const stateOf = (type: string): string => String(typeStates.get(type) ?? 1);
-/** Move one data type's state on by one. */
-function bumpState(type: string): void {
-  typeStates.set(type, (typeStates.get(type) ?? 1) + 1);
+/** The account a request's state tokens are read and written under. */
+const accountOf = (a: Obj): string => String(a.accountId ?? ACCOUNT);
+/** One account's data-type state, without moving it. */
+const stateOf = (accountId: string, type: string): string =>
+  String(typeStates.get(`${accountId}\u0000${type}`) ?? 1);
+/** Move one account's data-type state on by one. */
+function bumpState(accountId: string, type: string): void {
+  const key = `${accountId}\u0000${type}`;
+  typeStates.set(key, (typeStates.get(key) ?? 1) + 1);
 }
 
 /* ---------- data ---------- */
@@ -2258,16 +2256,32 @@ function matchFilter(e: Obj, f: Obj | undefined): boolean {
   if (f.maxSize && Number(e.size) > Number(f.maxSize)) return false;
   return true;
 }
+/**
+ * Apply one JMAP patch (RFC 8620 §5.3): each key is a `/`-separated JSON
+ * Pointer, and every segment is walked -- so `participants/me/participationStatus`
+ * lands inside `participants.me`, the shape a real server stores, rather than
+ * becoming the single literal key `"me/participationStatus"` that no server
+ * produces.
+ *
+ * An intermediate object the path names but the object lacks is created rather
+ * than refused `invalidPatch`, and a `null` value removes the property at the
+ * path (the RFC's "remove the property"). Nothing in Gilbert sends a patch
+ * whose parent is absent, so the created intermediate is a case the mock is
+ * forgiving about, not one a client can rely on.
+ */
 function applyPatch(obj: Obj, patch: Obj) {
-  for (const [k, v] of Object.entries(patch)) {
-    if (k.includes("/")) {
-      const [root, ...rest] = k.split("/");
-      const key = rest.join("/");
-      const target = (obj[root!] as Obj) ?? {};
-      if (v === null) delete target[key];
-      else target[key] = v;
-      obj[root!] = target;
-    } else obj[k] = v;
+  for (const [path, v] of Object.entries(patch)) {
+    const parts = path.split("/");
+    let cur: Obj = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const segment = parts[i]!;
+      const next = cur[segment];
+      if (next == null || typeof next !== "object") cur[segment] = {};
+      cur = cur[segment] as Obj;
+    }
+    const last = parts[parts.length - 1]!;
+    if (v === null) delete cur[last];
+    else cur[last] = v;
   }
 }
 
@@ -2326,10 +2340,10 @@ function enforceLimits(name: string, args: Obj): void {
  * that lost its race has to be able to count on.
  *
  * Empty and zero, the defaults, refuse nothing: every other run of the mock
- * behaves as it does everywhere else. The account a refusal lands on is
- * resolved from the principal's own address, because that is what a test can
- * name — the mock's accounts are not one per person, and the state it keeps is
- * per type rather than per account (see above).
+ * behaves as it does everywhere else. The refusal lands on the principal whose
+ * address the test named, and moves the state of the account the request's own
+ * conditional write is against (`accountOf` above) — the account a real folder
+ * that moved would have moved.
  */
 export const casLoses = {
   /** The address whose conditional writes lose; empty for none. */
@@ -2380,7 +2394,7 @@ export const uploads = { count: 0 };
 function checkIfInState(a: Obj, type: string): void {
   const asked = a.ifInState;
   if (asked === undefined || asked === null) return;
-  if (String(asked) !== stateOf(type))
+  if (String(asked) !== stateOf(accountOf(a), type))
     throw new MethodError(
       "stateMismatch",
       `The ${type} objects have changed since the state given in ifInState.`,
@@ -2391,14 +2405,24 @@ function checkIfInState(a: Obj, type: string): void {
  * The response of a `/set`, stamped with the state of the type it wrote: the
  * state a client read (`oldState`) and the state it left behind (`newState`),
  * which is the token its next conditional write must carry.
+ *
+ * The state moves **only when the call really created, updated or destroyed
+ * something**: a `/set` that changed nothing (nothing asked for, everything
+ * refused) leaves it where it was, the way a real server does. Bumping on
+ * every call made a refused write invalidate a token read before it and hand a
+ * client a spurious `stateMismatch` for a token the server never invalidated.
  */
-const setResp = (type: string, extra: Obj = {}): Obj => {
-  const oldState = stateOf(type);
-  bumpState(type);
+const setResp = (accountId: string, type: string, extra: Obj = {}): Obj => {
+  const oldState = stateOf(accountId, type);
+  const changed =
+    Object.keys((extra.created as Obj) ?? {}).length > 0 ||
+    Object.keys((extra.updated as Obj) ?? {}).length > 0 ||
+    ((extra.destroyed as unknown[] | undefined)?.length ?? 0) > 0;
+  if (changed) bumpState(accountId, type);
   return {
-    accountId: ACCOUNT,
+    accountId,
     oldState,
-    newState: stateOf(type),
+    newState: stateOf(accountId, type),
     created: {},
     updated: {},
     destroyed: [],
@@ -2434,7 +2458,7 @@ function genericGet(list: Obj[], type: string) {
       : list;
     return {
       accountId: ACCOUNT,
-      state: stateOf(type),
+      state: stateOf(accountOf(a), type),
       list: found.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !list.some((x) => x.id === id)) : [],
     };
@@ -2582,7 +2606,7 @@ function genericSet(
       list.splice(i, 1);
       destroyed.push(id);
     }
-    return setResp(type, {
+    return setResp(accountOf(a), type, {
       created,
       updated,
       destroyed,
@@ -2710,7 +2734,7 @@ function calendarEventSet(a: Obj) {
     for (const cid of Object.keys((a.create as Obj) ?? {})) notCreated[cid] = denied();
     for (const id of Object.keys((a.update as Obj) ?? {})) notUpdated[id] = denied();
     for (const id of (a.destroy as string[]) ?? []) notDestroyed[id] = denied();
-    return setResp("CalendarEvent", {
+    return setResp(accountOf(a), "CalendarEvent", {
       created,
       updated,
       destroyed,
@@ -2827,7 +2851,7 @@ function calendarEventSet(a: Obj) {
     }
   }
 
-  return setResp("CalendarEvent", {
+  return setResp(accountOf(a), "CalendarEvent", {
     created,
     updated,
     destroyed,
@@ -2958,7 +2982,7 @@ const handlers: Record<string, Handler> = {
       .map((id) => ({ id, locale: MOCK_LOCALE, timeZone: null, description: null }));
     return {
       accountId: ACCOUNT,
-      state: stateOf("x:AccountSettings"),
+      state: stateOf(accountOf(a), "x:AccountSettings"),
       list: list.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids.filter((id) => id !== "singleton"),
     };
@@ -2990,7 +3014,7 @@ const handlers: Record<string, Handler> = {
       .map((r) => pick(r as Obj, a.properties as string[] | null));
     return {
       accountId: a.accountId ?? ACCOUNT,
-      state: stateOf("x:Account"),
+      state: stateOf(accountOf(a), "x:Account"),
       list,
       notFound: wanted.filter((id) => !ACCOUNT_REGISTRY.some((r) => r.id === id)),
     };
@@ -3017,7 +3041,7 @@ const handlers: Record<string, Handler> = {
     ).map((r) => String(r.id));
     return {
       accountId: a.accountId ?? ACCOUNT,
-      queryState: stateOf("x:Account"),
+      queryState: stateOf(accountOf(a), "x:Account"),
       canCalculateChanges: false,
       position: 0,
       ids: typeof a.limit === "number" ? ids.slice(0, a.limit) : ids,
@@ -3046,10 +3070,10 @@ const handlers: Record<string, Handler> = {
     recount();
     return r;
   },
-  "Mailbox/changes": () => ({
+  "Mailbox/changes": (a) => ({
     accountId: ACCOUNT,
     oldState: "1",
-    newState: stateOf("Mailbox"),
+    newState: stateOf(accountOf(a), "Mailbox"),
     hasMoreChanges: false,
     created: [],
     updated: [],
@@ -3091,11 +3115,11 @@ const handlers: Record<string, Handler> = {
     const limit = Number(a.limit ?? 50);
     return {
       accountId: ACCOUNT,
-      queryState: stateOf("Email"),
+      queryState: stateOf(accountOf(a), "Email"),
       canCalculateChanges: false,
       position: pos,
       ids: list.slice(pos, pos + limit).map((e) => e.id),
-      total: list.length,
+      ...(a.calculateTotal ? { total: list.length } : {}),
       limit,
     };
   },
@@ -3124,7 +3148,7 @@ const handlers: Record<string, Handler> = {
     return {
       accountId: ACCOUNT,
       oldState: String(a.sinceState ?? "1"),
-      newState: stateOf("Email"),
+      newState: stateOf(accountId, "Email"),
       hasMoreChanges: false,
       created: pick("created"),
       updated: pick("updated"),
@@ -3266,7 +3290,7 @@ const handlers: Record<string, Handler> = {
       arrived.push(id);
     }
     recount();
-    const res = setResp("Email", { created });
+    const res = setResp(accountOf(a), "Email", { created });
     recordEmailChange(
       String(a.accountId ?? ACCOUNT),
       { created: arrived },
@@ -3289,7 +3313,7 @@ const handlers: Record<string, Handler> = {
       .filter((t) => t.emailIds.length);
     return {
       accountId: ACCOUNT,
-      state: stateOf("Thread"),
+      state: stateOf(accountOf(a), "Thread"),
       list,
       notFound: ids.filter((id) => !list.some((t) => t.id === id)),
     };
@@ -3298,11 +3322,11 @@ const handlers: Record<string, Handler> = {
   // object they read and write is the *authenticating principal's* — the mock
   // knows two principals, and each has its own password, 2FA state and app
   // passwords.
-  "x:AccountPassword/get": (_a, who) => {
+  "x:AccountPassword/get": (a, who) => {
     const st = principalState(who.username);
     return {
       accountId: ACCOUNT,
-      state: stateOf("x:AccountPassword"),
+      state: stateOf(accountOf(a), "x:AccountPassword"),
       list: [
         {
           id: "singleton",
@@ -3318,12 +3342,12 @@ const handlers: Record<string, Handler> = {
     checkIfInState(a, "x:AccountPassword");
     const st = principalState(who.username);
     const patch = (a.update as Obj)?.singleton as Obj | undefined;
-    if (!patch) return setResp("x:AccountPassword", { updated: {} });
+    if (!patch) return setResp(accountOf(a), "x:AccountPassword", { updated: {} });
     const current = patch.currentSecret as string | undefined;
     const code = (patch["otpAuth/otpCode"] ??
       (patch.otpAuth as Obj | undefined)?.otpCode) as string | undefined;
     if (!current) {
-      return setResp("x:AccountPassword", {
+      return setResp(accountOf(a), "x:AccountPassword", {
         notUpdated: {
           singleton: {
             type: "forbidden",
@@ -3334,14 +3358,14 @@ const handlers: Record<string, Handler> = {
       });
     }
     if (current !== st.password) {
-      return setResp("x:AccountPassword", {
+      return setResp(accountOf(a), "x:AccountPassword", {
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
         },
       });
     }
     if (st.otpUrl && !code) {
-      return setResp("x:AccountPassword", {
+      return setResp(accountOf(a), "x:AccountPassword", {
         notUpdated: {
           singleton: {
             type: "forbidden",
@@ -3352,7 +3376,7 @@ const handlers: Record<string, Handler> = {
       });
     }
     if (st.otpUrl && !checkOtpFor(st, code!)) {
-      return setResp("x:AccountPassword", {
+      return setResp(accountOf(a), "x:AccountPassword", {
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
         },
@@ -3361,7 +3385,7 @@ const handlers: Record<string, Handler> = {
     const secret = patch.secret as string | undefined;
     if (secret !== undefined && secret !== MASKED) {
       if (secret.length < 8) {
-        return setResp("x:AccountPassword", {
+        return setResp(accountOf(a), "x:AccountPassword", {
           notUpdated: {
             singleton: {
               type: "invalidProperties",
@@ -3377,7 +3401,7 @@ const handlers: Record<string, Handler> = {
       const url = patch["otpAuth/otpUrl"] as string | null;
       if (url !== MASKED) st.otpUrl = url;
     }
-    return setResp("x:AccountPassword", { updated: { singleton: null } });
+    return setResp(accountOf(a), "x:AccountPassword", { updated: { singleton: null } });
   },
   /*
    * Push subscriptions. The JMAP half can be modelled; delivery cannot -- that
@@ -3397,7 +3421,7 @@ const handlers: Record<string, Handler> = {
     // `keys` is write-only in JMAP: the server never hands it back.
     return {
       accountId: ACCOUNT,
-      state: stateOf("PushSubscription"),
+      state: stateOf(accountOf(a), "PushSubscription"),
       list: list.map((s) => {
         const { keys: _drop, ...rest } = s;
         return rest;
@@ -3545,7 +3569,7 @@ const handlers: Record<string, Handler> = {
         destroyed.push(id);
       }
     }
-    return setResp("PushSubscription", {
+    return setResp(accountOf(a), "PushSubscription", {
       created,
       notCreated,
       updated,
@@ -3584,7 +3608,7 @@ const handlers: Record<string, Handler> = {
         destroyed.push(id);
       }
     }
-    return setResp("x:AppPassword", { created, destroyed });
+    return setResp(accountOf(a), "x:AppPassword", { created, destroyed });
   },
   "Identity/get": (a) => genericGet(identitiesFor(a.accountId), "Identity")(a),
   "Identity/set": (a) => {
@@ -3600,7 +3624,7 @@ const handlers: Record<string, Handler> = {
           return typeof v === "string" && Buffer.byteLength(v, "utf8") > 2047;
         });
         if (over)
-          return setResp("Identity", {
+          return setResp(accountOf(a), "Identity", {
             [where]: {
               [key]: {
                 type: "invalidProperties",
@@ -3638,7 +3662,7 @@ const handlers: Record<string, Handler> = {
       : submissions;
     return {
       accountId: ACCOUNT,
-      state: stateOf("EmailSubmission"),
+      state: stateOf(accountOf(a), "EmailSubmission"),
       list: found.map((x) => pick(submissionView(x), a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !submissions.some((x) => x.id === id)) : [],
     };
@@ -3652,11 +3676,11 @@ const handlers: Record<string, Handler> = {
     const limit = Number(a.limit ?? 50);
     return {
       accountId: ACCOUNT,
-      queryState: stateOf("EmailSubmission"),
+      queryState: stateOf(accountOf(a), "EmailSubmission"),
       canCalculateChanges: false,
       position: pos,
       ids: list.slice(pos, pos + limit).map((s) => s.id),
-      total: list.length,
+      ...(a.calculateTotal ? { total: list.length } : {}),
       limit,
     };
   },
@@ -3748,16 +3772,16 @@ const handlers: Record<string, Handler> = {
       updated[id] = null;
     }
     recount();
-    return setResp("EmailSubmission", {
+    return setResp(accountOf(a), "EmailSubmission", {
       created,
       updated,
       ...(Object.keys(notCreated).length ? { notCreated } : {}),
       ...(Object.keys(notUpdated).length ? { notUpdated } : {}),
     });
   },
-  "VacationResponse/get": () => ({
+  "VacationResponse/get": (a) => ({
     accountId: ACCOUNT,
-    state: stateOf("VacationResponse"),
+    state: stateOf(accountOf(a), "VacationResponse"),
     list: [vacation],
     notFound: [],
   }),
@@ -3765,7 +3789,9 @@ const handlers: Record<string, Handler> = {
     checkIfInState(a, "VacationResponse");
     const p = (a.update as Obj)?.singleton as Obj | undefined;
     if (p) vacation = { ...vacation, ...p };
-    return setResp("VacationResponse", { updated: { singleton: null } });
+    return setResp(accountOf(a), "VacationResponse", {
+      ...(p ? { updated: { singleton: null } } : {}),
+    });
   },
   "Quota/get": (a) => {
     /*
@@ -3916,7 +3942,7 @@ const handlers: Record<string, Handler> = {
       }
     }
 
-    return setResp("x:SieveSystemScript", {
+    return setResp(accountOf(a), "x:SieveSystemScript", {
       created,
       updated,
       destroyed,
@@ -3974,7 +4000,7 @@ const handlers: Record<string, Handler> = {
         canCalculateChanges: false,
         position: 0,
         ids: matching.map((e) => e.id),
-        total: matching.length,
+        ...(a.calculateTotal ? { total: matching.length } : {}),
       };
     }
     const from = filter.after
@@ -3993,7 +4019,7 @@ const handlers: Record<string, Handler> = {
       canCalculateChanges: false,
       position: 0,
       ids,
-      total: ids.length,
+      ...(a.calculateTotal ? { total: ids.length } : {}),
     };
   },
   "CalendarEvent/get": (a) => {
@@ -4004,7 +4030,7 @@ const handlers: Record<string, Handler> = {
     if (!ids)
       return {
         accountId: ACCOUNT,
-        state: stateOf("CalendarEvent"),
+        state: stateOf(accountOf(a), "CalendarEvent"),
         list: list.map((x) => eventGetView(x, false, properties)),
         notFound: [],
       };
@@ -4024,7 +4050,7 @@ const handlers: Record<string, Handler> = {
     }
     return {
       accountId: ACCOUNT,
-      state: stateOf("CalendarEvent"),
+      state: stateOf(accountOf(a), "CalendarEvent"),
       list: found,
       notFound,
     };
@@ -4144,8 +4170,8 @@ const handlers: Record<string, Handler> = {
           };
         return {
           accountId: a.accountId,
-          oldState: stateOf("AddressBook"),
-          newState: stateOf("AddressBook"),
+          oldState: stateOf(accountOf(a), "AddressBook"),
+          newState: stateOf(accountOf(a), "AddressBook"),
           updated: null,
           notUpdated,
         };
@@ -4175,7 +4201,7 @@ const handlers: Record<string, Handler> = {
       canCalculateChanges: false,
       position: 0,
       ids: list.map((c) => c.id),
-      total: list.length,
+      ...(a.calculateTotal ? { total: list.length } : {}),
     };
   },
   // An empty `properties` list returns `id` alone, which `pick` already does.
@@ -4233,8 +4259,8 @@ const handlers: Record<string, Handler> = {
       const destroyed = (a.destroy as string[] | undefined) ? [] : undefined;
       return {
         accountId: a.accountId,
-        oldState: stateOf("ContactCard"),
-        newState: stateOf("ContactCard"),
+        oldState: stateOf(accountOf(a), "ContactCard"),
+        newState: stateOf(accountOf(a), "ContactCard"),
         ...(created
           ? {
               created,
@@ -4286,7 +4312,7 @@ const handlers: Record<string, Handler> = {
       recordContactCardChange(
         account,
         { created: createdIds, updated: updatedIds, destroyed: destroyedIds },
-        stateOf("ContactCard"),
+        stateOf(account, "ContactCard"),
       );
       broadcast(["ContactCard"], account);
     }
@@ -4313,7 +4339,7 @@ const handlers: Record<string, Handler> = {
     return {
       accountId: ACCOUNT,
       oldState: String(a.sinceState ?? "1"),
-      newState: stateOf("ContactCard"),
+      newState: stateOf(accountId, "ContactCard"),
       hasMoreChanges: false,
       created: pick("created"),
       updated: pick("updated"),
@@ -4356,9 +4382,10 @@ const handlers: Record<string, Handler> = {
     });
     // Position/limit paging, the way a real JMAP server answers it: the ids
     // come in the server's own order (here, insertion order = creation
-    // order), `total` counts every match regardless of the page, and the
-    // page never runs past the list. The chat transcript pages backwards
-    // from the end through this (older messages on scroll-up, ADR 0005).
+    // order), and the page never runs past the list. `total` -- the population
+    // the filter matched -- is answered only when `calculateTotal` asks for it.
+    // The chat transcript pages backwards from the end through this (older
+    // messages on scroll-up, ADR 0005).
     const total = list.length;
     const position = Number(a.position ?? 0);
     const limit = a.limit as number | undefined;
@@ -4370,7 +4397,7 @@ const handlers: Record<string, Handler> = {
       canCalculateChanges: false,
       position,
       ids: paged,
-      total,
+      ...(a.calculateTotal ? { total } : {}),
     };
   },
   "FileNode/get": (a) => genericGet(nodesFor(a.accountId), "FileNode")(a),
@@ -4398,7 +4425,7 @@ const handlers: Record<string, Handler> = {
     return {
       accountId: ACCOUNT,
       oldState: String(a.sinceState ?? "1"),
-      newState: stateOf("FileNode"),
+      newState: stateOf(accountId, "FileNode"),
       hasMoreChanges: false,
       created: pick("created"),
       updated: pick("updated"),
@@ -4417,7 +4444,7 @@ const handlers: Record<string, Handler> = {
       who.username === casLoses.forAddress
     ) {
       casLoses.count -= 1;
-      bumpState("FileNode");
+      bumpState(accountOf(a), "FileNode");
     }
     const family = nodesFor(a.accountId);
     /*
@@ -5024,7 +5051,7 @@ function recordContactCardChange(
 function broadcast(types: string[], accountId: string = ACCOUNT) {
   /* Each type carries its own state, the way a real StateChange does: a client
      that watches mail must not be told FileNode's state as if it were Email's. */
-  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, stateOf(t)])) } })}\n\n`;
+  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, stateOf(accountId, t)])) } })}\n\n`;
   for (const c of sseClients) c.write(payload);
 }
 
@@ -5308,8 +5335,12 @@ setInterval(() => {
   recount();
   /* The injected message is a real arrival: it moves the Email state and lands
      in the change log, so a client reconciling from a recorded state sees it. */
-  bumpState("Email");
-  recordEmailChange(ACCOUNT, { created: [String(injected.id)] }, stateOf("Email"));
+  bumpState(ACCOUNT, "Email");
+  recordEmailChange(
+    ACCOUNT,
+    { created: [String(injected.id)] },
+    stateOf(ACCOUNT, "Email"),
+  );
   broadcast(["Email", "Mailbox", "Thread"]);
 }, 120_000).unref();
 
@@ -5352,8 +5383,8 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
   });
   /* A node the mock itself adds: the FileNode state moves first, so the change
      is recorded at a state its readers can advance to. */
-  bumpState("FileNode");
-  recordFileNodeChange(accountId, { created: [id] }, stateOf("FileNode"));
+  bumpState(accountId, "FileNode");
+  recordFileNodeChange(accountId, { created: [id] }, stateOf(accountId, "FileNode"));
   broadcast(["FileNode"], accountId);
 }
 setInterval(() => {

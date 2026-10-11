@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { unreadCount } from "./chat.js";
+import { mentionsAddress, mentionsName, unreadCount } from "./chat.js";
 
 /**
  * The unread badge of a paged transcript.
@@ -41,4 +41,24 @@ test("a window that starts at position 0 reads a missing marker as deleted", () 
 test("no marker, and a marker born on an empty chat, ignore paging", () => {
   assert.equal(unreadCount(windowOf(["m1", "m2"]), null, false), 0);
   assert.equal(unreadCount(windowOf(["m1", "m2"]), { lastRead: null }, false), 2);
+});
+
+test("a mention ends at the address, not inside a longer one", () => {
+  /*
+   * An unanchored `@(address)` test matched `@sam@example.org` inside
+   * `@sam@example.orgx`, so the agent's pre-filter woke for a message that
+   * addressed somebody else. The full-address form now draws the same boundary
+   * `mentionsName` already drew for the local part.
+   */
+  const address = "sam@example.org";
+  assert.equal(mentionsAddress("@sam@example.org", address), true);
+  assert.equal(mentionsAddress("hi @sam@example.org, welcome", address), true);
+  assert.equal(
+    mentionsAddress("@sam@example.orgx", address),
+    false,
+    "an address that is a prefix of a longer one is not a mention of it",
+  );
+
+  assert.equal(mentionsName("@sam can you look?", address), true);
+  assert.equal(mentionsName("@samuel no", address), false);
 });

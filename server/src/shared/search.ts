@@ -148,6 +148,16 @@ export function parseQuery(q: string): ParsedQuery {
     if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
     const neg = key.startsWith("-");
     const k = neg ? key.slice(1) : key;
+    /*
+     * Only `-label:`/`-keyword:` are negatable; the grammar promises no other
+     * `-key:`. Any other negated operator is therefore not one, and is searched
+     * as the bare text it is rather than applied as the **positive** filter the
+     * `-` was written to invert — `-from:ada` must not mean `from:ada`.
+     */
+    if (neg && k !== "label" && k !== "keyword") {
+      p.text.push(tok);
+      continue;
+    }
     switch (k) {
       case "from":
         p.from = val;

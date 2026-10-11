@@ -49,6 +49,17 @@ describe("parseQuery", () => {
     expect(p.notLabel).toEqual(["done"]);
     expect(p.starred).toBe(true);
   });
+
+  it("does not read a negated operator it cannot invert as a positive filter", () => {
+    // The grammar promises only `-label:`/`-keyword:` are negatable, so
+    // `-from:ada` is not a `from:` filter that lost its sign -- that would make
+    // an exclusion search for the thing it meant to exclude.
+    const p = parseQuery("-from:ada -subject:q3 -in:trash");
+    expect(p.from).toBeUndefined();
+    expect(p.subject).toBeUndefined();
+    expect(p.in).toBeUndefined();
+    expect(p.text).toEqual(["-from:ada", "-subject:q3", "-in:trash"]);
+  });
 });
 
 describe("buildFilter", () => {

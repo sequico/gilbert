@@ -237,3 +237,51 @@ test("a keyword's total moves when one message of a conversation is written", as
     "and one per message when the sidebar counts messages",
   );
 });
+
+/*
+ * A query's `total` is the population, and a real server reports it only when
+ * `calculateTotal` asks -- `Principal/query` has always been modelled that way.
+ * The others answered it unasked, which made a paging client that never asks
+ * behave differently here than against a server. Pinned for every query method
+ * the mock serves, so the gate is not lost one handler at a time.
+ */
+test("a query reports no total unless calculateTotal asks for it", async () => {
+  const using = [
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:mail",
+    "urn:ietf:params:jmap:filenode",
+    "urn:ietf:params:jmap:contacts",
+    "urn:ietf:params:jmap:submission",
+    "urn:ietf:params:jmap:calendars",
+  ];
+  const names = [
+    "Email/query",
+    "FileNode/query",
+    "ContactCard/query",
+    "EmailSubmission/query",
+    "CalendarEvent/query",
+  ];
+  const ask = async (extra: Record<string, unknown>) => {
+    const res = await post("/api/jmap", {
+      using,
+      methodCalls: names.map((name, i) => [name, { accountId: "a1", ...extra }, `q${i}`]),
+    });
+    assert.equal(res.status, 200, "the batch should answer");
+    return names.map(
+      (name, i) =>
+        [
+          name,
+          (((res.body?.methodResponses ?? []) as MethodCall[]).find(
+            (r) => r[2] === `q${i}`,
+          )![1] ?? {}) as Record<string, unknown>,
+        ] as const,
+    );
+  };
+
+  for (const [name, answered] of await ask({})) {
+    assert.equal("total" in answered, false, `${name} reports no total unasked`);
+  }
+  for (const [name, answered] of await ask({ calculateTotal: true })) {
+    assert.equal(typeof answered.total, "number", `${name} reports a total when asked`);
+  }
+});

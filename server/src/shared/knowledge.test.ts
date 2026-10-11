@@ -7,6 +7,7 @@ import {
   buildState,
   checklistBlocks,
   checklistGroups,
+  compareKnowledgeSiblings,
   conditionClause,
   emptyChecklist,
   isChecklistTemplate,
@@ -588,4 +589,34 @@ test("a section's gate is bounded, validated and carried into the resolution", (
   );
   const blocks = JSON.stringify(checklistBlocks(checklist));
   assert.match(blocks, /after production/, "the derived body names the gate");
+});
+
+test("sibling order pins a locale, so Node and a browser read the same tree", () => {
+  /*
+   * `localeCompare` without a locale follows the runtime's default, and a
+   * browser and Node need not share it. The comparison names `"en"`, so the
+   * tree the server lists and the tree the client builds order the same way.
+   * The titles below are chosen so the pinned `en` collation and a code-point
+   * comparison disagree: that is what makes this a test of the locale rather
+   * than of sorting at all.
+   */
+  const titles = ["Zebra", "apple", "Ávila", "banana", "10 things"];
+  const expected = [...titles].sort((a, b) => a.localeCompare(b, "en"));
+  const entries = expected.map((title) => ({ order: 0, title, nodeId: title }));
+  const shuffled = [...entries].reverse();
+  shuffled.sort(compareKnowledgeSiblings);
+  assert.deepEqual(
+    shuffled.map((s) => s.title),
+    expected,
+    "titles order the way the pinned locale does",
+  );
+
+  // Equal titles, even equal order, fall through to the node id the same way.
+  assert.ok(
+    compareKnowledgeSiblings(
+      { order: 0, title: "Same", nodeId: "a" },
+      { order: 0, title: "Same", nodeId: "b" },
+    ) < 0,
+    "a tie on title is broken by the node id",
+  );
 });

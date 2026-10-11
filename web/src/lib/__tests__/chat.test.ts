@@ -212,6 +212,11 @@ describe("mention round-trip", () => {
       "ada@example.org",
       " there",
     ]);
+    // A longer address that merely begins with a mention is not one: the chip
+    // split draws the same boundary the agent's pre-filter does.
+    expect("@ada@example.orgx".split(mentionRegex(["ada@example.org"]))).toEqual([
+      "@ada@example.orgx",
+    ]);
     expect(localPart("ada@example.org")).toBe("ada");
   });
 });

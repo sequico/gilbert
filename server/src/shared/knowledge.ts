@@ -990,14 +990,18 @@ export function knowledgeSummary(input: {
 /**
  * The one sibling order, so a tree the server lists and a tree the client
  * builds read the same way: by the free `order` first, then by title.
+ *
+ * The title comparison names its locale (`"en"`), and so does the `nodeId`
+ * tie-break: a runtime-default `localeCompare` orders the same tree
+ * differently under Node and under a browser.
  */
 export function compareKnowledgeSiblings(
   a: Pick<KnowledgeSummary, "order" | "title" | "nodeId">,
   b: Pick<KnowledgeSummary, "order" | "title" | "nodeId">,
 ): number {
   if (a.order !== b.order) return a.order - b.order;
-  const byTitle = a.title.localeCompare(b.title);
-  return byTitle !== 0 ? byTitle : a.nodeId.localeCompare(b.nodeId);
+  const byTitle = a.title.localeCompare(b.title, "en");
+  return byTitle !== 0 ? byTitle : a.nodeId.localeCompare(b.nodeId, "en");
 }
 
 /**

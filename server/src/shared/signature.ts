@@ -33,8 +33,7 @@ export function utf8Length(value: string): number {
 /**
  * A plain-text signature on the end of a body.
  *
- * Two newlines below the text (one if the text already ended with a
- * newline), then the delimiter line, then the signature itself.
+ * Two newlines, then the delimiter line, then the signature itself.
  */
 export function textSignatureBlock(signature: string | null | undefined): string {
   if (!signature) return "";

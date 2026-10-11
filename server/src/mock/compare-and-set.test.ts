@@ -402,3 +402,74 @@ test("an upload does not move the FileNode state the mock hands out", async () =
     "the token read before the upload is still accepted after it",
   );
 });
+
+/*
+ * The two dimensions of the state a set is judged against: the account as well
+ * as the type. A real server scopes its token to `(account, type)`, and the
+ * agent design leans on it -- a claim lives in the group's account while the
+ * agent's own stream claim lives in its own account -- so a mock that pooled
+ * the accounts would refuse a conditional write a real server accepts.
+ */
+test("a write in one account leaves another account's state where it was", async () => {
+  // One request, so no timer injection can move the group's state between the
+  // read and the write this asserts about.
+  const batch = await jmap([
+    ["FileNode/get", { accountId: GROUP_ACCOUNT, ids: [] }, "g1"],
+    [
+      "FileNode/set",
+      {
+        accountId: ACCOUNT,
+        create: {
+          o: { name: "other-account-node", nodeType: "directory", parentId: null },
+        },
+      },
+      "s1",
+    ],
+    ["FileNode/get", { accountId: GROUP_ACCOUNT, ids: [] }, "g2"],
+    [
+      "FileNode/set",
+      {
+        accountId: GROUP_ACCOUNT,
+        "#ifInState": { resultOf: "g1", name: "FileNode/get", path: "/state" },
+        create: { a: { name: "group-after", nodeType: "directory", parentId: null } },
+      },
+      "s2",
+    ],
+  ]);
+  assert.equal(
+    responseOf(batch, "s1")[0],
+    "FileNode/set",
+    "the demo account's write landed",
+  );
+  assert.equal(
+    String(responseOf(batch, "g1")[1].state),
+    String(responseOf(batch, "g2")[1].state),
+    "the group's FileNode state did not move for a write in the demo account",
+  );
+  assert.equal(
+    responseOf(batch, "s2")[0],
+    "FileNode/set",
+    "the group token read before the other account's write is still accepted",
+  );
+});
+
+test("a set that changed nothing leaves the state where it was", async () => {
+  const batch = await jmap([
+    ["FileNode/get", { accountId: GROUP_ACCOUNT, ids: [] }, "g1"],
+    [
+      "FileNode/set",
+      { accountId: GROUP_ACCOUNT, update: { "no-such-node": { name: "x" } } },
+      "s",
+    ],
+    ["FileNode/get", { accountId: GROUP_ACCOUNT, ids: [] }, "g2"],
+  ]);
+  assert.equal(responseOf(batch, "s")[0], "FileNode/set");
+  assert.deepEqual(responseOf(batch, "s")[1].notUpdated, {
+    "no-such-node": { type: "notFound" },
+  });
+  assert.equal(
+    String(responseOf(batch, "g1")[1].state),
+    String(responseOf(batch, "g2")[1].state),
+    "a refused write does not move the state a real server left alone",
+  );
+});

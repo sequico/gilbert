@@ -392,3 +392,50 @@ describe("an override that moves an occurrence", () => {
     assert.equal(all.filter((o) => o.recurrenceId === "2026-09-08T09:00:00").length, 1);
   });
 });
+
+describe("resolving an occurrence far into a long series", () => {
+  /*
+   * The expansion a query runs is capped by a step budget so a rule with no end
+   * cannot run away. Resolution must not inherit that cap: a held id thousands
+   * of occurrences into a daily series has to resolve, which a live server does
+   * and the fixed cap answered `notFound` for.
+   */
+  const daily = (count?: number) =>
+    ({
+      id: "ev-daily",
+      "@type": "Event",
+      uid: "u-daily",
+      title: "Daily",
+      start: "2026-01-01T09:00:00",
+      duration: "PT30M",
+      recurrenceRule: {
+        "@type": "RecurrenceRule",
+        frequency: "daily",
+        ...(count != null ? { count } : {}),
+      },
+    }) as Record<string, unknown>;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  /** The recurrence id `days` after the first, in the series' local form. */
+  const dayPlus = (days: number): string => {
+    const d = new Date(2026, 0, 1, 9, 0, 0);
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00:00`;
+  };
+
+  it("resolves an occurrence past the expansion's step cap", () => {
+    const recurrenceId = dayPlus(899); // the 900th occurrence
+    const occ = occurrenceAt(daily(1000), recurrenceId);
+    assert.ok(occ, `${recurrenceId} is the 900th occurrence and must resolve`);
+    assert.equal(occ.recurrenceId, recurrenceId);
+  });
+
+  it("resolves the far end of an unbounded daily series", () => {
+    const recurrenceId = dayPlus(5000);
+    assert.ok(occurrenceAt(daily(), recurrenceId), `${recurrenceId} must resolve`);
+  });
+
+  it("still refuses a date past count", () => {
+    assert.equal(occurrenceAt(daily(1000), dayPlus(1000)), null);
+  });
+});

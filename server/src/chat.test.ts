@@ -311,7 +311,13 @@ test("FileNode/query pages by position and reports the real total", async () => 
     const responses = await jmap([
       [
         "FileNode/query",
-        { accountId: GROUP_ACCOUNT, filter: { parentId: chatFolder }, position, limit },
+        {
+          accountId: GROUP_ACCOUNT,
+          filter: { parentId: chatFolder },
+          position,
+          limit,
+          calculateTotal: true,
+        },
         "0",
       ],
     ]);

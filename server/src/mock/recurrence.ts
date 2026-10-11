@@ -25,7 +25,14 @@ import { localDateTime } from "../shared/localDateTime.js";
 import { WEEKDAY_KEYS } from "../shared/weekdays.js";
 import type { Obj } from "./types.js";
 
-/** How far the expander will walk before giving up on a rule. */
+/**
+ * How far an expansion walks before giving up on a rule that names neither
+ * `count` nor `until`.
+ *
+ * `to` normally ends the walk, so this only stops an infinite rule asked for
+ * all of time. Resolution (`occurrenceAt`) asks about one date and passes a
+ * step budget sized to it, so a long series is never cut short here.
+ */
 const MAX_ITERATIONS = 750;
 
 /**
@@ -92,7 +99,12 @@ interface Rule {
  * An event with no rule has exactly one, at index 0 — which is what gives a
  * one-off the synthetic id a real server would give it.
  */
-export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[] {
+export function expandOccurrences(
+  base: Obj,
+  from: Date,
+  to: Date,
+  maxSteps = MAX_ITERATIONS,
+): Occurrence[] {
   const overrides = (base.recurrenceOverrides as Record<string, Obj> | undefined) ?? {};
   const startStr = base.start as string;
   if (!startStr) return [];
@@ -142,7 +154,7 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
   let emitted = 0;
   const cursor = new Date(first);
 
-  for (let step = 0; step < MAX_ITERATIONS; step++) {
+  for (let step = 0; step < maxSteps; step++) {
     if (until && cursor > until) break;
     if (rule.count != null && emitted >= rule.count) break;
 
@@ -159,7 +171,7 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
     // expands `INTERVAL` on weekly or monthly ones (it emits every matching
     // day, not every interval-th week or month) — a divergence the web editor
     // never asks for, since it offers one weekday at interval 1, and bounded
-    // here by `MAX_ITERATIONS` rather than left to run.
+    // above by the step cap rather than left to run.
     if (byDay) cursor.setDate(cursor.getDate() + 1);
     else if (rule.frequency === "daily") cursor.setDate(cursor.getDate() + interval);
     else if (rule.frequency === "weekly") cursor.setDate(cursor.getDate() + 7 * interval);
@@ -283,8 +295,26 @@ export function splitOccurrencePatch(patch: Obj): { rejected?: string; applied: 
  *
  * An id whose date the rule no longer generates — excluded, or past a `count`
  * — resolves to nothing, and the caller turns that into `notFound`.
+ *
+ * The walk is bounded at the date the id names, and given the steps that date
+ * needs, rather than at the fixed cap an unbounded expansion uses: a daily
+ * series thousands of occurrences long resolves its far end here, where the cap
+ * stopped short and answered `notFound` for an occurrence a live server
+ * resolves. A `count` or `until` still ends it the way the rule says.
  */
 export function occurrenceAt(base: Obj, recurrenceId: string): Occurrence | null {
-  const all = expandOccurrences(base, new Date(-8640000000000), new Date(8640000000000));
+  const target = parseLocal(recurrenceId);
+  const first = parseLocal(base.start as string);
+  if (Number.isNaN(target.getTime()) || Number.isNaN(first.getTime())) return null;
+  const spanDays = Math.max(
+    0,
+    Math.ceil((target.getTime() - first.getTime()) / 86_400_000),
+  );
+  const all = expandOccurrences(
+    base,
+    new Date(-8640000000000),
+    new Date(target.getTime() + 1),
+    spanDays + 2,
+  );
   return all.find((o) => o.recurrenceId === recurrenceId) ?? null;
 }
