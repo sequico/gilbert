@@ -75,6 +75,40 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     if (!mdnId) throw new Error("The server would not accept the receipt");
 
     /*
+     * The receipt is filed before anything is submitted, so every failure past
+     * this point has to take it back out: an unsent receipt left in Sent looks
+     * exactly like one that went.
+     */
+    const discardReceipt = () => {
+      void client.call("Email/set", { accountId, destroy: [mdnId] });
+    };
+
+    /*
+     * The submission is the receipt: no response at all means it did not go.
+     *
+     * Every failure from here clears the mark again, because the mark is the
+     * record that a receipt exists -- and none does. Undoing it is best-effort
+     * by nature (the server may be the reason we are here), so a clearing that
+     * also fails is reported rather than swallowed: the message is then marked
+     * with no receipt behind it, which is the safe direction to err in and the
+     * reader is told which one they are in.
+     */
+    const didNotGo = async (detail: string): Promise<never> => {
+      discardReceipt();
+      let cleared = true;
+      try {
+        await clearDecision(accountId, email.id);
+      } catch {
+        cleared = false;
+      }
+      throw new Error(
+        cleared
+          ? detail
+          : `${detail} — and this message is still marked as answered, so it will not offer the receipt again`,
+      );
+    };
+
+    /*
      * **The record goes down before the receipt leaves.** `$mdnsent` is what
      * stops a later look -- or another client entirely -- from offering the same
      * receipt again, so writing it is the decision, and the submission is the
@@ -88,64 +122,51 @@ export async function sendReadReceipt(email: Email): Promise<void> {
      * receipt did not go -- is the one that can be repaired, and it is repaired
      * below rather than left as a claim.
      */
-    await markDecision(accountId, email.id);
+    try {
+      await markDecision(accountId, email.id);
+    } catch (err) {
+      // The mark was refused, so no submission will be made for this receipt:
+      // it is taken back out rather than left in Sent.
+      discardReceipt();
+      throw err;
+    }
 
-    const res = await client.chain(
-      [
+    let res: Map<string, Record<string, unknown>[]>;
+    try {
+      res = await client.chain(
         [
-          "EmailSubmission/set",
-          {
-            accountId,
-            create: {
-              s: {
-                identityId: identity.id,
-                emailId: mdnId,
-                envelope: {
-                  mailFrom: { email: identity.email },
-                  rcptTo: [{ email: decision.to.email }],
+          [
+            "EmailSubmission/set",
+            {
+              accountId,
+              create: {
+                s: {
+                  identityId: identity.id,
+                  emailId: mdnId,
+                  envelope: {
+                    mailFrom: { email: identity.email },
+                    rcptTo: [{ email: decision.to.email }],
+                  },
                 },
               },
             },
-          },
-          "s",
+            "s",
+          ],
         ],
-      ],
-      { allowErrors: true },
-    );
+        { allowErrors: true },
+      );
+    } catch (err) {
+      // The submission never answered: nothing will send the receipt, so it is
+      // taken back out and the mark cleared.
+      return didNotGo((err as Error).message);
+    }
 
     const sub = res.get("s")?.[0] as unknown as
       | (SetResponse & { __error?: { type: string; description?: string } })
       | undefined;
-    /*
-     * The submission is the receipt: no response at all means it did not go.
-     *
-     * Every failure from here clears the mark again, because the mark is the
-     * record that a receipt exists -- and none does. Undoing it is best-effort
-     * by nature (the server may be the reason we are here), so a clearing that
-     * also fails is reported rather than swallowed: the message is then marked
-     * with no receipt behind it, which is the safe direction to err in and the
-     * reader is told which one they are in.
-     */
-    const didNotGo = async (detail: string): Promise<never> => {
-      let cleared = true;
-      try {
-        await clearDecision(accountId, email.id);
-      } catch {
-        cleared = false;
-      }
-      throw new Error(
-        cleared
-          ? detail
-          : `${detail} — and this message is still marked as answered, so it will not offer the receipt again`,
-      );
-    };
     if (!sub) return didNotGo("The server would not accept the receipt");
     if (sub.__error) return didNotGo(setErrorMessage(sub.__error));
-    if (sub.notCreated?.s) {
-      // Do not leave an unsent receipt sitting in Sent looking like it went.
-      void client.call("Email/set", { accountId, destroy: [mdnId] });
-      return didNotGo(setErrorMessage(sub.notCreated.s));
-    }
+    if (sub.notCreated?.s) return didNotGo(setErrorMessage(sub.notCreated.s));
 
     markSent(email.id);
     void mail.loadMailboxes();

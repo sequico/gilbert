@@ -210,6 +210,50 @@ describe("the record goes down before the receipt leaves", () => {
     );
   });
 
+  it("takes the filed receipt back out when the mark cannot be written", async () => {
+    withSent();
+    const destroys: string[][] = [];
+    const call = client.call as unknown as ReturnType<typeof vi.fn>;
+    call.mockImplementation((async (
+      _m: string,
+      args: { update?: Record<string, unknown>; destroy?: string[] },
+    ) => {
+      if (args.destroy) {
+        destroys.push(args.destroy);
+        return { destroyed: args.destroy };
+      }
+      const [id] = Object.keys(args.update ?? {});
+      return { notUpdated: { [id!]: { type: "serverFail" } } };
+    }) as never);
+    const chain = vi.spyOn(client, "chain");
+
+    await expect(sendReadReceipt(ASKS_FOR_RECEIPT)).rejects.toThrow();
+    // The receipt is filed but nothing will send it; it does not stay in Sent.
+    expect(destroys).toEqual([["mdn1"]]);
+    expect(chain).not.toHaveBeenCalled();
+  });
+
+  it("takes the receipt back out when the submission call itself fails", async () => {
+    withSent();
+    const destroys: string[][] = [];
+    const call = client.call as unknown as ReturnType<typeof vi.fn>;
+    call.mockImplementation((async (
+      _m: string,
+      args: { update?: Record<string, unknown>; destroy?: string[] },
+    ) => {
+      if (args.destroy) {
+        destroys.push(args.destroy);
+        return { destroyed: args.destroy };
+      }
+      const [id] = Object.keys(args.update ?? {});
+      return { updated: { [id!]: null } };
+    }) as never);
+    vi.spyOn(client, "chain").mockRejectedValue(new Error("network down"));
+
+    await expect(sendReadReceipt(ASKS_FOR_RECEIPT)).rejects.toThrow("network down");
+    expect(destroys).toEqual([["mdn1"]]);
+  });
+
   it("refuses a second receipt for a message the first one is still sending", async () => {
     withSent();
     let releaseMark: () => void = () => {};
