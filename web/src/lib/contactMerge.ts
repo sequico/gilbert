@@ -303,72 +303,18 @@ function mergeRelations(a: ContactCard, b: ContactCard): ContactCard["relatedTo"
   return Object.keys(out).length ? out : null;
 }
 
-function mergeAnniversaries(
-  a: ContactCard,
-  b: ContactCard,
-  side: MergeSide | null,
-): NonNullable<ContactCard["anniversaries"]> | null {
-  const chosen =
-    side === "b"
-      ? birthEntry(b)
-      : side === "a"
-        ? birthEntry(a)
-        : (birthEntry(a) ?? birthEntry(b));
-  const out: NonNullable<ContactCard["anniversaries"]> = {};
-  const seen = new Set<string>();
-  if (chosen) {
-    putEntry(out, "a", chosen);
-    seen.add(signature(chosen));
-  }
-  for (const source of [a, b])
-    for (const an of Object.values(source.anniversaries ?? {})) {
-      if (an.kind === "birth") continue;
-      const sig = signature(an);
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      putEntry(out, "a", an);
-    }
-  return Object.keys(out).length ? out : null;
-}
-
-function mergeMedia(
-  a: ContactCard,
-  b: ContactCard,
-  side: MergeSide | null,
-): NonNullable<ContactCard["media"]> | null {
-  const chosen =
-    side === "b"
-      ? photoEntry(b)
-      : side === "a"
-        ? photoEntry(a)
-        : (photoEntry(a) ?? photoEntry(b));
-  const out: NonNullable<ContactCard["media"]> = {};
-  const seen = new Set<string>();
-  if (chosen) {
-    putEntry(out, "p", chosen);
-    seen.add(signature(chosen));
-  }
-  for (const source of [a, b])
-    for (const m of Object.values(source.media ?? {})) {
-      if (m.kind === "photo") continue;
-      const sig = signature(m);
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      putEntry(out, "m", m);
-    }
-  return Object.keys(out).length ? out : null;
-}
-
 /**
  * The patch the surviving card is written with, from the two cards and the
  * reader's choices. `a` is the card that survives; every field it does not have
  * and `b` does comes over, and the one-slot fields take the side the reader
  * chose where the two disagreed.
  *
- * The patch is written whole — a field neither card holds goes in as `null` — so
- * the merged card is exactly what was planned rather than what a patch left
- * behind on the server. `addressBookIds` is the union of both: the two cards are
- * in one account by construction, so a book either was filed in is kept.
+ * The **named** fields are written whole — a field neither card holds goes in as
+ * `null` — so the merged card is what was planned rather than what a patch left
+ * behind. A key the merge does not name is left to the survivor (see the
+ * carry-over below), because the write is a patch: Stalwart applies what it is
+ * sent and keeps what it is not. `addressBookIds` is the union of both: the two
+ * cards are in one account by construction, so a book either was filed in is kept.
  */
 export function mergeContactCards(
   a: ContactCard,
@@ -381,6 +327,17 @@ export function mergeContactCards(
     if (bHas) return "b";
     return null;
   };
+  /**
+   * The side a map's competing entry comes from, and only when the two values
+   * actually disagree. A field only one side holds has nothing to drop, and two
+   * equal values are not a conflict — dropping a side then would lose the other
+   * side's differing entry body (same URI, other label) without ever asking.
+   */
+  const conflictSide = (
+    id: MergeFieldId,
+    left: string | null,
+    right: string | null,
+  ): MergeSide | null => (left && right && left !== right ? (picks[id] ?? "a") : null);
   const choose = <T>(
     id: MergeFieldId,
     aHas: boolean,
@@ -409,44 +366,52 @@ export function mergeContactCards(
   out.nicknames = mergeEntries(
     a.nicknames,
     b.nicknames,
-    side("nickname", nicknameText(a) != null, nicknameText(b) != null),
+    conflictSide("nickname", nicknameText(a), nicknameText(b)),
     nicknameEntry(a),
     nicknameEntry(b),
   );
   out.organizations = mergeEntries(
     a.organizations,
     b.organizations,
-    side("company", companyText(a) != null, companyText(b) != null),
+    conflictSide("company", companyText(a), companyText(b)),
     organizationEntry(a),
     organizationEntry(b),
   );
   out.titles = mergeEntries(
     a.titles,
     b.titles,
-    side("jobTitle", titleText(a) != null, titleText(b) != null),
+    conflictSide("jobTitle", titleText(a), titleText(b)),
     titleEntry(a),
     titleEntry(b),
   );
   out.notes = mergeEntries(
     a.notes,
     b.notes,
-    side("note", noteText(a) != null, noteText(b) != null),
+    conflictSide("note", noteText(a), noteText(b)),
     noteEntry(a),
     noteEntry(b),
   );
-  out.anniversaries = mergeAnniversaries(
-    a,
-    b,
-    side("birthday", birthText(a) != null, birthText(b) != null),
+  out.anniversaries = mergeEntries(
+    a.anniversaries,
+    b.anniversaries,
+    conflictSide("birthday", birthText(a), birthText(b)),
+    birthEntry(a),
+    birthEntry(b),
   );
   out.links = mergeEntries(
     a.links,
     b.links,
-    side("website", websiteText(a) != null, websiteText(b) != null),
+    conflictSide("website", websiteText(a), websiteText(b)),
     linkEntry(a),
     linkEntry(b),
   );
-  out.media = mergeMedia(a, b, side("photo", photoText(a) != null, photoText(b) != null));
+  out.media = mergeEntries(
+    a.media,
+    b.media,
+    conflictSide("photo", photoText(a), photoText(b)),
+    photoEntry(a),
+    photoEntry(b),
+  );
 
   out.emails = unionByValue(a.emails, b.emails);
   out.phones = unionByValue(a.phones, b.phones);
@@ -476,4 +441,27 @@ export function mergeContactCards(
   }
 
   return out;
+}
+
+/**
+ * The two items a merge acts on, in the order they were selected: the one ticked
+ * first survives, so this answers `[survivor, absorbed]` from the ticked items
+ * and the keys in the order they were ticked.
+ *
+ * An item whose key is not in `order` refuses the merge rather than being sorted
+ * last, because letting the list's order decide would silently invert "the one
+ * ticked first survives". Anything other than exactly two ticked items is not a
+ * merge either.
+ */
+export function mergeSelection<T>(
+  items: T[],
+  keyOf: (item: T) => string,
+  order: string[],
+): [T, T] | null {
+  if (items.length !== 2) return null;
+  const [first, second] = [...items].sort(
+    (x, y) => order.indexOf(keyOf(x)) - order.indexOf(keyOf(y)),
+  );
+  if (order.indexOf(keyOf(first!)) < 0 || order.indexOf(keyOf(second!)) < 0) return null;
+  return [first!, second!];
 }

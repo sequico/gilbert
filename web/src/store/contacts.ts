@@ -484,22 +484,42 @@ interface ContactsState {
    * carries it: a group's card whose id the reader also holds would be patched in
    * the reader's own account instead.
    */
+  /**
+   * Write a card's fields. Throws when no account holds it -- a card with
+   * nowhere to be written is a caller mistake, and returning quietly would let a
+   * merge go on to destroy the card it never merged.
+   */
   updateCard(card: CardAddress, patch: Record<string, unknown>): Promise<void>;
   /**
    * Merge two cards of one book into the one that survives.
    *
-   * The merged card is written first and the other destroyed only after it, so a
-   * refused destroy leaves the merged contact standing rather than losing the
-   * second card into nothing. `primary` is the card that survives; each is named
-   * with the account it lives in, because an id alone is not unique across
-   * accounts. `picks` answers the one-slot fields the two disagree on -- see
-   * `lib/contactMerge` for which those are.
+   * The merged card is written first, the references that named the card being
+   * absorbed are re-pointed at the survivor, and only then is it destroyed -- so
+   * a destroyed uid is never still named by a group's member list or a relation.
+   * `primary` is the card that survives; each is named with the account it lives
+   * in, because an id alone is not unique across accounts. `picks` answers the
+   * one-slot fields the two disagree on -- see `lib/contactMerge` for which those
+   * are.
    */
   mergeCards(
     primary: { card: ContactCard; accountId: Id | null },
     secondary: { card: ContactCard; accountId: Id | null },
     picks?: Partial<Record<MergeFieldId, MergeSide>>,
   ): Promise<{ destroyed: number; refused?: SetError }>;
+  /**
+   * Re-point every card that names `fromUid` -- a group's `members`, a card's
+   * `relatedTo` -- at `toUid`, in one account, skipping the ids given.
+   *
+   * The account's cards are the ones the store holds; each card whose reference
+   * moved is written back with that reference replaced, and nothing else of the
+   * card is rebuilt. `fromUid` and `toUid` are the uids two cards merge across.
+   */
+  repointContactRefs(
+    accountId: Id | null,
+    fromUid: string,
+    toUid: string,
+    skip?: Id[],
+  ): Promise<void>;
   /**
    * Delete cards outright, reporting what the server actually destroyed rather
    * than what was asked for. Nothing is thrown for a refusal -- a partial one
@@ -1321,10 +1341,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   /*
-   * Write the merged card, then destroy the one it absorbed. The order is the
-   * point: a destroy that fails after the write leaves the merged contact
-   * standing with both cards' facts in it, and a write that fails first never
-   * reaches the destroy -- so no path loses a card into nothing.
+   * Write the merged card, re-point the references that named the other, then
+   * destroy it. The order is the point: a destroy that fails after the write
+   * leaves the merged contact standing with both cards' facts in it, a write
+   * that fails first never reaches the destroy, and a destroyed uid is never
+   * still named by a group's member list or a relation -- so no path loses a
+   * card into nothing or leaves a dangling reference.
    */
   async mergeCards(primary, secondary, picks) {
     /*
@@ -1341,9 +1363,76 @@ export const useContacts = create<ContactsState>((set, get) => ({
       throw new Error("Those two contacts cannot be merged");
     const patch = mergeContactCards(primary.card, secondary.card, picks);
     await get().updateCard({ id: primary.card.id, accountId: primary.accountId }, patch);
-    return get().destroyCards([
-      { id: secondary.card.id, accountId: secondary.accountId },
-    ]);
+    await get().repointContactRefs(
+      primary.accountId,
+      secondary.card.uid,
+      primary.card.uid,
+      [primary.card.id, secondary.card.id],
+    );
+    /*
+     * A destroy that throws -- a transport failure -- must not read as "the
+     * merge failed": the write already landed and the references are re-pointed.
+     * It is reported as a refusal-shaped outcome, so the caller keeps the merged
+     * card and says the other one is still there.
+     */
+    try {
+      return await get().destroyCards([
+        { id: secondary.card.id, accountId: secondary.accountId },
+      ]);
+    } catch (err) {
+      return {
+        destroyed: 0,
+        refused: { type: "serverFail", description: (err as Error).message },
+      };
+    }
+  },
+
+  /*
+   * Every card that names `fromUid` -- a group's `members`, a card's
+   * `relatedTo` -- is written back naming `toUid` instead. It runs before the
+   * card that holds `fromUid` is destroyed, so nothing ever points at a uid that
+   * is gone: a group keeps the member, a relation keeps its person.
+   *
+   * The cards are the account's, read from what the store holds; only the
+   * reference is replaced, never the rest of the card.
+   */
+  async repointContactRefs(accountId, fromUid, toUid, skip = []) {
+    if (!fromUid || !toUid || fromUid === toUid) return;
+    const own = get().accountId;
+    const target = accountId ?? own;
+    if (!target) return;
+    refuseDirectoryWrite(target);
+    const cards =
+      target === own
+        ? Object.values(get().cards)
+        : Object.entries(get().sharedCards)
+            .filter(([key, card]) => accountOfSharedKey(key, card.id) === target)
+            .map(([, card]) => card);
+    const skipIds = new Set(skip);
+    for (const card of cards) {
+      if (skipIds.has(card.id)) continue;
+      const patch: Record<string, unknown> = {};
+      if (card.members?.[fromUid]) patch.members = { [fromUid]: null, [toUid]: true };
+      const related = card.relatedTo ?? {};
+      if (related[fromUid]) {
+        const moved = related[fromUid]!;
+        const held = related[toUid];
+        const relation = { ...(moved.relation ?? {}), ...(held?.relation ?? {}) };
+        patch.relatedTo = {
+          [fromUid]: null,
+          [toUid]: {
+            ...moved,
+            ...held,
+            ...(Object.keys(relation).length ? { relation } : {}),
+          },
+        };
+      }
+      if (Object.keys(patch).length)
+        await get().updateCard(
+          { id: card.id, accountId: target === own ? null : target },
+          patch,
+        );
+    }
   },
 
   /*

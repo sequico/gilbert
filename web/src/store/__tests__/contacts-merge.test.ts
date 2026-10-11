@@ -45,6 +45,17 @@ const CARD_B: ContactCard = {
   addressBookIds: { b1: true },
 } as unknown as ContactCard;
 
+const CARD_G: ContactCard = {
+  id: "c3",
+  "@type": "Card",
+  version: "1.0",
+  uid: "g1",
+  kind: "group",
+  name: { "@type": "Name", full: "Team" },
+  members: { u2: true },
+  addressBookIds: { b1: true },
+} as unknown as ContactCard;
+
 /** A server that records every call and answers the update and the destroy. */
 function stubServer(opts: { refuseDestroy?: boolean; refuseUpdate?: boolean } = {}) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -227,6 +238,34 @@ describe("merging two contacts", () => {
         .getState()
         .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: "a2" }),
     ).rejects.toThrow(/cannot be merged/);
+  });
+
+  it("re-points a group's member from the absorbed uid to the survivor, before the destroy", async () => {
+    useContacts.setState({ cards: { c1: CARD_A, c2: CARD_B, c3: CARD_G } });
+    const calls = stubServer();
+    await useContacts
+      .getState()
+      .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: null });
+
+    const updates = calls
+      .filter((c) => c.name === "ContactCard/set" && c.args.update)
+      .map((c) => c.args.update as Record<string, Record<string, unknown>>);
+    expect(updates.find((u) => u.c3 !== undefined)?.c3?.members).toEqual({
+      u2: null,
+      u1: true,
+    });
+    // The re-point is written before the destroy, never after it.
+    const repoint = calls.findIndex(
+      (c) =>
+        c.name === "ContactCard/set" &&
+        c.args.update &&
+        (c.args.update as Record<string, unknown>).c3 !== undefined,
+    );
+    const destroy = calls.findIndex(
+      (c) => c.name === "ContactCard/set" && c.args.destroy,
+    );
+    expect(repoint).toBeGreaterThanOrEqual(0);
+    expect(destroy).toBeGreaterThan(repoint);
   });
 
   it("names the account holding each card, so a group's merge acts on the group", async () => {

@@ -1290,10 +1290,11 @@ JMAP Contacts and JSContact.
   **Merge** usable beside Delete. It asks, field by field, which value to keep
   where the two disagree — type, name, nickname, company, job title, birthday,
   website, note and photo — and combines everything else without asking: two
-  email addresses are two facts about one person, so the lists and the members
-  are unioned rather than chosen between. The card ticked first survives and the
-  books either was filed in are kept, and the merged contact is written before the
-  other is deleted, so a refused delete leaves the merged one standing.
+  email addresses are two facts about one person, so the lists are unioned rather
+  than chosen between. Anything that named the absorbed card — a group's member,
+  a relation — is re-pointed at the survivor, the books either card was filed in
+  are kept, and the merged contact is written before the other is deleted, so a
+  refused delete leaves the merged one standing.
 - **Letter index** down the list, with `#` for anything not starting with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ContactCard } from "@/jmap/types";
-import { contactMergeConflicts, mergeContactCards } from "../contactMerge";
+import {
+  contactMergeConflicts,
+  mergeContactCards,
+  mergeSelection,
+} from "../contactMerge";
 
 /*
  * Merging two contacts: the fields a card holds one of are the reader's choice
@@ -40,6 +44,12 @@ describe("contactMergeConflicts", () => {
   it("is not a conflict when only one of them holds the value", () => {
     const a = card();
     const b = card({ name: { "@type": "Name", full: "Ada Lovelace" } });
+    expect(contactMergeConflicts(a, b)).toEqual([]);
+  });
+
+  it("is not a conflict when the two hold the same value", () => {
+    const a = card({ name: { "@type": "Name", full: "Ada" } });
+    const b = card({ name: { "@type": "Name", full: "Ada" } });
     expect(contactMergeConflicts(a, b)).toEqual([]);
   });
 
@@ -236,6 +246,21 @@ describe("mergeContactCards keeps what a conflict does not decide", () => {
     ]);
   });
 
+  it("keeps a link whose URI matches but whose label differs", () => {
+    const a = card({
+      links: { l1: { "@type": "Link", uri: "https://x.example", label: "home" } },
+    });
+    const b = card({
+      links: { l2: { "@type": "Link", uri: "https://x.example", label: "work" } },
+    });
+    // Same URI, so no conflict is offered -- and the second label is not lost.
+    expect(contactMergeConflicts(a, b)).toEqual([]);
+    const links = Object.values(
+      (mergeContactCards(a, b).links ?? {}) as Record<string, { label?: string }>,
+    );
+    expect(links.map((l) => l.label).sort()).toEqual(["home", "work"]);
+  });
+
   it("honours the website choice and keeps the other links", () => {
     const a = card({
       links: {
@@ -293,5 +318,24 @@ describe("mergeContactCards keeps what a conflict does not decide", () => {
     // Not written at all: the surviving card keeps its own, and no member of it
     // is duplicated under a random key.
     expect("speakToAs" in patch).toBe(false);
+  });
+});
+
+describe("mergeSelection", () => {
+  const items = [{ id: "a" }, { id: "b" }];
+  const keyOf = (i: { id: string }) => i.id;
+
+  it("answers the two items in the order they were ticked", () => {
+    expect(mergeSelection(items, keyOf, ["b", "a"])).toEqual([{ id: "b" }, { id: "a" }]);
+    expect(mergeSelection(items, keyOf, ["a", "b"])).toEqual([{ id: "a" }, { id: "b" }]);
+  });
+
+  it("refuses anything other than two items", () => {
+    expect(mergeSelection([{ id: "a" }], keyOf, ["a"])).toBeNull();
+    expect(mergeSelection([...items, { id: "c" }], keyOf, ["a", "b", "c"])).toBeNull();
+  });
+
+  it("refuses a tick whose order is unknown rather than letting the list decide", () => {
+    expect(mergeSelection(items, keyOf, ["a"])).toBeNull();
   });
 });

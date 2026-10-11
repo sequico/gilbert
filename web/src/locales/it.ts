@@ -665,6 +665,8 @@ export const catalog: Catalog = {
     Company: "Azienda",
     Birthday: "Compleanno",
     Notes: "Note",
+    Note: "Nota",
+    Photo: "Foto",
     Website: "Sito web",
     Phone: "Telefono",
     "Add phone": "Aggiungi telefono",

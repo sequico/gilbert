@@ -38,6 +38,7 @@ import {
   cardKey,
   cardPath,
 } from "@/lib/contactAddress";
+import { mergeSelection } from "@/lib/contactMerge";
 import {
   contactCompany,
   contactDisplayName,
@@ -456,16 +457,11 @@ export function ContactsView({ id }: { id?: string }) {
     [pickable, picked],
   );
   const mergePair = useMemo(() => {
-    if (mergeItems.length !== 2) return null;
     const keyOf = (i: { card: ContactCard; accountId: string | null }) =>
       cardKey({ id: i.card.id, accountId: i.accountId });
-    const order = pickOrder.current;
-    const [first, second] = [...mergeItems].sort(
-      (x, y) => order.indexOf(keyOf(x)) - order.indexOf(keyOf(y)),
-    );
-    const a = first!;
-    const b = second!;
-    if (order.indexOf(keyOf(a)) < 0 || order.indexOf(keyOf(b)) < 0) return null;
+    const pair = mergeSelection(mergeItems, keyOf, pickOrder.current);
+    if (!pair) return null;
+    const [a, b] = pair;
     if ((a.accountId ?? null) !== (b.accountId ?? null)) return null;
     if ((a.accountId ?? null) === GLOBAL_CONTACTS_ACCOUNT_ID) return null;
     const books = Object.keys(a.card.addressBookIds ?? {});
@@ -596,9 +592,19 @@ export function ContactsView({ id }: { id?: string }) {
     const anchor = range ? lastPicked.current : null;
     const a = anchor ? listed.findIndex((i) => keyOf(i) === anchor) : -1;
     const b = listed.findIndex((i) => keyOf(i) === key);
+    /*
+     * The range is walked in the order the list shows, but only the rows a
+     * selection can act on are taken: a run that sweeps a read-only row (the
+     * directory's, a shared book's) leaves it out rather than counting it, so the
+     * bar counts exactly what Delete and Merge will act on.
+     */
+    const pickableKeys = new Set(pickable.map(keyOf));
     const keys =
       a >= 0 && b >= 0
-        ? listed.slice(Math.min(a, b), Math.max(a, b) + 1).map(keyOf)
+        ? listed
+            .slice(Math.min(a, b), Math.max(a, b) + 1)
+            .map(keyOf)
+            .filter((k) => pickableKeys.has(k))
         : [key];
     setPicked((prev) => {
       const next = { ...prev };

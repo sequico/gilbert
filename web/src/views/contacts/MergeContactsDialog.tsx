@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
-import { type CardAddress, cardAt } from "@/lib/contactAddress";
+import type { CardAddress } from "@/lib/contactAddress";
 import {
   contactMergeConflicts,
   type MergeFieldId,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/contactMerge";
 import { contactDisplayName, contactPhoto } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { sharedKey } from "@/lib/sharedKey";
 import { useContacts } from "@/store/contacts";
 import { Dialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -50,8 +51,18 @@ export function MergeContactsDialog({
   const contacts = useContacts();
   const [picks, setPicks] = useState<Partial<Record<MergeFieldId, MergeSide>>>({});
   const [busy, setBusy] = useState(false);
-  const a = cardAt(contacts.cards, contacts.sharedCards, primary)?.card ?? null;
-  const b = cardAt(contacts.cards, contacts.sharedCards, secondary)?.card ?? null;
+  /*
+   * Resolved strictly by the address the selection named, with no id-only
+   * fallback: a card that vanished from a group's books must not be answered by a
+   * card of the reader's own that happens to share its id, or the merge would
+   * write one account's fields under the other's account.
+   */
+  const resolve = (address: CardAddress): ContactCard | null =>
+    address.accountId
+      ? (contacts.sharedCards[sharedKey(address.accountId, address.id)] ?? null)
+      : (contacts.cards[address.id] ?? null);
+  const a = resolve(primary);
+  const b = resolve(secondary);
   const photoAccount = primary.accountId ?? contacts.accountId ?? "";
   const conflicts = a && b ? contactMergeConflicts(a, b) : [];
 
