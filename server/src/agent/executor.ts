@@ -267,7 +267,8 @@ function knowledgePlanPage(
   action: AgentAction,
   result: ActionResult,
 ): AgentKnowledgePlanPage | null {
-  if (action.do !== "knowledge.write") return null;
+  if (action.do !== "knowledge.write" && action.do !== "knowledge.writeCompany")
+    return null;
   const r = result.result ?? {};
   const folder = typeof r.folder === "string" ? r.folder : "";
   const title = typeof r.title === "string" ? r.title : folder;
@@ -1718,7 +1719,13 @@ export class Executor {
       this.deps.ctx,
       accountId,
       todo,
-      await this.actionOpts(accountId, plan.actions, job),
+      // The same grant the plan was decided under, read again here: a resumed
+      // plan runs without the model's answer in hand, and an action outside the
+      // grant is refused before it runs (ADR 0003).
+      {
+        ...(await this.actionOpts(accountId, plan.actions, job)),
+        allowed: effectiveCapabilities(rule),
+      },
       {
         // Recorded as each action lands, so a retry resumes after it.
         onApplied: async (action: AgentAction, result: ActionResult) => {
@@ -1822,33 +1829,63 @@ export class Executor {
     // — so each write carries what the previous ones established.
     let open = decision;
     await store.writeDecision(open);
-    await recordAudit(
-      store,
-      auditEntry(paused, rule, "awaiting_approval", plan.actions, plan.summary),
-    );
-    // Only now the draft, and both documents carry its reference: the answer
-    // submits what the person read instead of preparing it a second time.
-    const draft = await this.prepareDraft(store, accountId, claim, plan);
-    if (draft) {
-      paused.proposal = { ...proposal, draft };
-      const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
-        ...latest,
-        proposal: { ...proposal, draft },
-      }));
-      if (recorded) {
-        open = { ...open, draft };
-        await store.writeDecision(open);
+    // Everything past the decision can fail, and a pause that fails must not
+    // leave a `pending` decision behind: nothing carried it to the chat, so
+    // `answerDecisions` never walks it and `prune` never removes it. The
+    // failure path that fails the job removes the decision too, so a document
+    // no person can answer cannot outlive the pause that never finished.
+    try {
+      await recordAudit(
+        store,
+        auditEntry(paused, rule, "awaiting_approval", plan.actions, plan.summary),
+      );
+      // Only now the draft, and both documents carry its reference: the answer
+      // submits what the person read instead of preparing it a second time.
+      const draft = await this.prepareDraft(store, accountId, claim, plan);
+      if (draft) {
+        paused.proposal = { ...proposal, draft };
+        const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+          ...latest,
+          proposal: { ...proposal, draft },
+        }));
+        if (recorded) {
+          open = { ...open, draft };
+          await store.writeDecision(open);
+        }
       }
+      const chatId = await postMessage(
+        this.deps.ctx,
+        accountId,
+        this.deps.address,
+        proposalText(rule, paused),
+        job.trigger.on === "chat" ? job.trigger.chatId : undefined,
+      );
+      await store.writeDecision({ ...open, chatId });
+    } catch (err) {
+      await this.removeUncarriedDecision(store, open.id);
+      throw err;
     }
-    const chatId = await postMessage(
-      this.deps.ctx,
-      accountId,
-      this.deps.address,
-      proposalText(rule, paused),
-      job.trigger.on === "chat" ? job.trigger.chatId : undefined,
-    );
-    await store.writeDecision({ ...open, chatId });
     this.deps.log(`${automationLabel(rule)}: waiting for a person (${job.id})`);
+  }
+
+  /**
+   * Drop a decision a pause wrote but never carried to the group's chat.
+   *
+   * A decision is answered through the chat message that names it; one written
+   * before the post is a document `answerDecisions` never walks and `prune`
+   * never removes, because both read a pending decision by its `chatId` and by
+   * a terminal state. Removing it is what keeps a pause that failed from
+   * leaving work behind that is nobody's to answer, and a removal that itself
+   * fails is logged rather than left to mask the failure that caused it.
+   */
+  private async removeUncarriedDecision(store: AgentStore, id: string): Promise<void> {
+    try {
+      await store.destroyDecision(id);
+    } catch (err) {
+      this.deps.log(
+        `could not remove the decision of a pause that failed (${id}): ${errorMessage(err)}`,
+      );
+    }
   }
 
   /**
@@ -2391,6 +2428,11 @@ export class Executor {
     const actions = approvedActions(decided);
     try {
       const opts = await this.actionOpts(accountId, actions, job);
+      // The approval runs the plan a person read, under the same grant it was
+      // decided with (ADR 0003): a rule that exists is checked again, and a
+      // decision whose rule is gone has no grant to check against and is left
+      // to the version pin above.
+      if (rule) opts.allowed = effectiveCapabilities(rule);
       // The draft the run left is what an approval sends, even when the job
       // document that recorded it is already pruned.
       if (decided.draft) {
@@ -2686,7 +2728,13 @@ export class Executor {
           this.deps.ctx,
           accountId,
           actions,
-          await this.actionOpts(accountId, actions, job),
+          {
+            ...(await this.actionOpts(accountId, actions, job)),
+            // The rest of the plan runs under the rule's own grant, read again
+            // here: what a person sent is what they read, and nothing else in
+            // the plan runs unless the rule still holds it (ADR 0003).
+            ...(rule ? { allowed: effectiveCapabilities(rule) } : {}),
+          },
           { beforeAction: this.leavingProcessFence(store, claim) },
         );
       if (job)
@@ -3278,9 +3326,13 @@ export class Executor {
    * so "what may a recovery redo" has a single answer (`leavesTheProcess`).
    */
   private remainingLeavesProcess(job: AgentJob): boolean {
-    return remainingActions(job.proposal?.actions ?? [], job.applied).some(
-      leavesTheProcess,
-    );
+    const actions = job.proposal?.actions ?? [];
+    const applied = job.applied ?? [];
+    // A ledger that is not the plan's own prefix is a remainder nobody can
+    // read: the run is not resumed, which is what `true` asks for — a person
+    // decides instead of a guess about what already ran.
+    if (!appliedIsPlanPrefix(actions, applied)) return true;
+    return remainingActions(actions, applied).some(leavesTheProcess);
   }
 
   /** When a failed job may try again: exponential, with jitter, and bounded. */
@@ -3560,16 +3612,39 @@ function proposalOf(plan: RunPlan): AgentProposal {
 }
 
 /**
+ * Whether a job's `applied` ledger is the plan's own prefix, in order.
+ *
+ * The ledger records action names, and the actions ran in order and stopped at
+ * the first failure, so what already landed is exactly the plan's prefix. One
+ * function, so a resume and the recovery guard reconcile the ledger with the
+ * plan the same way.
+ */
+function appliedIsPlanPrefix(
+  actions: ReadonlyArray<AgentAction>,
+  applied: ReadonlyArray<string>,
+): boolean {
+  if (applied.length > actions.length) return false;
+  return applied.every((name, index) => actions[index]?.do === name);
+}
+
+/**
  * What is left of a plan whose prefix already landed.
  *
- * `applied` is a ledger of action names in order, so the remainder is the tail
- * of the plan from its length. One function, read by the execute path and by
+ * The remainder is the tail of the plan after the recorded prefix — never the
+ * tail after the ledger's *length*: a ledger that does not match the plan it
+ * names is a document written against a different plan, and resuming by
+ * position could skip an action that never ran or re-run one that did. That is
+ * refused rather than guessed at. One function, read by the execute path and by
  * the recovery guard, so "what a retry may redo" cannot be spelled two ways.
  */
 function remainingActions(
   actions: ReadonlyArray<AgentAction>,
   applied: ReadonlyArray<string> = [],
 ): AgentAction[] {
+  if (!appliedIsPlanPrefix(actions, applied))
+    throw new RefusedError(
+      "the job's applied ledger does not match the plan it names, so nothing is run",
+    );
   return actions.slice(applied.length);
 }
 

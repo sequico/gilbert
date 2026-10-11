@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { blankPdf, freePort } from "../testkit.js";
+import type { AgentAction } from "./documents.js";
 
 /**
  * The capability runner against the mock (ADR 0003 resolution 2).
@@ -19,6 +20,7 @@ process.env.MOCK_PORT = String(PORT);
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const {
+  filesAccountId,
   readAppFileAt,
   readAppJsonAt,
   readVisibleFileAt,
@@ -30,6 +32,9 @@ const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
   "./actions.js"
 );
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
+const { DRAFT_FILE, KNOWLEDGE_FOLDER, knowledgeFolderName } = await import(
+  "../shared/knowledge.js"
+);
 const { readChat } = await import("./chat.js");
 const { AGENT_ATTENTION_FOLDER, AGENT_SPLIT_PAGES_MAX } = await import("./documents.js");
 
@@ -626,5 +631,117 @@ test("a group is probed, and a share with an address is never one", async () => 
   assert.ok(
     !groups.has("grace@example.org"),
     "a share with an address is not a group: it has no mail store",
+  );
+});
+
+test("an action outside the run's grant is refused before it runs", async () => {
+  /*
+   * ADR 0003: the allowlist is the boundary, and it is read again at the moment
+   * a plan runs — a resume, an approval or a draft sent from Drafts hands the
+   * runner a plan the model did not answer for. An action the grant does not
+   * hold is refused rather than run.
+   */
+  await assert.rejects(
+    () =>
+      runActions(
+        ctx,
+        GROUP,
+        [{ do: "file.write", with: { folder: "notes", name: "a.txt", text: "hi" } }],
+        { allowed: ["keyword.add"] },
+      ),
+    /not in this run's grant/,
+  );
+  // The same action runs when the grant holds it, so the refusal is the grant
+  // and not the action.
+  const [granted] = await runActions(
+    ctx,
+    GROUP,
+    [{ do: "file.write", with: { folder: "notes", name: "granted.txt", text: "hi" } }],
+    { allowed: ["file.write"] },
+  );
+  assert.equal(granted?.ok, true);
+});
+
+test("an action name this build does not have is refused by name", async () => {
+  // A phantom name would otherwise return `undefined` and record a result for
+  // work that never happened.
+  await assert.rejects(
+    () => runActions(ctx, GROUP, [{ do: "mail.archive" } as unknown as AgentAction]),
+    /"mail\.archive" is not an action this build can run/,
+  );
+});
+
+test("the company knowledge base is a grant of its own", async () => {
+  /*
+   * ADR 0024 Q15: writing the installation's base from a group's run reaches a
+   * second account — the Master's, which the agent's session holds as its
+   * personal one — so `knowledge.write` alone must never get there. The company
+   * base is reachable only through the distinct `knowledge.writeCompany`
+   * grant, and the refusal names it.
+   */
+  const company = filesAccountId(ctx);
+  assert.ok(company, "the session names the installation's own account");
+  assert.notEqual(company, GROUP, "and it is not the group's own account");
+
+  await assert.rejects(
+    () =>
+      runActions(
+        ctx,
+        GROUP,
+        [
+          {
+            do: "knowledge.write",
+            with: { scope: "company", title: "Company procedure", text: "shared" },
+          },
+        ],
+        { allowed: ["knowledge.write"] },
+      ),
+    /knowledge\.writeCompany/,
+  );
+  assert.equal(
+    await readAppJsonAt(
+      ctx,
+      company,
+      `${KNOWLEDGE_FOLDER}/${knowledgeFolderName("Company procedure")}/${DRAFT_FILE}`,
+    ),
+    null,
+    "the refused write left the installation's base untouched",
+  );
+
+  // The `company` scope writes the installation's account once the grant holds
+  // it.
+  const [scoped] = await runActions(
+    ctx,
+    GROUP,
+    [
+      {
+        do: "knowledge.write",
+        with: { scope: "company", title: "Company procedure", text: "shared" },
+      },
+    ],
+    { allowed: ["knowledge.write", "knowledge.writeCompany"] },
+  );
+  assert.equal(scoped?.result?.account, company, "the scoped write reached the Master");
+
+  // The action of its own is the same write, under its own grant.
+  const [direct] = await runActions(
+    ctx,
+    GROUP,
+    [
+      {
+        do: "knowledge.writeCompany",
+        with: { title: "Company policy", text: "shared" },
+      },
+    ],
+    { allowed: ["knowledge.writeCompany"] },
+  );
+  assert.equal(direct?.result?.account, company);
+  assert.ok(
+    await readAppJsonAt(
+      ctx,
+      company,
+      `${KNOWLEDGE_FOLDER}/${knowledgeFolderName("Company policy")}/${DRAFT_FILE}`,
+    ),
+    "the company base holds the draft",
   );
 });

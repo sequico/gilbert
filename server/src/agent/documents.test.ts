@@ -184,6 +184,7 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
       "file.write",
       "knowledge.review",
       "knowledge.write",
+      "knowledge.writeCompany",
       "mail.draft",
       "mail.extract",
       "mail.send",
@@ -412,7 +413,7 @@ test("an area grants a group of actions and never a flagged one", () => {
    */
   const granted = new Set(AGENT_AREAS.flatMap((area) => areaActions(area)));
   const standalone = standaloneActions();
-  assert.deepEqual(standalone.sort(), ["mail.send", "noop"]);
+  assert.deepEqual(standalone.sort(), ["knowledge.writeCompany", "mail.send", "noop"]);
   assert.equal(granted.size + standalone.length, AGENT_ACTION_SPECS.length);
 });
 

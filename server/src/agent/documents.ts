@@ -114,6 +114,7 @@ export type AgentActionName =
   | "chat.post"
   | "file.write"
   | "knowledge.write"
+  | "knowledge.writeCompany"
   | "knowledge.review"
   | "notebook.write"
   | "document.read"
@@ -149,8 +150,9 @@ export interface AgentActionSpec {
   name: AgentActionName;
   /**
    * The area the authoring surface groups this action under, absent for the
-   * two entries that answer for themselves (`noop`, and sending, which is
-   * excluded from every area by its own flags rather than by a list).
+   * entries that answer for themselves: `noop`; sending, which is excluded from
+   * every area by its own flags rather than by a list; and the company knowledge
+   * base, which is a grant of its own.
    */
   area?: AgentArea;
   /** A short English label the admin surface shows. */
@@ -265,13 +267,25 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     area: "files",
     label: "Write a knowledge base page",
     description:
-      "Create or update a knowledge base article's draft: `title` names it, `folder` updates an existing article by its folder name, `text` is the body, and `basedOn` is the draft's `updated` instant a plan was read from — a page edited since is refused rather than overwritten. It writes a draft only — never an approval and never a revision.",
+      "Create or update a knowledge base article's draft: `title` names it, `folder` updates an existing article by its folder name, `text` is the body, and `basedOn` is the draft's `updated` instant a plan was read from — a page edited since is refused rather than overwritten. `scope` names the base and defaults to `group`; writing the `company` base reaches the installation's own account and needs the rule also to hold `knowledge.writeCompany`. It writes a draft only — never an approval and never a revision.",
     params: [
       { key: "title", required: true, kind: "text" },
       { key: "folder", required: false, kind: "folder" },
       { key: "text", required: false, kind: "text" },
       { key: "basedOn", required: false, kind: "text" },
       { key: "scope", required: false, kind: "text" },
+    ],
+  },
+  {
+    name: "knowledge.writeCompany",
+    label: "Write in the company knowledge base",
+    description:
+      "Create or update a draft page of the installation's company knowledge base, which lives in the Master's account: `title` names it, `folder` updates an existing article by its folder name, `text` is the body, and `basedOn` is the draft's `updated` instant a plan was read from — a page edited since is refused rather than overwritten. This is a grant of its own that no area hands out, so a rule reaches the installation's base only when it names this action. It writes a draft only — never an approval and never a revision.",
+    params: [
+      { key: "title", required: true, kind: "text" },
+      { key: "folder", required: false, kind: "folder" },
+      { key: "text", required: false, kind: "text" },
+      { key: "basedOn", required: false, kind: "text" },
     ],
   },
   {
@@ -349,8 +363,8 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
 /* ------------------------------------------------------------------ */
 
 /**
- * The three groups of actions an administrator grants, plus the two entries
- * that stand beside them.
+ * The three groups of actions an administrator grants, plus the entries that
+ * stand beside them.
  *
  * An area is a **grouping of the catalogue**, never a second list of actions:
  * what it expands to is computed from `AGENT_ACTION_SPECS` by
@@ -458,6 +472,7 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "mail.draft",
   "file.write",
   "knowledge.write",
+  "knowledge.writeCompany",
   "knowledge.review",
   "notebook.write",
   "mail.extract",
@@ -2567,7 +2582,8 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
     /*
      * What the areas do not grant, derived here and published rather than left
      * for a surface to work out by subtracting one list from another: sending,
-     * which every area excludes by the catalogue's own flags, and doing nothing,
+     * which every area excludes by the catalogue's own flags; the installation's
+     * company knowledge base, which is a grant of its own; and doing nothing,
      * which is not a behaviour.
      */
     "x-standalone": standaloneActions().map((name) => {

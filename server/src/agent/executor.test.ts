@@ -45,6 +45,7 @@ const {
   FILENODE_CAP,
   findFolderPath,
   readAppJsonAt,
+  readVisibleFileAt,
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } = await import("../appFolder.js");
@@ -1164,7 +1165,7 @@ async function postAs(from: string, text: string, replyTo: string): Promise<void
 async function submissionCount(): Promise<number> {
   const res = await client.call<{ total?: number }>(
     "EmailSubmission/query",
-    { accountId: GROUP },
+    { accountId: GROUP, calculateTotal: true },
     [JMAP_SUBMISSION],
   );
   return res.total ?? 0;
@@ -2140,7 +2141,7 @@ async function draftsInDrafts(): Promise<number> {
   assert.ok(mailboxId, "the group has a Drafts mailbox");
   const found = await client.call<{ total?: number }>(
     "Email/query",
-    { accountId: GROUP, filter: { inMailbox: mailboxId } },
+    { accountId: GROUP, filter: { inMailbox: mailboxId }, calculateTotal: true },
     [JMAP_MAIL],
   );
   return found.total ?? 0;
@@ -2790,4 +2791,185 @@ test("a run's prompt states the installation's page bound, clamped to this build
   } finally {
     await installConfig();
   }
+});
+
+test("a resumed plan is checked against the grant before it runs", async () => {
+  /*
+   * A job that already carries a plan resumes it rather than re-asking the
+   * model. ADR 0003's allowlist is the boundary, so the plan is checked again at
+   * the moment it runs: a resume, an approval and a draft sent from Drafts all
+   * reach the runner without the model's answer in hand, and an action the
+   * rule's grant does not hold is refused before it runs.
+   */
+  const resumed = rule({ id: "resumed-grant", capabilities: ["keyword.add"] });
+  await store.writeRules([resumed]);
+  const emailId = await createMessage("a resumed plan outside its grant");
+  const claim = await claimFor();
+  const job: AgentJob = {
+    ...newJob({
+      id: "resumed-grant-job",
+      accountId: GROUP,
+      rule: { id: "resumed-grant", version: 1 },
+      trigger: { on: "email", emailId, at: new Date().toISOString() },
+    }),
+    proposal: {
+      summary: "Write the note out.",
+      confidence: 1,
+      actions: [
+        { do: "file.write", with: { folder: "notes", name: "resumed.txt", text: "hi" } },
+      ],
+    },
+  };
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, resumed, claim);
+
+  const after = await store.readJob("resumed-grant-job");
+  assert.equal(after?.doc.state, "failed", "the run is refused, not resumed");
+  assert.match(String(after?.doc.error), /not in this run's grant/);
+  assert.equal(
+    await readVisibleFileAt(ctx, GROUP, "notes/resumed.txt"),
+    null,
+    "and the action outside the grant wrote nothing",
+  );
+});
+
+test("an approved plan is checked against the grant before it runs", async () => {
+  // The same boundary on the approval path: a person answered the decision the
+  // run left, and the plan it carries is read against the rule's own grant
+  // before any of it is applied (ADR 0003).
+  const approved = rule({ id: "approved-grant", capabilities: ["keyword.add"] });
+  await store.writeRules([approved]);
+  const emailId = await createMessage("an approval outside the grant");
+  const job = newJob({
+    id: "approved-grant-job",
+    accountId: GROUP,
+    rule: { id: approved.id, version: approved.version },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  const paused: AgentJob = {
+    ...job,
+    state: "awaiting_approval",
+    proposal: {
+      summary: "Write it where the group can read it.",
+      actions: [
+        { do: "file.write", with: { folder: "notes", name: "approved.txt", text: "hi" } },
+      ],
+      confidence: 1,
+      draft: null,
+    },
+  };
+  const decision = newDecision(paused);
+  paused.decisionId = decision.id;
+  await store.writeJob(paused);
+  await store.writeDecision(decision);
+
+  await executor.resolveApproval(GROUP, decision, true, ADA);
+
+  const after = await store.readJob("approved-grant-job");
+  assert.equal(after?.doc.state, "failed", "the approved run is refused");
+  assert.match(String(after?.doc.error), /not in this run's grant/);
+  assert.equal(
+    await readVisibleFileAt(ctx, GROUP, "notes/approved.txt"),
+    null,
+    "and nothing outside the grant ran on the strength of the approval",
+  );
+});
+
+test("a pause that fails after writing its decision leaves no decision behind", async () => {
+  /*
+   * A pause writes the decision before it posts the proposal. A failure in
+   * between — a draft that cannot be prepared, a post that fails — must not
+   * leave a `pending` decision nothing carries to the group's chat:
+   * `answerDecisions` walks a decision by its `chatId`, and `prune` keeps only
+   * the terminal ones, so a decision with neither would outlive the run for
+   * good. The failure path that fails the job removes it.
+   */
+  const posting = rule({ id: "chat-on-approval", capabilities: ["chat.post"] });
+  answerFor("Mail automation", {
+    summary: "Said hello.",
+    confidence: 1,
+    actions: [{ do: "chat.post", with: { text: "hello" } }],
+  });
+  await setPolicy({ review: "always" });
+  await store.writeRules([posting]);
+  const emailId = await createMessage("a run whose pause will fail");
+  const claim = await claimFor();
+  const job = newJob({
+    id: "pause-fail-job",
+    accountId: GROUP,
+    rule: { id: "chat-on-approval", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  const real = AgentStore.prototype.writeDecision;
+  let writes = 0;
+  AgentStore.prototype.writeDecision = async function (
+    this: InstanceType<typeof AgentStore>,
+    ...args: Parameters<typeof real>
+  ) {
+    writes += 1;
+    // The first write is the decision itself; the one that carries the chat
+    // message is where the pause fails.
+    if (writes > 1) throw new Error("the decision write failed");
+    return real.apply(this, args);
+  };
+  try {
+    await executor.runJob(GROUP, job, posting, claim);
+  } finally {
+    AgentStore.prototype.writeDecision = real;
+  }
+
+  const failed = await store.readJob("pause-fail-job");
+  assert.equal(failed?.doc.state, "failed", "the run failed loudly");
+  const left = (await store.listDecisions()).filter(
+    (entry) => entry.doc.jobId === "pause-fail-job",
+  );
+  assert.deepEqual(left, [], "no decision was left that no chat message carries");
+});
+
+test("an applied ledger that is not the plan's prefix is refused, not resumed by position", async () => {
+  /*
+   * The ledger records action names, and the actions ran in order and stopped at
+   * the first failure, so what already landed is the plan's own prefix. A
+   * ledger that is not that prefix is a document written against a different
+   * plan; resuming it by position could skip an action that never ran or re-run
+   * one that did, so it is refused instead.
+   */
+  const mover = rule({ id: "ledger-mismatch", capabilities: ["keyword.add"] });
+  await store.writeRules([mover]);
+  const emailId = await createMessage("a job whose ledger names a different plan");
+  const claim = await claimFor();
+  const job: AgentJob = {
+    ...newJob({
+      id: "ledger-mismatch-job",
+      accountId: GROUP,
+      rule: { id: "ledger-mismatch", version: 1 },
+      trigger: { on: "email", emailId, at: new Date().toISOString() },
+    }),
+    proposal: {
+      summary: "Labelled it.",
+      confidence: 1,
+      actions: [
+        { do: "keyword.add", with: { keyword: "invoice" } },
+        { do: "mail.move", with: { mailbox: "Archive" } },
+      ],
+    },
+    // The first entry names the second action: the ledger is not the prefix.
+    applied: ["mail.move", "keyword.add"],
+  };
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, mover, claim);
+
+  const after = await store.readJob("ledger-mismatch-job");
+  assert.equal(after?.doc.state, "failed", "the mismatch is refused");
+  assert.match(String(after?.doc.error), /applied ledger does not match/);
+  const record = await fetchEmailRecord(client, GROUP, emailId);
+  assert.equal(
+    Boolean((record?.keywords as Record<string, unknown>)?.invoice),
+    false,
+    "and no action of the plan was run",
+  );
 });

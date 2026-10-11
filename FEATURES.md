@@ -167,13 +167,16 @@ has granted it (ADR 0003). For the full design, see
 - **An automation is three choices and a paragraph**: **when** it reacts (one of
   four triggers), **what it does** (prose, which carries the branching between
   cases), and **what it may do** (three areas — mail, chat, files and documents —
-  plus sending). It is named by its trigger, carries no filter, and a scheduled
-  one takes a preset cadence. **Sending** is its own entry because every area
-  excludes anything the catalogue marks external or irreversible, computed from
-  those flags, so ticking "mail" can never grant sending. **Doing nothing** is
-  granted to every automation. The document is validated against a published JSON
-  Schema (ADR 0003), the same validator and schema on both sides. No new rule
-  language, no hand-typed JSON; Sieve keeps the delivery-time boundary.
+  plus sending, and the company knowledge base as its own standalone grant). It
+  is named by its trigger, carries no filter, and a scheduled one takes a preset
+  cadence. **Sending** is its own entry because every area excludes anything the
+  catalogue marks external or irreversible, computed from those flags, so ticking
+  "mail" can never grant sending, and the **company knowledge base** is its own
+  because writing it reaches the Master's account rather than the group's.
+  **Doing nothing** is granted to every automation. The document is validated
+  against a published JSON Schema (ADR 0003), the same validator and schema on both
+  sides. No new rule language, no hand-typed JSON; Sieve keeps the delivery-time
+  boundary.
 - **One enabled automation per trigger.** The executor runs every enabled
   automation on a trigger against every item it produces; two on one trigger is
   refused by the server, prevented by the form (it offers only unheld triggers),

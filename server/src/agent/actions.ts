@@ -114,6 +114,17 @@ export interface ActionOpts {
   maxPages?: number;
   /** The instant the run works from, so a test can pin what a draft records. */
   now?: Date;
+  /**
+   * The capabilities the rule that made this run holds.
+   *
+   * The model's answer is checked against this grant when it is decided, and
+   * the same grant is read again at the moment the plan runs: a resume, an
+   * approval or a draft sent from Drafts runs a plan written earlier, and an
+   * action outside the grant is refused before anything runs (ADR 0003). A
+   * caller that states none — the executor's own bookkeeping, a label it
+   * applies on a failure — is not running a plan the model chose.
+   */
+  allowed?: ReadonlyArray<AgentActionName>;
 }
 
 export interface ActionResult {
@@ -598,11 +609,14 @@ function sentAtOf(opts: ActionOpts): string {
 /**
  * A refusal: the run must not continue as it is, so a retry changes nothing.
  *
- * The executor's fence throws it, and `runActions` propagates it unchanged —
- * wrapping it in a plain `Error` would turn "nothing more is run" into a
- * bounded retry of the very effect the fence stopped. It lives in this module
- * because this is where it is caught and rethrown; the executor imports it
- * rather than the other way round, so there is no import cycle.
+ * Two things raise it. The executor's fence raises it when the unit was taken
+ * over while the run was working, and `runActions` raises it when a plan names
+ * an action the rule's grant does not hold — the boundary ADR 0003 puts before
+ * anything runs. `runActions` propagates it unchanged: wrapping it in a plain
+ * `Error` would turn "nothing more is run" into a bounded retry of the very
+ * effect the fence stopped. It lives in this module because this is where it is
+ * caught and rethrown; the executor imports it rather than the other way round,
+ * so there is no import cycle.
  */
 export class RefusedError extends Error {}
 
@@ -644,6 +658,12 @@ export async function runActions(
   const client = new JmapClient(ctx);
   const results: ActionResult[] = [];
   for (const action of actions) {
+    // The grant is the boundary ADR 0003 puts before anything runs: an action
+    // the rule does not hold is refused here, whatever path wrote the plan.
+    if (opts.allowed && !opts.allowed.includes(action.do))
+      throw new RefusedError(
+        `"${action.do}" is not in this run's grant, so nothing is run`,
+      );
     const missing = missingActionParams(action);
     if (missing.length)
       throw new Error(`"${action.do}" needs ${missing.join(", ")} to run`);
@@ -759,150 +779,54 @@ async function runOne(
     }
     case "knowledge.write": {
       /*
-       * A knowledge base draft, written by a run (ADR 0024). This action only
-       * ever writes the mutable `draft.json` and its `state.json`; approval is
-       * an administrator's and a revision is minted only by that approval, so
-       * neither is reachable from here. `scope` names the tier: a group's KB is
-       * the run's own account, the company's is the Master's — which the agent's
-       * own session holds as its personal account, so a run reaches both (Q15).
+       * The group's own knowledge base, or — with `scope: "company"` — the
+       * installation's. A run (ADR 0024) only ever writes the mutable
+       * `draft.json` and its `state.json`; approval is an administrator's and a
+       * revision is minted only by that approval, so neither is reachable from
+       * here.
        *
-       * The article folder is named by the title (or by `folder`, to update the
-       * article that folder already names), and the id and the lifecycle are
-       * minted on create and preserved on update. The body the model wrote is
-       * minted into one paragraph block, so the editor shows the agent's text
-       * rather than an empty document beside a full `text` field.
+       * The company base is a second account — the Master's, which the agent's
+       * own session holds as its personal account — and reaching it is a grant
+       * of its own: a rule that holds `knowledge.write` alone writes this
+       * group's base, and `scope: "company"` needs `knowledge.writeCompany`
+       * besides (ADR 0024 Q15).
        */
-      const title = textOf(action.with?.title).trim().slice(0, MAX_TITLE);
-      if (!title) throw new Error("knowledge.write needs a title");
-      const by = opts.from ?? "";
-      const at = (opts.now ?? new Date()).toISOString();
-      const body = textOf(action.with?.text);
-      const basedOn = textOf(action.with?.basedOn).trim();
       const scope = textOf(action.with?.scope).trim();
       if (scope && scope !== "group" && scope !== "company")
         throw new Error(
           `knowledge.write: scope must be "group" or "company", not "${scope}"`,
         );
-      // The company KB is the Master's own account, resolved the same way the
-      // route resolves it; a run whose session cannot name it must not write
-      // the company article into its group instead.
-      const companyAccount = filesAccountId(ctx) || ownIdentityAccount(ctx);
-      if (scope === "company" && !companyAccount)
-        throw new Error(
-          "knowledge.write: the installation's own account could not be read, so the company knowledge base cannot be written",
+      if (scope === "company" && !opts.allowed?.includes("knowledge.writeCompany"))
+        throw new RefusedError(
+          'knowledge.write: the company base needs the "knowledge.writeCompany" grant, which this rule does not hold',
         );
-      const account = scope === "company" ? companyAccount : accountId;
-      // The folder name is normalised even when the model named one: a slash or
-      // a control character in a FileNode name would split or corrupt the path.
-      const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
-      if (isReservedArticleName(folder))
-        throw new Error(
-          `knowledge.write: "${folder}" is reserved for an article's revision store`,
-        );
-      const path = `${KNOWLEDGE_FOLDER}/${folder}`;
-      const draftPath = `${path}/${DRAFT_FILE}`;
-      await ensureFolderPath(ctx, account, path);
-      for (let attempt = 0; attempt < 2; attempt++) {
-        // The token is read before the documents, so a save landing between them
-        // and the writes is refused rather than silently overwritten.
-        const token = await appFolderState(ctx, account);
-        const draftRaw = await readAppJsonAt(ctx, account, draftPath);
-        const stateRaw = await readAppJsonAt(ctx, account, `${path}/${STATE_FILE}`);
-        // A lifecycle document that is there but unreadable is never rewritten
-        // as "never approved": an issued article turned issued-by-nobody is
-        // worse than a refused write.
-        const stateRef = await findAppFileAt(ctx, account, `${path}/${STATE_FILE}`);
-        if (stateRef.file && !isKnowledgeState(stateRaw))
-          throw new Error(
-            "knowledge.write: this article's lifecycle document cannot be read, so it is left untouched",
-          );
-        const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
-        const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
-        // A plan names the draft it was read from; a page that exists and was
-        // edited since is refused rather than overwritten. A page that does not
-        // exist yet is created — there is nothing to collide with.
-        if (basedOn && prior && prior.updated.at !== basedOn)
-          return {
-            action: action.do,
-            ok: true,
-            result: {
-              folder,
-              title,
-              outcome: "moved",
-              basedOn: prior.updated.at,
-              intent: body,
-              account,
-              detail: "the page changed since the plan was read",
-            },
-          };
-        if (priorState && isRetired(priorState))
-          throw new Error(
-            "knowledge.write: this article is retired and kept on record, so it is not edited",
-          );
-        const id = prior?.id ?? priorState?.id ?? knowledgeId();
-        const draft = {
-          ...(prior ?? {}),
-          ...buildDraft({
-            id,
-            title,
-            tags: prior?.tags ?? priorState?.tags ?? [],
-            blocks: blocksFromText(body),
-            text: body,
-            by,
-            at,
-            created: prior?.created ?? priorState?.created,
-          }),
-        };
-        const state = buildState({
-          id,
-          title,
-          tags: draft.tags,
-          by,
-          at,
-          created: priorState?.created ?? prior?.created,
-          inForce: priorState?.inForce ?? null,
-          pending: priorState?.pending ?? null,
-          retired: priorState?.retired ?? null,
-        });
-        try {
-          // A conditional write is the agent design's lock: without the
-          // account's state token it would be an unconditional write, able to
-          // replace a change another writer just made. Refuse instead, loudly.
-          if (!token)
-            throw new Error(
-              "knowledge.write: the account reported no state, so the draft could not be written safely",
-            );
-          await writeAppFileAt(ctx, account, draftPath, draft, {
-            ifInState: token,
-          });
-          const after = await appFolderState(ctx, account);
-          if (!after)
-            throw new Error(
-              "knowledge.write: the account reported no state, so the article state could not be written safely",
-            );
-          await writeAppFileAt(ctx, account, `${path}/${STATE_FILE}`, state, {
-            ifInState: after,
-          });
-          return {
-            action: action.do,
-            ok: true,
-            result: {
-              id,
-              folder,
-              title,
-              outcome: prior ? "written" : "created",
-              basedOn: prior?.updated.at ?? "",
-              intent: body,
-              account,
-            },
-          };
-        } catch (err) {
-          if (attempt > 0 || !isStateMismatch(err)) throw err;
-        }
-      }
-      throw new Error(
-        "knowledge.write: the draft could not be written because another write kept winning the race",
-      );
+      return {
+        action: action.do,
+        ok: true,
+        result: await writeKnowledgeDraft(
+          ctx,
+          scope === "company" ? companyKnowledgeAccount(ctx) : accountId,
+          action,
+          opts,
+        ),
+      };
+    }
+    case "knowledge.writeCompany": {
+      /*
+       * The installation's company knowledge base, as an action of its own (ADR
+       * 0024 Q15): the grant is the action name, so no area hands it out and a
+       * rule reaches the base only by naming it.
+       */
+      return {
+        action: action.do,
+        ok: true,
+        result: await writeKnowledgeDraft(
+          ctx,
+          companyKnowledgeAccount(ctx),
+          action,
+          opts,
+        ),
+      };
     }
     case "knowledge.review": {
       /*
@@ -1112,11 +1036,162 @@ async function runOne(
         },
       };
     }
+    default:
+      // A name the catalogue does not hold is not an action: a run that got
+      // here would otherwise record a phantom result and report work it never
+      // did, so it is refused by name instead.
+      throw new RefusedError(
+        `"${action.do}" is not an action this build can run, so nothing is run`,
+      );
   }
 }
 
 /** The media type everything the page work writes carries. */
 const PDF_TYPE = "application/pdf";
+
+/**
+ * The installation's own account: the Master's, which the agent's session holds
+ * as its personal one.
+ *
+ * A run whose session cannot name it must not write a company page into its
+ * group instead, so this refuses rather than falling back (ADR 0024 Q15).
+ */
+function companyKnowledgeAccount(ctx: Ctx): string {
+  const account = filesAccountId(ctx) || ownIdentityAccount(ctx);
+  if (!account)
+    throw new Error(
+      "the installation's own account could not be read, so the company knowledge base cannot be written",
+    );
+  return account;
+}
+
+/**
+ * One knowledge base draft, written into `account` (ADR 0024).
+ *
+ * The article folder is named by the title (or by `folder`, to update the
+ * article that folder already names), and the id and the lifecycle are minted on
+ * create and preserved on update. The body the model wrote is minted into one
+ * paragraph block, so the editor shows the agent's text rather than an empty
+ * document beside a full `text` field. A group's base and the company's are the
+ * same write against a different account, so this is the one place it happens
+ * rather than a copy beside each action that reaches it.
+ */
+async function writeKnowledgeDraft(
+  ctx: Ctx,
+  account: string,
+  action: AgentAction,
+  opts: ActionOpts,
+): Promise<Record<string, unknown>> {
+  const title = textOf(action.with?.title).trim().slice(0, MAX_TITLE);
+  if (!title) throw new Error(`${action.do} needs a title`);
+  const by = opts.from ?? "";
+  const at = (opts.now ?? new Date()).toISOString();
+  const body = textOf(action.with?.text);
+  const basedOn = textOf(action.with?.basedOn).trim();
+  // The folder name is normalised even when the model named one: a slash or a
+  // control character in a FileNode name would split or corrupt the path.
+  const folder = knowledgeFolderName(textOf(action.with?.folder).trim() || title);
+  if (isReservedArticleName(folder))
+    throw new Error(
+      `${action.do}: "${folder}" is reserved for an article's revision store`,
+    );
+  const path = `${KNOWLEDGE_FOLDER}/${folder}`;
+  const draftPath = `${path}/${DRAFT_FILE}`;
+  await ensureFolderPath(ctx, account, path);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // The token is read before the documents, so a save landing between them
+    // and the writes is refused rather than silently overwritten.
+    const token = await appFolderState(ctx, account);
+    const draftRaw = await readAppJsonAt(ctx, account, draftPath);
+    const stateRaw = await readAppJsonAt(ctx, account, `${path}/${STATE_FILE}`);
+    // A lifecycle document that is there but unreadable is never rewritten
+    // as "never approved": an issued article turned issued-by-nobody is
+    // worse than a refused write.
+    const stateRef = await findAppFileAt(ctx, account, `${path}/${STATE_FILE}`);
+    if (stateRef.file && !isKnowledgeState(stateRaw))
+      throw new Error(
+        `${action.do}: this article's lifecycle document cannot be read, so it is left untouched`,
+      );
+    const prior = isKnowledgeDraft(draftRaw) ? draftRaw : null;
+    const priorState = isKnowledgeState(stateRaw) ? stateRaw : null;
+    // A plan names the draft it was read from; a page that exists and was
+    // edited since is refused rather than overwritten. A page that does not
+    // exist yet is created — there is nothing to collide with.
+    if (basedOn && prior && prior.updated.at !== basedOn)
+      return {
+        folder,
+        title,
+        outcome: "moved",
+        basedOn: prior.updated.at,
+        intent: body,
+        account,
+        detail: "the page changed since the plan was read",
+      };
+    if (priorState && isRetired(priorState))
+      throw new Error(
+        `${action.do}: this article is retired and kept on record, so it is not edited`,
+      );
+    const id = prior?.id ?? priorState?.id ?? knowledgeId();
+    const draft = {
+      ...(prior ?? {}),
+      ...buildDraft({
+        id,
+        title,
+        tags: prior?.tags ?? priorState?.tags ?? [],
+        blocks: blocksFromText(body),
+        text: body,
+        by,
+        at,
+        created: prior?.created ?? priorState?.created,
+      }),
+    };
+    const state = buildState({
+      id,
+      title,
+      tags: draft.tags,
+      by,
+      at,
+      created: priorState?.created ?? prior?.created,
+      inForce: priorState?.inForce ?? null,
+      pending: priorState?.pending ?? null,
+      retired: priorState?.retired ?? null,
+    });
+    try {
+      // A conditional write is the agent design's lock: without the
+      // account's state token it would be an unconditional write, able to
+      // replace a change another writer just made. Refuse instead, loudly.
+      if (!token)
+        throw new Error(
+          `${action.do}: the account reported no state, so the draft could not be written safely`,
+        );
+      await writeAppFileAt(ctx, account, draftPath, draft, {
+        ifInState: token,
+      });
+      const after = await appFolderState(ctx, account);
+      if (!after)
+        throw new Error(
+          `${action.do}: the account reported no state, so the article state could not be written safely`,
+        );
+      await writeAppFileAt(ctx, account, `${path}/${STATE_FILE}`, state, {
+        ifInState: after,
+      });
+      return {
+        id,
+        folder,
+        title,
+        outcome: prior ? "written" : "created",
+        basedOn: prior?.updated.at ?? "",
+        intent: body,
+        account,
+      };
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+  throw new Error(
+    `${action.do}: the draft could not be written because another write kept winning the race`,
+  );
+}
 
 /** A file the document family works on: where it is, and what it holds. */
 interface DocumentSource {

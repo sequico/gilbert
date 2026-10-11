@@ -376,9 +376,11 @@ are the alternatives if more control or a different UI system is wanted.
   read one page's text, in the group's own account and in whatever the reader is
   shared. The notebook stays the distilled head; the KB is a tail read
   (`docs/adr/0006`, `docs/adr/0020`).
-- A write capability (create/update a page) under the appropriate area. Writing
-  the **company** KB from a group agent means acting as the Master, which is the
-  privileged door again — **Q15**.
+- A write capability (create/update a page) under the appropriate area, and a
+  **standalone** `knowledge.writeCompany` grant for the company tier: writing the
+  **company** KB from a group agent means acting as the Master, the privileged
+  door again (**Q15**), so `knowledge.write` with `scope: "company"` is refused
+  unless the rule also holds that grant.
 
 ### Search
 
