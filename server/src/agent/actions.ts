@@ -865,12 +865,23 @@ async function runOne(
           retired: priorState?.retired ?? null,
         });
         try {
+          // A conditional write is the agent design's lock: without the
+          // account's state token it would be an unconditional write, able to
+          // replace a change another writer just made. Refuse instead, loudly.
+          if (!token)
+            throw new Error(
+              "knowledge.write: the account reported no state, so the draft could not be written safely",
+            );
           await writeAppFileAt(ctx, account, draftPath, draft, {
-            ...(token ? { ifInState: token } : {}),
+            ifInState: token,
           });
           const after = await appFolderState(ctx, account);
+          if (!after)
+            throw new Error(
+              "knowledge.write: the account reported no state, so the article state could not be written safely",
+            );
           await writeAppFileAt(ctx, account, `${path}/${STATE_FILE}`, state, {
-            ...(after ? { ifInState: after } : {}),
+            ifInState: after,
           });
           return {
             action: action.do,
