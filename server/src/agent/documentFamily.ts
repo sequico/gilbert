@@ -432,8 +432,10 @@ async function docxText(bytes: Uint8Array): Promise<string> {
  * it in memory before a character of it is bounded: the byte ceiling on the
  * compressed file says what arrives, never what it becomes, so a small archive
  * can expand into the process's whole memory. The archive's own directory
- * states every entry's uncompressed size, so the total is refused before
- * anything is expanded (ADR 0003).
+ * states every entry's uncompressed size, and the sum of those **declared**
+ * sizes is refused before anything is expanded (ADR 0003); the bound trusts the
+ * directory's numbers, and the extracted text is cut again at
+ * `DOCUMENT_TEXT_MAX`.
  */
 export const DOCUMENT_ARCHIVE_BYTES_MAX = 256 * 1024 * 1024;
 

@@ -33,7 +33,10 @@ if (typeof document !== "undefined") {
       if (e.key !== "Escape") return;
       const top = escapeStack[escapeStack.length - 1];
       if (!top) return;
-      // The overlay's own answer replaces the key for everything below it.
+      // The topmost registered overlay owns Escape: while one is open, it takes
+      // the key before every handler below it. A surface that must handle
+      // Escape itself while an overlay can host it registers through
+      // `registerEscape` rather than adding its own listener.
       e.stopImmediatePropagation();
       top();
     },

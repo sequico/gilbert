@@ -3023,11 +3023,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }>(c);
     try {
       const target = knowledgeTarget(body);
-      // The company tier is an administration write; the group tier is a
-      // member's, and `groupKnowledgeAccount` checks that membership. Writing
-      // the draft of a page that exists is what a member may do, so this one
-      // shared write cannot simply carry `requireAdmin` — the company scope is
-      // gated here instead, on the same door as every other admin route.
+      // The company tier is an administration write. Writing the draft of a
+      // page that exists is what a member may do on a group's base, so this one
+      // shared write cannot carry `requireAdmin`; the company scope is gated
+      // here on the same door as every other admin route. The rest of a group's
+      // tier — rename, approve, delete, folder, reorder, move — is an
+      // administrator's, and carries `requireAdmin` like every other mutation.
       if (target.scope !== "group") {
         const refusal = await enforceAdmin(c);
         if (refusal) return refusal;

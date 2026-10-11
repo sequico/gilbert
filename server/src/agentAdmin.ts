@@ -1239,6 +1239,9 @@ export async function assertUsableBaseUrl(
     return;
   }
   const answers = await resolve(host);
+  // Deliberate: a name that answers with a private address at all is refused,
+  // because the client cannot promise which answer it will pick. A dual-homed
+  // provider is the one legitimate case this costs.
   if (answers.some((address) => isPrivateAddress(address)))
     throw new AgentAdminError({ code: "base_url_private", host: url.hostname }, 400);
 }
