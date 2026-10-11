@@ -294,10 +294,19 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     // memory: the pass writes it, so a group that has gone quiet does not carry
     // it until it happens to write something else.
     const carried = await store.flushPendingAudits();
-    if (carried) log(`${accountId}: wrote ${carried} held audit entry(ies)`);
-    const decisions = (await store.listDecisions())
-      .map((entry) => entry.doc)
-      .filter((decision) => decision.state === "pending");
+    if (carried) log(`${accountId}: ${carried} held audit entry(ies) still waiting`);
+    // A decision belongs to the agent that holds the account's claim: a
+    // withdrawn account can still carry an armed schedule timer, and settling
+    // its decisions or posting to its chat from a claim this process no longer
+    // holds would race the agent that now owns it — the schedule and
+    // pending-job paths already refuse on the same condition.
+    const claimed = (await store.readClaim())?.doc;
+    const decisions =
+      claimed?.agent === id
+        ? (await store.listDecisions())
+            .map((entry) => entry.doc)
+            .filter((decision) => decision.state === "pending")
+        : [];
     if (decisions.length) {
       // The draft that left Drafts is settled **before** the chat is read: a
       // member who sent the draft and then wrote "sì" has approved once by
@@ -718,9 +727,18 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       ),
     );
     disposers.push(
-      pollLoop(heartbeatMs, async () => {
-        await track(prune());
-      }),
+      pollLoop(
+        heartbeatMs,
+        async () => {
+          await track(prune());
+        },
+        {
+          onError: (err) =>
+            log(
+              `the retention sweep threw: ${err instanceof Error ? err.message : String(err)}`,
+            ),
+        },
+      ),
     );
   }
 
