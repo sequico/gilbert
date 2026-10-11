@@ -23,7 +23,7 @@ import {
   unregisterMailtoHandler,
 } from "@/lib/mailhandler";
 import { isEnforced } from "@/lib/settingsPolicy";
-import { useSettings } from "@/store/settings";
+import { SETTINGS_POLICY_UNKNOWN, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { Switch } from "@/ui/misc";
 import { toast } from "@/ui/toast";
@@ -405,8 +405,14 @@ export function GeneralSettings() {
               }))
             )
               return;
-            reset();
-            toast.show(t("Settings reset to defaults"));
+            const refusal = reset();
+            if (refusal === SETTINGS_POLICY_UNKNOWN)
+              toast.error(
+                t(
+                  "Your settings were not reset: this installation's policy could not be read. Try again.",
+                ),
+              );
+            else toast.show(t("Settings reset to defaults"));
           }}
         >
           {t("Reset to defaults")}

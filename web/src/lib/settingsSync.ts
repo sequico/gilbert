@@ -48,6 +48,14 @@ const CAS_ATTEMPTS = 3;
 
 let timer: number | null = null;
 let pending: Record<string, unknown> | null = null;
+/**
+ * Which change `pending` holds, bumped every time one is queued.
+ *
+ * A failed write retries the change it captured, and the retry must not write
+ * an older snapshot back over a newer one: this is what lets it tell whether a
+ * newer change has been queued since, and drop the stale retry when one has.
+ */
+let queuedSeq = 0;
 let inFlight: Promise<void> | null = null;
 /** Nothing is pushed before the first load has settled, or we would race it. */
 let armed = false;
@@ -177,6 +185,7 @@ export function queueSettingsPush(synced: Record<string, unknown>): void {
    * than racing it. `armSettingsSync` writes whatever is waiting.
    */
   pending = synced;
+  queuedSeq += 1;
   if (!armed) return;
   if (timer !== null) window.clearTimeout(timer);
   timer = window.setTimeout(() => {
@@ -206,8 +215,9 @@ export function pendingSettingsKeys(): ReadonlySet<string> {
  * the rest of the session, nothing puts it back on the write queue, so the
  * account's `settings.json` quietly keeps the old value and the next
  * `hydrate()` (another device, the next sign-in) reverts a change the person
- * believed had stuck. A failure re-queues the change, merged under anything
- * newer that arrived while it was in flight, retries shortly, and tells the
+ * believed had stuck. A failure puts the change back on the queue and retries
+ * shortly, unless a newer change has been queued since -- which is the newer
+ * truth and would only be reverted by writing the older one -- and tells the
  * person once per failing streak.
  */
 export async function flushSettingsPush(): Promise<void> {
@@ -217,6 +227,7 @@ export async function flushSettingsPush(): Promise<void> {
   }
   if (!pending || !armed) return;
   const body = pending;
+  const bodySeq = queuedSeq;
   pending = null;
   let failure: unknown;
   // Serialise: two overlapping writes could land in either order. The failure
@@ -232,10 +243,15 @@ export async function flushSettingsPush(): Promise<void> {
     warnedOfFailure = false;
     return;
   }
-  // The newer value always wins over the one that just failed to write.
-  const arrivedSince = pending;
-  pending = Object.assign({}, body, arrivedSince ?? {});
-  if (armed) {
+  /*
+   * Retry only while this change is still the newest one. A change queued since
+   * is the newer truth -- its own debounce writes it, or it has already landed
+   * as another flush -- and re-queuing the older body would write it back over
+   * newer state: the same silent revert the writer's compare-and-set guards
+   * against between tabs, reached here through a retry instead.
+   */
+  if (armed && queuedSeq === bodySeq) {
+    pending = body;
     if (timer !== null) window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       timer = null;

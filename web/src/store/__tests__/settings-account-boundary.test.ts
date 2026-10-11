@@ -210,7 +210,7 @@ describe("importing a settings file", () => {
     expect(s.theme).toBe("light");
   });
 
-  it("still trusts the rest of what it is given", () => {
+  it("drops a key this build does not have, through the same schema as any file", () => {
     expect(
       useSettings
         .getState()
@@ -218,9 +218,10 @@ describe("importing a settings file", () => {
     ).toBe(true);
     const s = useSettings.getState().settings as unknown as Record<string, unknown>;
     expect(s.accent).toBe("purple");
-    // The migration only adds palette and mode; dropping unknown keys is
-    // `acceptRemote`'s job, for files read back off the server.
-    expect(s.notARealSetting).toBe(7);
+    /* An unknown key admitted here would ride in the state and be pushed to
+       the account's settings file on the next write, so it is dropped like any
+       other unknown key. */
+    expect(s.notARealSetting).toBeUndefined();
   });
 });
 

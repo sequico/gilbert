@@ -47,15 +47,14 @@ metadata:
 
 - `reset()` = `DEFAULT_SETTINGS + policyDefaults + policyEnforced` — "back to
   how this installation starts an account", deliberately not a way around a
-  policy.
+  policy. It answers the door's refusal (`SettingsWriteRefusal | null`) so a
+  caller that must say why reports it instead of reading a silent no-op.
 - `hydrate(remote)` (the account's file arrived) re-applies `enforced` on top,
   so an older sign-in that wrote past the policy is corrected on next load.
-- `importJson` goes through `update()` **unfiltered** — unlike the policy
-  loader and the remote file read, an import trusts its input (a parse error
-  returns false). An unknown key it introduces is dropped when other devices
-  read the file back (`acceptRemote`), but this browser keeps it cached and
-  re-pushes it until the file is rewritten; a device key it sets does change
-  this browser.
+- `importJson` runs its parsed keys through `knownSettings` (the same schema as
+  the remote read), keeping only the deliberate legacy-`theme` migration, so an
+  unknown key is dropped here too rather than cached and re-pushed. A parse
+  error returns false.
 - `appliedPolicyChanges: string[]` is the account's record of which policy
   `changes` it has had; it syncs like any other key. Never set it from a
   policy, never use it for anything else.

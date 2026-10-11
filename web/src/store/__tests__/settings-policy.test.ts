@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearSettingsPolicy,
   isEnforced,
   loadSettingsPolicy,
   policyDefaults,
   policyEnforced,
+  policyStatus,
   refreshSettingsPolicy,
   resetSettingsPolicyForTest,
 } from "@/lib/settingsPolicy";
@@ -13,6 +15,7 @@ import {
   type SettingsWriteRefusal,
   useSettings,
 } from "@/store/settings";
+import { useSession } from "@/store/session";
 
 /*
  * Settings an installation decides, from #207.
@@ -585,5 +588,81 @@ describe("changes an installation wants applied once", () => {
     resetSettingsPolicyForTest({ changes: [change("A", { notARealSetting: true })] });
     expect(useSettings.getState().applyPolicyChanges()).toEqual([]);
     expect(useSettings.getState().settings.appliedPolicyChanges).toEqual([]);
+  });
+});
+
+/*
+ * The policy is per account (ADR 0001), and it is held in module state. A
+ * sign-out and a sign-in in the same tab must not let the second account
+ * consult the first one's `enforced` map: a control is then locked and a value
+ * enforced for the wrong reader until their own read lands, and nothing on
+ * screen says why.
+ */
+describe("clearing the policy at the end of a session", () => {
+  it("forgets the enforced map, the standing and the fetched policy", async () => {
+    vi.stubGlobal("fetch", answering(answered({ enforced: { conversationMode: true } })));
+    await loadSettingsPolicy();
+    expect(policyStatus()).toBe("read");
+    expect(isEnforced("conversationMode")).toBe(true);
+
+    clearSettingsPolicy();
+
+    expect(policyStatus()).toBe("unread");
+    expect(policyEnforced()).toEqual({});
+    expect(isEnforced("conversationMode")).toBe(false);
+  });
+
+  it("is cleared when the session ends, so the next account does not inherit it", async () => {
+    vi.stubGlobal("fetch", answering(answered({ enforced: { conversationMode: true } })));
+    await loadSettingsPolicy();
+    expect(isEnforced("conversationMode")).toBe(true);
+
+    // A sign-out (or a 401) flips the status; the settings store's own
+    // subscription then drops both the reader's settings and the policy.
+    useSession.setState({ status: "authenticated", session: null, accountId: "a1" });
+    useSession.setState({ status: "anonymous", session: null, accountId: null });
+
+    expect(policyStatus()).toBe("unread");
+    expect(policyEnforced()).toEqual({});
+    expect(isEnforced("conversationMode")).toBe(false);
+  });
+});
+
+/*
+ * Reset goes through the one door, so a policy the read could not reach refuses
+ * it. That refusal has to reach the caller: a reset announced as done while the
+ * write never happened is the same lie the door exists to prevent.
+ */
+describe("a reset whose write the door refuses", () => {
+  it("hands the refusal back rather than reporting a reset that did not happen", async () => {
+    vi.stubGlobal("fetch", refusing(500));
+    await loadSettingsPolicy(); // standing = unavailable
+    const before = useSettings.getState().settings.conversationMode;
+    expect(useSettings.getState().reset()).toBe(SETTINGS_POLICY_UNKNOWN);
+    expect(useSettings.getState().settings.conversationMode).toBe(before);
+  });
+});
+
+/*
+ * The correction of a change made during the fetch must not be gated on the
+ * push queue: a deployment with no Files capability queues nothing, so keying
+ * it on `pendingSettingsKeys()` leaves every change made in the fetch window
+ * uncorrected exactly where nobody can see it.
+ */
+describe("a change made during the fetch on a deployment with no push", () => {
+  it("is still corrected when nothing was queued", async () => {
+    resetSettingsPolicyForTest();
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
+    useSettings.getState().update({ conversationMode: false });
+    expect(useSettings.getState().settings.conversationMode).toBe(false);
+    // No Files, no queue: the correction must run regardless.
+    syncMock.reset();
+    vi.stubGlobal("fetch", answering(answered({ enforced: { conversationMode: true } })));
+    try {
+      await loadSettingsPolicy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(useSettings.getState().settings.conversationMode).toBe(true);
   });
 });

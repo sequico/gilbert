@@ -1,6 +1,5 @@
 import { isRecord } from "@gilbert/shared/json";
 import { withBase } from "@/lib/basePath";
-import { pendingSettingsKeys } from "@/lib/settingsSync";
 import { isSettingsKey, type Settings, useSettings } from "@/store/settings";
 
 /**
@@ -87,10 +86,10 @@ let fetched: Promise<PolicyRead> | null = null;
  * A policy written against a newer Gilbert, or with a typo in it, must not
  * introduce a setting that nothing reads: `update` would carry it around and
  * `syncedPart` would push it to the reader's settings file. Anything not in
- * `DEFAULT_SETTINGS` is dropped here, at the door. (Contrast `importJson`,
- * which trusts what it is handed -- only a parse failure rejects it: an
- * unknown key it admits rides in that browser's state and cache, and a device
- * that reads the file back drops it through `acceptRemote`.)
+ * `DEFAULT_SETTINGS` is dropped here, at the door. The same schema filters an
+ * imported settings file (`importJson`) and a file read off the server
+ * (`acceptRemote`), so no entry that names a key this build does not have can
+ * reach the state or the settings file.
  */
 function known(obj: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
@@ -209,17 +208,37 @@ function settle(read: PolicyRead): PolicyRead {
    * policy forbids. (Without this the first flush -- which happens only
    * after the load has settled -- writes the pre-policy value.)
    *
+   * The condition is whether the settings actually differ from what the policy
+   * enforces, not whether anything is queued for the push: a deployment with no
+   * Files queues nothing, and keying the correction on the queue would leave
+   * every change made in the fetch window uncorrected exactly where nobody
+   * would notice. A read whose enforced values the settings already hold
+   * corrects nothing, so an untouched account is still not written to because
+   * the policy merely arrived.
+   *
    * The answer is in whichever way the correction goes, so a correction that
    * throws is caught here rather than reported to the caller as a policy that
    * never arrived.
    */
   try {
-    if (Object.keys(read.policy.enforced).length && pendingSettingsKeys().size)
-      useSettings.getState().update({ ...read.policy.enforced });
+    const enforced = read.policy.enforced;
+    if (
+      Object.keys(enforced).length &&
+      !alreadyEnforced(enforced, useSettings.getState().settings)
+    )
+      useSettings.getState().update({ ...enforced });
   } catch {
     /* The policy is in hand; there is nothing left to do about the queue. */
   }
   return read;
+}
+
+/** Whether the settings already hold every value the installation enforces. */
+function alreadyEnforced(enforced: Partial<Settings>, current: Settings): boolean {
+  const now = current as unknown as Record<string, unknown>;
+  return Object.entries(enforced).every(
+    ([key, value]) => JSON.stringify(now[key]) === JSON.stringify(value),
+  );
 }
 
 /**
@@ -262,6 +281,22 @@ async function readPolicy(): Promise<PolicyRead> {
 export async function refreshSettingsPolicy(): Promise<PolicyRead> {
   fetched = null;
   return loadSettingsPolicy();
+}
+
+/**
+ * Forget the policy, and everything fetched for it, at the end of a session.
+ *
+ * These are module state and the policy is per account (ADR 0001), so without
+ * this a second sign-in in the same tab -- no reload, after an idle sign-out --
+ * consults the previous account's `enforced` map until its own read lands, with
+ * the wrong settings locked and enforced. `session.logout` and the 401 handler
+ * call it beside the other stores' discard; `standing` returns to `unread`, so
+ * the next session's read is a real request rather than the memory of one.
+ */
+export function clearSettingsPolicy(): void {
+  policy = EMPTY;
+  standing = "unread";
+  fetched = null;
 }
 
 /**

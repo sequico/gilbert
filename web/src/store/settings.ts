@@ -18,6 +18,7 @@ import {
   type PaletteId,
 } from "@/lib/palette";
 import {
+  clearSettingsPolicy,
   type PolicyChange,
   policyChanges,
   policyDefaults,
@@ -480,8 +481,7 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
  * imported file is the same shape of thing, and is read through it too.
  *
  * Only when the new fields are absent: a file that has both is newer, and its
- * `theme` is the derived copy rather than the choice. Nothing is dropped, so a
- * caller that trusts its input (`importJson`) still hands every unknown key on.
+ * `theme` is the derived copy rather than the choice.
  */
 function migratedThemeFields(source: Record<string, unknown>): Record<string, unknown> {
   if (!source || typeof source !== "object") return source;
@@ -540,7 +540,14 @@ interface SettingsState {
    * applied as though the installation had decided nothing.
    */
   update(patch: Partial<Settings>): SettingsWriteRefusal | null;
-  reset(): void;
+  /**
+   * Back to how this installation starts an account.
+   *
+   * Answers `null` when the reset was applied, and the door's refusal code when
+   * it was not, so a caller can tell the reader that nothing moved rather than
+   * announce a reset that never happened.
+   */
+  reset(): SettingsWriteRefusal | null;
   /**
    * Drop what is in hand, without writing anything.
    *
@@ -731,8 +738,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
        an admin chose are the honest meaning of "reset" where there are any.
        Through `update()`, the one door, so a policy the policy read could not
        reach refuses the write here as it does every other, rather than reset
-       becoming the one path around it. */
-    get().update({
+       becoming the one path around it. The refusal travels back to the caller,
+       so the surface can say the reset did not happen instead of claiming it
+       did. */
+    return get().update({
       ...DEFAULT_SETTINGS,
       ...policyDefaults(),
     });
@@ -759,15 +768,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
     try {
       const parsed = JSON.parse(json) as Record<string, unknown>;
       /*
-       * Read through the same migration an account's own file gets. An export
-       * from before palettes carries `theme` alone, and handing that to `update`
-       * unchanged makes the import report success while changing nothing: `update`
-       * derives `theme` from `palette` and `mode`, so the imported legacy field
-       * was written back over by the palette it did not carry. Unknown keys are
-       * still handed on -- an import is the reader's own file, and the
-       * known-keys-only rule is `acceptRemote`'s, for files off the server.
+       * Read through the same schema an account's own file gets: known keys
+       * only, through the pre-palette migration. A key this build does not have
+       * is not a setting, and leaving one in the object would push it to the
+       * account's settings file on the next write -- carried around by the one
+       * reader that did not ask the schema. The migration is kept, so an export
+       * from before palettes still imports as the palette and mode it means.
        */
-      return get().update(migratedThemeFields(parsed) as Partial<Settings>) === null;
+      return get().update(knownSettings(parsed)) === null;
     } catch {
       return false;
     }
@@ -918,8 +926,16 @@ export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
 useSession.subscribe((s, prev) => {
   if (s.status !== "authenticated") {
     /* Ends the session from a state that had one; a boot that never got one has
-       nothing of anybody's to drop, and the cache is still worth its frame. */
-    if (prev.status === "authenticated") useSettings.getState().discard();
+       nothing of anybody's to drop, and the cache is still worth its frame. The
+       policy goes with it: it is per account (ADR 0001), and module state, so a
+       second sign-in in the same tab -- no reload, after an idle sign-out --
+       must read its own rather than inherit the previous account's `enforced`
+       map. `session.logout` and the 401 handler reach this by flipping the
+       status. */
+    if (prev.status === "authenticated") {
+      useSettings.getState().discard();
+      clearSettingsPolicy();
+    }
     return;
   }
   if (prev.status === "authenticated") return;

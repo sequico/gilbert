@@ -307,6 +307,52 @@ describe("a settings write that fails", () => {
     // failed to write — the newer change is not lost behind a failed one.
     expect(written[1]).toEqual({ theme: "dark", locale: "it-IT" });
   });
+
+  it("drops a retry whose older snapshot a newer change has already replaced", async () => {
+    /*
+     * The failure path re-queues the change it captured and retries later. If a
+     * newer change is queued and lands while the failed write is still in
+     * flight, that retry must not fire: it would write the older snapshot back
+     * over the newer one, silently reverting the change the person last made.
+     */
+    const written: unknown[] = [];
+    let attempt = 0;
+    let release: () => void = () => {};
+    const held = new Promise<void>((res) => {
+      release = res;
+    });
+    vi.spyOn(appFolder, "writeAppJson").mockImplementation((async (
+      _accountId: string,
+      _name: string,
+      value: unknown,
+    ) => {
+      attempt += 1;
+      written.push(value);
+      if (attempt === 1) {
+        await held;
+        throw new Error("upstream unavailable");
+      }
+      return { id: "n1", blobId: "b1" };
+    }) as never);
+    vi.spyOn(toast, "error").mockImplementation(() => 1);
+
+    armSettingsSync();
+    queueSettingsPush({ theme: "dark" }); // the change that will fail
+    const first = flushSettingsPush(); // its write is now in flight
+    await Promise.resolve();
+    // A newer change arrives and takes the queue while the first write hangs.
+    queueSettingsPush({ theme: "dark", locale: "it-IT" });
+    await vi.advanceTimersByTimeAsync(3_000); // the newer change's debounce
+    // The first write fails only now, after the newer one has been queued.
+    release();
+    await first;
+    await vi.advanceTimersByTimeAsync(1_000);
+    // The newer change landed; the older snapshot is not written back over it,
+    // then or on the retry that must never come.
+    expect(written[1]).toEqual({ theme: "dark", locale: "it-IT" });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(attempt).toBe(2);
+  });
 });
 
 /**
