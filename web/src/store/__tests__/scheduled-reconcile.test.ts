@@ -25,7 +25,7 @@ interface Sub {
 }
 
 /** A server holding `inFolder` messages in Scheduled, with these submissions. */
-function server(inFolder: string[], subs: Sub[]) {
+function server(inFolder: string[], subs: Sub[], opts: { failSets?: boolean } = {}) {
   const updates: Record<string, Record<string, unknown>>[] = [];
   const submissionUpdates: Record<string, Record<string, unknown>>[] = [];
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
@@ -99,6 +99,8 @@ function server(inFolder: string[], subs: Sub[]) {
         ];
       }
       if (name === "Email/set" && args.update) {
+        if (opts.failSets)
+          return ["error", { type: "serverFail", description: "down" }, id];
         updates.push(args.update as Record<string, Record<string, unknown>>);
         return [name, { accountId: "a1", oldState: "1", newState: "2", updated: {} }, id];
       }
@@ -290,6 +292,51 @@ describe("reconcile", () => {
     const s = server(["e1"], []);
     await useScheduled.getState().reconcile();
     expect(s.updates).toEqual([]);
+  });
+
+  it("moves a folder larger than maxObjectsInSet in accepted batches", async () => {
+    // A folder can hold more messages than one Email/set accepts; the whole
+    // call would be refused with requestTooLarge and nothing would settle.
+    client.session = {
+      ...(client.session as JmapSession),
+      capabilities: {
+        [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 2 },
+        [CAP.mail]: {},
+        [CAP.submission]: {},
+      },
+    } as unknown as JmapSession;
+    const s = server(["e1", "e2", "e3"], []);
+    await useScheduled.getState().reconcile();
+    expect(s.updates.map((u) => Object.keys(u).length)).toEqual([2, 1]);
+  });
+
+  it("does not settle the folder when the move is refused", async () => {
+    // The pending list is the queue's record: advancing it before the server
+    // accepted the move would leave mail sitting in Scheduled reported as Sent.
+    const held = {
+      keep: {
+        id: "sKeep",
+        emailId: "keep",
+        sendAt: Date.parse(FUTURE),
+        undoStatus: "pending" as const,
+      },
+    };
+    useScheduled.setState({ pending: held, loaded: false });
+    server(
+      ["gone"],
+      [
+        {
+          id: "s1",
+          emailId: "gone",
+          sendAt: "2026-01-01T00:00:00Z",
+          undoStatus: "final",
+        },
+      ],
+      { failSets: true },
+    );
+    await useScheduled.getState().reconcile();
+    expect(useScheduled.getState().pending).toEqual(held);
+    expect(useScheduled.getState().loaded).toBe(false);
   });
 });
 

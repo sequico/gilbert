@@ -12,6 +12,7 @@ import { t } from "@/lib/i18n";
 import { canScheduleSend, maxDelayMs, type SubmissionCapability } from "@/lib/schedule";
 import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
+import { setEmails } from "./mail/mutations";
 import { useSession } from "./session";
 
 /**
@@ -289,11 +290,20 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
           ...(toDrafts ? { "keywords/$draft": true } : {}),
         };
       }
-      set({ pending, loaded: true });
       if (Object.keys(update).length) {
-        await client.call("Email/set", { accountId, update });
+        /*
+         * A folder can hold more messages than one `Email/set` accepts, so the
+         * move goes in batches the server will take (`setEmails`, the writer
+         * every other move uses) and the pending list advances only once it
+         * has landed: a refused or partial write must not leave the queue
+         * claiming the mail is settled when it is still in Scheduled.
+         */
+        await setEmails(accountId, update);
+        set({ pending, loaded: true });
         void mail.loadMailboxes();
         void mail.refreshList();
+      } else {
+        set({ pending, loaded: true });
       }
     } catch (err) {
       toast.error(
