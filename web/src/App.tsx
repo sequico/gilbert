@@ -1,5 +1,5 @@
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
-import { Redirect, Route, Router, Switch, useLocation } from "wouter";
+import { Redirect, Route, Router, Switch } from "wouter";
 import { client } from "@/jmap/client";
 import { catchUpLive, push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
@@ -205,7 +205,6 @@ export function App() {
 
 function AuthedApp() {
   const accountId = useSession((s) => s.accountId);
-  const [location] = useLocation();
 
   /*
    * Settings that live with the account rather than the browser.
@@ -412,6 +411,22 @@ function AuthedApp() {
         work.push(useKnowledge.getState().applyChanges(accountId));
       return work;
     };
+    /*
+     * Start a batch with a rejection handler already attached. The live path
+     * fires and forgets while the catch-up path awaits what it started, and one
+     * helper attaches the same handler for both, so neither can become the path
+     * that drops an error on the floor. The returned promises are unchanged, so
+     * the catch-up can still wait for its own reads.
+     */
+    const startDispatch = (
+      accountId: string,
+      types: Set<string>,
+      signal?: AbortSignal,
+    ): Promise<unknown>[] => {
+      const work = dispatch(accountId, types, signal);
+      for (const p of work) p.catch(() => {});
+      return work;
+    };
     const queue = (acct: string, type: string) => {
       const types = pending.get(acct) ?? new Set<string>();
       types.add(type);
@@ -419,7 +434,7 @@ function AuthedApp() {
       if (timer) return;
       timer = window.setTimeout(() => {
         timer = null;
-        for (const [a, types] of pending) dispatch(a, types);
+        for (const [a, types] of pending) startDispatch(a, types);
         pending.clear();
       }, RELOAD_DEBOUNCE_MS);
     };
@@ -454,7 +469,7 @@ function AuthedApp() {
       );
       const work: Promise<unknown>[] = [];
       for (const [accountId, types] of byAccount)
-        work.push(...dispatch(accountId, types, signal));
+        work.push(...startDispatch(accountId, types, signal));
       await Promise.allSettled(work);
     };
     const startCatchUp = () => {
@@ -727,8 +742,9 @@ function AuthedApp() {
           <Route path="/login">
             <Redirect to="/mail" />
           </Route>
+          {/* Anything else lands on the inbox. */}
           <Route>
-            {location === "/" ? <Redirect to="/mail" /> : <Redirect to="/mail" />}
+            <Redirect to="/mail" />
           </Route>
         </Switch>
       </Suspense>

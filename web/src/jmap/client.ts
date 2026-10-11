@@ -454,6 +454,13 @@ export class JmapClient {
     } = {},
   ): Promise<UploadResponse> {
     return new Promise((resolve, reject) => {
+      const signal = opts.signal;
+      // A caller that changed its mind before the upload started is answered,
+      // as `request` does, rather than sending the bytes anyway.
+      if (signal?.aborted) {
+        reject(new ApiError(0, "aborted", "Upload aborted"));
+        return;
+      }
       const xhr = new XMLHttpRequest();
       xhr.open("POST", this.uploadUrl(accountId));
       xhr.setRequestHeader(
@@ -462,10 +469,15 @@ export class JmapClient {
       );
       xhr.setRequestHeader("x-requested-with", HEADERS["x-requested-with"]);
       xhr.responseType = "json";
+      const onAbort = () => xhr.abort();
+      // Every terminal handler detaches the listener, so a settled upload does
+      // not leave the caller's signal holding this request.
+      const detach = () => signal?.removeEventListener("abort", onAbort);
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);
       };
       xhr.onload = () => {
+        detach();
         if (xhr.status === 401) {
           this.handleUnauthenticated();
           reject(new ApiError(401, "unauthenticated"));
@@ -488,10 +500,15 @@ export class JmapClient {
             ),
           );
       };
-      xhr.onerror = () =>
+      xhr.onerror = () => {
+        detach();
         reject(new ApiError(0, "network_error", "Network error during upload"));
-      xhr.onabort = () => reject(new ApiError(0, "aborted", "Upload cancelled"));
-      opts.signal?.addEventListener("abort", () => xhr.abort());
+      };
+      xhr.onabort = () => {
+        detach();
+        reject(new ApiError(0, "aborted", "Upload aborted"));
+      };
+      signal?.addEventListener("abort", onAbort);
       xhr.send(data);
     });
   }

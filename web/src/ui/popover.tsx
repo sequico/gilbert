@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { registerEscape } from "./dialog";
 
 export interface Anchor {
   x: number;
@@ -110,12 +111,6 @@ export function Popover({
         onClose();
       }
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
     const onScroll = (e: Event) => {
       // A popover closing on the page scrolling under it is intended -- it is
       // positioned from viewport coordinates and would drift off its anchor.
@@ -128,7 +123,6 @@ export function Popover({
     const t = window.setTimeout(() => {
       document.addEventListener("mousedown", onDown, true);
       document.addEventListener("touchstart", onDown, true);
-      document.addEventListener("keydown", onKey, true);
       window.addEventListener("resize", onScroll);
       // A popover positioned from viewport coordinates drifts off its anchor
       // when the page scrolls under it: close on a scroll too.
@@ -139,10 +133,23 @@ export function Popover({
       document.removeEventListener("mousedown", onDown, true);
       document.removeEventListener("touchstart", onDown, true);
       window.removeEventListener("scroll", onScroll, true);
-      document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onScroll);
     };
   }, [anchor, trigger, onClose]);
+
+  /*
+   * Escape is the arbiter's (see `registerEscape`), registered once per open
+   * rather than on every render: a popover closing on Escape must win over the
+   * dialog it sits in, and re-registering would keep moving it above overlays
+   * that opened after it.
+   */
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const open = Boolean(anchor);
+  useEffect(() => {
+    if (!open) return;
+    return registerEscape(() => onCloseRef.current());
+  }, [open]);
 
   if (!anchor) return null;
   return createPortal(

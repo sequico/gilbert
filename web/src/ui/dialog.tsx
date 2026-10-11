@@ -4,6 +4,43 @@ import { createPortal } from "react-dom";
 import { create } from "zustand";
 import { t } from "@/lib/i18n";
 
+/*
+ * One Escape, one surface.
+ *
+ * A dialog and a popover both close on Escape, and both listen on the document
+ * in the capture phase. Calling `stopPropagation` does not stop the other
+ * listener registered on the same node, so an Escape inside a popover that sat
+ * inside a dialog closed both; and listener order cannot decide between them,
+ * because it is the order they mounted in rather than how deeply each is
+ * nested. So each overlay hands over what it would do, and the one that opened
+ * last -- the one on top -- is the one that acts.
+ */
+const escapeStack: Array<() => void> = [];
+
+/** Register what Escape should do for an overlay; the return removes it. */
+export function registerEscape(handle: () => void): () => void {
+  escapeStack.push(handle);
+  return () => {
+    const i = escapeStack.indexOf(handle);
+    if (i >= 0) escapeStack.splice(i, 1);
+  };
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Escape") return;
+      const top = escapeStack[escapeStack.length - 1];
+      if (!top) return;
+      // The overlay's own answer replaces the key for everything below it.
+      e.stopImmediatePropagation();
+      top();
+    },
+    true,
+  );
+}
+
 interface DialogProps {
   open: boolean;
   onClose: () => void;
@@ -40,10 +77,6 @@ export function Dialog({
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onCloseRef.current();
-      }
       if (e.key === "Tab" && ref.current) {
         const focusables = ref.current.querySelectorAll<HTMLElement>(
           'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]',
@@ -61,6 +94,9 @@ export function Dialog({
       }
     };
     document.addEventListener("keydown", onKey, true);
+    // Escape belongs to the arbiter: the last overlay to open closes, which is
+    // this dialog only while nothing is above it.
+    const offEscape = registerEscape(() => onCloseRef.current());
     // autofocus first input
     window.setTimeout(() => {
       const el = ref.current?.querySelector<HTMLElement>(
@@ -70,6 +106,7 @@ export function Dialog({
     }, 10);
     return () => {
       document.removeEventListener("keydown", onKey, true);
+      offEscape();
       prev?.focus?.();
     };
   }, [open]);

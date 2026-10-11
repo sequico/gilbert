@@ -452,26 +452,36 @@ function useTextFile(url: string | null): LoadedText {
     setTruncated(false);
     setFailed(false);
     if (!url) return;
-    let live = true;
-    fetch(url, { credentials: "same-origin" })
+    // A signal rather than a `live` flag: closing or replacing the file aborts
+    // the read instead of leaving it running against a blob nobody wants.
+    const controller = new AbortController();
+    const { signal } = controller;
+    fetch(url, { credentials: "same-origin", signal })
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
       .then((body) => {
-        if (!live) return;
+        if (signal.aborted) return;
         setTruncated(body.length > TEXT_PREVIEW_CHARS);
         setText(body.slice(0, TEXT_PREVIEW_CHARS));
       })
       .catch(() => {
-        if (!live) return;
+        // An abort is this effect being torn down, not a failure to report.
+        if (signal.aborted) return;
         setFailed(true);
         setText(t("Could not load this file."));
       });
-    return () => {
-      live = false;
-    };
+    return () => controller.abort();
   }, [url]);
   const replace = useCallback((next: string) => {
     setText(next);
     setTruncated(false);
   }, []);
-  return { text, truncated, failed, replace };
+  /*
+   * A stable shape: the object is a dependency of the save callback below,
+   * whose identity is a dependency of the Ctrl+S effect. Returning a fresh one
+   * every render re-registered that binding on every keystroke.
+   */
+  return useMemo(
+    () => ({ text, truncated, failed, replace }),
+    [text, truncated, failed, replace],
+  );
 }

@@ -99,8 +99,17 @@ export function ToastHost() {
             <button
               className="toast-action"
               onClick={() => {
-                void t.action!.onClick();
-                dismiss(t.id);
+                /*
+                 * The action may be async -- the notification ask is -- and a
+                 * rejection has nowhere else to go: surface it as an error
+                 * toast rather than an unhandled one, and keep this toast up
+                 * until the work it started has settled.
+                 */
+                void Promise.resolve(t.action!.onClick())
+                  .catch((err) =>
+                    toast.error(err instanceof Error ? err.message : String(err)),
+                  )
+                  .finally(() => dismiss(t.id));
               }}
             >
               {t.action.label}
