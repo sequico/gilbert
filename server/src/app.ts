@@ -616,19 +616,6 @@ function isDoorPath(rel: string): boolean {
   return rel !== "/config" && rel !== "/health" && rel !== "/account/password";
 }
 
-const _HOP_BY_HOP = new Set([
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-  "content-encoding",
-  "content-length",
-]);
-
 /** The socket's own address -- the one part of a request nobody downstream can forge. */
 function peerAddress(c: Context): string {
   try {
@@ -984,14 +971,26 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   };
   api.use("*", forcedPasswordDoor);
 
-  api.get("/health", (c) =>
-    c.json({
+  /*
+   * Liveness, and -- for a caller that holds a session -- what the push fan-out
+   * is doing. The counts are anyone's business; the failure reasons name the
+   * accounts that are not on the fast path, which is an operator's rather than
+   * an anonymous visitor's, so they ride only on a request carrying a live
+   * session. The endpoint stays public because the sign-in page reads it before
+   * anybody has signed in.
+   */
+  api.get("/health", (c) => {
+    const status = pushStatus();
+    const session = c.get("session") ?? sessions.resolve(getCookie(c, config.cookieName));
+    return c.json({
       ok: true,
       name: config.appName,
       version: config.version,
-      push: pushStatus(),
-    }),
-  );
+      push: session
+        ? status
+        : { mode: status.mode, accounts: status.accounts, tabs: status.tabs },
+    });
+  });
 
   /*
    * Stalwart's push delivery. Authenticated by the token in the path -- 32
@@ -3768,7 +3767,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   // ---------- Blob upload ----------
-  api.post("/upload/:accountId", requireSession, async (c) => {
+  api.post("/upload/:accountId", requireSession, apiRateLimited, async (c) => {
     const session = c.get("session");
     const accountId = c.req.param("accountId");
     const len = Number(c.req.header("content-length") ?? "0");

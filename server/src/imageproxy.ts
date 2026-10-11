@@ -54,6 +54,21 @@ export function isPrivateAddress(addr: string): boolean {
 export class BlockedTarget extends Error {}
 
 /**
+ * Whether a URL is on a port this proxy will reach.
+ *
+ * Anyone may hold a public address and probe arbitrary ports with it, which
+ * turns the proxy into an anonymising port scanner: a `GET` to
+ * `http://victim.example:9200/` from here says whether something answers
+ * there, and the answer reaches whoever pointed the proxy at it. Restricting
+ * to the two standard web ports keeps the proxy to what it is for — an image
+ * or a calendar the publisher serves to browsers — while leaving nothing to
+ * scan. The default ports are elided from `URL.port`, so they are spelled out.
+ */
+export function isAllowedPort(url: URL): boolean {
+  return url.port === "" || url.port === "80" || url.port === "443";
+}
+
+/**
  * Settle on one address for `hostname` and refuse it if it is somewhere we
  * should not be reaching.
  */
@@ -136,6 +151,7 @@ export function fetchPinned(
 export type SafeFetchError =
   | "bad_url"
   | "bad_scheme"
+  | "bad_port"
   | "forbidden_target"
   | "dns_failure"
   | "fetch_failed"
@@ -171,6 +187,7 @@ export async function safeFetch(
   if (url.protocol === "webcal:")
     url = new URL(`https:${raw.slice(raw.indexOf(":") + 1)}`);
   if (url.protocol !== "http:" && url.protocol !== "https:") return "bad_scheme";
+  if (!isAllowedPort(url)) return "bad_port";
   if (url.username || url.password) return "bad_url";
 
   const controller = new AbortController();
@@ -200,6 +217,12 @@ export async function safeFetch(
         done();
         return "bad_redirect";
       }
+      // The port is checked on every hop, not just the one asked for: a
+      // redirect is how a server moves the probe onto a port it chose.
+      if (!isAllowedPort(next)) {
+        done();
+        return "bad_redirect";
+      }
       try {
         addr = await resolveAllowed(next.hostname);
       } catch (err) {
@@ -220,6 +243,7 @@ export async function safeFetch(
 const SAFE_FETCH_STATUS: Record<SafeFetchError, number> = {
   bad_url: 400,
   bad_scheme: 400,
+  bad_port: 400,
   bad_redirect: 400,
   forbidden_target: 403,
   dns_failure: 502,

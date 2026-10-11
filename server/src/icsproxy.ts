@@ -25,8 +25,9 @@ const MAX_ICS_BYTES = 4 * 1024 * 1024;
 /**
  * Types a calendar is served as in practice. `text/plain` and the octet-stream
  * are here because a great many servers get this wrong, and refusing a real
- * calendar over a header the publisher chose badly helps nobody -- the parser
- * checks the content itself, which is the claim that actually matters.
+ * calendar over a header the publisher chose badly helps nobody. A type that is
+ * plausible is only the first half; the document itself has to say what it is
+ * (`looksLikeCalendar`), which is the claim that actually matters.
  */
 const ACCEPTABLE = new Set([
   "text/calendar",
@@ -35,6 +36,24 @@ const ACCEPTABLE = new Set([
   "application/ics",
   "",
 ]);
+
+/**
+ * Whether a fetched body is an iCalendar document, by its own first line.
+ *
+ * An iCalendar file begins with `BEGIN:VCALENDAR`, so a body that does not —
+ * HTML a server served for a 404, a JSON error, a binary blob — is refused
+ * rather than handed to the browser as a calendar. The type header alone would
+ * let any public host answer the proxy with any bytes, and this is the one
+ * check that makes the route a calendar fetch and not a generic fetch of
+ * whatever a stranger serves on the web ports. A byte-order mark, or blank
+ * lines, before the first line are skipped: the document still says what it is.
+ */
+export function looksLikeCalendar(text: string): boolean {
+  return text
+    .replace(/^\uFEFF/, "")
+    .trimStart()
+    .startsWith("BEGIN:VCALENDAR");
+}
 
 export async function icsProxyHandler(c: Context) {
   const got = await safeFetch(c.req.query("url") ?? "", 20_000);
@@ -87,7 +106,12 @@ export async function icsProxyHandler(c: Context) {
   }
   done();
 
-  return c.body(Buffer.concat(chunks).toString("utf8"), 200, {
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!looksLikeCalendar(text)) {
+    return c.json({ error: "not_calendar", type }, 415);
+  }
+
+  return c.body(text, 200, {
     "Content-Type": "text/calendar; charset=utf-8",
     // Never stored on disk, and never held by anything in between either.
     "Cache-Control": "no-store",

@@ -31,12 +31,17 @@ function fakeOut() {
     destroyed: boolean;
     ended: boolean;
     written: string[];
+    writableLength: number;
     write(s: string): boolean;
     end(): void;
+    destroy(): void;
   };
   e.destroyed = false;
   e.ended = false;
   e.written = [];
+  // What the socket still holds unflushed; a real tab that is reading keeps it
+  // near zero, and the sweeper drops one that climbs past its ceiling.
+  e.writableLength = 0;
   e.write = (s: string) => {
     e.written.push(s);
     return true;
@@ -44,6 +49,10 @@ function fakeOut() {
   e.end = () => {
     e.ended = true;
     e.destroyed = true;
+  };
+  e.destroy = () => {
+    e.destroyed = true;
+    e.emit("close");
   };
   return e;
 }
@@ -939,4 +948,134 @@ test("an account with no believable origin stays on the relay", () => {
     push.attach("noorigin@example.com", "a", "Basic n", fakeOut() as never, null),
     null,
   );
+});
+
+/**
+ * Bring an isolated module instance to the fan-out state: a prepared and
+ * verified account whose token the test can POST to. Used by the tests below,
+ * which need a module of their own so their tabs are not counted beside the
+ * ones the other tests left attached.
+ */
+async function verifiedFanout(
+  push: typeof import("./push.js"),
+  user: string,
+): Promise<string> {
+  const capture = captureToken();
+  push.prepare(user, "a", "Basic f", ORIGIN);
+  await new Promise((r) => setTimeout(r, 30)); // the subscribe lands
+  capture.restore();
+  const token = capture.token();
+  assert.ok(token, "the subscribe call carries the push URL with the token");
+  assert.equal(
+    await push.receive(token, { "@type": "PushVerification", verificationCode: "v" }),
+    200,
+  );
+  return token;
+}
+
+// A tab that stops reading is the one way one browser can take the process
+// down: every StateChange and keep-alive queues in its socket, and nothing in
+// the fan-out ever notices. The write's `false` is the signal, and a sweep
+// later the ceiling decides.
+test("a tab that stops reading is dropped instead of queued for its whole life", async () => {
+  const restore = stubUpstream();
+  const push = await isolatedPush("backpressure-drop");
+  try {
+    const token = await verifiedFanout(push, "slow@example.com");
+    const tab = fakeOut();
+    // A socket that accepts nothing more: every write reports a full buffer.
+    tab.write = (s: string) => {
+      tab.written.push(s);
+      return false;
+    };
+    assert.ok(push.attach("slow@example.com", "a", "Basic f", tab as never, ORIGIN));
+
+    await push.receive(token, {
+      "@type": "StateChange",
+      changed: { a: { Email: "s1" } },
+    });
+    assert.equal(
+      push.pushStatus().tabs.fanout,
+      1,
+      "one undrained write is a slow moment, not a dead tab",
+    );
+
+    // A sweep later it is still over the ceiling: it has stopped reading.
+    tab.writableLength = 512 * 1024;
+    push.runSweep();
+    assert.equal(tab.destroyed, true, "the dead tab is dropped");
+    assert.equal(push.pushStatus().tabs.fanout, 0, "and is no longer counted");
+  } finally {
+    restore();
+  }
+});
+
+// The other half of a dead tab: a stream that errors rather than closing.
+// Without a listener it stays in `entry.tabs` and is written to until the
+// entry dies, which is the same leak the ceiling catches, one sweep too late.
+test("a fan-out tab whose stream errors is removed", async () => {
+  const restore = stubUpstream();
+  const push = await isolatedPush("tab-error");
+  try {
+    const token = await verifiedFanout(push, "err@example.com");
+    const tab = fakeOut();
+    assert.ok(push.attach("err@example.com", "a", "Basic f", tab as never, ORIGIN));
+    assert.equal(push.pushStatus().tabs.fanout, 1);
+
+    tab.emit("error", new Error("socket hang up"));
+    assert.equal(push.pushStatus().tabs.fanout, 0, "an errored tab is gone");
+
+    await push.receive(token, {
+      "@type": "StateChange",
+      changed: { a: { Email: "s2" } },
+    });
+    assert.equal(tab.written.length, 0, "and receives nothing more");
+  } finally {
+    restore();
+  }
+});
+
+// A create in flight when the entry is torn down mints a subscription nobody
+// holds. Left alone it occupies one of the account's fifteen slots until its
+// 24 h TTL, and enough of them fill the account (KNOWN-ISSUES).
+test("a create that lands after its entry was torn down is destroyed, not leaked", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const push = await isolatedPush("late-create");
+  const fake = fakePushServer();
+  let release!: () => void;
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  const stub = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (typeof init?.body === "string" && init.body.includes('"PushSubscription/set"'))
+      await gate;
+    return stub(input, init);
+  }) as typeof fetch;
+  try {
+    push.prepare("late@example.com", "a", "Basic L", ORIGIN);
+    await new Promise((r) => setTimeout(r, 10)); // the create is in flight
+    // Nobody is watching this account any more; a later sweep tears the entry
+    // down while the create is still unanswered.
+    t.mock.timers.tick(10 * 60_000 + 1_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 10));
+    const st = push.pushStatus();
+    assert.equal(
+      st.accounts.verified + st.accounts.pending + st.accounts.failed,
+      0,
+      "the entry is gone",
+    );
+
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.ok(
+      fake.calls.some((c) => Array.isArray(c.args.destroy) && c.args.destroy.length > 0),
+      "the id the create minted was given straight back",
+    );
+    assert.equal(fake.subs.length, 0, "nothing is left holding a slot");
+  } finally {
+    fake.restore();
+    t.mock.timers.reset();
+  }
 });

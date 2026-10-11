@@ -30,7 +30,7 @@ import {
   readAppFileAt,
   writeAppFileIn,
 } from "./appFolder.js";
-import { errorMessage } from "./shared/errors.js";
+import { errorMessage, isStateMismatch } from "./shared/errors.js";
 import {
   INSTALLATION_EPOCH_START,
   INSTALLATION_FILE,
@@ -73,6 +73,16 @@ export class InstallationError extends Error {
     this.name = "InstallationError";
   }
 }
+
+/**
+ * How many times the first-boot create may lose a race before giving up.
+ *
+ * The first attempt of a true first boot is expected to lose: creating the app
+ * folder is itself a write that moves the state the create is conditional on,
+ * so the second attempt is the one that lands. Any further attempt is another
+ * boot having written in between, which the next read adopts rather than races.
+ */
+const FIRST_BOOT_ATTEMPTS = 4;
 
 /** Where the document is, in words, for a message an operator reads. */
 export function installationLocation(accountId: string): string {
@@ -155,56 +165,120 @@ export async function readInstallation(
 ): Promise<LoadedInstallation> {
   const log = opts.log ?? (() => {});
   const where = installationLocation(store.accountId);
-  const stored = await store.read().catch((err: unknown) => {
+
+  const adopt = (text: string): LoadedInstallation => ({
+    document: requiredDocument(text, where),
+    created: false,
+    accountId: store.accountId,
+  });
+
+  /*
+   * A document that is already there is adopted before any question is asked
+   * of the account's state: the state is only needed to create, and a boot
+   * whose document is intact must not fail because a read it does not need went
+   * wrong. A document that is there but unreadable is refused, loudly, and left
+   * exactly as it is -- replacing it with the defaults would look like a
+   * successful boot while discarding the installation's routing, its agent and
+   * its secret.
+   */
+  const present = await store.read().catch((err: unknown) => {
     throw new InstallationError(
       `The installation document (${where}) could not be read: ${errorMessage(err)}`,
     );
   });
-
-  if (stored !== null)
-    return {
-      document: requiredDocument(stored, where),
-      created: false,
-      accountId: store.accountId,
-    };
+  if (present !== null) return adopt(present);
 
   const fresh = installationDefaults();
   fresh.epoch = INSTALLATION_EPOCH_START;
   fresh.secret = generateAppSecret();
-  await store.write(fresh);
 
   /*
-   * Read back what the store now holds.
+   * Absent, so this is the first boot: read the state, read the document, then
+   * create it conditionally on that state -- in that order, repeated a bounded
+   * number of times.
    *
-   * A first write cannot be made conditional: there is no state to compare
-   * against, because the write that creates the folder the document sits in is
-   * what moves the account's FileNode state. So two boots starting at once — a
-   * rolling deploy brings the second container up before the first has
-   * finished — can both create, and the second write wins. The stored document
-   * is the one that counts: if it carries a different secret, this instance
-   * must sign with that one, or half the sessions would be sealed with a key
-   * nothing else has. Cheap (one extra read, on the first boot only) and the
-   * alternative is silent.
+   * Two boots can start at once (a rolling deploy brings the second container
+   * up before the first has finished), and both see the document absent. The
+   * document that ends up stored is the one that counts: if it carries a
+   * different secret, this instance must sign with that one, or half the
+   * sessions would be sealed with a key nothing else holds.
+   *
+   * The create is conditional on the account's FileNode state, and the document
+   * is read *after* that state, so a write landing between the two is visible
+   * here and its document is adopted rather than overwritten. On a true first
+   * boot the first attempt loses by construction -- the write that creates the
+   * app folder is itself what moves the state the token describes -- so a
+   * `stateMismatch` is read as "something moved; look again" and the retry
+   * converges. What a successful create is then checked against is the read
+   * that follows it: a create that lost a name race can report success with no
+   * node, so the read is the statement that counts, not the write's own answer.
    */
-  const after = await store.read();
-  if (after !== null) {
-    // The document is there, so this boot did not create it: it is the shape
-    // this build reads, or the boot refuses rather than sealing sessions with a
-    // secret nothing else holds.
-    const stored = requiredDocument(after, where);
-    if (stored.secret !== fresh.secret) {
-      log(
-        `[gilbert] installation: ${where} was created by another boot while this one was starting; using the secret already stored`,
+  for (let attempt = 0; attempt < FIRST_BOOT_ATTEMPTS; attempt++) {
+    let state: string;
+    try {
+      state = await store.state();
+    } catch (err) {
+      throw new InstallationError(
+        `The account holding the installation document (${where}) would not state the state of its Files: ${errorMessage(err)}`,
       );
-      return { document: stored, created: false, accountId: store.accountId };
     }
+    if (!state)
+      throw new InstallationError(
+        `The account holding the installation document (${where}) would not state the state of its Files, so the ` +
+          "first-boot create could not be made conditional — and an unconditional create would let two boots each " +
+          "believe they wrote the secret every session is sealed with.",
+      );
+
+    let stored: string | null;
+    try {
+      stored = await store.read();
+    } catch (err) {
+      throw new InstallationError(
+        `The installation document (${where}) could not be read: ${errorMessage(err)}`,
+      );
+    }
+    // Read after the state, so a write that landed in between is seen here and
+    // its document adopted rather than overwritten.
+    if (stored !== null) {
+      const already = adopt(stored);
+      if (already.document.secret !== fresh.secret)
+        log(
+          `[gilbert] installation: ${where} was created by another boot while this one was starting; using the secret already stored`,
+        );
+      return already;
+    }
+
+    try {
+      await store.write(fresh, { ifInState: state });
+    } catch (err) {
+      if (isStateMismatch(err)) continue; // the folder was created, or another boot wrote: look again
+      throw new InstallationError(
+        `The installation document (${where}) could not be created: ${errorMessage(err)}`,
+      );
+    }
+
+    const after = await store.read().catch((err: unknown) => {
+      throw new InstallationError(
+        `The installation document (${where}) could not be read back: ${errorMessage(err)}`,
+      );
+    });
+    if (after === null) continue; // a create that reported success made no node: ask again
+    const landed = adopt(after);
+    // Another boot won the moment after this one wrote: its secret is the one
+    // that will be read on the next boot, so it is the one to sign with.
+    if (landed.document.secret !== fresh.secret) return landed;
+
+    log(
+      `[gilbert] installation: created ${where} with the defaults and a freshly generated app secret — ` +
+        "it is stored in the account's own Files, so a redeploy keeps it (nothing prints the secret)",
+    );
+    return { document: fresh, created: true, accountId: store.accountId };
   }
 
-  log(
-    `[gilbert] installation: created ${where} with the defaults and a freshly generated app secret — ` +
-      "it is stored in the account's own Files, so a redeploy keeps it (nothing prints the secret)",
+  throw new InstallationError(
+    `The installation document (${where}) could not be created: another boot kept winning the race for it. ` +
+      "Start one boot at a time, or remove whatever holds the document and try again.",
   );
-  return { document: fresh, created: true, accountId: store.accountId };
 }
 
 /**

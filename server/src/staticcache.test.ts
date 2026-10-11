@@ -87,3 +87,11 @@ test("under a prefix, the worker is still the worker", async () => {
   assert.equal(res.status, 200);
   assert.match(res.headers.get("cache-control") ?? "", /no-cache/);
 });
+
+test("a malformed percent-escape in the path is a 400, not a 500", async () => {
+  // Nothing can name this path, and decoding it throws. Answering 500 would say
+  // the server broke; 400 says the request was never a valid one, and the app
+  // shell is not the answer to a URL no client can produce.
+  const res = await createApp().request("/bad%zz");
+  assert.equal(res.status, 400);
+});

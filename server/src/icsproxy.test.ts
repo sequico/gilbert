@@ -5,6 +5,7 @@ process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-ics-proxy";
 
 const { safeFetch, safeFetchStatus } = await import("./imageproxy.js");
+const { looksLikeCalendar } = await import("./icsproxy.js");
 
 /**
  * Subscribing to a calendar makes the server fetch a URL a stranger published,
@@ -61,7 +62,39 @@ test("each refusal has a status that says which kind it was", () => {
   assert.equal(safeFetchStatus("forbidden_target"), 403);
   assert.equal(safeFetchStatus("bad_scheme"), 400);
   assert.equal(safeFetchStatus("bad_url"), 400);
+  assert.equal(safeFetchStatus("bad_port"), 400);
   assert.equal(safeFetchStatus("bad_redirect"), 400);
   assert.equal(safeFetchStatus("dns_failure"), 502);
   assert.equal(safeFetchStatus("fetch_failed"), 502);
+});
+
+// Anyone may hold a public address and probe an arbitrary port with it, which
+// turns this route into an anonymising port scanner: the answer says whether
+// something listens there. Only the two web ports are reached, so there is
+// nothing to scan; the default ports are elided by URL and must still pass.
+test("only the standard web ports are reached", async () => {
+  assert.equal(await safeFetch("http://example.com:8080/calendar.ics", 500), "bad_port");
+  assert.equal(await safeFetch("https://example.com:8443/calendar.ics", 500), "bad_port");
+  assert.equal(await safeFetch("http://example.com:22/calendar.ics", 500), "bad_port");
+  assert.equal(
+    await safeFetch("http://127.0.0.1/calendar.ics", 500),
+    "forbidden_target",
+    "port 80 is allowed; the address is what refuses this one",
+  );
+});
+
+// The type header is chosen by the server being fetched, so a public host can
+// answer with `text/plain` and any bytes it likes. The document having to open
+// with `BEGIN:VCALENDAR` is what makes this a calendar fetch.
+test("a body is treated as a calendar only when it says it is one", () => {
+  assert.equal(looksLikeCalendar("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"), true);
+  assert.equal(looksLikeCalendar("\uFEFFBEGIN:VCALENDAR\n"), true, "a BOM is skipped");
+  for (const not of [
+    "<!doctype html><title>404</title>",
+    '{"error":"not found"}',
+    "",
+    "  \n",
+  ]) {
+    assert.equal(looksLikeCalendar(not), false, JSON.stringify(not));
+  }
 });

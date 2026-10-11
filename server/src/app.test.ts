@@ -40,6 +40,22 @@ test("health and security headers", async () => {
   assert.equal(res.headers.get("x-frame-options"), "DENY");
 });
 
+test("the public health answer carries push counts, not the accounts behind them", async () => {
+  // `pushStatus` names an account for each failure ("user@host: reason"), which
+  // is an operator's business and not an anonymous visitor's. The counts are
+  // safe for anyone; the failure reasons are not on this answer at all.
+  const app = createApp();
+  const res = await app.request("/api/health");
+  const body = (await res.json()) as {
+    push: { mode?: unknown; accounts?: unknown; tabs?: unknown; failures?: unknown };
+  };
+  assert.equal(res.status, 200);
+  assert.equal(body.push.failures, undefined, "no account names on the public answer");
+  assert.ok(body.push.mode, "but the mode and counts are still there");
+  assert.ok(body.push.accounts);
+  assert.ok(body.push.tabs);
+});
+
 test("image proxy refuses private targets", async () => {
   const app = createApp();
   // no session -> 401 first; so exercise the handler directly via a logged-in-less path is not possible; check the URL validation ordering instead

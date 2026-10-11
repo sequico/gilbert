@@ -143,7 +143,11 @@ function resolveRawClientIp(
   for (let i = chain.length - 1; i >= 0; i--) {
     if (!isTrustedProxy(chain[i]!, cfg)) return chain[i]!;
   }
-  if (chain.length) return chain[0]!;
+  // Every hop is one we run, so nothing here is untrusted to stop at. The
+  // right-most entry is the one the hop nearest us appended, which is the
+  // least forgeable of them: the left-most is the one the client itself wrote
+  // first, and reading that would hand anybody a rate-limit key they choose.
+  if (chain.length) return chain[chain.length - 1]!;
   const real = headers.realIp?.trim();
   return real && isIP(real) !== 0 ? real : peer;
 }

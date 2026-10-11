@@ -221,7 +221,15 @@ export function staticHandler(root: string, basePath = ""): Handler {
      * the proxy serves, and answering `/` or `/other-app/thing` with our
      * index would shadow a neighbour rather than let it 404 honestly.
      */
-    const fullPath = decodeURIComponent(new URL(c.req.url).pathname);
+    let fullPath: string;
+    try {
+      fullPath = decodeURIComponent(new URL(c.req.url).pathname);
+    } catch {
+      // A malformed `%`-escape is not a path this app has, and decoding it
+      // threw. Answering 400 says that; letting it fall through would serve the
+      // app shell for a URL nothing can name.
+      return c.text("Bad Request", 400);
+    }
     const urlPath = stripBasePath(basePath, fullPath);
     if (urlPath === null) return c.text("Not Found", 404);
     if (urlPath === "/" || urlPath === "/index.html") return serveIndex(c);

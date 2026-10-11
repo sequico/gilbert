@@ -145,10 +145,13 @@ test("an explicit trusted list replaces the defaults", () => {
   );
 });
 
-test("a chain of nothing but our own proxies still yields an address", () => {
+test("a chain of nothing but our own proxies takes the entry nearest us", () => {
+  // Nothing is untrusted to stop at, so the right-most entry wins: it is the
+  // one the hop immediately before this process appended, and the left-most is
+  // whatever the client wrote first.
   assert.equal(
     resolveClientIp("127.0.0.1", { forwardedFor: "10.0.0.2, 10.0.0.3" }, cfg),
-    "10.0.0.2",
+    "10.0.0.3",
   );
 });
 

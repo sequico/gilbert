@@ -70,6 +70,17 @@ const TTL_MS = 24 * 60 * 60_000;
  * state `endStaleFanout` exists to end. Asking is one small request.
  */
 const LIVENESS_MS = 2 * 60_000;
+/**
+ * How much a fan-out tab may have queued before the sweeper drops it.
+ *
+ * A StateChange frame is a few hundred bytes and a keep-alive is ten, so this
+ * is thousands of frames -- far past anything a tab that is reading accrues
+ * between two sweeps. It is only reached by a socket that has stopped draining,
+ * where every further frame would sit in this process's memory for as long as
+ * the tab stays open: one browser that stops reading would otherwise queue the
+ * account's whole change stream indefinitely.
+ */
+const TAB_BACKLOG_BYTES = 256 * 1024;
 
 interface AccountPush {
   key: string; // upstream base + username
@@ -119,6 +130,50 @@ export const MAX_PUSH_BODY_BYTES = 64 * 1024;
 const byKey = new Map<string, AccountPush>();
 const byToken = new Map<string, AccountPush>();
 let sweeper: NodeJS.Timeout | null = null;
+
+/**
+ * Tabs whose last `write()` reported a full buffer.
+ *
+ * A `false` from `write()` only means the socket has not drained the write it
+ * was just handed, which a tab that is reading clears within a moment. Acting
+ * on it immediately would drop a healthy tab on a single slow frame, so the
+ * signal is remembered here and the sweeper decides: a tab still over
+ * `TAB_BACKLOG_BYTES` a sweep later is one that has stopped reading.
+ */
+const backedUp = new WeakSet<ServerResponse>();
+
+/**
+ * Attach a tab to an account's fan-out, and un-attach it whenever it goes.
+ *
+ * Both the clean close and a socket error leave the same thing behind -- a
+ * dead `ServerResponse` in `entry.tabs` -- so both drop the tab; without the
+ * error half, a stream that fails rather than closing keeps being written to
+ * for the life of the entry.
+ */
+function addFanoutTab(entry: AccountPush, out: ServerResponse): void {
+  entry.tabs.add(out);
+  const gone = () => {
+    entry.tabs.delete(out);
+    backedUp.delete(out);
+  };
+  out.on("close", gone);
+  out.on("error", gone);
+}
+
+/**
+ * Drop one fan-out tab that has stopped reading, and let it reconnect.
+ *
+ * Closing the stream is what makes the browser open a fresh one -- on the
+ * relay, or on a fresh fan-out -- and the memory the tab's queue was holding
+ * goes with it. `destroy` rather than `end`: the socket is not draining, so an
+ * orderly end would only queue one more thing behind the backlog.
+ */
+function dropTab(entry: AccountPush, out: ServerResponse, why: string): void {
+  entry.tabs.delete(out);
+  backedUp.delete(out);
+  if (!out.destroyed) out.destroy();
+  console.warn(`[gilbert] push: dropped a tab of ${entry.username} (${why})`);
+}
 
 export function pushEnabled(): boolean {
   return config.pushMode === "subscribe";
@@ -244,6 +299,17 @@ async function listSubscriptions(entry: AccountPush): Promise<UpstreamSubscripti
   return list;
 }
 
+/** Destroy one subscription by id, best effort. */
+async function destroySubscription(entry: AccountPush, id: string): Promise<void> {
+  try {
+    await jmap(entry, [["PushSubscription/set", { destroy: [id] }, "0"]]);
+  } catch (err) {
+    console.warn(
+      `[gilbert] push: could not destroy subscription ${id} for ${entry.username}: ${(err as Error).message}`,
+    );
+  }
+}
+
 /** Destroy those of `subs` this installation owns by name. */
 async function releaseMine(entry: AccountPush): Promise<number> {
   let mine: UpstreamSubscription[] = [];
@@ -367,6 +433,17 @@ async function subscribe(entry: AccountPush) {
     else break;
   }
   if (!created) throw new Error(`subscription not created (${detail})`);
+  /*
+   * The entry can be torn down while this create is in flight: the sweeper
+   * removes an account nobody wants any more (`runSweep`). The id this call
+   * just minted then belongs to no entry, and adopting it here would leave it
+   * holding one of the account's slots until its own TTL. Give it straight
+   * back instead.
+   */
+  if (byKey.get(entry.key) !== entry) {
+    await destroySubscription(entry, created.id);
+    return;
+  }
   entry.subscriptionId = created.id;
   entry.expires = created.expires ? Date.parse(created.expires) : Date.now() + TTL_MS;
   entry.lastFailure = null;
@@ -390,10 +467,7 @@ async function verify(entry: AccountPush, code: string) {
     entry.relays.delete(out);
     if (out.destroyed) continue;
     dropUpstream();
-    entry.tabs.add(out);
-    out.on("close", () => {
-      entry.tabs.delete(out);
-    });
+    addFanoutTab(entry, out);
     moved++;
   }
   console.log(
@@ -403,15 +477,7 @@ async function verify(entry: AccountPush, code: string) {
 }
 
 async function unsubscribe(entry: AccountPush) {
-  if (entry.subscriptionId) {
-    try {
-      await jmap(entry, [
-        ["PushSubscription/set", { destroy: [entry.subscriptionId] }, "0"],
-      ]);
-    } catch {
-      /* best effort */
-    }
-  }
+  if (entry.subscriptionId) await destroySubscription(entry, entry.subscriptionId);
   byKey.delete(entry.key);
   byToken.delete(entry.token);
 }
@@ -481,10 +547,7 @@ export function attach(
 ): AccountPush | null {
   const entry = prepare(username, accountId, authorization, origin);
   if (entry?.state !== "verified") return null;
-  entry.tabs.add(out);
-  out.on("close", () => {
-    entry.tabs.delete(out);
-  });
+  addFanoutTab(entry, out);
   return entry;
 }
 
@@ -596,7 +659,10 @@ export async function receive(token: string, body: unknown): Promise<number> {
     if (entry.state !== "verified") return 200;
     const frame = `event: state\ndata: ${json}\n\n`;
     for (const out of entry.tabs) {
-      if (!out.destroyed) out.write(frame);
+      if (out.destroyed) continue;
+      // A `false` says the socket is not draining; the sweeper drops the tab if
+      // it is still over the ceiling a sweep later (see `TAB_BACKLOG_BYTES`).
+      if (!out.write(frame)) backedUp.add(out);
     }
     return 200;
   }
@@ -613,8 +679,24 @@ export function runSweep(): void {
   const now = Date.now();
   for (const entry of [...byKey.values()]) {
     for (const out of entry.tabs) {
-      if (out.destroyed) entry.tabs.delete(out);
-      else out.write(": ping\n\n");
+      if (out.destroyed) {
+        entry.tabs.delete(out);
+        backedUp.delete(out);
+        continue;
+      }
+      /*
+       * A tab whose last write did not drain is given one sweep to catch up;
+       * one still over the ceiling now has stopped reading, and dropping it is
+       * what keeps its queue from growing for the tab's whole life.
+       */
+      if (backedUp.has(out)) {
+        backedUp.delete(out);
+        if (out.writableLength > TAB_BACKLOG_BYTES) {
+          dropTab(entry, out, `${out.writableLength} bytes queued`);
+          continue;
+        }
+      }
+      if (!out.write(": ping\n\n")) backedUp.add(out);
     }
     if (entry.state === "pending" && now - entry.since > VERIFY_TIMEOUT_MS) {
       fail(entry, `no verification within ${VERIFY_TIMEOUT_MS / 1000}s`);
@@ -643,8 +725,10 @@ export function runSweep(): void {
     ) {
       /* Still there? A subscription destroyed under us leaves the entry
          believing it is verified, and its tabs reading a stream that carries
-         nothing from then on. A failed check is not a disappearance: the next
-         sweep asks again. */
+         nothing from then on. `checkedAt` is stamped before the ask and left
+         there whatever the answer: a check that could not reach the server is
+         not a disappearance, so the next look is on the ordinary cadence
+         rather than the very next sweep. */
       entry.checkedAt = now;
       const id = entry.subscriptionId;
       jmap(entry, [["PushSubscription/get", { ids: [id] }, "0"]])
@@ -661,7 +745,7 @@ export function runSweep(): void {
           fail(entry, "the subscription is no longer in the account");
         })
         .catch(() => {
-          entry.checkedAt = 0;
+          /* the ask did not reach the server; `checkedAt` stays where it was set */
         });
     }
     // A fan-out tab past its subscription's life hears nothing once the
