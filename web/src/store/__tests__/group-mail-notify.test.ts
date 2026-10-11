@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import { useMail } from "@/store/mail";
+import {
+  ANNOUNCED_CAP,
+  announcedGroupMail,
+  announcedMail,
+  notifyGroupMail,
+  notifyNewMail,
+} from "@/store/mail/notify";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { flushMicrotasks as flush } from "@/test/testkit";
 
@@ -38,6 +45,8 @@ const mailGet = (email: Record<string, unknown>) =>
 
 beforeEach(() => {
   shown = [];
+  announcedMail.clear();
+  announcedGroupMail.clear();
   vi.restoreAllMocks();
   vi.stubGlobal("Notification", FakeNotification as unknown as typeof Notification);
   useSettings.setState({
@@ -111,5 +120,81 @@ describe("a group's mail while a tab is open", () => {
     const spy = vi.spyOn(client, "call").mockResolvedValue({ list: [] } as never);
     await useMail.getState().applyAccountChanges("zz", new Set(["Email"]));
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("announces a message once when the same window is processed twice", async () => {
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method === "Email/query")
+        return { accountId: args.accountId, ids: ["e9"] } as never;
+      if (method === "Email/get")
+        return mailGet({
+          id: "e9",
+          threadId: "t9",
+          from: [{ email: "ada@example.org" }],
+          subject: "Hi",
+          preview: "",
+          receivedAt: "2999-01-01T00:00:00Z",
+        });
+      return { accountId: args.accountId, state: "s", notFound: [], list: [] } as never;
+    });
+
+    // The same window twice -- what a re-processed `Email/changes` looks like.
+    await notifyGroupMail("gg", useMail.getState);
+    await notifyGroupMail("gg", useMail.getState);
+
+    expect(shown).toHaveLength(1);
+  });
+});
+
+describe("the reader's own account", () => {
+  const inbox = () =>
+    useMail.setState({
+      accountId: "a1",
+      mailboxes: {
+        inbox: { id: "inbox", name: "Inbox", role: "inbox" },
+      } as never,
+    });
+
+  const delivered = (id: string) =>
+    ({
+      id,
+      threadId: `t-${id}`,
+      mailboxIds: { inbox: true },
+      keywords: {},
+      from: [{ email: "ada@example.org" }],
+      subject: "Hi",
+      preview: "",
+      receivedAt: "2999-01-01T00:00:00Z",
+    }) as never;
+
+  it("announces a created window once, however often it is seen", async () => {
+    inbox();
+    useMail.setState({ emails: { e9: delivered("e9") } } as never);
+
+    await notifyNewMail(["e9"], useMail.getState);
+    await notifyNewMail(["e9"], useMail.getState);
+
+    expect(shown).toHaveLength(1);
+  });
+
+  it("forgets the oldest announcements, so the guard cannot grow without end", async () => {
+    // Both switches off, so the remembering is exercised without a notification
+    // per message; the set still fills and must still be capped.
+    useSettings.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        desktopNotifications: false,
+        notificationSound: false,
+      },
+    });
+    inbox();
+
+    for (let i = 0; i < ANNOUNCED_CAP + 5; i++) {
+      useMail.setState({ emails: { [`x${i}`]: delivered(`x${i}`) } } as never);
+      await notifyNewMail([`x${i}`], useMail.getState);
+    }
+
+    expect(announcedMail.size).toBe(ANNOUNCED_CAP);
+    expect(shown).toHaveLength(0);
   });
 });

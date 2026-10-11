@@ -40,11 +40,24 @@ export async function notifyNewMail(created: Id[], get: () => MailState) {
   const s = settings();
   const inbox = get().roleId("inbox");
   if (!inbox) return;
-  const emails = await get().getEmails(created);
+  /*
+   * One announcement per message. A created window that is processed twice --
+   * the same `Email/changes` answered again because the token could not
+   * advance -- would otherwise notify a second time for mail the reader has
+   * already been told about.
+   */
+  const unseen = created.filter((id) => !announcedMail.has(id));
+  if (!unseen.length) return;
+  const emails = await get().getEmails(unseen);
   const fresh = emails.filter(
-    (e) => e.mailboxIds[inbox] && !e.keywords.$seen && !e.keywords.$draft,
+    (e) =>
+      e.mailboxIds[inbox] &&
+      !e.keywords.$seen &&
+      !e.keywords.$draft &&
+      !announcedMail.has(e.id),
   );
   if (!fresh.length) return;
+  for (const e of fresh) rememberAnnounced(announcedMail, e.id);
   if (s.notificationSound) playNewMailSound();
   if (!s.desktopNotifications) return;
   for (const e of fresh.slice(0, 3)) announceMail(e, inbox, senderName(e));
@@ -65,7 +78,31 @@ export async function notifyNewMail(created: Id[], get: () => MailState) {
  * keeps one message from being announced twice.
  */
 export const MAIL_OPENED_AT = Date.now();
+
+/**
+ * How many announced ids a session remembers before the oldest is forgotten.
+ *
+ * The guard has to outlive a burst, not the session: a tab open for days would
+ * otherwise grow this set for ever, and the ids it drops are the oldest ones a
+ * re-processed window is least likely to name again.
+ */
+export const ANNOUNCED_CAP = 500;
+
+/** The reader's own account: ids already announced, oldest first. */
+export const announcedMail = new Set<Id>();
+
+/** A group mailbox's ids already announced, oldest first. */
 export const announcedGroupMail = new Set<Id>();
+
+/** Remember an announced message, keeping the set bounded. */
+function rememberAnnounced(announced: Set<Id>, id: Id): void {
+  announced.add(id);
+  while (announced.size > ANNOUNCED_CAP) {
+    const oldest = announced.values().next().value as Id | undefined;
+    if (oldest === undefined) break;
+    announced.delete(oldest);
+  }
+}
 
 export async function notifyGroupMail(
   accountId: Id,
@@ -96,7 +133,7 @@ export async function notifyGroupMail(
     return Number.isFinite(at) && at >= MAIL_OPENED_AT;
   });
   if (!fresh.length) return;
-  for (const e of fresh) announcedGroupMail.add(e.id);
+  for (const e of fresh) rememberAnnounced(announcedGroupMail, e.id);
   if (s.notificationSound) playNewMailSound();
   if (!s.desktopNotifications) return;
   const name =
