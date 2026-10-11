@@ -208,7 +208,7 @@ export function ContactsSidebar() {
           title: t("Rename address book"),
           defaultValue: book.name,
         });
-        if (!name?.trim() || name === book.name) return;
+        if (!name?.trim() || name.trim() === book.name) return;
         try {
           await contacts.updateBook(book.id, { name: name.trim() }, accountId);
         } catch (err) {

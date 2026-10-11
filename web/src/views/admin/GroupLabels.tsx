@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
@@ -39,7 +39,16 @@ export function GroupLabels() {
   };
   const selectedIsMember = selected !== null && memberOf(selected);
 
+  /*
+   * The group whose catalogue is on screen. A read that lands after the picker
+   * moved on belongs to a group nobody is looking at, and writing it down would
+   * show one group's catalogue under another's name -- and the next write would
+   * then address the wrong group.
+   */
+  const picked = useRef<string | null>(null);
+
   async function select(name: string) {
+    picked.current = name;
     setSelected(name);
     setLabels([]);
     setEditing(null);
@@ -48,24 +57,36 @@ export function GroupLabels() {
       const res = await apiFetch<{ labels: Label[] }>(
         `/api/admin/groups/${encodeURIComponent(name)}/labels`,
       );
+      if (picked.current !== name) return;
       setLabels(Array.isArray(res.labels) ? res.labels : []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (picked.current === name)
+        setError(err instanceof Error ? err.message : String(err));
     }
   }
 
   async function save(next: Label[]) {
     if (!selected) return;
+    const group = selected;
+    const prev = labels;
     setLabels(next);
     setBusy(true);
     setError(null);
     try {
       await apiFetch<{ ok: boolean }>(
-        `/api/admin/groups/${encodeURIComponent(selected)}/labels`,
+        `/api/admin/groups/${encodeURIComponent(group)}/labels`,
         { method: "POST", body: JSON.stringify({ labels: next }) },
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      /*
+       * The optimistic catalogue is not what the server holds: put back what
+       * was there -- unless the picker has already moved to another group, in
+       * which case this write and this draft are no longer on screen.
+       */
+      if (picked.current === group) {
+        setLabels(prev);
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setBusy(false);
     }

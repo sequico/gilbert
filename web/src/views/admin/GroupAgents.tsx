@@ -37,7 +37,7 @@
  */
 import { Bot, CheckCircle2, Tags } from "lucide-react";
 import { type KeyboardEvent, useEffect, useState } from "react";
-import { useSearch } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { type AgentStatus, addAgentLabels } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
@@ -79,6 +79,7 @@ export function GroupAgents() {
    * first one. After mount the picker and the tablist are the sources of truth.
    */
   const search = useSearch();
+  const [location, navigate] = useLocation();
   const initial = new URLSearchParams(search);
   const initialTab = initial.get("tab");
   const [part, setPart] = useState<GroupPart>(() =>
@@ -91,8 +92,9 @@ export function GroupAgents() {
   const known = group !== "" && groups.includes(group);
 
   // Keep the address bar in step, so the URL is always a link to what is on
-  // screen rather than only to the group. The router is not asked to re-render:
-  // nothing below reads the search back.
+  // screen rather than only to the group. It goes through the router rather
+  // than the history API, so wouter's own location stays the source of truth
+  // instead of the component holding a URL the rest of the app cannot see.
   useEffect(() => {
     // Merged into whatever is already there rather than rebuilt: another
     // parameter on this route is not this component's to drop.
@@ -102,12 +104,8 @@ export function GroupAgents() {
     if (part !== "behaviour") params.set("tab", part);
     else params.delete("tab");
     const query = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${query ? `?${query}` : ""}`,
-    );
-  }, [group, part]);
+    navigate(`${location}${query ? `?${query}` : ""}`, { replace: true });
+  }, [group, part, location, navigate]);
 
   useEffect(() => {
     void loadStatus();

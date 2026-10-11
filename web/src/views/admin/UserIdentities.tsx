@@ -20,7 +20,7 @@
  */
 
 import { Plus, RotateCw, Star, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import {
@@ -63,20 +63,32 @@ export function UserIdentities() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  /*
+   * The read in flight for the account on screen. A read that lands after the
+   * administrator moved to another account belongs to an address nobody is
+   * looking at: writing it down would show one person's identities under
+   * another's address, and the next save or delete would then address the
+   * wrong account.
+   */
+  const readSeq = useRef(0);
+
   /** Read the chosen account's identities, and whether it is locked. */
   async function readAccount(who: string) {
+    const seq = ++readSeq.current;
     setLoading(true);
     try {
       const res = await fetchUserIdentities(who);
+      if (seq !== readSeq.current) return false;
       setView(res);
       setLocked(res.locked);
       return true;
     } catch (err) {
+      if (seq !== readSeq.current) return false;
       setView(null);
       setError((err as Error).message);
       return false;
     } finally {
-      setLoading(false);
+      if (seq === readSeq.current) setLoading(false);
     }
   }
 
@@ -128,7 +140,9 @@ export function UserIdentities() {
     setNotice(null);
     try {
       await setUserDefaultIdentity(address, identityId);
-      await readAccount(address);
+      // A read that lost to a newer one, or failed, has already said so; the
+      // notice would describe a list that is no longer the one on screen.
+      if (!(await readAccount(address))) return;
       setNotice(
         identityId
           ? t("Default identity saved.")

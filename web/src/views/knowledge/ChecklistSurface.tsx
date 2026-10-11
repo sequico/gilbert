@@ -434,7 +434,16 @@ function ProcessBuilder({
   const patchSection = (i: number, patch: Partial<KnowledgeSection>) =>
     setSections(sections.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const addSection = () => setSections([...sections, { key: "", label: "", steps: [] }]);
-  const removeSection = (i: number) => setSections(sections.filter((_, j) => j !== i));
+  const removeSection = (i: number) => {
+    const next = sections.filter((_, j) => j !== i);
+    setSections(next);
+    /*
+     * The removed section was the one being edited, or sat before it: the
+     * choice is shifted and clamped so the editor pane retargets the section
+     * the reader still sees, never the one that slid into its place.
+     */
+    setSelected((s) => Math.max(0, i < s ? s - 1 : Math.min(s, next.length - 1)));
+  };
   const moveSection = (i: number, delta: number) => {
     const j = i + delta;
     if (j < 0 || j >= sections.length) return;
@@ -673,6 +682,10 @@ function ProcessBuilder({
             </div>
 
             <ConditionField
+              // Keyed by the section, so switching the selected section starts
+              // the control closed rather than carrying the last one's open
+              // state and its invented condition across.
+              key={`section-condition-${current.key || index}`}
               condition={current.condition}
               variants={variants}
               onChange={(condition) => patchSection(index, { condition })}
@@ -797,6 +810,10 @@ function ProcessBuilder({
                   </button>
                 </div>
                 <ConditionField
+                  // Keyed by step and section both: two sections can hold a
+                  // step at the same index with no key yet, and the condition
+                  // control is what carries open state.
+                  key={`step-condition-${current.key || index}-${step.key || k}`}
                   condition={step.condition}
                   variants={variants}
                   onChange={(condition) => patchStep(index, k, { condition })}

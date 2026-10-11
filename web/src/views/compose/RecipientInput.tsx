@@ -42,6 +42,13 @@ export function RecipientInput({
   useEffect(() => {
     const q = text.trim();
     if (!q) {
+      /*
+       * Invalidate whatever is in flight before clearing: a suggestion that
+       * was already asked for when the field still had text is no longer about
+       * this field, and letting it land would reopen the dropdown on an emptied
+       * input.
+       */
+      reqId.current++;
       setSugg([]);
       setOpen(false);
       return;

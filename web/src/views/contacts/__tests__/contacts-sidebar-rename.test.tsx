@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddressBook } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
+import { promptDialog } from "@/ui/dialog";
 import { ContactsSidebar } from "../ContactsSidebar";
 
 vi.mock("@/ui/dialog", async (importOriginal) => ({
@@ -137,5 +138,22 @@ describe("the address book menu", () => {
       item!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
     expect(rename).toHaveBeenCalledWith("gab1", { name: "Freight directory" }, "grp");
+  });
+
+  it("writes nothing when the trimmed name is the one it already has", async () => {
+    // " Team directory " trims to the book's own name: the guard compares what
+    // would be written, not the raw prompt answer, so a stray space is not a
+    // rename.
+    vi.mocked(promptDialog).mockResolvedValueOnce("  Team directory  ");
+    const rename = vi.spyOn(useContacts.getState(), "updateBook");
+    await openMenuOf("Team directory");
+    const item = [...document.querySelectorAll(".menu-item")].find(
+      (el) => el.textContent?.trim() === "Rename",
+    );
+    expect(item).toBeTruthy();
+    await act(async () => {
+      item!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    expect(rename).not.toHaveBeenCalled();
   });
 });
