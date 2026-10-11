@@ -143,8 +143,11 @@ export function RecipientInput({
         }
       }
       if (e.key === "Escape") {
+        // The dropdown handles the key itself, so it claims it from the
+        // Escape arbiter: a dialog or popover hosting this composer must not
+        // close while a suggestion list is still open (see `ui/dialog`).
+        e.preventDefault();
         setOpen(false);
-        e.stopPropagation();
         return;
       }
     }

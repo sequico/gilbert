@@ -753,7 +753,7 @@ export const useMail = create<MailState>((set, get) => ({
 
   async move(ids, toMailboxId, opts = {}) {
     const accountId = get().accountId;
-    if (!accountId || !ids.length) return;
+    if (!accountId || !ids.length) return { ok: true };
     const { emails, mailboxes } = get();
     const prev: Record<Id, Record<Id, boolean>> = {};
     const update: Record<Id, Record<string, unknown>> = {};
@@ -810,10 +810,17 @@ export const useMail = create<MailState>((set, get) => ({
         });
       }
       void get().loadMailboxes();
+      return { ok: true };
     } catch (err) {
       toast.error(t("Move failed: {error}", { error: (err as Error).message }));
       void get().getEmails(ids);
       void get().refreshList();
+      /*
+       * The server refused, so nothing moved and the optimistic patch above is
+       * undone by the refresh. A caller reads this to know the move did not
+       * happen -- reporting it as done would move focus off a row still here.
+       */
+      return { ok: false, code: "server_refused" };
     }
   },
 
@@ -873,8 +880,9 @@ export const useMail = create<MailState>((set, get) => ({
     }
     if (toMove.length) {
       if (trashId) {
-        await get().move(toMove, trashId, { label: "Deleted Items" });
-        acted = true;
+        const outcome = await get().move(toMove, trashId, { label: "Deleted Items" });
+        if (outcome.ok) acted = true;
+        else refused ??= outcome.code;
       } else {
         // No Deleted Items to file into, so the rest is destroyed outright —
         // and that half's outcome is the caller's business too.
@@ -950,10 +958,17 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     const archiveId = get().roleId("archive") ?? get().roleId("all");
     if (!archiveId) {
-      offerArchiveFolder(() => get().archive(ids));
-      return;
+      offerArchiveFolder(async () => {
+        await get().archive(ids);
+      });
+      /*
+       * Nothing was filed -- there is no folder to file into yet -- so this is
+       * the same answer as a refused move. The toast above offers the folder
+       * and retries this call itself once it exists.
+       */
+      return { ok: false, code: "server_refused" };
     }
-    if (!accountId || !ids.length) return;
+    if (!accountId || !ids.length) return { ok: true };
     const { emails, mailboxes } = get();
     const threadIds = [
       ...new Set(
@@ -980,7 +995,7 @@ export const useMail = create<MailState>((set, get) => ({
       const destination = filed && !already ? filed : archiveId;
       targets.set(destination, [...(targets.get(destination) ?? []), id]);
     }
-    await moveToDestinations(ids, targets, set, get, (mailboxId) =>
+    return moveToDestinations(ids, targets, set, get, (mailboxId) =>
       mailboxDisplayName(mailboxes[mailboxId]),
     );
   },
@@ -1026,20 +1041,25 @@ export const useMail = create<MailState>((set, get) => ({
   async spam(ids, isSpam) {
     const { roleId } = get();
     const target = isSpam ? roleId("junk") : roleId("inbox");
-    if (!target) return;
+    /*
+     * No Junk Mail or Inbox to move to: nothing happens, which is the same
+     * answer as a refused move and not a success a caller may report.
+     */
+    if (!target) return { ok: false, code: "server_refused" };
+    const accountId = get().accountId;
+    if (!accountId || !ids.length) return { ok: true };
     const kw: Record<Id, Record<string, unknown>> = {};
     for (const id of ids)
       kw[id] = {
         "keywords/$junk": isSpam ? true : null,
         "keywords/$notjunk": isSpam ? null : true,
       };
-    const accountId = get().accountId!;
     try {
       await setEmails(accountId, kw);
     } catch {
       /* keyword may be rejected; still move */
     }
-    await get().move(ids, target, { label: isSpam ? "Junk Mail" : "Inbox" });
+    return get().move(ids, target, { label: isSpam ? "Junk Mail" : "Inbox" });
   },
 
   async emptyMailbox(mailboxId) {

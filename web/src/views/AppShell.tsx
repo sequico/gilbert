@@ -264,11 +264,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
   useEffect(() => setDrawer(false), [location]);
 
-  // Escape closes it too, for the tablet with a keyboard attached.
+  // Escape closes it too, for the tablet with a keyboard attached. A surface
+  // nearer the key may have claimed it first, so this yields to that.
   useEffect(() => {
     if (!drawer) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawer(false);
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      setDrawer(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

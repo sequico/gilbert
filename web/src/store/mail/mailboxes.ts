@@ -4,6 +4,7 @@ import type { ConversedMessage } from "@/lib/archiveTarget";
 import { unsubscribedFolders } from "@/lib/groupSubscriptions";
 import { plural, t } from "@/lib/i18n";
 import { isOwnMailAccount } from "@/lib/mailAccounts";
+import type { DeleteOutcome } from "@/lib/mailDelete";
 import { toast } from "@/ui/toast";
 import { useSession } from "../session";
 import { patchMailboxIds, restoreMailboxPatch, setEmails } from "./mutations";
@@ -170,7 +171,9 @@ export async function threadMessagesFor(
  *
  * A failure is not reported here, because it is already reported where it
  * happens: `move` says what the server refused, and the caller that has to
- * create folders first says that in its own words.
+ * create folders first says that in its own words. What it does answer is
+ * whether any move went through, so a caller can tell a report of work done
+ * from a refusal -- `ok: false` only when nothing moved at all.
  */
 export async function moveToDestinations(
   ids: Id[],
@@ -178,9 +181,9 @@ export async function moveToDestinations(
   set: (fn: (s: MailState) => Partial<MailState>) => void,
   get: () => MailState,
   nameOf: (mailboxId: Id) => string,
-): Promise<void> {
+): Promise<DeleteOutcome> {
   const accountId = get().accountId;
-  if (!accountId || !ids.length || !targets.size) return;
+  if (!accountId || !ids.length || !targets.size) return { ok: true };
   /*
    * Where everything came from, captured before anything moves, so one Undo can
    * put back a selection that went to several folders. See the note in `move`:
@@ -196,9 +199,15 @@ export async function moveToDestinations(
 
   const names: string[] = [];
   for (const [target, group] of targets) {
-    await get().move(group, target, { silent: true });
-    names.push(nameOf(target));
+    const outcome = await get().move(group, target, { silent: true });
+    if (outcome.ok) names.push(nameOf(target));
   }
+  /*
+   * Nothing went: every move was refused, and what refused them is already
+   * said. There is no move to report and no Undo to offer, and a caller must
+   * not read this as work done.
+   */
+  if (!names.length) return { ok: false, code: "server_refused" };
 
   const where =
     names.length === 1
@@ -210,6 +219,7 @@ export async function moveToDestinations(
       : { label: "Undo", onClick: moveUndo(ids, prev, accountId, set, get) },
   });
   void get().loadMailboxes();
+  return { ok: true };
 }
 
 /**

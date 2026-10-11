@@ -7,13 +7,19 @@ import { t } from "@/lib/i18n";
 /*
  * One Escape, one surface.
  *
- * A dialog and a popover both close on Escape, and both listen on the document
- * in the capture phase. Calling `stopPropagation` does not stop the other
- * listener registered on the same node, so an Escape inside a popover that sat
- * inside a dialog closed both; and listener order cannot decide between them,
- * because it is the order they mounted in rather than how deeply each is
- * nested. So each overlay hands over what it would do, and the one that opened
- * last -- the one on top -- is the one that acts.
+ * A dialog and a popover both close on Escape, and both used to listen on the
+ * document in the capture phase. Calling `stopPropagation` does not stop the
+ * other listener registered on the same node, so an Escape inside a popover
+ * that sat inside a dialog closed both; and listener order cannot decide
+ * between them, because it is the order they mounted in rather than how deeply
+ * each is nested. So each overlay hands over what it would do, and the one that
+ * opened last -- the one on top -- is the one that acts.
+ *
+ * The arbiter listens in the bubble phase, so a surface nearer the key gets it
+ * first: an input's own dropdown, the shell's drawer, anything that handles
+ * Escape itself. Such a handler claims the key by calling `preventDefault()`,
+ * and the arbiter does nothing with a key already claimed. Only when nothing
+ * below claimed it does the topmost overlay act, and never the ones beneath it.
  */
 const escapeStack: Array<() => void> = [];
 
@@ -27,21 +33,15 @@ export function registerEscape(handle: () => void): () => void {
 }
 
 if (typeof document !== "undefined") {
-  document.addEventListener(
-    "keydown",
-    (e) => {
-      if (e.key !== "Escape") return;
-      const top = escapeStack[escapeStack.length - 1];
-      if (!top) return;
-      // The topmost registered overlay owns Escape: while one is open, it takes
-      // the key before every handler below it. A surface that must handle
-      // Escape itself while an overlay can host it registers through
-      // `registerEscape` rather than adding its own listener.
-      e.stopImmediatePropagation();
-      top();
-    },
-    true,
-  );
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    const top = escapeStack[escapeStack.length - 1];
+    if (!top) return;
+    // Nothing below claimed the key, so the topmost registered overlay owns it
+    // and the overlays beneath must not also act.
+    e.stopImmediatePropagation();
+    top();
+  });
 }
 
 interface DialogProps {
@@ -98,7 +98,8 @@ export function Dialog({
     };
     document.addEventListener("keydown", onKey, true);
     // Escape belongs to the arbiter: the last overlay to open closes, which is
-    // this dialog only while nothing is above it.
+    // this dialog only while nothing is above it and nothing nearer the key
+    // claims it first (see `registerEscape`).
     const offEscape = registerEscape(() => onCloseRef.current());
     // autofocus first input
     window.setTimeout(() => {

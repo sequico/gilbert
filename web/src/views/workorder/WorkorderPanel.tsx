@@ -39,6 +39,7 @@ import {
 } from "@/lib/workorder";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
+import { registerEscape } from "@/ui/dialog";
 import { Spinner, useIsNarrow } from "@/ui/misc";
 import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -804,16 +805,13 @@ export function WorkorderPanel() {
   }, [error]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      // Escape closes the dialog on top: the creation sheet when it is open,
-      // the panel itself otherwise.
+    // Escape closes the dialog on top — the creation sheet when it is open, the
+    // panel itself otherwise — through the shared innermost-first arbiter, so a
+    // dialog opened inside the panel takes the key before the panel does.
+    return registerEscape(() => {
       if (creating) setCreating(false);
       else closePanel();
-    };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
+    });
   }, [closePanel, creating]);
 
   // It opens on Running: the live work is what a reader came for, and a

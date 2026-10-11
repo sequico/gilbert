@@ -119,4 +119,41 @@ describe("Escape across stacked overlays", () => {
     expect(closeDialog).toHaveBeenCalledTimes(1);
     expect(closePopover).not.toHaveBeenCalled();
   });
+
+  /*
+   * A surface nearer the key wins. The arbiter listens in the bubble phase and
+   * yields to a key already claimed with `preventDefault` (finding 2), so an
+   * input's own dropdown inside a dialog handles Escape without the dialog
+   * closing under it. Dispatched on the input so the event passes through the
+   * element's own handler before reaching the arbiter on the document.
+   */
+  it("lets an element claim Escape before an overlay it sits in", () => {
+    const closeDialog = vi.fn();
+    const handleLocal = vi.fn();
+    act(() =>
+      root.render(
+        <Dialog open onClose={closeDialog} title="Host">
+          <input
+            id="inner"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                handleLocal();
+              }
+            }}
+          />
+        </Dialog>,
+      ),
+    );
+
+    const input = document.getElementById("inner")!;
+    act(() => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(handleLocal).toHaveBeenCalledTimes(1);
+    expect(closeDialog).not.toHaveBeenCalled();
+  });
 });

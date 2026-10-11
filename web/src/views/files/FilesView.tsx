@@ -98,10 +98,13 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     setAnchor(null);
   }, [parentId, files.accountId]);
 
-  /* Escape drops it, the way it does everywhere else. */
+  /* Escape drops it, the way it does everywhere else -- and claims the key, so
+     the Escape arbiter does not also close an overlay nearer the reader. */
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") setSelection((cur) => (cur.size ? new Set() : cur));
+      if (ev.key !== "Escape" || ev.defaultPrevented) return;
+      ev.preventDefault();
+      setSelection((cur) => (cur.size ? new Set() : cur));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

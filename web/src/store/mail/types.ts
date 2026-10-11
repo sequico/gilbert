@@ -228,14 +228,14 @@ export interface MailState {
     ids: Id[],
     toMailboxId: Id,
     opts?: { fromMailboxId?: Id | null; silent?: boolean; label?: string },
-  ): Promise<void>;
+  ): Promise<DeleteOutcome>;
   addToMailbox(ids: Id[], mailboxId: Id, add: boolean): Promise<void>;
   trash(ids: Id[]): Promise<DeleteOutcome>;
   destroy(ids: Id[]): Promise<DeleteOutcome>;
-  archive(ids: Id[]): Promise<void>;
+  archive(ids: Id[]): Promise<DeleteOutcome>;
   /** Archive into a dated subfolder of Archive, creating the folders as needed. */
   archiveByDate(ids: Id[], granularity: ArchiveGranularity): Promise<void>;
-  spam(ids: Id[], isSpam: boolean): Promise<void>;
+  spam(ids: Id[], isSpam: boolean): Promise<DeleteOutcome>;
   emptyMailbox(mailboxId: Id): Promise<DeleteOutcome>;
   /** Mark every unread message in a mailbox read; optionally its subfolders too. */
   markMailboxRead(mailboxId: Id, includeChildren?: boolean): Promise<void>;

@@ -24,33 +24,6 @@ import { MailboxPicker } from "./MailboxPicker";
 import { MessageList } from "./MessageList";
 import { ThreadView } from "./ThreadView";
 
-/**
- * Whether an archive or spam actually moved anything.
- *
- * `archive` and `spam` return nothing -- only `trash` answers with an outcome
- * -- so a move that did nothing (no Archive folder to file into, no Junk Mail
- * to move to, an account that is not there) would still be reported as a list
- * that changed, moving focus off a row that is still here. The move is the only
- * effect either action has, so it is read back: each id's folders are compared
- * before and after, and a set that is unchanged is an id the action did not
- * touch.
- */
-export function foldersBefore(ids: Id[]): Map<Id, Record<Id, boolean>> {
-  const { emails } = useMail.getState();
-  return new Map(ids.map((id) => [id, emails[id]?.mailboxIds ?? {}]));
-}
-
-export function foldersChanged(before: Map<Id, Record<Id, boolean>>): boolean {
-  const { emails } = useMail.getState();
-  for (const [id, was] of before) {
-    const now = emails[id]?.mailboxIds ?? {};
-    for (const key of new Set([...Object.keys(was), ...Object.keys(now)])) {
-      if (Boolean(was[key]) !== Boolean(now[key])) return true;
-    }
-  }
-  return false;
-}
-
 export function MailView({
   mailboxId,
   threadId,
@@ -383,9 +356,14 @@ export function MailView({
       archive: async (rows?: Id[]) => {
         const t = await targetIds(rows);
         if (!t.length) return;
-        const before = foldersBefore(t);
-        await useMail.getState().archive(t);
-        if (foldersChanged(before)) afterAction(true);
+        /*
+         * The store's own outcome decides, as `trash` does: a move that did
+         * nothing (no Archive folder, a refused write) must not move the focus
+         * off a row that is still here, and the optimistic state cannot say so
+         * -- its rollback is a refetch still on its way.
+         */
+        const outcome = await useMail.getState().archive(t);
+        if (outcome.ok) afterAction(true);
       },
       trash: async (rows?: Id[]) => {
         const t = await targetIds(rows);
@@ -432,9 +410,8 @@ export function MailView({
         const mail = useMail.getState();
         const junk = mail.roleId("junk");
         const inJunk = t.every((id) => junk && mail.emails[id]?.mailboxIds[junk]);
-        const before = foldersBefore(t);
-        await mail.spam(t, !inJunk);
-        if (foldersChanged(before)) afterAction(true);
+        const outcome = await mail.spam(t, !inJunk);
+        if (outcome.ok) afterAction(true);
       },
       read: async (read: boolean, rows?: Id[]) => {
         const t = await targetIds(rows);
@@ -454,8 +431,10 @@ export function MailView({
         if (t.length) setLabelPicker({ ids: t, anchor });
       },
       moveTo: async (ids: Id[], mailboxId: Id) => {
-        await useMail.getState().move(ids, mailboxId);
-        afterAction(true);
+        const outcome = await useMail.getState().move(ids, mailboxId);
+        // A refused move left the rows where they were: only a real change
+        // clears the selection and moves focus.
+        if (outcome.ok) afterAction(true);
       },
     }),
     [targetIds, afterAction, settings.confirmDelete],
