@@ -96,9 +96,16 @@ export function EventPopover({
     if (!scope) return;
     setBusy(true);
     try {
-      await runScoped(scope, (s) =>
-        cal.destroyEvent(ev, participants.length > 1, s, inst.accountId),
-      );
+      /*
+       * `runScoped` answers `null` when the reader declined the offer to apply
+       * an occurrence change to the whole series. That is a cancel, not a
+       * deletion, so nothing is reported and the popover stays open.
+       */
+      const done = await runScoped(scope, async (s) => {
+        await cal.destroyEvent(ev, participants.length > 1, s, inst.accountId);
+        return true;
+      });
+      if (!done) return;
       toast.success(
         scope === "occurrence" ? t("Occurrence deleted") : t("Event deleted"),
       );
