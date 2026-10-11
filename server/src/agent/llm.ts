@@ -16,10 +16,10 @@
  */
 
 import { isIP } from "node:net";
+import { isPrivateAddress } from "../imageproxy.js";
 import { countOrNull } from "../shared/counts.js";
 import { isRecord } from "../shared/json.js";
 import { SEARCH_GRAMMAR } from "../shared/search.js";
-import { isPrivateAddress } from "../imageproxy.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {

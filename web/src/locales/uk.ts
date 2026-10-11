@@ -45,7 +45,7 @@ export const catalog: Catalog = {
   strings: {
     // A constant label translated where it renders (the GroupAgents tab strip):
     // the English is the catalogue key, as its siblings are.
-    "Knowledge": "Знання",
+    Knowledge: "Знання",
     "Mention a member": "Згадати учасника",
     "Go to folder…": "Перейти до теки…",
     "Set for everyone here. You cannot change this.":

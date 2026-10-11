@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import type { ChangesResponse } from "@/jmap/types";
+import * as appFolder from "@/lib/appFolder";
 import type { ChatMessage } from "@/lib/chat";
 import { type ChatConversation, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
 import { flushMicrotasks as flush } from "@/test/testkit";
-import * as appFolder from "@/lib/appFolder";
 
 /**
  * The live re-sync of an open conversation.

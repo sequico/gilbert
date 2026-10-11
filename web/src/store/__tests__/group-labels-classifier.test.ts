@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
+import * as appFolder from "@/lib/appFolder";
 import { isGroupMailboxAccount, type MailAccountInfo } from "@/lib/mailAccounts";
 import { labelsForAccount, useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import type { Label } from "@/store/settings";
 import { flushMicrotasks as flush } from "@/test/testkit";
-import * as appFolder from "@/lib/appFolder";
 
 /**
  * Which accounts get a group label catalog.

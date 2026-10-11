@@ -847,7 +847,7 @@ function FolderRow({
       <span
         className="nav-twisty"
         role={twisty ? "button" : undefined}
-        aria-label={twisty ? (open ? "Collapse" : "Expand") : undefined}
+        aria-label={twisty ? (open ? t("Collapse") : t("Expand")) : undefined}
         aria-expanded={twisty ? open : undefined}
         aria-hidden={twisty ? undefined : true}
         onClick={

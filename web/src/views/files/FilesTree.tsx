@@ -216,7 +216,7 @@ export function FilesTree() {
         >
           <button
             className="nav-twisty"
-            aria-label={open ? "Collapse" : "Expand"}
+            aria-label={open ? t("Collapse") : t("Expand")}
             style={{ visibility: kids.length ? "visible" : "hidden" }}
             onClick={(e) => {
               e.stopPropagation();

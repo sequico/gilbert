@@ -9,13 +9,13 @@ import {
   refreshSettingsPolicy,
   resetSettingsPolicyForTest,
 } from "@/lib/settingsPolicy";
+import { useSession } from "@/store/session";
 import {
   DEFAULT_SETTINGS,
   SETTINGS_POLICY_UNKNOWN,
   type SettingsWriteRefusal,
   useSettings,
 } from "@/store/settings";
-import { useSession } from "@/store/session";
 
 /*
  * Settings an installation decides, from #207.
