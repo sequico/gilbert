@@ -304,8 +304,8 @@ output instead.
 scripts + tests + build); the `.githooks/pre-push` hook enforces it, enabled per
 clone with `git config core.hooksPath .githooks`. The hook is checkpoint-driven:
 the default runs the full gate; `GATE=fast` runs only typecheck+lint; `GATE=off`
-skips deliberately. It also skips when the push touches no file a gate reads
-(`*.md` outside `docs/adr/`) or when the exact tree already passed in that mode
+skips deliberately. It also skips when every changed path is binary and named by
+no check, or when the exact tree already passed in that mode
 (cache `.git/gate-cache`). Bypass a single push with `--no-verify`. `ci.yml` does
 not run on push: it is the release pre-check, and only Dependabot's pull requests
 start it, because their branches never pass through the local hook.

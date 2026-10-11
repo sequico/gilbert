@@ -103,10 +103,10 @@ const looksLikeUi = (s) =>
  * A label position says a one-word string is prose. `title="Save"` carries no
  * whitespace and no closing punctuation, so `looksLikeUi` drops it and the
  * label ships English in every language; a capitalised word with lower-case
- * letters and no digits is a word a reader reads. The position is what makes
- * it prose -- nothing in "Save" marks it as a sentence.
+ * letters is a word a reader reads. The position is what makes it prose --
+ * nothing in "Save" marks it as a sentence.
  */
-const looksLikeLabel = (s) => /^[A-Z]/.test(s) && /[a-z]/.test(s) && !/\d/.test(s);
+const looksLikeLabel = (s) => /^[A-Z]/.test(s) && /[a-z]/.test(s);
 
 /*
  * Every shipped catalogue, not one of them: a literal the catalogue files
