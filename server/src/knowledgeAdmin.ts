@@ -22,6 +22,7 @@
  * authenticated session, never from the request.
  */
 
+import { openMasterAccount, openMasterSession } from "./adminSession.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
   appFolderState,
@@ -31,18 +32,11 @@ import {
   ensureFolderPath,
   FILENODE_CAP,
   fileChildren,
-  filesAccountId,
   findFolderPath,
   readAppJsonAt,
   writeAppFileIn,
 } from "./appFolder.js";
-import {
-  agentSession,
-  groupAccountId,
-  IdentityAdminError,
-  ownIdentityAccount,
-  refusalOf,
-} from "./identityAdmin.js";
+import { groupAccountId, refusalOf } from "./identityAdmin.js";
 import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
@@ -99,6 +93,25 @@ export class KnowledgeAdminError extends Error {
 }
 
 /**
+ * The account's FileNode state as the conditional-write token, or a refusal.
+ *
+ * A write that cannot be made conditional — because the account stated no state
+ * — is a write that would silently replace one another writer just made, so it
+ * is refused rather than sent unconditionally, the same `no_state` refusal the
+ * installation document's own writer makes. One helper, so every KB write
+ * refuses the same way.
+ */
+export function requireState(state: string): string {
+  if (!state)
+    throw new KnowledgeAdminError(
+      "no_state",
+      "The account holding this knowledge base would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
+      502,
+    );
+  return state;
+}
+
+/**
  * The last order a create minted.
  *
  * A create lands last among its siblings; the clock alone hands two creates in
@@ -138,40 +151,22 @@ export async function ensureKnowledge(ctx: Ctx, accountId: string): Promise<void
 }
 
 /**
- * The Master's own session for a KB write, or a KB refusal.
+ * The company tier: the Master's own account and its KB folder.
  *
- * `agentSession` raises `IdentityAdminError`; it is translated here so the
- * routes have one error shape to map and a caller reads a code that names the
- * KB's own state rather than Global contacts' message.
+ * The Master's session comes from the shared admin-session door, with the KB's
+ * own sentence and error (`adminSession.ts`).
  */
-async function masterSession(admin: LiveSession): Promise<Ctx> {
-  try {
-    return await agentSession(admin);
-  } catch (err) {
-    if (err instanceof IdentityAdminError)
-      throw new KnowledgeAdminError(
-        err.code,
-        err.code === "agent_not_configured"
-          ? "This deployment names no agent, so the knowledge base cannot be reached."
-          : `The installation's agent could not be used for the knowledge base: ${err.message}`,
-        err.status,
-      );
-    throw err;
-  }
-}
-
-/** The company tier: the Master's own account and its KB folder. */
 export async function companyKnowledgeAccount(
   admin: LiveSession,
 ): Promise<{ ctx: Ctx; accountId: string; folderId: string }> {
-  const ctx = await masterSession(admin);
-  const accountId = filesAccountId(ctx) || ownIdentityAccount(ctx);
-  if (!accountId)
-    throw new KnowledgeAdminError(
-      "no_knowledge_account",
+  const { ctx, accountId } = await openMasterAccount(admin, {
+    what: "the knowledge base",
+    missingCode: "no_knowledge_account",
+    missingMessage:
       "The Master's own account could not be read, so the company knowledge base cannot be reached.",
-      409,
-    );
+    files: true,
+    refuse: (code, message, status) => new KnowledgeAdminError(code, message, status),
+  });
   // Readers reach the folder through the route this door serves, not a share,
   // so making the folder is all this resolves.
   const folderId = await knowledgeFolder(ctx, accountId);
@@ -199,7 +194,11 @@ export async function groupKnowledgeAccount(
       `The knowledge base of "${group.trim() || group}" is out of reach: you may not be a member of that group, or the mail server did not answer about it.`,
       403,
     );
-  const ctx = await masterSession(admin);
+  const ctx = await openMasterSession(
+    admin,
+    "the knowledge base",
+    (code, message, status) => new KnowledgeAdminError(code, message, status),
+  );
   const accountId = groupAccountId(ctx, group);
   if (!accountId)
     throw new KnowledgeAdminError(
@@ -517,17 +516,21 @@ export async function listArticles(
 }
 
 /**
- * The article with a given id anywhere in a tier, or null.
+ * The first article folder in a tier for which `match` answers true, or null.
  *
- * A durable reference — a workorder's template — carries the article's **id**,
- * never its folder (the folder is the title, which a rename changes). The walk
- * reads each article's small `state.json`, which is where the id lives.
+ * A durable reference to an article is resolved by something a rename does not
+ * change: its own `state.json` id, or the FileNode id a move keeps. One walk
+ * answers both, so the two references cannot disagree about the tree.
  */
-export async function findArticleById(
+async function findArticle(
   ctx: Ctx,
   accountId: string,
   tierFolderId: string,
-  id: string,
+  match: (found: {
+    nodeId: string;
+    folder: string;
+    state: KnowledgeState | null;
+  }) => boolean,
 ): Promise<ArticleFolder | null> {
   const walk = async (
     folderId: string,
@@ -548,13 +551,30 @@ export async function findArticleById(
           `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
         ),
       );
-      if (state?.id === id) return { nodeId: childId, parentId, folder };
+      if (match({ nodeId: childId, folder, state }))
+        return { nodeId: childId, parentId, folder };
       const nested = await walk(childId, folder, childId);
       if (nested) return nested;
     }
     return null;
   };
   return walk(tierFolderId, "", null);
+}
+
+/**
+ * The article with a given id anywhere in a tier, or null.
+ *
+ * A durable reference — a workorder's template — carries the article's **id**,
+ * never its folder (the folder is the title, which a rename changes). The walk
+ * reads each article's small `state.json`, which is where the id lives.
+ */
+export async function findArticleById(
+  ctx: Ctx,
+  accountId: string,
+  tierFolderId: string,
+  id: string,
+): Promise<ArticleFolder | null> {
+  return findArticle(ctx, accountId, tierFolderId, ({ state }) => state?.id === id);
 }
 
 /** Read every readable revision of an article, newest first by approval. */
@@ -746,8 +766,19 @@ export async function createArticle(
     // first moment, exactly as a save that adds one would make it.
     template: isChecklistTemplate(draft) ? "checklist" : null,
   });
-  await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
-  await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);
+  // The two documents are written as one unit: the listing key (`state.json`)
+  // is what makes the directory an article, so a draft that landed without it
+  // would be an invisible directory whose name is now taken. A refused write
+  // takes the folder back with it rather than leaving that behind.
+  try {
+    await writeAppFileIn(ctx, accountId, nodeId, DRAFT_FILE, draft);
+    await writeAppFileIn(ctx, accountId, nodeId, STATE_FILE, state);
+  } catch (err) {
+    await destroyAppNode(ctx, accountId, nodeId, { removeChildren: true }).catch(
+      () => undefined,
+    );
+    throw err;
+  }
   return knowledgeSummary({
     state,
     draft,
@@ -824,13 +855,22 @@ export async function createFolder(
   // and two folders would then fall back to title order.
   lastCreateOrder = Math.max(Date.now(), lastCreateOrder + 1);
   const order = lastCreateOrder;
-  await writeAppFileIn(
-    ctx,
-    accountId,
-    nodeId,
-    KNOWLEDGE_FOLDER_FILE,
-    buildFolderDoc(order),
-  );
+  // The folder's place is its only document; a write that is refused takes the
+  // directory back with it rather than leaving an empty one whose name is taken.
+  try {
+    await writeAppFileIn(
+      ctx,
+      accountId,
+      nodeId,
+      KNOWLEDGE_FOLDER_FILE,
+      buildFolderDoc(order),
+    );
+  } catch (err) {
+    await destroyAppNode(ctx, accountId, nodeId, { removeChildren: true }).catch(
+      () => undefined,
+    );
+    throw err;
+  }
   return knowledgeSummary({
     state: null,
     draft: null,
@@ -860,7 +900,7 @@ export async function saveDraft(
   const articlePath = articlePathOf(article);
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureFolderPath(ctx, accountId, articlePath);
-    const state = await appFolderState(ctx, accountId);
+    const state = requireState(await appFolderState(ctx, accountId));
     const existingDraft = asDraft(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
     );
@@ -924,13 +964,13 @@ export async function saveDraft(
     };
     try {
       await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
-        ifInState: state || undefined,
+        ifInState: state,
       });
       // The draft write advanced the account's state, so the second write is
       // conditioned on a fresh token rather than the one the read used.
-      const after = await appFolderState(ctx, accountId);
+      const after = requireState(await appFolderState(ctx, accountId));
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
-        ifInState: after || undefined,
+        ifInState: after,
       });
       return knowledgeSummary({
         state: nextState,
@@ -1049,7 +1089,7 @@ export async function approveArticle(
     // token read after it is still valid while what it would be compared
     // against has already moved. Both are re-read on a retry, so whatever
     // landed between the attempts is the state the approval is applied over.
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     const current = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
@@ -1075,7 +1115,7 @@ export async function approveArticle(
     };
     try {
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
-        ifInState: token || undefined,
+        ifInState: token,
       });
       break;
     } catch (err) {
@@ -1136,7 +1176,7 @@ export async function restoreArticle(
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while the documents it would be compared
     // against have already moved, which is the lost update this guards.
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     const existingDraft = asDraft(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
     );
@@ -1189,11 +1229,11 @@ export async function restoreArticle(
     };
     try {
       await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, draft, {
-        ifInState: token || undefined,
+        ifInState: token,
       });
-      const after = await appFolderState(ctx, accountId);
+      const after = requireState(await appFolderState(ctx, accountId));
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
-        ifInState: after || undefined,
+        ifInState: after,
       });
       return knowledgeSummary({
         state: nextState,
@@ -1221,6 +1261,11 @@ export async function restoreArticle(
  * exactly as a create does, and only the folder's `name` moves -- the node id
  * never changes, so the articles inside it and every reference by id are
  * untouched.
+ *
+ * The article is re-resolved by that node id on **every** attempt: a rename
+ * that succeeded moves the folder, so a retry after a lost race must read where
+ * the article is now rather than rename the path it used to be at a second
+ * time.
  */
 export async function renameArticle(
   admin: LiveSession,
@@ -1242,13 +1287,27 @@ export async function renameArticle(
       `"${wantedName}" is reserved for an article's revision store; choose another title.`,
       400,
     );
-  const currentLeaf = article.folder.split("/").pop() ?? article.folder;
   const client = new JmapClient(ctx);
   for (let attempt = 0; attempt < 2; attempt++) {
+    // Re-resolved by the node id, which a rename leaves alone: an article whose
+    // folder a previous attempt moved is read where it is now.
+    const current = await findArticle(
+      ctx,
+      accountId,
+      folderId,
+      ({ nodeId }) => nodeId === article.nodeId,
+    );
+    if (!current)
+      throw new KnowledgeAdminError(
+        "article_not_found",
+        `The knowledge base has no article "${article.folder}".`,
+        404,
+      );
+    const articlePath = articlePathOf(current);
+    const leaf = current.folder.split("/").pop() ?? current.folder;
     // The token is read before the documents, so a save landing between them and
     // the writes is refused rather than silently overwritten.
-    const token = await appFolderState(ctx, accountId);
-    const articlePath = articlePathOf(article);
+    const token = requireState(await appFolderState(ctx, accountId));
     const draft = asDraft(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
     );
@@ -1261,18 +1320,18 @@ export async function renameArticle(
         "That article is retired and kept on record, so it is not renamed.",
         409,
       );
-    let nextFolder = article.folder;
+    let nextFolder = current.folder;
     try {
-      if (wantedName !== currentLeaf) {
+      if (wantedName !== leaf) {
         // The parent is the article's own parent node, or the tier root: one
         // free-name helper for a rename, an article create and a folder create.
-        const parentPath = article.folder.includes("/")
-          ? article.folder.slice(0, article.folder.lastIndexOf("/"))
+        const parentPath = current.folder.includes("/")
+          ? current.folder.slice(0, current.folder.lastIndexOf("/"))
           : "";
         const name = await freeChildFolderName(
           ctx,
           accountId,
-          article.parentId ?? folderId,
+          current.parentId ?? folderId,
           wantedName,
         );
         const renamed = await client.call<{
@@ -1281,12 +1340,12 @@ export async function renameArticle(
           "FileNode/set",
           {
             accountId,
-            ...(token ? { ifInState: token } : {}),
-            update: { [article.nodeId]: { name } },
+            ifInState: token,
+            update: { [current.nodeId]: { name } },
           },
           [FILENODE_CAP],
         );
-        const nameRefused = renamed.notUpdated?.[article.nodeId];
+        const nameRefused = renamed.notUpdated?.[current.nodeId];
         if (nameRefused)
           throw new KnowledgeAdminError(
             "article_name_taken",
@@ -1304,22 +1363,22 @@ export async function renameArticle(
       const nextState = state
         ? { ...state, title: docTitle, updated: { by, at: now } }
         : null;
-      const after = await appFolderState(ctx, accountId);
+      const after = requireState(await appFolderState(ctx, accountId));
       if (nextDraft)
-        await writeAppFileIn(ctx, accountId, article.nodeId, DRAFT_FILE, nextDraft, {
-          ifInState: after || undefined,
+        await writeAppFileIn(ctx, accountId, current.nodeId, DRAFT_FILE, nextDraft, {
+          ifInState: after,
         });
-      const after2 = await appFolderState(ctx, accountId);
+      const after2 = requireState(await appFolderState(ctx, accountId));
       if (nextState)
-        await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
-          ifInState: after2 || undefined,
+        await writeAppFileIn(ctx, accountId, current.nodeId, STATE_FILE, nextState, {
+          ifInState: after2,
         });
       return knowledgeSummary({
         state: nextState,
         draft: nextDraft,
         folder: nextFolder,
-        nodeId: article.nodeId,
-        parentId: article.parentId,
+        nodeId: current.nodeId,
+        parentId: current.parentId,
         saved: nextDraft !== null,
       });
     } catch (err) {
@@ -1356,7 +1415,7 @@ export async function reorderArticle(
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while what it would be compared against
     // has already moved.
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
@@ -1368,7 +1427,7 @@ export async function reorderArticle(
           updated: { by: admin.username, at: new Date().toISOString() },
         };
         await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, next, {
-          ifInState: token || undefined,
+          ifInState: token,
         });
         return knowledgeSummary({
           state: next,
@@ -1396,7 +1455,7 @@ export async function reorderArticle(
         article.nodeId,
         KNOWLEDGE_FOLDER_FILE,
         nextDoc,
-        { ifInState: token || undefined },
+        { ifInState: token },
       );
       return knowledgeSummary({
         state: null,
@@ -1462,7 +1521,7 @@ export async function moveArticle(
   const destParentId = parent ? parent.nodeId : null;
   const client = new JmapClient(ctx);
   for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     try {
       const res = await client.call<{
         notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
@@ -1470,7 +1529,7 @@ export async function moveArticle(
         "FileNode/set",
         {
           accountId,
-          ...(token ? { ifInState: token } : {}),
+          ifInState: token,
           update: { [article.nodeId]: { parentId: destNodeId } },
         },
         [FILENODE_CAP],
@@ -1587,7 +1646,7 @@ async function retireArticle(
 ): Promise<void> {
   const articlePath = articlePathOf(article);
   for (let attempt = 0; attempt < 2; attempt++) {
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
     );
@@ -1617,7 +1676,7 @@ async function retireArticle(
     };
     try {
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, next, {
-        ifInState: token || undefined,
+        ifInState: token,
       });
       return;
     } catch (err) {

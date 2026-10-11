@@ -58,6 +58,7 @@ const { AGENT_CHAIN_HOPS_CEILING, AGENT_PAGES_CEILING } = await import(
   "./agent/documents.js"
 );
 const { createApp } = await import("./app.js");
+const { assertUsableBaseUrl } = await import("./agentAdmin.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFile, writeAppFileAt } = await import("./appFolder.js");
 const { AgentStore } = await import("./agent/store.js");
@@ -318,6 +319,46 @@ test("a save that loses the account-wide compare-and-set is retried, not shown",
   const read = await call("/api/admin/agent/providers");
   const provider = (read.body as { provider: { model?: string } | null }).provider;
   assert.equal(provider?.model, "claude-small", "the model this save named landed");
+});
+
+test("a provider's address is judged by what it resolves to, not by its spelling", async () => {
+  /*
+   * A name is not the address it answers with: a public-looking hostname that
+   * resolves into the deployment's own network is the same reach a private
+   * literal is, and the IPv6 ULA test is on the parsed literal rather than on
+   * the first two characters of any string — a domain that happens to begin
+   * "fc" is a name. The resolver is injected, so none of this depends on how
+   * the machine running the tests resolves anything.
+   */
+  await assert.rejects(
+    () =>
+      assertUsableBaseUrl("https://looks-public.example/v1", async () => ["10.0.0.1"]),
+    /base_url_private/,
+    "a name that resolves into the private space is refused",
+  );
+  await assert.doesNotReject(() =>
+    assertUsableBaseUrl("https://looks-public.example/v1", async () => ["93.184.216.34"]),
+  );
+  // A name this host cannot resolve answers nothing, which is not a refusal
+  // here: the call refuses a private literal, and this door has nothing to
+  // judge.
+  await assert.doesNotReject(() =>
+    assertUsableBaseUrl("https://looks-public.example/v1", async () => []),
+  );
+  await assert.rejects(
+    () => assertUsableBaseUrl("https://[fd12::1]/v1", async () => []),
+    /base_url_private/,
+    "a unique-local IPv6 literal is refused without asking anything",
+  );
+  await assert.rejects(
+    () => assertUsableBaseUrl("https://[::ffff:10.0.0.1]/v1", async () => []),
+    /base_url_private/,
+    "an IPv4-mapped IPv6 literal is judged by the IPv4 it carries",
+  );
+  await assert.doesNotReject(
+    () => assertUsableBaseUrl("https://fc2.com/v1", async () => ["93.184.216.34"]),
+    "a name that begins with a ULA prefix's letters is still a name",
+  );
 });
 
 test("an installation with no agent says so plainly, and never 500s", async () => {

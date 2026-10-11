@@ -94,6 +94,25 @@ export class IdentityAdminError extends Error {
   }
 }
 
+/**
+ * The account's FileNode state as the conditional-write token, or a refusal.
+ *
+ * A write that cannot be made conditional — because the account stated no state
+ * — is a write that would silently replace one another writer just made, so it
+ * is refused rather than sent unconditionally, the same `no_state` refusal the
+ * installation document's own writer makes. One helper, so every identity write
+ * refuses the same way.
+ */
+export function requireState(state: string): string {
+  if (!state)
+    throw new IdentityAdminError(
+      "no_state",
+      "The account would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
+      502,
+    );
+  return state;
+}
+
 /* ------------------------------------------------------------------ */
 /* The lock (ADR 0001)                                                 */
 /* ------------------------------------------------------------------ */
@@ -224,7 +243,7 @@ async function writeAssignmentDoc(
 ): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureAppFolder(ctx, accountId);
-    const state = await appFolderState(ctx, accountId);
+    const state = requireState(await appFolderState(ctx, accountId));
     const members = await readAssignments(ctx, accountId);
     try {
       await writeAppFile(
@@ -237,7 +256,7 @@ async function writeAssignmentDoc(
           updatedAt: new Date().toISOString(),
           updatedBy: by,
         },
-        state ? { ifInState: state } : {},
+        { ifInState: state },
       );
       return;
     } catch (err) {
@@ -595,7 +614,7 @@ export async function writeDefaultIdentity(
 ): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureAppFolder(ctx, accountId);
-    const state = await appFolderState(ctx, accountId);
+    const state = requireState(await appFolderState(ctx, accountId));
     const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
     const doc = isRecord(raw) ? { ...raw } : {};
     const current = doc[DEFAULT_IDENTITY_KEY];
@@ -607,13 +626,7 @@ export async function writeDefaultIdentity(
       // Conditional, like every other document writer here: a client save
       // landing between this read and this write is refused and retried rather
       // than silently replaced.
-      await writeAppFile(
-        ctx,
-        accountId,
-        SETTINGS_FILE,
-        doc,
-        state ? { ifInState: state } : {},
-      );
+      await writeAppFile(ctx, accountId, SETTINGS_FILE, doc, { ifInState: state });
       return;
     } catch (err) {
       if (attempt > 0 || !isStateMismatch(err)) throw err;
@@ -1016,7 +1029,16 @@ export async function storeSignatureHtml(
       );
   }
   try {
-    const name = `signature-${Date.now()}.html`;
+    /*
+     * One stable name, overwritten on each save.
+     *
+     * The marker the client stores names the **blob**, not the file, so the name
+     * is only where that blob lives; a timestamped name left every previous
+     * signature behind as an invisible file in the account's own app folder,
+     * growing the Files and blob quota with every edit and never removing one.
+     * The account's stored signature is its own, so one name is one body.
+     */
+    const name = "signature.html";
     await writeAppBytesAt(
       ctx,
       accountId,

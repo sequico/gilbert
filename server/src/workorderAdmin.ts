@@ -22,6 +22,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { administrator, openMasterAccount } from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
@@ -30,18 +31,12 @@ import {
   ensureFolderPath,
   FILENODE_CAP,
   fileChildren,
-  filesAccountId,
   findAppFileAt,
   findFolderPath,
   readAppJsonAt,
   writeAppFileIn,
 } from "./appFolder.js";
-import {
-  agentSession,
-  IdentityAdminError,
-  ownIdentityAccount,
-  refusalOf,
-} from "./identityAdmin.js";
+import { refusalOf } from "./identityAdmin.js";
 import { isStateMismatch, JmapClient } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
@@ -92,7 +87,6 @@ import {
   workorderClosedPath,
   workorderFileName,
 } from "./shared/workorder.js";
-import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstream.js";
 
 /** A refusal a workorder caller will read: a code, and the sentence to show. */
 export class WorkorderAdminError extends Error {
@@ -106,68 +100,43 @@ export class WorkorderAdminError extends Error {
   }
 }
 
+/**
+ * The account's FileNode state as the conditional-write token, or a refusal.
+ *
+ * A write that cannot be made conditional — because the account stated no state
+ * — is a write that would silently replace one another writer just made, so it
+ * is refused rather than sent unconditionally, the same `no_state` refusal the
+ * installation document's own writer makes. One helper, so every workorder
+ * write refuses the same way.
+ */
+export function requireState(state: string): string {
+  if (!state)
+    throw new WorkorderAdminError(
+      "no_state",
+      "The account holding these workorders would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
+      502,
+    );
+  return state;
+}
+
 /* ------------------------------------------------------------------ */
 /* The Master's account, and the caller's own session                  */
 /* ------------------------------------------------------------------ */
 
 /**
- * The Master's own session for a workorder write.
- *
- * `agentSession` raises `IdentityAdminError`; it is translated here so the
- * routes have one error shape to map and a caller reads a code that names the
- * workorders' own state rather than another surface's message.
+ * The Master's own account and its session — the workorder acceptance of the
+ * shared admin-session door (`adminSession.ts`): the sentence names workorders
+ * and the refusal is the workorder surface's own.
  */
-async function masterSession(admin: LiveSession): Promise<Ctx> {
-  try {
-    return await agentSession(admin);
-  } catch (err) {
-    if (err instanceof IdentityAdminError)
-      throw new WorkorderAdminError(
-        err.code,
-        err.code === "agent_not_configured"
-          ? "This deployment names no agent, so workorders cannot be reached."
-          : `The installation's agent could not be used for workorders: ${err.message}`,
-        err.status,
-      );
-    throw err;
-  }
-}
-
-/** The Master's own account and its session: the registry's one writer. */
-async function masterAccount(
-  admin: LiveSession,
-): Promise<{ ctx: Ctx; accountId: string }> {
-  const ctx = await masterSession(admin);
-  const accountId = filesAccountId(ctx) || ownIdentityAccount(ctx);
-  if (!accountId)
-    throw new WorkorderAdminError(
-      "no_workorder_account",
+function masterAccount(admin: LiveSession): Promise<{ ctx: Ctx; accountId: string }> {
+  return openMasterAccount(admin, {
+    what: "workorders",
+    missingCode: "no_workorder_account",
+    missingMessage:
       "The Master's own account could not be read, so workorders cannot be reached.",
-      409,
-    );
-  return { ctx, accountId };
-}
-
-/**
- * Whether the caller is an installation administrator, read the way the
- * administration's own route reads it. An unreadable introspection is
- * non-admin: this only decides what the view offers, while `requireAdmin`
- * stays the enforcement on every write.
- */
-async function isAdministrator(session: LiveSession): Promise<boolean> {
-  try {
-    const intro = await fetchAccountIntrospection(
-      session.authorization,
-      upstreamFor(session.username),
-    );
-    return isStalwartAdmin(intro.permissions);
-  } catch (err) {
-    console.warn(
-      `[gilbert] could not read whether ${session.username} administers the installation:`,
-      (err as Error).message,
-    );
-    return false;
-  }
+    files: true,
+    refuse: (code, message, status) => new WorkorderAdminError(code, message, status),
+  });
 }
 
 /**
@@ -190,7 +159,7 @@ interface WorkorderReach {
 }
 
 async function workorderReach(session: LiveSession): Promise<WorkorderReach> {
-  const admin = await isAdministrator(session);
+  const admin = await administrator(session);
   const { ctx, accountId } = await masterAccount(session);
   const masterGroups = (await groupAccountsDetailed(ctx)).groups;
   const own = new Set<string>();
@@ -288,7 +257,7 @@ async function writeRootUnderCas(
   for (let attempt = 0; attempt < 2; attempt++) {
     // The token is read before the document, so a write landing between the two
     // is refused rather than overwritten.
-    const token = await appFolderState(ctx, accountId);
+    const token = requireState(await appFolderState(ctx, accountId));
     const found = await findRoot(ctx, accountId, uid);
     if (!found)
       throw new WorkorderAdminError(
@@ -299,7 +268,7 @@ async function writeRootUnderCas(
     const next = mutate(found);
     try {
       await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(uid), next, {
-        ifInState: token || undefined,
+        ifInState: token,
       });
       return found;
     } catch (err) {
@@ -1058,7 +1027,7 @@ export async function checkStep(
     );
   const note = typeof input?.note === "string" ? input.note.trim() : "";
   if (input?.scope === "global") {
-    if (!(await isAdministrator(session)))
+    if (!(await administrator(session)))
       throw new WorkorderAdminError(
         "forbidden",
         "Only an installation administrator checks the global checklist.",
@@ -1130,23 +1099,58 @@ export async function checkStep(
   return summary;
 }
 
-/** Move a root between the active folder and `closed/`, keeping its id. */
-async function moveRoot(
+/**
+ * Move a root between the active folder and `closed/`, keeping its id.
+ *
+ * The move is a second write after the state change, and it is conditional on
+ * the account's FileNode state and retried once, exactly as every other
+ * workorder write is: a write that lands first is refused rather than silently
+ * overwritten, which is what keeps two closers from racing the folder. A move
+ * that still cannot be made throws `workorder_move_failed`; the caller treats
+ * that as recoverable, because the folder is a projection of the state and the
+ * state is the truth. Exported so a test can make the mock lose the
+ * compare-and-set and see the refusal.
+ */
+export async function moveRoot(
   ctx: Ctx,
   accountId: string,
   nodeId: string,
   parentId: string,
 ): Promise<void> {
-  const res = await new JmapClient(ctx).call<{
-    notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
-  }>("FileNode/set", { accountId, update: { [nodeId]: { parentId } } }, [FILENODE_CAP]);
-  const refused = res.notUpdated?.[nodeId];
-  if (refused)
-    throw new WorkorderAdminError(
-      "workorder_move_failed",
-      refusalOf(refused) || "The workorder could not be moved.",
-      502,
-    );
+  const client = new JmapClient(ctx);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = requireState(await appFolderState(ctx, accountId));
+    try {
+      const res = await client.call<{
+        notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
+      }>(
+        "FileNode/set",
+        { accountId, ifInState: token, update: { [nodeId]: { parentId } } },
+        [FILENODE_CAP],
+      );
+      const refused = res.notUpdated?.[nodeId];
+      if (refused)
+        throw new WorkorderAdminError(
+          "workorder_move_failed",
+          refusalOf(refused) || "The workorder could not be moved.",
+          502,
+        );
+      return;
+    } catch (err) {
+      if (!isStateMismatch(err)) throw err;
+      if (attempt > 0)
+        throw new WorkorderAdminError(
+          "workorder_move_failed",
+          "The workorder could not be moved because another write kept winning the race.",
+          502,
+        );
+    }
+  }
+  throw new WorkorderAdminError(
+    "workorder_move_failed",
+    "The workorder could not be moved because another write kept winning the race.",
+    502,
+  );
 }
 
 /**
@@ -1203,7 +1207,23 @@ export async function closeWorkorder(
     },
     (root) => ({ ...root.doc, state, updated: { by, at } }),
   );
-  await moveRoot(ctx, accountId, found.nodeId, target);
+  /*
+   * The folder is a projection of the state, not the state itself, and the move
+   * is a second write that can lose to another writer even after the state
+   * landed. The state is the truth and is already written, so a move that
+   * cannot be made is reported and left recoverable — a reader looks in both
+   * folders, and the next close moves the root — rather than turning a closed
+   * workorder into a failed request.
+   */
+  try {
+    await moveRoot(ctx, accountId, found.nodeId, target);
+  } catch (err) {
+    if (!(err instanceof WorkorderAdminError)) throw err;
+    console.warn(
+      `[gilbert] workorder ${id} was ${state} but its folder could not be moved:`,
+      err.message,
+    );
+  }
   const summary = await readWorkorder(session, id);
   if (!summary)
     throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);

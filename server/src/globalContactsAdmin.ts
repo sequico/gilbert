@@ -1,12 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { openMasterAccount } from "./adminSession.js";
 import type { Ctx } from "./appFolder.js";
-import {
-  agentSession,
-  IdentityAdminError,
-  ownIdentityAccount,
-  refusalOf,
-} from "./identityAdmin.js";
-import { JMAP_CONTACTS, JmapClient } from "./jmap.js";
+import { IdentityAdminError, refusalOf, requireState } from "./identityAdmin.js";
+import { isStateMismatch, JMAP_CONTACTS, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,
@@ -26,19 +22,20 @@ import {
  * at 10 principals per item (ADR 0023, live-probed 2026-10-02).
  */
 
-/** The Master's session and its own account, or a refusal. */
-async function masterAccount(
-  admin: LiveSession,
-): Promise<{ ctx: Ctx; accountId: string }> {
-  const ctx = await agentSession(admin);
-  const accountId = ownIdentityAccount(ctx);
-  if (!accountId)
-    throw new IdentityAdminError(
-      "no_identity_account",
+/**
+ * The Master's own account and its session — Global contacts' acceptance of
+ * the shared admin-session door (`adminSession.ts`): the directory is the
+ * account itself rather than a document in its app folder, so `files` is false.
+ */
+function masterAccount(admin: LiveSession): Promise<{ ctx: Ctx; accountId: string }> {
+  return openMasterAccount(admin, {
+    what: "Global contacts",
+    missingCode: "no_identity_account",
+    missingMessage:
       "The installation's own account could not be read, so Global contacts cannot be written.",
-      409,
-    );
-  return { ctx, accountId };
+    files: false,
+    refuse: (code, message, status) => new IdentityAdminError(code, message, status),
+  });
 }
 
 /** The refusal, in the identity door's own shape, so the route maps it. */
@@ -75,6 +72,33 @@ async function findGlobalContactsBook(
   } catch (err) {
     throw bookRefusal(err, "The directory's address book could not be read");
   }
+}
+
+/**
+ * The account's ContactCard state, the compare-and-set token a
+ * `ContactCard/set` carries.
+ *
+ * Read the way `appFolderState` reads the account's FileNode state: a
+ * conditional write against it is refused when any card moved since, so two
+ * administrators acting at once is a lost race for one of them rather than a
+ * silent overwrite of the other.
+ */
+async function contactCardState(client: JmapClient, accountId: string): Promise<string> {
+  const res = await client.call<{ state?: unknown }>(
+    "ContactCard/get",
+    { accountId, ids: [] },
+    [JMAP_CONTACTS],
+  );
+  return typeof res.state === "string" ? res.state : "";
+}
+
+/** The refusal a repeated lost race becomes, so the route maps a code not a status. */
+function contactMoved(): IdentityAdminError {
+  return new IdentityAdminError(
+    "global_contact_moved",
+    "The card could not be saved because another write kept winning the race.",
+    502,
+  );
 }
 
 /**
@@ -282,22 +306,32 @@ export async function writeGlobalContact(
           "That card is not in the Global contacts directory.",
           404,
         );
-      const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
-        "ContactCard/set",
-        {
-          accountId,
-          update: { [id]: { ...fields, addressBookIds: { [bookId]: true } } },
-        },
-        [JMAP_CONTACTS],
-      );
-      const refused = res.notUpdated?.[id];
-      if (refused)
-        throw new IdentityAdminError(
-          "global_contact",
-          refusalOf(refused as { type?: unknown; description?: unknown }),
-          400,
-        );
-      return id;
+      const next = { ...fields, addressBookIds: { [bookId]: true } };
+      // The update is conditional on the account's ContactCard state and retried
+      // once, so two administrators acting at once is a lost race for one of
+      // them rather than a silent overwrite of the other.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const state = requireState(await contactCardState(client, accountId));
+        try {
+          const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
+            "ContactCard/set",
+            { accountId, ifInState: state, update: { [id]: next } },
+            [JMAP_CONTACTS],
+          );
+          const refused = res.notUpdated?.[id];
+          if (refused)
+            throw new IdentityAdminError(
+              "global_contact",
+              refusalOf(refused as { type?: unknown; description?: unknown }),
+              400,
+            );
+          return id;
+        } catch (err) {
+          if (err instanceof IdentityAdminError || !isStateMismatch(err)) throw err;
+          if (attempt > 0) throw contactMoved();
+        }
+      }
+      throw contactMoved();
     }
     const bookId = await globalContactsBookId(ctx, accountId);
     const res = await client.call<{
@@ -372,16 +406,26 @@ export async function destroyGlobalContact(
       "That card is not in the Global contacts directory.",
       404,
     );
-  const res = await client.call<{ notDestroyed?: Record<string, unknown> }>(
-    "ContactCard/set",
-    { accountId, destroy: [id] },
-    [JMAP_CONTACTS],
-  );
-  const refused = res.notDestroyed?.[id];
-  if (refused)
-    throw new IdentityAdminError(
-      "global_contact",
-      refusalOf(refused as { type?: unknown; description?: unknown }),
-      400,
-    );
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const state = requireState(await contactCardState(client, accountId));
+    try {
+      const res = await client.call<{ notDestroyed?: Record<string, unknown> }>(
+        "ContactCard/set",
+        { accountId, ifInState: state, destroy: [id] },
+        [JMAP_CONTACTS],
+      );
+      const refused = res.notDestroyed?.[id];
+      if (refused)
+        throw new IdentityAdminError(
+          "global_contact",
+          refusalOf(refused as { type?: unknown; description?: unknown }),
+          400,
+        );
+      return;
+    } catch (err) {
+      if (err instanceof IdentityAdminError || !isStateMismatch(err)) throw err;
+      if (attempt > 0) throw contactMoved();
+    }
+  }
+  throw contactMoved();
 }

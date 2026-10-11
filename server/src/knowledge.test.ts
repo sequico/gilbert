@@ -29,11 +29,13 @@ const DEMO = "demo@example.com";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
-const { fileChildren, findFolderPath } = await import("./appFolder.js");
+const { fileChildren, findFolderPath, writeAppFile } = await import("./appFolder.js");
 const { signInAsMaster } = await import("./bootstrap.js");
-const { readArticle: readArticleDoor, listArticles: listArticlesDoor } = await import(
-  "./knowledgeAdmin.js"
-);
+const {
+  readArticle: readArticleDoor,
+  listArticles: listArticlesDoor,
+  requireState,
+} = await import("./knowledgeAdmin.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -486,4 +488,113 @@ test("a template's draft carries the definition and its derived steps", async ()
     ["heading", "checkListItem"],
     "the body is derived from the definition, never authored as blocks",
   );
+});
+
+test("a conditional KB write refuses an empty account state rather than writing unconditionally", () => {
+  /*
+   * `ifInState: token || undefined` degraded a conditional write to an
+   * unconditional one whenever the account stated no state — a write that could
+   * then silently replace one another writer had just made. The one helper every
+   * KB write takes its token from refuses instead.
+   */
+  assert.throws(
+    () => requireState(""),
+    (err: unknown) => (err as { code?: string }).code === "no_state",
+  );
+  assert.equal(requireState("state-7"), "state-7", "a stated state is handed through");
+});
+
+test("a rename that loses the race on its title re-resolves the article by id", async () => {
+  /*
+   * The rename moves the folder, then writes the title documents. A title write
+   * that loses the account-wide compare-and-set retries — and the retry must
+   * read the article where the rename left it, by the node id that did not
+   * change, rather than rename the vanished path a second time (which left the
+   * title stale and the folder doubled). A foreign write is injected after the
+   * rename so the first title write loses.
+   */
+  const article = await create("Rename race");
+  const where = await company();
+  const real = globalThis.fetch;
+  let renamed = false;
+  let injected = false;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (
+      body.includes("FileNode/set") &&
+      body.includes('"update"') &&
+      body.includes('"name"')
+    ) {
+      renamed = true;
+    } else if (
+      renamed &&
+      !injected &&
+      body.includes("FileNode/get") &&
+      body.includes('"ids":[]')
+    ) {
+      injected = true;
+      const res = await real(input, init);
+      await writeAppFile(ctx, where.accountId, "race-probe.json", { v: 1 });
+      return res;
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  let res: Awaited<ReturnType<typeof post>>;
+  try {
+    res = await post("/api/knowledge/rename", {
+      scope: "company",
+      folder: article.folder,
+      title: "Renamed once",
+    });
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.ok(injected, "the foreign write landed after the rename");
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(
+    summaryOf(res.body).folder,
+    "Renamed once",
+    "the folder is renamed once, not a second time on the retry",
+  );
+  const view = await readBack("Renamed once");
+  assert.equal(view?.summary.title, "Renamed once", "and the title moved with it");
+  const tree = await call("/api/knowledge/company/tree");
+  const folders = (
+    (tree.body?.articles as Array<{ folder: string }> | undefined) ?? []
+  ).map((a) => a.folder);
+  assert.ok(
+    !folders.some((folder) => folder.startsWith("Renamed once (")),
+    "no doubled folder was left behind",
+  );
+});
+
+test("a create whose listing key cannot be written is not left half-made", async () => {
+  /*
+   * A create writes the draft and then the listing key (`state.json`). A
+   * listing key that never lands leaves a directory with no `state.json`, which
+   * the tree reads as a topic folder — invisible as an article, its name taken.
+   * A refused write takes the folder back with it, so the name is free again.
+   */
+  const real = globalThis.fetch;
+  let injected = false;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (!injected && body.includes("FileNode/set") && body.includes('"state.json"')) {
+      injected = true;
+      return new Response("refused", { status: 500 });
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  let res: Awaited<ReturnType<typeof post>>;
+  try {
+    res = await post("/api/knowledge/create", { scope: "company", title: "Half made" });
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.ok(injected, "the listing key's write was made to fail");
+  assert.notEqual(res.status, 200, "the create reports the failure");
+  // The name is free again: a second create lands it rather than getting a
+  // numbered sibling from the orphaned directory.
+  const again = await create("Half made");
+  assert.equal(again.folder, "Half made", "no orphan kept the name");
 });

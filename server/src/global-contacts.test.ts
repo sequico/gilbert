@@ -169,3 +169,61 @@ test("every account reads the directory through the route", async () => {
     "a card added through the route appears in the next read",
   );
 });
+
+test("an update and a destroy carry the card's compare-and-set", async () => {
+  /*
+   * The directory is written by administrators, and two of them acting at once
+   * must be a lost race for one rather than a silent overwrite of the other:
+   * both the update and the destroy read the account's ContactCard state and
+   * pass it as `ifInState`. The outbound requests are what this pins, because
+   * the mock advances the state itself and cannot be made to lose a card write
+   * from the outside.
+   */
+  const created = await post("/api/admin/global-contacts", {
+    id: null,
+    card: {
+      name: "Ada Lovelace",
+      emails: ["ada@example.org"],
+      phones: [],
+      organization: "",
+      notes: "",
+    },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body?.id;
+  assert.equal(typeof id, "string", "the card is written");
+
+  const real = globalThis.fetch;
+  const carries: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (body.includes("ContactCard/set")) carries.push(body);
+    return real(input, init);
+  }) as typeof fetch;
+  let updated: { status: number };
+  let destroyed: { status: number };
+  try {
+    updated = await post("/api/admin/global-contacts", {
+      id,
+      card: {
+        name: "Ada L.",
+        emails: ["ada@example.org"],
+        phones: [],
+        organization: "",
+        notes: "",
+      },
+    });
+    destroyed = await post("/api/admin/global-contacts/delete", { id });
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.equal(updated.status, 200, "the update lands");
+  assert.equal(destroyed.status, 200, "the destroy lands");
+  assert.equal(carries.length, 2, "one conditional set per write");
+  for (const body of carries)
+    assert.match(
+      body,
+      /"ifInState":"[^"]+"/,
+      "each write is conditional on the card's state",
+    );
+});

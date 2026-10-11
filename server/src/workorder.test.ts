@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { isStepComplete } from "./shared/workorder.js";
+import {
+  isStepComplete,
+  WORKORDER_FOLDER,
+  workorderClosedPath,
+  workorderFileName,
+} from "./shared/workorder.js";
 import { freePort, postWith } from "./testkit.js";
 
 /**
@@ -30,6 +35,9 @@ const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
 const { signInAsMaster } = await import("./bootstrap.js");
 const { groupAccountsDetailed } = await import("./agent/actions.js");
+const { ensureFolderPath, fileChildren, filesAccountId, findFolderPath, writeAppFileIn } =
+  await import("./appFolder.js");
+const { moveRoot, requireState } = await import("./workorderAdmin.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -45,13 +53,13 @@ const master = await signInAsMaster({
   masterAddress: "gilbert@example.com",
   masterPassword: "gilbert-password",
 });
-const masterGroups = (
-  await groupAccountsDetailed({
-    authorization: master.authorization,
-    session: master.session,
-    username: master.address,
-  })
-).groups;
+/** The Master's own context, for reaching the registry's files directly. */
+const masterCtx = {
+  authorization: master.authorization,
+  session: master.session,
+  username: master.address,
+};
+const masterGroups = (await groupAccountsDetailed(masterCtx)).groups;
 /** One group the Master holds: its name and account id, for a section's assignment. */
 const firstGroup = [...masterGroups.entries()][0];
 
@@ -815,5 +823,79 @@ test("a prerequisite naming no section, and one with no steps, do not block", as
       .groups.map((g) => g.key)
       .includes("billing"),
     "a gate on a section with no steps does not block",
+  );
+});
+
+test("a conditional workorder write refuses an empty account state", () => {
+  /*
+   * `ifInState: token || undefined` degraded a conditional write to an
+   * unconditional one whenever the account stated no state. The one helper
+   * every workorder write takes its token from refuses instead.
+   */
+  assert.throws(
+    () => requireState(""),
+    (err: unknown) => (err as { code?: string }).code === "no_state",
+  );
+  assert.equal(requireState("s"), "s", "a stated state is handed through");
+});
+
+test("moving a root between folders is conditional and refuses a lost race", async () => {
+  /*
+   * The move used to be an unconditional `FileNode/set`, so a concurrent writer
+   * could be silently overwritten. It now takes the account's compare-and-set,
+   * like every other workorder write — which is what makes the mock's
+   * `casLoses` able to refuse it, the failure this assertions rests on.
+   */
+  const template = await templateRef();
+  const workorder = await createWorkorder("Move guard", template);
+  const accountId = filesAccountId(masterCtx);
+  assert.ok(accountId, "the Master has a Files account");
+  const activeFolder = await findFolderPath(masterCtx, accountId, WORKORDER_FOLDER);
+  assert.ok(activeFolder, "the active registry is there");
+  const children = await fileChildren(masterCtx, accountId, activeFolder);
+  const root = children.find((node) => node.name === workorderFileName(workorder.uid));
+  assert.ok(root?.id, "the root file is in the active folder");
+  const closedId = await ensureFolderPath(masterCtx, accountId, workorderClosedPath());
+
+  mock.casLoses.forAddress = mock.AGENT_ADDRESS;
+  mock.casLoses.count = 2;
+  try {
+    await assert.rejects(
+      () => moveRoot(masterCtx, accountId, String(root.id), closedId),
+      (err: unknown) => (err as { code?: string }).code === "workorder_move_failed",
+    );
+  } finally {
+    mock.casLoses.forAddress = "";
+    mock.casLoses.count = 0;
+  }
+});
+
+test("a close whose folder move is refused keeps the state and the workorder findable", async () => {
+  /*
+   * The folder is a projection of the state, and the move is a second write
+   * that can be refused. The state is the truth and is already written, so a
+   * refused move is recoverable: the close reports success and the root is
+   * still found by uid, where the old unconditional move returned a 502 over a
+   * workorder that really was closed. A planted sibling holding the root's name
+   * makes the server refuse the move the way a rename onto a taken name is.
+   */
+  const template = await templateRef();
+  const workorder = await createWorkorder("Recoverable close", template);
+  const accountId = filesAccountId(masterCtx);
+  assert.ok(accountId, "the Master has a Files account");
+  const closedId = await ensureFolderPath(masterCtx, accountId, workorderClosedPath());
+  await writeAppFileIn(masterCtx, accountId, closedId, workorderFileName(workorder.uid), {
+    planted: true,
+  });
+
+  const closed = await post("/api/workorders/close", {
+    uid: workorder.uid,
+    state: "cancelled",
+  });
+  assert.equal(closed.status, 200, JSON.stringify(closed.body));
+  assert.equal(
+    workorderOf(closed.body).state,
+    "cancelled",
+    "the state is the truth even when the folder could not follow it",
   );
 });

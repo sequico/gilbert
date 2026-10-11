@@ -22,6 +22,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { readGroupLabels, writeGroupLabels } from "./account.js";
 import {
   fetchEmailView,
@@ -116,6 +118,7 @@ import {
 } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
+import { isPrivateAddress } from "./imageproxy.js";
 import {
   isStateMismatch,
   JMAP_MAIL,
@@ -1101,7 +1104,7 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
     // the ceiling alone must not clear the model, and one that replaces the
     // model must not clear the ceiling (ADR 0003).
     const provider = hasProvider
-      ? providerEntry(given.provider, existing?.provider)
+      ? await providerEntry(given.provider, existing?.provider)
       : undefined;
     const doc: AgentConfigDoc = existing
       ? { ...existing }
@@ -1159,10 +1162,10 @@ function firstDoubledTrigger(rules: ReadonlyArray<AgentRule>): AgentTriggerOn | 
 }
 
 /** The installation's model as the editor sends it; null when it is cleared. */
-function providerEntry(
+async function providerEntry(
   raw: unknown,
   previous: AgentProvider | undefined,
-): AgentProvider | null {
+): Promise<AgentProvider | null> {
   if (raw === null || raw === undefined) return null;
   if (!isRecord(raw)) throw new AgentAdminError({ code: "provider_incomplete" }, 400);
   const entry = raw;
@@ -1175,7 +1178,7 @@ function providerEntry(
   if (!provider && !model && !baseUrl) return null;
   if (!provider || !model || !baseUrl)
     throw new AgentAdminError({ code: "provider_incomplete" }, 400);
-  assertUsableBaseUrl(baseUrl);
+  await assertUsableBaseUrl(baseUrl);
   /*
    * The stored key is kept unless a new one arrives — it is never read back —
    * but **not** when the endpoint moves: the key was issued for the host it was
@@ -1205,8 +1208,20 @@ function providerEntry(
  * are not on the internet — so both are refused here, where an administrator
  * gets a sentence, rather than at the call, where a 30-second timeout would be
  * the whole diagnosis.
+ *
+ * A name is not the address it resolves to: a public-looking hostname that
+ * answers with a private address is the same reach a private literal is, so the
+ * name is resolved and **every** answer is judged (an IPv4-mapped IPv6 address
+ * by the IPv4 it carries). `resolve` is the resolver, injected so a test can
+ * state what a name answers with without depending on how this machine
+ * resolves anything; a name that cannot be resolved here is left to the call
+ * (`baseUrlProblem`), which refuses a private literal and is where the key would
+ * actually leave.
  */
-function assertUsableBaseUrl(baseUrl: string): void {
+export async function assertUsableBaseUrl(
+  baseUrl: string,
+  resolve: (host: string) => Promise<string[]> = resolveHost,
+): Promise<void> {
   let url: URL;
   try {
     url = new URL(baseUrl);
@@ -1215,30 +1230,27 @@ function assertUsableBaseUrl(baseUrl: string): void {
   }
   if (url.protocol !== "https:")
     throw new AgentAdminError({ code: "base_url_not_https" }, 400);
-  if (isPrivateHost(url.hostname))
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
+    throw new AgentAdminError({ code: "base_url_private", host: url.hostname }, 400);
+  if (isIP(host)) {
+    if (isPrivateAddress(host))
+      throw new AgentAdminError({ code: "base_url_private", host: url.hostname }, 400);
+    return;
+  }
+  const answers = await resolve(host);
+  if (answers.some((address) => isPrivateAddress(address)))
     throw new AgentAdminError({ code: "base_url_private", host: url.hostname }, 400);
 }
 
-/** Loopback, link-local, and the private ranges — where a provider is not. */
-function isPrivateHost(hostname: string): boolean {
-  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
-    return true;
-  if (
-    host === "::1" ||
-    host.startsWith("fe80:") ||
-    host.startsWith("fc") ||
-    host.startsWith("fd")
-  )
-    return true;
-  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!v4) return false;
-  const [a, b] = [Number(v4[1]), Number(v4[2])];
-  if (a === 127 || a === 10 || a === 0) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 169 && b === 254) return true;
-  return false;
+/** Every address a name answers with; a name this host cannot resolve answers none. */
+async function resolveHost(host: string): Promise<string[]> {
+  try {
+    const answers = await lookup(host, { all: true });
+    return answers.map((answer) => answer.address);
+  } catch {
+    return [];
+  }
 }
 
 /* ------------------------------------------------------------------ */

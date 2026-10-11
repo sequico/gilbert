@@ -45,11 +45,18 @@ const OTHER_GROUP = "sales@example.org";
 
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
-const { readDefaultIdentity, writeDefaultIdentity } = await import("./identityAdmin.js");
-const { fetchUpstreamSession } = await import("./upstream.js");
-const { findAppFileAt, readAppJsonAt, writeAppBytesAt, writeAppFile } = await import(
-  "./appFolder.js"
+const { readDefaultIdentity, writeDefaultIdentity, requireState } = await import(
+  "./identityAdmin.js"
 );
+const { fetchUpstreamSession } = await import("./upstream.js");
+const {
+  fileChildren,
+  findAppFileAt,
+  findAppFolder,
+  readAppJsonAt,
+  writeAppBytesAt,
+  writeAppFile,
+} = await import("./appFolder.js");
 const { JMAP_SUBMISSION } = await import("./jmap.js");
 const { useDurableSessions } = await import("./app.js");
 
@@ -226,6 +233,48 @@ test("a non-admin reaches none of these surfaces", async () => {
     bob.cookie,
   );
   assert.equal(read.status, 403);
+});
+
+test("a conditional identity write refuses an empty account state", () => {
+  /*
+   * `state ? { ifInState: state } : {}` degraded a conditional write to an
+   * unconditional one whenever the account stated no state. The one helper
+   * every identity write takes its token from refuses instead.
+   */
+  assert.throws(
+    () => requireState(""),
+    (err: unknown) => (err as { code?: string }).code === "no_state",
+  );
+  assert.equal(requireState("s"), "s", "a stated state is handed through");
+});
+
+test("an over-sized signature reuses one stored file rather than piling them up", async () => {
+  /*
+   * Every save used to write `signature-<timestamp>.html` and never remove the
+   * previous one, so Files and blob quota grew without bound as an administrator
+   * edited a signature. The marker the client stores names the blob, not the
+   * file, so one stable name is enough — and the second save writes over the
+   * first rather than leaving it behind.
+   */
+  for (const text of ["First over-sized body", "Second over-sized body"]) {
+    const saved = await post("/api/admin/identities/signature-html", adminCookie, {
+      kind: "user",
+      target: BOB,
+      html: `<p>${text}</p>`,
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(typeof saved.body?.blobId, "string", "the write answers the blob id");
+  }
+  const folderId = await findAppFolder(bobCtx, BOB_ACCOUNT);
+  assert.ok(folderId, "the account has an app folder after the write");
+  const names = (await fileChildren(bobCtx, BOB_ACCOUNT, folderId))
+    .map((node) => String(node.name ?? ""))
+    .filter((name) => name.startsWith("signature"));
+  assert.deepEqual(
+    names,
+    ["signature.html"],
+    "one stored signature, overwritten in place, never a pile of them",
+  );
 });
 
 /* ------------------------------------------------------------------ */
