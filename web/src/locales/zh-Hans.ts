@@ -2323,6 +2323,11 @@ export const catalog: Catalog = {
     "Timed out": "已超时",
     "Group identities": "群组发件身份",
     "User identities": "用户发件身份",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "您的设置未重置：无法读取此安装的策略。请重试。",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "“{path}”会折回到合并已经进入的文件夹，因此没有可以走到的尽头。",
+    Unstar: "取消星标",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

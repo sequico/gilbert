@@ -2407,6 +2407,11 @@ export const catalog: Catalog = {
     "Timed out": "Time-out",
     "Group identities": "Groepsidentiteiten",
     "User identities": "Gebruikersidentiteiten",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Uw instellingen zijn niet teruggezet: het beleid van deze installatie kon niet worden gelezen. Probeer het opnieuw.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "‘{path}’ valt terug in een map waar de samenvoeging al in is gegaan, dus er is geen einde om te doorlopen.",
+    Unstar: "Ster verwijderen",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

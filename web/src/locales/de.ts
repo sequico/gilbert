@@ -2465,6 +2465,11 @@ export const catalog: Catalog = {
     "the server closed the live-updates stream":
       "der Server hat den Strom der Live-Aktualisierungen geschlossen",
     "the server could not be reached": "der Server konnte nicht erreicht werden",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Ihre Einstellungen wurden nicht zurückgesetzt: Die Richtlinie dieser Installation konnte nicht gelesen werden. Versuchen Sie es erneut.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "„{path}“ führt in einen Ordner zurück, den die Zusammenführung bereits betreten hat, also gibt es kein Ende zum Durchlaufen.",
+    Unstar: "Markierung aufheben",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

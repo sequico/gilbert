@@ -33,7 +33,7 @@ import {
  * added ahead of its translation — so the fallback stays a budget, not a
  * surprise. At zero the rule is the strict one: any missing key fails.
  */
-const MISSING_MAX = 160;
+const MISSING_MAX = 157;
 
 const wanted = new Set();
 for (const file of sourceFiles()) {

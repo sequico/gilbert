@@ -1982,6 +1982,7 @@ export const catalog: Catalog = {
     "Unread only": "Yalnızca okunmamışlar",
     Unsaved: "Kaydedilmedi",
     "Unsaved changes": "Kaydedilmemiş değişiklikler",
+    Unstar: "Yıldızı kaldır",
     "Unstarred first": "Önce yıldızsızlar",
     Unsubscribe: "Abonelikten çık",
     "Unsubscribe message prepared — just hit Send":
@@ -2146,6 +2147,8 @@ export const catalog: Catalog = {
     "Your password alone will be enough to sign in again.":
       "Yeniden oturum açmak için yalnızca şifreniz yeterli olacaktır.",
     "Your settings could not be saved: {error}": "Ayarlarınız kaydedilemedi: {error}",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Ayarlarınız sıfırlanmadı: bu kurulumun ilkesi okunamadı. Tekrar deneyin.",
     "Your signature…": "İmzanız…",
     "Your system Sieve script has changes that have not been saved.":
       "Sistem Sieve betiğinizde kaydedilmemiş değişiklikler var.",
@@ -2319,6 +2322,8 @@ export const catalog: Catalog = {
       "“{name}” devre dışı bırakılacak (silinmeyecek) ve yeni bir “gilbert” betiği devralacak.",
     "“{path}” carries no content to write over the file of its name.":
       "“{path}” kendi adındaki dosyanın üzerine yazılacak içerik taşımıyor.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "“{path}” birleştirmenin zaten girdiği bir klasöre geri katlanıyor, bu yüzden yürüyecek bir sonu yok.",
     "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
       "“{path}” ikisinden birinde klasör, diğerinde dosya, dolayısıyla hiçbiri diğerinin içine birleştirilemez.",
     "“{path}” is not yours to change.":

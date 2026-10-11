@@ -2440,6 +2440,11 @@ export const catalog: Catalog = {
     "Timed out": "Délai dépassé",
     "Group identities": "Identités de groupe",
     "User identities": "Identités d'utilisateur",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Vos paramètres n'ont pas été réinitialisés : la politique de cette installation n'a pas pu être lue. Réessayez.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "« {path} » renvoie vers un dossier dans lequel la fusion est déjà entrée, elle n'a donc pas de fin à parcourir.",
+    Unstar: "Retirer le suivi",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

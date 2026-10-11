@@ -3363,6 +3363,11 @@ export const catalog: Catalog = {
     "the server closed the live-updates stream":
       "il server ha chiuso il flusso degli aggiornamenti in tempo reale",
     "the server could not be reached": "non è stato possibile raggiungere il server",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Le tue impostazioni non sono state ripristinate: non è stato possibile leggere i criteri di questa installazione. Riprova.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "«{path}» rientra in una cartella in cui l'unione è già entrata, quindi non ha una fine da percorrere.",
+    Unstar: "Togli la stella",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

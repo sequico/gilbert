@@ -2399,6 +2399,11 @@ export const catalog: Catalog = {
     "Timed out": "Час вичерпано",
     "Group identities": "Профілі групи",
     "User identities": "Профілі користувачів",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "Ваші налаштування не було скинуто: не вдалося прочитати політику цього установлення. Спробуйте ще раз.",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "«{path}» повертається в теку, до якої об'єднання вже увійшло, тому в нього немає кінця, до якого можна дійти.",
+    Unstar: "Зняти позначку",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

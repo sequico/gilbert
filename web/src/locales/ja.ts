@@ -2405,6 +2405,11 @@ export const catalog: Catalog = {
     "Timed out": "タイムアウト",
     "Group identities": "グループの差出人",
     "User identities": "ユーザーの差出人",
+    "Your settings were not reset: this installation's policy could not be read. Try again.":
+      "設定はリセットされませんでした: このインストールのポリシーを読み取れませんでした。もう一度お試しください。",
+    "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
+      "「{path}」は統合がすでに入ったフォルダーへ折り返すため、たどり着く終わりがありません。",
+    Unstar: "スターを外す",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
