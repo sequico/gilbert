@@ -25,7 +25,7 @@ import {
   settingsSyncAvailable,
 } from "@/lib/settingsSync";
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
-import { folderIdOfRole, publishWorkerFacts } from "@/lib/swFacts";
+import { folderIdOfRole, publishWorkerFacts, workerAccounts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import {
   autoEnableWebPush,
@@ -610,27 +610,11 @@ function AuthedApp() {
      */
     const conversations = Object.values(useChat.getState().conversations);
     const ownAddress = useSession.getState().session?.username ?? "";
-    const accounts = mailAccounts.map((a) => {
-      if (a.kind === "own")
-        return {
-          accountId: a.accountId,
-          own: true,
-          name: ownAddress,
-          inboxId: folderIdOfRole(accountTrees, a.accountId, "inbox"),
-          archiveId: folderIdOfRole(accountTrees, a.accountId, "archive"),
-          chatFolderId: null,
-          watermark: "",
-        };
-      const conv = conversations.find((c) => c.accountId === a.accountId && c.folders);
-      return {
-        accountId: a.accountId,
-        own: false,
-        name: a.name,
-        inboxId: folderIdOfRole(accountTrees, a.accountId, "inbox"),
-        archiveId: folderIdOfRole(accountTrees, a.accountId, "archive"),
-        chatFolderId: conv?.folders?.chat ?? null,
-        watermark: conv ? conv.nodes.reduce((m, n) => (n.at > m ? n.at : m), "") : "",
-      };
+    const accounts = workerAccounts({
+      mailAccounts,
+      accountTrees,
+      ownAddress,
+      conversations,
     });
     void publishWorkerFacts(accounts, ownAddress);
   }, [mailAccounts, accountTrees, languageVersion, chatSignature]);

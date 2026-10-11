@@ -7,17 +7,29 @@ const VERSION = "gilbert-v3";
 /*
  * The name of the shell cache, and the lever that refreshes it.
  *
- * `install` fills this cache from SHELL and `activate` deletes every cache
- * whose name is not this one. A browser only runs `install` again when this
- * file's own bytes changed, so an asset listed in SHELL that changed while
+ * `install` fills this cache from SHELL and `activate` deletes every cache that
+ * is neither this one nor HANDOFF. A browser only runs `install` again when
+ * this file's own bytes changed, so an asset listed in SHELL that changed while
  * this file did not -- an icon, the manifest -- stays at its old copy in the
  * cache, and offline loads keep serving it. Bumping the string is what makes
  * the shell be fetched again.
+ */
+
+/*
+ * The cache that carries a handoff from one context to another.
+ *
+ * A share the operating system posted before a tab existed, a push
+ * verification that arrived with no tab open, the briefing a tab leaves for a
+ * push long after: each is written by one context and read by another, so none
+ * of them may live in the versioned shell cache, which `activate` empties on
+ * every bump. This one is never deleted and never migrated -- it survives every
+ * version whole, so nothing has to be carried across a delete it could race.
  *
  * `web/src/lib/swCache.ts` carries the same name on the app's side; the two
- * have to match for a push verification or a share to be found. Nothing in the
- * build makes them agree, so a test does (`lib/__tests__/swCache.test.ts`).
+ * have to match or the handoff is silently not found. Nothing in the build
+ * makes them agree, so a test does (`lib/__tests__/swCache.test.ts`).
  */
+const HANDOFF = "gilbert-handoff";
 
 /*
  * The mount, worked out rather than configured.
@@ -78,29 +90,19 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const current = await caches.open(VERSION);
-      const stale = (await caches.keys()).filter((k) => k !== VERSION);
       /*
-       * Carry the handoff entries into the cache that stays, before the caches
-       * that hold them go. They are written in one context and read in another
-       * -- a share the operating system posted before a tab existed, a push
-       * verification that arrived with no tab open, the briefing -- so a
-       * version bump that deleted them would lose a share nobody had opened
-       * yet, or leave push silent until the server sent the code again.
+       * Empty every cache that is neither the shell nor the handoff one.
+       *
+       * The handoff cache holds what one context writes for another to read
+       * later -- a share the operating system posted before a tab existed, a
+       * push verification that arrived with no tab open, the briefing -- so it
+       * is kept whole and never migrated: a version bump empties the shell
+       * cache, which is what that lever is for, and leaves the handoffs where
+       * they are. Copying them across would race a handoff written between the
+       * copy and the delete, and the one lost that way is a share nobody opens
+       * or push silent until the server sends the code again.
        */
-      for (const name of stale) {
-        try {
-          const from = await caches.open(name);
-          for (const req of await from.keys()) {
-            if (!isHandoffKey(new URL(req.url).pathname)) continue;
-            if (await current.match(req)) continue;
-            const res = await from.match(req);
-            if (res) await current.put(req, res);
-          }
-        } catch {
-          /* a handoff that cannot be carried must not stop activation */
-        }
-      }
+      const stale = (await caches.keys()).filter((k) => k !== VERSION && k !== HANDOFF);
       await Promise.all(stale.map((k) => caches.delete(k)));
       await self.clients.claim();
     })(),
@@ -145,7 +147,7 @@ const SHARE_MAX_FILES = 20;
 async function stashShare(request) {
   try {
     const form = await request.formData();
-    const cache = await caches.open(VERSION);
+    const cache = await caches.open(HANDOFF);
     const meta = {
       at: Date.now(),
       title: String(form.get("title") ?? ""),
@@ -394,23 +396,9 @@ const VERIFY_KEY = `${BASE}/gilbert-push-verification`;
  */
 const FACTS_KEY = `${BASE}/gilbert-worker-facts`;
 
-/*
- * The entries a version bump must not throw away.
- *
- * Each is a handoff: written by one context and read by another, possibly much
- * later, so `activate` carries them into the current cache before deleting the
- * cache that held them. A share's files sit beside its index under the same
- * prefix, which is why the check is by prefix rather than by exact key.
- */
-function isHandoffKey(pathname) {
-  return [SHARE_KEY, VERIFY_KEY, FACTS_KEY].some(
-    (key) => pathname === key || pathname.startsWith(`${key}/`),
-  );
-}
-
 async function readFacts() {
   try {
-    const hit = await (await caches.open(VERSION)).match(FACTS_KEY);
+    const hit = await (await caches.open(HANDOFF)).match(FACTS_KEY);
     return hit ? await hit.json() : null;
   } catch {
     return null;
@@ -630,7 +618,7 @@ self.addEventListener("push", (event) => {
           for (const c of clients)
             c.postMessage({ type: "push-verification", ...payload });
         } else {
-          const cache = await caches.open(VERSION);
+          const cache = await caches.open(HANDOFF);
           await cache.put(VERIFY_KEY, new Response(JSON.stringify(payload)));
         }
       })(),

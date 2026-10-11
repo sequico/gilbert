@@ -8,6 +8,7 @@ import {
   folderIdOfRole,
   publishWorkerFacts,
   type WorkerFacts,
+  workerAccounts,
 } from "@/lib/swFacts";
 import { catalog as de } from "@/locales/de";
 
@@ -163,5 +164,22 @@ describe("the worker's briefing", () => {
     expect(folderIdOfRole(trees, "grp", "inbox")).toBe("gi");
     expect(folderIdOfRole(trees, "grp", "archive")).toBeNull();
     expect(folderIdOfRole(trees, "unknown", "inbox")).toBeNull();
+  });
+
+  it("builds the own entry from the own tree even with a group active", () => {
+    const accounts = workerAccounts({
+      mailAccounts: [
+        { accountId: "own", kind: "own", name: "me@example.org" },
+        { accountId: "grp", kind: "group", name: "team@example.org" },
+      ],
+      accountTrees: {
+        own: { oi: { id: "oi", role: "inbox" }, oa: { id: "oa", role: "archive" } },
+        grp: { gi: { id: "gi", role: "inbox" } },
+      },
+      ownAddress: "me@example.org",
+      conversations: [],
+    });
+    expect(accounts[0]).toMatchObject({ own: true, inboxId: "oi", archiveId: "oa" });
+    expect(accounts[1]).toMatchObject({ own: false, inboxId: "gi", archiveId: null });
   });
 });

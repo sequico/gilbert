@@ -121,6 +121,49 @@ export function folderIdOfRole(
 }
 
 /**
+ * The accounts the worker's briefing lists, built from what the app holds.
+ *
+ * One entry per account the subscription covers (ADR 0016): each with the Inbox
+ * and archive **of that account's own tree** — never the account on screen,
+ * which is what `roleId` reads and what once put a group's Inbox in the own
+ * entry and sent a notification for own mail into the group — its name, and, for
+ * a group with a chat, the chat folder and the newest instant seen.
+ */
+export function workerAccounts(opts: {
+  mailAccounts: ReadonlyArray<{ accountId: string; kind: string; name: string }>;
+  accountTrees: Record<string, Record<string, { id: string; role?: string | null }>>;
+  ownAddress: string;
+  conversations: ReadonlyArray<{
+    accountId: string;
+    folders?: { chat?: string | null } | null;
+    nodes: ReadonlyArray<{ at: string }>;
+  }>;
+}): WorkerAccountFact[] {
+  return opts.mailAccounts.map((a) => {
+    if (a.kind === "own")
+      return {
+        accountId: a.accountId,
+        own: true,
+        name: opts.ownAddress,
+        inboxId: folderIdOfRole(opts.accountTrees, a.accountId, "inbox"),
+        archiveId: folderIdOfRole(opts.accountTrees, a.accountId, "archive"),
+        chatFolderId: null,
+        watermark: "",
+      };
+    const conv = opts.conversations.find((c) => c.accountId === a.accountId && c.folders);
+    return {
+      accountId: a.accountId,
+      own: false,
+      name: a.name,
+      inboxId: folderIdOfRole(opts.accountTrees, a.accountId, "inbox"),
+      archiveId: folderIdOfRole(opts.accountTrees, a.accountId, "archive"),
+      chatFolderId: conv?.folders?.chat ?? null,
+      watermark: conv ? conv.nodes.reduce((m, n) => (n.at > m ? n.at : m), "") : "",
+    };
+  });
+}
+
+/**
  * Forget the briefing.
  *
  * Signing out is the one moment nothing rewrites it: the accounts the worker

@@ -70,13 +70,20 @@ describe("the worker's install, activation and offline rules", () => {
     expect(worker).toMatch(/catch \{[\s\S]*?\}\s*await self\.skipWaiting\(\);/);
   });
 
-  it("carries the handoff entries across a version bump", () => {
+  it("keeps the handoff cache through a version bump, and migrates nothing", () => {
     // A share nobody has opened, a verification that arrived with no tab, the
-    // briefing: written by one context, read by another, so deleting the cache
-    // that held them loses them.
-    expect(worker).toContain("isHandoffKey(new URL(req.url).pathname)");
-    expect(worker).toMatch(/\[SHARE_KEY, VERIFY_KEY, FACTS_KEY\]\.some\(/);
-    expect(worker).toContain("if (await current.match(req)) continue;");
+    // briefing: written by one context and read by another, so they live in a
+    // cache of their own that activation never empties. Copying them onto a
+    // bump would race a handoff written between the copy and the delete.
+    expect(worker).toContain("k !== VERSION && k !== HANDOFF");
+    expect(worker).not.toContain("isHandoffKey");
+  });
+
+  it("writes every handoff into the cache activation keeps", () => {
+    // The share stash, the verification code and the briefing each open
+    // HANDOFF. A handoff written into the shell cache instead is lost at the
+    // next activation.
+    expect(worker.match(/\.open\(HANDOFF\)/g) ?? []).toHaveLength(3);
   });
 
   it("answers a first offline navigation from the pre-cached root", () => {

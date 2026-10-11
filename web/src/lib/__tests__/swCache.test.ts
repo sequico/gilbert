@@ -6,16 +6,16 @@ import { readSource, workerSource } from "./readSource";
  * The names the worker and the app have to agree on.
  *
  * `web/public/sw.js` is copied to `dist` verbatim rather than built, so nothing
- * in the pipeline makes its `VERSION`, or its share and facts keys, agree with
- * the app's copies. They have to: the cache carries a push verification or a
- * share from the worker to a tab, and a name that has drifted does not fail —
- * it finds nothing, and the verification never completes or the share opens an
- * empty composer.
+ * in the pipeline makes its handoff cache name, or its share and facts keys,
+ * agree with the app's copies. They have to: that cache carries a push
+ * verification, a share and the briefing from the worker to a tab, and a name
+ * that has drifted does not fail — it finds nothing, and the verification never
+ * completes or the share opens an empty composer.
  */
 describe("the cache the worker and the app share", () => {
-  it("is named the same on both sides", () => {
-    const version = /const VERSION = "([^"]+)"/.exec(workerSource())?.[1];
-    expect(version).toBe(SW_CACHE_NAME);
+  it("names the handoff cache the same on both sides", () => {
+    const handoff = /const HANDOFF = "([^"]+)"/.exec(workerSource())?.[1];
+    expect(handoff).toBe(SW_CACHE_NAME);
   });
 
   /*
