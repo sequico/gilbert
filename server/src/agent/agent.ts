@@ -654,6 +654,23 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
         if (!claim) return;
         servedAccounts.add(accountId);
         log(`claimed ${accountId}`);
+        /*
+         * Create the folder tree the agent's documents live in before the first
+         * write: creating a folder moves the account's FileNode state, so a
+         * conditional lease or job write that had read the state beforehand
+         * would lose its compare-and-set for a reason that has nothing to do
+         * with the document it is writing. Best-effort and idempotent — a
+         * failure is retried on the next claim, never fatal to the pass.
+         */
+        try {
+          await store.provision();
+        } catch (err) {
+          log(
+            `${accountId}: could not provision the agent folders: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
         // A group hears from the agent once, without anyone having to ask. The
         // transcript is the record, so this is safe on every claim; a failure
         // is logged and retried on the next claim, never fatal to the pass.
