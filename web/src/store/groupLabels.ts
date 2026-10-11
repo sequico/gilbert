@@ -9,6 +9,7 @@ import { debouncedReload } from "@/lib/fileNodeReload";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import type { Label } from "@/store/settings";
 import { useMail } from "./mail";
+import { useSession } from "./session";
 
 /**
  * Group-owned label catalogs (ADR 0005, "group label catalog").
@@ -75,6 +76,18 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
     set({ byAccount: {}, loading: {} });
   },
 }));
+
+/**
+ * A session ending drops every group's catalog.
+ *
+ * A catalog belongs to the group's account: left in the store, a second
+ * reader's session can show it and build a write on it. `reset` clears the
+ * queued re-reads with it.
+ */
+useSession.subscribe((s, prev) => {
+  if (s.status === "authenticated" || prev.status !== "authenticated") return;
+  useGroupLabels.getState().reset();
+});
 
 /**
  * A group's label catalog, read once for this tier.
