@@ -68,7 +68,12 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
       if (pendingLoads.delete(accountId)) void get().load(accountId);
     }
   },
-  reset: () => set({ byAccount: {}, loading: {} }),
+  reset: () => {
+    // The queued re-reads belong to the session that just ended: a completion
+    // that lands after it must not schedule a read for the next account.
+    pendingLoads.clear();
+    set({ byAccount: {}, loading: {} });
+  },
 }));
 
 /**

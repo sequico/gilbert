@@ -4,6 +4,8 @@ import { isGroupMailboxAccount, type MailAccountInfo } from "@/lib/mailAccounts"
 import { labelsForAccount, useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import type { Label } from "@/store/settings";
+import { flushMicrotasks as flush } from "@/test/testkit";
+import * as appFolder from "@/lib/appFolder";
 
 /**
  * Which accounts get a group label catalog.
@@ -111,5 +113,40 @@ describe("loading a group catalog", () => {
     expect(chain).toHaveBeenCalled();
     expect(call).toHaveBeenCalled();
     expect(useGroupLabels.getState().loading.gg).toBe(false);
+  });
+});
+
+describe("a re-read queued while one is in flight", () => {
+  it("is forgotten when the session ends, so it does not read for the next one", async () => {
+    useMail.setState({ mailAccounts: [OWN, GROUP] });
+    let release: () => void = () => {};
+    const held = new Promise<void>((res) => {
+      release = res;
+    });
+    let ensureCalls = 0;
+    vi.spyOn(appFolder, "ensureFolder").mockImplementation(async () => {
+      ensureCalls += 1;
+      return "af";
+    });
+    // The read is what hangs; its completion is where the queued re-read runs.
+    vi.spyOn(appFolder, "findInFolder").mockImplementation(async () => {
+      await held;
+      return undefined as never;
+    });
+
+    const first = useGroupLabels.getState().load("gg"); // in flight
+    await flush();
+    const second = useGroupLabels.getState().load("gg"); // queued behind it
+    await flush();
+
+    useGroupLabels.getState().reset();
+    release();
+    await first;
+    await second;
+    await flush();
+
+    // With the queue cleared, the in-flight read's completion schedules no
+    // second read; one `ensureFolder` is the whole cost of the `load`.
+    expect(ensureCalls).toBe(1);
   });
 });

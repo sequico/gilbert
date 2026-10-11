@@ -3,7 +3,9 @@ import { client } from "@/jmap/client";
 import type { ChangesResponse } from "@/jmap/types";
 import type { ChatMessage } from "@/lib/chat";
 import { type ChatConversation, useChat } from "@/store/chat";
+import { useSession } from "@/store/session";
 import { flushMicrotasks as flush } from "@/test/testkit";
+import * as appFolder from "@/lib/appFolder";
 
 /**
  * The live re-sync of an open conversation.
@@ -91,6 +93,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   useChat.setState({ conversations: {}, openAccountId: null });
+  useSession.setState({ status: "loading", session: null, accountId: null });
 });
 
 describe("a destroyed message", () => {
@@ -199,5 +202,104 @@ describe("a message sent while a re-sync is in flight", () => {
     const ids = useChat.getState().conversations.gg!.nodes.map((n) => n.id);
     expect(ids).toContain("local");
     expect(ids).toContain("m3");
+  });
+});
+
+describe("an older page fetched while a message arrives", () => {
+  it("keeps the arrival instead of replacing the transcript with the page snapshot", async () => {
+    seed({ nodes: [M2], earliestPos: 5, reachedStart: false });
+    const local = message("local", "2026-01-05T09:00:00Z");
+    vi.spyOn(appFolder, "listChildrenWithState").mockImplementation(async () => {
+      // A live sync or a send appends while the older page is in flight.
+      useChat.setState((s) => ({
+        conversations: {
+          ...s.conversations,
+          gg: { ...s.conversations.gg!, nodes: [...s.conversations.gg!.nodes, local] },
+        },
+      }));
+      return {
+        list: [
+          {
+            id: "m0",
+            parentId: "ch",
+            nodeType: "file",
+            blobId: "b0",
+            created: "2025-12-30T09:00:00Z",
+          },
+        ],
+        state: "s2",
+        total: 6,
+      } as never;
+    });
+    vi.spyOn(client, "fetchBlobText").mockImplementation(async () =>
+      JSON.stringify({
+        v: 1,
+        from: "ada@example.org",
+        at: "2025-12-30T09:00:00Z",
+        text: "old",
+      }),
+    );
+
+    await useChat.getState().loadOlder("gg");
+
+    const ids = useChat.getState().conversations.gg!.nodes.map((n) => n.id);
+    expect(ids).toContain("m0");
+    expect(ids).toContain("local");
+    expect(ids).toContain("m2");
+  });
+});
+
+describe("an unreadable marker lookup", () => {
+  it("is treated as an absent marker rather than failing the open", async () => {
+    useSession.setState({
+      status: "authenticated",
+      session: {
+        username: "me@example.org",
+        capabilities: {},
+        accounts: {},
+        primaryAccounts: {},
+        state: "s1",
+      } as never,
+      accountId: "gg",
+    });
+    seed({ marker: null });
+    vi.spyOn(appFolder, "findInFolder").mockRejectedValue(new Error("blob unavailable"));
+
+    // The lookup that finds the marker node rejects: that is "no marker we can
+    // trust", the same as a document that does not parse, not a failed open.
+    await expect(useChat.getState().ensureAccount("gg")).resolves.toBeUndefined();
+  });
+});
+
+describe("the module state a session left behind", () => {
+  it("forgets an in-flight sync, so a re-sync after reset is not skipped", async () => {
+    seed({});
+    let release: () => void = () => {};
+    const held = new Promise<void>((res) => {
+      release = res;
+    });
+    let changesCalls = 0;
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method === "FileNode/changes") {
+        changesCalls += 1;
+        await held;
+        return changes({}) as never;
+      }
+      return { accountId: args.accountId, state: "s2", list: [], notFound: [] } as never;
+    });
+
+    const first = useChat.getState().applyChanges("gg");
+    await flush();
+    // The session ends while the sync is in flight.
+    useChat.getState().reset();
+    seed({});
+    const second = useChat.getState().applyChanges("gg");
+    await flush();
+
+    // With the in-flight marker cleared, this is a real sync, not a skip.
+    expect(changesCalls).toBe(2);
+    release();
+    await first;
+    await second;
   });
 });

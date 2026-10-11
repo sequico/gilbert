@@ -275,19 +275,30 @@ export const useChat = create<ChatState>((set, get) => {
       const page = await fetchPage(accountId, folders, from, conv.earliestPos - from);
       const byId = new Set(conv.nodes.map((n) => n.id));
       const extra = page.nodes.filter((n) => !byId.has(n.id));
-      const nodes = [...extra, ...conv.nodes].sort(compareMessages);
-      set((s) => ({
-        conversations: {
-          ...s.conversations,
-          [accountId]: {
-            ...s.conversations[accountId]!,
-            nodes,
-            earliestPos: from,
-            reachedStart: from === 0,
-            pagingMore: false,
+      set((s) => {
+        const c = s.conversations[accountId];
+        if (!c) return {};
+        /*
+         * Rebased on what the conversation holds now, not the snapshot this
+         * fetch started from: a `send()` or a live sync can append a node while
+         * the older page is in flight, and replacing the list with the older
+         * one would drop it until the next poll. Same rebase `applyChanges`
+         * makes for the same reason.
+         */
+        const nodes = [...extra, ...c.nodes].sort(compareMessages);
+        return {
+          conversations: {
+            ...s.conversations,
+            [accountId]: {
+              ...c,
+              nodes,
+              earliestPos: from,
+              reachedStart: from === 0,
+              pagingMore: false,
+            },
           },
-        },
-      }));
+        };
+      });
     } catch {
       set((s) => ({
         conversations: {
@@ -303,9 +314,15 @@ export const useChat = create<ChatState>((set, get) => {
     const folders = conv?.folders;
     const me = get().me();
     if (!conv || !folders || !me || conv.marker) return;
-    const node = await findInFolder(accountId, folders.state, markerNameFor(me));
-    if (!node?.blobId) return;
     try {
+      /*
+       * The lookup is inside the try with the read that follows it: a node
+       * query that rejects is the same "no marker we can trust" as a document
+       * that does not parse, and a rejection that escapes here would surface as
+       * a failed warm pass or a failed open rather than an absent marker.
+       */
+      const node = await findInFolder(accountId, folders.state, markerNameFor(me));
+      if (!node?.blobId) return;
       const doc = await readDoc(accountId, node.blobId);
       if (!isChatMarkerDoc(doc)) return;
       set((s) => ({
@@ -665,6 +682,12 @@ export const useChat = create<ChatState>((set, get) => {
       for (const timer of markerTimers.values()) window.clearTimeout(timer);
       markerTimers.clear();
       markerPending.clear();
+      // The module-level maps and the marker chain are of the session that just
+      // ended: left behind, they make the next sign-in join a load that is not
+      // its own, skip a sync it needs, or flush a marker for the wrong account.
+      transcriptLoads.clear();
+      chatSyncs.clear();
+      markerChain = Promise.resolve();
       set({ conversations: {}, openAccountId: null });
     },
   };
