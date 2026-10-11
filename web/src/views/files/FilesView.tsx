@@ -548,11 +548,15 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const saveEdited = async (text: string) => {
     const target = editTarget;
     if (!target) return;
-    const next = await files.saveText(target.id, text, target.blobId);
-    // The file has a new blob now; the next save in this same session is
-    // checked against that one, not the one we opened.
-    setEditTarget({ id: target.id, blobId: next });
-    toast.success(t("Saved"));
+    try {
+      const next = await files.saveText(target.id, text, target.blobId);
+      // The file has a new blob now; the next save in this same session is
+      // checked against that one, not the one we opened.
+      setEditTarget({ id: target.id, blobId: next });
+      toast.success(t("Saved"));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   };
 
   /* Double-clicking a file opens what can be opened and downloads the rest,
@@ -1043,7 +1047,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   );
 }
 
-function MoveDialog({
+export function MoveDialog({
   nodes,
   onClose,
   onMoved,
@@ -1058,16 +1062,19 @@ function MoveDialog({
     void files.loadChildren(cur);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur]);
-  /* None of the folders being moved can be their own destination, and neither
-     can a folder already holding all of them -- "Move here" would be a no-op. */
-  const moving = new Set(nodes.map((n) => n.id));
+  /*
+   * One rule for both ways in: the same `canDropFileNodes` the drag-and-drop
+   * uses decides which folders are offered and whether "Move here" is live, so
+   * a destination the tree refuses -- the node itself, its own subtree, a
+   * folder that will not take children, the parent it already has -- is not a
+   * destination this dialog offers beside it.
+   */
+  const ids = nodes.map((n) => n.id);
+  const canDrop = canDropFileNodes(files.nodes, ids, cur);
   const dirs = (files.children[cur ?? "root"] ?? [])
     .map((id) => files.nodes[id])
-    .filter((n): n is FileNode =>
-      Boolean(n && n.nodeType === "directory" && !moving.has(n.id)),
-    );
+    .filter((n): n is FileNode => Boolean(n && canDropFileNodes(files.nodes, ids, n.id)));
   const path = files.pathTo(cur);
-  const already = nodes.every((n) => (n.parentId ?? null) === cur);
   const title =
     nodes.length === 1
       ? t("Move \u201c{name}\u201d", { name: nodes[0]!.name })
@@ -1085,7 +1092,7 @@ function MoveDialog({
           </button>
           <button
             className="btn btn-primary"
-            disabled={already}
+            disabled={!canDrop}
             onClick={async () => {
               try {
                 await files.moveMany(
