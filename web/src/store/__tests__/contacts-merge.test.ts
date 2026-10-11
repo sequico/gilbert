@@ -46,7 +46,7 @@ const CARD_B: ContactCard = {
 } as unknown as ContactCard;
 
 /** A server that records every call and answers the update and the destroy. */
-function stubServer(opts: { refuseDestroy?: boolean } = {}) {
+function stubServer(opts: { refuseDestroy?: boolean; refuseUpdate?: boolean } = {}) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   vi.stubGlobal(
     "fetch",
@@ -64,6 +64,12 @@ function stubServer(opts: { refuseDestroy?: boolean } = {}) {
           const destroy = args.destroy as Id[] | undefined;
           const updated: Record<string, unknown> = {};
           if (update) for (const key of Object.keys(update)) updated[key] = null;
+          const notUpdated: Record<string, unknown> = {};
+          if (opts.refuseUpdate && update)
+            for (const key of Object.keys(update)) {
+              notUpdated[key] = { type: "invalidProperties", description: "No" };
+              delete updated[key];
+            }
           const notDestroyed: Record<string, unknown> = {};
           if (opts.refuseDestroy && destroy?.length)
             notDestroyed[destroy[0]!] = { type: "forbidden", description: "Cannot" };
@@ -77,7 +83,7 @@ function stubServer(opts: { refuseDestroy?: boolean } = {}) {
               updated,
               destroyed: opts.refuseDestroy ? [] : (destroy ?? []),
               notCreated: {},
-              notUpdated: {},
+              notUpdated,
               notDestroyed,
             },
             id,
@@ -180,16 +186,47 @@ describe("merging two contacts", () => {
     expect(Object.keys(body.phones as Record<string, unknown>)).toHaveLength(1);
   });
 
-  it("keeps the merged card, and says so, when the destroy is refused", async () => {
-    stubServer({ refuseDestroy: true });
+  it("writes the merged card and keeps it when the destroy is refused", async () => {
+    const calls = stubServer({ refuseDestroy: true });
     const result = await useContacts
       .getState()
       .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: null });
 
     expect(result.destroyed).toBe(0);
     expect(result.refused).toBeDefined();
-    // The write went through, and the card the server still holds is still listed.
+    // The write went through, carrying the merged fields...
+    const body = updateBody(calls)!;
+    expect(body).toBeDefined();
+    expect(body.name).toEqual(CARD_A.name);
+    expect(Object.keys(body.phones as Record<string, unknown>)).toHaveLength(1);
+    // ...and the card the server still holds is still listed.
     expect(useContacts.getState().cards.c2).toBe(CARD_B);
+  });
+
+  it("never destroys when the write fails", async () => {
+    const calls = stubServer({ refuseUpdate: true });
+    await expect(
+      useContacts
+        .getState()
+        .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: null }),
+    ).rejects.toThrow();
+    expect(calls.some((c) => c.args.destroy)).toBe(false);
+    expect(useContacts.getState().cards.c1).toBe(CARD_A);
+    expect(useContacts.getState().cards.c2).toBe(CARD_B);
+  });
+
+  it("refuses a card against itself, or two cards of different accounts", async () => {
+    stubServer();
+    await expect(
+      useContacts
+        .getState()
+        .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_A, accountId: null }),
+    ).rejects.toThrow(/cannot be merged/);
+    await expect(
+      useContacts
+        .getState()
+        .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: "a2" }),
+    ).rejects.toThrow(/cannot be merged/);
   });
 
   it("names the account holding each card, so a group's merge acts on the group", async () => {

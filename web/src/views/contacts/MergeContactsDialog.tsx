@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
-import type { CardAddress } from "@/lib/contactAddress";
+import { type CardAddress, cardAt } from "@/lib/contactAddress";
 import {
   contactMergeConflicts,
   type MergeFieldId,
@@ -22,8 +22,13 @@ import { toast } from "@/ui/toast";
  * here is per **conflicting field** — the card's own type, its name, nickname,
  * company, job title, birthday, website, note and photo — each offered side by
  * side with the surviving card's value chosen by default. Everything the two do
- * not disagree on is combined without being shown, because there is nothing to
- * ask.
+ * not disagree on is combined, including the extra entries of a field they agree
+ * on, so it is not shown: there is nothing to ask.
+ *
+ * The cards are read back from the store on every render, not held as the objects
+ * that were on screen when the icon was pressed. A push between the press and the
+ * confirm changes them, and the merged patch writes every field it handles — so
+ * merging a stale copy would write its old values back over the newer card.
  *
  * The write is the store's (`mergeCards`): the merged card first, the other
  * destroyed after it. The dialog reports the outcome and hands the surviving
@@ -32,53 +37,47 @@ import { toast } from "@/ui/toast";
 export function MergeContactsDialog({
   primary,
   secondary,
-  accountId,
   onClose,
   onMerged,
 }: {
   /** The card that survives — the one selected first. */
-  primary: ContactCard;
+  primary: CardAddress;
   /** The card absorbed into it, then deleted. */
-  secondary: ContactCard;
-  /** The account both cards live in; null for the reader's own. */
-  accountId: string | null;
+  secondary: CardAddress;
   onClose: () => void;
   onMerged: (saved: CardAddress) => void;
 }) {
   const contacts = useContacts();
-  const conflicts = contactMergeConflicts(primary, secondary);
   const [picks, setPicks] = useState<Partial<Record<MergeFieldId, MergeSide>>>({});
   const [busy, setBusy] = useState(false);
-  const photoAccount = accountId ?? contacts.accountId ?? "";
-  const nameA = contactDisplayName(primary);
-  const nameB = contactDisplayName(secondary);
+  const a = cardAt(contacts.cards, contacts.sharedCards, primary)?.card ?? null;
+  const b = cardAt(contacts.cards, contacts.sharedCards, secondary)?.card ?? null;
+  const photoAccount = primary.accountId ?? contacts.accountId ?? "";
+  const conflicts = a && b ? contactMergeConflicts(a, b) : [];
 
   const merge = async () => {
+    if (!a || !b) return;
     setBusy(true);
     try {
       const { destroyed, refused } = await contacts.mergeCards(
-        { card: primary, accountId },
-        { card: secondary, accountId },
+        { card: a, accountId: primary.accountId },
+        { card: b, accountId: secondary.accountId },
         picks,
       );
       /*
-       * The merged card is on the server already, so it is opened either way. A
-       * refused destroy is reported rather than hidden: the reader has to know
-       * the other card is still there.
+       * The merged card is written before the other is destroyed, so it is opened
+       * either way. A destroy that did not go is reported rather than hidden: the
+       * reader has to know the other card is still there.
        */
-      onMerged({ id: primary.id, accountId });
+      onMerged(primary);
       if (destroyed) toast.success(t("Contacts merged"));
-      else
+      else if (refused)
         toast.error(
-          refused
-            ? t(
-                "The contacts were merged, but the other one could not be deleted: {error}",
-                {
-                  error: setErrorMessage(refused),
-                },
-              )
-            : t("The contacts were merged, but the other one could not be deleted."),
+          t("The contacts were merged, but the other one could not be deleted: {error}", {
+            error: setErrorMessage(refused),
+          }),
         );
+      else toast.error(t("The contacts were merged, but the other one is still there."));
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -136,41 +135,45 @@ export function MergeContactsDialog({
           <button
             className="btn btn-primary"
             onClick={() => void merge()}
-            disabled={busy}
+            disabled={busy || !a || !b}
           >
             {t("Merge")}
           </button>
         </>
       }
     >
-      <p style={{ marginTop: 0 }}>
-        {t(
-          "{a} and {b} become one contact. Where they disagree, choose the value to keep; everything else is combined.",
-          { a: nameA, b: nameB },
-        )}
-      </p>
-      {conflicts.length === 0 ? (
-        <p className="hint">
-          {t(
-            "The two contacts have no conflicting values, so they are combined as they are.",
-          )}
+      {!a || !b ? (
+        <p style={{ marginTop: 0 }}>
+          {t("One of the two contacts is no longer there, so there is nothing to merge.")}
         </p>
       ) : (
-        conflicts.map((c) => {
-          const valueA = c.a;
-          const valueB = c.b;
-          return (
-            <div key={c.id} style={{ marginTop: 14 }}>
-              <div className="hint" style={{ marginBottom: 4 }}>
-                {t(c.label)}
+        <>
+          <p style={{ marginTop: 0 }}>
+            {t(
+              "{a} and {b} become one contact. Where they disagree, choose the value to keep; everything else is combined.",
+              { a: contactDisplayName(a), b: contactDisplayName(b) },
+            )}
+          </p>
+          {conflicts.length === 0 ? (
+            <p className="hint">
+              {t(
+                "The two contacts have no conflicting values, so they are combined as they are.",
+              )}
+            </p>
+          ) : (
+            conflicts.map((c) => (
+              <div key={c.id} style={{ marginTop: 14 }}>
+                <div className="hint" style={{ marginBottom: 4 }}>
+                  {t(c.label)}
+                </div>
+                <div className="dialog-choices" style={{ flexDirection: "row", gap: 8 }}>
+                  {option(c.id, "a", a, c.a)}
+                  {option(c.id, "b", b, c.b)}
+                </div>
               </div>
-              <div className="dialog-choices" style={{ flexDirection: "row", gap: 8 }}>
-                {option(c.id, "a", primary, valueA)}
-                {option(c.id, "b", secondary, valueB)}
-              </div>
-            </div>
-          );
-        })
+            ))
+          )}
+        </>
       )}
     </Dialog>
   );

@@ -1307,7 +1307,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
   async updateCard(card, patch) {
     refuseDirectoryWrite(card.accountId);
     const accountId = card.accountId ?? get().accountId;
-    if (!accountId) return;
+    // Loud rather than silent: a card with no account to write it to is a caller
+    // mistake, and returning quietly would let a merge go on to destroy the card
+    // it never merged.
+    if (!accountId) throw new Error("No account holds that contact");
     const res = await client.call<SetResponse>("ContactCard/set", {
       accountId,
       update: { [card.id]: patch },
@@ -1324,6 +1327,18 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * reaches the destroy -- so no path loses a card into nothing.
    */
   async mergeCards(primary, secondary, picks) {
+    /*
+     * The two must be different cards of one account: the write merges their
+     * books and the destroy removes one of them, so the same address twice would
+     * delete the contact outright, and two accounts would write the merged card
+     * into the wrong one. The view never offers either, but this action is
+     * callable on its own.
+     */
+    if (
+      (primary.accountId ?? null) !== (secondary.accountId ?? null) ||
+      primary.card.id === secondary.card.id
+    )
+      throw new Error("Those two contacts cannot be merged");
     const patch = mergeContactCards(primary.card, secondary.card, picks);
     await get().updateCard({ id: primary.card.id, accountId: primary.accountId }, patch);
     return get().destroyCards([

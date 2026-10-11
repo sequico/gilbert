@@ -192,3 +192,106 @@ describe("mergeContactCards", () => {
     expect(merged.media).toBeNull();
   });
 });
+
+/*
+ * The one-slot fields are maps on the wire, so a card can hold more than one
+ * entry in one. A conflict decides only the entry the choice is about; every
+ * other entry of both cards has to survive, and so does every field the merge
+ * names itself.
+ */
+describe("mergeContactCards keeps what a conflict does not decide", () => {
+  const notes = (patch: Record<string, unknown>) =>
+    Object.values((patch.notes ?? {}) as Record<string, { note: string }>)
+      .map((n) => n.note)
+      .sort();
+
+  it("keeps both sides' extra notes when they agree on the first", () => {
+    const a = card({ notes: { n1: { "@type": "Note", note: "same" } } });
+    const b = card({
+      notes: {
+        n2: { "@type": "Note", note: "same" },
+        n3: { "@type": "Note", note: "extra" },
+      },
+    });
+    expect(notes(mergeContactCards(a, b))).toEqual(["extra", "same"]);
+  });
+
+  it("drops only the competing entry and keeps the rest of both", () => {
+    const a = card({
+      notes: {
+        a1: { "@type": "Note", note: "one" },
+        a2: { "@type": "Note", note: "only-a" },
+      },
+    });
+    const b = card({
+      notes: {
+        b1: { "@type": "Note", note: "two" },
+        b2: { "@type": "Note", note: "only-b" },
+      },
+    });
+    expect(notes(mergeContactCards(a, b, { note: "b" }))).toEqual([
+      "only-a",
+      "only-b",
+      "two",
+    ]);
+  });
+
+  it("honours the website choice and keeps the other links", () => {
+    const a = card({
+      links: {
+        l1: { "@type": "Link", uri: "https://a.example" },
+        l2: { "@type": "Link", uri: "https://extra-a.example" },
+      },
+    });
+    const b = card({ links: { l3: { "@type": "Link", uri: "https://b.example" } } });
+    expect(contactMergeConflicts(a, b).map((c) => c.id)).toEqual(["website"]);
+    const uris = (patch: Record<string, unknown>) =>
+      Object.values((patch.links ?? {}) as Record<string, { uri: string }>)
+        .map((l) => l.uri)
+        .sort();
+    expect(uris(mergeContactCards(a, b, { website: "b" }))).toEqual([
+      "https://b.example",
+      "https://extra-a.example",
+    ]);
+    expect(uris(mergeContactCards(a, b, { website: "a" }))).toEqual([
+      "https://a.example",
+      "https://extra-a.example",
+    ]);
+  });
+
+  it("unions the relations of one uid instead of replacing them", () => {
+    const a = card({
+      relatedTo: { u9: { "@type": "Relation", relation: { colleague: true } } },
+    });
+    const b = card({
+      relatedTo: { u9: { "@type": "Relation", relation: { friend: true } } },
+    });
+    const related = mergeContactCards(a, b).relatedTo as Record<
+      string,
+      { relation: Record<string, boolean> }
+    >;
+    expect(related.u9?.relation).toEqual({ colleague: true, friend: true });
+  });
+
+  it("unions the books the two were filed in", () => {
+    const a = card({ addressBookIds: { b1: true } });
+    const b = card({ addressBookIds: { b1: true, b2: true } });
+    expect(mergeContactCards(a, b).addressBookIds).toEqual({ b1: true, b2: true });
+  });
+
+  it("carries a structured field only the absorbed card holds", () => {
+    const speak = { "@type": "SpeakToAs" as const, grammaticalGender: "female" };
+    const merged = mergeContactCards(card(), card({ speakToAs: speak }));
+    expect(merged.speakToAs).toEqual(speak);
+  });
+
+  it("leaves a structured field both cards hold to the survivor, uncorrupted", () => {
+    const patch = mergeContactCards(
+      card({ speakToAs: { "@type": "SpeakToAs", grammaticalGender: "male" } }),
+      card({ speakToAs: { "@type": "SpeakToAs", grammaticalGender: "female" } }),
+    );
+    // Not written at all: the surviving card keeps its own, and no member of it
+    // is duplicated under a random key.
+    expect("speakToAs" in patch).toBe(false);
+  });
+});

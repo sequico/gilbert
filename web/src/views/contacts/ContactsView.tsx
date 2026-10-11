@@ -156,9 +156,8 @@ export function ContactsView({ id }: { id?: string }) {
    * values to show without reaching into the store again.
    */
   const [merging, setMerging] = useState<{
-    primary: ContactCard;
-    secondary: ContactCard;
-    accountId: string | null;
+    primary: CardAddress;
+    secondary: CardAddress;
   } | null>(null);
 
   useEffect(() => {
@@ -439,30 +438,43 @@ export function ContactsView({ id }: { id?: string }) {
 
   /*
    * The two cards a merge would act on, when the selection is exactly two of one
-   * book, and nothing otherwise. The book is what the two have in common rather
-   * than the list being read: "All contacts" mixes accounts and groups, and a
-   * merge writes into the account the surviving card lives in, so two cards that
-   * share no book cannot become one.
+   * book, and nothing otherwise. The rows are `pickable` — the ones that carry a
+   * checkbox — because a shift-range can reach a read-only row that has none: a
+   * merge of one of those is a write the server will refuse, so it is not offered.
    *
-   * The surviving card is the one ticked first (`pickOrder`), and it is named
-   * `primary` here and everywhere the merge speaks of it.
+   * The book is what the two have in common rather than the list being read: "All
+   * contacts" mixes accounts and groups, and a merge writes into the account the
+   * surviving card lives in, so two cards that share no book cannot become one.
+   *
+   * The surviving card is the one ticked first (`pickOrder`). A tick whose order
+   * is not known — which no reachable path produces — refuses the merge rather
+   * than letting the list's order quietly decide it.
    */
+  const mergeItems = useMemo(
+    () =>
+      pickable.filter((i) => picked[cardKey({ id: i.card.id, accountId: i.accountId })]),
+    [pickable, picked],
+  );
   const mergePair = useMemo(() => {
-    if (pickedItems.length !== 2) return null;
+    if (mergeItems.length !== 2) return null;
+    const keyOf = (i: { card: ContactCard; accountId: string | null }) =>
+      cardKey({ id: i.card.id, accountId: i.accountId });
     const order = pickOrder.current;
-    const [first, second] = [...pickedItems].sort(
-      (x, y) =>
-        order.indexOf(cardKey({ id: x.card.id, accountId: x.accountId })) -
-        order.indexOf(cardKey({ id: y.card.id, accountId: y.accountId })),
+    const [first, second] = [...mergeItems].sort(
+      (x, y) => order.indexOf(keyOf(x)) - order.indexOf(keyOf(y)),
     );
     const a = first!;
     const b = second!;
+    if (order.indexOf(keyOf(a)) < 0 || order.indexOf(keyOf(b)) < 0) return null;
     if ((a.accountId ?? null) !== (b.accountId ?? null)) return null;
     if ((a.accountId ?? null) === GLOBAL_CONTACTS_ACCOUNT_ID) return null;
     const books = Object.keys(a.card.addressBookIds ?? {});
     if (!books.some((id) => b.card.addressBookIds?.[id])) return null;
-    return { primary: a.card, secondary: b.card, accountId: a.accountId };
-  }, [pickedItems]);
+    return {
+      primary: { id: a.card.id, accountId: a.accountId },
+      secondary: { id: b.card.id, accountId: b.accountId },
+    };
+  }, [mergeItems]);
 
   if (!contacts.available) {
     return (
@@ -1015,7 +1027,6 @@ export function ContactsView({ id }: { id?: string }) {
         <MergeContactsDialog
           primary={merging.primary}
           secondary={merging.secondary}
-          accountId={merging.accountId}
           onClose={() => setMerging(null)}
           onMerged={(saved) => {
             setMerging(null);
