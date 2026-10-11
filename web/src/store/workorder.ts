@@ -60,8 +60,20 @@ export interface WorkorderStore {
 }
 
 export const useWorkorders = create<WorkorderStore>((set, get) => {
+  /*
+   * How new the local list is, per workorder. A read that began before a
+   * mutation the route has since accepted answers with the older value for
+   * that uid, so the merge below keeps the local summary for anything mutated
+   * after the read started.
+   */
+  let mutationSeq = 0;
+  const mutatedAt = new Map<string, number>();
+  /** A refresh asked for while one is running, run again when it ends. */
+  let pendingReload = false;
+
   /** Put a summary the route echoed back into the list, replacing by uid. */
   function put(summary: WorkorderSummary): void {
+    mutatedAt.set(summary.uid, (mutationSeq += 1));
     set((s) => {
       const at = s.workorders.findIndex((w) => w.uid === summary.uid);
       if (at < 0) return { workorders: [...s.workorders, summary] };
@@ -91,15 +103,51 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     },
 
     async load() {
-      if (get().loading) return;
+      if (get().loading) {
+        // A refresh asked for mid-load is not dropped: it runs again once this
+        // one ends, so the manual refresh always lands a fresh read.
+        pendingReload = true;
+        return;
+      }
       set({ loading: true, error: null });
+      const startedAt = mutationSeq;
+      let listed: WorkorderSummary[];
       try {
-        const workorders = await listWorkorders();
-        set({ workorders, loaded: true, loading: false });
+        listed = await listWorkorders();
       } catch (err) {
         // A failed read leaves the last list in place, or none; the panel shows
         // the error and the next open or refresh retries.
         set({ error: (err as Error).message, loading: false });
+        if (pendingReload) {
+          pendingReload = false;
+          void get().load();
+        }
+        return;
+      }
+      set((s) => {
+        /*
+         * The read began before any mutation with a later sequence, and a
+         * mutation's answer is the route's own — newer for that uid than a read
+         * that started before it. Those uids keep the local summary, and one the
+         * route accepted after the read started and the read does not list at
+         * all is kept rather than dropped.
+         */
+        const workorders = listed.map((w) =>
+          (mutatedAt.get(w.uid) ?? 0) > startedAt
+            ? (s.workorders.find((x) => x.uid === w.uid) ?? w)
+            : w,
+        );
+        for (const w of s.workorders)
+          if (
+            (mutatedAt.get(w.uid) ?? 0) > startedAt &&
+            !workorders.some((x) => x.uid === w.uid)
+          )
+            workorders.push(w);
+        return { workorders, loaded: true, loading: false };
+      });
+      if (pendingReload) {
+        pendingReload = false;
+        void get().load();
       }
     },
 
@@ -167,6 +215,8 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     },
 
     reset() {
+      mutatedAt.clear();
+      pendingReload = false;
       set({
         workorders: [],
         loaded: false,
