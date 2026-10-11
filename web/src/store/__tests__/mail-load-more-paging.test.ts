@@ -1,0 +1,126 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { client } from "@/jmap/client";
+import type { Email, EmailFilter } from "@/jmap/types";
+import { useMail } from "@/store/mail";
+
+/**
+ * Loading the next page of a moving window.
+ *
+ * A page asked for at a bare `position` is the next page only of the window
+ * the first one read. When the server's query state has moved -- a message
+ * arrived while the reader was scrolling -- that position no longer continues
+ * what is on screen, and appending silently skips whatever moved into the gap.
+ * These tests pin the two things that keep the window honest: the stored
+ * `queryState` decides whether a page is joined or the window is read again,
+ * and a full read makes a page already on its way drop its answer.
+ */
+
+const email = (id: string): Email =>
+  ({
+    id,
+    threadId: id,
+    mailboxIds: { mb1: true },
+    keywords: {},
+  }) as unknown as Email;
+
+const query = (ids: string[], queryState: string) => ({
+  ids,
+  total: 4,
+  queryState,
+});
+
+/** A page answer: the query result and the messages it named. */
+const answer = (ids: string[], queryState: string) =>
+  new Map([
+    ["q", [query(ids, queryState)]],
+    ["e", [{ list: ids.map(email) }]],
+  ]) as never;
+
+function listOn(ids: string[], queryState: string): void {
+  useMail.setState({
+    accountId: "a1",
+    emails: Object.fromEntries(ids.map((id) => [id, email(id)])),
+    threads: {},
+    fullIds: {},
+    list: {
+      key: "k",
+      filter: {} as EmailFilter,
+      sort: [],
+      collapseThreads: false,
+      mailboxId: "mb1",
+      label: undefined,
+      ids,
+      total: 4,
+      queryState,
+      loading: false,
+      loadingMore: false,
+      error: null,
+      exhausted: false,
+    },
+  });
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  useMail.setState({ emails: {}, threads: {}, list: null });
+});
+
+describe("the window moved between pages", () => {
+  it("re-reads the window instead of appending a page from the old one", async () => {
+    listOn(["a", "b"], "q1");
+    const chain = vi
+      .spyOn(client, "chain")
+      // The page the reader asked for belongs to the window that moved...
+      .mockResolvedValueOnce(answer(["c", "d"], "q2"))
+      // ...so the window is read again from the top instead.
+      .mockResolvedValueOnce(answer(["a", "b"], "q2"));
+
+    await useMail.getState().loadMore();
+
+    expect(chain).toHaveBeenCalledTimes(2);
+    expect(useMail.getState().list?.ids).toEqual(["a", "b"]);
+    expect(useMail.getState().list?.queryState).toBe("q2");
+  });
+
+  it("appends the next page when the window is the one it belongs to", async () => {
+    listOn(["a", "b"], "q1");
+    vi.spyOn(client, "chain").mockResolvedValue(answer(["c", "d"], "q1"));
+
+    await useMail.getState().loadMore();
+
+    expect(useMail.getState().list?.ids).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("a full read racing a page", () => {
+  it("lets the full read win and drops the page still on its way", async () => {
+    listOn(["a", "b"], "q1");
+    let release: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      release = res;
+    });
+    let calls = 0;
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      calls += 1;
+      // The page the reader asked for is slow; the full read is not.
+      if (calls === 1) {
+        await gate;
+        return answer(["c", "d"], "q1");
+      }
+      return answer(["a", "b"], "q1");
+    }) as never);
+
+    const more = useMail.getState().loadMore();
+    const refresh = useMail.getState().refreshList();
+    await refresh;
+    release();
+    await more;
+
+    expect(useMail.getState().list?.ids).toEqual(["a", "b"]);
+    expect(useMail.getState().list?.loadingMore).toBe(false);
+  });
+});

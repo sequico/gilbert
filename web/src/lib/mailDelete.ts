@@ -52,8 +52,13 @@ export type DeleteRefusal = "group_mail_final" | "group_mail_empty" | "group_mai
  * A partial server refusal is **not** one of these: when some of the ids went
  * and some did not, the action did happen and the reader is told which mail
  * stayed through the ordinary toast. `server_refused` is the total case.
+ *
+ * `not_final_folder` is the empty-folder action asked of a folder that is
+ * neither Deleted Items nor Junk Mail: nothing happened, and it is refused for
+ * the same reason the rule refuses — a caller must not read it as "the folder
+ * was emptied".
  */
-export type DeleteFailure = DeleteRefusal | "server_refused";
+export type DeleteFailure = DeleteRefusal | "server_refused" | "not_final_folder";
 
 /**
  * What a guarded write did, so a caller can tell a refusal from work done.

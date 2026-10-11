@@ -202,3 +202,35 @@ describe("the reader's own mailbox", () => {
     expect(calls.filter((c) => c.name === "Mailbox/set")).toEqual([]);
   });
 });
+
+describe("a folder tree that cannot be read", () => {
+  it("keeps the tree on screen and says so once for the outage", async () => {
+    const tree = { a: box("a", "Inbox", null, true) };
+    useMail.setState({
+      accountId: "own",
+      mailboxes: tree as never,
+      mailboxesLoaded: true,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let mode: "fail" | "ok" = "fail";
+    vi.spyOn(client, "call").mockImplementation((async () => {
+      if (mode === "fail") throw new Error("offline");
+      return { accountId: "own", state: "1", list: [tree.a], notFound: [] };
+    }) as never);
+
+    // A read that fails is not an answer: the tree already on screen stays, and
+    // the dozen fire-and-forget callers do not each report it.
+    await useMail.getState().loadMailboxes();
+    await useMail.getState().loadMailboxes();
+    expect(useMail.getState().mailboxes).toEqual(tree);
+    expect(useMail.getState().mailboxesLoaded).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // A read that lands answers the outage, so a later failure is news again.
+    mode = "ok";
+    await useMail.getState().loadMailboxes();
+    mode = "fail";
+    await useMail.getState().loadMailboxes();
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+});

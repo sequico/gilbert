@@ -200,10 +200,13 @@ describe("emptyMailbox", () => {
 
   it("refuses a folder that is neither Deleted Items nor Junk Mail", async () => {
     const s = server(5192, { mailbox: "mbArchive" });
-    await useMail.getState().emptyMailbox("mbArchive");
+    const outcome = await useMail.getState().emptyMailbox("mbArchive");
     expect(s.destroyBatches).toEqual([]);
     expect(s.live.size).toBe(5192);
     expect(messages()).toContain("Only Deleted Items and Junk Mail can be emptied.");
+    // Refused for the rule's own reason, and a caller must not read it as an
+    // emptied folder.
+    expect(outcome).toEqual({ ok: false, code: "not_final_folder" });
   });
 
   it("stops instead of looping when the server destroys nothing", async () => {

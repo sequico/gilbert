@@ -333,11 +333,29 @@ export const useMail = create<MailState>((set, get) => ({
   async loadMailboxes() {
     const accountId = get().accountId;
     if (!accountId) return;
-    const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
-      accountId,
-      ids: null,
-      properties: MAILBOX_PROPS,
-    });
+    let res: GetResponse<Mailbox>;
+    try {
+      res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+        accountId,
+        ids: null,
+        properties: MAILBOX_PROPS,
+      });
+    } catch (err) {
+      /*
+       * A failed read is not an answer: the tree already on screen is kept
+       * rather than the sidebar emptied. This method is fired and forgotten
+       * from a dozen places, so the failure is reported here, once for the
+       * outage, instead of leaving an unhandled rejection behind.
+       */
+      if (!mailboxesReadReported) {
+        mailboxesReadReported = true;
+        console.warn(
+          `[gilbert] could not read the folder tree of ${accountId}: ${(err as Error).message}`,
+        );
+      }
+      return;
+    }
+    mailboxesReadReported = false;
     const mailboxes = adoptMailboxes(accountId, res.list);
     const accountTrees = { ...get().accountTrees, [accountId]: mailboxes };
     // The account may have changed while the request was in flight (a quick
@@ -412,6 +430,9 @@ export const useMail = create<MailState>((set, get) => ({
       void get().refreshList();
       return;
     }
+    // A fresh window replaces whatever was on screen, so a page still on its
+    // way for the old one is told to drop its answer.
+    listEpoch++;
     set({
       list: {
         ...q,
@@ -462,6 +483,10 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     const l = get().list;
     if (!accountId || !l || l.loading || l.loadingMore || l.exhausted) return;
+    // The window this page belongs to. A full read that starts while the page
+    // is on its way owns the list when it lands, and this page must not append
+    // over it.
+    const epoch = listEpoch;
     set({ list: { ...l, loadingMore: true } });
     try {
       const { ids, total, queryState } = await runQuery(
@@ -472,6 +497,19 @@ export const useMail = create<MailState>((set, get) => ({
       );
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
+      if (epoch !== listEpoch) return;
+      /*
+       * A page asked for at a bare position is the next page only of the window
+       * the first one read. If the server's query state moved meanwhile -- a
+       * message arrived, was filed or was read -- that position no longer
+       * continues what is on screen, and appending would skip whatever moved
+       * into the gap. The stored `queryState` is what says so, so the window is
+       * read again rather than joined.
+       */
+      if (queryState && l.queryState && queryState !== l.queryState) {
+        await get().refreshList();
+        return;
+      }
       const merged = [...cur.ids];
       const seen = new Set(merged);
       for (const id of ids) if (!seen.has(id)) merged.push(id);
@@ -496,6 +534,9 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     const l = get().list;
     if (!accountId || !l) return;
+    // A full read supersedes any page still on its way: the generation moves so
+    // that page drops its answer instead of appending over this one.
+    listEpoch++;
     try {
       const limit = Math.max(settings().pageSize, l.ids.length);
       const { ids, total, queryState } = await runQuery(accountId, l, 0, limit);
@@ -508,12 +549,16 @@ export const useMail = create<MailState>((set, get) => ({
           total,
           queryState,
           loading: false,
+          loadingMore: false,
           error: null,
           exhausted: ids.length >= total,
         },
       });
     } catch {
-      /* keep old list */
+      // The window is kept as it was; a page that was in flight is not allowed
+      // to leave the list looking like it is still loading more.
+      const cur = get().list;
+      if (cur?.loadingMore) set({ list: { ...cur, loadingMore: false } });
     }
   },
 
@@ -684,7 +729,12 @@ export const useMail = create<MailState>((set, get) => ({
       await setEmails(accountId, update);
     } catch (err) {
       toast.error(t("Could not update: {error}", { error: (err as Error).message }));
-      await get().getEmails(ids);
+      /*
+       * `getEmails` answers from what is already held, so it would leave the
+       * optimistic keywords exactly where the refused write put them. The list
+       * is read again instead, which re-fetches the rows on screen.
+       */
+      await get().refreshList();
       // The messages were put back; the counts moved with the optimistic write
       // and have to come back the same way. Re-read rather than reverse the
       // arithmetic: a second failure mid-reverse would leave a number nobody
@@ -791,7 +841,9 @@ export const useMail = create<MailState>((set, get) => ({
       toast.error(
         t("Could not update labels: {error}", { error: (err as Error).message }),
       );
-      void get().getEmails(ids);
+      // `getEmails` would answer from what is already held and leave the
+      // optimistic folder membership in place; the list is read again instead.
+      void get().refreshList();
     }
   },
 
@@ -1006,7 +1058,7 @@ export const useMail = create<MailState>((set, get) => ({
     const finalIds = FINAL_FOLDER_ROLES.map((role) => get().roleId(role));
     if (!finalIds.includes(mailboxId)) {
       toast.error(t("Only Deleted Items and Junk Mail can be emptied."));
-      return { ok: true };
+      return { ok: false, code: "not_final_folder" };
     }
     /*
      * Then the group rule (ADR 0015), asked after the folder's own: a folder
@@ -1747,6 +1799,9 @@ export const useMail = create<MailState>((set, get) => ({
             since = ch.newState;
             if (!ch.hasMoreChanges) break;
           }
+          // The changes were read: whatever was reported while the server was
+          // failing has been answered, so a later failure is news again.
+          changesReported = false;
           set((s) => {
             const next = { ...s.emails };
             const nextFull = { ...s.fullIds };
@@ -1812,7 +1867,25 @@ export const useMail = create<MailState>((set, get) => ({
           if (created.size) await notifyNewMail([...created], get);
         } catch (err) {
           if (err instanceof JmapMethodError && err.type === "cannotCalculateChanges") {
+            /*
+             * The token is older than the server's window: dropping it makes
+             * the next pass start from the server's own state rather than
+             * asking for a range that no longer exists.
+             */
             set({ emailState: null });
+          } else if (!signal?.aborted) {
+            /*
+             * Every other failure leaves the token where it was, so the same
+             * window is asked for again -- a transient outage heals itself. A
+             * pass that keeps failing is reported once, so an account whose
+             * mail has stopped updating does not do so silently.
+             */
+            if (!changesReported) {
+              changesReported = true;
+              console.warn(
+                `[gilbert] could not read mail changes: ${(err as Error).message}`,
+              );
+            }
           }
         }
       }
@@ -1949,6 +2022,31 @@ function identitiesChanged(accountId: Id): void {
  * Keyed by nothing: a refusal is about the server, and there is only one.
  */
 let sortRefused = false;
+
+/**
+ * A failed folder-tree read already reported, until one lands.
+ *
+ * `loadMailboxes` is fired and forgotten from a dozen places, and a read that
+ * keeps failing would otherwise report on every one of them.
+ */
+let mailboxesReadReported = false;
+
+/**
+ * A failed `Email/changes` pass already reported, until one lands.
+ *
+ * A transient failure is left to heal on the next pass; a persistent one is
+ * said once rather than on every push beat.
+ */
+let changesReported = false;
+
+/**
+ * The current list window's generation.
+ *
+ * A full read (`refreshList`, or a fresh `query`) moves it, so a page that was
+ * already on its way for the previous window drops its answer instead of
+ * appending over the new one.
+ */
+let listEpoch = 0;
 
 /** The discovery run already on its way, shared by every caller that joins it. */
 let discoverInFlight: Promise<void> | null = null;
