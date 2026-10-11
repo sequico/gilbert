@@ -2,12 +2,13 @@
  * The Master's own session, opened the one way every admin door opens it.
  *
  * Every surface that acts as the Master — the agent's own, the knowledge base,
- * workorders and Global contacts — needs the same two things from the identity
+ * workorders and Global contacts — needs the same things from the identity
  * door: the installation's session (`agentSession`) and, where a caller must be
- * an administrator, the read that answers it. Both live here once, so a refusal
- * is translated the same way everywhere and a change reaches every door; each
- * door only states which surface it is (the words its sentence uses) and builds
- * its own error type.
+ * an administrator, the read that answers it. The conditional-write token every
+ * door's FileNode writes take (`requireState`) is here too. All of them live
+ * here once, so a refusal is translated the same way everywhere and a change
+ * reaches every door; each door only states which surface it is (the words its
+ * sentence uses) and builds its own error type.
  */
 
 import type { Ctx } from "./appFolder.js";
@@ -18,6 +19,26 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstr
 
 /** A module's own refusal, built from the identity door's code and sentence. */
 export type RefuseWith = (code: string, message: string, status: number) => Error;
+
+/**
+ * The account's FileNode state as the conditional-write token, or a refusal.
+ *
+ * A write that cannot be made conditional — because the account stated no state
+ * — is a write that would silently replace one another writer just made, so it
+ * is refused rather than sent unconditionally, the same `no_state` refusal the
+ * installation document's own writer makes. The sentence and the code live here
+ * once; each door builds its own error type through `refuse`, so a caller reads
+ * a code that names that surface's own state rather than another one's message.
+ */
+export function requireState(state: string, refuse: RefuseWith): string {
+  if (!state)
+    throw refuse(
+      "no_state",
+      "The account would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
+      502,
+    );
+  return state;
+}
 
 /**
  * The Master's own session for an admin write, or the caller's own refusal.

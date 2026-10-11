@@ -3464,15 +3464,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     requireSession,
     requireAdmin,
     async (c) => {
-      const body = await readJson<{ kind?: unknown; target?: unknown; html?: unknown }>(
-        c,
-      );
+      const body = await readJson<{
+        kind?: unknown;
+        target?: unknown;
+        identityId?: unknown;
+        html?: unknown;
+      }>(c);
       try {
         const kind = body?.kind === "group" ? "group" : "user";
         const blobId = await storeSignatureHtml(
           c.get("session"),
           kind,
           typeof body?.target === "string" ? body.target : "",
+          typeof body?.identityId === "string" ? body.identityId : "",
           typeof body?.html === "string" ? body.html : "",
         );
         return c.json({ blobId });

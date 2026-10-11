@@ -82,6 +82,13 @@ async function findGlobalContactsBook(
  * conditional write against it is refused when any card moved since, so two
  * administrators acting at once is a lost race for one of them rather than a
  * silent overwrite of the other.
+ *
+ * The read names no card — `ContactCard/get` with an **empty id list** — so the
+ * list is empty and only the `state` is wanted. That a real server answers a
+ * `state` for `ids: []` rather than refusing the call is an assumption this
+ * module cannot prove: it is **owed its live probe**, and this read rests on
+ * it. The mock answers it, pinned next to the simulation by
+ * `server/src/mock/contact-card-state.test.ts`.
  */
 async function contactCardState(client: JmapClient, accountId: string): Promise<string> {
   const res = await client.call<{ state?: unknown }>(

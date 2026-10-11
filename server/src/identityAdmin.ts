@@ -30,6 +30,7 @@
  */
 
 import { isAddress } from "./adminPolicy.js";
+import { requireState as requireStateWith } from "./adminSession.js";
 import type { GroupAccessDenied } from "./agent/views.js";
 import {
   groupMembers,
@@ -97,20 +98,16 @@ export class IdentityAdminError extends Error {
 /**
  * The account's FileNode state as the conditional-write token, or a refusal.
  *
- * A write that cannot be made conditional — because the account stated no state
- * — is a write that would silently replace one another writer just made, so it
- * is refused rather than sent unconditionally, the same `no_state` refusal the
- * installation document's own writer makes. One helper, so every identity write
- * refuses the same way.
+ * The shared helper's sentence and code, raised as this door's own error
+ * (`adminSession.ts`). `globalContactsAdmin.ts` reuses this binding rather than
+ * writing one of its own: a Global contacts write is the identity door's
+ * refusal too.
  */
 export function requireState(state: string): string {
-  if (!state)
-    throw new IdentityAdminError(
-      "no_state",
-      "The account would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
-      502,
-    );
-  return state;
+  return requireStateWith(
+    state,
+    (code, message, status) => new IdentityAdminError(code, message, status),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -985,6 +982,17 @@ export async function removeGroupIdentity(
 }
 
 /**
+ * The stored file's name: one per identity, derived from its id.
+ *
+ * The id is opaque, so anything that is not a safe filename character is
+ * replaced rather than trusted: the name is never used as a path.
+ */
+function signatureFileName(identityId: string): string {
+  const safe = identityId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return `signature-${safe || "default"}.html`;
+}
+
+/**
  * Store the full HTML of an over-sized signature in the account's own Files.
  *
  * The account is the one whose identity it is — the person's or the group's —
@@ -995,6 +1003,7 @@ export async function storeSignatureHtml(
   admin: LiveSession,
   kind: "user" | "group",
   target: string,
+  identityId: string,
   html: string,
 ): Promise<string> {
   if (typeof html !== "string" || !html.trim())
@@ -1030,15 +1039,16 @@ export async function storeSignatureHtml(
   }
   try {
     /*
-     * One stable name, overwritten on each save.
+     * One stable name per identity, overwritten on each save.
      *
      * The marker the client stores names the **blob**, not the file, so the name
      * is only where that blob lives; a timestamped name left every previous
      * signature behind as an invisible file in the account's own app folder,
      * growing the Files and blob quota with every edit and never removing one.
-     * The account's stored signature is its own, so one name is one body.
+     * The name is derived from the identity's id, so two over-sized signatures
+     * on two identities of one account do not overwrite each other.
      */
-    const name = "signature.html";
+    const name = signatureFileName(identityId);
     await writeAppBytesAt(
       ctx,
       accountId,

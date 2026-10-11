@@ -248,32 +248,41 @@ test("a conditional identity write refuses an empty account state", () => {
   assert.equal(requireState("s"), "s", "a stated state is handed through");
 });
 
-test("an over-sized signature reuses one stored file rather than piling them up", async () => {
+test("an over-sized signature reuses one stored file per identity, never piling them up", async () => {
   /*
    * Every save used to write `signature-<timestamp>.html` and never remove the
-   * previous one, so Files and blob quota grew without bound as an administrator
-   * edited a signature. The marker the client stores names the blob, not the
-   * file, so one stable name is enough — and the second save writes over the
-   * first rather than leaving it behind.
+   * previous one, so Files and blob quota grew without bound as a signature was
+   * edited. The marker the client stores names the blob, not the file, so one
+   * stable name per identity stops the pile — and two identities of one account
+   * keep their own copy rather than overwriting each other.
    */
   for (const text of ["First over-sized body", "Second over-sized body"]) {
     const saved = await post("/api/admin/identities/signature-html", adminCookie, {
       kind: "user",
       target: BOB,
+      identityId: "id-a",
       html: `<p>${text}</p>`,
     });
     assert.equal(saved.status, 200, JSON.stringify(saved.body));
     assert.equal(typeof saved.body?.blobId, "string", "the write answers the blob id");
   }
+  const second = await post("/api/admin/identities/signature-html", adminCookie, {
+    kind: "user",
+    target: BOB,
+    identityId: "id-b",
+    html: "<p>Another identity's body</p>",
+  });
+  assert.equal(second.status, 200, JSON.stringify(second.body));
   const folderId = await findAppFolder(bobCtx, BOB_ACCOUNT);
   assert.ok(folderId, "the account has an app folder after the write");
   const names = (await fileChildren(bobCtx, BOB_ACCOUNT, folderId))
     .map((node) => String(node.name ?? ""))
-    .filter((name) => name.startsWith("signature"));
+    .filter((name) => name.startsWith("signature"))
+    .sort();
   assert.deepEqual(
     names,
-    ["signature.html"],
-    "one stored signature, overwritten in place, never a pile of them",
+    ["signature-id-a.html", "signature-id-b.html"],
+    "one file per identity, each overwritten in place, never a pile",
   );
 });
 

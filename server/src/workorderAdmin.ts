@@ -22,7 +22,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { administrator, openMasterAccount } from "./adminSession.js";
+import {
+  administrator,
+  openMasterAccount,
+  requireState as requireStateWith,
+} from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
@@ -101,22 +105,18 @@ export class WorkorderAdminError extends Error {
 }
 
 /**
- * The account's FileNode state as the conditional-write token, or a refusal.
+ * The account's FileNode state as the workorder conditional-write token, or a
+ * refusal.
  *
- * A write that cannot be made conditional — because the account stated no state
- * — is a write that would silently replace one another writer just made, so it
- * is refused rather than sent unconditionally, the same `no_state` refusal the
- * installation document's own writer makes. One helper, so every workorder
- * write refuses the same way.
+ * The shared helper's sentence and code, raised as this door's own error
+ * (`adminSession.ts`); `requireState(state)` stays the shape every workorder
+ * write calls, so only the error type is this module's.
  */
 export function requireState(state: string): string {
-  if (!state)
-    throw new WorkorderAdminError(
-      "no_state",
-      "The account holding these workorders would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
-      502,
-    );
-  return state;
+  return requireStateWith(
+    state,
+    (code, message, status) => new WorkorderAdminError(code, message, status),
+  );
 }
 
 /* ------------------------------------------------------------------ */

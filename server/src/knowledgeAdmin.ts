@@ -22,7 +22,11 @@
  * authenticated session, never from the request.
  */
 
-import { openMasterAccount, openMasterSession } from "./adminSession.js";
+import {
+  openMasterAccount,
+  openMasterSession,
+  requireState as requireStateWith,
+} from "./adminSession.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
   appFolderState,
@@ -93,22 +97,18 @@ export class KnowledgeAdminError extends Error {
 }
 
 /**
- * The account's FileNode state as the conditional-write token, or a refusal.
+ * The account's FileNode state as the KB's conditional-write token, or a
+ * refusal.
  *
- * A write that cannot be made conditional — because the account stated no state
- * — is a write that would silently replace one another writer just made, so it
- * is refused rather than sent unconditionally, the same `no_state` refusal the
- * installation document's own writer makes. One helper, so every KB write
- * refuses the same way.
+ * The shared helper's sentence and code, raised as this door's own error
+ * (`adminSession.ts`); `requireState(state)` stays the shape every KB write
+ * calls, so only the error type is this module's.
  */
 export function requireState(state: string): string {
-  if (!state)
-    throw new KnowledgeAdminError(
-      "no_state",
-      "The account holding this knowledge base would not state the state of its Files, so this write could not be made conditional — and a write that cannot be refused when the document moved is a write that can replace one somebody else just made. Nothing was written.",
-      502,
-    );
-  return state;
+  return requireStateWith(
+    state,
+    (code, message, status) => new KnowledgeAdminError(code, message, status),
+  );
 }
 
 /**
