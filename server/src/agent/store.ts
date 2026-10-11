@@ -887,21 +887,39 @@ export class AgentStore {
    * Write the entries this account could not write earlier, oldest first.
    *
    * Entries that fail again stay queued. Returns how many are still waiting,
-   * so the caller can say so instead of leaving the trail quietly short.
+   * so the caller can say so instead of leaving the trail quietly short. One
+   * entry whose month document is permanently unreadable is left queued and
+   * moved to the end, so a single poisoned month cannot block or lose every
+   * entry behind it.
    */
   async flushPendingAudits(): Promise<number> {
     let waiting = pendingAudits(this.accountId);
-    while (waiting.length) {
+    // One pass touches each entry at most once: an entry that keeps failing is
+    // requeued, not retried in a loop that would never end.
+    let budget = waiting.length;
+    while (waiting.length && budget-- > 0) {
       const entry = waiting[0];
       if (!entry) break;
       const rest = waiting.slice(1);
       const month = monthOf(new Date(entry.at));
       const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
-      if (!(await this.tryAppendAudit(entry, path, month))) return waiting.length;
+      let ok = false;
+      try {
+        ok = await this.tryAppendAudit(entry, path, month);
+      } catch (err) {
+        if (!(err instanceof AgentDocumentError)) throw err;
+        // The month's document is not the shape this build writes, and it is
+        // never replaced: keep the entry (at the end, so it does not block the
+        // others) and carry on with the rest.
+        waiting = [...rest, entry];
+        setPendingAudits(this.accountId, waiting);
+        continue;
+      }
+      if (!ok) return waiting.length;
       waiting = rest;
       setPendingAudits(this.accountId, rest);
     }
-    return 0;
+    return waiting.length;
   }
 
   /* ---------------- agents (agent account) ---------------- */
