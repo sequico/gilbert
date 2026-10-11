@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { JSCalendarEvent } from "@/jmap/types";
-import { parseIcs, toIcs } from "@/lib/ics";
+import { parseIcs, toIcs, zoneTransitions } from "@/lib/ics";
 
 /*
  * Writing iCalendar out of the server's RFC 8984 objects.
@@ -103,12 +103,23 @@ describe("recurrence", () => {
     expect(one(e, "RRULE")).toBe("RRULE:FREQ=MONTHLY;INTERVAL=2;COUNT=5");
   });
 
-  it("measures UNTIL in UTC, so a series does not stop a day early elsewhere", () => {
+  it("converts UNTIL from the event's zone to UTC, so a series does not stop a day early elsewhere", () => {
+    // 09:00 in Berlin on 30 December is 08:00 UTC: the value in the rule is a
+    // local time in the event's zone, and only the instant may carry the Z.
     const e = {
       ...base,
       recurrenceRule: { frequency: "weekly" as const, until: "2026-12-30T09:00:00" },
     };
-    expect(one(e, "RRULE")).toBe("RRULE:FREQ=WEEKLY;UNTIL=20261230T090000Z");
+    expect(one(e, "RRULE")).toBe("RRULE:FREQ=WEEKLY;UNTIL=20261230T080000Z");
+  });
+
+  it("leaves a floating series' UNTIL floating, with no Z to claim a zone", () => {
+    const e = {
+      ...base,
+      timeZone: null,
+      recurrenceRule: { frequency: "weekly" as const, until: "2026-12-30T09:00:00" },
+    };
+    expect(one(e, "RRULE")).toBe("RRULE:FREQ=WEEKLY;UNTIL=20261230T090000");
   });
 
   it("measures UNTIL as a date when the series is all-day", () => {
@@ -172,6 +183,26 @@ describe("the rest of an event", () => {
     // backslash before each of the two characters the format reserves.
     expect(one(e, "SUMMARY")).toBe("SUMMARY:Budget\\; Q4\\, final");
     expect(one(e, "DESCRIPTION")).toBe("DESCRIPTION:line one\\nline two");
+  });
+
+  it("escapes a lone carriage return, not only a CRLF", () => {
+    expect(one({ ...base, title: "one\rtwo" }, "SUMMARY")).toBe("SUMMARY:one\\ntwo");
+  });
+
+  it("escapes every inserted value, so a shared event cannot forge a line or a component", () => {
+    const e = {
+      ...base,
+      uid: "uid@example.org\r\nSUMMARY:injected",
+      color: "#FF0000\r\nEND:VEVENT",
+      organizerCalendarAddress: "mailto:chair@example.org\r\nX-Organizer: 1",
+      virtualLocations: { v1: { uri: "https://meet.example.org/abc\r\nX-Url: 1" } },
+    } as JSCalendarEvent;
+    const l = lines([e]);
+    // None of the carriage returns became a line of its own.
+    expect(l).toContain("UID:uid@example.org\\nSUMMARY:injected");
+    expect(l.some((x) => x === "SUMMARY:injected")).toBe(false);
+    expect(l.filter((x) => x === "END:VEVENT")).toHaveLength(1);
+    expect(l.some((x) => x === "X-Organizer: 1" || x === "X-Url: 1")).toBe(false);
   });
 
   it("folds a long line rather than writing it past the limit", () => {
@@ -379,5 +410,37 @@ describe("the zones an export names", () => {
   it("puts the definitions before the events that use them", () => {
     const l = lines([inZone("a", "Europe/Berlin")]);
     expect(l.indexOf("BEGIN:VTIMEZONE")).toBeLessThan(l.indexOf("BEGIN:VEVENT"));
+  });
+});
+
+/*
+ * The transition scan itself, over an offset function the test owns. A zone in
+ * the real database whose rules put two changes close together is rare enough
+ * that hoping one turns up is not a test; a synthetic offset can state the case
+ * exactly -- a change and a change back inside one window, which a scan wider
+ * than the gap would read as no change at all.
+ */
+describe("finding a zone's transitions", () => {
+  const DAY = 24 * 3600 * 1000;
+
+  it("finds a change and a change back inside one window", () => {
+    const start = Date.UTC(2026, 0, 1);
+    const at = (day: number) => start + day * DAY;
+    const offsetAt = (d: Date) => {
+      const t = d.getTime();
+      if (t >= at(5) && t < at(12)) return 120;
+      if (t >= at(20) && t < at(35)) return 60;
+      return 0;
+    };
+
+    const transitions = zoneTransitions(offsetAt, start, start + 40 * DAY);
+
+    expect(transitions.map((x) => x.at)).toEqual([at(5), at(12), at(20), at(35)]);
+    expect(transitions.map((x) => [x.from, x.to])).toEqual([
+      [0, 120],
+      [120, 0],
+      [0, 60],
+      [60, 0],
+    ]);
   });
 });

@@ -24,7 +24,7 @@ import type {
   JSCalendarRecurrenceRule,
 } from "@/jmap/types";
 import { foldLine, unfoldLines } from "./contentLines";
-import { tzOffsetMs, zoneFormatter } from "./dates";
+import { tzOffsetMs, zonedToDate, zoneFormatter } from "./dates";
 
 /** One `VALARM` an event carries: a `DISPLAY` reminder, and when it fires. */
 export interface IcsAlarm {
@@ -408,13 +408,18 @@ function windowFor(events: JSCalendarEvent[]): [number, number] {
   return [first - 1, last + 10];
 }
 
-/** RFC 5545 escaping. A comma and a semicolon separate values, so both go. */
+/**
+ * RFC 5545 escaping. A comma and a semicolon separate values, so both go; a
+ * line break becomes its `\n` escape, whatever the break is -- a lone CR is as
+ * much a line break to a reader as CRLF is, and leaving one raw would let a
+ * value start a line of its own.
+ */
 function escText(s: string): string {
   return s
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
+    .replace(/\r\n|[\r\n]/g, "\\n");
 }
 
 /** "2026-09-02T09:00:00" -> "20260902T090000"; the date half alone for all-day. */
@@ -478,7 +483,7 @@ function vevent(
 ): string[] {
   const allDay = Boolean(e.showWithoutTime);
   const tz = allDay ? null : e.timeZone;
-  const out = ["BEGIN:VEVENT", `UID:${e.uid}`];
+  const out = ["BEGIN:VEVENT", `UID:${escText(e.uid)}`];
 
   /* DTSTAMP is required and means "when this description was made", which for
      an export is the last time the event changed. */
@@ -511,7 +516,8 @@ function vevent(
   const link = Object.values(e.links ?? {})
     .map((l) => l.href)
     .filter(Boolean)[0];
-  if (virtual ?? link) out.push(`URL:${virtual ?? link}`);
+  const url = virtual ?? link;
+  if (url) out.push(`URL:${escText(url)}`);
 
   const categories = [
     ...Object.keys(e.keywords ?? {}),
@@ -528,10 +534,10 @@ function vevent(
   if (e.sequence != null) out.push(`SEQUENCE:${e.sequence}`);
   if (e.created) out.push(`CREATED:${utcStamp(e.created)}`);
   if (e.updated) out.push(`LAST-MODIFIED:${utcStamp(e.updated)}`);
-  if (e.color) out.push(`COLOR:${e.color}`);
+  if (e.color) out.push(`COLOR:${escText(e.color)}`);
 
   const organizer = e.organizerCalendarAddress ?? e.replyTo?.imip;
-  if (organizer) out.push(`ORGANIZER:${organizer}`);
+  if (organizer) out.push(`ORGANIZER:${escText(organizer)}`);
   for (const p of Object.values(e.participants ?? {})) {
     const address = participantAddress(p);
     if (!address) continue;
@@ -543,7 +549,9 @@ function vevent(
       p.roles?.chair ? "ROLE=CHAIR" : p.roles?.optional ? "ROLE=OPT-PARTICIPANT" : "",
       p.expectReply ? "RSVP=TRUE" : "",
     ].filter(Boolean);
-    out.push(`ATTENDEE${params.length ? `;${params.join(";")}` : ""}:${address}`);
+    out.push(
+      `ATTENDEE${params.length ? `;${params.join(";")}` : ""}:${escText(address)}`,
+    );
   }
 
   /* Stalwart 0.16 names a single rule `recurrenceRule`; RFC 8984 says
@@ -552,7 +560,7 @@ function vevent(
     ...(e.recurrenceRules ?? []),
     ...(e.recurrenceRule ? [e.recurrenceRule] : []),
   ]) {
-    out.push(`RRULE:${rrule(rule, allDay)}`);
+    out.push(`RRULE:${rrule(rule, allDay, tz)}`);
   }
   const excluded: string[] = [];
   const modified: Array<[string, Record<string, unknown>]> = [];
@@ -623,15 +631,15 @@ const DAYS: Record<string, string> = {
   su: "SU",
 };
 
-function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
+function rrule(
+  r: JSCalendarRecurrenceRule,
+  allDay: boolean,
+  tz: string | null | undefined,
+): string {
   const parts = [`FREQ=${FREQ[r.frequency] ?? r.frequency.toUpperCase()}`];
   if (r.interval && r.interval !== 1) parts.push(`INTERVAL=${r.interval}`);
   if (r.count != null) parts.push(`COUNT=${r.count}`);
-  /* UNTIL has to match DTSTART's kind: a date for an all-day series, and a UTC
-     instant otherwise. Sending a local time here is the classic way to make a
-     series stop on the wrong day in another zone. */
-  if (r.until)
-    parts.push(`UNTIL=${allDay ? stamp(r.until, true) : `${stamp(r.until)}Z`}`);
+  if (r.until) parts.push(`UNTIL=${untilValue(r.until, allDay, tz)}`);
   if (r.byDay?.length)
     parts.push(
       `BYDAY=${r.byDay.map((d) => `${d.nthOfPeriod ?? ""}${DAYS[d.day] ?? d.day.toUpperCase()}`).join(",")}`,
@@ -647,6 +655,27 @@ function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
   if (r.firstDayOfWeek)
     parts.push(`WKST=${DAYS[r.firstDayOfWeek] ?? r.firstDayOfWeek.toUpperCase()}`);
   return parts.join(";");
+}
+
+/**
+ * The `UNTIL` value, in the type DTSTART requires.
+ *
+ * RFC 5545 (§3.3.10) makes UNTIL match DTSTART's value type, and RFC 8984
+ * states the server's `until` as a LocalDateTime in the event's own zone. So an
+ * all-day series ends on a date, a floating series ends at the same floating
+ * wall clock, and a series with a zone ends at a *UTC* instant -- the instant
+ * its local end names, converted, never the local number with a `Z` bolted on.
+ * Appending the `Z` without converting is what stops a series a day early (or
+ * late) for everyone whose zone is not the one the event is written in.
+ */
+function untilValue(
+  local: string,
+  allDay: boolean,
+  tz: string | null | undefined,
+): string {
+  if (allDay || !tz) return stamp(local, allDay);
+  const at = zonedToDate(local, tz);
+  return Number.isNaN(at.getTime()) ? stamp(local) : utcStamp(at.toISOString());
 }
 
 /* ------------------------------------------------------------------ */
@@ -665,9 +694,8 @@ function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
  *
  * Shipping a zone database is not the price of that either. The browser has the
  * IANA database already, behind `Intl`, and an offset for an instant is a
- * formatting question. Transitions are found by looking for the months where
- * the answer changes and bisecting inside them, rather than by knowing any
- * rules.
+ * formatting question. Transitions are found by stepping a day at a time and
+ * bisecting the day whose answer changes, rather than by knowing any rules.
  *
  * Each transition is written as its own dated sub-component instead of as an
  * RRULE. It is more lines and no cleverness: a rule has to be *derived*, and a
@@ -686,30 +714,8 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
 
   const start = Date.UTC(fromYear, 0, 1);
   const end = Date.UTC(toYear, 11, 31);
-  const MONTH = 30 * 24 * 3600 * 1000;
-
-  const transitions: Array<{ at: number; from: number; to: number }> = [];
-  let prev = offsetAt(new Date(start));
-  const firstOffset = prev;
-  for (let t = start; t < end; t += MONTH) {
-    const next = Math.min(t + MONTH, end);
-    const here = offsetAt(new Date(next));
-    if (here === prev) continue;
-    // Somewhere in this month. Bisect to the minute, which is finer than any
-    // transition anybody has ever scheduled.
-    let lo = t;
-    let hi = next;
-    // All the way down, rather than to the nearest second and rounded: rounding
-    // the wrong way writes a 02:00 change as 02:00:01, and thirty more halvings
-    // of a range that is already one month is nothing.
-    while (hi - lo > 1) {
-      const mid = lo + Math.floor((hi - lo) / 2);
-      if (offsetAt(new Date(mid)) === prev) lo = mid;
-      else hi = mid;
-    }
-    transitions.push({ at: hi, from: prev, to: here });
-    prev = here;
-  }
+  const firstOffset = offsetAt(new Date(start));
+  const transitions = zoneTransitions(offsetAt, start, end);
 
   const out = ["BEGIN:VTIMEZONE", `TZID:${tzid}`];
   if (!transitions.length) {
@@ -743,6 +749,48 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
   }
   out.push("END:VTIMEZONE");
   return out;
+}
+
+/**
+ * Every offset change of a zone between two instants.
+ *
+ * A day at a time, not a month. A window wider than the gap between two changes
+ * can contain both and end on the offset it started from, and comparing its ends
+ * would then report no change at all -- which is how a zone that shifts and
+ * shifts back inside the window loses both transitions. A day is shorter than
+ * any gap the IANA database schedules, so at most one change falls in a step,
+ * and the bisection inside it lands on the millisecond.
+ *
+ * Exported for the transition scan's own test: a zone whose rules put two
+ * changes close together is rare enough in the real database that it is worth
+ * pinning with a synthetic offset instead of hoping one turns up.
+ */
+export function zoneTransitions(
+  offsetAt: (d: Date) => number,
+  start: number,
+  end: number,
+): Array<{ at: number; from: number; to: number }> {
+  const DAY = 24 * 3600 * 1000;
+  const transitions: Array<{ at: number; from: number; to: number }> = [];
+  let prev = offsetAt(new Date(start));
+  for (let t = start; t < end; t += DAY) {
+    const next = Math.min(t + DAY, end);
+    const here = offsetAt(new Date(next));
+    if (here === prev) continue;
+    // Somewhere in this day. Bisect all the way down rather than to the nearest
+    // second and rounded: rounding the wrong way writes a 02:00 change as
+    // 02:00:01, and some thirty halvings of a day is nothing.
+    let lo = t;
+    let hi = next;
+    while (hi - lo > 1) {
+      const mid = lo + Math.floor((hi - lo) / 2);
+      if (offsetAt(new Date(mid)) === prev) lo = mid;
+      else hi = mid;
+    }
+    transitions.push({ at: hi, from: prev, to: here });
+    prev = here;
+  }
+  return transitions;
 }
 
 /**
