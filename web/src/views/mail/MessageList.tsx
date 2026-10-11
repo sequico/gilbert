@@ -1394,7 +1394,7 @@ export const Row = memo(function Row({
             ev.stopPropagation();
             onStar(e.id, !starred);
           }}
-          aria-label={starred ? "Unstar" : "Star"}
+          aria-label={starred ? t("Unstar") : t("Star")}
         >
           <Star size={18} fill={starred ? "currentColor" : "none"} />
         </button>

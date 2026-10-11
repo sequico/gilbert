@@ -49,6 +49,9 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // A constant label translated where it renders (the GroupAgents tab strip):
+    // the English is the catalogue key, as its siblings are.
+    "Knowledge": "Знания",
     "Mention a member": "Упомянуть участника",
     "Go to folder…": "Перейти к папке…",
     "Set for everyone here. You cannot change this.":

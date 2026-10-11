@@ -24,6 +24,9 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    // A constant label translated where it renders (`GroupAgents`'s tab strip):
+    // the English is the catalogue key, as its siblings are.
+    Knowledge: "Conoscenza",
     // ── App install and update ─────────────────────────────────────────
     "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
       "Gilbert è già installato su questo dispositivo. Apri l'app dalla sua icona nella schermata Home.",
