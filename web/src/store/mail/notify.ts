@@ -3,6 +3,7 @@ import type { Email, GetResponse, Id } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
 import { inboxOf } from "@/lib/mailAccounts";
 import { playNewMailSound, showNotification } from "@/lib/notify";
+import { useSession } from "../session";
 import { settings } from "../settings";
 import type { MailState } from "./types";
 
@@ -140,3 +141,16 @@ export async function notifyGroupMail(
     get().mailAccounts.find((a) => a.accountId === accountId)?.name ?? accountId;
   for (const e of fresh) announceMail(e, inbox, `${senderName(e)} · ${name}`);
 }
+
+/**
+ * A session ending forgets which messages were announced.
+ *
+ * The sets are module state: left as they are, an id that recurs in a later
+ * session, or another account in the same tab, would go unannounced. The same
+ * sign-out pattern the per-account stores use clears them.
+ */
+useSession.subscribe((s, prev) => {
+  if (s.status === "authenticated" || prev.status !== "authenticated") return;
+  announcedMail.clear();
+  announcedGroupMail.clear();
+});
