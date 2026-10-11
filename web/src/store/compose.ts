@@ -1173,7 +1173,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
   },
 
   async flushPendingSends() {
-    const pending = Object.values(get().pendingSends);
+    // Only the sends still inside their undo window: one already started (the
+    // window closed, the submission under way) must not be run a second time —
+    // signing out mid-send would otherwise submit the same message twice.
+    const pending = Object.values(get().pendingSends).filter((p) => !p.started);
     for (const p of pending) {
       window.clearTimeout(p.timer);
       toast.dismiss(p.toastId);
@@ -1764,13 +1767,15 @@ export function sendOutcomeUnknown(err: unknown): boolean {
 /**
  * Destroy a set of messages and report whether the server confirmed it. Used
  * for the copy a failed send created; a refusal is not fatal here, only the
- * reason to stop trusting that the copy is gone.
+ * reason to stop trusting that the copy is gone. A server that refuses per
+ * object answers without throwing — it names the ids it kept in
+ * `notDestroyed` — so the answer is read as well as the throw.
  */
 async function destroyEmails(accountId: Id, ids: Id[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    await client.call("Email/set", { accountId, destroy: ids });
-    return true;
+    const res = await client.call<SetResponse>("Email/set", { accountId, destroy: ids });
+    return Object.keys(res.notDestroyed ?? {}).length === 0;
   } catch {
     return false;
   }
