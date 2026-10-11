@@ -25,7 +25,7 @@ import {
   settingsSyncAvailable,
 } from "@/lib/settingsSync";
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
-import { publishWorkerFacts } from "@/lib/swFacts";
+import { folderIdOfRole, publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import {
   autoEnableWebPush,
@@ -576,8 +576,6 @@ function AuthedApp() {
    * worker will still be reading a week from now, with no tab to correct it.
    * See lib/swFacts.ts.
    */
-  const archiveId = useMail((s) => s.roleId("archive"));
-  const inboxId = useMail((s) => s.roleId("inbox"));
   const mailAccounts = useMail((s) => s.mailAccounts);
   const accountTrees = useMail((s) => s.accountTrees);
   /*
@@ -618,25 +616,24 @@ function AuthedApp() {
           accountId: a.accountId,
           own: true,
           name: ownAddress,
-          inboxId,
-          archiveId,
+          inboxId: folderIdOfRole(accountTrees, a.accountId, "inbox"),
+          archiveId: folderIdOfRole(accountTrees, a.accountId, "archive"),
           chatFolderId: null,
           watermark: "",
         };
-      const tree = Object.values(accountTrees[a.accountId] ?? {});
       const conv = conversations.find((c) => c.accountId === a.accountId && c.folders);
       return {
         accountId: a.accountId,
         own: false,
         name: a.name,
-        inboxId: tree.find((m) => m.role === "inbox")?.id ?? null,
-        archiveId: tree.find((m) => m.role === "archive")?.id ?? null,
+        inboxId: folderIdOfRole(accountTrees, a.accountId, "inbox"),
+        archiveId: folderIdOfRole(accountTrees, a.accountId, "archive"),
         chatFolderId: conv?.folders?.chat ?? null,
         watermark: conv ? conv.nodes.reduce((m, n) => (n.at > m ? n.at : m), "") : "",
       };
     });
     void publishWorkerFacts(accounts, ownAddress);
-  }, [mailAccounts, accountTrees, inboxId, archiveId, languageVersion, chatSignature]);
+  }, [mailAccounts, accountTrees, languageVersion, chatSignature]);
 
   /*
    * Ask for the notification permission where the reader will see it.
@@ -687,13 +684,11 @@ function AuthedApp() {
    */
   const pushTargetSignature = mailAccounts
     .map((a) => {
-      const inbox =
-        a.kind === "own"
-          ? inboxId
-          : (Object.values(accountTrees[a.accountId] ?? {}).find(
-              (m) => m.role === "inbox",
-            )?.id ?? "");
-      return `${a.accountId}:${inbox ?? ""}`;
+      // The own account's Inbox is read from its own tree too: a subscription
+      // built while a group is on screen must still watch the reader's own
+      // Inbox, not the group's.
+      const inbox = folderIdOfRole(accountTrees, a.accountId, "inbox") ?? "";
+      return `${a.accountId}:${inbox}`;
     })
     .join("|");
   const pushTargetSeen = useRef<string | null>(null);

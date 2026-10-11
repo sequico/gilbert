@@ -102,6 +102,25 @@ export async function publishWorkerFacts(
 }
 
 /**
+ * The id of an account's folder by role, read from **that account's own tree**.
+ *
+ * A folder id belongs to one account: the own account's Inbox is the own
+ * account's, never the account on screen. Reading it through the mail store's
+ * `roleId` (which reads the active tree) is how the own account's worker entry
+ * once got a group's Inbox, and sent a notification for own mail into the group
+ * — which held no such conversation.
+ */
+export function folderIdOfRole(
+  trees: Record<string, Record<string, { id: string; role?: string | null }>>,
+  accountId: string,
+  role: string,
+): string | null {
+  for (const folder of Object.values(trees[accountId] ?? {}))
+    if (folder.role === role) return folder.id;
+  return null;
+}
+
+/**
  * Forget the briefing.
  *
  * Signing out is the one moment nothing rewrites it: the accounts the worker

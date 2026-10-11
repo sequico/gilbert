@@ -5,6 +5,7 @@ import { SW_CACHE_NAME } from "@/lib/swCache";
 import {
   clearWorkerFacts,
   FACTS_KEY,
+  folderIdOfRole,
   publishWorkerFacts,
   type WorkerFacts,
 } from "@/lib/swFacts";
@@ -147,5 +148,20 @@ describe("the worker's briefing", () => {
     ] as const) {
       expect(facts.strings[k], `missing ${k}`).toBeTruthy();
     }
+  });
+
+  it("reads a folder id from the account's own tree, never the other's", () => {
+    // The bug this pins: the worker's own-account entry took its Inbox from the
+    // account on screen, so a notification for own mail linked into the group
+    // (which holds no such conversation) and the thread was reported missing.
+    const trees = {
+      own: { oi: { id: "oi", role: "inbox" }, oa: { id: "oa", role: "archive" } },
+      grp: { gi: { id: "gi", role: "inbox" } },
+    };
+    expect(folderIdOfRole(trees, "own", "inbox")).toBe("oi");
+    expect(folderIdOfRole(trees, "own", "archive")).toBe("oa");
+    expect(folderIdOfRole(trees, "grp", "inbox")).toBe("gi");
+    expect(folderIdOfRole(trees, "grp", "archive")).toBeNull();
+    expect(folderIdOfRole(trees, "unknown", "inbox")).toBeNull();
   });
 });
