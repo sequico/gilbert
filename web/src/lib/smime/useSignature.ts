@@ -62,8 +62,15 @@ export function useSignature(
         if (!live) return;
 
         const raw = new Uint8Array(await blob.arrayBuffer());
-        const from = (email.from?.[0]?.email ?? "").toLowerCase();
         const crypto = await verifyMessage(raw);
+        /*
+         * The address the certificate is judged against, and the key a signer
+         * is pinned under, come from inside the signed part -- never from the
+         * message's outer `From`, which is outside the signature and so is
+         * whatever the sender chose to write there. Where the signed part names
+         * no address, there is nothing to judge against and nothing to pin.
+         */
+        const from = (crypto.kind === "intact" ? crypto.from : null) ?? "";
         const stored = useSettings.getState().settings.knownSigners[from];
         // A pin this very message created is not corroboration of it. Treated
         // as absent, so the message that established a signer keeps saying so

@@ -33,6 +33,17 @@ export interface MimePart {
 const CR = 13;
 const LF = 10;
 
+/**
+ * How deep a multipart tree may nest before the message is refused.
+ *
+ * The parser recurses once per nesting level, and the nesting is the sender's
+ * to choose: a message of nested `multipart/mixed` opens would walk the call
+ * stack down rather than be told no. Real mail is three or four levels deep, so
+ * this is far above anything honest and low enough that the refusal arrives as
+ * an error from the parser rather than as a stack overflow.
+ */
+export const MAX_MIME_DEPTH = 32;
+
 function indexOfSeq(hay: Uint8Array, needle: number[], from = 0): number {
   outer: for (let i = from; i + needle.length <= hay.length; i++) {
     for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer;
@@ -86,7 +97,9 @@ export function parseContentType(value: string | undefined): {
 }
 
 /** Parse a message, or a part of one, into a tree. */
-export function parseMime(raw: Uint8Array): MimePart {
+export function parseMime(raw: Uint8Array, depth = 0): MimePart {
+  if (depth > MAX_MIME_DEPTH)
+    throw new Error(`MIME nesting is deeper than ${MAX_MIME_DEPTH} levels`);
   const { bodyAt, headersEnd } = headerEnd(raw);
   const headers = parseHeaders(
     new TextDecoder("utf-8", { fatal: false }).decode(raw.subarray(0, headersEnd)),
@@ -96,7 +109,7 @@ export function parseMime(raw: Uint8Array): MimePart {
   const part: MimePart = { headers, contentType: type, params, body, raw, parts: [] };
 
   if (type.startsWith("multipart/") && params.boundary)
-    part.parts = splitMultipart(body, params.boundary);
+    part.parts = splitMultipart(body, params.boundary, depth);
   return part;
 }
 
@@ -109,7 +122,7 @@ export function parseMime(raw: Uint8Array): MimePart {
  * and fails every signature; dropping one too many does the same. So each part
  * ends at the byte before the CRLF that introduces the next boundary.
  */
-function splitMultipart(body: Uint8Array, boundary: string): MimePart[] {
+function splitMultipart(body: Uint8Array, boundary: string, depth: number): MimePart[] {
   const marker = [...`--${boundary}`].map((c) => c.charCodeAt(0));
   const offsets: number[] = [];
   for (let i = 0; i >= 0 && i < body.length; ) {
@@ -132,7 +145,7 @@ function splitMultipart(body: Uint8Array, boundary: string): MimePart[] {
     let end = offsets[k + 1]!;
     if (end > 0 && body[end - 1] === LF) end--;
     if (end > 0 && body[end - 1] === CR) end--;
-    if (start < end) parts.push(parseMime(body.subarray(start, end)));
+    if (start < end) parts.push(parseMime(body.subarray(start, end), depth + 1));
   }
   return parts;
 }
@@ -179,13 +192,24 @@ export function decodeTransfer(part: MimePart): Uint8Array {
     return out;
   }
   if (encoding === "quoted-printable") {
+    // A line break in quoted-printable is a soft one, encoded as `=` just
+    // before it; removing the pair is the only unfolding the format has.
     const text = new TextDecoder().decode(part.body).replace(/=\r?\n/g, "");
     const out: number[] = [];
     for (let i = 0; i < text.length; i++) {
-      if (text[i] === "=" && i + 2 < text.length) {
-        out.push(parseInt(text.slice(i + 1, i + 3), 16));
-        i += 2;
-      } else out.push(text.charCodeAt(i));
+      if (text[i] !== "=") {
+        out.push(text.charCodeAt(i));
+        continue;
+      }
+      // Every `=` begins a two-hex-digit escape (a literal one is `=3D`). A
+      // malformed escape is refused, not decoded: `parseInt` of junk is NaN,
+      // and a NaN byte is a silent zero the signature would then be checked
+      // against.
+      const hex = text.slice(i + 1, i + 3);
+      if (!/^[0-9A-Fa-f]{2}$/.test(hex))
+        throw new Error("quoted-printable escape is not two hexadecimal digits");
+      out.push(Number.parseInt(hex, 16));
+      i += 2;
     }
     return new Uint8Array(out);
   }

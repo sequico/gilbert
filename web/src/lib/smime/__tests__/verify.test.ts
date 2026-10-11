@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseMime, toCanonicalCrlf } from "../mime";
-import { judge, type KnownSigner, shouldRemember, verifyMessage } from "../verify";
+import {
+  judge,
+  type KnownSigner,
+  shouldRemember,
+  signedFromAddress,
+  verifyMessage,
+} from "../verify";
 import { certCovers } from "../x509";
 
 /**
@@ -132,6 +138,37 @@ describe("what the signature is allowed to mean", () => {
     );
     expect(report.trust).toBeUndefined();
     expect(shouldRemember(report)).toBe(false);
+  });
+});
+
+describe("the address a signature is judged against", () => {
+  it("reads the From inside the signed part, not the outer header", () => {
+    const signed = parseMime(
+      new TextEncoder().encode(
+        "From: Ada Lovelace <ada@example.com>\r\nContent-Type: text/plain\r\n\r\nhi",
+      ),
+    );
+    expect(signedFromAddress(signed)).toBe("ada@example.com");
+
+    const headerless = parseMime(
+      new TextEncoder().encode("Content-Type: text/plain\r\n\r\nhi"),
+    );
+    expect(signedFromAddress(headerless)).toBeNull();
+  });
+
+  it("states no address for a clear-signed message whose signed part names none", async () => {
+    // The fixture's outer headers are outside the signature; the signed part
+    // carries only its Content-Type, so there is no address to judge against.
+    const crypto = await verifyMessage(fixture("signed-rsa.eml"));
+    expect(crypto.kind).toBe("intact");
+    if (crypto.kind !== "intact") return;
+    expect(crypto.from).toBeNull();
+  });
+
+  it("does not call a certificate wrong for an address the signed part never named", async () => {
+    const crypto = await verifyMessage(fixture("signed-rsa.eml"));
+    const report = judge(crypto, "", undefined);
+    expect(report.warnings).not.toContain("address-mismatch");
   });
 });
 

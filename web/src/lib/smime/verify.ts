@@ -23,6 +23,7 @@
  */
 
 import { sameBytes } from "@gilbert/shared/bytes";
+import { parseAddressList } from "@/lib/address";
 import { parseSignedData, type SignerInfo } from "./cms";
 import {
   decodeTransfer,
@@ -56,7 +57,18 @@ export type Crypto =
   | { kind: "none" }
   | { kind: "unsupported"; reason: Reason; detail?: string }
   | { kind: "broken"; reason: Reason; detail?: string }
-  | { kind: "intact"; cert: Certificate; signer: SignerInfo };
+  | {
+      kind: "intact";
+      cert: Certificate;
+      signer: SignerInfo;
+      /**
+       * The sender address the *signed* content names, or null. This, not the
+       * message's outer `From`, is the address a certificate may be judged
+       * against: the outer headers sit outside the signature. `verifyMessage`
+       * always states it; it is optional so a test double may leave it out.
+       */
+      from?: string | null;
+    };
 
 /** What remembering previous signers adds to it. */
 export type Trust = "first-seen" | "same-as-before" | "changed";
@@ -85,6 +97,23 @@ const PKCS7_SIGNATURE = new Set([
   "application/pkcs7-signature",
   "application/x-pkcs7-signature",
 ]);
+
+/**
+ * The sender address the signed part itself names, or null.
+ *
+ * A clear-signed message's signature covers the first part and its headers,
+ * not the outer headers the transport added: the `From:` a reader sees at the
+ * top of an assembled message is outside what was signed, so judging a
+ * certificate against it is a claim the signature does not support. This is the
+ * address from inside the covered bytes, and where the signed part carries no
+ * `From:` of its own there is none, which is the honest answer rather than a
+ * fallback to the header anybody could have written.
+ */
+export function signedFromAddress(part: MimePart): string | null {
+  const raw = part.headers.get("from");
+  if (!raw) return null;
+  return parseAddressList(raw)[0]?.email?.toLowerCase() ?? null;
+}
 
 /** Whether a raw message even claims to be signed — cheap, for deciding to look further. */
 export function looksSigned(root: MimePart): boolean {
@@ -226,7 +255,8 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
       c.serial === signer.serial,
   );
   for (const cert of named ? [named, ...usable.filter((c) => c !== named)] : usable) {
-    if (await signatureHolds(cert, signer)) return { kind: "intact", cert, signer };
+    if (await signatureHolds(cert, signer))
+      return { kind: "intact", cert, signer, from: signedFromAddress(content) };
   }
   return { kind: "broken", reason: "signature-mismatch" };
 }
@@ -311,6 +341,12 @@ export function ecdsaDerToRaw(
 /**
  * Turn a crypto result plus what we remember into something sayable.
  *
+ * `fromAddress` is the address the certificate is measured against, and it must
+ * be the signed content's own (`Crypto.from`), never the message's outer
+ * `From`: the outer header is outside the signature and so is the sender's to
+ * choose. An empty address means the signed content named none, and there is
+ * nothing to measure the certificate against.
+ *
  * Pure, and separate from both the network and the store, so the interesting
  * cases -- a changed signer, a certificate for the wrong address -- are
  * ordinary function calls to test rather than scenarios to stage.
@@ -324,7 +360,12 @@ export function judge(
   if (crypto.kind !== "intact") return { crypto, warnings: [] };
 
   const warnings: Warning[] = [];
-  if (!certCovers(crypto.cert, fromAddress)) warnings.push("address-mismatch");
+  // An empty address is no address to compare: the signed content named none,
+  // and the message's outer `From` is the sender's to choose. Saying the
+  // certificate "covers the wrong address" would claim a comparison nobody
+  // made.
+  if (fromAddress && !certCovers(crypto.cert, fromAddress))
+    warnings.push("address-mismatch");
   if (crypto.cert.notAfter < now) warnings.push("certificate-expired");
   if (crypto.cert.notBefore > now) warnings.push("certificate-not-yet-valid");
 
