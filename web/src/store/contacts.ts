@@ -612,6 +612,16 @@ export function restoreBookPlace() {
 /* One shared-contacts load at a time; several callers may ask at once. */
 let sharedLoadRun: Promise<void> | null = null;
 
+/*
+ * Bumped whenever the session stops being the reader's own.
+ *
+ * A load in flight captured the session it started under, and a sign-out
+ * empties the store; without this an answer that lands afterwards would
+ * repopulate it for whoever signs in next. Every loader captures the epoch at
+ * its start and drops its result when it has moved on.
+ */
+let sessionEpoch = 0;
+
 export const useContacts = create<ContactsState>((set, get) => ({
   accountId: null,
   available: false,
@@ -671,6 +681,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   async loadShared() {
     if (sharedLoadRun) return sharedLoadRun;
     const run = (async () => {
+      const epoch = sessionEpoch;
       const session = useSession.getState();
       const own = session.ownAccountFor(CAP.contacts);
       const s = session.session;
@@ -700,6 +711,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
         /* no directory this load; the rest of the shared books still load */
       }
       if (!accounts.length) {
+        if (epoch !== sessionEpoch) return;
         set({ sharedBooks: directory, sharedCards: cards, sharedLoaded: true });
         restoreBookPlace();
         return;
@@ -790,6 +802,17 @@ export const useContacts = create<ContactsState>((set, get) => ({
        */
       const order = new Map(accounts.map(([id], i) => [id, i]));
       books.sort((a, b) => (order.get(a.accountId) ?? 0) - (order.get(b.accountId) ?? 0));
+      /*
+       * The session may have ended -- or become somebody else's -- while the
+       * shared books were being read. The store holds the previous reader's
+       * shares, so an answer that landed after a sign-out is dropped rather
+       * than written over the empty store.
+       */
+      if (
+        epoch !== sessionEpoch ||
+        own !== useSession.getState().ownAccountFor(CAP.contacts)
+      )
+        return;
       set({
         sharedBooks: [...directory, ...books],
         sharedCards: cards,
@@ -857,7 +880,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     ) {
       set({ selection: { accountId: null, bookId: "all" } });
     }
-    await get().loadShared();
+    await get().reloadShared();
   },
 
   select(selection) {
@@ -944,6 +967,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   async loadBooks() {
     const accountId = get().accountId;
     if (!accountId) return;
+    const epoch = sessionEpoch;
     try {
       const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
         accountId,
@@ -952,9 +976,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
       });
       const books: Record<Id, AddressBook> = {};
       for (const b of res.list) books[b.id] = b;
+      // The account may have changed -- or the reader signed out -- while the
+      // read was in flight; its answer belongs to the session that asked.
+      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
       set({ books, error: null });
       restoreBookPlace();
     } catch (err) {
+      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
       set({ error: (err as Error).message });
     }
   },
@@ -962,6 +990,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   async loadAll() {
     const accountId = get().accountId;
     if (!accountId || get().loading) return;
+    const epoch = sessionEpoch;
     set({ loading: true });
     try {
       const cards: Record<Id, ContactCard> = {};
@@ -996,8 +1025,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
         position += q.ids.length;
         if (q.ids.length < limit || (q.total != null && position >= q.total)) break;
       }
+      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
       set({ cards, cardState, loaded: true, loading: false, error: null });
     } catch (err) {
+      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
       set({ loading: false, error: (err as Error).message });
     }
   },
@@ -1408,7 +1439,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const err = res.notCreated?.b;
     if (err) throw new Error(setErrorMessage(err));
     if (target === own) await get().loadBooks();
-    else await get().loadShared();
+    else await get().reloadShared();
     return res.created!.b!.id;
   },
 
@@ -1430,7 +1461,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     if (target === own) await get().loadBooks();
-    else await get().loadShared();
+    else await get().reloadShared();
   },
 
   async destroyBook(id, accountId) {
@@ -1449,7 +1480,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       await get().loadBooks();
       await get().syncCards();
     } else {
-      await get().loadShared();
+      await get().reloadShared();
     }
   },
 
@@ -1528,7 +1559,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       return { created, updated, alike: 0 };
     } finally {
       if (accountId === get().accountId) await get().syncCards();
-      else await get().loadShared();
+      else await get().reloadShared();
     }
   },
 
@@ -1616,7 +1647,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       return { created, updated, alike };
     } finally {
       if (accountId === get().accountId) await get().syncCards();
-      else await get().loadShared();
+      else await get().reloadShared();
     }
   },
 
@@ -1627,6 +1658,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       set({ principalsLoaded: true });
       return;
     }
+    const epoch = sessionEpoch;
     try {
       const res = await client.chain([
         ["Principal/query", { accountId, limit: 1000 }, "q"],
@@ -1640,9 +1672,11 @@ export const useContacts = create<ContactsState>((set, get) => ({
           "g",
         ],
       ]);
+      if (epoch !== sessionEpoch) return;
       const g = res.get("g")?.[0] as unknown as GetResponse<Principal>;
       set({ principals: g.list, principalsLoaded: true });
     } catch {
+      if (epoch !== sessionEpoch) return;
       set({ principalsLoaded: true });
     }
   },
@@ -1791,12 +1825,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const s = useSession.getState().session;
       const shared = s?.accounts?.[accountId]?.isPersonal === false;
       if (shared && (types.has("AddressBook") || types.has("ContactCard")))
-        void get().loadShared();
+        void get().reloadShared();
       return;
     }
     if (types.has("AddressBook")) {
       void get().loadBooks();
-      void get().loadShared();
+      void get().reloadShared();
     }
     if (types.has("ContactCard") && get().loaded) void get().syncCards();
   },
@@ -1821,6 +1855,7 @@ useSession.subscribe((s) => {
      * their selection into the contact list. Calendar and files clear
      * their shared state the same way.
      */
+    sessionEpoch += 1;
     useContacts.setState({
       accountId: null,
       books: {},
