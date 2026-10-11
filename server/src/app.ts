@@ -1571,7 +1571,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       config.administrationNeedsOwnDevice,
       session.remember,
     );
-  const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
+  /**
+   * The administrator door, in one place: the checks `requireAdmin` performs,
+   * and the same checks a route needs when only one tier of a shared write is
+   * an administration's. It answers a refusal response, or null when the
+   * session may act, and hands the caller's own permission list on for
+   * `outranks`.
+   */
+  const enforceAdmin = async (c: Context<Env>): Promise<Response | null> => {
     try {
       // Registered behind requireSession everywhere; the deref sits inside
       // the try so a mis-registration fails as a controlled response, not a
@@ -1597,9 +1604,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // account has to compare the two permission lists (see `outranks`), and
       // this is the caller's own, read fresh a moment ago.
       c.set("adminPermissions", intro.permissions);
+      return null;
     } catch (err) {
       return upstreamFailure(c, err);
     }
+  };
+
+  const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
+    const refusal = await enforceAdmin(c);
+    if (refusal) return refusal;
     await next();
   };
 
@@ -3009,9 +3022,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       input?: unknown;
     }>(c);
     try {
+      const target = knowledgeTarget(body);
+      // The company tier is an administration write; the group tier is a
+      // member's, and `groupKnowledgeAccount` checks that membership. Writing
+      // the draft of a page that exists is what a member may do, so this one
+      // shared write cannot simply carry `requireAdmin` — the company scope is
+      // gated here instead, on the same door as every other admin route.
+      if (target.scope !== "group") {
+        const refusal = await enforceAdmin(c);
+        if (refusal) return refusal;
+      }
       const summary = await saveDraft(
         c.get("session"),
-        knowledgeTarget(body),
+        target,
         bodyFolder(body),
         knowledgeInput(body?.input),
       );
