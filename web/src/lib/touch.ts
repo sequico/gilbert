@@ -39,6 +39,16 @@ export const PRESS_SLOP = 10;
 /** How far a drag travels before it commits to being horizontal or vertical. */
 export const AXIS_SLOP = 12;
 
+/**
+ * How long the swallow outlives the pointer lift.
+ *
+ * The click a swipe or a long press produces is dispatched in the same turn as
+ * `pointerup`, so the flag has to survive that turn — but no longer. A genuine
+ * touch tap clears it on its own `pointerdown` regardless; this bound is what
+ * stops it eating a click that arrives with no touch of its own.
+ */
+export const SWALLOW_RELEASE_MS = 300;
+
 export type Axis = "x" | "y" | null;
 
 /**
@@ -181,22 +191,56 @@ export function useTouchRow({
    * handler opens the conversation, and a swipe or a long press both end with
    * the finger lifting off the row -- which is a click as far as the browser is
    * concerned, arriving after every pointer event we could cancel from.
+   *
+   * The flag is released a moment after the pointer is lifted. Waiting for
+   * the click, or for the next `pointerdown`, is not enough: a swipe that ends
+   * off the row and a long-press menu closed without a click produce no click,
+   * so the next click -- one with no touch of its own to clear it -- is the one
+   * that gets eaten.
    */
   const swallowClick = useRef(false);
+  const swallowTimer = useRef<number | null>(null);
   const fromTouch = useRef(false);
 
   const clearTimer = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
   };
-  useEffect(() => clearTimer, []);
+  const clearSwallowTimer = () => {
+    if (swallowTimer.current !== null) window.clearTimeout(swallowTimer.current);
+    swallowTimer.current = null;
+  };
+  useEffect(
+    () => () => {
+      clearTimer();
+      clearSwallowTimer();
+    },
+    [],
+  );
+
+  /*
+   * Let the flag go once the gesture's own click has had its turn.
+   *
+   * Clearing it in the handler would be too early -- the browser dispatches
+   * that click in the same turn as `pointerup`, so the row would open on the
+   * swipe meant to act on it. The bound is what keeps the flag from outliving
+   * the gesture it belongs to.
+   */
+  const releaseSwallow = useCallback(() => {
+    clearSwallowTimer();
+    swallowTimer.current = window.setTimeout(() => {
+      swallowTimer.current = null;
+      swallowClick.current = false;
+    }, SWALLOW_RELEASE_MS);
+  }, []);
 
   const reset = useCallback(() => {
     clearTimer();
     start.current = null;
     axis.current = null;
     armed.current = false;
-  }, []);
+    releaseSwallow();
+  }, [releaseSwallow]);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent) => {
@@ -214,6 +258,7 @@ export function useTouchRow({
       };
       axis.current = null;
       armed.current = false;
+      clearSwallowTimer();
       swallowClick.current = false;
       if (onLongPress) {
         timer.current = window.setTimeout(() => {
