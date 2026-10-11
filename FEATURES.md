@@ -227,8 +227,9 @@ has granted it (ADR 0003). For the full design, see
   workbook (`.xls`, `.xlsx`, sheet by sheet — one sheet is one page), a text file
   (`.csv`, `.txt` and the other plain-text types, read as they stand: no delimiter
   parsed, no column named), or an image (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`).
-  Text or workbook longer than 200 000 characters is handed over as its beginning,
-  told so. A page with no text layer is **rasterised** by a WASM PDF engine (no
+  A reading longer than 200 000 characters — a PDF's text layer as much as text or
+  a workbook — is handed over as its beginning, told so; a `.docx` or `.xlsx`
+  whose own archive unpacks past 256 MiB is refused before it is expanded. A page with no text layer is **rasterised** by a WASM PDF engine (no
   canvas, no native build, no child process) and rides the call as volatile
   content in the tail; an image rides the same way as its own bytes, sniffed
   against the formats' magic numbers. A vision request carries images, not
@@ -1687,7 +1688,7 @@ half.
   service worker fetches what it does not hold, three at a time, on each
   navigation. Language catalogues are left out and nothing is fetched ahead when the
   reader asked the browser to save data. The kept copy of the app page is refreshed
-  from every navigation and used only when the network is not there.
+  from every successful HTML navigation and used only when the network is not there.
 - **Stale build reload**: when the server starts serving a build the open tab did
   not come from, the tab reloads itself. The reload is unconditional once the
   versions differ; the version is asked for on a slow poll while visible, on

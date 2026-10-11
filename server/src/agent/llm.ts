@@ -15,13 +15,16 @@
  * them.
  */
 
+import { isIP } from "node:net";
 import { countOrNull } from "../shared/counts.js";
 import { isRecord } from "../shared/json.js";
 import { SEARCH_GRAMMAR } from "../shared/search.js";
+import { isPrivateAddress } from "../imageproxy.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_ACTIONS_MAX,
   AGENT_LOOKUP_KINDS,
   AGENT_MAX_PAGES_DEFAULT,
   type AgentAction,
@@ -33,7 +36,6 @@ import {
   type AgentTrigger,
   agentActionSpec,
   automationLabel,
-  baseUrlProblem,
   isAgentAction,
   isAgentLookup,
   MODEL_MAX_OUTPUT_DEFAULT,
@@ -112,6 +114,37 @@ export interface ModelRequest {
  * model that really does live inside the deployment's network; it is never read
  * from a document an installation wrote.
  */
+/**
+ * Why a provider's base URL may not be used, or null when it may.
+ *
+ * One rule, two doors: the admin route refuses a write with a sentence, and
+ * every call path re-checks the address it is about to send the installation's
+ * key to — a configuration document can be written by hand, restored from a
+ * backup, or written by a build that predates the guard, and the call is where
+ * the key would actually leave. It lives here, not in the shared document
+ * schema, because it reads the address through `net` and the image proxy's
+ * private-range rule, and the schema is imported by the web bundle too.
+ */
+export function baseUrlProblem(baseUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return "base_url_invalid";
+  }
+  if (url.protocol !== "https:") return "base_url_not_https";
+  // The host is parsed rather than matched as text: `net.isIP` says whether it
+  // is an address literal, and `isPrivateAddress` (the image proxy's own rule)
+  // judges loopback, the private IPv4 ranges, unique-local and link-local IPv6,
+  // the unspecified address and an IPv4-mapped IPv6 address by the IPv4 it
+  // carries — spellings a string pattern misses.
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
+    return "base_url_private";
+  if (isIP(host) && isPrivateAddress(host)) return "base_url_private";
+  return null;
+}
+
 export function assertUsableProvider(
   provider: AgentProvider,
   allowPrivate: boolean,
@@ -601,6 +634,14 @@ export async function decideActions(
   const raw = answer.actions;
   if (!Array.isArray(raw))
     throw new Error(`${provider.provider} answered without a list of actions`);
+  // Every read a run makes is bounded, and an answer is an input like any
+  // other: a model that names thousands of actions would queue them all before
+  // a single one ran (ADR 0003).
+  if (raw.length > AGENT_ACTIONS_MAX)
+    throw new Error(
+      `${provider.provider} answered with ${raw.length} actions, more than the ` +
+        `${AGENT_ACTIONS_MAX} a run may queue`,
+    );
   const actions = raw.map((entry) => validateAction(entry, allowed, provider));
   return {
     kind: "actions",

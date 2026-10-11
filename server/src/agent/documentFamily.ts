@@ -57,7 +57,7 @@ export type DocumentErrorCode =
   | "invalid_range"
   /** The document carries no pages at all. */
   | "no_pages"
-  /** The file is larger than one run reads. */
+  /** The file, or the archive it unpacks to, is larger than one run reads. */
   | "document_too_large"
   /** One action would write more pages than it may. */
   | "document_too_many_pages"
@@ -112,12 +112,14 @@ export interface DocumentRead {
    */
   looked: number;
   /**
-   * Whether the reading stopped before the end of a text file or a workbook.
+   * Whether the reading stopped before the end of the document's own text.
    *
-   * A PDF and a `.docx` are bounded by pages, which `looked` and the caller's
-   * `unreadPages` already state. Text has no pages of its own, so the ceiling
-   * that stopped it is named here rather than left to be inferred: a run handed
-   * the beginning of a file has to be told that is what it got (ADR 0003).
+   * A PDF and a `.docx` have pages of their own, so the pages a reading looked
+   * at are `looked` against `pages`; their text layer can still be longer than
+   * the character ceiling, and when it is, this says the text handed over is its
+   * beginning. Text and workbooks have no pages at all, so the ceiling is the
+   * only bound they have either way. A run handed the beginning of a document
+   * has to be told that is what it got (ADR 0003).
    */
   truncated: boolean;
 }
@@ -235,21 +237,21 @@ const MIN_TEXT_LAYER_CHARS = 12;
  * The most text one reading carries, in characters.
  *
  * A file's own bytes are already bounded before this (`AGENT_DOCUMENT_BYTES_MAX`),
- * and that bound is what a PDF's text layer and a `.docx` body live inside. A
- * text file or a workbook is different in kind: its whole content *is* text, so
- * the byte ceiling alone would hand a run megabytes of characters — an input
- * bill with no ceiling of its own. This is that ceiling, and a reading that
- * reaches it says so rather than presenting its beginning as the whole of it
- * (ADR 0003).
+ * but bytes and characters are not the same currency: a text file or a
+ * workbook is text through and through, and a PDF's text layer or a `.docx`
+ * body can be long enough that the byte ceiling would still hand a run
+ * megabytes of characters — an input bill with no ceiling of its own. This is
+ * that ceiling for every kind, and a reading that reaches it says so rather
+ * than presenting its beginning as the whole of it (ADR 0003).
  */
 export const DOCUMENT_TEXT_MAX = 200_000;
 
 /**
  * Cut a reading at the character ceiling, and say whether it was cut.
  *
- * One rule for text files and workbooks alike: a file is read from its start,
- * and what a run is handed is the beginning of it rather than a selection
- * nobody asked for.
+ * One rule for every kind's text: a document is read from its start, and what a
+ * run is handed is the beginning of it rather than a selection nobody asked
+ * for.
  */
 function cutAtCeiling(text: string): { text: string; truncated: boolean } {
   if (text.length <= DOCUMENT_TEXT_MAX) return { text, truncated: false };
@@ -311,16 +313,21 @@ export async function readDocument(
   texts.forEach((text, index) => {
     if (!text.trim()) pixelPages.push(index + 1);
   });
+  // A PDF's text layer is bounded by pages for what is looked at, but the text
+  // it carries can still be longer than the character ceiling, the same as any
+  // other reading: it is cut, and the cut is reported (ADR 0003).
+  const joined = texts
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const cut = cutAtCeiling(joined);
   return {
     kind,
     pages,
-    text: texts
-      .map((text) => text.trim())
-      .filter(Boolean)
-      .join("\n\n"),
+    text: cut.text,
     pixelPages,
     looked: last,
-    truncated: false,
+    truncated: cut.truncated,
   };
 }
 
@@ -409,12 +416,86 @@ async function pdfPageTexts(
 
 /** The text of a `.docx`, through `mammoth`. */
 async function docxText(bytes: Uint8Array): Promise<string> {
+  assertArchiveBound(bytes);
   try {
     const result = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
     return result.value.trim();
   } catch (err) {
     throw unreadable("this .docx", err);
   }
+}
+
+/**
+ * The most a compressed document may unpack to, in bytes.
+ *
+ * A `.docx` and a `.xlsx` are ZIPs, and the library that reads one decompresses
+ * it in memory before a character of it is bounded: the byte ceiling on the
+ * compressed file says what arrives, never what it becomes, so a small archive
+ * can expand into the process's whole memory. The archive's own directory
+ * states every entry's uncompressed size, so the total is refused before
+ * anything is expanded (ADR 0003).
+ */
+export const DOCUMENT_ARCHIVE_BYTES_MAX = 256 * 1024 * 1024;
+
+/** The ZIP records this bound reads: a central-directory entry and the record that ends it. */
+const ZIP_CENTRAL_ENTRY = 0x02014b50;
+const ZIP_END_OF_CENTRAL = 0x06054b50;
+
+/**
+ * Refuse an archive whose own directory says it unpacks to more than one run
+ * reads, before a byte of it is expanded.
+ *
+ * Bytes that are not a ZIP — an older `.xls`, which is not one — have no
+ * directory to read and pass; the libraries that read them are bounded by the
+ * compressed ceiling alone, which is what they were already. An archive whose
+ * sizes this reader cannot trust (ZIP64, or a directory it cannot walk) is
+ * refused rather than expanded on a guess.
+ */
+function assertArchiveBound(bytes: Uint8Array): void {
+  const total = archiveUncompressedTotal(bytes);
+  if (total > DOCUMENT_ARCHIVE_BYTES_MAX)
+    throw new DocumentError(
+      "document_too_large",
+      `this archive unpacks to more than the ${DOCUMENT_ARCHIVE_BYTES_MAX} bytes one run reads`,
+    );
+}
+
+/**
+ * What a ZIP archive's central directory says it holds, in uncompressed bytes:
+ * zero when the bytes are not a ZIP whose directory this reader can trust, and
+ * past any ceiling when a size a 32-bit field cannot carry (ZIP64) leaves the
+ * real total unread here.
+ */
+function archiveUncompressedTotal(bytes: Uint8Array): number {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // The end-of-central-directory record is last but for a trailing comment, so
+  // it is found from the end rather than assumed at a fixed offset.
+  const shortest = 22;
+  let end = -1;
+  const lowest = Math.max(0, bytes.length - (shortest + 0xffff));
+  for (let at = bytes.length - shortest; at >= lowest; at--) {
+    if (view.getUint32(at, true) === ZIP_END_OF_CENTRAL) {
+      end = at;
+      break;
+    }
+  }
+  if (end < 0) return 0;
+  const entries = view.getUint16(end + 10, true);
+  let at = view.getUint32(end + 16, true);
+  let total = 0;
+  for (let i = 0; i < entries; i++) {
+    if (at + 46 > bytes.length || view.getUint32(at, true) !== ZIP_CENTRAL_ENTRY)
+      return Number.POSITIVE_INFINITY;
+    const uncompressed = view.getUint32(at + 24, true);
+    if (uncompressed === 0xffffffff) return Number.POSITIVE_INFINITY;
+    total += uncompressed;
+    at +=
+      46 +
+      view.getUint16(at + 28, true) +
+      view.getUint16(at + 30, true) +
+      view.getUint16(at + 32, true);
+  }
+  return total;
 }
 
 /**
@@ -444,6 +525,7 @@ function textFile(bytes: Uint8Array): string {
  * evaluates or writes anything.
  */
 function sheetRead(bytes: Uint8Array, maxPages: number): DocumentRead {
+  assertArchiveBound(bytes);
   let book: XLSX.WorkBook;
   try {
     book = XLSX.read(Buffer.from(bytes), { type: "buffer", cellDates: true });

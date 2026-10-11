@@ -168,7 +168,9 @@ Every call requests `response_format: json_object` (so the answer parses)
 and a maximum output token bound, and sends `temperature: 0` — which a
 reasoning model in thinking mode simply ignores, so it buys nothing on its
 own. What makes a run repeatable is the JSON shape, the allowlist that
-refuses anything ungranted, and the trail recording exactly what setting a
+refuses anything ungranted, the bounds one answer is held to (the token
+ceiling and `AGENT_ACTIONS_MAX` queued actions, both refused rather than
+spent), and the trail recording exactly what setting a
 run used, never the temperature. Thinking is a per-agent parameter
 (`GILBERT_AGENT_THINKING`), set beside its poll interval and lease, so one
 agent can reason and another can run cheaply; a takeover can change which
@@ -276,10 +278,14 @@ numbers rather than trusted from its name, ride the call as that one page.
 rather than passing a part off as the whole. A PDF's pages with no text layer
 are named; a workbook is read sheet by sheet, one sheet counting as one page,
 so the sheets past the run's page bound are left out and the gap is readable
-in `looked` against `pages`; a text file or a workbook that runs past the
-character ceiling (`DOCUMENT_TEXT_MAX`, 200 000) is handed over as the
-beginning of itself with `truncated` true, because a file's whole content
-being text is exactly the case the byte ceiling does not bound. A spreadsheet
+in `looked` against `pages`; a reading — a PDF's text layer as much as a text
+file or a workbook — that runs past the character ceiling
+(`DOCUMENT_TEXT_MAX`, 200 000) is handed over as the beginning of itself with
+`truncated` true, because the byte ceiling bounds what arrives and not what a
+document says. A `.docx` and a `.xlsx` are ZIPs, and the library that expands
+one in memory has no bound of its own, so an archive whose own directory
+claims more than `DOCUMENT_ARCHIVE_BYTES_MAX` (256 MiB) unpacks to is refused
+before a byte of it is expanded. A spreadsheet
 is read as the text its cells store — a number as a number, a date as the
 date it says, a formula's cached value — since nothing in this family
 evaluates one. A `.csv` is text and is read as it stands: no delimiter is

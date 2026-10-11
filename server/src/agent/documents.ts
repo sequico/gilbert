@@ -2292,32 +2292,15 @@ export function isModelMaxOutput(x: unknown): x is number {
 }
 
 /**
- * Why a provider's base URL may not be used, or null when it may.
+ * How many actions one model answer may queue (ADR 0003).
  *
- * One rule, two doors: the admin route refuses a write with a sentence, and
- * every call path re-checks the address it is about to send the installation's
- * key to — a configuration document can be written by hand, restored from a
- * backup, or written by a build that predates the guard, and the call is where
- * the key would actually leave.
+ * Every read a run makes is bounded, and an answer is an input like any other:
+ * a model that names thousands of actions would queue them all before a single
+ * one of them ran. A run reads one item and answers with a handful, so the
+ * ceiling is small, and an answer past it is refused in the same voice as every
+ * other bound rather than acted on.
  */
-export function baseUrlProblem(baseUrl: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    return "base_url_invalid";
-  }
-  if (url.protocol !== "https:") return "base_url_not_https";
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  const privateHost =
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".internal") ||
-    host === "::1" ||
-    /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) ||
-    /^(f[cd][0-9a-f]{2}:|fe80:)/.test(host);
-  return privateHost ? "base_url_private" : null;
-}
+export const AGENT_ACTIONS_MAX = 20;
 
 export function isAgentProvider(x: unknown): x is AgentProvider {
   if (!x || typeof x !== "object") return false;

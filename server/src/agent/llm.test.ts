@@ -71,9 +71,8 @@ const provider = {
 
 const { assertUsableProvider, callModel, decideActions, providerFor, readProse } =
   await import("./llm.js");
-const { AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } = await import(
-  "./documents.js"
-);
+const { AGENT_ACTIONS_MAX, AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } =
+  await import("./documents.js");
 const { documentContent, renderPages } = await import("./documentFamily.js");
 
 before(async () => {
@@ -446,6 +445,32 @@ test("T2 with no allowed capability cannot decide anything", async () => {
   );
 });
 
+test("an answer that queues more actions than a run may is refused", async () => {
+  /*
+   * A run's reads are bounded and so is its answer: a model that names thousands
+   * of actions would queue every one of them before a single action ran. The
+   * ceiling is small, and an answer past it is refused like every other bound.
+   */
+  answerWith({
+    summary: "s",
+    confidence: 1,
+    actions: Array.from({ length: AGENT_ACTIONS_MAX + 1 }, () => ({ do: "noop" })),
+  });
+  await assert.rejects(
+    () => decideActions(provider, decisionRule, { text: "hi" }, ["noop"]),
+    new RegExp(`more than the ${AGENT_ACTIONS_MAX} a run may queue`),
+  );
+  // Exactly the ceiling is still an answer.
+  answerWith({
+    summary: "s",
+    confidence: 1,
+    actions: Array.from({ length: AGENT_ACTIONS_MAX }, () => ({ do: "noop" })),
+  });
+  const atCeiling = await decideActions(provider, decisionRule, { text: "hi" }, ["noop"]);
+  assert.equal(atCeiling.kind, "actions");
+  assert.equal(atCeiling.actions.length, AGENT_ACTIONS_MAX);
+});
+
 test("the group's standing instruction is read first, and the automation's after it", async () => {
   // Precedence is stated by position (ADR 0003 resolution 17, ADR 0019): the
   // group's own rules of the house, then the instruction this automation
@@ -813,6 +838,27 @@ test("an address inside the network is refused unless the deployment says so", (
   );
   assert.doesNotThrow(() =>
     assertUsableProvider({ ...loopback, baseUrl: "https://api.example.com/v1" }, false),
+  );
+  // The address is parsed, not matched as text: an IPv4-mapped IPv6 address and
+  // the unspecified address are the private places they carry, and a domain that
+  // merely begins with "fc" — a ULA prefix in a *literal* — is not one.
+  assert.throws(
+    () =>
+      assertUsableProvider(
+        { ...loopback, baseUrl: "https://[::ffff:10.0.0.1]/v1" },
+        false,
+      ),
+    /base_url_private/,
+    "an IPv4-mapped IPv6 address is judged by the IPv4 it carries",
+  );
+  assert.throws(
+    () => assertUsableProvider({ ...loopback, baseUrl: "https://[::]/v1" }, false),
+    /base_url_private/,
+    "the unspecified address is not a place to send a key",
+  );
+  assert.doesNotThrow(
+    () => assertUsableProvider({ ...loopback, baseUrl: "https://fc2.com/v1" }, false),
+    "a name that begins with the letters of a ULA prefix is still a name",
   );
 });
 
