@@ -6,6 +6,7 @@ import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jm
 import { listChildrenWithState } from "@/lib/appFolder";
 import { type DropPlan, folderPathKey, foldersNeeded } from "@/lib/dropUpload";
 import {
+  canDropFileNodes,
   directoryCreate,
   fileCreate,
   fileNodeProps,
@@ -1559,6 +1560,12 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async moveMany(ids, parentId) {
     if (!ids.length) return;
+    // One rule for every way in, asked where the move is actually committed:
+    // the drag and the move dialog both ask it, and the store is the choke
+    // point that stops a caller which did not — a move into a node's own
+    // subtree is refused here rather than sent.
+    if (!canDropFileNodes(get().nodes, ids, parentId))
+      throw new Error(translate("That move is not allowed."));
     const accountId = get().accountId!;
     const from = new Set(ids.map((id) => get().nodes[id]?.parentId ?? null));
     await moveNodes(accountId, ids, parentId);
