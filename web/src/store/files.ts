@@ -649,23 +649,34 @@ async function uploadOne(
  * before it may move anything into it, and a page of a larger level would
  * silently plan half a merge.
  *
- * Three ways out, and the third is the point: a page shorter than the ceiling
- * is the last one, a page count that has reached `total` is the last one, and a
- * server that answers the same page twice is a **failure** rather than a loop.
- * The last is not hypothetical caution -- a server ignoring `position` would
- * spin here for ever, and a merge that hangs with a tray row and a Cancel
- * button that does nothing is worse than one that stops and says so.
+ * Three ways out besides a stopped run, and the third is the point: a page
+ * shorter than the ceiling is the last one, a page count that has reached
+ * `total` is the last one, and a server that answers the same page twice is a
+ * **failure** rather than a loop. The last is not hypothetical caution -- a
+ * server ignoring `position` would spin here for ever, and a merge that hangs
+ * with a tray row and a Cancel button that does nothing is worse than one that
+ * stops and says so.
+ *
+ * The signal is checked around every page, because the scan is the merge's
+ * first step and a reader who presses Cancel while it runs means it: the read
+ * in flight rejects on the run's signal and the loop stops before asking again.
  */
-async function readChildren(accountId: Id, parentId: Id | null): Promise<FileNode[]> {
+async function readChildren(
+  accountId: Id,
+  parentId: Id | null,
+  signal?: AbortSignal,
+): Promise<FileNode[]> {
   const out: FileNode[] = [];
   let seenFirst: Id | undefined;
   for (let position = 0; ; ) {
+    signal?.throwIfAborted();
     const { list, total } = await listChildrenWithState(
       accountId,
       parentId,
       fileNodeProps(),
       { position, limit: LEVEL_LIMIT },
     );
+    signal?.throwIfAborted();
     if (!list.length) break;
     if (list[0]!.id === seenFirst)
       throw new Error(
@@ -691,14 +702,15 @@ async function readChildren(accountId: Id, parentId: Id | null): Promise<FileNod
  * descend into is never read at all -- which is the whole reason the tree is a
  * function rather than a snapshot.
  */
-function mergeTree(accountId: Id, root: FileNode): MergeTree {
+function mergeTree(accountId: Id, root: FileNode, signal: AbortSignal): MergeTree {
   const levels = new Map<Id, FileNode[]>();
   return {
     root,
     async childrenOf(parentId) {
+      signal.throwIfAborted();
       const held = levels.get(parentId);
       if (held) return held;
-      const list = await readChildren(accountId, parentId);
+      const list = await readChildren(accountId, parentId, signal);
       levels.set(parentId, list);
       return list;
     },
@@ -880,6 +892,14 @@ const runRow = (
   error,
 });
 
+/*
+ * How many levels are being read at once. `loading` is derived from it rather
+ * than cleared by each call: two levels loaded together are two runs, and the
+ * one that finishes first must not put the spinner away while the other is
+ * still on its way.
+ */
+let childrenLoads = 0;
+
 export const useFiles = create<FilesState>((set, get) => ({
   accountId: null,
   ownAccountId: null,
@@ -1035,6 +1055,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   async loadChildren(parentId) {
     const accountId = get().accountId;
     if (!accountId) return;
+    childrenLoads += 1;
     set({ loading: true });
     try {
       const filter = parentId ? { parentId } : { isTopLevel: true };
@@ -1056,6 +1077,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
       const listed = withoutAppFolder(g.list);
       const keep = new Set(listed.map((n) => n.id));
+      childrenLoads -= 1;
       set((s) => {
         const nodes = { ...s.nodes };
         for (const n of listed) nodes[n.id] = n;
@@ -1065,7 +1087,7 @@ export const useFiles = create<FilesState>((set, get) => ({
             ...s.children,
             [parentId ?? "root"]: q.ids.filter((id) => keep.has(id)),
           },
-          loading: false,
+          loading: childrenLoads > 0,
           error: null,
         };
       });
@@ -1074,7 +1096,8 @@ export const useFiles = create<FilesState>((set, get) => ({
       // account: 0.16 supports parentId/isTopLevel, and quietly loading the
       // whole tree instead would hide a real fault behind a performance cliff
       // nobody would notice.
-      set({ loading: false, error: (err as Error).message });
+      childrenLoads -= 1;
+      set({ loading: childrenLoads > 0, error: (err as Error).message });
     }
   },
 
@@ -1176,8 +1199,8 @@ export const useFiles = create<FilesState>((set, get) => ({
     const dropRow = () => set((s) => ({ runs: s.runs.filter((u) => u.id !== row.id) }));
     try {
       const plan = await planMerge(
-        mergeTree(accountId, merge),
-        mergeTree(accountId, keep),
+        mergeTree(accountId, merge, run.controller.signal),
+        mergeTree(accountId, keep, run.controller.signal),
       );
       if (plan.conflicts.length) {
         /*

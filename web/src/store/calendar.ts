@@ -683,6 +683,14 @@ function onlyKeys<T>(
   return Object.fromEntries(Object.entries(map).filter(([k]) => k in held));
 }
 
+/*
+ * How many windows are being read at once. `loading` is derived from it rather
+ * than cleared by each call: windows loaded together are separate runs, and the
+ * one that finishes first must not take the spinner down while another is
+ * still on its way.
+ */
+let rangeLoads = 0;
+
 /* Shift an event's cached times by `deltaMs` for the optimistic copy of a
    move: the zoned `start`, and — when present — the utc pair that toInstance
    reads first. */
@@ -931,10 +939,24 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         }
       } catch {}
     }
-    set((s) => ({
-      sharedEvents: { ...s.sharedEvents, ...events },
-      sharedRanges: { ...s.sharedRanges, [key]: ids },
-    }));
+    set((s) => {
+      const sharedRanges = { ...s.sharedRanges, [key]: ids };
+      /*
+       * A window's fresh answer replaces what it held: an event the account no
+       * longer returns is dropped rather than kept beside the new key, and so
+       * is anything of a window that has since been dropped. What a held window
+       * still names stays.
+       */
+      const live = new Set<string>();
+      for (const list of Object.values(sharedRanges)) for (const k of list) live.add(k);
+      const held = { ...s.sharedEvents, ...events };
+      const sharedEvents: Record<string, CalendarEvent> = {};
+      for (const k of live) {
+        const e = held[k];
+        if (e) sharedEvents[k] = e;
+      }
+      return { sharedEvents, sharedRanges };
+    });
   },
 
   async loadCalendars() {
@@ -968,7 +990,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     // Loading stands in only for a window with no data yet: a background
     // refresh (after a write or a push) must not flash "loading" over
     // content that is already on screen.
-    if (!get().ranges[key]) set({ loading: true });
+    const shows = !get().ranges[key];
+    if (shows) {
+      rangeLoads += 1;
+      set({ loading: true });
+    }
     const tz = settings().timeZone ?? browserTimeZone;
     try {
       const res = await client.chain([
@@ -1003,6 +1029,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       ]);
       const q = res.get("q")?.[0] as unknown as QueryResponse;
       const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+      if (shows) rangeLoads -= 1;
       set((s) => {
         const events = { ...s.events };
         for (const e of g.list) events[e.id] = e;
@@ -1011,13 +1038,14 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           events,
           ranges,
           sharedRanges: onlyKeys(s.sharedRanges, ranges),
-          loading: false,
+          loading: rangeLoads > 0,
           error: null,
         };
       });
       void get().loadSharedRange(start, end);
     } catch (err) {
-      set({ loading: false, error: (err as Error).message });
+      if (shows) rangeLoads -= 1;
+      set({ loading: rangeLoads > 0, error: (err as Error).message });
     }
   },
 
@@ -1135,8 +1163,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     for (const id of ids) {
       const e = events[id];
       if (!e) continue;
-      const calId = Object.keys(e.calendarIds ?? {})[0];
-      if (calId && hidden[calId]) continue;
+      /*
+       * An event may sit in more than one calendar, and hiding one of them must
+       * not take the event down while another it is in stays visible -- so it is
+       * hidden only when every calendar it names is.
+       */
+      const calIds = Object.keys(e.calendarIds ?? {});
+      if (calIds.length && calIds.every((cal) => hidden[cal])) continue;
       const inst = toInstance(e, calendars, ownAccount);
       if (!inst) continue;
       if (inst.end > start && inst.start < end) out.push(inst);
@@ -1153,8 +1186,9 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       const e = sharedEvents[k];
       if (!e) continue;
       const accountId = accountOfSharedKey(k, e.id);
-      const calId = Object.keys(e.calendarIds ?? {})[0];
-      if (calId && hidden[sharedKey(accountId, calId)]) continue;
+      const calIds = Object.keys(e.calendarIds ?? {});
+      if (calIds.length && calIds.every((cal) => hidden[sharedKey(accountId, cal)]))
+        continue;
       /* Stalwart hands back every calendar in an account the reader can reach,
          with full rights on each, whether or not anybody meant to share it --
          an account linked for its files offered its calendar too. `isSubscribed`
@@ -1173,7 +1207,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           continue;
         theirs[c.calendar.id] = c.calendar;
       }
-      if (calId && !theirs[calId]) continue;
+      if (calIds.length && !calIds.some((cal) => theirs[cal])) continue;
       const inst = toInstance(e, theirs, accountId);
       if (!inst) continue;
       // Ids are unique only within an account, so a key that is the bare id

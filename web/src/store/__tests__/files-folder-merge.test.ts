@@ -415,6 +415,57 @@ describe("merging two folders", () => {
   });
 
   /*
+   * Cancel during the scan, before a single step.
+   *
+   * The row is made before the scan, so the reader can press Cancel while the
+   * two trees are still being read. The run's signal reaches the scan's own
+   * reads, so the walk stops where the reader stopped it: the level under a pair
+   * of same-named folders is never read, no step is planned, and nothing is
+   * written.
+   */
+  it("stops the scan when the run is cancelled before any step", async () => {
+    const keep = node("keep", "Work", "directory", null);
+    const merge = node("merge", "Archive", "directory", null);
+    const s = server([
+      keep,
+      merge,
+      node("kc", "Clients", "directory", "keep"),
+      node("mc", "Clients", "directory", "merge"),
+    ]);
+    open(keep, merge);
+
+    let queries = 0;
+    const releases: Array<() => void> = [];
+    vi.spyOn(client, "chain").mockImplementation((async (callsIn: unknown[]) => {
+      queries += 1;
+      // Hold the first level read, so the cancel lands mid-scan.
+      if (queries === 1) await new Promise<void>((r) => releases.push(r));
+      const [, query] = callsIn[0] as [string, { filter?: Record<string, unknown> }];
+      const filter = query.filter ?? {};
+      const list = s.nodes.filter((n) =>
+        "parentId" in filter ? n.parentId === filter.parentId : n.parentId == null,
+      );
+      return new Map([
+        ["q", [{ ids: list.map((n) => n.id), total: list.length }]],
+        ["g", [{ list, state: "1" }]],
+      ]);
+    }) as never);
+
+    const run = useFiles.getState().mergeFolders("keep", "merge");
+    await vi.waitFor(() => expect(releases).toHaveLength(1));
+    const rows = useFiles.getState().runs;
+    expect(rows).toHaveLength(1);
+    useFiles.getState().cancelRun(rows[0]!.id);
+    releases[0]!();
+    await run;
+
+    expect(s.calls).toEqual([]);
+    // Cancelled in the scan, the descent into "Clients" is never asked for.
+    expect(queries).toBe(2);
+    expect(useFiles.getState().runs).toEqual([]);
+  });
+
+  /*
    * The guard the menu keeps, reached again where the ids are actually used.
    * Nothing is a merge but two folders, and a call that is not one is refused
    * with a sentence rather than a plan.
