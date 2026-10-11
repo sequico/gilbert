@@ -1025,10 +1025,18 @@ export const useContacts = create<ContactsState>((set, get) => ({
         position += q.ids.length;
         if (q.ids.length < limit || (q.total != null && position >= q.total)) break;
       }
-      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
+      if (epoch !== sessionEpoch || get().accountId !== accountId) {
+        // A dropped answer must not leave the spinner up: nothing else clears
+        // `loading`, and `loadAll` refuses to start while it is set.
+        set({ loading: false });
+        return;
+      }
       set({ cards, cardState, loaded: true, loading: false, error: null });
     } catch (err) {
-      if (epoch !== sessionEpoch || get().accountId !== accountId) return;
+      if (epoch !== sessionEpoch || get().accountId !== accountId) {
+        set({ loading: false });
+        return;
+      }
       set({ loading: false, error: (err as Error).message });
     }
   },
@@ -1867,6 +1875,8 @@ useSession.subscribe((s) => {
       sharedCards: {},
       sharedLoaded: false,
       selection: { accountId: null, bookId: "all" },
+      loading: false,
+      error: null,
     });
   }
 });
