@@ -404,7 +404,8 @@ export function UserIdentities() {
           // would have to be rendered back through this administrator's own
           // session, which does not hold that account.
           assets={{
-            storeHtml: (html) => storeAdminSignatureHtml("user", address, html),
+            storeHtml: (html, identityId) =>
+              storeAdminSignatureHtml("user", address, identityId, html),
           }}
         />
       )}

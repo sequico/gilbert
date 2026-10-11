@@ -34,7 +34,7 @@ export interface IdentityAssets {
   /** Upload a pasted/dropped picture for a signature; a same-origin URL back. */
   uploadImage?(file: File): Promise<string>;
   /** Store the full HTML of an over-sized signature; the blob id back. */
-  storeHtml?(html: string): Promise<string>;
+  storeHtml?(html: string, identityId: string): Promise<string>;
 }
 
 /*
@@ -153,7 +153,7 @@ export function IdentityDialog({
           return;
         }
         ({ htmlSignature, textSignature } = buildMarkerSignature(
-          await storeHtml(output),
+          await storeHtml(output, identity.id ?? ""),
           output,
         ));
       }

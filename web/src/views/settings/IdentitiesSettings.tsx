@@ -236,7 +236,7 @@ export function IdentitiesSettings() {
           save={(patch) => useMail.getState().saveIdentity(editing.id ?? null, patch)}
           assets={{
             uploadImage: uploadSignatureImage,
-            storeHtml: storeSignatureHtml,
+            storeHtml: (html, identityId) => storeSignatureHtml(identityId, html),
           }}
         />
       )}

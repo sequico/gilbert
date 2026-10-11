@@ -579,7 +579,10 @@ export function GroupIdentities() {
           save={save}
           // The over-sized copy lands in the group's own Files, which the agent
           // this write acts as is granted on.
-          assets={{ storeHtml: (html) => storeAdminSignatureHtml("group", name, html) }}
+          assets={{
+            storeHtml: (html, identityId) =>
+              storeAdminSignatureHtml("group", name, identityId, html),
+          }}
         />
       )}
     </div>

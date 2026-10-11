@@ -261,11 +261,12 @@ export function fetchMemberAssignment(group: string): Promise<MemberAssignmentVi
 export async function storeAdminSignatureHtml(
   kind: "user" | "group",
   target: string,
+  identityId: string,
   html: string,
 ): Promise<string> {
   const res = await apiFetch<{ blobId: string }>("/api/admin/identities/signature-html", {
     method: "POST",
-    body: JSON.stringify({ kind, target, html }),
+    body: JSON.stringify({ kind, target, identityId, html }),
   });
   return res.blobId;
 }

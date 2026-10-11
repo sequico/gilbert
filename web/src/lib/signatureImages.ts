@@ -37,14 +37,20 @@ export async function uploadSignatureImage(file: File): Promise<string> {
 }
 
 /** Store the full HTML of an over-sized signature in Files; returns the blob id. */
-export async function storeSignatureHtml(html: string): Promise<string> {
+export async function storeSignatureHtml(
+  identityId: string,
+  html: string,
+): Promise<string> {
   const accountId = useSession.getState().ownAccountFor(CAP.filenode);
   if (!accountId || !client.hasCapability(CAP.filenode))
     throw new Error(
       "This signature is too long for the server and the Files feature (needed to store long signatures) is not available.",
     );
   const folderId = await ensureFolder(accountId);
-  const name = `signature-${Date.now()}.html`;
+  // One stable name per identity, so a second over-sized signature does not pile
+  // up a file beside the first; the marker names the blob, not this file.
+  const safe = identityId.replace(/[^A-Za-z0-9._-]/g, "_");
+  const name = `signature-${safe || "default"}.html`;
   const blob = new Blob([html], { type: "text/html" });
   const written = await writeBlobInFolder(accountId, folderId, name, blob, "text/html");
   return written.blobId;
