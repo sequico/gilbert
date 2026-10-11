@@ -206,6 +206,27 @@ describe("header encoding", () => {
       "John <j@e.org>",
     );
   });
+
+  it("strips control characters, so a display name cannot inject a header", () => {
+    const line = formatAddressHeader({
+      name: "Ada\u0000\r\nBcc: evil@example.org",
+      email: "ada@example.org",
+    });
+    expect(line).not.toContain("\r");
+    expect(line).not.toContain("\n");
+    expect(line).toBe('"AdaBcc: evil@example.org" <ada@example.org>');
+  });
+
+  it("folds a long subject so no header line passes the 998-octet limit", () => {
+    const subject = "Quarterly numbers ".repeat(120);
+    const mime = buildMdn({ email: email({ subject }), ...OPTS });
+    const headerBlock = mime.split("\r\n\r\n")[0]!;
+    const headerLines = headerBlock.split("\r\n");
+    expect(Math.max(...headerLines.map((l) => l.length))).toBeLessThanOrEqual(998);
+    // It was folded, not dropped: more than one physical Subject line.
+    expect(mime).toContain("Quarterly numbers");
+    expect(headerLines.some((l) => l.startsWith("Subject:"))).toBe(true);
+  });
 });
 
 describe("rfc5322Date", () => {

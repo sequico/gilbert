@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { archivePath, archiveSegments, groupByArchivePath } from "@/lib/archiveDate";
 
 /**
- * The dates below are written as local-time strings on purpose. The segments
- * follow the reader's timezone, so a test pinned to UTC instants would pass or
- * fail depending on where it ran.
+ * The segments follow the UTC instant the server stored, not the reader's own
+ * clock, so these are pinned to it.
  */
 describe("archiveSegments", () => {
   it("gives the year, and the zero-padded month", () => {
@@ -16,6 +15,14 @@ describe("archiveSegments", () => {
     expect(archiveSegments("2026-01-15T10:00:00", "month")).toEqual(["2026", "01"]);
     expect(archiveSegments("2026-10-15T10:00:00", "month")).toEqual(["2026", "10"]);
     expect(archiveSegments("2026-12-15T10:00:00", "month")).toEqual(["2026", "12"]);
+  });
+
+  it("files by the UTC instant, not the reader's clock", () => {
+    // 00:30 UTC on 1 September is still 31 August in New York: the folder is a
+    // mailbox everyone shares, so it follows the instant, and both readers get
+    // the same tree.
+    expect(archiveSegments("2026-09-01T00:30:00Z", "month")).toEqual(["2026", "09"]);
+    expect(archiveSegments("2026-08-31T23:30:00Z", "month")).toEqual(["2026", "08"]);
   });
 
   it("returns nothing to append when the date cannot be read", () => {

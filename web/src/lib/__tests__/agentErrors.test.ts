@@ -75,6 +75,13 @@ describe("the sentence an admin refusal reads as", () => {
     expect(agentErrorSentence({})).toBeNull();
   });
 
+  it("does not answer for a member of Object.prototype", () => {
+    // `code in table` would find `constructor` and `toString` on the prototype
+    // and hand back a sentence for a code nobody defined.
+    for (const code of ["constructor", "toString", "hasOwnProperty", "__proto__"])
+      expect(agentErrorSentence({ error: code })).toBeNull();
+  });
+
   it("reads its own language when the catalogue carries the sentence", () => {
     setCatalog("it", {
       strings: {

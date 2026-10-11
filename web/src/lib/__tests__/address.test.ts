@@ -30,6 +30,30 @@ describe("address parsing", () => {
     expect(initials({ name: "Grace Hopper", email: "" })).toBe("GH");
     expect(initials({ name: null, email: "linus@kernel.org" })).toBe("LK");
   });
+
+  it("honours a backslash-escaped quote inside a quoted display name", () => {
+    expect(parseAddressList('"C, D \\"the third\\"" <c@z.io>')).toEqual([
+      { name: 'C, D "the third"', email: "c@z.io" },
+    ]);
+  });
+
+  it("strips a comment and a group label, which are not part of the address", () => {
+    expect(parseAddressList("Friends: (the team) ann@x.com, bob@y.com;")).toEqual([
+      { name: null, email: "ann@x.com" },
+      { name: null, email: "bob@y.com" },
+    ]);
+  });
+
+  it("drops a segment that is not a real address", () => {
+    expect(parseAddressList("not an address")).toEqual([]);
+    expect(parseAddressList("Ann <not-an-address>")).toEqual([]);
+  });
+
+  it("strips control characters from a display name before quoting it", () => {
+    expect(formatAddress({ name: "Ada\u0000\nLovelace", email: "a@x.io" })).toBe(
+      "AdaLovelace <a@x.io>",
+    );
+  });
 });
 
 describe("mailto URLs", () => {
@@ -65,6 +89,18 @@ describe("mailto URLs", () => {
       { name: "Smith, John", email: "j@x.io" },
     ]);
     expect(parseMailto("mailto:ann@example.com?subject=100%").subject).toBe("100%");
+  });
+
+  it("decodes a header value once, not twice", () => {
+    // URLSearchParams turns %25 into %, so this value is literally "100%20off";
+    // a second decode would turn the literal %20 into a space.
+    expect(parseMailto("mailto:x@y.io?subject=100%2520off").subject).toBe("100%20off");
+  });
+
+  it("keeps a + in the path, which is an address character and not a space", () => {
+    expect(parseMailto("mailto:user+tag@x.io").to).toEqual([
+      { name: null, email: "user+tag@x.io" },
+    ]);
   });
 
   it("ignores headers it does not understand", () => {

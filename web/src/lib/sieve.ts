@@ -84,6 +84,18 @@ export function sieveString(s: string): string {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ")}"`;
 }
 
+/**
+ * A value placed on a `#` comment line.
+ *
+ * A comment cannot be escaped: a line break in the value would simply start a
+ * second line, and the parser reads a `# rule:` line back as a real rule. So a
+ * break is flattened to one line. The name itself is carried intact in the
+ * JSON comment above, so nothing is lost by flattening the copy below it.
+ */
+export function sieveComment(s: string): string {
+  return s.replace(/\r\n|[\r\n]/g, " ");
+}
+
 function opToSieve(op: HeaderOp): { neg: boolean; match: string } {
   const neg = op.startsWith("not");
   const base = neg ? op.slice(3) : op;
@@ -198,7 +210,7 @@ export function rulesToSieve(rules: SieveRule[]): string {
   for (const r of rules) {
     lines.push(`# rule:${JSON.stringify(r)}`);
     if (!r.enabled) {
-      lines.push(`# (disabled) ${r.name}`);
+      lines.push(`# (disabled) ${sieveComment(r.name)}`);
       lines.push("");
       continue;
     }

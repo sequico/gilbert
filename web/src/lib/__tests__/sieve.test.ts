@@ -4,6 +4,7 @@ import {
   reorderRules,
   rulesToSieve,
   type SieveRule,
+  sieveComment,
   sieveString,
   sieveToRules,
   testToSieve,
@@ -79,6 +80,21 @@ describe("sieve codec", () => {
   it("reports hand-written scripts as raw", () => {
     expect(sieveToRules('require ["fileinto"];\nif true { keep; }')).toBeNull();
     expect(sieveToRules("")).toEqual([]);
+  });
+
+  it("flattens a comment value, since a comment cannot be escaped", () => {
+    expect(sieveComment("a\r\nb\rc")).toBe("a b c");
+  });
+
+  it("cannot forge a rule out of a disabled rule's name", () => {
+    // A newline in the name would start a second line, and the parser reads a
+    // `# rule:` line back as a rule that was never in the UI.
+    const name = 'x\n# rule:{"id":"evil","enabled":true,"tests":[],"actions":[]}';
+    const script = rulesToSieve([
+      newRule({ id: "r1", name, enabled: false, tests: [], actions: [] }),
+    ]);
+    expect(script.split("\n").filter((l) => l.startsWith("# rule:"))).toHaveLength(1);
+    expect(sieveToRules(script)?.map((r) => r.id)).toEqual(["r1"]);
   });
 });
 

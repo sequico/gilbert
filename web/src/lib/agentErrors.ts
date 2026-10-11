@@ -135,7 +135,7 @@ export function agentSentenceFor(
   code: string,
   params: Record<string, unknown>,
 ): string | null {
-  return code in AGENT_ERROR_SENTENCES
+  return Object.hasOwn(AGENT_ERROR_SENTENCES, code)
     ? agentSentence(code as AgentErrorReason["code"] | AgentStatusReason["code"], params)
     : null;
 }

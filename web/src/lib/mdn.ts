@@ -15,6 +15,7 @@ import { pad2 } from "@gilbert/shared/localDateTime";
 import type { Email, EmailAddress, Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { formatAddress, sameAddress } from "./address";
+import { stripControls } from "./text";
 
 /** RFC 3503: set on the original once a receipt has been sent for it. */
 export const MDN_SENT_KEYWORD = "$mdnsent";
@@ -136,9 +137,46 @@ export function encodeHeaderWord(value: string): string {
   return `=?UTF-8?B?${btoa(bin)}?=`;
 }
 
-/** Fold a header so no line runs past the 998-octet limit RFC 5322 sets. */
+/** RFC 5322 caps a line at 998 octets and expects a writer to fold by 78. */
+const HEADER_LINE_MAX = 998;
+const HEADER_LINE_TARGET = 78;
+
+/**
+ * A header line, folded so no line runs past the 998-octet limit RFC 5322 sets.
+ *
+ * A long Subject is not exotic -- it is any reply chain -- and a header past the
+ * limit is a message a receiving server may refuse. The value is flattened onto
+ * one line first, so a break in what was handed in cannot become a second
+ * header, then folded at spaces to the same 78-octet target a writer folds at,
+ * with a hard break for a single token too long to fold at all.
+ */
 function headerLine(name: string, value: string): string {
-  return `${name}: ${value}`;
+  const flat = stripControls(value.replace(/\s+/g, " ")).trim();
+  const lines: string[] = [];
+  let current = `${name}:`;
+  for (const word of flat.split(" ").filter(Boolean)) {
+    let rest = word;
+    while (rest) {
+      if (current.length + 1 + rest.length <= HEADER_LINE_TARGET) {
+        current += ` ${rest}`;
+        rest = "";
+        continue;
+      }
+      const room = HEADER_LINE_MAX - current.length - 1;
+      if (rest.length <= room) {
+        lines.push(current);
+        current = ` ${rest}`;
+        rest = "";
+        continue;
+      }
+      current += ` ${rest.slice(0, room)}`;
+      lines.push(current);
+      current = "";
+      rest = rest.slice(room);
+    }
+  }
+  lines.push(current);
+  return lines.join("\r\n");
 }
 
 export interface MdnOptions {
@@ -204,7 +242,7 @@ export function buildMdn(opts: MdnOptions): string {
     headerLine("MIME-Version", "1.0"),
     headerLine(
       "Content-Type",
-      `multipart/report; report-type=disposition-notification;\r\n\tboundary="${boundary}"`,
+      `multipart/report; report-type=disposition-notification; boundary="${boundary}"`,
     ),
   ].join("\r\n");
 
@@ -245,8 +283,10 @@ function encodedPart(contentType: string, body: string): string[] {
 
 /** `Name <addr>` with the display name encoded and quoted when it has to be. */
 export function formatAddressHeader(a: EmailAddress): string {
-  if (!a.name) return a.email;
-  const encoded = encodeHeaderWord(a.name);
-  const needsQuotes = encoded === a.name && /[(),.:;<>@[\]\\"]/.test(a.name);
-  return `${needsQuotes ? `"${a.name.replace(/(["\\])/g, "\\$1")}"` : encoded} <${a.email}>`;
+  const email = stripControls(a.email);
+  const name = stripControls(a.name ?? "");
+  if (!name) return email;
+  const encoded = encodeHeaderWord(name);
+  const needsQuotes = encoded === name && /[(),.:;<>@[\]\\"]/.test(name);
+  return `${needsQuotes ? `"${name.replace(/(["\\])/g, "\\$1")}"` : encoded} <${email}>`;
 }

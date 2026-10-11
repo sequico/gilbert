@@ -1,5 +1,5 @@
 import type { EmailAddress } from "@/jmap/types";
-import { withoutBidiControls } from "@/lib/text";
+import { stripControls, withoutBidiControls } from "@/lib/text";
 
 const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
 
@@ -8,11 +8,75 @@ export function isValidEmail(s: string): boolean {
 }
 
 /**
+ * Strip RFC 5322 comments — `(...)`, which nest.
+ *
+ * A comment is prose a person added beside an address and is not part of it; a
+ * comma inside one must not split the list either, so this runs before the
+ * split. A parenthesis inside a quoted display name is literal, not a comment,
+ * which is why the quote state is tracked.
+ */
+function stripComments(input: string): string {
+  let out = "";
+  let inQuote = false;
+  let depth = 0;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]!;
+    if (inQuote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < input.length) out += input[++i];
+      else if (ch === '"') inQuote = false;
+      continue;
+    }
+    if (ch === '"') {
+      inQuote = true;
+      out += ch;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      continue;
+    }
+    if (ch === ")") {
+      if (depth > 0) depth--;
+      continue;
+    }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+/**
+ * Drop a group label — the `Team:` of `Team: a@x, b@y;`.
+ *
+ * Only a colon before the address part can be one: a display name carrying a
+ * colon has to be quoted, and a quoted colon is left alone.
+ */
+function stripGroupLabel(segment: string): string {
+  let inQuote = false;
+  for (let i = 0; i < segment.length; i++) {
+    const ch = segment[i]!;
+    if (ch === "\\" && inQuote) {
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      inQuote = !inQuote;
+      continue;
+    }
+    if (ch === "<" || ch === "@") return segment;
+    if (ch === ":" && !inQuote) return segment.slice(i + 1);
+  }
+  return segment;
+}
+
+/**
  * Parse a free-form recipient string ("Ann <ann@x.com>, bob@y.org; \"C, D\" <c@z>")
- * into a list of EmailAddress. Lenient by design.
+ * into a list of EmailAddress. Lenient about the shapes people write, and
+ * strict about the one thing that matters: only a real address is accepted.
  */
 export function parseAddressList(input: string): EmailAddress[] {
   const out: EmailAddress[] = [];
+  const cleaned = stripComments(input);
   let buf = "";
   let inQuote = false;
   let inAngle = false;
@@ -21,7 +85,14 @@ export function parseAddressList(input: string): EmailAddress[] {
     if (a) out.push(a);
     buf = "";
   };
-  for (const ch of input) {
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i]!;
+    // A backslash escape inside a quoted name hides the quote it precedes, so
+    // the state machine must step over the escaped character.
+    if (ch === "\\" && inQuote && i + 1 < cleaned.length) {
+      buf += ch + cleaned[++i];
+      continue;
+    }
     if (ch === '"' && !inAngle) inQuote = !inQuote;
     if (ch === "<" && !inQuote) inAngle = true;
     if (ch === ">" && !inQuote) inAngle = false;
@@ -36,25 +107,29 @@ export function parseAddressList(input: string): EmailAddress[] {
 }
 
 export function parseOne(raw: string): EmailAddress | null {
-  const s = raw.trim();
+  const s = stripGroupLabel(stripComments(raw)).trim();
   if (!s) return null;
   const m = /^(.*?)\s*<([^<>]+)>\s*$/.exec(s);
   if (m) {
+    const email = m[2]!.trim();
+    if (!isValidEmail(email)) return null;
     let name = m[1]!.trim();
     if (name.startsWith('"') && name.endsWith('"'))
       name = name.slice(1, -1).replace(/\\(.)/g, "$1");
-    return { name: name || null, email: m[2]!.trim() };
+    return { name: name || null, email };
   }
-  return { name: null, email: s.replace(/^<|>$/g, "") };
+  const email = s.replace(/^<|>$/g, "").trim();
+  return isValidEmail(email) ? { name: null, email } : null;
 }
 
 export function formatAddress(a: EmailAddress | null | undefined): string {
   if (!a) return "";
-  const clean = a.name ? withoutBidiControls(a.name) : "";
-  if (!clean) return a.email;
+  const email = stripControls(a.email);
+  const clean = a.name ? stripControls(withoutBidiControls(a.name)) : "";
+  if (!clean) return email;
   const needsQuote = /[,;<>"()\\]/.test(clean);
   const name = needsQuote ? `"${clean.replace(/(["\\])/g, "\\$1")}"` : clean;
-  return `${name} <${a.email}>`;
+  return `${name} <${email}>`;
 }
 
 export function formatAddressList(list: EmailAddress[] | null | undefined): string {
@@ -149,8 +224,10 @@ export interface MailtoFields {
  * Parse a `mailto:` URL (RFC 6068) into composer fields.
  *
  * Recipients may sit in the path, in `to=`, or both; headers other than
- * to/cc/bcc/subject/body are ignored. Percent-encoding is undone leniently —
- * a malformed escape yields the raw text rather than throwing.
+ * to/cc/bcc/subject/body are ignored. The path is percent-decoded leniently — a
+ * malformed escape yields the raw text rather than throwing. The header values
+ * are *not* decoded here: `URLSearchParams` already percent-decodes them, and a
+ * second pass would turn a deliberately literal `%2C` in a name into a comma.
  */
 export function parseMailto(url: string): MailtoFields {
   const withoutScheme = url.replace(/^mailto:/i, "");
@@ -161,19 +238,22 @@ export function parseMailto(url: string): MailtoFields {
     for (const [k, v] of params) if (k.toLowerCase() === name) return v;
     return "";
   };
-  const addresses = (raw: string) => (raw.trim() ? parseAddressList(decode(raw)) : []);
+  const addresses = (raw: string) => (raw.trim() ? parseAddressList(raw) : []);
   return {
-    to: [...addresses(path), ...addresses(header("to"))],
+    to: [...addresses(decode(path)), ...addresses(header("to"))],
     cc: addresses(header("cc")),
     bcc: addresses(header("bcc")),
-    subject: decode(header("subject")),
-    body: decode(header("body")),
+    subject: header("subject"),
+    body: header("body"),
   };
 }
 
 function decode(s: string): string {
   try {
-    return decodeURIComponent(s.replace(/\+/g, " "));
+    // No `+`-to-space here: that reading is HTML forms, not RFC 6068, and the
+    // path it is applied to is an address, where `+` is an ordinary character
+    // (`user+tag@example.com`).
+    return decodeURIComponent(s);
   } catch {
     return s;
   }
