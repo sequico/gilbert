@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { htmlToText, quoteText, replySubject, textToHtml } from "../text";
+import { htmlToText, quoteText, replySubject, stripControls, textToHtml } from "../text";
 
 describe("text helpers", () => {
   it("linkifies and escapes", () => {
@@ -25,5 +25,16 @@ describe("text helpers", () => {
     expect(replySubject("Re: Hi", "Re")).toBe("Re: Hi");
     expect(replySubject("Fwd: Hi", "Re")).toBe("Re: Hi");
     expect(replySubject("Hi", "Fwd")).toBe("Fwd: Hi");
+  });
+  it("converts deeply nested html without taking the stack down", () => {
+    // Deep enough that a recursive walk overflows the stack; the explicit job
+    // stack carries it. Building the DOM itself is the slow half, so this
+    // takes a wider timeout than the default.
+    const depth = 2000;
+    const deep = `${"<div>".repeat(depth)}x${"</div>".repeat(depth)}`;
+    expect(htmlToText(deep)).toContain("x");
+  }, 15_000);
+  it("strips C0 controls and DEL but keeps tab", () => {
+    expect(stripControls("a\u0000b\tc\nd\u007Fe")).toBe("ab\tcde");
   });
 });

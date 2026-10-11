@@ -301,6 +301,32 @@ describe("planMerge", () => {
       expect(kinds(steps)).toEqual(["move", "rmdir"]);
     });
   });
+
+  /*
+   * A tree that folds back on itself. The levels are read through the caller's
+   * own function, so a listing that returns a folder already on the path would
+   * otherwise walk for ever; the repeated pair is the loop, and it stops the
+   * merge the same way any other collision does.
+   */
+  it("refuses a tree that folds back into a pair it already entered", async () => {
+    const src = {
+      root: dir("b", "Archive", null),
+      async childrenOf() {
+        return [dir("b1", "Clients", "b")];
+      },
+    };
+    const dst = {
+      root: dir("a", "Work", null),
+      async childrenOf() {
+        return [dir("a1", "Clients", "a")];
+      },
+    };
+
+    const { steps, conflicts } = await planMerge(src, dst);
+
+    expect(steps).toEqual([]);
+    expect(conflicts.map((c) => c.reason)).toContain("loop");
+  });
 });
 
 describe("mergeBlockedMessage", () => {

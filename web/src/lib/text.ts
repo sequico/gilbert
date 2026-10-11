@@ -17,6 +17,20 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Drop the C0 control characters and DEL, keeping tab.
+ *
+ * A header value may not carry a line break, and a NUL or other control is not
+ * text at all: a display name or subject built from one is a header nobody
+ * wrote. Tab is the one control a header may legally carry, so it stays.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate control-character strip
+const C0_CONTROLS = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
+
+export function stripControls(s: string): string {
+  return s.replace(C0_CONTROLS, "");
+}
+
 const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"'()]+[^\s<>"'().,;:!?])/gi;
 /** Finds an address inside a body of text; `isValidEmail` in `@/lib/address` is the anchored check. */
 const EMAIL_SCAN_RE = /\b([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})\b/gi;
@@ -74,52 +88,45 @@ export function htmlToText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("script,style,head,title,noscript").forEach((n) => n.remove());
   const out: string[] = [];
-  const walk = (
-    node: Node,
-    ctx: { pre: boolean; listIndex: number[]; quote: number },
-  ) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const t = node.textContent ?? "";
-      out.push(ctx.pre ? t : t.replace(/\s+/g, " "));
-      return;
+
+  /** What the walk carries down: inside `<pre>`, the open list counters. */
+  type Ctx = { pre: boolean; listIndex: number[] };
+  /*
+   * The walk is an explicit stack rather than recursion. The nesting is the
+   * message's, not ours: a deeply nested body -- a mailing list, a crafted
+   * part -- would otherwise reach the JavaScript stack limit before the DOM
+   * itself complained. Each element becomes a job that runs after its
+   * children, which is what a nested quote or link needs; the state a recursive
+   * walk would hold in stack frames lives in the jobs instead.
+   */
+  type Job =
+    | { kind: "node"; node: Node; ctx: Ctx }
+    | { kind: "raw"; text: string }
+    | { kind: "close-quote"; start: number }
+    | { kind: "close-link"; start: number; href: string }
+    | { kind: "close-cell" };
+
+  const jobs: Job[] = [];
+  const pushChildren = (parent: Node, ctx: Ctx) => {
+    const children = parent.childNodes;
+    for (let i = children.length - 1; i >= 0; i--)
+      jobs.push({ kind: "node", node: children[i]!, ctx });
+  };
+
+  pushChildren(doc.body, { pre: false, listIndex: [] });
+
+  while (jobs.length) {
+    const job = jobs.pop()!;
+    if (job.kind === "raw") {
+      out.push(job.text);
+      continue;
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-    const block =
-      /^(p|div|section|article|header|footer|h[1-6]|ul|ol|li|table|tr|blockquote|pre|hr|br|address|center|dl|dt|dd|form|fieldset|figure|figcaption)$/.test(
-        tag,
-      );
-    if (tag === "br") {
-      out.push("\n");
-      return;
+    if (job.kind === "close-cell") {
+      out.push("\t");
+      continue;
     }
-    if (tag === "hr") {
-      out.push("\n----------\n");
-      return;
-    }
-    if (tag === "img") {
-      const alt = el.getAttribute("alt");
-      if (alt) out.push(`[${alt}]`);
-      return;
-    }
-    if (block && tag !== "li") out.push("\n");
-    if (/^h[1-6]$/.test(tag)) out.push("\n");
-    if (tag === "li") {
-      const parent = el.parentElement;
-      if (parent?.tagName.toLowerCase() === "ol") {
-        const idx = (ctx.listIndex[ctx.listIndex.length - 1] ?? 0) + 1;
-        ctx.listIndex[ctx.listIndex.length - 1] = idx;
-        out.push(`\n${"  ".repeat(Math.max(0, ctx.listIndex.length - 1))}${idx}. `);
-      } else out.push(`\n${"  ".repeat(Math.max(0, ctx.listIndex.length - 1))}- `);
-    }
-    const nextCtx = { ...ctx };
-    if (tag === "pre") nextCtx.pre = true;
-    if (tag === "ul" || tag === "ol") nextCtx.listIndex = [...ctx.listIndex, 0];
-    if (tag === "blockquote") {
-      const start = out.length;
-      el.childNodes.forEach((c) => walk(c, nextCtx));
-      const inner = out.splice(start).join("");
+    if (job.kind === "close-quote") {
+      const inner = out.splice(job.start).join("");
       out.push(
         "\n" +
           inner
@@ -129,34 +136,85 @@ export function htmlToText(html: string): string {
             .join("\n") +
           "\n",
       );
-      return;
+      continue;
     }
-    if (tag === "a") {
-      const href = el.getAttribute("href") ?? "";
-      const start = out.length;
-      el.childNodes.forEach((c) => walk(c, nextCtx));
-      const inner = out.splice(start).join("");
+    if (job.kind === "close-link") {
+      const inner = out.splice(job.start).join("");
       const text = inner.trim();
       if (
-        href &&
-        !href.startsWith("mailto:") &&
+        job.href &&
+        !job.href.startsWith("mailto:") &&
         text &&
-        text !== href &&
-        !href.startsWith("#")
+        text !== job.href &&
+        !job.href.startsWith("#")
       )
-        out.push(`${text} <${href}>`);
+        out.push(`${text} <${job.href}>`);
       else out.push(inner);
-      return;
+      continue;
+    }
+
+    const node = job.node;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const t = node.textContent ?? "";
+      out.push(job.ctx.pre ? t : t.replace(/\s+/g, " "));
+      continue;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    const block =
+      /^(p|div|section|article|header|footer|h[1-6]|ul|ol|li|table|tr|blockquote|pre|hr|br|address|center|dl|dt|dd|form|fieldset|figure|figcaption)$/.test(
+        tag,
+      );
+    if (tag === "br") {
+      out.push("\n");
+      continue;
+    }
+    if (tag === "hr") {
+      out.push("\n----------\n");
+      continue;
+    }
+    if (tag === "img") {
+      const alt = el.getAttribute("alt");
+      if (alt) out.push(`[${alt}]`);
+      continue;
+    }
+    if (block && tag !== "li") out.push("\n");
+    if (/^h[1-6]$/.test(tag)) out.push("\n");
+    if (tag === "li") {
+      const parent = el.parentElement;
+      if (parent?.tagName.toLowerCase() === "ol") {
+        const idx = (job.ctx.listIndex[job.ctx.listIndex.length - 1] ?? 0) + 1;
+        job.ctx.listIndex[job.ctx.listIndex.length - 1] = idx;
+        out.push(`\n${"  ".repeat(Math.max(0, job.ctx.listIndex.length - 1))}${idx}. `);
+      } else out.push(`\n${"  ".repeat(Math.max(0, job.ctx.listIndex.length - 1))}- `);
+    }
+    const nextCtx = { ...job.ctx };
+    if (tag === "pre") nextCtx.pre = true;
+    if (tag === "ul" || tag === "ol") nextCtx.listIndex = [...job.ctx.listIndex, 0];
+    if (tag === "blockquote") {
+      jobs.push({ kind: "close-quote", start: out.length });
+      pushChildren(el, nextCtx);
+      continue;
+    }
+    if (tag === "a") {
+      jobs.push({
+        kind: "close-link",
+        start: out.length,
+        href: el.getAttribute("href") ?? "",
+      });
+      pushChildren(el, nextCtx);
+      continue;
     }
     if (tag === "td" || tag === "th") {
-      el.childNodes.forEach((c) => walk(c, nextCtx));
-      out.push("\t");
-      return;
+      jobs.push({ kind: "close-cell" });
+      pushChildren(el, nextCtx);
+      continue;
     }
-    el.childNodes.forEach((c) => walk(c, nextCtx));
-    if (block) out.push("\n");
-  };
-  doc.body.childNodes.forEach((c) => walk(c, { pre: false, listIndex: [], quote: 0 }));
+    if (block) jobs.push({ kind: "raw", text: "\n" });
+    pushChildren(el, nextCtx);
+  }
+
   return out
     .join("")
     .replace(/[ \t]+\n/g, "\n")

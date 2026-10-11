@@ -75,7 +75,8 @@ function readFile(entry: EntryLike): Promise<File | null> {
  * from this side. A reader that never empties would otherwise spin for ever,
  * and because each batch continues the loop from inside its own callback, a
  * synchronous one would take the stack down with it rather than merely hang.
- * `maxEntries` is far above any real folder and exists only so neither happens.
+ * `maxEntries` is the *remaining* global budget the caller passes down, far
+ * above any real folder and there only so neither happens.
  */
 function readAll(entry: EntryLike, maxEntries: number): Promise<EntryLike[]> {
   const reader = entry.createReader?.();
@@ -124,6 +125,12 @@ export interface DropPlan {
  * something to take on trust: a symlink loop would otherwise walk until the tab
  * dies, and a directory that never reports itself exhausted would read for ever.
  * Neither limit is reachable by a folder anyone meant to upload.
+ *
+ * `maxEntries` is one budget for the whole walk, not one per directory. A bound
+ * applied at each level is multiplied by the tree's width -- a hundred folders
+ * of a thousand entries each would pass it a hundred times over -- so the count
+ * is of every entry the walk takes in, file or folder, and the walk stops when
+ * the total is spent.
  */
 export async function planUpload(
   entries: EntryLike[],
@@ -132,7 +139,10 @@ export async function planUpload(
   const files: PlannedUpload[] = [];
   const dirs: string[][] = [];
   const seenDirs = new Set<string>();
+  let seen = 0;
   const walk = async (entry: EntryLike, path: string[]): Promise<void> => {
+    if (seen >= maxEntries) return;
+    seen++;
     if (entry.isFile) {
       const file = await readFile(entry);
       if (file) files.push({ file, path });
@@ -145,10 +155,17 @@ export async function planUpload(
       seenDirs.add(key);
       dirs.push(here);
     }
-    const children = await readAll(entry, maxEntries);
-    for (const child of children) await walk(child, here);
+    const remaining = maxEntries - seen;
+    const children = remaining > 0 ? await readAll(entry, remaining) : [];
+    for (const child of children) {
+      if (seen >= maxEntries) break;
+      await walk(child, here);
+    }
   };
-  for (const entry of entries) await walk(entry, []);
+  for (const entry of entries) {
+    if (seen >= maxEntries) break;
+    await walk(entry, []);
+  }
   return { files, dirs };
 }
 

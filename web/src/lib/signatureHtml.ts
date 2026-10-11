@@ -109,6 +109,22 @@ const DROP_TAGS = new Set([
   "BUTTON",
 ]);
 
+/**
+ * Whether a URL (or a style value) names a scheme the signature may not carry.
+ *
+ * Compaction runs on HTML from a signature editor, which has not been sanitised
+ * yet, so keeping an `href` or a `style` is not safe merely because the
+ * attribute name is on the allowlist: `javascript:` is script in the reader
+ * that renders the signature, and `data:` is a document of its own. Spaces and
+ * controls are stripped first because a browser ignores them inside a scheme,
+ * so `java\tscript:` must be caught too.
+ */
+function unsafeScheme(value: string): boolean {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate control-character strip
+  const flat = value.replace(/[\u0000-\u0020]/g, "");
+  return /(?:javascript|data):/i.test(flat);
+}
+
 export function compactHtml(input: string): string {
   const doc = new DOMParser().parseFromString(`<div id="r">${input}</div>`, "text/html");
   const root = doc.getElementById("r")!;
@@ -123,7 +139,10 @@ export function compactHtml(input: string): string {
   // Clean attributes and styles
   root.querySelectorAll("*").forEach((el) => {
     for (const attr of Array.from(el.attributes)) {
-      if (!KEEP_ATTRS.has(attr.name.toLowerCase())) el.removeAttribute(attr.name);
+      const name = attr.name.toLowerCase();
+      if (!KEEP_ATTRS.has(name)) el.removeAttribute(attr.name);
+      else if ((name === "href" || name === "src") && unsafeScheme(attr.value))
+        el.removeAttribute(attr.name);
     }
     const style = el.getAttribute("style");
     if (style) {
@@ -139,7 +158,8 @@ export function compactHtml(input: string): string {
           if (
             !KEEP_STYLES.has(k) ||
             v.startsWith("mso-") ||
-            /^(inherit|initial|unset)$/i.test(v)
+            /^(inherit|initial|unset)$/i.test(v) ||
+            unsafeScheme(v)
           )
             return null;
           if (k === "font-family") v = v.split(",")[0]!.trim();

@@ -25,10 +25,10 @@ export interface Birthday {
 }
 
 /** The prefix marking a synthesised event, so nothing tries to save one. */
-export const BIRTHDAY_ID_PREFIX = "ihm-birthday:";
+export const BIRTHDAY_ID_PREFIX = "gilbert-birthday:";
 
 /** The virtual calendar's id. Not a JMAP id, and deliberately unlike one. */
-export const BIRTHDAY_CALENDAR_ID = "ihm-birthdays";
+export const BIRTHDAY_CALENDAR_ID = "gilbert-birthdays";
 
 export function isBirthdayEvent(id: string | null | undefined): boolean {
   return Boolean(id?.startsWith(BIRTHDAY_ID_PREFIX));

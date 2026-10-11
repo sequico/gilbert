@@ -87,7 +87,9 @@ export type MergeConflictReason =
   /** The node being merged in carries no content to copy. */
   | "no-bytes"
   /** A right the merge needs is not the reader's. */
-  | "no-right";
+  | "no-right"
+  /** The trees fold back into a pair the walk has already entered. */
+  | "loop";
 
 export interface MergeConflict {
   /**
@@ -156,7 +158,24 @@ export async function planMerge(src: MergeTree, dst: MergeTree): Promise<MergePl
   if (!may(src.root, "mayDelete"))
     conflicts.push({ path: [src.root.name], reason: "no-right" });
 
+  /*
+   * The folder pairs the walk has already entered, so a tree that folds back on
+   * itself stops at the repeat rather than reading for ever. The trees are read
+   * through the caller's function and a server or a store returning a node twice
+   * -- a cycle, a listing that loops -- must not take the tab down with it.
+   * `MAX_MERGE_DEPTH` is the backstop for a cycle whose pair keys differ at
+   * every turn; no real tree nests anywhere near this deep.
+   */
+  const entered = new Set<string>();
+  const MAX_MERGE_DEPTH = 20;
+
   const walk = async (from: MergeNode, into: MergeNode, path: string[]) => {
+    const pair = `${from.id}\u0000${into.id}`;
+    if (entered.has(pair) || path.length > MAX_MERGE_DEPTH) {
+      conflicts.push({ path, reason: "loop" });
+      return;
+    }
+    entered.add(pair);
     /*
      * Nothing may be moved into a folder that takes no children, so this pair
      * stops here rather than reporting, one step at a time, what the server
@@ -240,6 +259,7 @@ const CONFLICT_LABELS: Record<MergeConflictReason, string> = {
     "\u201c{path}\u201d is a folder in one of the two and a file in the other, so neither can be merged into the other.",
   "no-bytes": "\u201c{path}\u201d carries no content to write over the file of its name.",
   "no-right": "\u201c{path}\u201d is not yours to change.",
+  loop: "\u201c{path}\u201d folds back into a folder the merge has already entered, so it has no end to walk to.",
 };
 
 /** How a collision names the place it is about: the folders, then the name. */

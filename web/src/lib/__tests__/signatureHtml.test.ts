@@ -22,6 +22,16 @@ describe("signature compaction", () => {
     expect(out).toContain('width="100"');
     expect(out.length).toBeLessThan(src.length / 2);
   });
+  it("drops a javascript: or data: URL, even before the html is sanitised", () => {
+    const out = compactHtml(
+      '<a href="javascript:alert(1)">x</a><a href="java\tscript:1">y</a><img src="data:image/png;base64,AAAA"><span style="color:red;font-family:javascript:x">z</span>',
+    );
+    expect(out).not.toContain("javascript:");
+    expect(out).not.toContain("data:");
+    // A safe link is still kept.
+    const ok = compactHtml('<a href="https://example.org">link</a>');
+    expect(ok).toContain('href="https://example.org"');
+  });
   it("builds marker signatures within the limit", () => {
     const big = `<div>${"<b>x</b>".repeat(1000)}</div>`;
     const m = buildMarkerSignature("blob123", big);

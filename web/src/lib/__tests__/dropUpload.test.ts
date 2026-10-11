@@ -81,6 +81,17 @@ describe("walking a dropped folder", () => {
     expect(plan.files.map((p) => p.file.name)).toEqual(["deep"]);
   });
 
+  it("spends one budget across the whole walk, not one per folder", async () => {
+    // Two folders of three files each, with a budget of four entries: a bound
+    // applied per directory would have taken all six.
+    const plan = await planUpload(
+      [dir("a", ["a1", "a2", "a3"].map(leaf)), dir("b", ["b1", "b2", "b3"].map(leaf))],
+      { maxEntries: 4 },
+    );
+    expect(plan.files.map((p) => p.file.name)).toEqual(["a1", "a2", "a3"]);
+    expect(plan.files.length + plan.dirs.length).toBeLessThanOrEqual(4);
+  });
+
   it("stops rather than following a cycle for ever", async () => {
     const loop: Record<string, unknown> = {};
     Object.assign(loop, dir("loop", []));
