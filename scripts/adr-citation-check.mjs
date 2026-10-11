@@ -51,8 +51,12 @@ const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
  * The gap between the two may hold the line break and the comment leader of a
  * wrapped sentence (`ADR\n * 0003`): a reader sees one sentence, and so must
  * this.
+ *
+ * The digit run is captured whole. `ADR 12345` is read as the five-digit number
+ * it is and refused by the four-digit test below, rather than its first four
+ * digits being taken as a record and the fifth passing as trailing text.
  */
-const CITATION = /\bADR[-\s][*/\s]*(\d{1,4}|§)/g;
+const CITATION = /\bADR[-\s][*/\s]*(\d+|§)/g;
 
 /** Where a citation may appear: the code, and the skills that guide it. */
 const ROOTS = ["server/src", "web/src", ".opencode/skills"];

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 /*
  * User-visible English the extraction pass cannot see.
  *
@@ -35,6 +34,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import {
   catalogFiles,
+  catalogKeys,
   NOT_PROSE,
   sourceAst,
   sourceFiles,
@@ -100,23 +100,38 @@ const looksLikeUi = (s) =>
   /[a-z]/.test(s) && /^[A-Z(“]/.test(s) && (/\s/.test(s) || /[.?!…]$/.test(s));
 
 /*
+ * A label position says a one-word string is prose. `title="Save"` carries no
+ * whitespace and no closing punctuation, so `looksLikeUi` drops it and the
+ * label ships English in every language; a capitalised word with lower-case
+ * letters and no digits is a word a reader reads. The position is what makes
+ * it prose -- nothing in "Save" marks it as a sentence.
+ */
+const looksLikeLabel = (s) => /^[A-Z]/.test(s) && /[a-z]/.test(s) && !/\d/.test(s);
+
+/*
  * Every shipped catalogue, not one of them: a literal the catalogue files
  * already translate is a string nobody forgot to wrap, whichever language
- * carries it -- and a key only one catalogue has is still a key. The match is
- * indent-agnostic, so reformatting a catalogue cannot blind this half.
+ * carries it -- and a key only one catalogue has is still a key. The keys come
+ * from `catalogKeys`, which reads the `strings` and `plurals` objects
+ * structurally, so a bare identifier (`Archive: "…"`) is a key exactly as a
+ * quoted one is.
  */
 const keys = new Set();
 for (const file of catalogFiles()) {
-  const src = readFileSync(file, "utf8");
-  for (const m of src.matchAll(/^\s+"((?:[^"\\]|\\.)*)":/gm))
-    keys.add(m[1].replaceAll("\\u0004", ""));
+  for (const key of catalogKeys(sourceAst(file, { kind: ts.ScriptKind.TS })))
+    keys.add(key);
 }
 
 const found = [];
 for (const file of sourceFiles()) {
   const src = sourceAst(file);
-  const report = (node, text) => {
-    if (!looksLikeUi(text) || keys.has(text) || NEVER_TRANSLATED.has(text)) return;
+  const report = (node, text, { label = false } = {}) => {
+    if (
+      (label ? !looksLikeLabel(text) : !looksLikeUi(text)) ||
+      keys.has(text) ||
+      NEVER_TRANSLATED.has(text)
+    )
+      return;
     const { line } = src.getLineAndCharacterOfPosition(node.getStart(src));
     found.push({ file, line: line + 1, text });
   };
@@ -190,13 +205,13 @@ for (const file of sourceFiles()) {
    * scope here) and a nested element, and reports the string or template it
    * reaches.
    */
-  const walkText = (x) => {
+  const walkText = (x, label = false) => {
     if (isTemplate(x)) {
       reportTemplate(x);
       return;
     }
     if (ts.isStringLiteral(x)) {
-      if (!wrapped.has(x)) report(x, x.text);
+      if (!wrapped.has(x)) report(x, x.text, { label });
       return;
     }
     if (
@@ -206,7 +221,7 @@ for (const file of sourceFiles()) {
       ts.isJsxFragment(x)
     )
       return;
-    ts.forEachChild(x, walkText);
+    ts.forEachChild(x, (child) => walkText(child, label));
   };
 
   const visit = (n) => {
@@ -215,11 +230,11 @@ for (const file of sourceFiles()) {
       UI_PROPS.has(n.name.getText(src).replace(/['"]/g, ""))
     ) {
       if (ts.isStringLiteral(n.initializer) && !wrapped.has(n.initializer))
-        report(n.initializer, n.initializer.text);
+        report(n.initializer, n.initializer.text, { label: true });
       if (isTemplate(n.initializer)) reportTemplate(n.initializer);
     }
     if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src)))
-      walkText(n.initializer);
+      walkText(n.initializer, true);
     /*
      * A JSX child that is an expression: `{busy ? "Signing in…" : "Sign in"}`.
      * The coverage report reads JSX *text*, and the gate reads attributes and

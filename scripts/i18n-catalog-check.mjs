@@ -24,6 +24,16 @@ import {
   TRANSLATED_CALLS,
 } from "./lib/i18nSources.mjs";
 
+/*
+ * The English strings a catalogue may still lack. English is the source, so a
+ * missing key renders English: that is the designed fallback, and this budget
+ * is what keeps it from growing unnoticed. A new source string with no
+ * catalogue entry raises a count above the pin and fails the check, and the
+ * pin is lowered by hand as translations land, so the fallback can only
+ * shrink. At zero the rule is the strict one: any missing key fails.
+ */
+const MISSING_MAX = 157;
+
 const wanted = new Set();
 for (const file of sourceFiles()) {
   const src = sourceAst(file);
@@ -164,14 +174,27 @@ for (const file of catalogFiles()) {
   const tag = file.split("/").pop().replace(".ts", "");
   const src = sourceAst(file, { kind: ts.ScriptKind.TS });
   const have = catalogKeys(src);
-  const stale = [...have].filter(
-    (k) => !wanted.has(k) && !["one", "other", "few", "many", "zero", "two"].includes(k),
-  );
+  /*
+   * `catalogKeys` reads the `strings` and `plurals` objects structurally, so a
+   * plural entry's form names (`one`, `other`, …) are the shape of the file and
+   * are not keys at all: they never reach this list. A key literally named
+   * `one` in `strings` is a string nothing looks up, exactly like any other
+   * stale key, and is reported.
+   */
+  const stale = [...have].filter((k) => !wanted.has(k));
   const missing = [...wanted].filter((k) => !have.has(k));
   const pct = Math.round(((wanted.size - missing.length) / wanted.size) * 100);
   console.log(
     `${tag}: ${wanted.size - missing.length}/${wanted.size} translated (${pct}%), ${missing.length} falling back to English`,
   );
+  if (missing.length > MISSING_MAX) {
+    failed = true;
+    console.log(
+      `\n  ${missing.length} key(s) have no catalogue entry, above the pinned ${MISSING_MAX}:`,
+    );
+    for (const k of missing.slice(0, 25)) console.log(`    ${JSON.stringify(k)}`);
+    if (missing.length > 25) console.log(`    …and ${missing.length - 25} more`);
+  }
   if (stale.length) {
     failed = true;
     console.log(

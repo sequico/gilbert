@@ -16,6 +16,12 @@
  *   - `docker://…` names an image, not an action, and the SHA that would pin it
  *     is a registry digest the runner resolves, not a git commit.
  *
+ * The version comment is reported beside every pin. Whether a comment names the
+ * release the commit belongs to cannot be told here -- that is a map from SHA to
+ * version, which nothing offline holds -- so the comment is printed and a
+ * repointed commit with a stale comment beside it is visible to the reader. A
+ * comment that carries no version at all is a finding.
+ *
  * `checkWorkflowPins` is pure — it takes text, not paths — so the rules can be
  * exercised without a repository to stage, the way `scripts/version.mjs` is.
  */
@@ -37,10 +43,12 @@ const WORKFLOW_EXT = new Set([".yml", ".yaml"]);
 
 /**
  * Every `uses:` that is not pinned as this repository requires, as
- * `{ path, line, uses, reason }`, plus how many references were actually read.
+ * `{ path, line, uses, comment, reason }`, the references that were read as
+ * `{ path, line, uses, comment }`, and how many of them there were.
  */
 export function checkWorkflowPins(files = []) {
   const findings = [];
+  const references = [];
   let checked = 0;
 
   for (const file of files) {
@@ -52,7 +60,14 @@ export function checkWorkflowPins(files = []) {
       // A local workflow and an image are not actions (see the header).
       if (uses.startsWith("./") || uses.startsWith("docker://")) continue;
       checked += 1;
-      const at = (reason) => findings.push({ path: file.path, line, uses, reason });
+      const reference = {
+        path: file.path,
+        line,
+        uses,
+        comment: comment?.trim() ?? "",
+      };
+      references.push(reference);
+      const at = (reason) => findings.push({ ...reference, reason });
       if (!PINNED.test(uses)) {
         at("is not pinned to a full commit SHA (owner/action@<40 hex>)");
         continue;
@@ -63,13 +78,22 @@ export function checkWorkflowPins(files = []) {
     }
   }
 
-  return { ok: findings.length === 0, findings, checked };
+  return { ok: findings.length === 0, findings, checked, references };
 }
 
 /** The findings, one line each, in the order a reader would fix them. */
 export function formatReport(findings) {
   return findings.map(
-    ({ path, line, uses, reason }) => `${path}:${line}: ${uses} ${reason}`,
+    ({ path, line, uses, comment, reason }) =>
+      `${path}:${line}: ${uses}${comment ? ` ${comment}` : ""} ${reason}`,
+  );
+}
+
+/** Every pin with the version comment beside it, so a stale one is visible. */
+export function formatPins(references) {
+  return references.map(
+    ({ path, line, uses, comment }) =>
+      `  ${uses}${comment ? ` ${comment}` : ""}  (${path}:${line})`,
   );
 }
 
@@ -100,10 +124,11 @@ function main() {
     return 1;
   }
   const { files } = collectRepoInput();
-  const { ok, findings, checked } = checkWorkflowPins(files);
+  const { ok, findings, checked, references } = checkWorkflowPins(files);
   if (ok) {
     process.stdout.write(
-      `Workflow pins: ${checked} action reference(s) pinned to a commit.\n`,
+      `Workflow pins: ${checked} action reference(s) pinned to a commit.\n` +
+        `${formatPins(references).join("\n")}\n`,
     );
     return 0;
   }

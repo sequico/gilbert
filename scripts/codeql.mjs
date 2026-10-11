@@ -9,6 +9,9 @@
  * about. `npm run codeql` analyses **the files a push would carry**, with the
  * same query suite that workflow runs, prints what it found, and exits non-zero
  * on any result — so a green run here means the release's analysis stays clean.
+ * A result is not the only failure: a tree with nothing to analyse, or a
+ * database that was not written, exits non-zero too, so a suite that found
+ * nothing in nothing is never read as a suite that found nothing.
  *
  * The tree it analyses is exported, not the working directory. GitHub analyses
  * a checkout: `node_modules` is not in it, and `web/dist` is not in it, so
@@ -294,6 +297,13 @@ export function main({
     return 1;
   }
 
+  /* Nothing in front of the extractor is not a clean tree: a `0 result(s)`
+     that analysed no file is the one report a reader must never trust. */
+  if (count === 0) {
+    log("CodeQL: the tree a push would carry is empty -- nothing was analysed.");
+    return 1;
+  }
+
   log(`CodeQL: analysing ${count} file(s) from ${repo} with ${cli}`);
   log("  (a couple of minutes: the database is rebuilt from the tree each run)");
   try {
@@ -301,6 +311,14 @@ export function main({
     spawn(analyzeArgs({ cli, db, output: sarif }), log);
   } catch (err) {
     log(`CodeQL: the analysis did not finish -- ${err.message}`);
+    return 1;
+  }
+
+  /* The database's own existence is the second half: `database create` fails
+     on an empty extraction by default, but a create that returned without
+     writing a database would make the suite's silence read as a clean scan. */
+  if (!exists(db)) {
+    log("CodeQL: the database was not created -- nothing was analysed.");
     return 1;
   }
 
