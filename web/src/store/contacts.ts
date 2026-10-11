@@ -18,6 +18,7 @@ import type {
   SetResponse,
 } from "@/jmap/types";
 import type { CardAddress } from "@/lib/contactAddress";
+import { type MergeFieldId, type MergeSide, mergeContactCards } from "@/lib/contactMerge";
 import { type ContactMoveRefusal, contactMoveRefusal } from "@/lib/contactMove";
 import {
   contactDisplayName,
@@ -484,6 +485,21 @@ interface ContactsState {
    * the reader's own account instead.
    */
   updateCard(card: CardAddress, patch: Record<string, unknown>): Promise<void>;
+  /**
+   * Merge two cards of one book into the one that survives.
+   *
+   * The merged card is written first and the other destroyed only after it, so a
+   * refused destroy leaves the merged contact standing rather than losing the
+   * second card into nothing. `primary` is the card that survives; each is named
+   * with the account it lives in, because an id alone is not unique across
+   * accounts. `picks` answers the one-slot fields the two disagree on -- see
+   * `lib/contactMerge` for which those are.
+   */
+  mergeCards(
+    primary: { card: ContactCard; accountId: Id | null },
+    secondary: { card: ContactCard; accountId: Id | null },
+    picks?: Partial<Record<MergeFieldId, MergeSide>>,
+  ): Promise<{ destroyed: number; refused?: SetError }>;
   /**
    * Delete cards outright, reporting what the server actually destroyed rather
    * than what was asked for. Nothing is thrown for a refusal -- a partial one
@@ -1299,6 +1315,20 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const err = res.notUpdated?.[card.id];
     if (err) throw new Error(setErrorMessage(err));
     await get().getCard(card.id, accountId);
+  },
+
+  /*
+   * Write the merged card, then destroy the one it absorbed. The order is the
+   * point: a destroy that fails after the write leaves the merged contact
+   * standing with both cards' facts in it, and a write that fails first never
+   * reaches the destroy -- so no path loses a card into nothing.
+   */
+  async mergeCards(primary, secondary, picks) {
+    const patch = mergeContactCards(primary.card, secondary.card, picks);
+    await get().updateCard({ id: primary.card.id, accountId: primary.accountId }, patch);
+    return get().destroyCards([
+      { id: secondary.card.id, accountId: secondary.accountId },
+    ]);
   },
 
   /*

@@ -1286,6 +1286,14 @@ JMAP Contacts and JSContact.
   or **Empty address book** from the book's own menu. A card filed in two books is
   removed only from the one being emptied; what is reported afterwards is what the
   server confirmed, and a selection may span accounts.
+- **Merge two contacts into one.** Ticking exactly two cards of one book makes
+  **Merge** usable beside Delete. It asks, field by field, which value to keep
+  where the two disagree — type, name, nickname, company, job title, birthday,
+  website, note and photo — and combines everything else without asking: two
+  email addresses are two facts about one person, so the lists and the members
+  are unioned rather than chosen between. The card ticked first survives, and the
+  merged contact is written before the other is deleted, so a refused delete
+  leaves the merged one standing.
 - **Letter index** down the list, with `#` for anything not starting with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards), and

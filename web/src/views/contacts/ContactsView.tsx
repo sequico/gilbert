@@ -8,6 +8,7 @@ import {
   Globe,
   Mail,
   MapPin,
+  Merge,
   Pencil,
   Phone,
   Pin,
@@ -64,6 +65,7 @@ import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
 import { LazyContactEditor } from "../lazyPieces";
+import { MergeContactsDialog } from "./MergeContactsDialog";
 
 /*
  * The contact list's floor, and the room the contact itself keeps whatever the
@@ -142,6 +144,22 @@ export function ContactsView({ id }: { id?: string }) {
    */
   const [picked, setPicked] = useState<Record<string, true>>({});
   const lastPicked = useRef<string | null>(null);
+  /*
+   * The ticked keys in the order they were ticked. The ticked set itself has no
+   * order, but a merge keeps the card selected **first** — so which of the two
+   * survives is the reader's gesture, not the alphabetical accident of the list.
+   */
+  const pickOrder = useRef<string[]>([]);
+  /*
+   * The two cards a merge would act on, resolved from the selection when the
+   * icon is pressed. Held as cards rather than addresses so the dialog has the
+   * values to show without reaching into the store again.
+   */
+  const [merging, setMerging] = useState<{
+    primary: ContactCard;
+    secondary: ContactCard;
+    accountId: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (contacts.available && !contacts.loaded && !contacts.loading)
@@ -155,6 +173,7 @@ export function ContactsView({ id }: { id?: string }) {
   useEffect(() => {
     setPicked({});
     lastPicked.current = null;
+    pickOrder.current = [];
   }, [bookId, sel.accountId]);
 
   useEffect(() => {
@@ -408,13 +427,42 @@ export function ContactsView({ id }: { id?: string }) {
      on the bar promised. Held as addresses, because an id is not one: the
      reader's own card and a group's can carry the same id, and the delete has
      to name the account it acts on. */
-  const pickedRefs = useMemo(
+  const pickedItems = useMemo(
     () =>
-      listed
-        .filter((i) => picked[cardKey({ id: i.card.id, accountId: i.accountId })])
-        .map((i) => ({ id: i.card.id, accountId: i.accountId })),
+      listed.filter((i) => picked[cardKey({ id: i.card.id, accountId: i.accountId })]),
     [listed, picked],
   );
+  const pickedRefs = useMemo(
+    () => pickedItems.map((i) => ({ id: i.card.id, accountId: i.accountId })),
+    [pickedItems],
+  );
+
+  /*
+   * The two cards a merge would act on, when the selection is exactly two of one
+   * book, and nothing otherwise. The book is what the two have in common rather
+   * than the list being read: "All contacts" mixes accounts and groups, and a
+   * merge writes into the account the surviving card lives in, so two cards that
+   * share no book cannot become one.
+   *
+   * The surviving card is the one ticked first (`pickOrder`), and it is named
+   * `primary` here and everywhere the merge speaks of it.
+   */
+  const mergePair = useMemo(() => {
+    if (pickedItems.length !== 2) return null;
+    const order = pickOrder.current;
+    const [first, second] = [...pickedItems].sort(
+      (x, y) =>
+        order.indexOf(cardKey({ id: x.card.id, accountId: x.accountId })) -
+        order.indexOf(cardKey({ id: y.card.id, accountId: y.accountId })),
+    );
+    const a = first!;
+    const b = second!;
+    if ((a.accountId ?? null) !== (b.accountId ?? null)) return null;
+    if ((a.accountId ?? null) === GLOBAL_CONTACTS_ACCOUNT_ID) return null;
+    const books = Object.keys(a.card.addressBookIds ?? {});
+    if (!books.some((id) => b.card.addressBookIds?.[id])) return null;
+    return { primary: a.card, secondary: b.card, accountId: a.accountId };
+  }, [pickedItems]);
 
   if (!contacts.available) {
     return (
@@ -548,12 +596,18 @@ export function ContactsView({ id }: { id?: string }) {
       }
       return next;
     });
+    // The ticked order, kept in step with the set: a key keeps the place it was
+    // first ticked in, so a merge still knows which card came first.
+    pickOrder.current = on
+      ? [...pickOrder.current, ...keys.filter((k) => !pickOrder.current.includes(k))]
+      : pickOrder.current.filter((k) => !keys.includes(k));
     lastPicked.current = key;
   };
 
   const clearPicked = () => {
     setPicked({});
     lastPicked.current = null;
+    pickOrder.current = [];
   };
 
   const deletePicked = async () => {
@@ -649,6 +703,9 @@ export function ContactsView({ id }: { id?: string }) {
               }}
               onChange={(e) => {
                 if (e.target.checked) {
+                  pickOrder.current = pickable.map((i) =>
+                    cardKey({ id: i.card.id, accountId: i.accountId }),
+                  );
                   setPicked(
                     Object.fromEntries(
                       pickable.map((i) => [
@@ -664,6 +721,15 @@ export function ContactsView({ id }: { id?: string }) {
             <span className="grow">
               {plural(pickedRefs.length, { one: "{n} selected", other: "{n} selected" })}
             </span>
+            {mergePair && (
+              <button
+                className="icon-btn"
+                title={translate("Merge contacts")}
+                onClick={() => setMerging(mergePair)}
+              >
+                <Merge size={19} />
+              </button>
+            )}
             <button
               className="icon-btn"
               title={translate("Delete")}
@@ -942,6 +1008,19 @@ export function ContactsView({ id }: { id?: string }) {
             clearPicked();
             navigate(cardPath(moved));
             toast.success(translate("Contact moved"));
+          }}
+        />
+      )}
+      {merging && (
+        <MergeContactsDialog
+          primary={merging.primary}
+          secondary={merging.secondary}
+          accountId={merging.accountId}
+          onClose={() => setMerging(null)}
+          onMerged={(saved) => {
+            setMerging(null);
+            clearPicked();
+            navigate(cardPath(saved));
           }}
         />
       )}
