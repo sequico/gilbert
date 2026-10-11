@@ -187,6 +187,19 @@ function snippetOf(text: string, term: string): string {
 /** A load asked for while one is already running, run again when it ends. */
 let loadPending = false;
 
+/*
+ * Bumped when the store is emptied, so a load that started under the old
+ * session drops its answer instead of repopulating the store behind a sign-out.
+ */
+let loadEpoch = 0;
+
+/*
+ * Names the open in progress. Every `open` -- and `close` -- takes the next
+ * value, so an answer from an earlier request is discarded rather than applied
+ * over the article the reader is actually on.
+ */
+let openToken = 0;
+
 /**
  * The text a search reads, kept for the session and dropped on every re-list.
  *
@@ -284,6 +297,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         return;
       }
       set({ loading: true, error: null });
+      const epoch = loadEpoch;
       const canApprove = useSession.getState().session?.gilbert?.isAdmin === true;
       const tiers: KnowledgeTierState[] = [];
 
@@ -334,6 +348,9 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         });
       }
 
+      // The store was emptied while the tiers were being read -- a sign-out --
+      // so this answer belongs to nobody and is dropped.
+      if (epoch !== loadEpoch) return;
       searchText.clear();
       set({ tiers, loaded: true, loading: false });
       if (loadPending) {
@@ -348,6 +365,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     },
 
     async open(accountId, folder, nodeId) {
+      const token = ++openToken;
       set({ articleLoading: true, article: null, edit: null });
       try {
         set({ error: null });
@@ -373,6 +391,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
                 tier?.scope ?? scopeOf(accountId),
                 summary?.parentId,
               );
+        // A newer open (or a close) has landed since this one asked: its answer
+        // is not the article on screen, and applying it would throw away the
+        // reader's edits to the one that is.
+        if (token !== openToken) return;
         if (!view) {
           set({ articleLoading: false });
           return;
@@ -391,11 +413,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
           articleLoading: false,
         });
       } catch (err) {
+        if (token !== openToken) return;
         set({ articleLoading: false, error: (err as Error).message });
       }
     },
 
     close() {
+      // A close outranks any open still in flight: its answer must not land on
+      // an article nobody is looking at.
+      openToken += 1;
       set({ article: null, articleLoading: false, edit: null });
     },
 
@@ -769,6 +795,10 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     },
 
     reset() {
+      // Whatever is in flight was read under the session being left behind.
+      loadEpoch += 1;
+      loadPending = false;
+      openToken += 1;
       set({
         tiers: [],
         loaded: false,
