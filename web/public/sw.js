@@ -54,21 +54,56 @@ const SHELL = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(VERSION)
-      .then((c) => c.addAll(SHELL))
-      .then(() => self.skipWaiting()),
+    (async () => {
+      /*
+       * One entry at a time, and never at the cost of activating.
+       *
+       * `addAll` rejects the whole batch when any one URL fails, and that
+       * rejection would take `skipWaiting` with it: the new worker would never
+       * activate, `navigator.serviceWorker.ready` -- which `registerThisBrowser`
+       * waits on -- would never settle, and turning notifications on would hang
+       * with nothing to show for it. The shell is a cache, not a gate.
+       */
+      try {
+        const cache = await caches.open(VERSION);
+        await Promise.allSettled(SHELL.map((url) => cache.add(url)));
+      } catch {
+        /* no cache storage: activation still has to happen */
+      }
+      await self.skipWaiting();
+    })(),
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))),
-      )
-      .then(() => self.clients.claim()),
+    (async () => {
+      const current = await caches.open(VERSION);
+      const stale = (await caches.keys()).filter((k) => k !== VERSION);
+      /*
+       * Carry the handoff entries into the cache that stays, before the caches
+       * that hold them go. They are written in one context and read in another
+       * -- a share the operating system posted before a tab existed, a push
+       * verification that arrived with no tab open, the briefing -- so a
+       * version bump that deleted them would lose a share nobody had opened
+       * yet, or leave push silent until the server sent the code again.
+       */
+      for (const name of stale) {
+        try {
+          const from = await caches.open(name);
+          for (const req of await from.keys()) {
+            if (!isHandoffKey(new URL(req.url).pathname)) continue;
+            if (await current.match(req)) continue;
+            const res = await from.match(req);
+            if (res) await current.put(req, res);
+          }
+        } catch {
+          /* a handoff that cannot be carried must not stop activation */
+        }
+      }
+      await Promise.all(stale.map((k) => caches.delete(k)));
+      await self.clients.claim();
+    })(),
   );
 });
 
@@ -170,11 +205,28 @@ self.addEventListener("fetch", (event) => {
       caches.match(req).then(
         (hit) =>
           hit ||
-          fetch(req).then((res) => {
-            const copy = res.clone();
-            caches.open(VERSION).then((c) => c.put(req, copy));
-            return res;
-          }),
+          fetch(req)
+            .then((res) => {
+              if (res.ok) {
+                const copy = res.clone();
+                /*
+                 * Fire and forget, with the rejection caught: a full cache or
+                 * a body that cannot be cloned must not surface as an
+                 * unhandled rejection beside a response that served fine.
+                 */
+                void caches
+                  .open(VERSION)
+                  .then((c) => c.put(req, copy))
+                  .catch(() => {});
+              }
+              return res;
+            })
+            /*
+             * Nothing cached and the network gone. A network error is the
+             * honest answer -- the asset is genuinely unreachable -- and it
+             * keeps the rejection from becoming the response itself.
+             */
+            .catch(() => caches.match(req).then((again) => again ?? Response.error())),
       ),
     );
     return;
@@ -190,12 +242,25 @@ self.addEventListener("fetch", (event) => {
            * the list the page carries, fetches the rest of the build quietly.
            * An app page fetched for a reader's own tab must be the page's own
            * bytes, so the response is cloned rather than consumed.
+           *
+           * Only a success: an error page, or a proxy's interstitial, must not
+           * be kept as the shell and served to the next offline load.
            */
-          if ((res.headers.get("content-type") ?? "").startsWith("text/html"))
+          if (res.ok && (res.headers.get("content-type") ?? "").startsWith("text/html"))
             event.waitUntil(refreshShell(res.clone()));
           return res;
         })
-        .catch(() => caches.match(SHELL_KEY)),
+        /*
+         * Offline. The kept copy answers when a navigation has already written
+         * one; `${BASE}/`, which `install` pre-caches, answers the first offline
+         * load before any navigation has had the chance.
+         */
+        .catch(
+          async () =>
+            (await caches.match(SHELL_KEY)) ??
+            (await caches.match(`${BASE}/`)) ??
+            Response.error(),
+        ),
     );
     return;
   }
@@ -328,6 +393,20 @@ const VERIFY_KEY = `${BASE}/gilbert-push-verification`;
  * is worse than the notification that was here before.
  */
 const FACTS_KEY = `${BASE}/gilbert-worker-facts`;
+
+/*
+ * The entries a version bump must not throw away.
+ *
+ * Each is a handoff: written by one context and read by another, possibly much
+ * later, so `activate` carries them into the current cache before deleting the
+ * cache that held them. A share's files sit beside its index under the same
+ * prefix, which is why the check is by prefix rather than by exact key.
+ */
+function isHandoffKey(pathname) {
+  return [SHARE_KEY, VERIFY_KEY, FACTS_KEY].some(
+    (key) => pathname === key || pathname.startsWith(`${key}/`),
+  );
+}
 
 async function readFacts() {
   try {

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
+import { withBase } from "@/lib/basePath";
 import { setDeviceTrusted } from "@/lib/storage";
+import { FACTS_KEY } from "@/lib/swFacts";
 import {
   applicationServerKey,
   decodeApplicationServerKey,
@@ -12,6 +14,7 @@ import {
   pushEnabledHere,
   pushOptedOutHere,
   RENEW_WITHIN_MS,
+  releaseThisDevice,
   setPushEnabledHere,
   setPushOptedOutHere,
   subscriptionPayload,
@@ -436,6 +439,49 @@ describe("needsRenewal", () => {
 });
 
 /**
+ * What signing out -- and a re-registration -- releases at the server.
+ *
+ * A row is matched by this browser's `deviceClientId` and by nothing else: a
+ * live Stalwart never hands a subscription's `url` back (`url: null` even for a
+ * row registered with one), so the endpoint cannot tell one row from another,
+ * and the release is done by hand because the server keeps both of two rows
+ * with the same id rather than replacing.
+ */
+describe("releasing this browser's subscriptions", () => {
+  let store: Map<string, string>;
+
+  beforeEach(() => {
+    store = new Map([["gilbert:pushDeviceId", MINE]]);
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    });
+    setDeviceTrusted(true);
+  });
+
+  afterEach(() => {
+    setDeviceTrusted(false);
+    Reflect.deleteProperty(globalThis, "localStorage");
+  });
+
+  it("destroys this browser's rows, and only those, whatever endpoint they name", async () => {
+    const call = vi.spyOn(client, "call");
+    call.mockResolvedValueOnce({
+      list: [sub("gilbert-desktop", inDays(6)), sub(MINE, inDays(6))],
+    } as never);
+    call.mockResolvedValueOnce({} as never);
+
+    expect(await releaseThisDevice()).toBe(1);
+    expect(call.mock.calls[1]?.[0]).toBe("PushSubscription/set");
+    expect(call.mock.calls[1]?.[1]).toEqual({ destroy: [`i-${MINE}`] });
+  });
+});
+
+/**
  * Whether push is on *in this browser* is the flag the renewal on app start
  * keys off, so the two endings that can clear it have to be told apart.
  *
@@ -507,5 +553,13 @@ describe("remembering that push is on here", () => {
       // still stop believing it has push, or renewal would resurrect it.
       expect(pushEnabledHere()).toBe(false);
     });
+  });
+
+  it("also forgets the worker's briefing, which names the account that just left", async () => {
+    const del = vi.fn(async () => true);
+    vi.stubGlobal("caches", { open: vi.fn(async () => ({ delete: del })) });
+    vi.spyOn(client, "call").mockRejectedValue(new Error("offline"));
+    await unsubscribeThisDevice();
+    expect(del).toHaveBeenCalledWith(withBase(FACTS_KEY));
   });
 });

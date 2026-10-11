@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { withBase } from "@/lib/basePath";
 import { setCatalog } from "@/lib/i18n";
 import { SW_CACHE_NAME } from "@/lib/swCache";
-import { FACTS_KEY, publishWorkerFacts, type WorkerFacts } from "@/lib/swFacts";
+import {
+  clearWorkerFacts,
+  FACTS_KEY,
+  publishWorkerFacts,
+  type WorkerFacts,
+} from "@/lib/swFacts";
 import { catalog as de } from "@/locales/de";
 
 /**
@@ -24,7 +29,7 @@ function fakeCaches() {
     match: vi.fn(async (key: string) =>
       store.has(key) ? new Response(store.get(key)) : undefined,
     ),
-    delete: vi.fn(async () => true),
+    delete: vi.fn(async (key: string) => store.delete(key)),
   };
   // Only the worker's own cache: a briefing put anywhere else is one the
   // worker will never read.
@@ -106,6 +111,24 @@ describe("the worker's briefing", () => {
   it("does not throw where the browser has no cache storage", async () => {
     vi.stubGlobal("caches", undefined);
     await expect(publishWorkerFacts([own])).resolves.toBeUndefined();
+  });
+
+  it("forgets the briefing when the session ends", async () => {
+    // Signing out is the one moment nothing rewrites it, and what it holds is
+    // the account's address and folders. Left there, the worker would read them
+    // for whoever signs in next.
+    const { store, cache } = fakeCaches();
+    await publishWorkerFacts([own], "me@example.org");
+    expect(store.has(withBase(FACTS_KEY))).toBe(true);
+
+    await clearWorkerFacts();
+    expect(cache.delete).toHaveBeenCalledWith(withBase(FACTS_KEY));
+    expect(store.has(withBase(FACTS_KEY))).toBe(false);
+  });
+
+  it("does not throw clearing where the browser has no cache storage", async () => {
+    vi.stubGlobal("caches", undefined);
+    await expect(clearWorkerFacts()).resolves.toBeUndefined();
   });
 
   it("carries every string the worker looks up", async () => {

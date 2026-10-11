@@ -100,3 +100,22 @@ export async function publishWorkerFacts(
     /* no cache storage: the worker falls back to a notification with no actions */
   }
 }
+
+/**
+ * Forget the briefing.
+ *
+ * Signing out is the one moment nothing rewrites it: the accounts the worker
+ * notifies for are gone, and the briefing names the address and folders of the
+ * session that just ended. Left in the cache, the worker would read them for
+ * whoever signs in next, so the entry is removed rather than overwritten with
+ * an empty one — an absent briefing is what the worker already falls back to.
+ */
+export async function clearWorkerFacts(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  try {
+    const cache = await caches.open(SW_CACHE_NAME);
+    await cache.delete(withBase(FACTS_KEY));
+  } catch {
+    /* no cache storage: there is nothing written to forget */
+  }
+}

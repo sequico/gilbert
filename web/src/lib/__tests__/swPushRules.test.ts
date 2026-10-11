@@ -50,3 +50,55 @@ describe("the push handler's rules", () => {
     expect(worker).not.toMatch(/\$\{BASE\}\/mail\/inbox\//);
   });
 });
+
+/*
+ * Installing, activating and the offline answer. Each rule below fails when
+ * the mechanism it names is removed, which is what makes this a guard rather
+ * than a description: a worker that cannot activate leaves
+ * `navigator.serviceWorker.ready` unfulfilled, and `registerThisBrowser` waits
+ * on it, so "turn notifications on" hangs with nothing to show.
+ */
+describe("the worker's install, activation and offline rules", () => {
+  it("caches the shell one URL at a time, so a single miss cannot block installing", () => {
+    expect(worker).toContain("Promise.allSettled(SHELL.map((url) => cache.add(url)))");
+    // `addAll` rejects the whole batch and would take `skipWaiting` with it.
+    expect(worker).not.toContain("addAll(SHELL)");
+  });
+
+  it("activates whatever the shell cache did", () => {
+    // `skipWaiting` runs after the try/catch, not inside the shell fill.
+    expect(worker).toMatch(/catch \{[\s\S]*?\}\s*await self\.skipWaiting\(\);/);
+  });
+
+  it("carries the handoff entries across a version bump", () => {
+    // A share nobody has opened, a verification that arrived with no tab, the
+    // briefing: written by one context, read by another, so deleting the cache
+    // that held them loses them.
+    expect(worker).toContain("isHandoffKey(new URL(req.url).pathname)");
+    expect(worker).toMatch(/\[SHARE_KEY, VERIFY_KEY, FACTS_KEY\]\.some\(/);
+    expect(worker).toContain("if (await current.match(req)) continue;");
+  });
+
+  it("answers a first offline navigation from the pre-cached root", () => {
+    // The kept copy is written by a navigation that succeeded, so the very
+    // first offline load has none and used to resolve undefined.
+    expect(worker).toMatch(
+      /\(await caches\.match\(SHELL_KEY\)\)\s*\?\?\s*\(await caches\.match\(`\$\{BASE\}\/`\)\)/,
+    );
+  });
+
+  it("keeps only a successful page as the shell", () => {
+    expect(worker).toContain(
+      'if (res.ok && (res.headers.get("content-type") ?? "").startsWith("text/html"))',
+    );
+  });
+
+  it("caches an asset without letting a failed put escape, and answers when offline", () => {
+    expect(worker).toMatch(
+      /void caches\s*\.open\(VERSION\)\s*\.then\(\(c\) => c\.put\(req, copy\)\)\s*\.catch\(\(\) => \{\}\)/,
+    );
+    expect(worker).toContain(
+      "caches.match(req).then((again) => again ?? Response.error())",
+    );
+  });
+});

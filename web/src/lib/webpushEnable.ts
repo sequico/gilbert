@@ -224,7 +224,7 @@ async function registerThisBrowser(key: string, force = false): Promise<void> {
   const targets = pushTargets(mail.mailAccounts, mail.accountTrees, mail.roleId("inbox"));
   const watchChat = groupMailboxAccounts(mail.mailAccounts).length > 0;
   const payload = subscriptionPayload(sub, targets, watchChat);
-  await releaseThisDevice(sub.endpoint);
+  await releaseThisDevice();
   /*
    * One retry, because the release has already happened: the row that was
    * serving is gone, so a create that fails on a transient error (offline, a

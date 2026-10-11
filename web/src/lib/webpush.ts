@@ -24,6 +24,7 @@ import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isIOS } from "@/lib/installApp";
 import type { PushTarget } from "@/lib/mailAccounts";
 import { isDeviceTrusted } from "@/lib/storage";
+import { clearWorkerFacts } from "@/lib/swFacts";
 
 /**
  * Which Email properties to put in the payload, best first.
@@ -572,25 +573,21 @@ export async function verifySubscription(
  * `deviceClientId` is an assumption nothing here can validate -- and it is now
  * known to be false: a live 0.16.22 keeps both rather than replacing
  * (2026-09-16), which is why the mock was changed to keep them too. So the
- * release is done by hand, by the rows this browser can name.
+ * release is done by hand, by the rows this browser can name: the ones carrying
+ * its own `deviceClientId`.
  *
- * Two marks, because one of them can be lost: this browser's `deviceClientId`,
- * and the push endpoint itself (`endpoint`), which is this browser's own
- * subscription and nobody else's. Clearing site data hands the browser a new
- * device id while the old rows keep their slots, and the endpoint is what
- * would still recognise them -- on a server that hands a subscription's `url`
- * back, which a live Stalwart does not (live on 0.16.21, 2026-09-14:
- * `url: null` even for a row registered with one). A browser that cleared its
- * site data therefore leaves a row behind that only an operator's cleanup can
- * free: `scripts/probe-push-subscriptions.mjs`.
+ * There is no second mark to match on. A live Stalwart never hands a
+ * subscription's `url` back (`url: null` even for a row registered with one,
+ * live on 0.16.21, 2026-09-14), so a row cannot be matched by endpoint either.
+ * Clearing site data therefore hands the browser a new device id while the old
+ * rows keep their slots, leaving a row behind that only an operator's cleanup
+ * can free: `scripts/probe-push-subscriptions.mjs`.
  */
-export async function releaseThisDevice(endpoint?: string | null): Promise<number> {
+export async function releaseThisDevice(): Promise<number> {
   const mine = deviceClientId();
   let released = 0;
   try {
-    const doomed = (await listSubscriptions()).filter(
-      (s) => s.deviceClientId === mine || Boolean(endpoint && s.url === endpoint),
-    );
+    const doomed = (await listSubscriptions()).filter((s) => s.deviceClientId === mine);
     await destroySubscriptions(doomed.map((s) => s.id));
     released = doomed.length;
   } catch (err) {
@@ -600,16 +597,6 @@ export async function releaseThisDevice(endpoint?: string | null): Promise<numbe
     console.warn("[gilbert] push: could not release this browser's subscriptions:", err);
   }
   return released;
-}
-
-/** This browser's push endpoint, or null when the browser has none. */
-export async function thisEndpoint(): Promise<string | null> {
-  try {
-    const reg = await navigator.serviceWorker?.getRegistration();
-    return (await reg?.pushManager.getSubscription())?.endpoint ?? null;
-  } catch {
-    return null;
-  }
 }
 
 /** Remove every subscription this browser registered. Used when signing out. */
@@ -623,6 +610,12 @@ export async function unsubscribeThisDevice(): Promise<void> {
   }
   // The release reports its own failures (see `releaseThisDevice`): signing out
   // is not the place to fail over them.
-  await releaseThisDevice(await thisEndpoint());
+  await releaseThisDevice();
+  /*
+   * The worker's briefing names the account, its address and its folders, and
+   * the worker reads it for whoever is signed in next. Nothing rewrites it on
+   * the way out, so signing out is what has to take it away.
+   */
+  await clearWorkerFacts();
   setPushEnabledHere(false);
 }
