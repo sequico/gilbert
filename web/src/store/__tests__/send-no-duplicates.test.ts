@@ -22,6 +22,7 @@ type Mode =
   | "orphan"
   | "gateway"
   | "refused"
+  | "submission-refused"
   | "offline-after";
 
 interface Server {
@@ -56,6 +57,21 @@ function server(mode: Mode, opts: { destroyFails?: boolean } = {}): Server {
   ) => {
     chainCalls.push(calls);
     const sending = calls.some(([n]) => n === "EmailSubmission/set");
+    if (sending && first && mode === "submission-refused") {
+      // The chain answered, and the submission itself was refused: the message
+      // was created but never left, so it must be destroyed.
+      first = false;
+      createEmail(calls);
+      const refused = new Map<string, Record<string, unknown>[]>();
+      refused.set("e", [
+        {
+          accountId: "a1",
+          created: { m: { id: st.emails[st.emails.length - 1]!.id } },
+        },
+      ]);
+      refused.set("s", [{ accountId: "a1", __error: { type: "forbidden" } }]);
+      return refused;
+    }
     if (sending && first && mode !== "ok") {
       first = false;
       if (mode === "never-arrived") throw new TypeError("Failed to fetch");
@@ -283,6 +299,24 @@ describe("sending a draft again after a failure", () => {
 
   it("remembers a copy it could not remove, so the retry does not call it sent", async () => {
     server("orphan", { destroyFails: true });
+    await sendOne();
+    const toast = useToasts
+      .getState()
+      .toasts.find((t) => t.message.startsWith("Send failed"))!;
+    toast.action!.onClick();
+    const reopened = useCompose.getState().drafts[0]!;
+    expect(reopened.sendOrphan).toBe(true);
+  });
+
+  it("destroys the copy a refused submission left, and reports the failure", async () => {
+    const st = server("submission-refused");
+    await sendOne();
+    expect(st.destroyed).toEqual(["e1"]);
+    expect(toastTexts().some((t) => t.startsWith("Send failed"))).toBe(true);
+  });
+
+  it("remembers a refused submission it could not clean, so the retry does not call it sent", async () => {
+    server("submission-refused", { destroyFails: true });
     await sendOne();
     const toast = useToasts
       .getState()

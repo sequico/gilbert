@@ -1843,7 +1843,7 @@ async function sendInternal(
       );
     }
     if (found.trace === "sent") {
-      if (draftId) void client.call("Email/set", { accountId, destroy: [draftId] });
+      if (draftId) await destroyEmails(accountId, [draftId]);
       void mail.loadMailboxes();
       void mail.refreshList();
       return { alreadySent: true };
@@ -1935,13 +1935,17 @@ async function sendInternal(
   if (s.__error || s.notCreated?.s) {
     // The submission failed, so the message the chain created never left: it is
     // destroyed rather than left looking sent, whether the refusal was
-    // per-object or for the whole call.
+    // per-object or for the whole call. If it cannot be removed, mark the
+    // failure so the next send destroys it and sends again, instead of reading
+    // a surviving copy as proof the message went out.
     const created = e.created?.m?.id;
-    if (created) void client.call("Email/set", { accountId, destroy: [created] });
     const refusal = s.__error ?? s.notCreated?.s;
-    throw new Error(
+    const error = new Error(
       refusal ? setErrorMessage(refusal) : "the message could not be submitted",
     );
+    if (created && !(await destroyEmails(accountId, [created])))
+      (error as { sendOutcomeOrphan?: boolean }).sendOutcomeOrphan = true;
+    throw error;
   }
   if (d.relatedEmailId && d.relatedKeyword) {
     useMail.setState((st) => {
