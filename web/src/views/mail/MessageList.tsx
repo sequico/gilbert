@@ -1153,7 +1153,7 @@ interface RowProps {
   onSwipeFire: (id: Id, desc: SwipeDescriptor) => Promise<void>;
 }
 
-const Row = memo(function Row({
+export const Row = memo(function Row({
   email: e,
   threadEmails,
   top,
@@ -1249,6 +1249,9 @@ const Row = memo(function Row({
   const [dx, setDx] = useState(0);
   const [gliding, setGliding] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  // A swipe action runs a beat after the finger lifts, so the row is seen out
+  // first. Held here, not in the gesture, so the unmount below can cancel it.
+  const swipeTimer = useRef<number | null>(null);
   /*
    * What this row's own delete would do, from the one rule (ADR 0015): the row
    * is what knows which folders hold this message, so a message sitting in Junk
@@ -1267,8 +1270,17 @@ const Row = memo(function Row({
       }),
     [swipeLeft, swipeRight, role, rowDeleteEffect, rowDeleteOffered, unread, starred],
   );
-  // A row that scrolls out from under a live gesture takes its strip with it.
-  useEffect(() => () => onSwipeState(e.id, null), [e.id, onSwipeState]);
+  // A row that scrolls out from under a live gesture takes its strip with it --
+  // and a pending swipe action is cancelled with it, so nothing is written for
+  // a row the virtualised list has already unmounted.
+  useEffect(
+    () => () => {
+      if (swipeTimer.current !== null) window.clearTimeout(swipeTimer.current);
+      swipeTimer.current = null;
+      onSwipeState(e.id, null);
+    },
+    [e.id, onSwipeState],
+  );
 
   const gesture = useTouchRow({
     enabled: touch,
@@ -1307,8 +1319,10 @@ const Row = memo(function Row({
        * means to do rather than what it did -- a delete the reader cancels at
        * the confirmation leaves the row here, and it has to come back.
        */
+      if (swipeTimer.current !== null) window.clearTimeout(swipeTimer.current);
       setDx(dir * (rowRef.current?.offsetWidth ?? 400));
-      window.setTimeout(() => {
+      swipeTimer.current = window.setTimeout(() => {
+        swipeTimer.current = null;
         void Promise.resolve(onSwipeFire(e.id, desc)).finally(settle);
       }, 160);
     },
