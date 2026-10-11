@@ -124,7 +124,14 @@ interface ComposeState {
   activeKey: string | null;
   pendingSends: Record<
     string,
-    { timer: number; toastId: number; draft: Draft; run: () => Promise<void> }
+    {
+      timer: number;
+      toastId: number;
+      draft: Draft;
+      /** The undo window has closed and the send has begun; undo no longer applies. */
+      started: boolean;
+      run: () => Promise<void>;
+    }
   >;
   /**
    * Send everything still inside its undo window, now. For signing out, while
@@ -1067,12 +1074,32 @@ export const useCompose = create<ComposeState>((set, get) => ({
       activeKey: s.activeKey === key ? null : s.activeKey,
     }));
     const doSend = async () => {
+      /*
+       * The entry stays until the send settles. An attachment upload that lands
+       * while the send is in flight patches this snapshot (`patchAtt`), and a
+       * failure restores that patched draft rather than the one Send captured
+       * -- otherwise a draft restored with `blobId: null` dead-ends on the next
+       * Send ("Attachments are still uploading"). `started` marks the undo
+       * window closed, so a late click on Undo cannot take back a send already
+       * under way.
+       */
       set((s) => {
-        const { [key]: _drop, ...rest } = s.pendingSends;
-        return { pendingSends: rest };
+        const p = s.pendingSends[key];
+        return p
+          ? { pendingSends: { ...s.pendingSends, [key]: { ...p, started: true } } }
+          : {};
       });
+      /** Put a failed send's draft back, without waiting for the toast action. */
+      const openDraft = (snapshot: Draft, message: string, orphan = false) =>
+        set((s) => ({
+          drafts: s.drafts.some((x) => x.key === snapshot.key)
+            ? s.drafts
+            : [...s.drafts, { ...snapshot, error: message, sendOrphan: orphan }],
+        }));
+      let current = d;
       try {
-        const sent = await sendInternal(d, target, { retry });
+        current = get().pendingSends[key]?.draft ?? d;
+        const sent = await sendInternal(current, target, { retry });
         if (sent.alreadySent) {
           // A scheduled message that was already submitted still needs the
           // Scheduled folder re-read; the wording is the same either way.
@@ -1090,39 +1117,29 @@ export const useCompose = create<ComposeState>((set, get) => ({
             : translate("Message sent"),
         );
       } catch (err) {
+        // The freshest snapshot an upload may have patched while the send ran.
+        current = get().pendingSends[key]?.draft ?? current;
         if (err instanceof SendOutcomeUnknown) {
+          openDraft(current, err.message);
           toast.error(err.message, {
-            action: {
-              label: translate("Open draft"),
-              onClick: () =>
-                set((s) => ({
-                  drafts: [...s.drafts, { ...d, error: err.message }],
-                  activeKey: d.key,
-                })),
-            },
+            action: { label: translate("Open draft"), onClick: () => get().focus(key) },
             duration: 30000,
           });
           return;
         }
         const leftOrphan =
           (err as { sendOutcomeOrphan?: boolean }).sendOutcomeOrphan === true;
-        toast.error(
-          translate("Send failed: {error}", { error: (err as Error).message }),
-          {
-            action: {
-              label: translate("Open draft"),
-              onClick: () =>
-                set((s) => ({
-                  drafts: [
-                    ...s.drafts,
-                    { ...d, error: (err as Error).message, sendOrphan: leftOrphan },
-                  ],
-                  activeKey: d.key,
-                })),
-            },
-            duration: 15000,
-          },
-        );
+        const message = (err as Error).message;
+        openDraft(current, message, leftOrphan);
+        toast.error(translate("Send failed: {error}", { error: message }), {
+          action: { label: translate("Open draft"), onClick: () => get().focus(key) },
+          duration: 15000,
+        });
+      } finally {
+        set((s) => {
+          const { [key]: _drop, ...rest } = s.pendingSends;
+          return { pendingSends: rest };
+        });
       }
     };
     // A scheduled send is already delayed, and cancelling it is a server-side
@@ -1150,7 +1167,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
     set((s) => ({
       pendingSends: {
         ...s.pendingSends,
-        [key]: { timer, toastId, draft: d, run: doSend },
+        [key]: { timer, toastId, draft: d, started: false, run: doSend },
       },
     }));
   },
@@ -1166,7 +1183,9 @@ export const useCompose = create<ComposeState>((set, get) => ({
 
   undoSend(key) {
     const p = get().pendingSends[key];
-    if (!p) return;
+    // `started` means the undo window has closed and the send is under way:
+    // taking the draft back now would both send and restore it.
+    if (!p || p.started) return;
     window.clearTimeout(p.timer);
     toast.dismiss(p.toastId);
     set((s) => {
@@ -1372,19 +1391,31 @@ function patchAtt(
   patch: Partial<ComposeAttachment>,
   set: (fn: (s: ComposeState) => Partial<ComposeState>) => void,
 ) {
-  set((s) => ({
-    drafts: s.drafts.map((d) =>
-      d.key === key
+  const applied = (d: Draft): Draft => ({
+    ...d,
+    dirty: true,
+    attachments: d.attachments.map((a) => (a.id === attId ? { ...a, ...patch } : a)),
+  });
+  set((s) => {
+    /*
+     * A send takes the draft out of `drafts` and holds it in `pendingSends`
+     * until it settles, so an upload that lands in that window has to patch
+     * that snapshot as well. Without it the draft a failed send restores keeps
+     * `blobId: null` and every later Send refuses it as "still uploading".
+     */
+    const pending = s.pendingSends[key];
+    return {
+      drafts: s.drafts.map((d) => (d.key === key ? applied(d) : d)),
+      ...(pending
         ? {
-            ...d,
-            dirty: true,
-            attachments: d.attachments.map((a) =>
-              a.id === attId ? { ...a, ...patch } : a,
-            ),
+            pendingSends: {
+              ...s.pendingSends,
+              [key]: { ...pending, draft: applied(pending.draft) },
+            },
           }
-        : d,
-    ),
-  }));
+        : {}),
+    };
+  });
 }
 
 function scheduleAutosave(key: string, get: () => ComposeState) {
