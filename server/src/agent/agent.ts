@@ -379,6 +379,10 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     for (const accountId of [...dirty]) {
       if (stopped || reconciling.has(accountId)) continue;
       dirty.delete(accountId);
+      // An account woken and then withdrawn can still be in `dirty`: it is not
+      // this agent's to reconcile any more, so it is dropped here rather than
+      // reconciled against a claim this process no longer holds.
+      if (!servedAccounts.has(accountId)) continue;
       await withAccountLock(accountId, () => reconcileAccount(accountId));
     }
   };
@@ -1016,18 +1020,32 @@ export async function startAgentFleet(): Promise<AgentFleet> {
   // as the agent the installation now names before anything is stopped.
   const watch = setInterval(() => {
     void (async () => {
-      if (!agent) {
-        identity = currentIdentity();
-        agent = await start();
-        return;
+      try {
+        if (!agent) {
+          identity = currentIdentity();
+          agent = await start();
+          return;
+        }
+        const current = agent;
+        const next = await identityToFollow(identity);
+        if (!next) return;
+        await current.stop();
+        // Nothing serves between the old fleet stopping and the new one being
+        // up: leaving `agent` null lets a failed start recover on the next
+        // recheck instead of being read as a fleet that is still serving.
+        agent = null;
+        agent = await startAgents(next.identity);
+        identity = next.identity;
+        console.log(`[gilbert] the agent is now ${identity.address}`);
+      } catch (err) {
+        // A recheck that fails must not take the process down with an unhandled
+        // rejection: the next recheck tries again, and the failure is said
+        // rather than swallowed.
+        console.error(
+          "[gilbert] the agent identity recheck failed:",
+          err instanceof Error ? err.message : String(err),
+        );
       }
-      const current = agent;
-      const next = await identityToFollow(identity);
-      if (!next) return;
-      await current.stop();
-      agent = await startAgents(next.identity);
-      identity = next.identity;
-      console.log(`[gilbert] the agent is now ${identity.address}`);
     })();
   }, AGENT_IDENTITY_RECHECK_MS);
 
@@ -1051,7 +1069,16 @@ export async function main(): Promise<void> {
   const fleet = await startAgentFleet();
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, stopping the agent agent`);
-    await fleet.stop();
+    try {
+      await fleet.stop();
+    } catch (err) {
+      // Signalling must not turn a failed stop into an unhandled rejection that
+      // hangs the process on the way out.
+      console.error(
+        "[gilbert] stopping the agent failed:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));
