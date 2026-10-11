@@ -105,7 +105,8 @@ export function ToastHost() {
                  * toast rather than an unhandled one, and keep this toast up
                  * until the work it started has settled.
                  */
-                void Promise.resolve(t.action!.onClick())
+                void Promise.resolve()
+                  .then(() => t.action!.onClick())
                   .catch((err) =>
                     toast.error(err instanceof Error ? err.message : String(err)),
                   )

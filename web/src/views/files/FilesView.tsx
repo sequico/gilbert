@@ -555,7 +555,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       setEditTarget({ id: target.id, blobId: next });
       toast.success(t("Saved"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(err instanceof Error ? err.message : String(err));
     }
   };
 
