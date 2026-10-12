@@ -4,7 +4,7 @@ import { test } from "node:test";
 process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-ics-proxy";
 
-const { safeFetch, safeFetchStatus } = await import("./imageproxy.js");
+const { redirectRefusal, safeFetch, safeFetchStatus } = await import("./imageproxy.js");
 const { looksLikeCalendar } = await import("./icsproxy.js");
 
 /**
@@ -50,6 +50,24 @@ test("a URL carrying credentials is refused", async () => {
   // Credentials in a subscription URL would be sent by the server on the
   // reader's behalf to a host the reader may not have looked at.
   assert.equal(await safeFetch("http://user:pass@example.com/c.ics", 500), "bad_url");
+});
+
+// A redirect is a second URL nobody asked for, and it gets the same guard as
+// the first. A target with credentials in the userinfo would have Node write an
+// `Authorization: Basic …` header from it, so the proxy would send a credential
+// it was never given -- and the initial-URL check does not cover this hop.
+test("a redirect target is checked the way the first URL is", () => {
+  assert.equal(
+    redirectRefusal(new URL("http://user:pass@example.com/c.ics")),
+    "bad_redirect",
+  );
+  assert.equal(
+    redirectRefusal(new URL("https://user@example.com/c.ics")),
+    "bad_redirect",
+  );
+  assert.equal(redirectRefusal(new URL("http://example.com:8080/c.ics")), "bad_redirect");
+  assert.equal(redirectRefusal(new URL("ftp://example.com/c.ics")), "bad_redirect");
+  assert.equal(redirectRefusal(new URL("https://example.com/c.ics")), null);
 });
 
 test("nonsense is refused rather than guessed at", async () => {

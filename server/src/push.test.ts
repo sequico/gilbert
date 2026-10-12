@@ -200,9 +200,21 @@ function fakePushServer(
             subs.push({ id: sid, ...o, verified: false });
             created[cid] = { id: sid, expires: o.expires ?? null };
           }
+          /*
+           * An update is answered the way Stalwart answers it: the id under
+           * `updated`. A fake that answered nothing here -- or marked the row
+           * verified -- would let a client take a verification the server never
+           * accepted, which is the failure the real answer has to catch.
+           */
+          const updated: Obj = {};
+          for (const uid of Object.keys((args.update as Obj) ?? {})) {
+            updated[uid] = null;
+            const s = subs.find((x) => x.id === uid);
+            if (s) s.verified = true;
+          }
           responses.push([
             method,
-            { accountId: "a", created, notCreated, updated: {}, destroyed },
+            { accountId: "a", created, notCreated, updated, destroyed },
             id,
           ]);
         } else {
@@ -1077,5 +1089,154 @@ test("a create that lands after its entry was torn down is destroyed, not leaked
   } finally {
     fake.restore();
     t.mock.timers.reset();
+  }
+});
+
+/**
+ * A Stalwart that creates the subscription but refuses the verification code,
+ * in either shape a real server reports a refusal in: `notUpdated` beside a
+ * 200, or a method-level `error`. Neither is an HTTP status, so a client that
+ * only checks the response code takes both as success.
+ */
+function stubRefusedVerification(answer: "notUpdated" | "error") {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/.well-known/jmap") || url.includes("/jmap/session")) {
+      return new Response(
+        JSON.stringify({
+          apiUrl: "http://127.0.0.1:1/jmap/",
+          primaryAccounts: { "urn:ietf:params:jmap:mail": "a" },
+          accounts: { a: {} },
+          capabilities: {},
+          eventSourceUrl: "",
+          downloadUrl: "",
+          uploadUrl: "",
+          state: "s",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    const body = JSON.parse(String(init?.body)) as Obj;
+    const responses = ((body.methodCalls as Obj[]) ?? []).map((call) => {
+      const [name, args, id] = call as [string, Obj, string];
+      const update = args.update as Obj | undefined;
+      if (update) {
+        if (answer === "error")
+          return ["error", { type: "invalidProperties", description: "Wrong code." }, id];
+        return [
+          name,
+          {
+            updated: {},
+            notUpdated: { [Object.keys(update)[0]]: { type: "invalidProperties" } },
+          },
+          id,
+        ];
+      }
+      return [
+        name,
+        {
+          created: {
+            s: {
+              id: "sub1",
+              expires: new Date(Date.now() + 86_400_000).toISOString(),
+            },
+          },
+          notCreated: {},
+          updated: {},
+          destroyed: [],
+        },
+        id,
+      ];
+    });
+    return new Response(JSON.stringify({ methodResponses: responses }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = real;
+  };
+}
+
+// `jmap` throws only on a non-2xx status, and Stalwart reports a refused update
+// inside a 200. An entry that is marked verified on the answer it never got
+// holds a stream that looks healthy and will never carry a change -- the exact
+// failure the liveness check exists to catch, one state too late.
+test("a verification the server refuses never makes the entry trusted", async () => {
+  for (const answer of ["notUpdated", "error"] as const) {
+    const push = await isolatedPush(`verify-refused-${answer}`);
+    const restore = stubRefusedVerification(answer);
+    try {
+      const capture = captureToken();
+      push.prepare("unverified@example.com", "a", "Basic v", ORIGIN);
+      await new Promise((r) => setTimeout(r, 30)); // the create lands
+      capture.restore();
+      assert.ok(capture.token(), "the subscribe call carries the push URL");
+      assert.equal(
+        await push.receive(capture.token()!, {
+          "@type": "PushVerification",
+          verificationCode: "wrong",
+        }),
+        500,
+        `a ${answer} answer is a refusal, not a verification`,
+      );
+      assert.equal(
+        push.pushStatus().accounts.verified,
+        0,
+        "the account is not trusted on a refusal",
+      );
+      assert.equal(
+        push.attach("unverified@example.com", "a", "Basic v", fakeOut() as never, ORIGIN),
+        null,
+        "and no tab is served by fan-out",
+      );
+    } finally {
+      restore();
+    }
+  }
+});
+
+// A verification POST can race the create that mints the subscription id: the
+// entry is "pending" -- so receive() acts on a code -- while `subscriptionId` is
+// still null. Keying the update on null asks Stalwart to update a subscription
+// named "null", and answering 200 would leave the account on a stream that
+// never carries a change.
+test("a verification that arrives before the subscription exists is refused", async () => {
+  const push = await isolatedPush("verify-early");
+  const restoreUpstream = stubUpstream();
+  const capture = captureToken();
+  const withCapture = globalThis.fetch;
+  let release!: () => void;
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    /* The capture wrapper runs first, synchronously, so the token is read off
+       the create's URL body; the gate then holds the answer, leaving
+       `subscriptionId` unset while the request is in flight. */
+    const result = withCapture(input, init);
+    if (typeof init?.body === "string" && init.body.includes('"PushSubscription/set"'))
+      await gate;
+    return result;
+  }) as typeof fetch;
+  try {
+    push.prepare("early@example.com", "a", "Basic E", ORIGIN);
+    await new Promise((r) => setTimeout(r, 50)); // the create is in flight
+    const token = capture.token();
+    assert.ok(token, "the in-flight create carries the push URL");
+    assert.equal(
+      await push.receive(token!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      500,
+      "there is no subscription to verify yet",
+    );
+    assert.equal(push.pushStatus().accounts.verified, 0, "nothing is trusted");
+  } finally {
+    release();
+    globalThis.fetch = NO_NETWORK;
+    restoreUpstream();
   }
 });

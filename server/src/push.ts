@@ -450,13 +450,30 @@ async function subscribe(entry: AccountPush) {
 }
 
 async function verify(entry: AccountPush, code: string) {
-  await jmap(entry, [
-    [
-      "PushSubscription/set",
-      { update: { [entry.subscriptionId!]: { verificationCode: code } } },
-      "0",
-    ],
+  const id = entry.subscriptionId;
+  /*
+   * The id is minted by `subscribe`, and a verification POST can race it: a
+   * code against no subscription has nothing to verify, and keying the update
+   * on `null` asks Stalwart to update the subscription named "null".
+   */
+  if (!id) throw new Error("no subscription to verify yet");
+  const r = await jmap(entry, [
+    ["PushSubscription/set", { update: { [id]: { verificationCode: code } } }, "0"],
   ]);
+  /*
+   * The answer decides, not the HTTP status: `jmap` throws only on a non-2xx
+   * response, and Stalwart reports a refused update -- a wrong code, a
+   * subscription that is gone -- inside a 200 as `notUpdated`, or as a
+   * method-level `error`. Reading either as success marks the entry verified
+   * while nothing upstream will ever POST to it, which is the failure the
+   * liveness check exists to catch, one state too late.
+   */
+  const [name, payload] = r.methodResponses[0] ?? [];
+  const updated = (payload as { updated?: Record<string, unknown> } | undefined)?.updated;
+  if (name !== "PushSubscription/set" || !updated || !(id in updated))
+    throw new Error(
+      `PushSubscription/set did not accept the verification (${name ?? "no response"})`,
+    );
   entry.state = "verified";
   // Every tab of this account that has been holding its own upstream stream
   // can now let go of it: the subscription is live, so Stalwart will POST the
@@ -635,7 +652,7 @@ export async function receive(token: string, body: unknown): Promise<number> {
   } catch {
     return 400; // a body that cannot be framed for a tab is not a notification
   }
-  if (json.length > MAX_PUSH_BODY_BYTES) return 413;
+  if (Buffer.byteLength(json) > MAX_PUSH_BODY_BYTES) return 413;
   const msg = body as { "@type"?: string; verificationCode?: string; changed?: unknown };
   if (msg["@type"] === "PushVerification" && typeof msg.verificationCode === "string") {
     /* Only a subscription we are waiting on can be verified. A code that

@@ -20,6 +20,8 @@ import { test } from "node:test";
 const root = mkdtempSync(join(tmpdir(), "gilbert-cache-"));
 mkdirSync(join(root, "assets"));
 writeFileSync(join(root, "assets", "app-a1b2c3.js"), "console.log(1)\n");
+writeFileSync(join(root, "assets", "nested.webmanifest"), `{"name":"Gilbert"}`);
+writeFileSync(join(root, "assets", "nested.html"), "<!doctype html><title>n</title>");
 writeFileSync(join(root, "sw.js"), "/* worker */\n");
 writeFileSync(join(root, "manifest.webmanifest"), `{"name":"Gilbert"}`);
 writeFileSync(join(root, "index.html"), "<!doctype html><title>t</title>");
@@ -78,6 +80,24 @@ test("everything else keeps its ordinary hour", async () => {
   // The rule is narrow on purpose: two files, named, rather than a policy that
   // quietly stops the icons and fonts being cached too.
   assert.match(await cacheControl("/img.png"), /max-age=3600/);
+});
+
+test("a manifest under assets/ is still never stale", async () => {
+  // The asset branch is about names that change when the bytes do; a manifest's
+  // name does not, and one served immutable pins a share target the worker may
+  // never implement. Order decides it: never-stale before assets.
+  assert.match(await cacheControl("/assets/nested.webmanifest"), /no-cache/);
+});
+
+test("an HTML file under assets/ keeps the shell's policy", async () => {
+  const res = await createApp().request("/assets/nested.html");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("cache-control") ?? "", /no-cache/);
+  assert.match(
+    res.headers.get("content-security-policy") ?? "",
+    /default-src 'self'/,
+    "the asset branch adds no CSP, so a shell file served from there has to keep the shell's",
+  );
 });
 
 test("under a prefix, the worker is still the worker", async () => {

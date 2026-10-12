@@ -61,9 +61,13 @@ function readInt(
 ): number {
   const v = environment[name];
   if (v === undefined || v === "") return fallback;
-  const n = Number.parseInt(v, 10);
-  if (!Number.isFinite(n)) throw new Error(`Invalid integer for ${name}: ${v}`);
-  return n;
+  /*
+   * The whole value has to be an integer: `Number.parseInt` stops at the first
+   * character it cannot use, so it read `1e3` as 1 and `1200/min` as 1200.
+   * A setting silently half its stated value is worse than a refused boot.
+   */
+  if (!/^-?\d+$/.test(v.trim())) throw new Error(`Invalid integer for ${name}: ${v}`);
+  return Number.parseInt(v, 10);
 }
 
 import { randomBytes } from "node:crypto";

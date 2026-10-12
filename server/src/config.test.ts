@@ -315,6 +315,34 @@ test("a document that states neither takes the values a bootless process runs on
   assert.equal(defaults.server.cookieName, bootless.cookieName);
 });
 
+/*
+ * A setting that is half a number is not a number.
+ *
+ * `Number.parseInt` reads up to the first character it cannot use, so an
+ * operator's `SESSION_TTL="1e3"` became a 1-second TTL and `1200/min` became
+ * 1200 -- a value silently other than the one stated, in a budget or a TTL
+ * where the difference is the whole point. The whole value has to be an
+ * integer or the boot is refused.
+ */
+test("an integer setting with trailing characters is refused, not truncated", () => {
+  for (const [name, v] of [
+    ["SESSION_TTL", "1e3"],
+    ["API_RATE_LIMIT", "1200/min"],
+    ["UPSTREAM_TIMEOUT", "30s"],
+  ] as const) {
+    assert.throws(
+      () => configurationFromEnvironment({ ...HANDSHAKE_ENV, [name]: v }),
+      new RegExp(`Invalid integer for ${name}`),
+      `${name}=${v} is not an integer`,
+    );
+  }
+  assert.equal(
+    configurationFromEnvironment({ ...HANDSHAKE_ENV, SESSION_TTL: "3600" }).sessionTtl,
+    3600,
+    "a plain integer is still read",
+  );
+});
+
 test("a boot runs on the document's values, and never on the document's provider switch", async () => {
   const env: InstallationEnvironment = {
     ...HANDSHAKE_ENV,
@@ -353,6 +381,52 @@ test("a boot runs on the document's values, and never on the document's provider
     () => assertServable(configuration),
     "a document-supplied secret serves",
   );
+});
+
+/*
+ * A field that is present and wrong is a problem, not a silent fallback (see
+ * the parser's own doc). An absent duration or limit takes its default; a
+ * negative one is not a duration at all -- it would make `AbortSignal.timeout`
+ * throw, or a rate limiter refuse every request, the moment a boot read the
+ * document.
+ */
+test("a duration, lease or limit that is present and negative is refused", () => {
+  for (const parts of [
+    { epoch: -1 },
+    { limits: { upstreamTimeout: -1 } },
+    { limits: { maxUploadBytes: -1 } },
+    { limits: { loginRateLimit: -1 } },
+    { limits: { apiRateLimit: -1 } },
+    { sessions: { ttl: -1 } },
+    { sessions: { rememberTtl: -1 } },
+    { agent: { poll: -1 } },
+    { agent: { heartbeat: -1 } },
+    { agent: { lease: -1 } },
+    { agent: { authoringMaxPerMonth: -1 } },
+    { agent: { healthPort: -1 } },
+  ]) {
+    const parsed = parseInstallationDocumentDetailed(
+      JSON.stringify({ ...parts, secret: A_SECRET }),
+    );
+    assert.ok("problem" in parsed, `${JSON.stringify(parts)} is refused`);
+  }
+});
+
+test("zero is a statement where it is one, and a port stays in range", () => {
+  // The data path's rate limiter and the monthly reading budget both read 0 as
+  // "off", and healthPort 0 as "no endpoint": those zeros are kept, not floored.
+  const off = documentFromJson({
+    limits: { apiRateLimit: 0 },
+    agent: { authoringMaxPerMonth: 0, healthPort: 0 },
+  });
+  assert.equal(off.limits.apiRateLimit, 0);
+  assert.equal(off.agent.authoringMaxPerMonth, 0);
+  assert.equal(off.agent.healthPort, 0);
+
+  const tooHigh = parseInstallationDocumentDetailed(
+    JSON.stringify({ agent: { healthPort: 70000 }, secret: A_SECRET }),
+  );
+  assert.ok("problem" in tooHigh, "a port above 65535 is not a port");
 });
 
 /*

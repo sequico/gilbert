@@ -243,14 +243,21 @@ export function staticHandler(root: string, basePath = ""): Handler {
       c.header("Content-Type", MIME[ext] ?? "application/octet-stream");
       const etag = etagOf(st.size, st.mtimeMs);
       c.header("ETag", etag);
-      if (rel.startsWith("/assets/") || rel.startsWith("assets/")) {
-        c.header("Cache-Control", "public, max-age=31536000, immutable");
-      } else if (ext === ".html") {
+      /*
+       * The never-stale rules come before the hashed-asset one, not after: the
+       * asset branch is about names that change when the bytes do, and a
+       * manifest or a shell file under `assets/` does not. Immutable would pin
+       * it for a year, and the asset branch adds no CSP either, so an HTML file
+       * served from there would lose the shell's policy.
+       */
+      if (ext === ".html") {
         c.header("Cache-Control", HTML_CACHE_CONTROL);
         c.header("Content-Security-Policy", APP_CSP);
       } else if (isNeverStale(rel, ext)) {
         c.header("Cache-Control", "no-cache");
         c.header("Content-Security-Policy", APP_CSP);
+      } else if (rel.startsWith("/assets/") || rel.startsWith("assets/")) {
+        c.header("Cache-Control", "public, max-age=31536000, immutable");
       } else {
         c.header("Cache-Control", "public, max-age=3600");
       }

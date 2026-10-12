@@ -165,6 +165,23 @@ export interface SafeFetchResult {
 }
 
 /**
+ * Why a redirect hop may not be followed, or null when it may.
+ *
+ * A hop has to be a plain web URL: an http(s) scheme, a standard port, and no
+ * credentials in the userinfo. The port is re-checked on every hop because a
+ * redirect is how a server moves the probe onto a port it chose, and the
+ * userinfo is refused for the same reason the initial URL's is — Node writes an
+ * `Authorization: Basic …` header from it, so a hop carrying one would make this
+ * proxy send a credential nobody here chose.
+ */
+export function redirectRefusal(url: URL): SafeFetchError | null {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return "bad_redirect";
+  if (!isAllowedPort(url)) return "bad_redirect";
+  if (url.username || url.password) return "bad_redirect";
+  return null;
+}
+
+/**
  * Fetch a URL nobody here chose, with every check the image proxy has always
  * made — and made in one place, because a second copy of an SSRF guard is how
  * one of them ends up missing a case.
@@ -213,15 +230,10 @@ export async function safeFetch(
       if (!loc) break;
       res.resume(); // discard the redirect body
       const next = new URL(loc, url);
-      if (next.protocol !== "http:" && next.protocol !== "https:") {
+      const refusal = redirectRefusal(next);
+      if (refusal) {
         done();
-        return "bad_redirect";
-      }
-      // The port is checked on every hop, not just the one asked for: a
-      // redirect is how a server moves the probe onto a port it chose.
-      if (!isAllowedPort(next)) {
-        done();
-        return "bad_redirect";
+        return refusal;
       }
       try {
         addr = await resolveAllowed(next.hostname);
