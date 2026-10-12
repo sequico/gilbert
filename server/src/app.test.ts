@@ -309,6 +309,226 @@ test("the events route answers 429 past a session's stream limit", async () => {
   }
 });
 
+/*
+ * An unmatched `/api/*` path answers the JSON error contract, not the SPA.
+ * `app.route()` copies a sub-app's routes but not its `notFound` handler, so
+ * the API's own not-found answer has to be a real route; without one an
+ * unmatched GET fell through to the static catch-all and came back as HTML,
+ * and a non-GET as Hono's plain-text 404.
+ */
+test("an unmatched API path answers JSON, not the SPA", async () => {
+  const app = createApp();
+  for (const method of ["GET", "POST", "DELETE"]) {
+    const res = await app.request("/api/does-not-exist", {
+      method,
+      headers: { "x-requested-with": "gilbert" },
+    });
+    assert.equal(res.status, 404, `${method} is a 404`);
+    assert.match(res.headers.get("content-type") ?? "", /application\/json/);
+    assert.deepEqual(await res.json(), { error: "not_found" });
+  }
+  // A real API route is not shadowed by the fallback.
+  assert.equal((await app.request("/api/health")).status, 200);
+  // A non-API path still reaches the SPA.
+  const spa = await app.request("/does-not-exist");
+  assert.match(spa.headers.get("content-type") ?? "", /text\/html/);
+});
+
+test("the API fallback follows the mount prefix", async () => {
+  const app = createApp("/mail");
+  const res = await app.request("/mail/api/does-not-exist", {
+    headers: { "x-requested-with": "gilbert" },
+  });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), { error: "not_found" });
+});
+
+/*
+ * The gated JMAP read (ADR 0017) is entered for a session that may not
+ * administer. A body past the cap is a size violation (413); a stream that
+ * fails for any other reason -- a client abort, a transport error -- is not,
+ * and must not be labelled one.
+ */
+test("a gated read tells a size violation from a broken stream", async () => {
+  const { sessions } = await import("./app.js");
+  const { config } = await import("./config.js");
+  const app = createApp();
+  const wasOwnDevice = config.administrationNeedsOwnDevice;
+  // With the own-device rule on, a session that did not ask to be remembered
+  // may not administer, so its JMAP body is read and checked before it is sent.
+  config.administrationNeedsOwnDevice = true;
+  const { cookie, session } = sessions.create({
+    username: "gated@example.com",
+    password: "pw",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  const headers = {
+    "content-type": "application/json",
+    "x-requested-with": "gilbert",
+    cookie: `${config.cookieName}=${cookie}`,
+  };
+  const send = (body: ReadableStream<Uint8Array>) =>
+    app.request("/api/jmap", { method: "POST", headers, body, duplex: "half" });
+  try {
+    const oversized = await send(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(4 * 1024 * 1024 + 1));
+          controller.close();
+        },
+      }),
+    );
+    assert.equal(oversized.status, 413);
+    assert.deepEqual(await oversized.json(), { error: "too_large" });
+
+    const broken = await send(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(8));
+          controller.error(new Error("socket hang up"));
+        },
+      }),
+    );
+    assert.equal(broken.status, 502);
+    assert.deepEqual(await broken.json(), { error: "upstream_error" });
+  } finally {
+    config.administrationNeedsOwnDevice = wasOwnDevice;
+    sessions.destroy(session.id);
+  }
+});
+
+/*
+ * An upstream failure must not hand the mail server's own message to the
+ * caller: it can carry a refusal detail read from the server's answer, and the
+ * answer reaches every authenticated client. The machine `error` code is the
+ * contract; the sentence is fixed and the detail goes to the log. The force
+ * password-change route's introspection failure follows the same rule.
+ */
+test("an upstream failure answers a fixed sentence, not the mail server's message", async () => {
+  const { upstreamFailure } = await import("./app.js");
+  const { UpstreamError } = await import("./upstream.js");
+  const calls: Array<{ body: Record<string, unknown>; status: number }> = [];
+  const fake = {
+    json(body: Record<string, unknown>, status: number) {
+      calls.push({ body, status });
+      return new Response(null, { status });
+    },
+  } as unknown as Parameters<typeof upstreamFailure>[0];
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    upstreamFailure(
+      fake,
+      new UpstreamError("refused: internal detail /var/lib/gilbert/secret", 403),
+    );
+    assert.equal(calls.at(-1)!.status, 403);
+    assert.equal(calls.at(-1)!.body.error, "forbidden");
+    assert.doesNotMatch(String(calls.at(-1)!.body.message), /var\/lib|internal detail/);
+
+    upstreamFailure(
+      fake,
+      new UpstreamError("Stalwart rejected the request (500): /secret", 502),
+    );
+    assert.equal(calls.at(-1)!.status, 502);
+    assert.equal(calls.at(-1)!.body.error, "upstream_error");
+    assert.doesNotMatch(String(calls.at(-1)!.body.message), /(500)|secret/);
+  } finally {
+    console.error = quiet;
+  }
+});
+
+/*
+ * A password change re-seals this session with the new credential. When the
+ * re-seal fails, the session still holds the credential the server just
+ * invalidated, so it is ended and the cookie cleared: the user is signed out
+ * now, and the answer says so, rather than being silently signed out on their
+ * next request. The re-seal is forced to fail here because its only natural
+ * cause -- the session vanishing in the window -- cannot be arranged
+ * deterministically.
+ */
+test("a password change whose re-seal fails signs the session out, and says so", async () => {
+  const http = await import("node:http");
+  const { config } = await import("./config.js");
+  const { sessions } = await import("./app.js");
+  let base = "";
+  const origin = http.createServer((req, res) => {
+    if (req.url?.startsWith("/.well-known/jmap")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          apiUrl: `${base}/api`,
+          accounts: {
+            acc: { name: "demo@example.com", isPersonal: true, accountCapabilities: {} },
+          },
+          primaryAccounts: {
+            "urn:ietf:params:jmap:mail": "acc",
+            "urn:stalwart:jmap": "acc",
+          },
+          capabilities: {},
+          state: "s",
+        }),
+      );
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        methodResponses: [
+          ["x:AccountPassword/set", { updated: { singleton: null } }, "s"],
+        ],
+      }),
+    );
+  });
+  await new Promise<void>((r) => origin.listen(0, "127.0.0.1", () => r()));
+  base = `http://127.0.0.1:${(origin.address() as { port: number }).port}`;
+
+  const wasUrl = config.stalwartUrl;
+  config.stalwartUrl = base;
+  const app = createApp();
+  const { cookie, session } = sessions.create({
+    username: "demo@example.com",
+    password: "demo-password",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  const realReseal = sessions.reseal;
+  sessions.reseal = () => false;
+  try {
+    const res = await app.request("/api/account/password", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-requested-with": "gilbert",
+        cookie: `${config.cookieName}=${cookie}`,
+      },
+      body: JSON.stringify({ current: "demo-password", next: "a-brand-new-password" }),
+    });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { sessionKept: boolean };
+    assert.equal(body.sessionKept, false, "the answer says the session was not kept");
+    assert.match(
+      res.headers.get("set-cookie") ?? "",
+      new RegExp(`${config.cookieName}=;`),
+      "the dead cookie is cleared",
+    );
+    // No live session is left behind: the cookie just cleared answers 401.
+    const after = await app.request("/api/auth/sessions", {
+      headers: { cookie: `${config.cookieName}=${cookie}` },
+    });
+    assert.equal(after.status, 401);
+  } finally {
+    sessions.reseal = realReseal;
+    config.stalwartUrl = wasUrl;
+    sessions.destroy(session.id);
+    // The fetch keeps its socket alive; drop it so the process can exit now.
+    origin.closeAllConnections();
+    origin.close();
+  }
+});
+
 test("destroying a session drops its cached upstream session", async () => {
   const http = await import("node:http");
   const { sessions } = await import("./app.js");

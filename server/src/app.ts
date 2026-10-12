@@ -840,7 +840,32 @@ function setSessionCookie(c: Context, value: string, remember: boolean) {
   });
 }
 
-function upstreamFailure(c: Context, err: unknown) {
+/**
+ * The fixed sentence an upstream failure carries, one per machine code.
+ *
+ * `upstreamFailure` answers every authenticated caller, so it never repeats the
+ * mail server's own message: the `error` code says which kind of failure it was
+ * and this says it in words, while the detail is logged server-side.
+ */
+function upstreamFailureMessage(error: string): string {
+  switch (error) {
+    case "invalid_credentials":
+      return "The mail server rejected these credentials.";
+    case "forbidden":
+      return "The mail server refused this request for this account.";
+    case "not_found":
+      return "The mail server has nothing at that address.";
+    default:
+      return "The mail server could not complete the request. This is not a problem with your password.";
+  }
+}
+
+/**
+ * The answer to a failure talking to the mail server: the machine `error` code
+ * is the contract the client reads, and the sentence beside it is fixed (see
+ * `upstreamFailureMessage`) rather than the mail server's own message.
+ */
+export function upstreamFailure(c: Context, err: unknown) {
   if (err instanceof UpstreamError) {
     // A 403 is a permission and a 404 a missing object: the code keeps the
     // reason the mail server distinguished, rather than collapsing both into a
@@ -855,7 +880,10 @@ function upstreamFailure(c: Context, err: unknown) {
           : status === 404
             ? "not_found"
             : "upstream_error";
-    return c.json({ error, message: err.message }, status);
+    // The message can carry a refusal detail read from the mail server's own
+    // answer; it belongs in the log, not in the response.
+    console.error(`[gilbert] upstream failure (${status}):`, err.message);
+    return c.json({ error, message: upstreamFailureMessage(error) }, status);
   }
   const name = (err as Error)?.name ?? "";
   if (name === "TimeoutError" || name === "AbortError") {
@@ -1349,48 +1377,58 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return accountFailure(c, err);
     }
     // The old password is now dead: re-seal this session with the new one and
-    // drop the others, whose sealed copies would fail on their next call.
+    // drop the others, whose sealed copies would fail on their next call. A
+    // re-seal can fail -- no cookie, or a session already gone -- and the
+    // session would then keep the credential the server just invalidated, so
+    // it is ended here and the cookie cleared rather than left to fail on the
+    // client's next request.
     const otpCode = body.otpCode?.trim();
-    sessions.reseal(
+    const sessionKept = sessions.reseal(
       getCookie(c, config.cookieName),
       otpCode ? `${next}$${otpCode}` : next,
     );
-    forgetUpstreamSession(session.id);
+    if (sessionKept) forgetUpstreamSession(session.id);
+    else {
+      sessions.destroy(session.id);
+      deleteCookie(c, config.cookieName, { path: cookiePath() });
+    }
     const revoked = sessions.destroyAllForUser(session.account, session.id);
+    directiveCache.delete(normalizeUsername(session.username));
     // Was this user forced? The answer must be judged after the change, with
     // the freshly resealed credential: the door cache may still hold the
     // pre-force answer, and the old credential is dead the moment the change
     // lands upstream. Password changes are rare, so a fresh read is cheap.
-    const fresh = sessions.resolve(getCookie(c, config.cookieName));
-    directiveCache.delete(normalizeUsername(session.username));
-    if (fresh && (await sessionForcedState(fresh))) {
-      // ADR 0001: a successful change clears the directive in the user's own
-      // folder. The user's own (freshly resealed) session is enough — no
-      // impersonation needed for the clear.
-      try {
-        const upstream = await getUpstreamSession(
-          fresh.id,
-          fresh.authorization,
-          upstreamFor(fresh.username),
-        );
-        await clearPasswordChangeDirective({
-          authorization: fresh.authorization,
-          session: upstream,
-          username: fresh.username,
-        });
-      } catch (err) {
-        // The password change itself succeeded; the clear is a convenience and
-        // must not turn success into failure.
-        console.warn(
-          "[gilbert] password changed but the directive could not be cleared:",
-          (err as Error).message,
-        );
+    if (sessionKept) {
+      const fresh = sessions.resolve(getCookie(c, config.cookieName));
+      if (fresh && (await sessionForcedState(fresh))) {
+        // ADR 0001: a successful change clears the directive in the user's own
+        // folder. The user's own (freshly resealed) session is enough — no
+        // impersonation needed for the clear.
+        try {
+          const upstream = await getUpstreamSession(
+            fresh.id,
+            fresh.authorization,
+            upstreamFor(fresh.username),
+          );
+          await clearPasswordChangeDirective({
+            authorization: fresh.authorization,
+            session: upstream,
+            username: fresh.username,
+          });
+        } catch (err) {
+          // The password change itself succeeded; the clear is a convenience and
+          // must not turn success into failure.
+          console.warn(
+            "[gilbert] password changed but the directive could not be cleared:",
+            (err as Error).message,
+          );
+        }
+        // The read above cached "forced"; the file is gone now, so the door
+        // must not answer from that entry.
+        directiveCache.delete(normalizeUsername(session.username));
       }
-      // The read above cached "forced"; the file is gone now, so the door
-      // must not answer from that entry.
-      directiveCache.delete(normalizeUsername(session.username));
     }
-    return c.json({ ok: true, revokedSessions: revoked });
+    return c.json({ ok: true, sessionKept, revokedSessions: revoked });
   });
 
   api.get("/account/app-passwords", requireSession, async (c) => {
@@ -1542,10 +1580,17 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return accountFailure(c, err);
     }
     // This session may be running on the app password minted when 2FA went on;
-    // the plain password works again now, so put it back.
-    sessions.reseal(getCookie(c, config.cookieName), body.current, false);
-    forgetUpstreamSession(session.id);
-    return c.json({ ok: true });
+    // the plain password works again now, so put it back. A re-seal that fails
+    // (no cookie, or a session already gone) leaves the stored credential as it
+    // was, so the answer says the session was not kept rather than pretending
+    // the move happened.
+    const sessionKept = sessions.reseal(
+      getCookie(c, config.cookieName),
+      body.current,
+      false,
+    );
+    if (sessionKept) forgetUpstreamSession(session.id);
+    return c.json({ ok: true, sessionKept });
   });
 
   // ---------- Administration (ADR 0001, ADR 0017) ----------
@@ -1711,10 +1756,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         );
       }
     } catch (err) {
+      // The target's introspection failed: an upstream failure, and its detail
+      // stays in the log rather than reaching the administrator as a raw
+      // internal message.
+      console.error("[gilbert] could not verify the target's administrator state:", err);
       return c.json(
         {
           error: "upstream_error",
-          message: `Could not verify the target's administrator state: ${(err as Error).message}`,
+          message: "Could not verify the target's administrator state.",
         },
         502,
       );
@@ -3727,7 +3776,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           c.header("Retry-After", "1");
           return c.json({ error: "busy" }, 503);
         }
-        return c.json({ error: "too_large" }, 413);
+        if (err instanceof GatedSizeError) return c.json({ error: "too_large" }, 413);
+        /*
+         * Anything else is the stream itself failing -- the client aborting
+         * mid-body, a transport error -- not a size violation. Answering 413
+         * for it would name a cause that is not true; the detail stays in the
+         * log and the caller is told the failure is upstream.
+         */
+        console.error("[gilbert] gated read failed:", err);
+        return c.json({ error: "upstream_error" }, 502);
       } finally {
         const left = (gatedReads.get(session.id) ?? 1) - 1;
         if (left > 0) gatedReads.set(session.id, left);
@@ -3976,7 +4033,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   // on someone else's server is a gift to whoever finds it.
   api.get("/ics", requireSession, apiRateLimited, icsProxyHandler);
 
-  api.notFound((c) => c.json({ error: "not_found" }, 404));
+  /*
+   * What an unmatched `/api/*` path answers, as a route rather than `notFound`.
+   * `app.route()` copies a sub-app's routes into the parent but not its
+   * not-found handler, so a `notFound` here never ran: an unmatched `GET`
+   * fell through to the static catch-all below and came back as the SPA
+   * shell, and a non-`GET` as Hono's plain-text 404 — neither the JSON error
+   * contract `/api/*` answers everywhere else. The catch-all is a real route
+   * and does carry across.
+   */
+  api.all("*", (c) => c.json({ error: "not_found" }, 404));
   api.onError((err, c) => {
     console.error("[gilbert] api error:", err);
     return c.json({ error: "internal_error" }, 500);
@@ -4018,6 +4084,9 @@ let gatedBytes = 0;
 
 class GatedBudgetError extends Error {}
 
+/** A checked request body larger than `MAX_GATED_REQUEST`. */
+class GatedSizeError extends Error {}
+
 /** Read a checked request body, counting it against the two budgets as it arrives. */
 async function readGated(stream: ReadableStream<Uint8Array>): Promise<string> {
   let mine = 0;
@@ -4025,7 +4094,8 @@ async function readGated(stream: ReadableStream<Uint8Array>): Promise<string> {
     transform(chunk, controller) {
       mine += chunk.byteLength;
       gatedBytes += chunk.byteLength;
-      if (mine > MAX_GATED_REQUEST) controller.error(new Error("request too large"));
+      if (mine > MAX_GATED_REQUEST)
+        controller.error(new GatedSizeError("request too large"));
       else if (gatedBytes > GATED_BUDGET)
         controller.error(new GatedBudgetError("gated read budget spent"));
       else controller.enqueue(chunk);
