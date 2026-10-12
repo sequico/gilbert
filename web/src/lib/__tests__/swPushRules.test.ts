@@ -27,15 +27,24 @@ describe("the push handler's rules", () => {
   });
 
   /*
-   * The handshake settles here. A code stored for a tab to collect is a code
-   * the server keeps re-sending (`last_verify`, per account), and each re-send
-   * is a push answered with nothing — which Chrome answers with a notification
-   * of its own.
+   * The handshake settles here: the code is echoed back and no longer stored
+   * for a tab to collect, because until it is answered the server keeps
+   * re-sending it (`last_verify`, per account) and each re-send is a push that
+   * shows the reader nothing.
+   *
+   * The assertion is the call itself, not the method's name: the name also
+   * stands in the comment above the function, and a pin the prose can satisfy
+   * would stay green while the handshake stopped working.
    */
   it("hands the verification code back to the server itself", () => {
-    expect(worker).toContain("PushSubscription/set");
-    expect(worker).toContain("verificationCode: code");
+    expect(worker).toContain(
+      '["PushSubscription/set", { update: { [id]: { verificationCode: code } } }, "0"]',
+    );
     expect(worker).toContain('const WEBPUSH_CAP = "urn:ietf:params:jmap:webpush-vapid"');
+    // …and the push listener is what reaches it, which a body-only pin would
+    // not say: a disconnected branch is dead code with a green suite.
+    expect(worker).toContain('data["@type"] === "PushVerification"');
+    expect(worker).toContain("event.waitUntil(verifyPushSubscription(data));");
     // Nothing is left for a tab to collect, so there is no second door.
     expect(worker).not.toContain("push-verification");
   });
@@ -44,28 +53,63 @@ describe("the push handler's rules", () => {
    * A delivery that arrived as a state change rather than as a payload names
    * its account and nothing else, so the worker reads the message back and
    * announces it: a push answered with silence is Chrome's own "this site has
-   * been updated in the background". Where there is no Inbox to read, the
-   * notice names the mailbox the briefing has.
+   * been updated in the background". Where there is no Inbox to read — or the
+   * read cannot be made — the notice names the mailbox the briefing has.
    */
   it("reads a payload-less delivery back from the Inbox and announces it", () => {
     expect(worker).toContain("await mailNotifications(changed, facts, strings);");
     expect(worker).toContain('filter: { inMailbox: inboxId, notKeyword: "$seen" }');
-    expect(worker).toContain("if (!account?.inboxId)");
+    expect(worker).toContain("if (messages === null)");
+    expect(worker).toContain("await showMailNotice(accountId, account, strings);");
     expect(worker).toContain("strings.newMail");
   });
 
   /*
+   * Two notification paths share one push, and they must not share a failure:
+   * a chat read that rejects (its own fetch) is the chat's silence, and the
+   * mail of that same wake-up still has to be announced.
+   */
+  it("keeps a chat failure from taking the mail path with it", () => {
+    expect(worker).toMatch(
+      /try \{\s*await chatNotifications\(data, facts\);\s*\} catch \{[\s\S]{0,120}\}\s*await mailNotifications\(changed, facts, strings\);/,
+    );
+  });
+
+  /*
    * The read-back is gated by what this device has already been told, because
-   * unread is not the same as new: without the watermark every wake-up would
+   * unread is not the same as new: without the gate every wake-up would
    * re-announce mail the reader has deliberately left unread. The entry is the
    * worker's own — no tab reads it, so no second copy of the name exists.
    */
   it("announces only what is newer than the watermark it wrote", () => {
     expect(worker).toContain("gilbert-mail-watermark");
-    expect(worker).toContain('Date.parse(watermarks[accountId] ?? "")');
-    expect(worker).toContain("await rememberMailWatermarks(watermarks);");
+    expect(worker).toContain('readMailWatermarks())[accountId] ?? ""');
+    expect(worker).toContain("at > seenFrom");
+    expect(worker).toContain("await advanceMailWatermark(accountId, newest);");
     const app = ["src/lib/swFacts.ts", "src/lib/webpushEnable.ts"].map(readSource);
     for (const src of app) expect(src).not.toContain("gilbert-mail-watermark");
+  });
+
+  /*
+   * A device with no watermark for an account is the one state where nothing
+   * can be compared: only what arrived just now is certainly news, and the
+   * watermark is seeded from what the read saw. Without this, a reader's
+   * standing unread mail would be announced the first time any of it changed.
+   */
+  it("seeds a watermark instead of announcing a standing backlog", () => {
+    expect(worker).toContain("MAIL_FRESH_MS");
+    expect(worker).toContain("Date.now() - MAIL_FRESH_MS");
+  });
+
+  /*
+   * A delivery's payload is news too, and the read-back compares against the
+   * same watermark: a payload that did not move it would have its own message
+   * announced a second time by the next payload-less change.
+   */
+  it("moves the watermark on the payload path as well", () => {
+    expect(worker).toContain(
+      "await advanceMailWatermark(deliveryAccountId, newestReceived(announced));",
+    );
   });
 
   /*
@@ -79,6 +123,16 @@ describe("the push handler's rules", () => {
     );
     expect(worker).toContain("for (const email of fresh) await notifyMail(");
     expect(worker).toContain(`tag: \`gilbert-\${email.id || body}\``);
+  });
+
+  /*
+   * One cap for both paths — the payload carries up to it and the read-back
+   * asks for the same number — so neither can drop the mail the other would
+   * have shown.
+   */
+  it("announces a burst by the same cap on both paths", () => {
+    expect(worker).toContain("emails.slice(0, MAIL_MAX)");
+    expect(worker).toContain("limit: MAIL_MAX");
   });
 
   /*

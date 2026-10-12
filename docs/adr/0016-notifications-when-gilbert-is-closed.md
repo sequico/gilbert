@@ -243,9 +243,10 @@ about it:
   section's business;
 - for any other change, an account the briefing describes with an Inbox is a
   delivery, and the message is **read back** from that Inbox and announced —
-  up to three, tagged by message id, through the same renderer the payload path
-  uses, so the `EmailPush` riding beside it collapses into the notification
-  already on screen rather than stacking beside it;
+  up to `MAIL_MAX`, the same number of messages a payload announces, tagged by
+  message id, through the same renderer the payload path uses, so the
+  `EmailPush` riding beside it collapses into the notification already on
+  screen rather than stacking beside it;
 - an account the briefing lists **without** an Inbox has no folder to read and
   the notice names the mailbox, which is the whole of what can be said about it;
 - no briefing at all — the worker installed and the app not opened since — is
@@ -255,10 +256,23 @@ The read is gated by what this device has already been told. Unread is not the
 same as new: without a gate, every wake-up would announce mail the reader has
 deliberately left unread, so the worker keeps **the newest instant it announced
 for an account** in the handoff cache — its own entry, which no tab reads and
-which activation never empties — and announces only what arrived after it. The
-watermark moves past everything the read saw, not only past what was announced,
-so a backlog stays the app's business rather than becoming one notice per
-message.
+which activation never empties — and announces only what arrived after it. Both
+paths move it: a delivery from the payload too, or the read-back would announce
+the message the payload had just announced. The watermark moves past everything
+the read saw, not only past what was announced, so a backlog stays the app's
+business rather than becoming one notice per message.
+
+A device with no watermark for an account is the one state where nothing can be
+compared, and it is resolved by seeding rather than by announcing: only mail that
+arrived within `MAIL_FRESH_MS` counts as news on that read — a delivery's push
+follows the write within seconds — and the watermark is seeded from whatever the
+read saw. The price is one delivery left unannounced for an account this device
+has never been told anything about, and the alternative is a reader's standing
+unread mail announced the first time any of it changed.
+
+Two reads of one wake-up cannot take each other down: the chat read and the mail
+read have separate failure domains, so a chat `fetch` that rejects is the chat's
+silence and the mail of that same push is still announced.
 
 ### The verification settles where it arrives
 
@@ -270,8 +284,17 @@ push the worker could answer with nothing but the browser's own notice. The
 worker answers it itself: the handshake is an ordinary JMAP call, the session
 cookie is same-origin and httpOnly, and `sw.js` already makes exactly that call
 to archive from a notification. A code that cannot be answered — the session
-gone, the connection down — is dropped rather than retried in a loop, because
-the server's next send is the retry.
+gone, the connection down, a payload naming no id or no code — is dropped rather
+than retried in a loop, because the server's next send is the retry.
+
+This is the one wake-up the worker answers **to the server** and not to the
+reader: the code is echoed back and nothing is shown, so the browser's own
+notice may stand over that single push, once per subscription. And because a
+background context holds a session only while the device does, a device whose
+session is gone is woken with codes it cannot echo until somebody signs in again
+— which is also the moment the app re-registers it. How many such wake-ups a
+real server sends, and whether it keeps sending them, is the sixth item of debt
+below.
 
 ### The briefing the worker reads grows with it
 
@@ -364,14 +387,17 @@ Until it is taken, a reminder is what a running client can do.
   move from any client does not arrive at all, and a delivery to an account the
   `emailPush` map describes arrives as the `EmailPush` that names its sender. At
   the worker, a delivery that arrives as a bare state change instead — the
-  degraded group case, an account the map cannot describe — is read back from
-  that account's Inbox and announced from the message itself, up to three per
-  wake-up, tagged by message id so the payload beside it collapses into one
-  notification rather than stacking two. A read that trusted "newest unread"
+  degraded group case, or a server that answers a delivery with one — is read
+  back from that account's Inbox and announced from the message itself, up to
+  five per wake-up, tagged by message id so the payload beside it collapses into
+  one notification rather than stacking two. A read that trusted "newest unread"
   alone would announce unread mail the reader had left unread: the watermark the
-  worker keeps for itself is what separates the two.
+  worker keeps for itself, moved by both paths and seeded rather than announced
+  on a device that has none, is what separates the two.
 - The verification handshake settles in the worker, which is where the code
-  arrives. Answering it there is what stops the server re-sending it — only the
+  arrives; it is answered to the server and shows the reader nothing, so that one
+  push is the only one where the browser's own notice may still stand in.
+  Answering it there is what stops the server re-sending it — only the
   **newest** unverified subscription of an account is sent a `PushVerification`
   per pass, throttled per account (`last_verify` in
   `crates/services/src/state_manager/push.rs`) — and each re-send it stops is one
@@ -428,13 +454,15 @@ Built with the map:
   because the map and the `types` are fixed at creation (`web/src/App.tsx`).
 - The worker announces a group's mail from the open-tab path, names the group in
   its notification, and answers a payload-less delivery by reading that account's
-  Inbox back — gated by the watermark it wrote, and rendered through the same
-  notification the payload path uses so the two cannot stack
+  Inbox back — gated by the watermark it wrote and by both paths moving it,
+  seeded rather than announced where a device has none, and rendered through the
+  same notification the payload path uses so the two cannot stack
   (`web/src/store/__tests__/group-mail-notify.test.ts`,
   `web/src/lib/__tests__/swPushRules.test.ts`, `web/src/lib/__tests__/swChat.test.ts`).
-- The verification code is answered by the worker and left for no tab to
-  collect, which is what makes the server stop re-sending it
-  (`web/src/lib/__tests__/swPushRules.test.ts`).
+- The verification code is answered by the worker, from inside the listener that
+  receives it, and left for no tab to collect
+  (`web/src/lib/__tests__/swPushRules.test.ts`). That the server then stops
+  re-sending it is the fourth item of debt, not a test.
 
 Owed with the steps below:
 

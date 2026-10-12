@@ -1660,16 +1660,18 @@ half.
   notification be tagged by message, offer Archive and Mark-read, and open the
   message; **a delivery that arrives without a payload instead is read back from
   that account's Inbox and announced from the message itself**, so it names the
-  sender, the subject and the mailbox it landed in rather than only that mail
-  arrived. Nothing is shown while a focused Gilbert window is on screen. Offered
-  only on a device you said was yours.
+  sender and the subject rather than only that mail arrived (a group's message is
+  also titled with the group). Nothing is shown while a focused Gilbert window is
+  on screen. Offered only on a device you said was yours.
 - **Every wake-up is answered, because the browser counts notifications.** A Web
   Push message the service worker answers without showing a notification is
   answered by the browser instead — Chrome shows "this site has been updated in
   the background" — and no setting of Gilbert's can turn that off. So the
   verification code is echoed back by the worker itself, which is also what stops
   the mail server re-sending it, and a delivery that carried no message is read
-  back and announced. The one residual is a file write (`FileNode`) with no chat
+  back and announced. That one handshake is answered to the server and shows
+  nothing, so it is the only wake-up the browser's own notice may still stand
+  over. The one residual is a file write (`FileNode`) with no chat
   message behind it: it wakes the device for the chat, it has nothing to show,
   and no filter exists to narrow it.
 - **The subscription is one row per device, and it wakes for a group's mail and its
@@ -1680,7 +1682,9 @@ half.
   state change instead — an account the map cannot describe, or a server that
   degrades it — the worker reads that account's Inbox back and names the message
   there, gated by the newest instant it has already announced for that account so
-  a reader's own unread backlog is never announced. What a live server does with
+  a reader's own unread backlog is never announced; where the briefing has no
+  Inbox for the account, or the read cannot be made, the notice names the mailbox
+  and says that mail arrived. What a live server does with
   the map is ADR 0016's owed probe. A chat message wakes it through `FileNode`,
   and the worker reads the newest nodes of the group's chat folder and announces
   what is newer than the watermark and not the reader's own (ADR 0016, whose

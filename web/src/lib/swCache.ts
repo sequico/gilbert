@@ -3,9 +3,10 @@
  *
  * It is `HANDOFF` in `web/public/sw.js`, and the worker is not built from this
  * source -- it is copied to `dist` verbatim, so nothing checks that the two
- * agree. They have to: the worker leaves a share and its briefing there for a
- * tab to collect, and a name that has drifted does not fail, it silently finds
- * nothing. A share arrives at an empty composer.
+ * agree. They have to: the worker leaves a share there for a tab, and a tab
+ * leaves the briefing there for the worker, and a name that has drifted does not
+ * fail, it silently finds nothing. A share arrives at an empty composer, and the
+ * notification loses the folder it opens.
  *
  * It is deliberately not the shell cache the worker versions and empties on
  * every activation. What lands here is written by one context and read by

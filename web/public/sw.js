@@ -371,6 +371,11 @@ async function precache(html, cache) {
  * notifications off altogether. So every wake-up this file receives is answered
  * with something true about it: the payload with its message, the state change
  * with the mail read back from the Inbox, and the handshake with the code.
+ *
+ * The handshake is the one answer addressed to the server rather than to the
+ * reader: it echoes a code back, which is what a subscription needs to stop
+ * being silent, and it shows nothing. The browser may therefore still show its
+ * own notice over that one push, once per subscription.
  */
 
 /*
@@ -389,13 +394,19 @@ const WEBPUSH_CAP = "urn:ietf:params:jmap:webpush-vapid";
  * sends one per pass to the newest unverified subscription of the account
  * (`last_verify`, per account). A code that is only stored for a tab to collect
  * is therefore a code the server keeps re-sending, and every re-send is a push
- * the worker could answer with nothing but the browser's own notice. Answering
- * it here settles the handshake with no tab open.
+ * that shows the reader nothing. Answering it here settles the handshake with
+ * no tab open.
  *
  * The call is an ordinary JMAP one: the session cookie is same-origin and
  * httpOnly, exactly as it is for `runAction`. A code that cannot be answered —
- * the session gone, the connection down — is dropped rather than retried in a
- * loop, because the server's next send is the retry.
+ * the session gone, the connection down, or a payload that names no id and no
+ * code — is dropped rather than retried in a loop, because the server's next
+ * send is the retry. A device whose session is gone is therefore woken with
+ * codes it cannot echo until somebody signs in again, which is also the moment
+ * the app re-registers the device; how many of those wake-ups a real server
+ * sends is the debt this rests on.
+ *
+ * ADR-0016 OWED: verification-background-answer
  */
 async function verifyPushSubscription(data) {
   const id = typeof data.pushSubscriptionId === "string" ? data.pushSubscriptionId : "";
@@ -523,11 +534,12 @@ function actionsFor(account, strings) {
  * It lives in the handoff cache, which activation never empties, and it is the
  * worker's own entry -- no tab reads it, so there is no second copy of the name
  * to keep in step. A stale entry is inert: an account id belongs to one account,
- * so a later sign-in never reads it. Where cache storage is refused, the read
- * falls back to announcing the newest few, which is what the first wake-up on a
- * device does anyway. Two wakes in flight at once can lose each other's advance
- * (the entry is written whole): the cost is one message announced twice, which
- * the tag it carries collapses into the notification already on screen.
+ * so a later sign-in never reads it.
+ *
+ * Where cache storage is refused, or two wakes read the map at once and the
+ * later write wins, an account's advance is lost: the next read for it has no
+ * watermark and seeds one instead of announcing, so the cost is one wake-up
+ * that says nothing, never a backlog announced as news.
  */
 const MAIL_WATERMARK_KEY = `${BASE}/gilbert-mail-watermark`;
 
@@ -550,22 +562,52 @@ async function rememberMailWatermarks(watermarks) {
       }),
     );
   } catch {
-    /* no cache storage: the next wake-up reads the newest few again */
+    /* no cache storage: the next read for this account seeds a watermark again */
   }
 }
 
-/*
- * How many messages one read-back announces, and what a notification is built
- * from.
+/**
+ * Move this device's watermark for one account on.
  *
- * The property list is the one the subscription asks Stalwart for
- * (`PAYLOAD_PROPS` in `web/src/lib/webpush.ts`), because the two paths render
- * the same message: the payload one, and this one. They have to agree, since
- * whichever arrives second replaces the other in place under the message's own
- * tag.
+ * Read immediately before the write, so the accounts a concurrent wake is
+ * carrying are picked up rather than overwritten. The value is normalised, so
+ * two instants from the server can be compared however they were spelled.
  */
-const MAIL_READ = 3;
+async function advanceMailWatermark(accountId, at) {
+  if (!Number.isFinite(at)) return;
+  const watermarks = await readMailWatermarks();
+  watermarks[accountId] = new Date(at).toISOString();
+  await rememberMailWatermarks(watermarks);
+}
+
+/*
+ * How many messages of a burst one wake-up announces, and what a notification
+ * is built from.
+ *
+ * One number for both paths — the payload carries up to this many and the
+ * read-back asks for the same number — so neither can quietly drop the mail the
+ * other would have shown; a burst longer than this is the same partial
+ * announcement either way. The property list is the one the subscription asks
+ * Stalwart for (`PAYLOAD_PROPS` in `web/src/lib/webpush.ts`), because the two
+ * paths render the same message: the payload one, and this one. They have to
+ * agree, since whichever arrives second replaces the other in place under the
+ * message's own tag.
+ */
+const MAIL_MAX = 5;
 const MAIL_PROPS = ["id", "threadId", "from", "subject", "preview", "receivedAt"];
+
+/*
+ * How recent a message has to be to count as news on a device that has no
+ * watermark for the account yet.
+ *
+ * A delivery's push follows the write within seconds, so "just now" is what the
+ * push is about; a push the push service held back (a device asleep for hours)
+ * therefore stays silent on that first read, which costs one unannounced
+ * delivery for an account this device has never been told anything about — never
+ * a backlog announced as news, which is what an unguarded "newest unread" read
+ * would do every time.
+ */
+const MAIL_FRESH_MS = 15 * 60 * 1000;
 
 /** The newest unread messages of an Inbox, newest first. */
 async function newestUnread(accountId, inboxId) {
@@ -576,7 +618,7 @@ async function newestUnread(accountId, inboxId) {
         accountId,
         filter: { inMailbox: inboxId, notKeyword: "$seen" },
         sort: [{ property: "receivedAt", isAscending: false }],
-        limit: MAIL_READ,
+        limit: MAIL_MAX,
       },
       "q",
     ],
@@ -640,73 +682,84 @@ async function notifyMail(accountId, account, email, strings) {
  *
  * Only a change that is not `FileNode` alone is a delivery: an upload, an
  * agent's document and the reader's own stored settings all wear `FileNode`,
- * which is the chat section's business and nobody else's.
+ * which is the chat section's business and nobody else's. Any other name is read
+ * rather than a whitelist of the two the bitmap is asked for, because which name
+ * a degraded delivery wears is exactly what a live server has not been asked yet
+ * (`ADR-0016 OWED: degraded-statechange-type`); a read that finds nothing says
+ * nothing, so reading too widely costs requests, not noise.
  *
  * Where the account is one the briefing describes with an Inbox, the message is
  * read back and announced for real, which is what keeps a delivery from being
- * answered with the browser's own notice. Where it is not -- an account the
- * briefing lists without one, or no briefing at all -- there is nothing to read
- * and the notice names the mailbox it can, rather than leaving the wake-up
- * unanswered.
+ * answered with the browser's own notice. Where there is no Inbox to read, and
+ * where the read cannot be made at all (a session the worker does not have), the
+ * notice names the mailbox it can rather than leaving the wake-up unanswered.
  *
- * A read that finds nothing newer than the watermark notifies nothing, and that
- * is deliberate: the alternative is announcing mail the reader has already been
- * told about, or a change that was never a delivery at all (a flag, a move)
- * under a sentence saying it arrived. It is the one case where the browser's own
- * notice still stands in for an answer.
+ * What a read announces is gated by the watermark, because unread is not new:
+ * with one, only what arrived after it is news; without one -- this device has
+ * never announced anything for this account -- only what arrived within
+ * `MAIL_FRESH_MS`, and the watermark is seeded from whatever the read saw. A
+ * reader's standing unread mail is therefore never announced as it arrives. A
+ * read holding nothing fresh notifies nothing, which is the one case the
+ * browser's own notice still stands in for: the alternative is announcing mail
+ * the reader has already been told about, or a change that was never a delivery
+ * at all (a flag, a move) under a sentence saying it arrived.
  */
 async function mailNotifications(changed, facts, strings) {
   const deliveries = Object.entries(changed).filter(
     ([, types]) => types && Object.keys(types).some((k) => k !== "FileNode"),
   );
   if (!deliveries.length) return;
-  const watermarks = await readMailWatermarks();
   for (const [accountId] of deliveries) {
     const account = accountFact(facts, accountId);
-    if (!account?.inboxId) {
-      await self.registration.showNotification(account?.name || strings.newMail, {
-        body: strings.newMail,
-        icon: `${BASE}/img/icon-192.png`,
-        badge: `${BASE}/img/favicon-64.png`,
-        tag: `gilbert-mail-${accountId}`,
-        data: { url: `${BASE}/mail` },
-      });
+    let messages = null;
+    if (account?.inboxId) {
+      try {
+        messages = await newestUnread(accountId, account.inboxId);
+      } catch {
+        messages = null;
+      }
+    }
+    if (messages === null) {
+      await showMailNotice(accountId, account, strings);
       continue;
     }
-    let messages;
-    try {
-      messages = await newestUnread(accountId, account.inboxId);
-    } catch {
-      continue; // a session the read cannot use notifies nothing
-    }
-    const announcedBefore = Date.parse(watermarks[accountId] ?? "");
+    const newest = newestReceived(messages);
+    const watermark = Date.parse((await readMailWatermarks())[accountId] ?? "");
+    const seenFrom = Number.isFinite(watermark) ? watermark : Date.now() - MAIL_FRESH_MS;
     const fresh = messages.filter((email) => {
-      const at = email.receivedAt ? Date.parse(email.receivedAt) : Number.NaN;
-      return (
-        Number.isFinite(at) &&
-        !(Number.isFinite(announcedBefore) && at <= announcedBefore)
-      );
+      const at = Date.parse(email.receivedAt ?? "");
+      return Number.isFinite(at) && at > seenFrom;
     });
     if (!fresh.length) continue;
     try {
       for (const email of fresh) await notifyMail(accountId, account, email, strings);
-      /*
-       * The watermark moves past everything the read saw, not only past what was
-       * announced: older unread mail is a backlog the worker leaves to the app
-       * rather than one notice per message.
-       */
-      const newest = messages.reduce(
-        (newest, email) => (email.receivedAt > newest ? email.receivedAt : newest),
-        "",
-      );
-      if (newest) {
-        watermarks[accountId] = newest;
-        await rememberMailWatermarks(watermarks);
-      }
+      // The watermark moves past everything the read saw, not only past what was
+      // announced: older unread mail is a backlog the worker leaves to the app
+      // rather than one notice per message.
+      await advanceMailWatermark(accountId, newest);
     } catch {
       /* the notification could not be shown: the watermark stays, so it retries */
     }
   }
+}
+
+/** The notice an account with nothing to read, or an unreadable one, is answered with. */
+async function showMailNotice(accountId, account, strings) {
+  await self.registration.showNotification(account?.name || strings.newMail, {
+    body: strings.newMail,
+    icon: `${BASE}/img/icon-192.png`,
+    badge: `${BASE}/img/favicon-64.png`,
+    tag: `gilbert-mail-${accountId}`,
+    data: { url: `${BASE}/mail` },
+  });
+}
+
+/** The newest `receivedAt` among these messages, as a number, or NaN for none. */
+function newestReceived(messages) {
+  return messages.reduce((newest, email) => {
+    const at = Date.parse(email.receivedAt ?? "");
+    return Number.isFinite(at) && at > newest ? at : newest;
+  }, Number.NaN);
 }
 
 /* ------------------------------------------------------------------ */
@@ -885,8 +938,18 @@ self.addEventListener("push", (event) => {
         const changed =
           data && data["@type"] === "StateChange" ? (data.changed ?? {}) : null;
         if (changed !== null) {
-          if (Object.values(changed).some((types) => types && "FileNode" in types))
-            await chatNotifications(data, facts);
+          /*
+           * Two notification paths, one push, and they must not share a failure:
+           * a chat read that cannot be made (its own `fetch` rejects) is the
+           * chat's silence, not the mail's.
+           */
+          if (Object.values(changed).some((types) => types && "FileNode" in types)) {
+            try {
+              await chatNotifications(data, facts);
+            } catch {
+              /* the chat read failed: it notifies nothing, the mail still does */
+            }
+          }
           await mailNotifications(changed, facts, strings);
         }
         return;
@@ -901,9 +964,16 @@ self.addEventListener("push", (event) => {
           ? data.accountId
           : (Object.keys(data?.changed ?? {})[0] ?? null);
       const account = accountFact(facts, deliveryAccountId);
-      for (const email of emails.slice(0, 5)) {
+      const announced = emails.slice(0, MAIL_MAX);
+      for (const email of announced) {
         await notifyMail(deliveryAccountId, account, email, strings);
       }
+      /*
+       * A payload is news too, so it moves the same watermark the read-back
+       * compares against: without this, the next payload-less change of the same
+       * account would announce the message that has just been announced.
+       */
+      await advanceMailWatermark(deliveryAccountId, newestReceived(announced));
     })(),
   );
 });
