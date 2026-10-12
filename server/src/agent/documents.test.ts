@@ -182,7 +182,6 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
       "document.merge",
       "document.split",
       "file.write",
-      "knowledge.review",
       "knowledge.write",
       "knowledge.writeCompany",
       "mail.draft",
@@ -201,8 +200,9 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
   }
   // The actions the catalogue deliberately leaves outside it are the ones a
   // retry may redo: a label or a mailbox move is either idempotent or harmless
-  // to do twice, and reading a page writes nothing at all — it hands the model
-  // what the page says and leaves no trace to repeat.
+  // to do twice, reading a page writes nothing at all, and a review's findings
+  // live on the run's own record — none of them hands the model a second copy
+  // a person would find.
   const inside = AGENT_ACTION_SPECS.map((spec) => spec.name)
     .filter((name) => !FENCED_ACTIONS.has(name))
     .sort();
@@ -210,6 +210,7 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
     "document.read",
     "keyword.add",
     "keyword.remove",
+    "knowledge.review",
     "mail.move",
     "noop",
   ]);

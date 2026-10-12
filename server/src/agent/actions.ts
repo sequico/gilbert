@@ -145,6 +145,7 @@ export interface EmailRecord {
   from?: unknown;
   to?: unknown;
   cc?: unknown;
+  bcc?: unknown;
   preview?: unknown;
   textBody?: unknown;
   bodyValues?: unknown;
@@ -588,6 +589,8 @@ function withSignature(text: string, signature: string): string {
 /** A file name an attachment can be written under. */
 function fileSafeName(name: string, fallback: string): string {
   const cleaned = name
+    // Separators become dashes: the name lands as one node in one folder, and
+    // a name from a model must not read as a path.
     .replace(/[\\/]/g, "-")
     // Control characters cannot appear in a FileNode name; they are dropped
     // rather than escaped, because the name is somebody else's attachment.
@@ -595,7 +598,10 @@ function fileSafeName(name: string, fallback: string): string {
     .filter((char) => char.charCodeAt(0) >= 0x20)
     .join("")
     .trim();
-  return cleaned || fallback;
+  // A name of only dots is not a file name: to whoever joins the path it reads
+  // as a directory step, and a model can produce it.
+  if (!cleaned || /^\.+$/.test(cleaned)) return fallback;
+  return cleaned;
 }
 
 function sentAtOf(opts: ActionOpts): string {
@@ -1503,14 +1509,16 @@ async function submitMail(
   opts: ActionOpts,
 ): Promise<Record<string, unknown>> {
   const identity = await defaultIdentity(ctx, client, accountId);
-  const rcpts = parseAddresses(textOf(action.with?.to));
-  if (!rcpts.length) throw new Error("the send names no recipient");
   const sentId = await mailboxIdByRole(client, accountId, "sent");
   if (!sentId)
     throw new Error("the account has no Sent mailbox to file the sent copy in");
 
   let emailId = opts.draftEmailId ?? "";
+  let rcptTo: Array<{ email: string }>;
   if (!emailId) {
+    const rcpts = parseAddresses(textOf(action.with?.to));
+    if (!rcpts.length) throw new Error("the send names no recipient");
+    rcptTo = rcpts.map((address) => ({ email: address.email }));
     const text = withSignature(textOf(action.with?.text), identity.signature);
     const created = await client.call<SetResponse>(
       "Email/set",
@@ -1540,8 +1548,24 @@ async function submitMail(
       );
     emailId = createdId;
   } else {
-    // The run prepared a draft and a person approved it: that draft is what
-    // goes out, edits included, because the draft is what they read.
+    /*
+     * The run prepared a draft and a person approved it: that draft is what
+     * goes out, edits included, because the draft is what they read. The
+     * submission's envelope is therefore read from the draft as it now is —
+     * its `to`, `cc` and `bcc` — rather than from the plan that prepared it: a
+     * member who changed the recipients must have the mail go to the ones they
+     * saw, not to the ones the model first wrote. A draft that cannot be read
+     * is refused rather than sent on the plan's word.
+     */
+    const draft = await fetchEmailRecord(client, accountId, emailId, {
+      properties: ["bcc"],
+    });
+    if (!draft)
+      throw new Error(
+        `the draft ${emailId} a person approved cannot be read, so nothing is sent from it`,
+      );
+    rcptTo = recipientsOf(draft).map((email) => ({ email }));
+    if (!rcptTo.length) throw new Error("the draft a person approved names no recipient");
   }
 
   // The live shape (ADR resolution 12): submit the message and let the
@@ -1563,7 +1587,7 @@ async function submitMail(
           emailId,
           envelope: {
             mailFrom: { email: identity.email },
-            rcptTo: rcpts.map((address) => ({ email: address.email })),
+            rcptTo,
           },
         },
       },
@@ -1579,6 +1603,22 @@ async function submitMail(
       }`,
     );
   return { emailId, mailboxId: sentId, submissionId };
+}
+
+/**
+ * The addresses a composed message names: its `to`, `cc` and `bcc` together,
+ * each once. The same set a member composing in the mail client submits to
+ * (`compose.ts`), read from the message rather than from any plan.
+ */
+function recipientsOf(record: EmailRecord): string[] {
+  const seen = new Set<string>();
+  for (const field of [record.to, record.cc, record.bcc]) {
+    if (!Array.isArray(field)) continue;
+    for (const address of addressesOf(field)) {
+      if (address.email) seen.add(address.email);
+    }
+  }
+  return [...seen];
 }
 
 /** The draft reference a `mail.draft` result carries, for a job to record. */

@@ -295,7 +295,6 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     description:
       "Record the findings of a consistency check over the knowledge base: `findings` is the prose naming the pages and the revisions it was drawn from. It writes nothing to the KB — the findings live in this run's own record, for provenance and for the review item a person reads.",
     params: [{ key: "findings", required: true, kind: "text" }],
-    unrepeatable: true,
   },
   {
     name: "notebook.write",
@@ -462,6 +461,11 @@ export function effectiveCapabilities(
  * because what it writes is read by every later run of the group: a second pass
  * that adds the same fact again is a memory a person has to clean up.
  *
+ * `knowledge.review` is deliberately **not** here: it writes nothing to the KB
+ * — the prose it returns is kept on the run's own record — so a second pass
+ * leaves no copy a person has to clean up, and fencing it only made the run
+ * re-ask its claim for a message nobody would ever see twice.
+ *
  * The set is the authority for `leavesTheProcess`, which is what the executor's
  * fence and the retry decision both ask: one list, so an action cannot be
  * fenced in one place and repeatable in the other.
@@ -473,7 +477,6 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "file.write",
   "knowledge.write",
   "knowledge.writeCompany",
-  "knowledge.review",
   "notebook.write",
   "mail.extract",
   "document.split",

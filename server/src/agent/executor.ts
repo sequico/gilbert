@@ -1853,6 +1853,16 @@ export class Executor {
           await store.writeDecision(open);
         }
       }
+      // The chat post is an effect in the group's own state like the draft
+      // beside it, and `chat.post` is a fenced action: a run whose unit was
+      // taken over while it was preparing the decision must not carry the
+      // proposal to the group, where the successor's run will post its own.
+      // The draft's own path already asks this fence; the post asks it here,
+      // at the last moment before the message leaves.
+      if (!(await claimStillMine(store, this.deps.agentId, claimEpoch(claim))))
+        throw new RefusedError(
+          "the unit was taken over while this run was working: nothing more is run",
+        );
       const chatId = await postMessage(
         this.deps.ctx,
         accountId,
@@ -2627,6 +2637,10 @@ export class Executor {
   /**
    * Settle a decision whose draft is gone or discarded: nothing was sent, so
    * the job closes without running the rest of the plan.
+   *
+   * The draft a pause prepared is the thing a person was shown, and its
+   * disappearance is a rejection: it is recorded in the trail and said in the
+   * group's chat as a rejection is, never left as a job that simply stopped.
    */
   private async expireDraftDecision(
     store: AgentStore,
@@ -2645,9 +2659,23 @@ export class Executor {
       if (isStateMismatch(err)) return false;
       throw err;
     }
-    const job = (await store.readJob(decision.jobId))?.doc;
+    const job = (await store.readJob(decision.jobId))?.doc ?? null;
+    const rule = await this.ruleOf(store, decision.ruleId);
+    const auditRule: AuditRule = rule ?? {
+      id: decision.ruleId,
+      version: decision.ruleVersion,
+    };
+    const reason =
+      "the draft was discarded without being sent, so nothing the proposal asked for ran";
     if (job)
       await this.writeJobIfCurrent(store, job.id, (latest) => closeState(latest, "done"));
+    await recordAudit(
+      store,
+      job
+        ? auditEntry(job, auditRule, "rejected", [], reason)
+        : decisionAuditEntry(expired, auditRule, "rejected", [], reason),
+    );
+    await this.tellChat(store.accountId, `Not sent: ${decision.summary} — ${reason}`);
     return true;
   }
 

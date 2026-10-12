@@ -355,6 +355,30 @@ test("a file is written where people look, and never over one already there", as
   );
 });
 
+test("a name that is only dots falls back instead of naming a directory step", async () => {
+  // A name from the model can be `..`: it is not a file name anywhere, and to
+  // whoever joins the path it reads as a step out of the folder. The action
+  // writes its own fallback rather than a name that means another place, and a
+  // separator is neutralised so a name cannot read as a path either.
+  const [dots] = await runActions(ctx, GROUP, [
+    { do: "file.write", with: { folder: "notes-dots", name: "..", text: "safe" } },
+  ]);
+  assert.equal(dots?.result?.path, "notes-dots/note.txt");
+  assert.ok(
+    await readVisibleFileAt(ctx, GROUP, "notes-dots/note.txt"),
+    "the bytes land under the fallback name, in the folder the action named",
+  );
+
+  const [separator] = await runActions(ctx, GROUP, [
+    { do: "file.write", with: { folder: "notes-dots", name: "../escape", text: "safe" } },
+  ]);
+  assert.equal(
+    separator?.result?.path,
+    "notes-dots/..-escape",
+    "a separator becomes a dash, so the name is one node rather than a path",
+  );
+});
+
 test("a run remembers a fact, corrects it, and lets it go", async () => {
   /*
    * The notebook is the group's memory and a run may write it (ADR 0006

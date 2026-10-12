@@ -953,6 +953,84 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
     undefined,
     "the rest of a rejected plan does not run either",
   );
+  // The discarded draft is not a silent ending: the trail and the group's chat
+  // say it was a rejection rather than a job that simply stopped.
+  const audit = await store.readAuditAt(new Date());
+  assert.ok(
+    audit?.entries.some(
+      (entry) =>
+        entry.jobId === job.id &&
+        entry.outcome === "rejected" &&
+        /discarded/.test(entry.detail ?? ""),
+    ),
+    "the trail records the discarded draft as a rejection",
+  );
+  const reported = await readChat(ctx, GROUP, client);
+  assert.ok(
+    reported.some((message) => message.text.includes("Not sent")),
+    "the group's chat says the proposal was not sent",
+  );
+});
+
+test("an approved draft is submitted to the recipients a person edited, not the plan's", async () => {
+  /*
+   * The draft a pause leaves is what a member reads, and they may change its
+   * recipients before answering "yes". The submission the approval makes is
+   * built from the draft as it now is: the mail goes to the people the member
+   * left on it, not to the ones the model first wrote (ADR 0003, resolution
+   * 10).
+   */
+  const proposer = rule({
+    id: "edited-draft",
+    capabilities: ["mail.draft", "mail.send"],
+  });
+  answerFor("Mail automation", {
+    summary: "Replied to the invoice.",
+    confidence: 1,
+    actions: [
+      { do: "mail.draft", with: { to: ADA, subject: "Re: invoice", text: "Filed." } },
+      { do: "mail.send", with: { to: ADA } },
+    ],
+  });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
+  await store.writeRules([proposer]);
+  const emailId = await createMessage("An invoice whose reply a person will redirect");
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+
+  const job = (await jobsOf("edited-draft")).find(
+    (candidate) => candidate.trigger.emailId === emailId,
+  );
+  assert.ok(job?.proposal?.draft, String(job?.error));
+  const decision = (await store.readDecision(String(job.decisionId)))?.doc;
+  assert.ok(decision, "the pause left a decision a member can answer");
+
+  // A member opens the draft and changes who it goes to: a new recipient, and
+  // the original moved to a cc.
+  const EDITED = "grace@example.org";
+  await client.call(
+    "Email/set",
+    {
+      accountId: GROUP,
+      update: {
+        [job.proposal.draft.emailId]: {
+          to: [{ name: "Grace Hopper", email: EDITED }],
+          cc: [{ email: ADA }],
+        },
+      },
+    },
+    [JMAP_MAIL],
+  );
+
+  await executor.resolveApproval(GROUP, decision, true, ADA);
+
+  const envelope = await submissionEnvelopeFor(job.proposal.draft.emailId);
+  assert.ok(envelope, "the approved draft was submitted");
+  assert.deepEqual(
+    (envelope.rcptTo ?? []).map((address) => address.email).sort(),
+    [ADA, EDITED].sort(),
+    "the envelope names the recipients the person left on the draft",
+  );
 });
 
 test("a failure retries to a point and then dead-letters, telling the group", async () => {
@@ -1169,6 +1247,29 @@ async function submissionCount(): Promise<number> {
     [JMAP_SUBMISSION],
   );
   return res.total ?? 0;
+}
+
+/**
+ * The envelope of the submission for one message, or null. Read back rather
+ * than inferred: the envelope is what the server was asked to deliver to, and
+ * it is the difference between the plan's recipients and the draft's.
+ */
+async function submissionEnvelopeFor(
+  emailId: string,
+): Promise<{ rcptTo?: Array<{ email: string }> } | null> {
+  const q = await client.call<{ ids?: string[] }>(
+    "EmailSubmission/query",
+    { accountId: GROUP, filter: { emailIds: [emailId] } },
+    [JMAP_SUBMISSION],
+  );
+  const ids = q.ids ?? [];
+  if (!ids.length) return null;
+  const got = await client.call<{
+    list?: Array<{ envelope?: { rcptTo?: Array<{ email: string }> } }>;
+  }>("EmailSubmission/get", { accountId: GROUP, ids, properties: ["envelope"] }, [
+    JMAP_SUBMISSION,
+  ]);
+  return got.list?.[0]?.envelope ?? null;
 }
 
 test("an approval shows what the run would do, never why", async () => {
@@ -2096,6 +2197,65 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
     await draftsInDrafts(),
     before,
     "and nothing landed in the group's Drafts mailbox",
+  );
+});
+
+test("a pause whose unit was taken over does not carry its proposal to the group", async () => {
+  /*
+   * The proposal is posted by the pause rather than through the runner, and
+   * `chat.post` is a fenced action: a run whose claim a successor took must not
+   * post its proposal in the group's chat, where the successor's run will post
+   * its own. The draft's own path asks this fence; the post asks it too.
+   */
+  const asking = rule({ id: "pause-no-post" });
+  // A summary of this run's own, so the assertion below is about this
+  // proposal and not another test's: the suite shares one account and its
+  // chat is cumulative.
+  const summary = "A proposal that must not be posted.";
+  answerFor("Mail automation", {
+    summary,
+    confidence: 1,
+    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+  });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
+  await store.writeRules([asking]);
+  const emailId = await createMessage("An invoice whose proposal must not be posted");
+  const claim = await claimFor();
+  const job = newJob({
+    id: "pause-no-post-job",
+    accountId: GROUP,
+    rule: { id: "pause-no-post", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  // The unit moves to a successor after the fence every run passes before it
+  // starts working: the first read is this agent's, everything after belongs
+  // to the agent that took over.
+  const real = AgentStore.prototype.readClaim;
+  let reads = 0;
+  AgentStore.prototype.readClaim = async function (
+    this: InstanceType<typeof AgentStore>,
+  ) {
+    reads += 1;
+    const held = await real.call(this);
+    if (reads > 1 && held) return { ...held, doc: { ...held.doc, agent: "successor" } };
+    return held;
+  };
+  try {
+    await executor.runJob(GROUP, job, asking, claim);
+  } finally {
+    AgentStore.prototype.readClaim = real;
+  }
+
+  const after = await store.readJob("pause-no-post-job");
+  assert.equal(after?.doc.state, "failed", "a run that lost its unit ends loudly");
+  assert.match(String(after?.doc.error), /taken over/);
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    !chat.some((message) => message.text.includes(summary)),
+    "the proposal never reached the group's chat",
   );
 });
 
