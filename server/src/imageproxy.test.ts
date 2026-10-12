@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { setDefaultResultOrder } from "node:dns";
 import {
   createServer,
   request as httpRequest,
@@ -77,12 +78,17 @@ test("addresses we must never reach are recognised", () => {
  * whoever controls the zone can answer differently the second time — the first
  * answer passes the check, the second points at localhost.
  *
- * Two servers on the same port at different addresses settle it without
- * depending on how this machine resolves anything: `localhost` reaches one of
- * them, and the pin has to reach the other.
+ * Two servers on the same port at different addresses settle it: `localhost`
+ * reaches one of them, and the pin has to reach the other. Which address
+ * `localhost` gets depends on the machine's own lookup order, and a loaded host
+ * can time out connecting to `::1` inside Node's happy-eyeballs window and land
+ * on the fallback — an address nothing listens on. So the test sets the lookup
+ * order itself and binds the address that order names: IPv4 loopback, which
+ * every machine has.
  */
 const PORT = await freePort();
-const RESOLVED = "::1"; // what "localhost" gets you
+setDefaultResultOrder("ipv4first");
+const RESOLVED = "127.0.0.1"; // what "localhost" gets you, with the order set above
 const PINNED = "127.0.0.2"; // somewhere only an explicit address reaches
 let viaName: Server;
 let viaPin: Server;

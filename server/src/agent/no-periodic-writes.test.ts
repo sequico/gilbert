@@ -19,10 +19,18 @@ import { freePort } from "../testkit.js";
  * loop without the waiting. Put the periodic write back — a renewed claim, a
  * fresh heartbeat on every pass — and the first test fails on the first pass of
  * the loop.
+ *
+ * The clock stays real, deliberately: freezing it would hide the very write
+ * this test exists to catch. What is switched off is the *mock's* demo traffic
+ * (`MOCK_NO_DEMO`), because a chat message the mock injects into the group every
+ * thirty seconds is a change of the group's own — news the agent anchors its
+ * catch-up state on, and so a blob — and a loop slow enough to see one reads the
+ * mock's traffic as the agent's own write: one blob, at an unpredictable pass.
  */
 
 const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
+process.env.MOCK_NO_DEMO = "1";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");

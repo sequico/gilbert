@@ -40,6 +40,18 @@ const NO_REGISTRY = process.env.MOCK_NO_REGISTRY === "1";
  * out at once. Set MOCK_NO_FUTURE_RELEASE=1 to reproduce that trap.
  */
 const NO_FUTURE_RELEASE = process.env.MOCK_NO_FUTURE_RELEASE === "1";
+/**
+ * Whether the mock keeps its demo traffic to itself.
+ *
+ * Two intervals write into the demo's accounts on their own: an inbox message
+ * every two minutes so a push has something to announce, and a chat message per
+ * group every thirty seconds so the chat rail has traffic. Both are for
+ * `dev:mock`, and neither is something a server does -- which is why a test
+ * that measures what an *agent* writes into an account sets `MOCK_NO_DEMO=1`:
+ * an interval landing in the account while the measurement runs is traffic from
+ * outside the thing under test, and it is read as the agent's own write.
+ */
+const NO_DEMO = process.env.MOCK_NO_DEMO === "1";
 /** What the session advertises, matching Stalwart's own 30 days. */
 const MAX_DELAYED_SEND = 86400 * 30;
 /**
@@ -5320,6 +5332,10 @@ export const server = createServer(async (req, res) => {
 
 // Periodically inject a new inbox email to demo push
 setInterval(() => {
+  /* Demo traffic, and `MOCK_NO_DEMO=1` is what a test that measures what an
+     agent writes sets: an interval writing into the account is traffic from
+     outside the thing under test. */
+  if (NO_DEMO) return;
   /* `randomInt`, not `Math.random`: the pick becomes the `From:` of a message,
      and a sender drawn from a predictable generator is what code scanning
      refuses to reason about. Unpredictable demo traffic costs nothing. */
@@ -5388,6 +5404,7 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
   broadcast(["FileNode"], accountId);
 }
 setInterval(() => {
+  if (NO_DEMO) return;
   postChatDemo(groupFileNodes, GROUP_ACCOUNT, 2);
   postChatDemo(group2FileNodes, GROUP2_ACCOUNT, 2);
 }, 30_000).unref();
