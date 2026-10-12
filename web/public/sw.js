@@ -18,12 +18,14 @@ const VERSION = "gilbert-v3";
 /*
  * The cache that carries a handoff from one context to another.
  *
- * A share the operating system posted before a tab existed, a push
- * verification that arrived with no tab open, the briefing a tab leaves for a
- * push long after: each is written by one context and read by another, so none
- * of them may live in the versioned shell cache, which `activate` empties on
- * every bump. This one is never deleted and never migrated -- it survives every
- * version whole, so nothing has to be carried across a delete it could race.
+ * A share the operating system posted before a tab existed, the briefing a tab
+ * leaves for a push long after, and the mail watermark this worker keeps for
+ * itself across the pushes it is woken by: a share and the briefing are written
+ * by one context and read by another, a watermark is written and read by
+ * workers that share nothing else, and none of them may live in the versioned
+ * shell cache, which `activate` empties on every bump. This one is never
+ * deleted and never migrated -- it survives every version whole, so nothing has
+ * to be carried across a delete it could race.
  *
  * `web/src/lib/swCache.ts` carries the same name on the app's side; the two
  * have to match or the handoff is silently not found. Nothing in the build
@@ -94,13 +96,13 @@ self.addEventListener("activate", (event) => {
        * Empty every cache that is neither the shell nor the handoff one.
        *
        * The handoff cache holds what one context writes for another to read
-       * later -- a share the operating system posted before a tab existed, a
-       * push verification that arrived with no tab open, the briefing -- so it
-       * is kept whole and never migrated: a version bump empties the shell
-       * cache, which is what that lever is for, and leaves the handoffs where
-       * they are. Copying them across would race a handoff written between the
-       * copy and the delete, and the one lost that way is a share nobody opens
-       * or push silent until the server sends the code again.
+       * later, and what this worker writes for its own next waking -- a share
+       * the operating system posted before a tab existed, the briefing, the
+       * mail watermark -- so it is kept whole and never migrated: a version
+       * bump empties the shell cache, which is what that lever is for, and
+       * leaves the handoffs where they are. Copying them across would race a
+       * handoff written between the copy and the delete, and the one lost that
+       * way is a share nobody opens, or mail announced twice.
        */
       const stale = (await caches.keys()).filter((k) => k !== VERSION && k !== HANDOFF);
       await Promise.all(stale.map((k) => caches.delete(k)));
@@ -112,8 +114,8 @@ self.addEventListener("activate", (event) => {
 /*
  * Where a share from the operating system is left for a tab to collect.
  *
- * Absolute and anchored to the mount, for the same reason the verification key
- * below is: a relative key is resolved against the URL of whoever asks, and the
+ * Absolute and anchored to the mount, for the same reason the mail watermark's
+ * key is: a relative key is resolved against the URL of whoever asks, and the
  * worker and a tab deep in `/mail/inbox/…` are not at the same place.
  *
  * The files go in one entry each and the rest in a JSON index beside them,
@@ -362,26 +364,52 @@ async function precache(html, cache) {
  * payload still carries the message and the request is only made when
  * somebody presses something.
  *
- * A JMAP subscription also delivers a PushVerification first, and stays silent
- * until the client echoes its code back. It is stashed for a tab to confirm
- * rather than answered here — on the same reasoning, and because a
- * verification that failed silently would leave push looking broken with
- * nothing to show for it. Answering it directly is now possible and is worth
- * revisiting.
+ * What it also cannot do is stay quiet. A push answered without a notification
+ * gives the browser nothing to count, and Chrome's own answer to that is a
+ * notification of its own — "this site has been updated in the background" —
+ * which the reader cannot configure away without turning the site's
+ * notifications off altogether. So every wake-up this file receives is answered
+ * with something true about it: the payload with its message, the state change
+ * with the mail read back from the Inbox, and the handshake with the code.
  */
 
 /*
- * Absolute, and anchored to the mount rather than to whatever page happens to
- * be open.
- *
- * A relative key is resolved against the URL of whoever is asking: the worker
- * lives at `<base>/sw.js`, so it stored this under `<base>/…`, while a tab at
- * `/mail/inbox/abc` looked for it under `/mail/inbox/…`. The two only ever
- * agreed when the open page was the root, so a verification code that arrived
- * with no tab open was written where the next tab would not look -- and the
- * subscription stayed silent, which is the same thing push failing looks like.
+ * The capability `PushSubscription/set` is asked with. Named here because the
+ * worker builds its own `using` arrays (see `jmap()`) and this is the one method
+ * that needs it; the URN itself is one record, `CAPABILITIES.webpushVapid` in
+ * `server/src/shared/capabilities.ts`.
  */
-const VERIFY_KEY = `${BASE}/gilbert-push-verification`;
+const WEBPUSH_CAP = "urn:ietf:params:jmap:webpush-vapid";
+
+/*
+ * Hand the verification code back to the server.
+ *
+ * A JMAP subscription delivers a `PushVerification` first and stays silent
+ * until the client echoes its code back, and until it is answered the server
+ * sends one per pass to the newest unverified subscription of the account
+ * (`last_verify`, per account). A code that is only stored for a tab to collect
+ * is therefore a code the server keeps re-sending, and every re-send is a push
+ * the worker could answer with nothing but the browser's own notice. Answering
+ * it here settles the handshake with no tab open.
+ *
+ * The call is an ordinary JMAP one: the session cookie is same-origin and
+ * httpOnly, exactly as it is for `runAction`. A code that cannot be answered —
+ * the session gone, the connection down — is dropped rather than retried in a
+ * loop, because the server's next send is the retry.
+ */
+async function verifyPushSubscription(data) {
+  const id = typeof data.pushSubscriptionId === "string" ? data.pushSubscriptionId : "";
+  const code = typeof data.verificationCode === "string" ? data.verificationCode : "";
+  if (!id || !code) return;
+  try {
+    await jmap(
+      [["PushSubscription/set", { update: { [id]: { verificationCode: code } } }, "0"]],
+      ["urn:ietf:params:jmap:core", WEBPUSH_CAP],
+    );
+  } catch {
+    /* unanswerable: the server sends the next code, and this tries again with it */
+  }
+}
 
 /*
  * What a tab wrote down for this worker: the account, which mailbox is the
@@ -476,6 +504,209 @@ function actionsFor(account, strings) {
   if (account.archiveId) actions.push({ action: "archive", title: strings.archive });
   actions.push({ action: "read", title: strings.markRead });
   return actions;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mail: the payload, and the state change that carries none           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * What this worker has already announced on this device, per account.
+ *
+ * A mail-shaped state change names the account and nothing else, so the message
+ * has to be read back from the Inbox -- and a read that trusted "the newest
+ * unread" on its own would announce mail the reader had deliberately left
+ * unread, every time anything arrived. What gates it is the instant this worker
+ * last announced for that account, which is why it is written down: a push
+ * wakes a worker that remembers nothing.
+ *
+ * It lives in the handoff cache, which activation never empties, and it is the
+ * worker's own entry -- no tab reads it, so there is no second copy of the name
+ * to keep in step. A stale entry is inert: an account id belongs to one account,
+ * so a later sign-in never reads it. Where cache storage is refused, the read
+ * falls back to announcing the newest few, which is what the first wake-up on a
+ * device does anyway. Two wakes in flight at once can lose each other's advance
+ * (the entry is written whole): the cost is one message announced twice, which
+ * the tag it carries collapses into the notification already on screen.
+ */
+const MAIL_WATERMARK_KEY = `${BASE}/gilbert-mail-watermark`;
+
+async function readMailWatermarks() {
+  try {
+    const hit = await (await caches.open(HANDOFF)).match(MAIL_WATERMARK_KEY);
+    const seen = hit ? await hit.json() : null;
+    return seen && typeof seen === "object" ? seen : {};
+  } catch {
+    return {};
+  }
+}
+
+async function rememberMailWatermarks(watermarks) {
+  try {
+    await (await caches.open(HANDOFF)).put(
+      MAIL_WATERMARK_KEY,
+      new Response(JSON.stringify(watermarks), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  } catch {
+    /* no cache storage: the next wake-up reads the newest few again */
+  }
+}
+
+/*
+ * How many messages one read-back announces, and what a notification is built
+ * from.
+ *
+ * The property list is the one the subscription asks Stalwart for
+ * (`PAYLOAD_PROPS` in `web/src/lib/webpush.ts`), because the two paths render
+ * the same message: the payload one, and this one. They have to agree, since
+ * whichever arrives second replaces the other in place under the message's own
+ * tag.
+ */
+const MAIL_READ = 3;
+const MAIL_PROPS = ["id", "threadId", "from", "subject", "preview", "receivedAt"];
+
+/** The newest unread messages of an Inbox, newest first. */
+async function newestUnread(accountId, inboxId) {
+  const found = await jmap([
+    [
+      "Email/query",
+      {
+        accountId,
+        filter: { inMailbox: inboxId, notKeyword: "$seen" },
+        sort: [{ property: "receivedAt", isAscending: false }],
+        limit: MAIL_READ,
+      },
+      "q",
+    ],
+  ]);
+  const ids = found?.methodResponses?.[0]?.[1]?.ids;
+  if (!Array.isArray(ids) || !ids.length) return [];
+  const got = await jmap([
+    ["Email/get", { accountId, ids, properties: MAIL_PROPS }, "g"],
+  ]);
+  const list = got?.methodResponses?.[0]?.[1]?.list;
+  return Array.isArray(list) ? list : [];
+}
+
+/*
+ * One mail notification, whichever path built it.
+ *
+ * One renderer, so a message that arrived as an `EmailPush` and a message the
+ * worker read back from the Inbox cannot show the same arrival two ways -- and,
+ * because the tag is the message's own id, the second answer replaces the first
+ * rather than stacking beside it. A group's message is titled with the group as
+ * well as the sender, so a lock screen names both.
+ */
+async function notifyMail(accountId, account, email, strings) {
+  const { title, body, preview } = textOf(email, strings);
+  const heading =
+    account && !account.own && account.name ? `${title} · ${account.name}` : title;
+  await self.registration.showNotification(heading, {
+    body: preview ? `${body}\n${preview}` : body,
+    icon: `${BASE}/img/icon-192.png`,
+    badge: `${BASE}/img/favicon-64.png`,
+    // One notification per message, collapsing repeats of the same message by
+    // tag so a re-push does not stack.
+    tag: `gilbert-${email.id || body}`,
+    // Only where there is a message to act on: a payload without an id can be
+    // shown but not archived, and a button that cannot work should not be drawn.
+    actions: email.id ? actionsFor(account, strings) : [],
+    data: {
+      /*
+       * The route is `/mail/<mailbox id>/<thread id>`, so the link needs the
+       * account's real Inbox id and the message's thread id -- never the literal
+       * `inbox` or the message's own id, neither of which the app can resolve
+       * (it answers "that folder no longer exists"). Without a known Inbox,
+       * open /mail and let it redirect.
+       */
+      url: account?.inboxId
+        ? email.threadId
+          ? `${BASE}/mail/${account.inboxId}/${email.threadId}`
+          : `${BASE}/mail/${account.inboxId}`
+        : `${BASE}/mail`,
+      id: email.id || null,
+      title,
+      accountId,
+      archiveId: account?.archiveId ?? null,
+      failed: strings.failed ?? null,
+    },
+  });
+}
+
+/*
+ * The mail a state change brought, read back and announced.
+ *
+ * Only a change that is not `FileNode` alone is a delivery: an upload, an
+ * agent's document and the reader's own stored settings all wear `FileNode`,
+ * which is the chat section's business and nobody else's.
+ *
+ * Where the account is one the briefing describes with an Inbox, the message is
+ * read back and announced for real, which is what keeps a delivery from being
+ * answered with the browser's own notice. Where it is not -- an account the
+ * briefing lists without one, or no briefing at all -- there is nothing to read
+ * and the notice names the mailbox it can, rather than leaving the wake-up
+ * unanswered.
+ *
+ * A read that finds nothing newer than the watermark notifies nothing, and that
+ * is deliberate: the alternative is announcing mail the reader has already been
+ * told about, or a change that was never a delivery at all (a flag, a move)
+ * under a sentence saying it arrived. It is the one case where the browser's own
+ * notice still stands in for an answer.
+ */
+async function mailNotifications(changed, facts, strings) {
+  const deliveries = Object.entries(changed).filter(
+    ([, types]) => types && Object.keys(types).some((k) => k !== "FileNode"),
+  );
+  if (!deliveries.length) return;
+  const watermarks = await readMailWatermarks();
+  for (const [accountId] of deliveries) {
+    const account = accountFact(facts, accountId);
+    if (!account?.inboxId) {
+      await self.registration.showNotification(account?.name || strings.newMail, {
+        body: strings.newMail,
+        icon: `${BASE}/img/icon-192.png`,
+        badge: `${BASE}/img/favicon-64.png`,
+        tag: `gilbert-mail-${accountId}`,
+        data: { url: `${BASE}/mail` },
+      });
+      continue;
+    }
+    let messages;
+    try {
+      messages = await newestUnread(accountId, account.inboxId);
+    } catch {
+      continue; // a session the read cannot use notifies nothing
+    }
+    const announcedBefore = Date.parse(watermarks[accountId] ?? "");
+    const fresh = messages.filter((email) => {
+      const at = email.receivedAt ? Date.parse(email.receivedAt) : Number.NaN;
+      return (
+        Number.isFinite(at) &&
+        !(Number.isFinite(announcedBefore) && at <= announcedBefore)
+      );
+    });
+    if (!fresh.length) continue;
+    try {
+      for (const email of fresh) await notifyMail(accountId, account, email, strings);
+      /*
+       * The watermark moves past everything the read saw, not only past what was
+       * announced: older unread mail is a backlog the worker leaves to the app
+       * rather than one notice per message.
+       */
+      const newest = messages.reduce(
+        (newest, email) => (email.receivedAt > newest ? email.receivedAt : newest),
+        "",
+      );
+      if (newest) {
+        watermarks[accountId] = newest;
+        await rememberMailWatermarks(watermarks);
+      }
+    } catch {
+      /* the notification could not be shown: the watermark stays, so it retries */
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -604,25 +835,10 @@ self.addEventListener("push", (event) => {
     /* not JSON: fall through to the generic notification below */
   }
 
-  // The verification handshake. No credentials here, so hand it to a tab —
-  // an open one now, or the next one to start.
+  // The verification handshake, answered here so it settles with no tab open
+  // and the server stops sending it.
   if (data && data["@type"] === "PushVerification") {
-    event.waitUntil(
-      (async () => {
-        const payload = { id: data.pushSubscriptionId, code: data.verificationCode };
-        const clients = await self.clients.matchAll({
-          includeUncontrolled: true,
-          type: "window",
-        });
-        if (clients.length) {
-          for (const c of clients)
-            c.postMessage({ type: "push-verification", ...payload });
-        } else {
-          const cache = await caches.open(HANDOFF);
-          await cache.put(VERIFY_KEY, new Response(JSON.stringify(payload)));
-        }
-      })(),
-    );
+    event.waitUntil(verifyPushSubscription(data));
     return;
   }
 
@@ -671,32 +887,7 @@ self.addEventListener("push", (event) => {
         if (changed !== null) {
           if (Object.values(changed).some((types) => types && "FileNode" in types))
             await chatNotifications(data, facts);
-          /*
-           * Only an account the briefing lists **without** an Inbox is
-           * announced here. The subscription's `emailPush` map describes every
-           * account whose Inbox is known, and its delivery arrives as the
-           * `EmailPush` below; the state change that rides beside it is the
-           * duplicate and says nothing. An account with no Inbox has no entry,
-           * so its delivery arrives only as this state change -- and the
-           * briefing can name it.
-           */
-          const target = Object.entries(changed).find(([id, types]) => {
-            const account = accountFact(facts, id);
-            if (!account || account.inboxId) return false;
-            // A FileNode change is never mail: the reader's own settings write,
-            // an upload, an agent document. Any other type is a delivery.
-            return types && Object.keys(types).some((k) => k !== "FileNode");
-          });
-          if (target) {
-            const account = accountFact(facts, target[0]);
-            await self.registration.showNotification(account.name || strings.newMail, {
-              body: strings.newMail,
-              icon: `${BASE}/img/icon-192.png`,
-              badge: `${BASE}/img/favicon-64.png`,
-              tag: `gilbert-mail-${account.accountId}`,
-              data: { url: `${BASE}/mail` },
-            });
-          }
+          await mailNotifications(changed, facts, strings);
         }
         return;
       }
@@ -710,43 +901,8 @@ self.addEventListener("push", (event) => {
           ? data.accountId
           : (Object.keys(data?.changed ?? {})[0] ?? null);
       const account = accountFact(facts, deliveryAccountId);
-      // One notification per message, collapsing repeats of the same message by
-      // tag so a re-push does not stack.
       for (const email of emails.slice(0, 5)) {
-        const { title, body, preview } = textOf(email, strings);
-        // A group's message is titled with the group as well as the sender, so
-        // a lock screen names both.
-        const heading =
-          account && !account.own && account.name ? `${title} · ${account.name}` : title;
-        await self.registration.showNotification(heading, {
-          body: preview ? `${body}\n${preview}` : body,
-          icon: `${BASE}/img/icon-192.png`,
-          badge: `${BASE}/img/favicon-64.png`,
-          tag: `gilbert-${email.id || body}`,
-          // Only where there is a message to act on: a payload without an id can
-          // be shown but not archived, and a button that cannot work should not
-          // be drawn.
-          actions: email.id ? actionsFor(account, strings) : [],
-          data: {
-            /*
-             * The route is `/mail/<mailbox id>/<thread id>`, so the link needs
-             * the account's real Inbox id and the message's thread id -- never
-             * the literal `inbox` or the message's own id, neither of which the
-             * app can resolve (it answers "that folder no longer exists").
-             * Without a known Inbox, open /mail and let it redirect.
-             */
-            url: account?.inboxId
-              ? email.threadId
-                ? `${BASE}/mail/${account.inboxId}/${email.threadId}`
-                : `${BASE}/mail/${account.inboxId}`
-              : `${BASE}/mail`,
-            id: email.id || null,
-            title,
-            accountId: deliveryAccountId,
-            archiveId: account?.archiveId ?? null,
-            failed: strings.failed ?? null,
-          },
-        });
+        await notifyMail(deliveryAccountId, account, email, strings);
       }
     })(),
   );

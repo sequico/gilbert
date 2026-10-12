@@ -379,6 +379,9 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
     bitmap admits no `Email` state change, and the reader's own delivery arrives as
     the `EmailPush` naming its sender). **What a delivery to a group mailbox does
     is owed**: it is degraded to a plain state change there and nothing read says
-    which type it wears — if not `EmailDelivery`, the bitmap filters it out and the
-    "New mail" group notification stops silently. That is the fifth item under ADR
-    0016's debt.
+    which type it wears. A state change that arrives is answered from the mailbox
+    itself — the worker reads that account's Inbox back and names the sender and
+    the subject — so the cost of the wrong answer is the wake-up, not the wording:
+    if the state change does not name `EmailDelivery`, the bitmap filters it out
+    and no push wakes the device for that delivery at all. That is the fifth item
+    under ADR 0016's debt.

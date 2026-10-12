@@ -1658,18 +1658,33 @@ half.
   Where the server also implements `emailpush`, the payload carries the message's
   `id` and `threadId` as well as sender, subject and preview, which lets a
   notification be tagged by message, offer Archive and Mark-read, and open the
-  message; without it the notification says only that mail arrived. Nothing is shown
-  while a focused Gilbert window is on screen. Offered only on a device you said was
-  yours.
+  message; **a delivery that arrives without a payload instead is read back from
+  that account's Inbox and announced from the message itself**, so it names the
+  sender, the subject and the mailbox it landed in rather than only that mail
+  arrived. Nothing is shown while a focused Gilbert window is on screen. Offered
+  only on a device you said was yours.
+- **Every wake-up is answered, because the browser counts notifications.** A Web
+  Push message the service worker answers without showing a notification is
+  answered by the browser instead — Chrome shows "this site has been updated in
+  the background" — and no setting of Gilbert's can turn that off. So the
+  verification code is echoed back by the worker itself, which is also what stops
+  the mail server re-sending it, and a delivery that carried no message is read
+  back and announced. The one residual is a file write (`FileNode`) with no chat
+  message behind it: it wakes the device for the chat, it has nothing to show,
+  and no filter exists to narrow it.
 - **The subscription is one row per device, and it wakes for a group's mail and its
   chat.** A subscription belongs to the principal that registered it and is served
   for every account that principal is a **member** of. A group's mail wakes a closed
-  Gilbert as a notification that names nothing; what is not built is the per-account
-  payload that would name the sender, subject and mailbox. A chat message wakes it
-  through `FileNode`, and the worker reads the newest nodes of the group's chat
-  folder and announces what is newer than the watermark and not the reader's own
-  (ADR 0016, whose live-server probes stay owed). Read from Stalwart's source at
-  v0.16.22.
+  Gilbert, and the `emailPush` map names every account with a known Inbox so the
+  delivery carries its sender and subject; where a delivery arrives as a bare
+  state change instead — an account the map cannot describe, or a server that
+  degrades it — the worker reads that account's Inbox back and names the message
+  there, gated by the newest instant it has already announced for that account so
+  a reader's own unread backlog is never announced. What a live server does with
+  the map is ADR 0016's owed probe. A chat message wakes it through `FileNode`,
+  and the worker reads the newest nodes of the group's chat folder and announces
+  what is newer than the watermark and not the reader's own (ADR 0016, whose
+  live-server probes stay owed). Read from Stalwart's source at v0.16.22.
 - **A full account is not the end of notifications.** Stalwart allows fifteen
   subscriptions per account, shared with Gilbert's own server-side row, and the
   sixteenth create is refused `overQuota`. The client releases its own rows before
@@ -1680,9 +1695,9 @@ half.
   is told to add Gilbert to the Home Screen in Safari. The notification permission
   is asked for in the gesture that turns a switch on and nowhere else, and a
   permission the browser no longer holds an answer for is said out loud.
-- The verification code a subscription needs is handed to an open tab, or left in
-  the browser's cache under a key **anchored to where the app is mounted** for the
-  next tab to collect.
+- **The verification code a subscription needs is answered by the service worker
+  itself** — the handshake settles with no tab open, and the mail server stops
+  re-sending the code.
 - **The subscription is renewed on every app start**, because a JMAP push
   subscription expires — seven days is the ceiling. Renewal happens with a page
   open, because the service worker only wakes for an event and the event that would

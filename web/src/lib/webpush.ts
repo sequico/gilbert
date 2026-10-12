@@ -35,8 +35,20 @@ import { clearWorkerFacts } from "@/lib/swFacts";
  * inbox rather than the message -- and because `sw.js` draws its buttons only
  * for a payload that names an `id`, leaving them out meant the buttons it is
  * written to show never appeared at all.
+ *
+ * The worker asks for the same list when it reads a delivery back from the
+ * Inbox (`MAIL_PROPS` in `public/sw.js`, which cannot import this), because the
+ * two paths render the same message under the same tag; a test holds the two
+ * lists together (`__tests__/swPushRules.test.ts`).
  */
-const PAYLOAD_PROPS = ["id", "threadId", "from", "subject", "preview", "receivedAt"];
+export const PAYLOAD_PROPS = [
+  "id",
+  "threadId",
+  "from",
+  "subject",
+  "preview",
+  "receivedAt",
+];
 
 export interface JmapPushSubscription {
   id: Id;
@@ -541,27 +553,6 @@ export function rememberEndpoint(endpoint: string | null): void {
   } catch {
     /* private mode: every start is then a fresh registration, which still works */
   }
-}
-
-/**
- * Hand back the code the server pushed.
- *
- * A JMAP push subscription delivers nothing until this round-trip completes —
- * the server sends a code over the channel to prove it reaches this client, and
- * the client echoes it. A subscription left unverified looks registered and is
- * silent, which is the confusing failure worth being explicit about.
- */
-export async function verifySubscription(
-  id: Id,
-  verificationCode: string,
-): Promise<void> {
-  const res = await client.call<SetResponse<JmapPushSubscription>>(
-    "PushSubscription/set",
-    { update: { [id]: { verificationCode } } },
-    [CAP.core, CAP.webpushVapid],
-  );
-  const err = res.notUpdated?.[id];
-  if (err) throw new Error(String(err.description ?? err.type));
 }
 
 /**

@@ -38,12 +38,13 @@ describe("the worker's chat rules", () => {
 
   it("never lets a FileNode-only change fall through to a mail notice", () => {
     // The reader's own settings write, an upload and an agent document all
-    // wear FileNode; the generic notice is for a delivery that carried no
-    // message. The guard is the type filter: only an account the briefing lists
-    // without an Inbox is announced, and only a change that is not FileNode
-    // alone.
+    // wear FileNode, and none of them is mail. The guard is the type filter in
+    // `mailNotifications`: only a change that is not FileNode alone is a
+    // delivery, and only such a change is read back or noticed at all.
     expect(worker).toContain("await chatNotifications(data, facts);");
-    expect(worker).toContain('Object.keys(types).some((k) => k !== "FileNode")');
-    expect(worker).toContain("if (!account || account.inboxId) return false;");
+    expect(worker).toContain("await mailNotifications(changed, facts, strings);");
+    expect(worker).toMatch(
+      /const deliveries = Object\.entries\(changed\)\.filter\(\s*\(\[, types\]\) => types && Object\.keys\(types\)\.some\(\(k\) => k !== "FileNode"\),?\s*\)/,
+    );
   });
 });

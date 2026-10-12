@@ -1,5 +1,5 @@
 /**
- * Turning Web Push on and off, and completing the handshake it needs.
+ * Turning Web Push on and off.
  *
  * Kept apart from `webpush.ts` so that module stays pure JMAP and stays
  * testable: everything here touches the browser's service worker and
@@ -29,53 +29,12 @@ import {
   setPushOptedOutHere,
   subscriptionPayload,
   unsubscribeThisDevice,
-  verifySubscription,
   type WebPushBlocker,
   webPushAvailable,
   webPushBlocker,
 } from "@/lib/webpush";
 import { useMail } from "@/store/mail";
-import { withBase } from "./basePath";
 import { groupMailboxAccounts, pushTargets } from "./mailAccounts";
-import { SW_CACHE_NAME } from "./swCache";
-
-let listening = false;
-
-/**
- * Watch for the verification code the server pushes.
- *
- * The service worker cannot answer it — a JMAP call needs the session cookie
- * and this is a background context — so it forwards the code here, or leaves it
- * in the cache when no tab was open to forward it to.
- */
-export function listenForVerification(): void {
-  if (listening || typeof navigator === "undefined" || !("serviceWorker" in navigator))
-    return;
-  listening = true;
-  navigator.serviceWorker.addEventListener("message", (e: MessageEvent) => {
-    const d = e.data as { type?: string; id?: string; code?: string } | undefined;
-    if (d?.type === "push-verification" && d.id && d.code)
-      void verifySubscription(d.id, d.code).catch(() => {});
-  });
-  void collectStoredVerification();
-}
-
-/** Pick up a code that arrived while no tab was open. */
-async function collectStoredVerification(): Promise<void> {
-  try {
-    const cache = await caches.open(SW_CACHE_NAME);
-    // The same absolute key the worker writes. Relative would be resolved
-    // against this document's URL, which is a different place on every route.
-    const key = withBase("/gilbert-push-verification");
-    const hit = await cache.match(key);
-    if (!hit) return;
-    const { id, code } = (await hit.json()) as { id?: string; code?: string };
-    await cache.delete(key);
-    if (id && code) await verifySubscription(id, code);
-  } catch {
-    /* nothing waiting, or no cache: not a failure */
-  }
-}
 
 /**
  * Why turning background notifications on did not work, as a code.
@@ -118,7 +77,6 @@ export async function enableWebPush(): Promise<
     // Turning it on is the other half of the switch's off: the opt-out that
     // stops an automatic registration is cleared here.
     setPushOptedOutHere(false);
-    listenForVerification();
     return { ok: true };
   } catch (err) {
     return { ok: false, code: "subscribe-failed", detail: (err as Error).message };
@@ -285,7 +243,6 @@ export async function renewWebPush(): Promise<void> {
     // reads the rows and extends only one close to expiring, so a start with
     // nothing to do costs one request and no write.
     await registerThisBrowser(key);
-    listenForVerification();
   } catch (err) {
     /* Offline, or the server said no. The next start tries again -- but the
        row this was renewing has been released by now, so the failure has to be
@@ -313,7 +270,6 @@ export async function reregisterWebPush(): Promise<void> {
   if (!key) return;
   try {
     await registerThisBrowser(key, true);
-    listenForVerification();
   } catch (err) {
     /* Offline, or the server said no: the next app start renews. The row was
        released by the forced registration, so until then the account has no

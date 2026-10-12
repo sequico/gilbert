@@ -26,8 +26,11 @@ watermark and not the reader's own (`web/public/sw.js`, `web/src/lib/swFacts.ts`
 `web/src/lib/webpush.ts`, pinned by `web/src/lib/__tests__/swChat.test.ts`).
 Built: the payload for the group mailboxes the subscription serves — the
 `emailPush` map names every account with a known Inbox, each with its own filter
-— the generic wake-up narrowed to the accounts the briefing does not describe,
-and the open-tab path's group-mail half (`notifyGroupMail`). What those rest on
+— the wake-up that carries no payload read back from the account's Inbox and
+announced from the message itself, under a watermark the worker keeps for
+itself, and the open-tab path's group-mail half (`notifyGroupMail`). The
+verification code is answered where it arrives, by the worker, so the handshake
+settles with no tab open and the server stops re-sending it. What those rest on
 is read from Stalwart's source at v0.16.22 and written down below; what is still
 owed is seeing a running server do it.
 
@@ -63,10 +66,11 @@ mailbox already wakes a closed client today.
 
 It wakes it **generically**, and that is the gap: an email event for an account
 with no `emailPush` entry is degraded to a plain `StateChange`
-(`crates/services/src/state_manager/push.rs`), and the worker renders any
-payload that is not an `EmailPush` as "New mail" with no sender, no subject and
-no name of the mailbox it landed in (`web/public/sw.js`). What a group is
-missing is the payload, not the wake-up.
+(`crates/services/src/state_manager/push.rs`), which names the account and
+nothing else — no sender, no subject, no mailbox. What a group is missing is the
+payload, not the wake-up; and a push answered with nothing is not free either,
+because the browser counts notifications and answers a silent one with a notice
+of its own (`web/public/sw.js`, "A state change names only an account" below).
 
 Chat is missing entirely. A chat message is one JSON node in the group
 account's `gilbert/chat`, with a per-member read marker in `gilbert/chat-state`
@@ -216,23 +220,58 @@ the reader's, and it notifies like a member's. Nothing here is chat-specific
 reconciliation: the documents, the marker and the transcript are exactly what
 ADR 0005 decided.
 
-### A plain state change notifies only where there is no payload
+### A state change names only an account, so the message is read back
 
-Today a delivery produces **two** pushes to the same device: the storage
-transaction that wrote the message broadcasts a `StateChange`, and the delivery
-broadcasts its own `EmailPush` (`crates/common/src/storage/transaction.rs`,
-`crates/email/src/message/delivery.rs`), and both are POSTed. The worker turns
-anything that is not an `EmailPush` into "New mail", so a reader with the app
-closed is shown two notifications for one message — the rich one and a generic
-one that names nothing.
+A delivery produces **two** pushes to the same device: the storage transaction
+that wrote the message broadcasts a `StateChange`, and the delivery broadcasts
+its own `EmailPush` (`crates/common/src/storage/transaction.rs`,
+`crates/email/src/message/delivery.rs`), and both are POSTed. The subscription's
+`types` bitmap is what decides which of them arrives — asking for `EmailDelivery`
+admits no `Email` state change — but a delivery that arrives as a bare state
+change is still mail, and one that names an account the briefing cannot read is
+still a delivery.
 
-The rule is per account, and the briefing already carries the answer: a
-`StateChange` names the accounts it changed in `changed`, and the worker notifies
-generically **only for an account the briefing lists without an Inbox** — one
-the `emailPush` map has no entry for, so this state change is the whole of what
-arrives, and the briefing can name the mailbox it landed in. For every described
-account — the reader's own, and each group with a known Inbox — the state change
-is the duplicate of the payload and says nothing.
+**A push cannot be answered with silence.** A browser counts a notification, and
+Chrome's answer to a push that produced none is a notification of its own —
+"this site has been updated in the background" — which the reader cannot
+configure away without turning the site's notifications off altogether. So the
+worker's rule is per account, and it is that every wake-up gets an answer true
+about it:
+
+- a change whose types are **`FileNode` alone** is a file write — the reader's
+  own settings, an upload, an agent's document — and is nobody but the chat
+  section's business;
+- for any other change, an account the briefing describes with an Inbox is a
+  delivery, and the message is **read back** from that Inbox and announced —
+  up to three, tagged by message id, through the same renderer the payload path
+  uses, so the `EmailPush` riding beside it collapses into the notification
+  already on screen rather than stacking beside it;
+- an account the briefing lists **without** an Inbox has no folder to read and
+  the notice names the mailbox, which is the whole of what can be said about it;
+- no briefing at all — the worker installed and the app not opened since — is
+  answered the same way, from the strings alone.
+
+The read is gated by what this device has already been told. Unread is not the
+same as new: without a gate, every wake-up would announce mail the reader has
+deliberately left unread, so the worker keeps **the newest instant it announced
+for an account** in the handoff cache — its own entry, which no tab reads and
+which activation never empties — and announces only what arrived after it. The
+watermark moves past everything the read saw, not only past what was announced,
+so a backlog stays the app's business rather than becoming one notice per
+message.
+
+### The verification settles where it arrives
+
+A subscription is silent until its verification code is echoed back, and the
+server sends one per pass to the account's newest **unverified** subscription
+until it is answered (`last_verify`). A code that is only stored for a tab to
+collect is therefore a code the server keeps re-sending, and every re-send is a
+push the worker could answer with nothing but the browser's own notice. The
+worker answers it itself: the handshake is an ordinary JMAP call, the session
+cookie is same-origin and httpOnly, and `sw.js` already makes exactly that call
+to archive from a notification. A code that cannot be answered — the session
+gone, the connection down — is dropped rather than retried in a loop, because
+the server's next send is the retry.
 
 ### The briefing the worker reads grows with it
 
@@ -301,7 +340,8 @@ Until it is taken, a reminder is what a running client can do.
 
 - A phone with Gilbert closed is woken by group mail and by chat, on the same
   permission and the same trust requirement the personal path already carries —
-  and for group mail it is woken today, with a notification that says only that
+  and the group's mail is announced from its Inbox, so a delivery that arrived
+  without a payload names its sender and its subject rather than only that
   something arrived.
 - **One row per device, not one per account.** The `emailPush` map is what
   widens the coverage, so a member of six groups spends one of the principal's
@@ -310,25 +350,34 @@ Until it is taken, a reminder is what a running client can do.
   because a pool that fills leaves every further create refused with `overquota`
   and the account back on the relay it does not use here.
 - A browser is woken by *any* file write in any account it is subscribed for
-  once `FileNode` is in `types`, and the reader sees nothing for most of them —
-  an agent's document, an upload, the reader's own stored settings. This is
-  battery and push-service traffic rather than user noise: the notification, not
-  the wake-up, is what the watermark and the sender rule gate.
-- The double notification is fixed in two steps, and the first is built: the
+  once `FileNode` is in `types`, and a wake-up whose news is not a chat message
+  has nothing to show for itself — an agent's document, an upload, the reader's
+  own stored settings. That wake-up is the one the reader can still see as a
+  notice of the browser's own: Chrome answers a push that produced no
+  notification with "this site has been updated in the background", and no
+  setting of Gilbert's can turn that off. What the worker can do — and does — is
+  answer every wake-up that carries mail, which leaves the file writes as the
+  residual. Narrowing the wake-up means a filter Stalwart does not have, or
+  giving up chat while the app is closed.
+- The double notification is fixed from both ends. At the source, the
   subscription names `EmailDelivery` rather than `Email`, so a read, flag or
-  move from any client no longer arrives at all, and a delivery to the reader's
-  own Inbox produces the `EmailPush` that names its sender rather than a second,
-  nameless notice beside it. What is left is the group case, which needs the
-  second step: a `StateChange` notifies generically only for the accounts the
-  briefing does not describe.
-- `PushVerification` stays one pending code per device, and the reason is now
-  the server's own: only the **newest** unverified subscription of an account is
-  sent a verification POST per pass, and the throttle on it is per account
-  (`last_verify` in `crates/services/src/state_manager/push.rs`). One
-  subscription per device makes that a non-question; several would have taken
-  turns. The worker answering the verification directly remains the shape for a
-  device that holds more than one, and the account that issued a code is the one
-  it belongs to.
+  move from any client does not arrive at all, and a delivery to an account the
+  `emailPush` map describes arrives as the `EmailPush` that names its sender. At
+  the worker, a delivery that arrives as a bare state change instead — the
+  degraded group case, an account the map cannot describe — is read back from
+  that account's Inbox and announced from the message itself, up to three per
+  wake-up, tagged by message id so the payload beside it collapses into one
+  notification rather than stacking two. A read that trusted "newest unread"
+  alone would announce unread mail the reader had left unread: the watermark the
+  worker keeps for itself is what separates the two.
+- The verification handshake settles in the worker, which is where the code
+  arrives. Answering it there is what stops the server re-sending it — only the
+  **newest** unverified subscription of an account is sent a `PushVerification`
+  per pass, throttled per account (`last_verify` in
+  `crates/services/src/state_manager/push.rs`) — and each re-send it stops is one
+  fewer push answered with the browser's own notice. A device holding one
+  subscription still sees one code; the worker answers whichever subscription the
+  code names, so a device holding several settles too.
 - Nothing about gilbertserver changes: `PUSH_MODE`, `PUSH_STATE_TYPES` and the
   fan-out are untouched, and a deployment with no actor identity still has the
   relay.
@@ -378,9 +427,14 @@ Built with the map:
 - A change in the accounts the subscription covers re-registers the device,
   because the map and the `types` are fixed at creation (`web/src/App.tsx`).
 - The worker announces a group's mail from the open-tab path, names the group in
-  its notification, and notifies generically only for an account the briefing
-  lists without an Inbox (`web/src/store/__tests__/group-mail-notify.test.ts`,
-  `web/src/lib/__tests__/swChat.test.ts`).
+  its notification, and answers a payload-less delivery by reading that account's
+  Inbox back — gated by the watermark it wrote, and rendered through the same
+  notification the payload path uses so the two cannot stack
+  (`web/src/store/__tests__/group-mail-notify.test.ts`,
+  `web/src/lib/__tests__/swPushRules.test.ts`, `web/src/lib/__tests__/swChat.test.ts`).
+- The verification code is answered by the worker and left for no tab to
+  collect, which is what makes the server stop re-sending it
+  (`web/src/lib/__tests__/swPushRules.test.ts`).
 
 Owed with the steps below:
 
@@ -427,8 +481,10 @@ account the subscription serves and no `emailPush` entry describes — which tod
 is every group mailbox. The bitmap decides what a subscription is sent, so if
 that state change names `Email` rather than `EmailDelivery` then a subscription
 asking for `EmailDelivery` alone is sent **nothing** for a group delivery, and
-the notification that today says "New mail" for it stops arriving in silence.
-What the source says is that the delivery is degraded to a plain state change;
+the delivery stops arriving at all — not as a nameless notice, which is what a
+state change that *does* arrive is answered with now, but as nothing, because no
+push wakes the device. What the source says is that the delivery is degraded to
+a plain state change;
 what it does not say, anywhere this tree has read, is which name that state
 change wears. Everything about group notifications that is already built rests
 on the answer, which is why it is a probe of its own rather than a note inside
@@ -451,11 +507,13 @@ implementation marks them where the code owes them (the repository's
    registration and release addressed at the reader's own account once rather
    than once per target. Personal mail stays what it is, and the step is not
    done until it still is. **Built.**
-3. The generic wake-up: `StateChange` notifies only for the accounts the
-   briefing does not describe as carrying a payload — an account it lists
-   without an Inbox, so with no entry in the map — and names it. A described
-   account's state change is the duplicate of its `EmailPush` and says nothing.
-   **Built.**
+3. Every wake-up answered with something true about it: a `StateChange` whose
+   types are not `FileNode` alone is a delivery, read back from the account's
+   Inbox and announced under the watermark the worker keeps for itself where the
+   briefing describes an Inbox, and noticed with the mailbox it names where it
+   does not — so no push is left to the browser's own notice. The verification
+   code is answered where it arrives, which is what stops the server re-sending
+   it. **Built.**
 4. The briefing: per-account chat folder, the account's name, the watermark, the
    reader's own address and the account's Inbox id, which the notification's
    deep link is built from. **Built.**
@@ -491,7 +549,7 @@ implementation marks them where the code owes them (the repository's
   ways (the filtered event stream, and a subscription naming `EmailDelivery`
   alone with no `emailPush` entry)
 - `web/src/lib/swFacts.ts`, `web/public/sw.js` — the briefing, the push handler,
-  the `VERIFY_KEY` handshake, `runAction`
+  the verification it answers, the mail read-back and its watermark, `runAction`
 - `web/src/store/mail/` — `notifyNewMail()`, the per-account folder trees
 - `web/src/store/chat.ts`, `web/src/lib/chat.ts`, `server/src/shared/chat.ts` —
   the chat node and its marker

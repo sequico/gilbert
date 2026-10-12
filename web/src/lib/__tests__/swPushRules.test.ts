@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { workerSource } from "./readSource";
+import { PAYLOAD_PROPS } from "@/lib/webpush";
+import { readSource, workerSource } from "./readSource";
 
 /*
  * The rules the worker's push handler applies, held against the reason for
@@ -26,13 +27,70 @@ describe("the push handler's rules", () => {
   });
 
   /*
-   * A delivery from a server that answers with a state change rather than a
-   * payload — which is what the subscription asks for — is still new mail, and
-   * saying so is the honest rendering of a payload that names no sender.
+   * The handshake settles here. A code stored for a tab to collect is a code
+   * the server keeps re-sending (`last_verify`, per account), and each re-send
+   * is a push answered with nothing — which Chrome answers with a notification
+   * of its own.
    */
-  it("still notifies for a delivery that carried no message", () => {
-    expect(worker).toContain("if (!emails.length)");
+  it("hands the verification code back to the server itself", () => {
+    expect(worker).toContain("PushSubscription/set");
+    expect(worker).toContain("verificationCode: code");
+    expect(worker).toContain('const WEBPUSH_CAP = "urn:ietf:params:jmap:webpush-vapid"');
+    // Nothing is left for a tab to collect, so there is no second door.
+    expect(worker).not.toContain("push-verification");
+  });
+
+  /*
+   * A delivery that arrived as a state change rather than as a payload names
+   * its account and nothing else, so the worker reads the message back and
+   * announces it: a push answered with silence is Chrome's own "this site has
+   * been updated in the background". Where there is no Inbox to read, the
+   * notice names the mailbox the briefing has.
+   */
+  it("reads a payload-less delivery back from the Inbox and announces it", () => {
+    expect(worker).toContain("await mailNotifications(changed, facts, strings);");
+    expect(worker).toContain('filter: { inMailbox: inboxId, notKeyword: "$seen" }');
+    expect(worker).toContain("if (!account?.inboxId)");
     expect(worker).toContain("strings.newMail");
+  });
+
+  /*
+   * The read-back is gated by what this device has already been told, because
+   * unread is not the same as new: without the watermark every wake-up would
+   * re-announce mail the reader has deliberately left unread. The entry is the
+   * worker's own — no tab reads it, so no second copy of the name exists.
+   */
+  it("announces only what is newer than the watermark it wrote", () => {
+    expect(worker).toContain("gilbert-mail-watermark");
+    expect(worker).toContain('Date.parse(watermarks[accountId] ?? "")');
+    expect(worker).toContain("await rememberMailWatermarks(watermarks);");
+    const app = ["src/lib/swFacts.ts", "src/lib/webpushEnable.ts"].map(readSource);
+    for (const src of app) expect(src).not.toContain("gilbert-mail-watermark");
+  });
+
+  /*
+   * One renderer for a message however it was found, tagged by the message's
+   * own id: the two pushes of one delivery must not stack, and a group's
+   * message must be titled the same way whichever path built it.
+   */
+  it("renders the payload and the read-back through one notification", () => {
+    expect(worker).toContain(
+      "await notifyMail(deliveryAccountId, account, email, strings);",
+    );
+    expect(worker).toContain("for (const email of fresh) await notifyMail(");
+    expect(worker).toContain(`tag: \`gilbert-\${email.id || body}\``);
+  });
+
+  /*
+   * The two paths render the same message, and the worker cannot import the
+   * app's list — `public/sw.js` is copied to the build verbatim. So the one
+   * list is held together by a test: a property dropped on either side is a
+   * notification that renders differently depending on which push carried it.
+   */
+  it("asks for the same Email properties in the payload and in the read-back", () => {
+    const list = /const MAIL_PROPS = \[([^\]]*)\]/.exec(worker)?.[1] ?? "";
+    const props = list.match(/"([^"]+)"/g)?.map((p) => p.replace(/"/g, ""));
+    expect(props).toEqual(PAYLOAD_PROPS);
   });
 
   /*
@@ -71,19 +129,20 @@ describe("the worker's install, activation and offline rules", () => {
   });
 
   it("keeps the handoff cache through a version bump, and migrates nothing", () => {
-    // A share nobody has opened, a verification that arrived with no tab, the
-    // briefing: written by one context and read by another, so they live in a
-    // cache of their own that activation never empties. Copying them onto a
-    // bump would race a handoff written between the copy and the delete.
+    // A share nobody has opened, the briefing, and the mail watermark this
+    // worker keeps for itself: written by one context and read by another (or
+    // by the next worker), so they live in a cache of their own that activation
+    // never empties. Copying them onto a bump would race a handoff written
+    // between the copy and the delete.
     expect(worker).toContain("k !== VERSION && k !== HANDOFF");
     expect(worker).not.toContain("isHandoffKey");
   });
 
   it("writes every handoff into the cache activation keeps", () => {
-    // The share stash, the verification code and the briefing each open
-    // HANDOFF. A handoff written into the shell cache instead is lost at the
-    // next activation.
-    expect(worker.match(/\.open\(HANDOFF\)/g) ?? []).toHaveLength(3);
+    // The share stash, the briefing read, and the mail watermark's read and
+    // write each open HANDOFF. A handoff written into the shell cache instead
+    // is lost at the next activation.
+    expect(worker.match(/\.open\(HANDOFF\)/g) ?? []).toHaveLength(4);
   });
 
   it("answers a first offline navigation from the pre-cached root", () => {

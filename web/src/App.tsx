@@ -29,7 +29,6 @@ import { folderIdOfRole, publishWorkerFacts, workerAccounts } from "@/lib/swFact
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import {
   autoEnableWebPush,
-  listenForVerification,
   reregisterWebPush,
   turnOnNotificationsHere,
 } from "@/lib/webpushEnable";
@@ -342,9 +341,6 @@ function AuthedApp() {
     void useCalendar.getState().init();
     void useFiles.getState().init();
     void useSieve.getState().init();
-    // A push subscription stays silent until its verification code is echoed
-    // back, and the code may have arrived while no tab was open.
-    listenForVerification();
     /*
      * A push subscription expires -- seven days is the ceiling JMAP puts on one,
      * and re-registering before that is the client's job. Nothing did it, so
