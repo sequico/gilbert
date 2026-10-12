@@ -2268,6 +2268,37 @@ function matchFilter(e: Obj, f: Obj | undefined): boolean {
   if (f.maxSize && Number(e.size) > Number(f.maxSize)) return false;
   return true;
 }
+
+/**
+ * The paging a `/query` was asked for.
+ *
+ * `position` and `limit` are `UnsignedInt` in RFC 8620 §5.5, so a negative one
+ * is refused `invalidArguments` rather than slicing from the end the way
+ * `Array.slice` would — one caller's typo silently answered a different page.
+ * A real 0.16 server refuses it; `Email/query` and `FileNode/query` do here.
+ * `limit` absent or `null` means the server's own page, and each caller picks
+ * its own default for that.
+ */
+function queryPaging(a: Obj): { position: number; limit: number | null } {
+  const position = a.position;
+  if (
+    position !== undefined &&
+    position !== null &&
+    (typeof position !== "number" || !Number.isInteger(position) || position < 0)
+  )
+    throw new MethodError("invalidArguments", "position must be a non-negative integer");
+  const limit = a.limit;
+  if (
+    limit !== undefined &&
+    limit !== null &&
+    (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0)
+  )
+    throw new MethodError("invalidArguments", "limit must be a non-negative integer");
+  return {
+    position: typeof position === "number" ? position : 0,
+    limit: typeof limit === "number" ? limit : null,
+  };
+}
 /**
  * Apply one JMAP patch (RFC 8620 §5.3): each key is a `/`-separated JSON
  * Pointer, and every segment is walked -- so `participants/me/participationStatus`
@@ -3123,16 +3154,16 @@ const handlers: Record<string, Handler> = {
         return true;
       });
     }
-    const pos = Number(a.position ?? 0);
-    const limit = Number(a.limit ?? 50);
+    const { position: pos, limit } = queryPaging(a);
+    const page = limit ?? 50;
     return {
       accountId: ACCOUNT,
       queryState: stateOf(accountOf(a), "Email"),
       canCalculateChanges: false,
       position: pos,
-      ids: list.slice(pos, pos + limit).map((e) => e.id),
+      ids: list.slice(pos, pos + page).map((e) => e.id),
       ...(a.calculateTotal ? { total: list.length } : {}),
-      limit,
+      limit: page,
     };
   },
   "Email/get": (a) => genericGet(emailsFor(a.accountId), "Email")(a),
@@ -4399,8 +4430,7 @@ const handlers: Record<string, Handler> = {
     // The chat transcript pages backwards from the end through this (older
     // messages on scroll-up, ADR 0005).
     const total = list.length;
-    const position = Number(a.position ?? 0);
-    const limit = a.limit as number | undefined;
+    const { position, limit } = queryPaging(a);
     const ids = list.map((n) => n.id);
     const paged = limit == null ? ids : ids.slice(position, position + limit);
     return {

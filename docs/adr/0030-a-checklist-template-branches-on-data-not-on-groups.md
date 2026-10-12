@@ -47,8 +47,11 @@ on the page's draft and every revision:
   values, items, target)` is the **one** resolver, read by a workorder's
   instantiation and by its view.
 - A section may carry a **gate**, `requires`: up to three other section keys
-  that must have been **completed once** (all their steps `done` or `skipped`)
-  before the section is shown. The gate is a **latch** — opened once, it stays
+  that must have been **completed once** (every step `done`, `skipped` or
+  `not-applicable` — a step the case does not need is out of the progress but
+  settles a gate) before the section is shown. A prerequisite the variant
+  excludes, or one that names no part, counts as satisfied, so a branch never
+  dead-ends. The gate is a **latch** — opened once, it stays
   open for the rest of the workorder, so re-opening a prerequisite for a
   revision does not hide a section a group has already been given — and it
   resolves over the **whole workorder**, so a prerequisite may live in another

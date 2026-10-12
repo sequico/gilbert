@@ -4,6 +4,7 @@ import {
   buildChecklist,
   buildWorkorderDoc,
   isStepComplete,
+  isStepCompleteForGate,
   isTerminalState,
   isWorkorderDoc,
   isWorkorderState,
@@ -55,6 +56,15 @@ test("done and skipped count as complete; open and not-applicable do not", () =>
   assert.equal(isStepComplete("skipped"), true);
   assert.equal(isStepComplete("open"), false);
   assert.equal(isStepComplete("not-applicable"), false);
+});
+
+test("a not-applicable step is complete for a gate though out of progress", () => {
+  // The gate asks the wider question: a step the case does not need still
+  // leaves the step behind, so the section it sits in opens its dependents.
+  assert.equal(isStepCompleteForGate("done"), true);
+  assert.equal(isStepCompleteForGate("skipped"), true);
+  assert.equal(isStepCompleteForGate("not-applicable"), true);
+  assert.equal(isStepCompleteForGate("open"), false);
 });
 
 test("a root carries the name and the state; a part does not", () => {

@@ -683,8 +683,10 @@ A template with no revision in force cannot be started from; a retired template
 still resolves by id.
 
 A section may carry a **gate**: it is not shown until up to three other sections
-have been **completed once** (all their steps done or skipped), and the gate may
-name a section in any part — the global checklist or another group's. The gate is
+have been **completed once** (every step done, skipped or not-applicable), and
+the gate may name a section in any part — the global checklist or another
+group's; a prerequisite the variant or the reader's part excludes counts as
+satisfied, so a branch never dead-ends. The gate is
 a **latch**: once opened it stays open for the workorder even if a prerequisite
 is later re-opened for a revision, so a group never loses a section it has
 already been given. An opened section carries a small **read-only marker** naming

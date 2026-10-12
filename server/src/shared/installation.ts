@@ -387,15 +387,23 @@ export function parseInstallationDocumentDetailed(
     }
     return v;
   };
-  /** A bound floored at 1: a document that says 0 says nothing useful. */
-  const readBound = (where: string, v: unknown, fallback: number): number => {
+  /** A whole number at least `min`; a value below it is refused, not kept. */
+  const readAtLeast = (
+    where: string,
+    v: unknown,
+    fallback: number,
+    min: number,
+  ): number => {
     const n = readInt(where, v, fallback);
-    if (n < 1) {
-      problems.push(`"${where}" must be at least 1.`);
+    if (n < min) {
+      problems.push(`"${where}" must be at least ${min}.`);
       return fallback;
     }
     return n;
   };
+  /** A bound floored at 1: a document that says 0 says nothing useful. */
+  const readBound = (where: string, v: unknown, fallback: number): number =>
+    readAtLeast(where, v, fallback, 1);
 
   const server = readSection("server", whole.server);
   const limits = readSection("limits", whole.limits);
@@ -412,6 +420,14 @@ export function parseInstallationDocumentDetailed(
   const port = readInt("server.port", server.port, defaults.server.port);
   if (port < 1 || port > 65535)
     problems.push(`"server.port" must be between 1 and 65535 (it is ${port}).`);
+  const healthPort = readAtLeast(
+    "agent.healthPort",
+    agent.healthPort,
+    defaults.agent.healthPort,
+    0,
+  );
+  if (healthPort > 65535)
+    problems.push(`"agent.healthPort" must be at most 65535 (it is ${healthPort}).`);
   const mode = readText("push.mode", push.mode, defaults.push.mode);
   if (mode !== "relay" && mode !== "subscribe")
     problems.push(`"push.mode" must be "relay" or "subscribe".`);
@@ -440,7 +456,7 @@ export function parseInstallationDocumentDetailed(
 
   const doc: InstallationDocument = {
     version,
-    epoch: readInt("epoch", whole.epoch, defaults.epoch),
+    epoch: readAtLeast("epoch", whole.epoch, defaults.epoch, 1),
     server: {
       host: readText("server.host", server.host, defaults.server.host),
       port,
@@ -477,38 +493,43 @@ export function parseInstallationDocumentDetailed(
       cookieName,
     },
     limits: {
-      upstreamTimeout: readInt(
+      upstreamTimeout: readAtLeast(
         "limits.upstreamTimeout",
         limits.upstreamTimeout,
         defaults.limits.upstreamTimeout,
+        1,
       ),
-      maxUploadBytes: readInt(
+      maxUploadBytes: readAtLeast(
         "limits.maxUploadBytes",
         limits.maxUploadBytes,
         defaults.limits.maxUploadBytes,
+        1,
       ),
       imageProxy: readBool(
         "limits.imageProxy",
         limits.imageProxy,
         defaults.limits.imageProxy,
       ),
-      loginRateLimit: readInt(
+      loginRateLimit: readAtLeast(
         "limits.loginRateLimit",
         limits.loginRateLimit,
         defaults.limits.loginRateLimit,
+        1,
       ),
-      apiRateLimit: readInt(
+      apiRateLimit: readAtLeast(
         "limits.apiRateLimit",
         limits.apiRateLimit,
         defaults.limits.apiRateLimit,
+        0,
       ),
     },
     sessions: {
-      ttl: readInt("sessions.ttl", sessions.ttl, defaults.sessions.ttl),
-      rememberTtl: readInt(
+      ttl: readAtLeast("sessions.ttl", sessions.ttl, defaults.sessions.ttl, 1),
+      rememberTtl: readAtLeast(
         "sessions.rememberTtl",
         sessions.rememberTtl,
         defaults.sessions.rememberTtl,
+        1,
       ),
     },
     push: {
@@ -517,23 +538,25 @@ export function parseInstallationDocumentDetailed(
     },
     upstreams: readUpstreams("upstreams", whole.upstreams, defaults.upstreams, problems),
     agent: {
-      poll: readInt("agent.poll", agent.poll, defaults.agent.poll),
-      heartbeat: readInt("agent.heartbeat", agent.heartbeat, defaults.agent.heartbeat),
-      lease: readInt("agent.lease", agent.lease, defaults.agent.lease),
+      poll: readAtLeast("agent.poll", agent.poll, defaults.agent.poll, 1),
+      heartbeat: readAtLeast(
+        "agent.heartbeat",
+        agent.heartbeat,
+        defaults.agent.heartbeat,
+        1,
+      ),
+      lease: readAtLeast("agent.lease", agent.lease, defaults.agent.lease, 1),
       chainHops: readBound("agent.chainHops", agent.chainHops, defaults.agent.chainHops),
       pages: readBound("agent.pages", agent.pages, defaults.agent.pages),
       thinking: readBool("agent.thinking", agent.thinking, defaults.agent.thinking),
       vision: readBool("agent.vision", agent.vision, defaults.agent.vision),
-      authoringMaxPerMonth: readInt(
+      authoringMaxPerMonth: readAtLeast(
         "agent.authoringMaxPerMonth",
         agent.authoringMaxPerMonth,
         defaults.agent.authoringMaxPerMonth,
+        0,
       ),
-      healthPort: readInt(
-        "agent.healthPort",
-        agent.healthPort,
-        defaults.agent.healthPort,
-      ),
+      healthPort,
       inProcess: readBool("agent.inProcess", agent.inProcess, defaults.agent.inProcess),
     },
     branding: { appName },

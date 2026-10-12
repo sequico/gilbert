@@ -826,6 +826,120 @@ test("a prerequisite naming no section, and one with no steps, do not block", as
   );
 });
 
+test("a prerequisite the chosen variant excludes does not hide its dependent", async () => {
+  /*
+   * `gates.known` is every section the template defines, while completion holds
+   * only the sections the resolver materialised. A prerequisite the chosen
+   * values exclude is known but never computed, and waiting for it would hide
+   * the dependent section for ever. It is tolerated like a key that names no
+   * section (ADR 0030). Fails if the tolerance is removed.
+   */
+  const gated = {
+    variants: [
+      {
+        key: "company",
+        label: "Company",
+        values: [
+          { value: "north", label: "North" },
+          { value: "south", label: "South" },
+        ],
+      },
+    ],
+    sections: [
+      {
+        key: "paperwork",
+        label: "Paperwork",
+        condition: { variant: "company", equals: "north" },
+        steps: [{ key: "ref", label: "Record the reference" }],
+      },
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["paperwork"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  const template = await templateRef(gated, "Excluded prerequisite checklist");
+  const created = await post("/api/workorders/create", {
+    name: "South only",
+    template,
+    groups: [],
+    variants: { company: "south" },
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const global = partOf(workorderOf(created.body), "global");
+  assert.ok(
+    global.checklist.steps.every((s) => !s.path.startsWith("paperwork")),
+    "the excluded prerequisite is never materialised",
+  );
+  assert.deepEqual(
+    global.groups.map((g) => g.key),
+    ["billing"],
+    "the dependent section is not hidden behind a prerequisite that is not there",
+  );
+});
+
+test("a not-applicable step completes its section for a gate", async () => {
+  /*
+   * A step the case does not need is out of the progress fraction but still
+   * leaves the step behind (`isStepCompleteForGate`), so its section completes
+   * and the dependent's gate opens rather than hiding it for ever. Fails if
+   * `not-applicable` is treated as an unfinished step by the gate.
+   */
+  const gated = {
+    variants: [],
+    sections: [
+      {
+        key: "production",
+        label: "Production",
+        steps: [{ key: "make", label: "Make" }],
+      },
+      {
+        key: "billing",
+        label: "Billing",
+        requires: ["production"],
+        steps: [{ key: "invoice", label: "Invoice" }],
+      },
+    ],
+  };
+  const template = await templateRef(gated, "Not-applicable gate checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Not needed",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const uid = workorderOf(created.body).uid;
+
+  const hidden = partOf(
+    workorderOf((await call(`/api/workorders/${uid}`)).body),
+    "global",
+  );
+  assert.deepEqual(
+    hidden.groups.map((g) => g.key),
+    ["production"],
+    "the gate starts closed",
+  );
+
+  const checked = await post("/api/workorders/check", {
+    uid,
+    scope: "global",
+    path: "production.make",
+    state: "not-applicable",
+    note: "no make step in this case",
+  });
+  assert.equal(checked.status, 200, JSON.stringify(checked.body));
+  assert.deepEqual(
+    partOf(workorderOf(checked.body), "global").groups.map((g) => g.key),
+    ["production", "billing"],
+    "a not-applicable prerequisite opens the gate",
+  );
+});
+
 test("a conditional workorder write refuses an empty account state", () => {
   /*
    * `ifInState: token || undefined` degraded a conditional write to an

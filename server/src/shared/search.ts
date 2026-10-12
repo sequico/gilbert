@@ -101,15 +101,32 @@ function parseSize(s: string): number | undefined {
   return Math.round(n * mult);
 }
 
+/**
+ * A date built from named components, or null when the components do not form
+ * one.
+ *
+ * JS rolls an out-of-range component into the next month or year, so
+ * `2026-02-30` silently becomes March 2 and a search for the 30th finds a
+ * different day. The month and the day are checked against the month's true
+ * length first, so a date that names a day the month does not have is refused
+ * rather than searched as another.
+ */
+function makeLocalDate(y: number, m: number, dd: number): Date | null {
+  if (m < 1 || m > 12 || dd < 1) return null;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (dd > daysInMonth) return null;
+  return new Date(y, m - 1, dd);
+}
+
 function parseDate(s: string, endOfDay = false): string | undefined {
   const t = s.trim();
   let d: Date | null = null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(t) || /^\d{4}\/\d{2}\/\d{2}$/.test(t)) {
     const [y, m, dd] = t.split(/[-/]/).map(Number) as [number, number, number];
-    d = new Date(y, m - 1, dd);
+    d = makeLocalDate(y, m, dd);
   } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(t)) {
     const [m, dd, y] = t.split("/").map(Number) as [number, number, number];
-    d = new Date(y, m - 1, dd);
+    d = makeLocalDate(y, m, dd);
   } else {
     const rel = /^(\d+)([dwmy])$/.exec(t);
     if (rel) {
@@ -221,6 +238,19 @@ export function parseQuery(q: string): ParsedQuery {
   return p;
 }
 
+/**
+ * A filter condition no message satisfies.
+ *
+ * Used when `in:` names a folder that is not there: the search must return
+ * nothing, where dropping the filter widened it to every mailbox. `before`
+ * strictly earlier than `after` cannot both hold, whichever bounds a server
+ * treats as inclusive.
+ */
+const NO_MATCH: SearchFilterCondition = {
+  before: "1970-01-01T00:00:00Z",
+  after: "1970-01-01T00:00:01Z",
+};
+
 export function buildFilter(
   p: ParsedQuery,
   mailboxes: Record<string, SearchMailbox>,
@@ -244,6 +274,10 @@ export function buildFilter(
   if (p.in) {
     const mb = resolveMailbox(p.in, mailboxes);
     if (mb) c.inMailbox = mb.id;
+    // A name that resolves to nothing is not "every folder": it is a search in
+    // a folder that is not there, which must return nothing. Dropping the
+    // filter silently widened the query to every mailbox.
+    else if (!isEverywhere(p.in.toLowerCase())) conds.push(NO_MATCH);
   } else if (currentMailbox) {
     c.inMailbox = currentMailbox;
   }
@@ -253,6 +287,17 @@ export function buildFilter(
   for (const l of p.notLabel ?? []) conds.push({ notKeyword: l });
   if (conds.length === 1) return conds[0]!;
   return { operator: "AND", conditions: conds };
+}
+
+/**
+ * Whether a lower-cased `in:` name means "every folder" rather than one.
+ *
+ * `in:anywhere` and `in:all` widen a search back to every mailbox. `resolveMailbox`
+ * answers `undefined` both for them and for a name that matched nothing, so the
+ * two are told apart here: one widens, the other must not drop the filter.
+ */
+function isEverywhere(lowered: string): boolean {
+  return lowered === "anywhere" || lowered === "all";
 }
 
 export function resolveMailbox(
@@ -269,7 +314,7 @@ export function resolveMailbox(
       (n === "anywhere" && m.role === "all"),
   );
   if (byRole) return byRole;
-  if (n === "anywhere" || n === "all") return undefined;
+  if (isEverywhere(n)) return undefined;
   return (
     list.find((m) => m.name.toLowerCase() === n) ??
     list.find((m) => m.name.toLowerCase().includes(n))

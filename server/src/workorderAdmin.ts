@@ -62,7 +62,7 @@ import {
   applicableStepPaths,
   buildChecklist,
   buildWorkorderDoc,
-  isStepComplete,
+  isStepCompleteForGate,
   isTerminalState,
   isWorkorderDoc,
   isWorkorderRef,
@@ -368,10 +368,13 @@ interface WorkorderGates {
 /**
  * One part's resolved sections, right now complete or not, by key.
  *
- * A section is complete when every step of every item it holds is `done` or
- * `skipped`. A section with **no** steps is complete vacuously — a gate on it
- * does not block — so a prerequisite the chosen values exclude never hides a
- * dependent section for ever.
+ * A section is complete when every step of every item it holds has been
+ * **settled** — `done`, `skipped` or `not-applicable` (`isStepCompleteForGate`)
+ * — or it holds no steps at all, which is complete vacuously. The chosen
+ * variants, items and part decide **which** sections materialise here, so a
+ * prerequisite the resolver leaves out is absent from this map; `gateOpen`
+ * tolerates a prerequisite it cannot see rather than waiting for it for ever
+ * (ADR 0030).
  */
 function sectionCompletion(
   def: KnowledgeChecklist,
@@ -390,7 +393,7 @@ function sectionCompletion(
       section.key,
       paths.every((path) => {
         const instance = stepOf(checklist, path);
-        return instance ? isStepComplete(instance.state) : false;
+        return instance ? isStepCompleteForGate(instance.state) : false;
       }),
     );
   }
@@ -398,8 +401,22 @@ function sectionCompletion(
 }
 
 /**
- * Whether a section's gate is open: latched, or every prerequisite complete.
- * A prerequisite naming no section is tolerated, never a silent dead end.
+ * Whether one prerequisite of a gate is satisfied.
+ *
+ * A prerequisite is satisfied when it is complete, and also when it cannot be
+ * seen at all: a key the template does not define (an editor removed the
+ * section) and a section the resolver never materialised here (the chosen
+ * variant excludes it, or its part is not among these) are both tolerated, so a
+ * gate never waits for ever on something nothing will ever complete (ADR 0030).
+ */
+function prerequisiteSatisfied(key: string, gates: WorkorderGates): boolean {
+  return !gates.known.has(key) || gates.completion.get(key) !== false;
+}
+
+/**
+ * Whether a section's gate is open: latched, or every prerequisite satisfied.
+ * A prerequisite that is unknown, or that the resolver never computed, is
+ * tolerated, never a silent dead end (ADR 0030).
  */
 function gateOpen(
   section: { key: string; requires?: string[] },
@@ -409,7 +426,7 @@ function gateOpen(
   if (!requires.length) return true;
   return (
     gates.latched.has(section.key) ||
-    requires.every((key) => !gates.known.has(key) || gates.completion.get(key) === true)
+    requires.every((key) => prerequisiteSatisfied(key, gates))
   );
 }
 
@@ -937,28 +954,33 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
   if (!root || isTerminalState(root.doc.state ?? "running")) return;
   const def = (await templateDef(ctx, root.doc.checklist.template)).checklist;
   if (!def) return;
-  const known = new Set(def.sections.map((section) => section.key));
+  /*
+   * The same gate the reader sees, decided through `gateOpen` so the latch
+   * records exactly what `groupsFor` will serve: a prerequisite the resolver
+   * never computed — excluded by the chosen values, or a part that is not here
+   * — is tolerated rather than waited on for ever (ADR 0030).
+   */
+  const gates: WorkorderGates = {
+    completion: new Map<string, boolean>(),
+    latched: new Set(root.doc.gates ?? []),
+    labels: new Map<string, string>(),
+    known: new Set(def.sections.map((section) => section.key)),
+  };
   const gated = def.sections.filter((section) => (section.requires?.length ?? 0) > 0);
-  const latched = new Set(root.doc.gates ?? []);
-  const pending = gated.filter((section) => !latched.has(section.key));
+  const pending = gated.filter((section) => !gates.latched.has(section.key));
   if (!pending.length) return;
 
-  const completion = new Map<string, boolean>();
   for (const [key, value] of sectionCompletion(def, root.doc.checklist, null))
-    completion.set(key, value);
+    gates.completion.set(key, value);
   for (const groupAccount of (await groupAccountsDetailed(ctx)).groups.values()) {
     const part = await findActive(ctx, groupAccount, uid);
     if (!part) continue;
     for (const [key, value] of sectionCompletion(def, part.doc.checklist, groupAccount))
-      completion.set(key, value);
+      gates.completion.set(key, value);
   }
 
   const opened = pending
-    .filter((section) =>
-      (section.requires ?? []).every(
-        (key) => !known.has(key) || completion.get(key) === true,
-      ),
-    )
+    .filter((section) => gateOpen(section, gates))
     .map((section) => section.key);
   if (!opened.length) return;
 

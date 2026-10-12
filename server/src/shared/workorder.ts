@@ -71,7 +71,8 @@ export interface WorkorderTemplateRef {
  * `open` and `done` are the check itself; **`skipped`** is a step a person
  * declares not actually done but which counts as done (the job moves on with a
  * stated reason); **`not-applicable`** is a step that does apply but which the
- * person says the case does not need — dimmed and out of progress.
+ * person says the case does not need — dimmed and out of progress, though it
+ * still leaves the step behind for a gate (`isStepCompleteForGate`).
  */
 export type WorkorderStepState = "open" | "done" | "skipped" | "not-applicable";
 
@@ -85,6 +86,17 @@ export const WORKORDER_STEP_STATES: readonly WorkorderStepState[] = [
 /** The states that count as complete for progress: done, and skipped. */
 export function isStepComplete(state: WorkorderStepState): boolean {
   return state === "done" || state === "skipped";
+}
+
+/**
+ * Whether a step is complete for a **gate** — a wider question than progress
+ * asks. `done`, `skipped` and `not-applicable` all leave the step behind, so a
+ * section whose steps are all settled opens its dependents. A `not-applicable`
+ * step stays out of the progress fraction (`isStepComplete`) but must not hold
+ * a dependent section shut for ever (ADR 0030).
+ */
+export function isStepCompleteForGate(state: WorkorderStepState): boolean {
+  return isStepComplete(state) || state === "not-applicable";
 }
 
 /** One step's operational state — never the controlled text, which the KB holds. */

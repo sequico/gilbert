@@ -60,6 +60,18 @@ describe("parseQuery", () => {
     expect(p.in).toBeUndefined();
     expect(p.text).toEqual(["-from:ada", "-subject:q3", "-in:trash"]);
   });
+
+  it("refuses a date whose day the month does not have", () => {
+    // JS rolls an impossible component into the next month, so `2026-02-30`
+    // silently became March 2 and searched a different day; the components are
+    // checked against the month's true length instead.
+    expect(parseQuery("before:2026-02-30").before).toBeUndefined();
+    expect(parseQuery("before:2026-04-31").before).toBeUndefined();
+    expect(parseQuery("after:2026/13/01").after).toBeUndefined();
+    // The same shape the sibling assertion uses: the instant is local midnight,
+    // so a timezone ahead of UTC may render it a day earlier.
+    expect(parseQuery("before:2024-02-29").before).toMatch(/^2024-02-2[89]T/);
+  });
 });
 
 describe("buildFilter", () => {
@@ -82,5 +94,20 @@ describe("buildFilter", () => {
   it("maps is:unread to notKeyword $seen", () => {
     const f = buildFilter(parseQuery("is:unread"), mailboxes, null);
     expect(f).toEqual({ notKeyword: "$seen" });
+  });
+
+  it("an in: that names no folder matches nothing, not all mail", () => {
+    // The name resolved to nothing and is not the "everywhere" keyword, so the
+    // search is a folder that is not there: it must return nothing, where
+    // dropping the filter silently widened it to every mailbox.
+    const f = buildFilter(parseQuery("in:Nope"), mailboxes, "inbox");
+    expect(f).toEqual({
+      operator: "AND",
+      conditions: [{ before: "1970-01-01T00:00:00Z", after: "1970-01-01T00:00:01Z" }, {}],
+    });
+  });
+
+  it("in:anywhere still widens to every folder", () => {
+    expect(buildFilter(parseQuery("in:anywhere"), mailboxes, "inbox")).toEqual({});
   });
 });

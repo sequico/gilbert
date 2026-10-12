@@ -76,6 +76,45 @@ export function parseSyntheticId(
 
 const parseLocal = (s: string): Date => new Date(s);
 
+/**
+ * How many months a monthly advance may skip before the rule is treated as
+ * ended.
+ *
+ * A series on a day some months lack (the 31st) finds a month soon, but one on
+ * Feb 29 with a whole-year interval only lands on a leap year; this bounds that
+ * search instead of looping.
+ */
+const MAX_MONTH_SKIPS = 48;
+
+/** Days in `month` (0-based) of `year`. */
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/**
+ * Step a monthly rule's cursor onto the next month that carries `day`.
+ *
+ * RFC 5545 §3.3.10 skips an occurrence whose date the month does not have —
+ * it is never rolled into the next month, which is what `setMonth` did (a rule
+ * on the 31st stepping from January generated March 3, a day the rule does not
+ * generate). Returns false when no month within `MAX_MONTH_SKIPS` carries the
+ * day, so the expansion ends rather than running on.
+ */
+function advanceMonthly(cursor: Date, interval: number, day: number): boolean {
+  for (let attempt = 0; attempt < MAX_MONTH_SKIPS; attempt++) {
+    const monthIndex = cursor.getMonth() + interval;
+    const year = cursor.getFullYear() + Math.floor(monthIndex / 12);
+    const month = ((monthIndex % 12) + 12) % 12;
+    if (day <= daysInMonth(year, month)) {
+      cursor.setFullYear(year, month, day);
+      return true;
+    }
+    // The month lacks the day: step from it anyway, without emitting.
+    cursor.setFullYear(year, month, 1);
+  }
+  return false;
+}
+
 export interface Occurrence {
   index: number;
   /** The slot in the series this instance fills, which keys any override. */
@@ -168,15 +207,19 @@ export function expandOccurrences(
 
     // A rule with byDay walks day by day and keeps the days it names; without
     // one it steps by its own frequency. This is exact for a daily rule but
-    // expands `INTERVAL` on weekly or monthly ones (it emits every matching
-    // day, not every interval-th week or month) — a divergence the web editor
-    // never asks for, since it offers one weekday at interval 1, and bounded
-    // above by the step cap rather than left to run.
+    // expands `INTERVAL` on weekly ones (it emits every matching day, not
+    // every interval-th week) — a divergence the web editor never asks for,
+    // since it offers one weekday at interval 1, and bounded above by the step
+    // cap rather than left to run. A monthly rule keeps the series' own day and
+    // skips a month without it (RFC 5545 §3.3.10), where stepping it with
+    // `setMonth` rolled an end-of-month start into a day the rule never
+    // generates.
     if (byDay) cursor.setDate(cursor.getDate() + 1);
     else if (rule.frequency === "daily") cursor.setDate(cursor.getDate() + interval);
     else if (rule.frequency === "weekly") cursor.setDate(cursor.getDate() + 7 * interval);
-    else if (rule.frequency === "monthly") cursor.setMonth(cursor.getMonth() + interval);
-    else if (rule.frequency === "yearly")
+    else if (rule.frequency === "monthly") {
+      if (!advanceMonthly(cursor, interval, first.getDate())) break;
+    } else if (rule.frequency === "yearly")
       cursor.setFullYear(cursor.getFullYear() + interval);
     else break;
   }

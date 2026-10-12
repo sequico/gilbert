@@ -114,6 +114,46 @@ describe("expandOccurrences", () => {
   });
 });
 
+describe("a monthly rule keeps the series' own day", () => {
+  const monthly = (start: string, extra: Record<string, unknown> = {}) =>
+    ({
+      id: "ev-m",
+      "@type": "Event",
+      uid: "u-m",
+      title: "Monthly",
+      start,
+      duration: "PT1H",
+      recurrenceRule: { "@type": "RecurrenceRule", frequency: "monthly", ...extra },
+    }) as Record<string, unknown>;
+
+  it("skips a month without the start's day rather than rolling into the next", () => {
+    // Jan 31 stepped with `setMonth` became March 3, a day the rule never
+    // generates; RFC 5545 §3.3.10 skips a month that has no 31st (February and
+    // April here) rather than clamping to its last day or rolling over.
+    const out = expandOccurrences(
+      monthly("2026-01-31T09:00:00"),
+      new Date("2026-01-01T00:00:00"),
+      new Date("2026-06-01T00:00:00"),
+    );
+    assert.deepEqual(
+      out.map((o) => o.start),
+      ["2026-01-31T09:00:00", "2026-03-31T09:00:00", "2026-05-31T09:00:00"],
+    );
+  });
+
+  it("finds a leap February for a rule on Feb 29 with a yearly interval", () => {
+    const out = expandOccurrences(
+      monthly("2024-02-29T09:00:00", { interval: 12 }),
+      new Date("2024-01-01T00:00:00"),
+      new Date("2029-01-01T00:00:00"),
+    );
+    assert.deepEqual(
+      out.map((o) => o.start),
+      ["2024-02-29T09:00:00", "2028-02-29T09:00:00"],
+    );
+  });
+});
+
 describe("occurrenceView", () => {
   it("strips the rule, sets recurrenceId, and points baseEventId at the master", () => {
     const base = series();
