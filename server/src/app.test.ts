@@ -329,9 +329,14 @@ test("an unmatched API path answers JSON, not the SPA", async () => {
   }
   // A real API route is not shadowed by the fallback.
   assert.equal((await app.request("/api/health")).status, 200);
-  // A non-API path still reaches the SPA.
+  // A non-API path is not the API's fallback: whatever it answers, it is not
+  // that JSON. (Asserting the SPA's HTML would need a built `web/dist`, which
+  // a test run does not have -- the build comes after the tests.)
   const spa = await app.request("/does-not-exist");
-  assert.match(spa.headers.get("content-type") ?? "", /text\/html/);
+  assert.ok(
+    !(await spa.text()).includes('"not_found"'),
+    "the API fallback does not capture a non-API path",
+  );
 });
 
 test("the API fallback follows the mount prefix", async () => {
