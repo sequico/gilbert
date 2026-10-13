@@ -910,14 +910,28 @@ export async function saveDraft(
       accountId,
       `${articlePath}/${STATE_FILE}`,
     );
-    if (draftRead.kind === "unreadable" || stateRead.kind === "unreadable")
-      throw new KnowledgeAdminError(
-        "article_unreadable",
-        "This article's own documents could not be read, so nothing was saved — writing here would have treated it as new and dropped its revision history. Try again.",
-        502,
-      );
     const existingDraft = asDraft(draftRead.kind === "ok" ? draftRead.doc : null);
     const existingState = asState(stateRead.kind === "ok" ? stateRead.doc : null);
+    /*
+     * A document that could not be read, or one that is there and does not read
+     * as this article's own, is not an article this save may treat as new: it
+     * would mint an `id` and write `inForce`/`pending`/`retired` back as `null`,
+     * which revives a retired article and loses the pointer to the issued
+     * revision, from a save that only meant to change the body. (A folder that
+     * is not an article never reaches here — the walk that resolved this one
+     * validated its state.)
+     */
+    if (
+      draftRead.kind === "unreadable" ||
+      stateRead.kind === "unreadable" ||
+      (draftRead.kind === "ok" && !existingDraft) ||
+      (stateRead.kind === "ok" && !existingState)
+    )
+      throw new KnowledgeAdminError(
+        "article_unreadable",
+        "This article's own documents could not be read as this build's, so nothing was saved — writing here would have treated it as new and dropped its revision history. Try again.",
+        502,
+      );
     const now = new Date().toISOString();
     const by = admin.username;
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();

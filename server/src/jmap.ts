@@ -371,9 +371,10 @@ export class JmapClient {
    * moment it passes `maxBytes`, so a server that answers with more than the
    * caller bargained for cannot put however many megabytes into the process —
    * which is the difference between this and `arrayBuffer()` on a body of
-   * unknown size. The default is the largest thing this tier reads (an archive
-   * unpacks to at most `DOCUMENT_ARCHIVE_BYTES_MAX`); a caller with its own
-   * ceiling passes it and answers the refusal in its own words.
+   * unknown size. The default is a backstop above every read this tier makes; a
+   * caller that knows its own, smaller ceiling (an agent's file reader passes
+   * `AGENT_DOCUMENT_BYTES_MAX`) passes it and answers the refusal in its own
+   * words.
    */
   async downloadBlob(
     accountId: string,

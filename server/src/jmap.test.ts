@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { after, before, test } from "node:test";
-import { JmapClient, JmapResult } from "./jmap.js";
+import { BlobTooLargeError, JmapClient, JmapResult } from "./jmap.js";
 import { UpstreamError, type UpstreamSession } from "./upstream.js";
 
 /**
@@ -44,6 +44,17 @@ before(async () => {
     }
     if (req.url?.startsWith("/denied")) {
       res.writeHead(401);
+      res.end();
+      return;
+    }
+    /*
+     * A body with no declared length, of a size the caller will refuse. Node
+     * answers it chunked, which is the shape `content-length` cannot be trusted
+     * for: the ceiling has to hold as the bytes arrive.
+     */
+    if (req.url?.startsWith("/chunked")) {
+      res.writeHead(200, { "content-type": "application/octet-stream" });
+      for (let i = 0; i < 8; i++) res.write(Buffer.alloc(64, 0x61));
       res.end();
       return;
     }
@@ -96,5 +107,23 @@ test("a download refused for credentials stays a 401", async () => {
   await assert.rejects(
     () => client.downloadBlob("a1", "b1", "f.txt", "text/plain"),
     (err: unknown) => err instanceof UpstreamError && err.status === 401,
+  );
+});
+
+test("a chunked blob past the ceiling is refused as it arrives, not read whole", async () => {
+  /*
+   * The declared-length branch is the easy half (`content-length` over the
+   * ceiling). This is the other one: a body that states its length as it goes,
+   * where the ceiling is the only thing between a stranger's server and
+   * however many megabytes the process would hold. Without the streaming check
+   * this call answers with the whole 512 bytes.
+   */
+  const client = new JmapClient({
+    authorization: "Basic x",
+    session: sessionAt("/chunked"),
+  });
+  await assert.rejects(
+    () => client.downloadBlob("a1", "b1", "big.bin", "application/octet-stream", 100),
+    (err: unknown) => err instanceof BlobTooLargeError,
   );
 });

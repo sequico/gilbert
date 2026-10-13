@@ -251,7 +251,16 @@ async function writeAssignmentDoc(
         "This group's identity assignments could not be read, so nothing was changed — writing here would have replaced them with the one being made. Try again.",
         502,
       );
-    const members = read.kind === "ok" ? (toAssignmentDoc(read.doc)?.members ?? {}) : {};
+    const assignments = read.kind === "ok" ? toAssignmentDoc(read.doc) : undefined;
+    // A document that parses but is not an assignment list is not an empty one:
+    // the write would replace every member's assignment with the one being made.
+    if (read.kind === "ok" && !assignments)
+      throw new IdentityAdminError(
+        "assignments_unreadable",
+        "This group's identity assignments are not a document this surface can read, so nothing was changed — writing here would have replaced them with the one being made.",
+        502,
+      );
+    const members = assignments?.members ?? {};
     try {
       await writeAppFile(
         ctx,
@@ -636,7 +645,20 @@ export async function writeDefaultIdentity(
         "This account's settings could not be read, so nothing was changed — writing here would have replaced them with the default identity alone. Try again.",
         502,
       );
-    const doc = read.kind === "ok" && isRecord(read.doc) ? { ...read.doc } : {};
+    const existing = read.kind === "ok" ? read.doc : null;
+    /*
+     * A document that parses but is not an object is not an empty one: the
+     * write below would replace the whole of `settings.json` with the one
+     * default identity. Read as `{}`, a JSON array or a bare string would do
+     * exactly that.
+     */
+    if (existing !== null && !isRecord(existing))
+      throw new IdentityAdminError(
+        "settings_unreadable",
+        "This account's settings document is not one this surface can read, so nothing was changed — writing the default identity would have replaced everything it holds.",
+        502,
+      );
+    const doc = isRecord(existing) ? { ...existing } : {};
     const current = doc[DEFAULT_IDENTITY_KEY];
     const map = isRecord(current) ? { ...current } : {};
     if (identityId) map[accountId] = identityId;

@@ -337,3 +337,46 @@ test("a blob past its ceiling is refused, and reads whole within it", async () =
   );
   assert.ok(whole.byteLength > 100, "and the same blob reads whole within the ceiling");
 });
+
+/**
+ * The guard, at the writer a person actually reaches.
+ *
+ * `readAppJsonForWrite` separating the two answers is only half of it: what
+ * matters is that the doors *act* on the difference. The identity door writes
+ * one key into the account's own `settings.json`, so reading a file that could
+ * not be read as an empty one would replace every setting the account holds with
+ * the default identity alone — the same data loss, on an ordinary admin click.
+ */
+test("a writer refuses to replace a settings document it cannot read", async () => {
+  const folderId = await ensureAppFolder(ctx, accountId);
+  await clientOf(ctx).call(
+    "FileNode/set",
+    {
+      accountId,
+      create: {
+        n: {
+          parentId: folderId,
+          name: "settings.json",
+          blobId: "no-such-blob-2",
+          type: "application/json",
+          nodeType: "file",
+        },
+      },
+    },
+    [FILENODE_CAP],
+  );
+  const { writeDefaultIdentity, IdentityAdminError } = await import("./identityAdmin.js");
+  const uploaded = mock.uploads.count;
+
+  await assert.rejects(
+    () => writeDefaultIdentity(ctx, accountId, "identity-1"),
+    (err: unknown) =>
+      err instanceof IdentityAdminError &&
+      (err as { code?: string }).code === "settings_unreadable",
+  );
+  assert.equal(
+    mock.uploads.count,
+    uploaded,
+    "and nothing was uploaded to replace it with",
+  );
+});

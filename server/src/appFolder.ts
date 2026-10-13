@@ -710,6 +710,13 @@ export async function readAppJsonAt(
  * to throw away. Answering `unreadable` for a listing that failed, a download
  * that failed, and bytes that are not JSON — each of them a document that may
  * well exist — is the whole of the difference.
+ *
+ * `absent` is what the listing of the holding folder says: a name past the page
+ * `fileChildren` returns, or a node the walk does not recognise as a file, reads
+ * the same way. The writer then creates its document rather than replacing one —
+ * the failure that costs, and one a folder holding a thousand sibling documents
+ * would see. Nothing about that is new here; the difference is that the answer
+ * is now stated rather than folded into `null`.
  */
 export type AppDocumentRead =
   | { kind: "ok"; doc: unknown }

@@ -864,7 +864,10 @@ function upstreamFailureMessage(error: string): string {
 /**
  * The answer to a failure talking to the mail server: the machine `error` code
  * is the contract the client reads, and the sentence beside it is fixed (see
- * `upstreamFailureMessage`) rather than the mail server's own message.
+ * `upstreamFailureMessage`) rather than the mail server's own message. The one
+ * exception is a 4xx this server raised about a path — an `AppFolderError`
+ * carries its own code and sentence, both ours — which is answered as it
+ * stands.
  */
 export function upstreamFailure(c: Context, err: unknown) {
   /*
