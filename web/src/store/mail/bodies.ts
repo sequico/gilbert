@@ -68,10 +68,12 @@ export function resetBodyOrder(): void {
  * `emails` and `threads` hold what the list and the reading pane draw, and
  * nothing else: what the list draws is its own ids and the messages of the
  * conversations those rows belong to, what the reading pane draws is the open
- * conversation, and what it is still showing while the next one loads is
- * `lastThreadEmailIds`. `keep` names whatever else the caller knows is about to
- * be on screen — the window it has just read. Everything else belongs to a
- * window that has moved on, and is fetched again if it is ever shown.
+ * conversation, what it is still showing while the next one loads is
+ * `lastThreadEmailIds`, and a ticked row is still named by the selection
+ * summary however far the window has moved past it. `keep` names whatever else
+ * the caller knows is about to be on screen — the window it has just read.
+ * Everything else belongs to a window that has moved on, and is fetched again
+ * if it is ever shown.
  */
 export function releaseHeld(
   s: MailState,
@@ -80,19 +82,31 @@ export function releaseHeld(
   const held = new Set<Id>(keep);
   for (const id of s.list?.ids ?? []) held.add(id);
   for (const id of s.lastThreadEmailIds) held.add(id);
+  for (const id of Object.keys(s.selected)) held.add(id);
   const open = s.openThreadId ? s.threads[s.openThreadId] : undefined;
   for (const id of open?.emailIds ?? []) held.add(id);
+  /*
+   * A conversation kept because one of its messages is held draws every message
+   * it holds — a collapsed row counts them — so the whole of its `emailIds` is
+   * held with it. The conversations are named first, since a message that
+   * widens the set has no say in which of them are kept.
+   */
+  const threads: Record<Id, Thread> = {};
+  for (const id of held) {
+    const threadId = s.emails[id]?.threadId;
+    const thread = threadId ? s.threads[threadId] : undefined;
+    if (thread) threads[thread.id] = thread;
+  }
+  if (open) threads[open.id] = open;
+  for (const thread of Object.values(threads))
+    for (const id of thread.emailIds) held.add(id);
   const emails: Record<Id, Email> = {};
   const fullIds: Record<Id, true> = {};
-  const threads: Record<Id, Thread> = {};
   for (const [id, email] of Object.entries(s.emails)) {
     if (!held.has(id)) continue;
     emails[id] = email;
     if (s.fullIds[id]) fullIds[id] = true;
-    const thread = s.threads[email.threadId];
-    if (thread) threads[thread.id] = thread;
   }
-  if (open) threads[open.id] = open;
   /*
    * A body kept for a message that is no longer held would be dropped by the
    * next full read and, until then, drawn without one: the order bodies are

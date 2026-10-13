@@ -474,12 +474,16 @@ export const useMail = create<MailState>((set, get) => ({
       );
       if (get().list?.key !== key) return;
       /*
-       * A delete landed while this window was being read: the answer was
-       * computed before it, so it is read again rather than shown -- which also
-       * brings the loading flag down instead of leaving it up over an empty
-       * list.
+       * A delete or a move landed while this window was being read: the answer
+       * was computed before it, so it is read again rather than shown. The
+       * re-read may itself be superseded and return without touching the flag,
+       * so `loading` comes down here: the re-read only refreshes what the list
+       * already holds, and a spinner left up over it is one nobody takes down.
        */
       if (epoch !== listEpoch) {
+        set((s) => ({
+          list: s.list ? { ...s.list, loading: false } : s.list,
+        }));
         void get().refreshList();
         return;
       }
@@ -523,7 +527,17 @@ export const useMail = create<MailState>((set, get) => ({
       );
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
-      if (epoch !== listEpoch) return;
+      /*
+       * A full read, a delete or a move landed while this page was on its way:
+       * the page is dropped rather than joined to a window it does not belong
+       * to, and the flag it set comes down with it -- the window it was paging
+       * is still on screen and waits on `loadingMore` to ask for the next one,
+       * so a flag left up is a window that pages no further.
+       */
+      if (epoch !== listEpoch) {
+        if (cur.loadingMore) set({ list: { ...cur, loadingMore: false } });
+        return;
+      }
       /*
        * A page asked for at a bare position is the next page only of the window
        * the first one read. If the server's query state moved meanwhile -- a
@@ -533,6 +547,12 @@ export const useMail = create<MailState>((set, get) => ({
        * read again rather than joined.
        */
       if (queryState && l.queryState && queryState !== l.queryState) {
+        /*
+         * The re-read owns the list now, and one that is itself superseded
+         * returns without touching this flag -- so it comes down here, where the
+         * page is dropped either way.
+         */
+        if (cur.loadingMore) set({ list: { ...cur, loadingMore: false } });
         await get().refreshList();
         return;
       }
@@ -570,9 +590,10 @@ export const useMail = create<MailState>((set, get) => ({
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
       /*
-       * A delete landed while this read was on its way: `destroy` moved the
-       * generation, and the ids it came back with name the message the reader
-       * just removed. The list on screen is left as the delete left it.
+       * A delete or a move landed while this read was on its way: `destroy` or
+       * `move` moved the generation, and the ids it came back with name a row
+       * the reader just removed. The list on screen is left as that change left
+       * it.
        */
       if (epoch !== listEpoch) return;
       set({
@@ -824,7 +845,17 @@ export const useMail = create<MailState>((set, get) => ({
       }
       return { emails: next, selected: {}, selectedAll: false };
     });
+    const rowsBefore = get().list?.ids.length;
     removeFromList(ids, set, get, toMailboxId);
+    /*
+     * The rows the move takes off the screen are gone now, and a list read
+     * already on its way was computed before the move reached the server: its
+     * answer names the rows this list no longer holds, so it must be dropped
+     * rather than putting them back (see `listEpoch`). Only a move that took a
+     * row with it moves the generation -- filing a message the window is not
+     * showing leaves the list exactly as it was.
+     */
+    if (rowsBefore !== get().list?.ids.length) listEpoch++;
     try {
       await setEmails(accountId, update);
       if (!opts.silent) {
@@ -2113,10 +2144,12 @@ let changesReported = false;
 /**
  * The current list window's generation.
  *
- * A full read (`refreshList`, or a fresh `query`) moves it, and so does a
- * `destroy`: a page that was already on its way drops its answer instead of
- * appending over the new window, and a list read computed before a delete drops
- * its answer instead of putting the deleted message back on screen.
+ * A full read (`refreshList`, or a fresh `query`) moves it, and so does any
+ * change that takes rows off the screen -- `destroy`, or a `move` that removes
+ * a row from the window (`moveToDestinations` reaches this through `move`): a
+ * page that was already on its way drops its answer instead of appending over
+ * the new window, and a list read computed before the change drops its answer
+ * instead of putting the removed rows back on screen.
  */
 let listEpoch = 0;
 

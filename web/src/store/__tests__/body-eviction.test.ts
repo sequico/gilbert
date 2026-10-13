@@ -196,4 +196,81 @@ describe("messages the list has moved past are let go of", () => {
     expect(Object.keys(s.emails).sort()).toEqual(["e1", "e2", "e3"]);
     expect(Object.keys(s.threads).sort()).toEqual(["t1", "t2"]);
   });
+
+  /*
+   * A ticked row is on screen in the selection summary and in what the
+   * selection does, whatever the window is doing. Releasing the message behind
+   * it leaves the summary counting a row whose message is gone, and the action
+   * it names would then skip it in silence.
+   */
+  it("keeps the message behind a ticked row the window has left", async () => {
+    useMail.setState({
+      accountId: A,
+      emails: {
+        e0: email("e0", "t0"), // the window being read
+        e1: email("e1", "t1"), // ticked, and the window has moved on
+        e2: email("e2", "t2"), // a folder the list has left
+      },
+      threads: {
+        t0: { id: "t0", emailIds: ["e0"] },
+        t1: { id: "t1", emailIds: ["e1"] },
+        t2: { id: "t2", emailIds: ["e2"] },
+      } as never,
+      list: listOf([]),
+      selected: { e1: true },
+      openThreadId: null,
+      lastThreadEmailIds: [],
+    });
+    vi.spyOn(client, "chain").mockResolvedValue(
+      new Map([
+        ["q", [{ ids: ["e0"], total: 1, queryState: "q1" }]],
+        ["e", [{ list: [email("e0", "t0")], state: "s1" }]],
+      ]) as never,
+    );
+
+    await useMail.getState().refreshList();
+
+    const s = useMail.getState();
+    expect(Object.keys(s.emails).sort()).toEqual(["e0", "e1"]);
+    expect(Object.keys(s.threads).sort()).toEqual(["t0", "t1"]);
+  });
+
+  /*
+   * A conversation is kept when one of its messages is: a collapsed row counts
+   * the messages the conversation holds and draws them when it is opened, so a
+   * thread whose other members were released draws fewer messages than it says
+   * it has.
+   */
+  it("keeps the other messages of a conversation held by one of them", async () => {
+    useMail.setState({
+      accountId: A,
+      emails: {
+        e0: email("e0", "t0"), // the window being read
+        e1: email("e1", "t1"), // a conversation the window has left
+        e2: email("e2", "t2"), // one message of the conversation on screen
+        e3: email("e3", "t2"), // the conversation's other message
+      },
+      threads: {
+        t0: { id: "t0", emailIds: ["e0"] },
+        t1: { id: "t1", emailIds: ["e1"] },
+        t2: { id: "t2", emailIds: ["e2", "e3"] },
+      } as never,
+      list: listOf(["e2"]),
+      selected: {},
+      openThreadId: null,
+      lastThreadEmailIds: [],
+    });
+    vi.spyOn(client, "chain").mockResolvedValue(
+      new Map([
+        ["q", [{ ids: ["e0"], total: 1, queryState: "q1" }]],
+        ["e", [{ list: [email("e0", "t0")], state: "s1" }]],
+      ]) as never,
+    );
+
+    await useMail.getState().refreshList();
+
+    const s = useMail.getState();
+    expect(Object.keys(s.emails).sort()).toEqual(["e0", "e2", "e3"]);
+    expect(Object.keys(s.threads).sort()).toEqual(["t0", "t2"]);
+  });
 });

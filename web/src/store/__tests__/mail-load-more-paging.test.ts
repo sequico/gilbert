@@ -160,3 +160,96 @@ describe("a full read racing a page", () => {
     expect(useMail.getState().list?.loadingMore).toBe(false);
   });
 });
+
+describe("a change that takes rows off the screen racing a page", () => {
+  /*
+   * The page sets `loadingMore`, and the window it was paging is left on screen
+   * when the page is dropped. Nothing else brings that flag down -- the next
+   * page is gated on it and the footer spinner is drawn from it -- so a page
+   * dropped without clearing it is a window that never pages again.
+   */
+  it("brings the page's flag down when a delete overtakes it", async () => {
+    listOn(["a", "b"], "q1");
+    useSession.setState({
+      session: { accounts: {}, primaryAccounts: {}, gilbert: { isAdmin: true } } as never,
+    });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      release = res;
+    });
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      await gate;
+      return answer(["c", "d"], "q1");
+    }) as never);
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/set") return { destroyed: ["b"] };
+      return { list: [], state: "s1", notFound: [] };
+    }) as never);
+
+    const more = useMail.getState().loadMore();
+    await useMail.getState().destroy(["b"]);
+    release();
+    await more;
+
+    expect(useMail.getState().list?.loadingMore).toBe(false);
+    expect(useMail.getState().list?.ids).toEqual(["a"]);
+    // The page was computed before the delete, so it is dropped, not appended.
+    expect(useMail.getState().emails.c).toBeUndefined();
+  });
+
+  it("brings the page's flag down when a move overtakes it", async () => {
+    listOn(["a", "b"], "q1");
+    let release: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      release = res;
+    });
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      await gate;
+      return answer(["c", "d"], "q1");
+    }) as never);
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/set") return { updated: { b: null } };
+      return { list: [], state: "s1", notFound: [] };
+    }) as never);
+
+    const more = useMail.getState().loadMore();
+    await useMail.getState().move(["b"], "mb2", { silent: true });
+    release();
+    await more;
+
+    expect(useMail.getState().list?.ids).toEqual(["a"]);
+    expect(useMail.getState().list?.loadingMore).toBe(false);
+  });
+});
+
+describe("a move racing the window's own read", () => {
+  /*
+   * The read was computed before the move reached the server, so its answer
+   * still names the row the reader just filed away. Only the generation the read
+   * was issued under says so, which is why a move that takes a row off the
+   * screen moves it.
+   */
+  it("drops the read's answer instead of putting the moved row back", async () => {
+    listOn(["a", "b"], "q1");
+    let release: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      release = res;
+    });
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      await gate;
+      return answer(["a", "b"], "q1");
+    }) as never);
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/set") return { updated: { b: null } };
+      return { list: [], state: "s1", notFound: [] };
+    }) as never);
+
+    const read = useMail.getState().refreshList();
+    const outcome = await useMail.getState().move(["b"], "mb2", { silent: true });
+    release();
+    await read;
+
+    expect(outcome.ok).toBe(true);
+    expect(useMail.getState().list?.ids).toEqual(["a"]);
+  });
+});
