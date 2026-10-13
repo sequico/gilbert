@@ -798,11 +798,16 @@ export async function readVisibleFileAt(
  * The primitive the readers of the visible tree are built on, because bytes
  * are what a file is: text is a decode of them, and a PDF, a `.docx` or an
  * image is nothing else (ADR 0003: the document family works on the blob).
+ *
+ * `maxBytes` bounds what is held: the agent's own readers pass their ceiling
+ * (`AGENT_DOCUMENT_BYTES_MAX`) and answer `BlobTooLargeError` in words, so a
+ * file nobody should read whole is never buffered whole to find that out.
  */
 export async function readVisibleFileBytes(
   ctx: Ctx,
   accountId: string,
   path: string,
+  maxBytes?: number,
 ): Promise<{ bytes: Uint8Array; file: FileNodeLike; name: string } | null> {
   const found = await findVisibleFile(ctx, accountId, path);
   if (!found) return null;
@@ -815,6 +820,7 @@ export async function readVisibleFileBytes(
     String(found.file.blobId),
     found.name,
     type,
+    maxBytes,
   );
   return { bytes, file: found.file, name: found.name };
 }

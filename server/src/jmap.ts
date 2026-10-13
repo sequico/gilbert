@@ -203,6 +203,29 @@ export interface SessionSource {
   readonly session: UpstreamSession;
 }
 
+/**
+ * The most a single blob read holds before it gives up.
+ *
+ * A download is streamed and stopped the moment it passes this, so a server
+ * that answers with more than the caller bargained for cannot put however many
+ * megabytes into the process. It is a backstop rather than a policy: an agent's
+ * readers pass their own, much smaller ceiling (`AGENT_DOCUMENT_BYTES_MAX`) and
+ * answer the refusal in their own words, and what is left here are the reads
+ * that have no ceiling of their own.
+ */
+export const BLOB_READ_MAX = 256 * 1024 * 1024;
+
+/** A blob was bigger than the read that asked for it. */
+export class BlobTooLargeError extends Error {
+  constructor(
+    public readonly blobId: string,
+    public readonly maxBytes: number,
+  ) {
+    super(`the file is larger than the ${maxBytes} bytes a read carries`);
+    this.name = "BlobTooLargeError";
+  }
+}
+
 export class JmapClient {
   constructor(private readonly source: SessionSource) {}
 
@@ -343,12 +366,21 @@ export class JmapClient {
    * Attachments are not text — a signature image re-encoded through a string
    * comes back corrupted — so the byte form is the primitive and the text
    * form is built on it.
+   *
+   * What is read is bounded. The body is streamed and the read is abandoned the
+   * moment it passes `maxBytes`, so a server that answers with more than the
+   * caller bargained for cannot put however many megabytes into the process —
+   * which is the difference between this and `arrayBuffer()` on a body of
+   * unknown size. The default is the largest thing this tier reads (an archive
+   * unpacks to at most `DOCUMENT_ARCHIVE_BYTES_MAX`); a caller with its own
+   * ceiling passes it and answers the refusal in its own words.
    */
   async downloadBlob(
     accountId: string,
     blobId: string,
     name: string,
     type: string,
+    maxBytes: number = BLOB_READ_MAX,
   ): Promise<Uint8Array> {
     const url = absoluteUpstream(
       expandTemplate(this.session.downloadUrl, { accountId, blobId, name, type }),
@@ -372,7 +404,36 @@ export class JmapClient {
         `Stalwart refused the download (${res.status})`,
         res.status === 404 ? 404 : 502,
       );
-    return new Uint8Array(await res.arrayBuffer());
+    const body = res.body;
+    // A declared length over the ceiling costs nothing to refuse, and the
+    // stream is not read at all.
+    if (Number(res.headers.get("content-length") ?? "0") > maxBytes) {
+      await body?.cancel().catch(() => {});
+      throw new BlobTooLargeError(blobId, maxBytes);
+    }
+    if (!body) return new Uint8Array();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    const reader = body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      // Counted as it arrives, because a chunked body carries no length to
+      // refuse up front.
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        throw new BlobTooLargeError(blobId, maxBytes);
+      }
+      chunks.push(value);
+    }
+    const out = new Uint8Array(total);
+    let at = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, at);
+      at += chunk.byteLength;
+    }
+    return out;
   }
 
   /** Read a blob back as text over the principal's own download path. */

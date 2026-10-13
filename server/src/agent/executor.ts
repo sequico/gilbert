@@ -31,7 +31,13 @@ import {
   readVisibleFileBytes,
 } from "../appFolder.js";
 import { config } from "../config.js";
-import { isStateMismatch, JMAP_MAIL, type JmapClient, JmapError } from "../jmap.js";
+import {
+  BlobTooLargeError,
+  isStateMismatch,
+  JMAP_MAIL,
+  type JmapClient,
+  JmapError,
+} from "../jmap.js";
 import { APP_FOLDER_NAME } from "../shared/appFolder.js";
 import {
   CHAT_FOLDER,
@@ -88,6 +94,7 @@ import {
 } from "./chat.js";
 import {
   type DocumentContent,
+  cutAtCeiling,
   DocumentError,
   documentContent,
   documentKindOf,
@@ -1430,7 +1437,20 @@ export class Executor {
     accountId: string,
     lookup: Extract<AgentLookup, { kind: "file" }>,
   ): Promise<string> {
-    const found = await readVisibleFileBytes(this.deps.ctx, accountId, lookup.path);
+    let found: Awaited<ReturnType<typeof readVisibleFileBytes>>;
+    try {
+      // Read within the run's own ceiling: a file larger than that is refused
+      // in words rather than buffered whole and parsed.
+      found = await readVisibleFileBytes(
+        this.deps.ctx,
+        accountId,
+        lookup.path,
+        AGENT_DOCUMENT_BYTES_MAX,
+      );
+    } catch (err) {
+      if (!(err instanceof BlobTooLargeError)) throw err;
+      return `${lookupHeading(lookup)}: “${lookup.path}” is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads, so nothing of it is read here`;
+    }
     if (!found)
       return `${lookupHeading(lookup)}: this group's Files do not hold “${lookup.path}”`;
     const kind = documentKindOf(
@@ -2048,16 +2068,27 @@ export class Executor {
     pages: number,
   ): Promise<void> {
     if (!rule.capabilities.includes("document.read")) return;
-    const found = await readVisibleFileBytes(this.deps.ctx, accountId, path);
-    if (!found) {
-      context.text += `\n\n"${path}" is no longer in the group's Files.`;
+    let found: Awaited<ReturnType<typeof readVisibleFileBytes>>;
+    try {
+      /*
+       * Read within the run's own ceiling. The blob is otherwise held whole
+       * before anything can look at it, and a rendered page is held as pixels:
+       * this is the bound on both, and a run says it rather than spending the
+       * process on one file (ADR 0003).
+       */
+      found = await readVisibleFileBytes(
+        this.deps.ctx,
+        accountId,
+        path,
+        AGENT_DOCUMENT_BYTES_MAX,
+      );
+    } catch (err) {
+      if (!(err instanceof BlobTooLargeError)) throw err;
+      context.text += `\n\n"${path}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads, so nothing of it is read here.`;
       return;
     }
-    // The blob arrives whole, before anything can look at it, and a rendered
-    // page is held as pixels: this is the bound on both, and a run says it
-    // rather than spending the process on one file (ADR 0003).
-    if (found.bytes.byteLength > AGENT_DOCUMENT_BYTES_MAX) {
-      context.text += `\n\n"${found.name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads, so nothing of it is read here.`;
+    if (!found) {
+      context.text += `\n\n"${path}" is no longer in the group's Files.`;
       return;
     }
     const type =
@@ -3956,14 +3987,22 @@ function renderEmail(heading: string, view: AgentEmailView): string {
     .map((address) => address.email ?? address.name ?? "")
     .join(", ");
   const subject = view.subject ?? "(no subject)";
-  const body = view.body ?? "";
+  /*
+   * A body is the sender's, and a sender chooses its size. What the model is
+   * handed is the beginning of it, bounded like every other reading
+   * (`DOCUMENT_TEXT_MAX`), so a message that arrives as hundreds of megabytes
+   * cannot take the prompt — and the process — with it.
+   */
+  const body = cutAtCeiling(view.body ?? "");
   return [
     heading,
     `From: ${from}`,
     `Subject: ${subject}`,
     `Received: ${view.receivedAt ?? "unknown"}`,
     "",
-    body,
+    body.truncated
+      ? `${body.text}\n…(the message is longer than one reading carries)`
+      : body.text,
   ].join("\n");
 }
 

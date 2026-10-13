@@ -305,3 +305,37 @@ test("a file whose bytes do not come back is unreadable, not absent", async () =
     kind: "absent",
   });
 });
+
+/**
+ * A blob read that asks for a ceiling gets one.
+ *
+ * Every read of a stranger's bytes — an attachment, a file in the group's
+ * Files — goes through `downloadBlob`, and before this it held whatever the
+ * server sent: a body of unknown size was buffered whole and measured after.
+ * The ceiling is enforced as the stream arrives, so what a sender put in a
+ * message cannot become however many megabytes in the process.
+ */
+test("a blob past its ceiling is refused, and reads whole within it", async () => {
+  const path = "oversize/big.json";
+  await writeAppFileAt(ctx, accountId, path, { v: 1, pad: "x".repeat(5000) });
+  const file = (await findAppFileAt(ctx, accountId, path)).file;
+  assert.ok(file?.blobId, "the write left a blob to read");
+  const client = clientOf(ctx);
+  const blobId = String(file.blobId);
+
+  await assert.rejects(
+    () =>
+      client.downloadBlob(
+        accountId,
+        blobId,
+        "big.json",
+        "application/json",
+        100,
+      ),
+    /larger than the 100 bytes/,
+    "a read with a ceiling of its own refuses the blob past it",
+  );
+
+  const whole = await client.downloadBlob(accountId, blobId, "big.json", "application/json");
+  assert.ok(whole.byteLength > 100, "and the same blob reads whole within the ceiling");
+});

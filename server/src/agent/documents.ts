@@ -2275,6 +2275,17 @@ export const AGENT_MAX_PAGES_DEFAULT = AGENT_PAGES_DEFAULT;
 export const AGENT_DOCUMENT_BYTES_MAX = 32 * 1024 * 1024;
 
 /**
+ * How many attachments one `mail.extract` takes from a message.
+ *
+ * A message carries as many parts as its sender likes, and every one of them is
+ * fetched and written into the group's Files: this is the ceiling on the work
+ * one run does for one message. What is past it is refused in words rather than
+ * paid for, and each attachment is itself bounded by
+ * `AGENT_DOCUMENT_BYTES_MAX`.
+ */
+export const AGENT_EXTRACT_FILES_MAX = 50;
+
+/**
  * How many pages one `document.split` may write.
  *
  * A split turns one file into as many files as it has pages, so the bound is on

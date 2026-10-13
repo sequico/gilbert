@@ -251,9 +251,10 @@ export const DOCUMENT_TEXT_MAX = 200_000;
  *
  * One rule for every kind's text: a document is read from its start, and what a
  * run is handed is the beginning of it rather than a selection nobody asked
- * for.
+ * for. Exported because a message's own body is a text handed to the model the
+ * same way, and one ceiling for all of it is what keeps the prompt finite.
  */
-function cutAtCeiling(text: string): { text: string; truncated: boolean } {
+export function cutAtCeiling(text: string): { text: string; truncated: boolean } {
   if (text.length <= DOCUMENT_TEXT_MAX) return { text, truncated: false };
   return { text: text.slice(0, DOCUMENT_TEXT_MAX), truncated: true };
 }

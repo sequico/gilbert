@@ -28,7 +28,13 @@ import {
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
 import { ownIdentityAccount } from "../identityAdmin.js";
-import { isStateMismatch, JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
+import {
+  BlobTooLargeError,
+  isStateMismatch,
+  JMAP_MAIL,
+  JMAP_SUBMISSION,
+  JmapClient,
+} from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import type { SetResponse } from "../shared/jmap.js";
@@ -71,6 +77,7 @@ import {
 import {
   AGENT_ATTENTION_FOLDER,
   AGENT_DOCUMENT_BYTES_MAX,
+  AGENT_EXTRACT_FILES_MAX,
   AGENT_MAX_PAGES_DEFAULT,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_NOTEBOOK_FACTS_MAX,
@@ -887,15 +894,11 @@ async function runOne(
       return { action: action.do, ok: true, result: { facts: facts.length } };
     }
     case "document.read": {
+      // The byte bound is enforced where the file is read
+      // (`readDocumentSource`, `AGENT_DOCUMENT_BYTES_MAX`): what is left here
+      // is how many pages are looked at. A file past either is refused in
+      // words rather than paid for in memory.
       const source = await documentSourceOf(ctx, accountId, action, opts);
-      // Two bounds stand between a file and this process: how many bytes are
-      // read at all, and how many pages are looked at. A file past either is
-      // refused in words rather than paid for in memory.
-      if (source.bytes.byteLength > AGENT_DOCUMENT_BYTES_MAX)
-        throw new DocumentError(
-          "document_too_large",
-          `${source.path} is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads`,
-        );
       const read = await readDocument(
         source.bytes,
         kindOfDocument(action, source),
@@ -1238,7 +1241,18 @@ async function readDocumentSource(
   path: string,
   action: AgentActionName,
 ): Promise<DocumentSource> {
-  const found = await readVisibleFileBytes(ctx, accountId, path);
+  let found: Awaited<ReturnType<typeof readVisibleFileBytes>>;
+  try {
+    // Read within the run's own ceiling: a file past it is refused in words
+    // rather than buffered whole (and then parsed) to find that out.
+    found = await readVisibleFileBytes(ctx, accountId, path, AGENT_DOCUMENT_BYTES_MAX);
+  } catch (err) {
+    if (!(err instanceof BlobTooLargeError)) throw err;
+    throw new DocumentError(
+      "document_too_large",
+      `${path} is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads`,
+    );
+  }
   if (!found)
     throw new DocumentError(
       "no_such_file",
@@ -1388,7 +1402,16 @@ async function extractAttachments(
   // the files a run wrote rather than the paths it asked for.
   const nodeIds: string[] = [];
   const used = new Set<string>();
-  for (const [index, part] of attachmentParts(record).entries()) {
+  // A sender chooses how many parts a message has, so the work one run does for
+  // one message is bounded twice: how many attachments it takes, and how large
+  // each of them may be (`AGENT_DOCUMENT_BYTES_MAX`, enforced as the blob is
+  // read). Past either the run refuses in words rather than paying for it.
+  const parts = attachmentParts(record);
+  if (parts.length > AGENT_EXTRACT_FILES_MAX)
+    throw new Error(
+      `the message carries ${parts.length} attachments, more than the ${AGENT_EXTRACT_FILES_MAX} one run extracts`,
+    );
+  for (const [index, part] of parts.entries()) {
     const blobId = typeof part.blobId === "string" ? part.blobId : "";
     if (!blobId) continue;
     const type =
@@ -1406,7 +1429,21 @@ async function extractAttachments(
     // the audit report.
     name = await unusedVisibleName(ctx, accountId, folder, name);
     used.add(name);
-    const bytes = await client.downloadBlob(accountId, blobId, name, type);
+    let bytes: Uint8Array;
+    try {
+      bytes = await client.downloadBlob(
+        accountId,
+        blobId,
+        name,
+        type,
+        AGENT_DOCUMENT_BYTES_MAX,
+      );
+    } catch (err) {
+      if (!(err instanceof BlobTooLargeError)) throw err;
+      throw new Error(
+        `"${name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run writes, so nothing was extracted from the message`,
+      );
+    }
     // A person has to be able to find this: the file goes into the group's
     // *visible* Files, in the folder the automation named or the model chose
     // (ADR 0003 resolution 15), and into the needs-attention folder when
