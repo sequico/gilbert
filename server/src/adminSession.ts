@@ -41,6 +41,22 @@ export function requireState(state: string, refuse: RefuseWith): string {
 }
 
 /**
+ * The same refusal, bound to one surface's own error type.
+ *
+ * The doors that write documents — identities and Global contacts, the
+ * knowledge base, workorders — each raise their own error, and each wants this
+ * token under that type. Binding it here means the shape of that binding is
+ * written once rather than once per door, so a later change to how the refusal
+ * is raised reaches all of them.
+ */
+export function stateRefuser(
+  ErrorClass: new (code: string, message: string, status: number) => Error,
+): (state: string) => string {
+  return (state) =>
+    requireState(state, (code, message, status) => new ErrorClass(code, message, status));
+}
+
+/**
  * The Master's own session for an admin write, or the caller's own refusal.
  *
  * `agentSession` raises `IdentityAdminError`; it is translated here through

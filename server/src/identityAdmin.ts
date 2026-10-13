@@ -30,7 +30,7 @@
  */
 
 import { isAddress } from "./adminPolicy.js";
-import { requireState as requireStateWith } from "./adminSession.js";
+import { stateRefuser } from "./adminSession.js";
 import type { GroupAccessDenied } from "./agent/views.js";
 import {
   groupMembers,
@@ -104,12 +104,7 @@ export class IdentityAdminError extends Error {
  * writing one of its own: a Global contacts write is the identity door's
  * refusal too.
  */
-export function requireState(state: string): string {
-  return requireStateWith(
-    state,
-    (code, message, status) => new IdentityAdminError(code, message, status),
-  );
-}
+export const requireState = stateRefuser(IdentityAdminError);
 
 /* ------------------------------------------------------------------ */
 /* The lock (ADR 0001)                                                 */

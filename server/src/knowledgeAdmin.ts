@@ -25,7 +25,7 @@
 import {
   openMasterAccount,
   openMasterSession,
-  requireState as requireStateWith,
+  stateRefuser,
 } from "./adminSession.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
@@ -105,12 +105,7 @@ export class KnowledgeAdminError extends Error {
  * (`adminSession.ts`); `requireState(state)` stays the shape every KB write
  * calls, so only the error type is this module's.
  */
-export function requireState(state: string): string {
-  return requireStateWith(
-    state,
-    (code, message, status) => new KnowledgeAdminError(code, message, status),
-  );
-}
+export const requireState = stateRefuser(KnowledgeAdminError);
 
 /**
  * The last order a create minted.
