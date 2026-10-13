@@ -46,6 +46,7 @@ import {
   folderDestroyTakesMail,
   mayDestroy,
 } from "@/lib/mailDelete";
+import { mailRouteAccount } from "@/lib/mailLink";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { toast } from "@/ui/toast";
 import { labelsForAccount } from "../groupLabels";
@@ -395,13 +396,12 @@ export const useMail = create<MailState>((set, get) => ({
      * link a notification built (`lib/mailLink`), and a hint that names an
      * account this session does not have is ignored rather than obeyed.
      */
-    if (
-      hint &&
-      hint !== accountId &&
-      !get().mailAccounts.some((a) => a.accountId === hint)
-    )
-      return null;
-    if (hint) return hint;
+    if (hint)
+      return mailRouteAccount({
+        hint,
+        active: accountId,
+        accounts: get().mailAccounts,
+      });
     // The account on screen wins, so a folder that exists in two trees is not
     // attributed to the other one and is never a reason to switch away.
     if (accountId && (mailboxes[mailboxId] || accountTrees[accountId]?.[mailboxId]))

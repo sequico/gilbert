@@ -1664,9 +1664,11 @@ half.
   that account's Inbox and announced from the message itself**, so it names the
   sender and the subject rather than only that mail arrived (a group's message is
   also titled with the group). The link a notification opens names **the account
-  it was built for** as well as the folder and the conversation, because a folder
-  id alone does not say whose it is — the Inbox is the same short id in every
-  account — and a link resolved against the account on screen opens a
+  it was built for** as well as the folder and the conversation — and names it
+  even when there is no folder to name, so a notice for a mailbox this device
+  could not read back opens that account rather than the one on screen — because
+  a folder id alone does not say whose it is — the Inbox is the same short id in
+  every account — and a link resolved against the account on screen opens a
   conversation that account does not hold. Nothing is shown while a focused Gilbert window is
   on screen. Offered only on a device you said was yours.
 - **Every wake-up is answered, because the browser counts notifications.** A Web

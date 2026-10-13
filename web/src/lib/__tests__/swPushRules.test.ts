@@ -126,6 +126,14 @@ describe("the push handler's rules", () => {
     expect(MAIL_ACCOUNT_PARAM).toBe("a");
     expect(worker).toContain("accountQuery(accountId)");
     expect(worker).toContain("accountQuery(account.accountId)");
+    /*
+     * …in *every* link, including the fallbacks that carry no folder: a briefing
+     * with no Inbox, a notice for an account with nothing to read, a click whose
+     * payload carried no url. No `BASE`-prefixed mail URL is left ending at
+     * `/mail` with nothing after it, because that one opens whichever account is
+     * on screen — the wrong one as soon as the reader has a group.
+     */
+    expect(worker).not.toMatch(/\$\{BASE\}\/mail`/);
   });
 
   /*

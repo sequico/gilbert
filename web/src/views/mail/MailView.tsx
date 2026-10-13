@@ -10,7 +10,7 @@ import { appliesTo, comparatorsFor } from "@/lib/listSort";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
-import { mailAccountOf } from "@/lib/mailLink";
+import { mailAccountOf, mailRouteAccount } from "@/lib/mailLink";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
@@ -64,28 +64,61 @@ export function MailView({
   // Every account's tree is read by the time the probe names the accounts, so
   // that is the moment "no tree holds this folder" becomes an answer.
   const accountsProbed = useMail((s) => s.mailAccounts.length > 0);
+  /*
+   * The account a route that names no folder should open. A notification for a
+   * mailbox this device has no Inbox id for still means the account it was built
+   * for, so the link carries the account and the route opens it rather than the
+   * one this device happens to be on.
+   */
+  const hint = mailAccountOf(searchStr);
+  const routeAccount = useMail((s) =>
+    mailRouteAccount({ hint, active: s.accountId, accounts: s.mailAccounts }),
+  );
+  // The account a route opens: the owner of the folder it names, or the account
+  // it names when it names no folder.
+  const routeOwner = mailboxId ? mailboxOwner : routeAccount;
 
   const q = useMemo(
     () => (search ? (new URLSearchParams(searchStr).get("q") ?? "") : ""),
     [search, searchStr],
   );
 
-  // Redirect /mail → inbox
-  useEffect(() => {
-    if (!search && !mailboxId && inboxId) navigate(`/mail/${inboxId}`, { replace: true });
-  }, [search, mailboxId, inboxId, navigate]);
-
   /*
-   * A cold load opens whatever account this device was last on; the route
-   * names a folder, which may be a group's. Switching to its owner before the
-   * list and the conversation are asked is what stops a refresh from asking
-   * the wrong account -- which answers "no such conversation" for a thread it
-   * simply does not hold. The trees are all cached, so the owner is known.
+   * Redirect /mail → the inbox of the account the route names. A hint waits for
+   * the probe that names the accounts before it is resolved: answering it early
+   * would open the account this device was last on, which is the bug the hint
+   * exists for. A hint no account answers opens the account on screen, which is
+   * where a reader would have landed before there was a hint at all.
    */
   useEffect(() => {
-    if (!mailboxOwner || mailboxOwner === accountId) return;
-    void useMail.getState().openAccount(mailboxOwner);
-  }, [mailboxOwner, accountId]);
+    if (search || mailboxId) return;
+    if (hint && !accountsProbed) return;
+    // A named account is opened first: the inbox to land on is its own.
+    if (routeAccount && routeAccount !== accountId) return;
+    if (inboxId) navigate(`/mail/${inboxId}`, { replace: true });
+  }, [
+    search,
+    mailboxId,
+    hint,
+    accountsProbed,
+    routeAccount,
+    accountId,
+    inboxId,
+    navigate,
+  ]);
+
+  /*
+   * A cold load opens whatever account this device was last on; the route names
+   * a folder, which may be a group's -- or, when it names no folder, the account
+   * itself. Switching to it before the list and the conversation are asked is
+   * what stops a refresh from asking the wrong account -- which answers "no such
+   * conversation" for a thread it simply does not hold. The trees are all
+   * cached, so the owner is known.
+   */
+  useEffect(() => {
+    if (!routeOwner || routeOwner === accountId) return;
+    void useMail.getState().openAccount(routeOwner);
+  }, [routeOwner, accountId]);
 
   /*
    * A folder id no account has.

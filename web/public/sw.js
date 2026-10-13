@@ -184,7 +184,7 @@ async function stashShare(request) {
     /* nothing to hand on: the app opens on an empty inbox rather than an error */
   }
   // Absolute, because `Response.redirect` rejects a bare path outright rather
-  // than resolving it -- so `${BASE}/mail` would throw here and the share
+  // than resolving it -- a relative mail URL would throw here and the share
   // would end at a browser error page instead of the inbox.
   return Response.redirect(
     new URL(`${BASE}/mail?share=1`, self.location.origin).href,
@@ -678,13 +678,14 @@ async function notifyMail(accountId, account, email, strings) {
        * account's real Inbox id and the message's thread id -- never the literal
        * `inbox` or the message's own id, neither of which the app can resolve
        * (it answers "that folder no longer exists"). Without a known Inbox,
-       * open /mail and let it redirect.
+       * open /mail with the account still named, and let it redirect: the
+       * account is what the link means, and it is known on every branch here.
        */
       url: account?.inboxId
         ? `${BASE}/mail/${account.inboxId}${
             email.threadId ? `/${email.threadId}` : ""
           }${accountQuery(accountId)}`
-        : `${BASE}/mail`,
+        : `${BASE}/mail${accountQuery(accountId)}`,
       id: email.id || null,
       title,
       accountId,
@@ -767,7 +768,10 @@ async function showMailNotice(accountId, account, strings) {
     icon: `${BASE}/img/icon-192.png`,
     badge: `${BASE}/img/favicon-64.png`,
     tag: `gilbert-mail-${accountId}`,
-    data: { url: `${BASE}/mail` },
+    // The account is named here too: this notice is the one path that has no
+    // message to open, and a link without the account lands on whichever one is
+    // on screen.
+    data: { url: `${BASE}/mail${accountQuery(accountId)}` },
   });
 }
 
@@ -890,7 +894,7 @@ async function chatNotifications(data, facts) {
         data: {
           url: account.inboxId
             ? `${BASE}/mail/${account.inboxId}${accountQuery(account.accountId)}`
-            : `${BASE}/mail`,
+            : `${BASE}/mail${accountQuery(account.accountId)}`,
         },
       });
       announced = true;
@@ -1037,7 +1041,14 @@ self.addEventListener("notificationclick", (event) => {
     event.waitUntil(runAction(event.action, data));
     return;
   }
-  const url = data.url || `${BASE}/mail`;
+  /*
+   * The link a notification opens, and the account it belongs to. Every
+   * notification this worker shows carries its own `url`, and the payload's own
+   * `accountId` rides along for the fallback: a bare `/mail` would land on
+   * whichever account happens to be on screen.
+   */
+  const url =
+    data.url || `${BASE}/mail${data.accountId ? accountQuery(data.accountId) : ""}`;
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({
