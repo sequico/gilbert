@@ -22,11 +22,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import {
-  administrator,
-  openMasterAccount,
-  stateRefuser,
-} from "./adminSession.js";
+import { administrator, openMasterAccount, stateRefuser } from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
 import { memberReach } from "./agentAdmin.js";
 import {

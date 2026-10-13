@@ -1,6 +1,6 @@
+import { stableJson } from "@gilbert/shared/json";
 import type { ContactCard } from "@/jmap/types";
 import { contactCompany, contactDisplayName, newKey } from "@/lib/contacts";
-import { stableJson } from "@gilbert/shared/json";
 
 /**
  * Merging two contacts of one address book, decided before anything is written.

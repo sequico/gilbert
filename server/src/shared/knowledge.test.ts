@@ -643,7 +643,10 @@ test("a state document that predates the retirement marker is still a state", ()
 
   // A marker that is there still means what it says.
   assert.equal(
-    isRetired({ ...withoutMarker, retired: { by: "g", at: "2026-10-02T00:00:00.000Z" } } as KnowledgeState),
+    isRetired({
+      ...withoutMarker,
+      retired: { by: "g", at: "2026-10-02T00:00:00.000Z" },
+    } as KnowledgeState),
     true,
   );
 });

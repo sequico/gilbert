@@ -324,18 +324,16 @@ test("a blob past its ceiling is refused, and reads whole within it", async () =
   const blobId = String(file.blobId);
 
   await assert.rejects(
-    () =>
-      client.downloadBlob(
-        accountId,
-        blobId,
-        "big.json",
-        "application/json",
-        100,
-      ),
+    () => client.downloadBlob(accountId, blobId, "big.json", "application/json", 100),
     /larger than the 100 bytes/,
     "a read with a ceiling of its own refuses the blob past it",
   );
 
-  const whole = await client.downloadBlob(accountId, blobId, "big.json", "application/json");
+  const whole = await client.downloadBlob(
+    accountId,
+    blobId,
+    "big.json",
+    "application/json",
+  );
   assert.ok(whole.byteLength > 100, "and the same blob reads whole within the ceiling");
 });

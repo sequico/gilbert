@@ -22,11 +22,7 @@
  * authenticated session, never from the request.
  */
 
-import {
-  openMasterAccount,
-  openMasterSession,
-  stateRefuser,
-} from "./adminSession.js";
+import { openMasterAccount, openMasterSession, stateRefuser } from "./adminSession.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
   appFolderState,

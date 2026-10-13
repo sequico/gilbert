@@ -93,8 +93,8 @@ import {
   widenRequested,
 } from "./chat.js";
 import {
-  type DocumentContent,
   cutAtCeiling,
+  type DocumentContent,
   DocumentError,
   documentContent,
   documentKindOf,

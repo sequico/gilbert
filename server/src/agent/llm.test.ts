@@ -899,7 +899,11 @@ test("the run's data sits inside a fence, and the rule against reading it as an 
    * model follows most closely — a rule that only leads the prompt is a rule a
    * sender's text can push a long way from the decision.
    */
-  answerWith({ summary: "Nothing to do.", confidence: 0.2, actions: [{ do: "noop", with: {} }] });
+  answerWith({
+    summary: "Nothing to do.",
+    confidence: 0.2,
+    actions: [{ do: "noop", with: {} }],
+  });
   await decideActions(
     provider,
     decisionRule,
