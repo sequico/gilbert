@@ -72,21 +72,41 @@ export function settingsSyncAvailable(): boolean {
 }
 
 /**
- * Read the account's settings file. Returns null when there is nothing to read
- * — no file yet, no Files, an older server — which leaves the local cache in
- * charge rather than wiping it.
+ * What one read of the settings file found.
+ *
+ * Three answers, and the middle one is the whole point: `absent` is the
+ * server's own word that there is no `settings.json` yet, which is an account
+ * to seed; `unreadable` is everything else that was not a document — a listing
+ * that failed, a blob that did not download, bytes that are not JSON. Those are
+ * *not* an empty account, and a writer that treated them as one would replace
+ * settings nobody could read with whatever this device happens to hold.
  */
-export async function loadRemoteSettings(): Promise<Record<string, unknown> | null> {
-  if (!settingsSyncAvailable()) return null;
+export type SettingsRead =
+  | { kind: "absent"; state: string }
+  | { kind: "ok"; doc: Record<string, unknown>; state: string }
+  | { kind: "unreadable"; state: string };
+
+/**
+ * Read the account's settings file.
+ *
+ * A file that is there and could not be read is answered `unreadable`, never
+ * `absent`: the cached settings are still perfectly good, and the account's own
+ * copy is not this device's to replace. Neither answer costs anyone their
+ * session.
+ */
+export async function loadRemoteSettings(): Promise<SettingsRead> {
+  if (!settingsSyncAvailable()) return { kind: "absent", state: "" };
   const accountId = useSession.getState().ownAccountFor(CAP.filenode)!;
+  let folderId: string;
   try {
-    const folderId = await ensureFolder(accountId);
-    return (await readSettingsFile(accountId, folderId)).doc;
+    folderId = await ensureFolder(accountId);
   } catch {
-    // A settings file we cannot read must not cost anyone their session; the
-    // cached settings are still perfectly good.
-    return null;
+    // Not even the folder could be reached, so nothing was read and nothing is
+    // known about the file: seeding here would queue a write over a copy that
+    // may well be there.
+    return { kind: "unreadable", state: "" };
   }
+  return readSettingsFile(accountId, folderId);
 }
 
 /**
@@ -96,9 +116,7 @@ export async function loadRemoteSettings(): Promise<Record<string, unknown> | nu
  * document read at another is the race the writer exists to avoid: it would
  * compare the write against a state the document was never seen in, so a change
  * somebody else made in between would pass as the writer's own and be
- * overwritten. A file that is absent, or that does not read as a settings
- * document, is answered as absent — the same answer the loader gives, and the
- * only honest one for a writer, which cannot preserve what it cannot read.
+ * overwritten.
  *
  * The state comes back either way, so the save that creates the file is as
  * conditional as the one that replaces it: an account with no `settings.json`
@@ -108,18 +126,27 @@ export async function loadRemoteSettings(): Promise<Record<string, unknown> | nu
 async function readSettingsFile(
   accountId: string,
   folderId: string,
-): Promise<{ doc: Record<string, unknown> | null; state: string }> {
-  const { file, state } = await findInFolderWithState(accountId, folderId, SETTINGS_FILE);
-  if (!file?.blobId) return { doc: null, state };
+): Promise<SettingsRead> {
+  let found: Awaited<ReturnType<typeof findInFolderWithState>>;
   try {
-    const text = await client.fetchBlobText(accountId, file.blobId, APP_DOCUMENT_TYPE);
-    const parsed = JSON.parse(text) as unknown;
-    if (!isRecord(parsed)) {
-      return { doc: null, state };
-    }
-    return { doc: parsed, state };
+    found = await findInFolderWithState(accountId, folderId, SETTINGS_FILE);
   } catch {
-    return { doc: null, state };
+    // The listing failed: nothing is known about the file, and "absent" would
+    // be a guess that ends with a second copy of a document nobody saw.
+    return { kind: "unreadable", state: "" };
+  }
+  if (!found.file?.blobId) return { kind: "absent", state: found.state };
+  try {
+    const text = await client.fetchBlobText(
+      accountId,
+      found.file.blobId,
+      APP_DOCUMENT_TYPE,
+    );
+    const parsed = JSON.parse(text) as unknown;
+    if (!isRecord(parsed)) return { kind: "unreadable", state: found.state };
+    return { kind: "ok", doc: parsed, state: found.state };
+  } catch {
+    return { kind: "unreadable", state: found.state };
   }
 }
 
@@ -298,7 +325,16 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
    */
   const folderId = await ensureFolder(accountId);
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
-    const { doc, state } = await readSettingsFile(accountId, folderId);
+    const read = await readSettingsFile(accountId, folderId);
+    /*
+     * A file that is there and could not be read is not an empty one. Writing
+     * here would land this device's copy on top of it — the whole queued
+     * document, so every key the account holds is replaced by whatever this
+     * client happens to carry. The change stays queued and the failure is the
+     * caller's to report.
+     */
+    if (read.kind === "unreadable")
+      throw new Error("the settings file could not be read");
     /*
      * The queued settings over the document as it reads now. The queued body is
      * the whole synced document — `queueSettingsPush` is handed
@@ -307,10 +343,10 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
      * client into the same file, is left where it is rather than dropped on the
      * way past.
      */
-    const next = { ...(doc ?? {}), ...body };
+    const next = { ...(read.kind === "ok" ? read.doc : {}), ...body };
     try {
       await writeAppJson(accountId, SETTINGS_FILE, next, {
-        ifInState: state,
+        ifInState: read.state,
         type: APP_DOCUMENT_TYPE,
       });
       return;

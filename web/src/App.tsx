@@ -250,11 +250,16 @@ function AuthedApp() {
       if (cancelled) return;
       const remote = await loadRemoteSettings();
       if (cancelled) return;
-      if (remote) useSettings.getState().hydrate(remote);
-      // No settings file: this account has never had settings of its own, so
-      // the installation's defaults are what it starts on rather than
-      // Gilbert's. Issue #207.
-      else useSettings.getState().seedFromPolicy();
+      if (remote.kind === "ok") useSettings.getState().hydrate(remote.doc);
+      /*
+       * Seed only an account the server says has no settings file. A file that
+       * is there and could not be read is not an empty account, and seeding it
+       * would queue a write of this device's copy over the account's own
+       * (`seedFromPolicy` goes through `update`, which queues). Left alone, the
+       * cached settings stay in charge and nothing is written — the writer
+       * refuses an unreadable file the same way, so a later edit cannot do it
+       * either.
+       */ else if (remote.kind === "absent") useSettings.getState().seedFromPolicy();
       /*
        * After both, and for everybody: a change the installation wants applied
        * once has to reach accounts that already exist, which is the whole of
@@ -296,7 +301,7 @@ function AuthedApp() {
       setReady(true);
       // No file yet — seed one from what this browser has, so the next device
       // to sign in starts from these rather than from the defaults.
-      if (!remote && settingsSyncAvailable())
+      if (remote.kind === "absent" && settingsSyncAvailable())
         queueSettingsPush(syncedPart(useSettings.getState().settings));
     })();
     return () => {

@@ -18,6 +18,7 @@ import { APP_FOLDER_NAME } from "../appFolder";
 import {
   armSettingsSync,
   flushSettingsPush,
+  loadRemoteSettings,
   queueSettingsPush,
   settingsAlreadyLoadedFor,
   stopSettingsSync,
@@ -610,5 +611,69 @@ describe("the save path itself", () => {
       locale: "it-IT",
       theme: "dark",
     });
+  });
+});
+
+/**
+ * Reading the file, which is not the same question as finding it.
+ *
+ * What this pins: a read that failed used to be answered as "no file at all".
+ * The boot then seeded the installation's defaults over the account's own
+ * settings and pushed this device's copy, and the writer did the same again on
+ * the next edit — so one transient failure silently replaced everything the
+ * account held.
+ */
+describe("a settings file that could not be read", () => {
+  beforeEach(() => {
+    stopSettingsSync();
+    useSession.setState({
+      status: "authenticated",
+      session: FAKE_SESSION(),
+      accountId: "a1",
+    });
+    vi.spyOn(client, "hasCapability").mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    stopSettingsSync();
+    useSession.setState({ status: "loading", session: null, accountId: null });
+  });
+
+  it("answers an empty account absent, and a file whose bytes do not come back unreadable", async () => {
+    fakeAppFolder({ theme: "light", locale: "it-IT" });
+    expect(await loadRemoteSettings()).toMatchObject({
+      kind: "ok",
+      doc: { theme: "light", locale: "it-IT" },
+    });
+    // The file is there and its bytes do not come back.
+    vi.spyOn(client, "fetchBlobText").mockRejectedValue(
+      new Error("upstream unavailable"),
+    );
+    expect(await loadRemoteSettings()).toMatchObject({ kind: "unreadable" });
+
+    // An account that has never saved one is the one answer that may be seeded.
+    vi.restoreAllMocks();
+    vi.spyOn(client, "hasCapability").mockReturnValue(true);
+    fakeAppFolder(null);
+    expect(await loadRemoteSettings()).toMatchObject({ kind: "absent" });
+  });
+
+  it("is not overwritten when a queued change is written", async () => {
+    const server = fakeAppFolder({ theme: "light", locale: "it-IT" });
+    vi.spyOn(client, "fetchBlobText").mockRejectedValue(
+      new Error("upstream unavailable"),
+    );
+    const errorSpy = vi.spyOn(toast, "error").mockImplementation(() => 1);
+
+    armSettingsSync();
+    queueSettingsPush({ theme: "dark" });
+    await flushSettingsPush();
+
+    // Nothing was written and no blob was uploaded: the account's settings are
+    // left exactly as they were, and the person is told the save failed.
+    expect(server.sets).toHaveLength(0);
+    expect(server.uploads).toHaveLength(0);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 });
