@@ -579,6 +579,60 @@ describe("the <body> style the sanitizer returns is hardened like any other CSS"
   });
 });
 
+/**
+ * What the reader's browser would fetch if this path stopped running.
+ *
+ * DOMPurify sanitises HTML and has nothing to say about a stylesheet, so every
+ * remote load a message can start through CSS — or through an attribute that
+ * carries a URL — rests on the hand-written rewrites in `html.ts`. These pin
+ * each mechanism on its plainest spelling: remove one and the sender's host is
+ * back in the markup that lands in the reader.
+ */
+describe("the CSS and attribute rewrites a remote load depends on", () => {
+  it("proxies a url() in a style attribute", () => {
+    const r = sanitizeEmailHtml(
+      `<p style="background:url(http://t.example/p.gif)">x</p>`,
+      { allowRemote: true, proxyRemote: true },
+    );
+    expect(r.html).toContain("/api/image?url=http%3A%2F%2Ft.example%2Fp.gif");
+    expect(r.html).not.toContain("http://t.example/p.gif");
+  });
+
+  it("proxies a url() in a <style> block", () => {
+    const r = sanitizeEmailHtml(
+      `<div><style>.x{background:url(http://t.example/p.gif)}</style><p class="x">x</p></div>`,
+      { allowRemote: true, proxyRemote: true },
+    );
+    expect(r.html).toContain("/api/image?url=http%3A%2F%2Ft.example%2Fp.gif");
+    expect(r.html).not.toContain("http://t.example/p.gif");
+  });
+
+  it("neuters @import, which no proxy can carry", () => {
+    const r = sanitizeEmailHtml(
+      `<div><style>@import "http://t.example/x.css";p{color:red}</style><p>x</p></div>`,
+      { allowRemote: true, proxyRemote: true },
+    );
+    expect(r.html).not.toContain("@import");
+    expect(r.html).toContain("@gilbert-blocked-import");
+    // Renamed, not cut out: the rules around it survive.
+    expect(r.html).toContain("color:red");
+  });
+
+  it("rewrites the image attributes that carry a URL, and drops a srcset", () => {
+    const r = sanitizeEmailHtml(
+      `<table background="http://t.example/b.gif"><tr><td>` +
+        `<img src="http://t.example/p.gif" srcset="http://t.example/p.gif 2x">x</td></tr></table>`,
+      { allowRemote: true, proxyRemote: true },
+    );
+    expect(r.html).toContain("/api/image?url=http%3A%2F%2Ft.example%2Fb.gif");
+    expect(r.html).toContain("/api/image?url=http%3A%2F%2Ft.example%2Fp.gif");
+    // DOMPurify passes the candidate list through, so its removal is this
+    // path's own and not a default being relied on.
+    expect(r.html).not.toContain("srcset");
+    expect(r.html).not.toContain("http://t.example/");
+  });
+});
+
 describe("the containment that mail CSS cannot override", () => {
   /*
    * Two containers, for two reasons. A message's own CSS is scoped by the
