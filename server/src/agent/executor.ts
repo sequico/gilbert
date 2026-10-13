@@ -2410,11 +2410,38 @@ export class Executor {
       await this.tellChat(accountId, `Approved by ${by}, but nothing ran: ${message}`);
       return;
     }
+    /*
+     * The grant is the rule's own allowlist, so a decision whose rule is gone
+     * has none to run the plan under: the document outlives the automation it
+     * names, and a plan nobody can check against an allowlist must not run at
+     * all (ADR 0003). A run with no grant is refused here rather than left to
+     * the per-action guard, which would say the same thing without saying why.
+     */
+    if (!rule) {
+      const message =
+        "the rule this decision was made under is gone, so there is no grant to run it under: nothing is run";
+      if (job) {
+        await this.failLoudly(store, job, auditRule, message, { deadLetter: true });
+      } else {
+        await recordAudit(
+          store,
+          decisionAuditEntry(
+            decided,
+            auditRule,
+            "failed",
+            approvedActions(decided),
+            message,
+          ),
+        );
+        await this.tellChat(accountId, `Approved by ${by}, but nothing ran: ${message}`);
+      }
+      return;
+    }
     // The pin reaches a run resumed from an approval too (ADR 0003): an
     // answer is about the plan a person read, and the rule it came from has
     // moved on since. The run is refused rather than started, and the person
     // who answered is told why.
-    if (rule && rule.version !== decided.ruleVersion) {
+    if (rule.version !== decided.ruleVersion) {
       const message =
         `the decision pins rule version ${decided.ruleVersion} and the rule is ` +
         `at version ${rule.version}: a run never starts under a version nobody approved`;
@@ -2439,10 +2466,10 @@ export class Executor {
     try {
       const opts = await this.actionOpts(accountId, actions, job);
       // The approval runs the plan a person read, under the same grant it was
-      // decided with (ADR 0003): a rule that exists is checked again, and a
-      // decision whose rule is gone has no grant to check against and is left
-      // to the version pin above.
-      if (rule) opts.allowed = effectiveCapabilities(rule);
+      // decided with (ADR 0003): the allowlist is read from the rule the
+      // decision names, and a decision whose rule is gone never reaches this
+      // point — it was refused above, for having no grant at all.
+      opts.allowed = effectiveCapabilities(rule);
       // The draft the run left is what an approval sends, even when the job
       // document that recorded it is already pruned.
       if (decided.draft) {
@@ -2722,7 +2749,31 @@ export class Executor {
       (action) =>
         action.do !== "mail.send" && !(action.do === "mail.draft" && decision.draft),
     );
-    if (rule && rule.version !== decided.ruleVersion) {
+    /*
+     * What is left of the plan runs under the rule's own allowlist, and a rule
+     * that is gone leaves the plan with no grant to run under: the person's send
+     * stands — that is their own act, already done — but nothing else does (ADR
+     * 0003). Refusing here is why the writer below may read the allowlist
+     * without a guard.
+     */
+    if (!rule) {
+      const message =
+        "the rule this decision was made under is gone, so there is no grant to run it under: nothing else is run";
+      if (job) {
+        await this.failLoudly(store, job, auditRule, message, { deadLetter: true });
+      } else {
+        await recordAudit(
+          store,
+          decisionAuditEntry(decided, auditRule, "failed", actions, message),
+        );
+        await this.tellChat(
+          accountId,
+          `Sent from the group's Drafts, but nothing ran: ${message}`,
+        );
+      }
+      return true;
+    }
+    if (rule.version !== decided.ruleVersion) {
       const message =
         `the decision pins rule version ${decided.ruleVersion} and the rule is ` +
         `at version ${rule.version}: a run never starts under a version nobody approved`;
@@ -2760,8 +2811,9 @@ export class Executor {
             ...(await this.actionOpts(accountId, actions, job)),
             // The rest of the plan runs under the rule's own grant, read again
             // here: what a person sent is what they read, and nothing else in
-            // the plan runs unless the rule still holds it (ADR 0003).
-            ...(rule ? { allowed: effectiveCapabilities(rule) } : {}),
+            // the plan runs unless the rule still holds it (ADR 0003). A rule
+            // that is gone was refused above, so there is always one to read.
+            allowed: effectiveCapabilities(rule),
           },
           { beforeAction: this.leavingProcessFence(store, claim) },
         );

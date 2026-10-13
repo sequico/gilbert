@@ -2082,6 +2082,50 @@ test("an approval on a rule that moved on is refused, and the answer is spoken",
   );
 });
 
+test("an approval whose rule is gone runs nothing, and the answer is spoken", async () => {
+  const vanished = rule({ id: "vanished" });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
+  await store.writeRules([vanished]);
+  const emailId = await createMessage(
+    "An invoice approved after its automation was deleted",
+  );
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+
+  const job = (await jobsOf("vanished")).find(
+    (candidate) => candidate.trigger.emailId === emailId,
+  );
+  assert.ok(job);
+  assert.equal(job.state, "awaiting_approval");
+  const decision = (await store.readDecision(String(job.decisionId)))?.doc;
+  assert.ok(decision);
+
+  /*
+   * The automation is deleted while the person is holding the answer. The rule
+   * is the grant — its capability allowlist is what a run is checked against —
+   * so with the document gone there is nothing to check the plan against, and a
+   * plan nobody can check must not run at all (ADR 0003).
+   */
+  await store.writeRules([]);
+
+  await executor.resolveApproval(GROUP, decision, true, ADA);
+
+  const refused = await store.readJob(String(job.id));
+  assert.equal(refused?.doc.state, "failed");
+  assert.match(String(refused?.doc.error), /rule .* is gone/);
+  const marked = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-processed"],
+    undefined,
+    "not one action of the approved plan ran",
+  );
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some((message) => message.text.includes("no grant to run it under")),
+    "and the person who answered is told why their answer did nothing",
+  );
+});
+
 test("a group carrying two automations on one trigger is refused, and told why", async () => {
   /*
    * One enabled automation per trigger is a rule of the product (ADR 0006), and
