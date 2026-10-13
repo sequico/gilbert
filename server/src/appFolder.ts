@@ -692,8 +692,9 @@ export async function readAppJsonAt(
     if (!found) return null;
     return JSON.parse(found.text) as unknown;
   } catch {
-    // An unreadable document is treated as absent by every caller here: the
-    // alternative is a corrupt file taking a whole surface down.
+    // A *reader* wants the two answers together: the alternative is a corrupt
+    // file taking a whole surface down. A read-modify-write must not, and asks
+    // `readAppJsonForWrite` instead of guessing which one this was.
     return null;
   }
 }
