@@ -1456,7 +1456,32 @@ test("a run writes a knowledge base draft through knowledge.write", async () => 
     GROUP,
     `${KNOWLEDGE_FOLDER}/${folder}/${DRAFT_FILE}`,
   );
-  if (!isKnowledgeDraft(draft)) assert.fail("the action created the article's draft");
+  if (!isKnowledgeDraft(draft)) {
+    /*
+     * A failure here is load-dependent and has never been reproduced in
+     * isolation, so the assertion carries what an investigator needs instead of
+     * the bare sentence: what was read back, what the job ended as, and which
+     * rules the executor saw. `answers left` is how many model answers the stub
+     * was still holding, which tells a run that never got one from a run that
+     * failed after it.
+     */
+    const jobAfter = await store.readJob("kb-write-job");
+    const rulesAfter = await store.readRules();
+    assert.fail(
+      [
+        "the action created the article's draft",
+        `draft=${JSON.stringify(draft)}`,
+        `job=${JSON.stringify({
+          state: jobAfter?.doc.state,
+          attempts: jobAfter?.doc.attempts,
+          outcome: jobAfter?.doc.outcome,
+          error: jobAfter?.doc.error,
+        })}`,
+        `rules=${JSON.stringify((rulesAfter?.doc ?? []).map((r) => r.id))}`,
+        `answers left=${(sequences.get("Mail automation") ?? []).length}`,
+      ].join(" | "),
+    );
+  }
   assert.equal(draft.title, "Packing procedure");
   assert.equal(draft.text, "Open the box and count the parts.");
   assert.equal(
