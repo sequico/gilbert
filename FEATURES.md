@@ -1663,7 +1663,11 @@ half.
   message; **a delivery that arrives without a payload instead is read back from
   that account's Inbox and announced from the message itself**, so it names the
   sender and the subject rather than only that mail arrived (a group's message is
-  also titled with the group). Nothing is shown while a focused Gilbert window is
+  also titled with the group). The link a notification opens names **the account
+  it was built for** as well as the folder and the conversation, because a folder
+  id alone does not say whose it is — the Inbox is the same short id in every
+  account — and a link resolved against the account on screen opens a
+  conversation that account does not hold. Nothing is shown while a focused Gilbert window is
   on screen. Offered only on a device you said was yours.
 - **Every wake-up is answered, because the browser counts notifications.** A Web
   Push message the service worker answers without showing a notification is

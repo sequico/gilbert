@@ -385,8 +385,23 @@ export const useMail = create<MailState>((set, get) => ({
     return null;
   },
 
-  accountOfMailbox(mailboxId) {
+  accountOfMailbox(mailboxId, hint) {
     const { accountId, accountTrees, mailboxes } = get();
+    /*
+     * A link that names its account means that account, whatever this device is
+     * showing. Ids are short and belong to one account each, but a folder id
+     * another account also holds resolves against the account on screen — which
+     * is a conversation that account does not have. The hint comes from the
+     * link a notification built (`lib/mailLink`), and a hint that names an
+     * account this session does not have is ignored rather than obeyed.
+     */
+    if (
+      hint &&
+      hint !== accountId &&
+      !get().mailAccounts.some((a) => a.accountId === hint)
+    )
+      return null;
+    if (hint) return hint;
     // The account on screen wins, so a folder that exists in two trees is not
     // attributed to the other one and is never a reason to switch away.
     if (accountId && (mailboxes[mailboxId] || accountTrees[accountId]?.[mailboxId]))

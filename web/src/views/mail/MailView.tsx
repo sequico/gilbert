@@ -10,6 +10,7 @@ import { appliesTo, comparatorsFor } from "@/lib/listSort";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
+import { mailAccountOf } from "@/lib/mailLink";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
@@ -57,7 +58,9 @@ export function MailView({
    * cold load the active account is whatever this device was last on -- which
    * need not be the folder's owner.
    */
-  const mailboxOwner = useMail((s) => (mailboxId ? s.accountOfMailbox(mailboxId) : null));
+  const mailboxOwner = useMail((s) =>
+    mailboxId ? s.accountOfMailbox(mailboxId, mailAccountOf(searchStr)) : null,
+  );
   // Every account's tree is read by the time the probe names the accounts, so
   // that is the moment "no tree holds this folder" becomes an answer.
   const accountsProbed = useMail((s) => s.mailAccounts.length > 0);

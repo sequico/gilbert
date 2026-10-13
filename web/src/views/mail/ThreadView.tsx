@@ -22,6 +22,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearch } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
@@ -34,6 +35,7 @@ import {
   finalFoldersOf,
   folderDeleteOffered,
 } from "@/lib/mailDelete";
+import { mailAccountOf } from "@/lib/mailLink";
 import { visibleMessages } from "@/lib/openMessage";
 import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
@@ -83,6 +85,7 @@ export function ThreadView({
   hasNext,
   messageId = null,
 }: Props) {
+  const searchStr = useSearch();
   const loadThread = useMail((s) => s.loadThread);
   const thread = useMail((s) => s.threads[threadId]);
   const emails = useMail((s) => s.emails);
@@ -97,7 +100,9 @@ export function ThreadView({
    * and switches to it. Asking too early returns "no such conversation" from
    * the wrong account, which is an error this view would never retry.
    */
-  const mailboxOwner = useMail((s) => (mailboxId ? s.accountOfMailbox(mailboxId) : null));
+  const mailboxOwner = useMail((s) =>
+    mailboxId ? s.accountOfMailbox(mailboxId, mailAccountOf(searchStr)) : null,
+  );
   const ready = !mailboxId || (accountId !== null && mailboxOwner === accountId);
   /* Not ready is the moment the folder's account is still being opened; the
      conversation has not been asked for yet, so it is a wait, not an empty

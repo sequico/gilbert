@@ -379,6 +379,23 @@ async function precache(html, cache) {
  */
 
 /*
+ * The account a mail link belongs to, as the query parameter that names it.
+ *
+ * The route names a folder and a conversation and neither says whose they are,
+ * so a folder id another account also holds would resolve against the account
+ * on screen -- and answer "no such conversation" for a message this account
+ * never had. `web/src/lib/mailLink.ts` names the same parameter and the app
+ * honours it; a test holds the two spellings together
+ * (`lib/__tests__/swPushRules.test.ts`).
+ */
+const ACCOUNT_PARAM = "a";
+
+/** `?a=<account>` for a link, or nothing when the account is not known. */
+function accountQuery(accountId) {
+  return accountId ? `?${ACCOUNT_PARAM}=${encodeURIComponent(accountId)}` : "";
+}
+
+/*
  * The capability `PushSubscription/set` is asked with. Named here because the
  * worker builds its own `using` arrays (see `jmap()`) and this is the one method
  * that needs it; the URN itself is one record, `CAPABILITIES.webpushVapid` in
@@ -664,9 +681,9 @@ async function notifyMail(accountId, account, email, strings) {
        * open /mail and let it redirect.
        */
       url: account?.inboxId
-        ? email.threadId
-          ? `${BASE}/mail/${account.inboxId}/${email.threadId}`
-          : `${BASE}/mail/${account.inboxId}`
+        ? `${BASE}/mail/${account.inboxId}${
+            email.threadId ? `/${email.threadId}` : ""
+          }${accountQuery(accountId)}`
         : `${BASE}/mail`,
       id: email.id || null,
       title,
@@ -871,7 +888,9 @@ async function chatNotifications(data, facts) {
         badge: `${BASE}/img/favicon-64.png`,
         tag: `gilbert-chat-${node.id}`,
         data: {
-          url: account.inboxId ? `${BASE}/mail/${account.inboxId}` : `${BASE}/mail`,
+          url: account.inboxId
+            ? `${BASE}/mail/${account.inboxId}${accountQuery(account.accountId)}`
+            : `${BASE}/mail`,
         },
       });
       announced = true;

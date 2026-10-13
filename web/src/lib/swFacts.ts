@@ -33,10 +33,14 @@ export interface WorkerAccountFact {
   /**
    * The account's Inbox id, for the notification's deep link.
    *
-   * The route is `/mail/<mailbox id>/<thread id>`, so the worker needs the real
-   * Inbox id: a literal `inbox` is not a folder the app has, and opening one
-   * reads as a stale link and redirects to the inbox with a complaint. Null
-   * where the account's tree has not been read yet.
+   * The route is `/mail/<mailbox id>/<thread id>?a=<account>`, so the worker
+   * needs the real Inbox id: a literal `inbox` is not a folder the app has, and
+   * opening one reads as a stale link and redirects to the inbox with a
+   * complaint. The account is what the link is made *for*, because a folder id
+   * alone does not say whose it is -- the Inbox is `a` in every account -- and
+   * a link resolved against the account on screen opens a conversation that
+   * account does not hold. Null where the account's tree has not been read
+   * yet.
    */
   inboxId: string | null;
   /** Where Archive files to in this account; null where it has no archive folder. */

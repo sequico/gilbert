@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAIL_ACCOUNT_PARAM } from "@/lib/mailLink";
 import { PAYLOAD_PROPS } from "@/lib/webpush";
 import { readSource, workerSource } from "./readSource";
 
@@ -113,6 +114,21 @@ describe("the push handler's rules", () => {
   });
 
   /*
+   * The link a notification opens names the account it was built for. A route
+   * carries a folder and a conversation, and neither says whose they are: with
+   * a folder id another account also holds, the reader resolves it against the
+   * account on screen and opens a conversation that account never had. The
+   * worker spells the parameter itself (it is copied to the build, so it cannot
+   * import the app's), and this is what keeps the two spellings equal.
+   */
+  it("names the account in every link a notification opens", () => {
+    expect(worker).toContain('const ACCOUNT_PARAM = "a";');
+    expect(MAIL_ACCOUNT_PARAM).toBe("a");
+    expect(worker).toContain("accountQuery(accountId)");
+    expect(worker).toContain("accountQuery(account.accountId)");
+  });
+
+  /*
    * One renderer for a message however it was found, tagged by the message's
    * own id: the two pushes of one delivery must not stack, and a group's
    * message must be titled the same way whichever path built it.
@@ -150,14 +166,17 @@ describe("the push handler's rules", () => {
   /*
    * The buttons hang off the message's own id — a payload without one is shown
    * as a notice and carries no action, the reason `subscriptionPayload` has to
-   * ask Stalwart for `id` — and the deep link carries the Inbox id and the
-   * thread id the route is made of. A literal `inbox`, or the message's own id
+   * ask Stalwart for `id` — and the deep link carries the Inbox id, the thread
+   * id the route is made of, and the account both belong to. A literal `inbox`, or the message's own id
    * in the thread's place, is a folder and a thread the app cannot resolve.
    */
   it("draws an action only for an id, and a deep link from the Inbox and thread ids", () => {
     expect(worker).toContain("actions: email.id ? actionsFor(account, strings) : []");
+    // The folder the link opens, the thread it names, and the account both
+    // belong to: without the account, a folder id another account also holds
+    // resolves against the one on screen, where the conversation is not.
     expect(worker).toMatch(
-      /\$\{BASE\}\/mail\/\$\{account\.inboxId\}\/\$\{email\.threadId\}/,
+      /\$\{BASE\}\/mail\/\$\{account\.inboxId\}[\s\S]{0,80}email\.threadId[\s\S]{0,80}accountQuery\(accountId\)/,
     );
     expect(worker).not.toMatch(/\$\{BASE\}\/mail\/inbox\//);
   });

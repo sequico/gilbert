@@ -195,10 +195,15 @@ export interface MailState {
   roleId(role: MailboxRole): Id | null;
   /**
    * The account whose folder tree holds `mailboxId`, or null when no cached
-   * tree does. A route names a folder and not the account it lives in; on a
-   * cold load this is how that folder is resolved back to its owner.
+   * tree does — or when `hint` names an account this session does not have.
+   *
+   * A route names a folder and not the account it lives in; on a cold load this
+   * is how that folder is resolved back to its owner. `hint` is the account a
+   * link was built for (`lib/mailLink`), and it wins: a folder id another
+   * account also holds would otherwise resolve against the account on screen,
+   * which is where the conversation is not.
    */
-  accountOfMailbox(mailboxId: Id): Id | null;
+  accountOfMailbox(mailboxId: Id, hint?: Id | null): Id | null;
   /**
    * ADR 0015: whether a destroy may be taken in the account on screen at all.
    *

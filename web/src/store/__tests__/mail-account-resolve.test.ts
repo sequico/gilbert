@@ -35,6 +35,37 @@ describe("resolving a folder to its account", () => {
     expect(useMail.getState().accountOfMailbox("nope")).toBeNull();
   });
 
+  it("obeys the account the link names, whatever is on screen", () => {
+    useMail.setState({
+      accountId: "own",
+      mailAccounts: [
+        { accountId: "own", kind: "own", name: "me@example.org" },
+        { accountId: "gg", kind: "group", name: "team@example.org" },
+      ] as never,
+      mailboxes: { inbox: mb("inbox") },
+      accountTrees: {
+        own: { inbox: mb("inbox") },
+        gg: { inbox: mb("inbox") },
+      },
+    });
+    // Both trees hold a folder with this id. A link built for the group means
+    // the group: resolving it against the account on screen asks the group's
+    // conversation of the own account, which is where it does not exist.
+    expect(useMail.getState().accountOfMailbox("inbox", "gg")).toBe("gg");
+  });
+
+  it("refuses a hint this session does not have, rather than obeying it", () => {
+    useMail.setState({
+      accountId: "own",
+      mailAccounts: [{ accountId: "own", kind: "own", name: "me@example.org" }] as never,
+      mailboxes: { inbox: mb("inbox") },
+      accountTrees: { own: { inbox: mb("inbox") } },
+    });
+    // A link from a session that has ended names an account this one cannot
+    // open; the answer is "not here", not another account's folder.
+    expect(useMail.getState().accountOfMailbox("inbox", "gone")).toBeNull();
+  });
+
   it("keeps the account on screen when its own tree holds the folder too", () => {
     useMail.setState({
       accountId: "own",

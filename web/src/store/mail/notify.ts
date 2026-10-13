@@ -2,6 +2,7 @@ import { client } from "@/jmap/client";
 import type { Email, GetResponse, Id } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
 import { inboxOf } from "@/lib/mailAccounts";
+import { mailLink } from "@/lib/mailLink";
 import { playNewMailSound, showNotification } from "@/lib/notify";
 import { useSession } from "../session";
 import { settings } from "../settings";
@@ -17,10 +18,16 @@ export function senderName(email: Pick<Email, "from">): string {
  * One mail notification: the sender as its title, the subject and preview as
  * its body, and a tap that opens the message where it lives. One renderer, so
  * the reader's own account and a group cannot show the same arrival two ways.
+ *
+ * The link carries the account it was built for: the route names a folder and
+ * a conversation, and neither says whose they are -- so a folder id another
+ * account also has would resolve against the account on screen and open a
+ * conversation that account does not hold.
  */
 export function announceMail(
   email: Pick<Email, "id" | "threadId" | "from" | "subject" | "preview">,
   inboxId: Id,
+  accountId: Id,
   title: string,
 ): void {
   showNotification(title, {
@@ -31,7 +38,11 @@ export function announceMail(
       // The one navigation that does not go through wouter -- it is synthesising
       // a popstate so the router picks the address up -- so it is also the one
       // that has to add the mount prefix itself.
-      window.history.pushState({}, "", withBase(`/mail/${inboxId}/${email.threadId}`));
+      window.history.pushState(
+        {},
+        "",
+        withBase(mailLink({ mailboxId: inboxId, threadId: email.threadId, accountId })),
+      );
       window.dispatchEvent(new PopStateEvent("popstate"));
     },
   });
@@ -61,7 +72,9 @@ export async function notifyNewMail(created: Id[], get: () => MailState) {
   for (const e of fresh) rememberAnnounced(announcedMail, e.id);
   if (s.notificationSound) playNewMailSound();
   if (!s.desktopNotifications) return;
-  for (const e of fresh.slice(0, 3)) announceMail(e, inbox, senderName(e));
+  const accountId = get().accountId;
+  if (!accountId) return;
+  for (const e of fresh.slice(0, 3)) announceMail(e, inbox, accountId, senderName(e));
 }
 
 /**
@@ -139,7 +152,7 @@ export async function notifyGroupMail(
   if (!s.desktopNotifications) return;
   const name =
     get().mailAccounts.find((a) => a.accountId === accountId)?.name ?? accountId;
-  for (const e of fresh) announceMail(e, inbox, `${senderName(e)} · ${name}`);
+  for (const e of fresh) announceMail(e, inbox, accountId, `${senderName(e)} · ${name}`);
 }
 
 /**
