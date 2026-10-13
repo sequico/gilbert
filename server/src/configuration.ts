@@ -70,6 +70,27 @@ function readInt(
   return Number.parseInt(v, 10);
 }
 
+/**
+ * A TCP port, where the installation may also state that there is none.
+ *
+ * A value outside the range is a refused boot rather than a `listen()` that
+ * fails later with less to say; `allowZero` is what separates an endpoint that
+ * may be switched off from one that may not.
+ */
+function readPort(
+  environment: InstallationEnvironment,
+  name: string,
+  fallback: number,
+  allowZero = false,
+): number {
+  const value = readInt(environment, name, fallback);
+  if (value < (allowZero ? 0 : 1) || value > 65535)
+    throw new Error(
+      `Invalid port for ${name}: ${value}${allowZero ? " (0 switches it off)" : ""}`,
+    );
+  return value;
+}
+
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
@@ -179,30 +200,48 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * Push is the wake-up and polling is the fallback after a lost stream, so
      * this is deliberately unhurried: a minute of latency on a lost stream is
      * far cheaper than a minute of hammering Stalwart.
+     *
+     * Floored at one, like the installation's own bound (`readBound`,
+     * `shared/installation.ts`): a deployment that states zero or a negative
+     * number here would otherwise get a timer that fires at once and for ever.
      */
-    pollMs: readInt(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll),
+    pollMs: Math.max(
+      1,
+      readInt(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll),
+    ),
     /* How often a working agent says it is alive, in its claims and heartbeat. */
-    heartbeatMs: readInt(
-      environment,
-      "GILBERT_AGENT_HEARTBEAT_MS",
-      defaults.agent.heartbeat,
+    heartbeatMs: Math.max(
+      1,
+      readInt(environment, "GILBERT_AGENT_HEARTBEAT_MS", defaults.agent.heartbeat),
     ),
     /*
      * How long a claim may go un-renewed before another agent takes it over.
      * Longer than a few heartbeats on purpose: an agent's work can sit in a
      * model call or wait on a person, and a takeover that fires during a
      * legitimate pause would run the same job twice.
+     *
+     * Floored for the same reason as the poll: a negative lease makes every
+     * claim stale the instant it is written, which is a takeover storm rather
+     * than a lifetime.
      */
-    leaseMs: readInt(environment, "GILBERT_AGENT_LEASE_MS", defaults.agent.lease),
+    leaseMs: Math.max(
+      1,
+      readInt(environment, "GILBERT_AGENT_LEASE_MS", defaults.agent.lease),
+    ),
     /*
      * Where the agent answers a health probe, or 0 for no endpoint at all.
      * A deployment with a restart policy wants this (ADR 0003 resolution 8);
      * a agent nobody asks anything needs no listening socket.
+     *
+     * Held to the port range the installation's own document is held to
+     * (`shared/installation.ts`), so a value that is not a port is a refused
+     * boot rather than a `listen()` that fails later with less to say.
      */
-    healthPort: readInt(
+    healthPort: readPort(
       environment,
       "GILBERT_AGENT_HEALTH_PORT",
       defaults.agent.healthPort,
+      true,
     ),
     /*
      * Whether the server starts a fleet of its own beside the web tier, which is
