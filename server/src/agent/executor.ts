@@ -116,6 +116,7 @@ import {
   AGENT_PREAMBLE_FILE,
   AGENT_RULES_FILE,
   type AgentAction,
+  type AgentActionName,
   type AgentClaim,
   type AgentConfigDoc,
   type AgentDecision,
@@ -1861,7 +1862,13 @@ export class Executor {
       );
       // Only now the draft, and both documents carry its reference: the answer
       // submits what the person read instead of preparing it a second time.
-      const draft = await this.prepareDraft(store, accountId, claim, plan);
+      const draft = await this.prepareDraft(
+        store,
+        accountId,
+        claim,
+        plan,
+        rule.capabilities,
+      );
       if (draft) {
         paused.proposal = { ...proposal, draft };
         const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
@@ -1932,6 +1939,7 @@ export class Executor {
     accountId: string,
     claim: AgentClaim,
     plan: RunPlan,
+    allowed: ReadonlyArray<AgentActionName>,
   ): Promise<AgentDraftRef | null> {
     const draft = plan.actions.find((action) => action.do === "mail.draft");
     const send = plan.actions.find((action) => action.do === "mail.send");
@@ -1954,6 +1962,11 @@ export class Executor {
       {
         from: this.deps.address,
         now: this.deps.now(),
+        // The grant is handed in like any other run's: the draft is derived
+        // from an action of the rule's own plan, so it is inside the grant by
+        // construction — but the check is what keeps that a fact rather than an
+        // argument, and it is the same check every other action passes.
+        allowed,
       },
       { beforeAction: this.leavingProcessFence(store, claim) },
     );
