@@ -194,6 +194,18 @@ export async function planMerge(src: MergeTree, dst: MergeTree): Promise<MergePl
       const here = [...path, child.name];
       const match = held.get(child.name);
       if (!match) {
+        /*
+         * The node arrives by moving, which reparents it, and reparenting is a
+         * rename of the node itself (RFC 8621, and `folderMove.ts` reads it the
+         * same way): the right is the moved node's own. The folder it lands in
+         * only has to take children, which the walk checked before reading the
+         * level — so a node the reader may not rename is a collision here rather
+         * than a merge that stalls on the server.
+         */
+        if (!may(child, "mayRename")) {
+          conflicts.push({ path: here, reason: "no-right" });
+          continue;
+        }
         steps.push({ kind: "move", srcId: child.id, into: into.id, name: child.name });
         continue;
       }
@@ -211,6 +223,17 @@ export async function planMerge(src: MergeTree, dst: MergeTree): Promise<MergePl
         continue;
       }
       if (!may(match, "mayModifyContent")) {
+        conflicts.push({ path: here, reason: "no-right" });
+        continue;
+      }
+      /*
+       * The step writes the bytes into the kept node and destroys the file they
+       * came from — a merge leaves one node of a name — so the source file's own
+       * right to be destroyed is read here too. Without it the plan would write
+       * into the kept tree and stop on the server, which is the half-merged
+       * state this walk exists to prevent.
+       */
+      if (!may(child, "mayDelete")) {
         conflicts.push({ path: here, reason: "no-right" });
         continue;
       }

@@ -233,7 +233,8 @@ describe("planMerge", () => {
   /*
    * Rights, read before anything is planned. Each one is the right the step it
    * guards would need: destroying the folder given up, destroying a folder the
-   * merge emptied, writing into a file, moving into a folder.
+   * merge emptied, writing into a file, destroying the file a replace leaves
+   * behind, renaming a node that moves, moving into a folder.
    */
   describe("rights the reader does not hold", () => {
     it("refuses when the folder given up may not be destroyed", async () => {
@@ -268,6 +269,40 @@ describe("planMerge", () => {
 
       expect(steps).toEqual([]);
       expect(conflicts).toEqual([{ path: ["Work", "report.pdf"], reason: "no-right" }]);
+    });
+
+    /*
+     * The other half of a replace: the step destroys the file the bytes were
+     * read out of, so a file the reader may not destroy collides too — even
+     * though the kept node it would write into is theirs to write.
+     */
+    it("refuses to destroy a file it may not destroy", async () => {
+      const src = tree(dir("b", "Archive", null), [
+        { ...file("b1", "report.pdf", "b"), myRights: { mayDelete: false } },
+      ]);
+      const dst = tree(dir("a", "Work", null), [file("a1", "report.pdf", "a")]);
+
+      const { steps, conflicts } = await planMerge(src.t, dst.t);
+
+      expect(steps).toEqual([]);
+      expect(conflicts).toEqual([{ path: ["Work", "report.pdf"], reason: "no-right" }]);
+    });
+
+    /*
+     * A node that arrives by moving is reparented, and reparenting is a rename
+     * of the node itself: with no right to rename it there is no plan, rather
+     * than a merge that half lands on the server's refusal.
+     */
+    it("refuses a node it may not rename, even into a folder that takes children", async () => {
+      const src = tree(dir("b", "Archive", null), [
+        { ...file("b1", "notes.txt", "b"), myRights: { mayRename: false } },
+      ]);
+      const dst = tree(dir("a", "Work", null), []);
+
+      const { steps, conflicts } = await planMerge(src.t, dst.t);
+
+      expect(steps).toEqual([]);
+      expect(conflicts).toEqual([{ path: ["Work", "notes.txt"], reason: "no-right" }]);
     });
 
     it("refuses a folder that takes no children", async () => {
