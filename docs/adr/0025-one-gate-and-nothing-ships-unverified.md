@@ -41,7 +41,11 @@ claim in the law and the mechanism did not meet.
   hook runs it, and `ci.yml` — the release pre-check — runs the same script. The
   only part of CI that is not in it is the Docker smoke build, which a local gate
   cannot assume has a daemon. A gate change is one edit, and the release
-  pre-check cannot be weaker than a push.
+  pre-check cannot be weaker than a push. **The hook gates the tree being
+  pushed**: it reads the ref updates git hands it and keys its cache on the
+  pushed commit's tree, so a push whose tip is not the checked-out commit — the
+  only tree a checkout can verify — is refused rather than gated against the
+  wrong one.
 - **The pin rule is a check.** `workflow:pin` fails an action named by a tag, or
   pinned with no version beside it; `./.github/…` workflow references and
   `docker://` images are not actions and are not pinned.

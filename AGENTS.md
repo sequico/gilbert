@@ -302,7 +302,10 @@ batched at the end of a long run. Whole-tree rename scans (e.g. for
 output instead.
 **Every push is gated** (`npm run check:ci`: typecheck + Biome lint + the check
 scripts + tests + build); the `.githooks/pre-push` hook enforces it, enabled per
-clone with `git config core.hooksPath .githooks`. The hook is checkpoint-driven:
+clone with `git config core.hooksPath .githooks`. The hook gates the tree being
+pushed: it reads the ref updates git hands it, refuses a push whose tip is not
+the checked-out commit (this hook can only verify the checkout it runs in), and
+keys the cache on the pushed commit's tree. The hook is checkpoint-driven:
 the default runs the full gate; `GATE=fast` runs only typecheck+lint; `GATE=off`
 skips deliberately. It also skips when every changed path is binary and named by
 no check, or when the exact tree already passed in that mode

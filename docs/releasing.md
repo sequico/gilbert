@@ -11,7 +11,9 @@ One pipeline verifies the tree, and it has one source: **`npm run check:ci`** in
 
 The **pre-push hook** (`.githooks/pre-push`, enabled once per clone with
 `git config core.hooksPath .githooks`) runs it before every push, so a push that
-fails it is refused; `git push --no-verify` bypasses it deliberately and never
+fails it is refused; a push whose tip is not the checkout the hook runs in is
+refused too, because the gate verifies a tree and that checkout is the only one
+it can verify. `git push --no-verify` bypasses it deliberately and never
 by accident. `.github/workflows/ci.yml` runs the same script and adds only a
 Docker smoke build, which a local gate cannot assume; because `release.yml`
 calls `ci.yml` as its pre-check, the check that prepares a release is the check
