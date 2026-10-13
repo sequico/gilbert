@@ -22,3 +22,32 @@
 export function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
+
+/**
+ * Whether two values serialize to the same JSON whatever order their keys are
+ * in.
+ *
+ * `JSON.stringify` alone is not enough, and the case is the common one: a JMAP
+ * map (`keywords`, `mailboxIds`, the entries of a contact) is a document whose
+ * keys the server is free to answer in any order, so a shallow comparison
+ * reports a change whenever the order moves — the wasted render the mail list
+ * exists to avoid, and a merge that keeps one entry twice because the same
+ * value was spelled with its keys the other way round.
+ *
+ * Shared with the web tier for exactly that reason: one reader's "the same
+ * value" has to be the next reader's.
+ */
+export function sameJson(a: unknown, b: unknown): boolean {
+  return stableJson(a) === stableJson(b);
+}
+
+export function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([x], [y]) =>
+      x < y ? -1 : x > y ? 1 : 0,
+    );
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
+}

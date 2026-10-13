@@ -1,5 +1,6 @@
 import type { ContactCard } from "@/jmap/types";
 import { contactCompany, contactDisplayName, newKey } from "@/lib/contacts";
+import { stableJson } from "@gilbert/shared/json";
 
 /**
  * Merging two contacts of one address book, decided before anything is written.
@@ -198,31 +199,22 @@ const HANDLED = new Set([
   "relatedTo",
 ]);
 
-const signature = (value: unknown) => JSON.stringify(value);
-
 function putEntry<T>(out: Record<string, T>, prefix: string, value: T): void {
   let key = newKey(prefix);
   while (key in out) key = newKey(prefix);
   out[key] = value;
 }
 
-/** An entry whose key is not an identity — two lists of emails union by value. */
+/**
+ * An entry whose key is not an identity — two lists of emails union by value.
+ * The same rule as `mergeEntries` with no side losing an entry, which is what a
+ * field the reader was asked nothing about is.
+ */
 function unionByValue<T>(
   a: Record<string, T> | null | undefined,
   b: Record<string, T> | null | undefined,
 ): Record<string, T> | null {
-  const out: Record<string, T> = {};
-  const seen = new Set<string>();
-  for (const source of [a, b]) {
-    for (const [key, entry] of Object.entries(source ?? {})) {
-      const sig = signature(entry);
-      if (seen.has(sig)) continue;
-      seen.add(sig);
-      if (key in out) putEntry(out, key.slice(0, 1) || "k", entry);
-      else out[key] = entry;
-    }
-  }
-  return Object.keys(out).length ? out : null;
+  return mergeEntries(a, b, null, null, null);
 }
 
 /** An entry whose key *is* the identity — members and keywords. */
@@ -242,7 +234,10 @@ function unionByKey<T>(
  * twice), except **one** entry: the losing side's entry the choice was between.
  * Keys are preserved where they do not collide, so an untouched card's entries
  * keep their own keys. A field only one side holds has no competing entry, so it
- * is a plain union.
+ * is a plain union — which is `side: null`, and what `unionByValue` is.
+ *
+ * "The same value" is order-insensitive (`stableJson`): the same entry spelled
+ * with its keys in another order is one entry, not two.
  */
 function mergeEntries<T>(
   a: Record<string, T> | null | undefined,
@@ -254,7 +249,11 @@ function mergeEntries<T>(
   const loseFromA = side === "b";
   const loseFromB = side === "a";
   const loseSig =
-    loseFromA && slotA ? signature(slotA) : loseFromB && slotB ? signature(slotB) : null;
+    loseFromA && slotA
+      ? stableJson(slotA)
+      : loseFromB && slotB
+        ? stableJson(slotB)
+        : null;
   const out: Record<string, T> = {};
   const seen = new Set<string>();
   for (const [source, isLoser] of [
@@ -263,7 +262,7 @@ function mergeEntries<T>(
   ] as Array<[Record<string, T> | null | undefined, boolean]>) {
     let dropped = false;
     for (const [key, entry] of Object.entries(source ?? {})) {
-      const sig = signature(entry);
+      const sig = stableJson(entry);
       // The one entry the choice was between, on the side that lost it.
       if (isLoser && !dropped && loseSig !== null && sig === loseSig) {
         dropped = true;
@@ -271,7 +270,9 @@ function mergeEntries<T>(
       }
       if (seen.has(sig)) continue;
       seen.add(sig);
-      if (key in out) putEntry(out, "k", entry);
+      // A new key keeps the colliding key's own first character, so a merged
+      // entry reads like one the editor wrote for that field.
+      if (key in out) putEntry(out, key.slice(0, 1) || "k", entry);
       else out[key] = entry;
     }
   }

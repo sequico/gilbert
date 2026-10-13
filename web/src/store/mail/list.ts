@@ -1,3 +1,4 @@
+import { sameJson } from "@gilbert/shared/json";
 import type { Comparator, Email, EmailFilter, Id, Thread } from "@/jmap/types";
 import { countsConversations } from "@/lib/keywordCounts";
 
@@ -38,31 +39,6 @@ export function mergeEmail(prev: Email | undefined, next: Email): Email {
     return { ...prev, ...next };
   }
   return prev;
-}
-
-/**
- * Whether two values serialize to the same JSON whatever order their keys are
- * in.
- *
- * `JSON.stringify` alone is not enough here, and the case is the common one:
- * `keywords` and `mailboxIds` are maps of arbitrary names, and the server is
- * free to answer them in any order -- so a shallow `JSON.stringify` comparison
- * reports a change whenever the order moves, which is exactly the wasted render
- * this is here to prevent.
- */
-export function sameJson(a: unknown, b: unknown): boolean {
-  return stableJson(a) === stableJson(b);
-}
-
-export function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([x], [y]) =>
-      x < y ? -1 : x > y ? 1 : 0,
-    );
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "undefined";
 }
 
 /** The messages of these ids that the map holds. */
