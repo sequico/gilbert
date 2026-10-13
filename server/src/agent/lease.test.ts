@@ -54,9 +54,16 @@ const agentStore = new AgentStore(ctx, AGENT);
  * of it it means instead of aging anything: `startedAfter()` is a process that
  * came up later (and therefore may take a claim over), `startedBefore()` one
  * that was already running when the claim was written (and therefore may not).
+ *
+ * The two margins are not seconds of work — they are which side of the
+ * comparison a clock lands on. `startedBefore`'s is a minute rather than the
+ * second it once was, because what sits between the claim and the next read is
+ * a JMAP round-trip through the mock: on a loaded machine that can take longer
+ * than a second, and a "held" case then reads as a takeover and fails a test
+ * about exclusivity.
  */
 const startedAfter = (ms = 1_000) => new Date(Date.now() + ms);
-const startedBefore = (ms = 1_000) => new Date(Date.now() - ms);
+const startedBefore = (ms = 60_000) => new Date(Date.now() - ms);
 
 /** The account holds one claim, so a test that needs a free unit drops it. */
 const freeUnit = (): Promise<void> => store.destroyClaim();
