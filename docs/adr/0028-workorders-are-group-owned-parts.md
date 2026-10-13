@@ -189,7 +189,13 @@ tier, which is read through its own share (ADR 0024). Because the Master is the
 only writer, the surface **degrades to read-only** when its session is
 unavailable: a reader sees the last state served and a check waits, and no client
 writes on its own — a rule the product keeps, not a boundary, since a member's
-own session still reaches the part.
+own session still reaches the part. Reading is also the only way this surface
+learns that anything changed: it carries **no push rail of its own**, so the panel
+re-reads on every open and on a refresh, and a step another reader checked appears
+at the reader's next read rather than as it happens. The FileNode state change a
+check does produce reaches a reader for the accounts their own session holds —
+their groups' parts — and never for the Master's root, which is why a push rail
+here would still have to re-read through the route.
 
 ### The checklist, and its signature
 

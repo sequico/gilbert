@@ -3,8 +3,9 @@
  *
  * The surface is route-only: the store holds the summaries the route served
  * and every mutation asks the route and replaces the summary it answered with.
- * There is no direct FileNode read and no push rail, so `load()` is the one
- * read and the launcher exposes it for a manual refresh. The Master is the only
+ * There is no direct FileNode read and no push rail — so `load()` is the one
+ * read, an open re-reads it every time, and the launcher exposes it for a
+ * manual refresh besides. The Master is the only
  * writer, so a failed mutation leaves the last state served in place — it
  * degrades to read-only rather than writing locally, and the panel shows the
  * error until the next attempt.
@@ -93,9 +94,14 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
 
     openPanel() {
       set({ panelOpen: true });
-      // Load once: the first open fetches the list, and every later open reuses
-      // what is held. `load()` is exposed for a manual refresh.
-      if (!get().loaded) void get().load();
+      /*
+       * Every open re-reads. Another reader may have checked a step, or an
+       * administrator may have created a workorder, since the last look — and
+       * this surface has no push rail of its own, so a fresh read is the only
+       * way the panel hears about either. A read already in flight is the fresh
+       * answer this open wanted, so it is not restarted on top of itself.
+       */
+      if (!get().loading) void get().load();
     },
 
     closePanel() {

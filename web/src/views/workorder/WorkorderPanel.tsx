@@ -814,9 +814,12 @@ export function WorkorderPanel() {
     });
   }, [closePanel, creating]);
 
-  // It opens on Running: the live work is what a reader came for, and a
-  // completed pile is one click away.
-  const [filter, setFilter] = useState<WorkorderState | "all">("running");
+  /*
+   * It opens on **All**: the filters narrow from here, and a list that hides a
+   * workorder until the reader guesses the right one reads as "the workorder is
+   * not there", which is the one thing this surface must never say.
+   */
+  const [filter, setFilter] = useState<WorkorderState | "all">("all");
   const narrow = useIsNarrow();
   const filtered =
     filter === "all" ? workorders : workorders.filter((w) => w.state === filter);

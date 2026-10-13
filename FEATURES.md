@@ -656,11 +656,14 @@ parts together. The same uid names both, and renaming breaks no reference.
 
 ## The panel
 
-The list is on the left, filtered by **All**, **Running**, **Completed**,
-**Cancelled** and **Replaced**, and the open workorder is on the right: the
-checklist template and revision it instantiates named in its head, its
-checklists (the global one and each group's part side by side when there is
-room), and the folders, files and pages it gathers. A refresh re-reads it.
+The list is on the left, opening on **All** and narrowable to **Running**,
+**Completed**, **Cancelled** and **Replaced**, and the open
+workorder is on the right: the checklist template and revision it instantiates
+named in its head, its checklists (the global one and each group's part side by
+side when there is room), and the folders, files and pages it gathers. Opening
+the panel re-reads the list, and a **refresh** re-reads it besides: the surface
+is route-only and carries no push rail, so a read is how it hears about a check
+somebody else made or a workorder that appeared.
 
 ## Checklists, and who checked what
 
