@@ -36,17 +36,20 @@ const { isStateMismatch } = await import("./jmap.js");
 const {
   appFolderState,
   ensureAppFolder,
+  FILENODE_CAP,
   fileChildren,
   filesAccountId,
   findAppFileAt,
   findAppFolder,
   readAppFileAt,
   readAppJsonAt,
+  readAppJsonForWrite,
   readVisibleFileAt,
   writeAppBytesAt,
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } = await import("./appFolder.js");
+const { clientOf } = await import("./util.js");
 type Ctx = import("./appFolder.js").Ctx;
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -262,4 +265,43 @@ test("the app folder is found after it has been created, not created again", asy
     1,
     "the account holds one app folder, however many writers asked for it",
   );
+});
+
+/**
+ * A document that is there and cannot be read is not an absent one.
+ *
+ * `readAppJsonAt` answers both as `null`, which is right for a reader — a
+ * corrupt document must not take a surface down. A writer about to *replace*
+ * the document needs the difference: read as absent, a read-modify-write lands
+ * the one change it was making over everything the account held.
+ */
+test("a file whose bytes do not come back is unreadable, not absent", async () => {
+  const folderId = await ensureAppFolder(ctx, accountId);
+  // A node whose blob this server does not hold: the file is there, so the
+  // document is not absent, and its bytes cannot be read.
+  await clientOf(ctx).call(
+    "FileNode/set",
+    {
+      accountId,
+      create: {
+        n: {
+          parentId: folderId,
+          name: "unreadable.json",
+          blobId: "no-such-blob",
+          type: "application/json",
+          nodeType: "file",
+        },
+      },
+    },
+    [FILENODE_CAP],
+  );
+
+  assert.equal(await readAppJsonAt(ctx, accountId, "unreadable.json"), null);
+  assert.deepEqual(await readAppJsonForWrite(ctx, accountId, "unreadable.json"), {
+    kind: "unreadable",
+  });
+  // A path with nothing at it is the one answer a writer may create over.
+  assert.deepEqual(await readAppJsonForWrite(ctx, accountId, "unreadable/absent.json"), {
+    kind: "absent",
+  });
 });

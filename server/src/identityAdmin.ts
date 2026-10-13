@@ -44,6 +44,7 @@ import {
   ensureAppFolder,
   findAppFileAt,
   readAppJsonAt,
+  readAppJsonForWrite,
   removeAppFile,
   writeAppBytesAt,
   writeAppFile,
@@ -241,7 +242,21 @@ async function writeAssignmentDoc(
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureAppFolder(ctx, accountId);
     const state = requireState(await appFolderState(ctx, accountId));
-    const members = await readAssignments(ctx, accountId);
+    /*
+     * Strictly, not through `readAssignments`: a listing or download that
+     * failed reads there as "no assignments yet", and this write applies the
+     * change to that empty map — so one transient failure would replace every
+     * member-to-identity assignment the group holds with the single one being
+     * made.
+     */
+    const read = await readAppJsonForWrite(ctx, accountId, GROUP_ASSIGNMENTS_FILE);
+    if (read.kind === "unreadable")
+      throw new IdentityAdminError(
+        "assignments_unreadable",
+        "This group's identity assignments could not be read, so nothing was changed — writing here would have replaced them with the one being made. Try again.",
+        502,
+      );
+    const members = read.kind === "ok" ? (toAssignmentDoc(read.doc)?.members ?? {}) : {};
     try {
       await writeAppFile(
         ctx,
@@ -612,8 +627,21 @@ export async function writeDefaultIdentity(
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureAppFolder(ctx, accountId);
     const state = requireState(await appFolderState(ctx, accountId));
-    const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
-    const doc = isRecord(raw) ? { ...raw } : {};
+    /*
+     * Strictly, because this is a read-modify-write of the client's own
+     * document: read through `readAppJsonAt`, a document that could not be read
+     * would be answered as `{}`, and this write would then replace the whole of
+     * `settings.json` — every setting the account holds — with the one default
+     * identity being set.
+     */
+    const read = await readAppJsonForWrite(ctx, accountId, SETTINGS_FILE);
+    if (read.kind === "unreadable")
+      throw new IdentityAdminError(
+        "settings_unreadable",
+        "This account's settings could not be read, so nothing was changed — writing here would have replaced them with the default identity alone. Try again.",
+        502,
+      );
+    const doc = read.kind === "ok" && isRecord(read.doc) ? { ...read.doc } : {};
     const current = doc[DEFAULT_IDENTITY_KEY];
     const map = isRecord(current) ? { ...current } : {};
     if (identityId) map[accountId] = identityId;

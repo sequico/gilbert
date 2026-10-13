@@ -698,6 +698,42 @@ export async function readAppJsonAt(
   }
 }
 
+/**
+ * Whether a document is absent or merely unreadable, for a writer that is
+ * about to replace it.
+ *
+ * `readAppJsonAt` answers `null` to both, which is what a reader wants — a
+ * corrupt document must not take a surface down. A read-modify-write wants the
+ * opposite: only a document that is **not there** may be replaced by the change
+ * the writer was going to make, and one it could not read is not this writer's
+ * to throw away. Answering `unreadable` for a listing that failed, a download
+ * that failed, and bytes that are not JSON — each of them a document that may
+ * well exist — is the whole of the difference.
+ */
+export type AppDocumentRead =
+  | { kind: "ok"; doc: unknown }
+  | { kind: "absent" }
+  | { kind: "unreadable" };
+
+export async function readAppJsonForWrite(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<AppDocumentRead> {
+  let found: Awaited<ReturnType<typeof readAppFileAt>>;
+  try {
+    found = await readAppFileAt(ctx, accountId, path);
+  } catch {
+    return { kind: "unreadable" };
+  }
+  if (!found) return { kind: "absent" };
+  try {
+    return { kind: "ok", doc: JSON.parse(found.text) as unknown };
+  } catch {
+    return { kind: "unreadable" };
+  }
+}
+
 /** The nodes directly inside an app-folder-relative directory; empty when absent. */
 export async function listAppDir(
   ctx: Ctx,

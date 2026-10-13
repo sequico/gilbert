@@ -38,6 +38,7 @@ import {
   fileChildren,
   findFolderPath,
   readAppJsonAt,
+  readAppJsonForWrite,
   writeAppFileIn,
 } from "./appFolder.js";
 import { groupAccountId, refusalOf } from "./identityAdmin.js";
@@ -901,12 +902,31 @@ export async function saveDraft(
   for (let attempt = 0; attempt < 2; attempt++) {
     await ensureFolderPath(ctx, accountId, articlePath);
     const state = requireState(await appFolderState(ctx, accountId));
-    const existingDraft = asDraft(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    /*
+     * Strictly, not through `readAppJsonAt`: a draft or state file that could
+     * not be read reads there as absent, and this save would then treat the
+     * article as new — minting an `id` and writing `inForce`/`pending`/`retired`
+     * back as `null`. That revives a retired article and loses the pointer to
+     * the issued revision, from a save that only meant to change the body.
+     */
+    const draftRead = await readAppJsonForWrite(
+      ctx,
+      accountId,
+      `${articlePath}/${DRAFT_FILE}`,
     );
-    const existingState = asState(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    const stateRead = await readAppJsonForWrite(
+      ctx,
+      accountId,
+      `${articlePath}/${STATE_FILE}`,
     );
+    if (draftRead.kind === "unreadable" || stateRead.kind === "unreadable")
+      throw new KnowledgeAdminError(
+        "article_unreadable",
+        "This article's own documents could not be read, so nothing was saved — writing here would have treated it as new and dropped its revision history. Try again.",
+        502,
+      );
+    const existingDraft = asDraft(draftRead.kind === "ok" ? draftRead.doc : null);
+    const existingState = asState(stateRead.kind === "ok" ? stateRead.doc : null);
     const now = new Date().toISOString();
     const by = admin.username;
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();
