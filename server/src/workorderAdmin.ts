@@ -25,7 +25,7 @@ import { randomUUID } from "node:crypto";
 import {
   administrator,
   openMasterAccount,
-  requireState as requireStateWith,
+  stateRefuser,
 } from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
 import { memberReach } from "./agentAdmin.js";
@@ -112,12 +112,7 @@ export class WorkorderAdminError extends Error {
  * (`adminSession.ts`); `requireState(state)` stays the shape every workorder
  * write calls, so only the error type is this module's.
  */
-export function requireState(state: string): string {
-  return requireStateWith(
-    state,
-    (code, message, status) => new WorkorderAdminError(code, message, status),
-  );
-}
+export const requireState = stateRefuser(WorkorderAdminError);
 
 /* ------------------------------------------------------------------ */
 /* The Master's account, and the caller's own session                  */
@@ -726,7 +721,6 @@ async function summaryOf(
     uid: root.uid,
     name: root.name ?? "",
     state: root.state ?? "running",
-    replacedBy: root.replacedBy ?? null,
     parts,
     refs: root.refs,
     created: root.created,

@@ -143,7 +143,14 @@ export interface WorkorderDoc {
   name?: string;
   /** The state — on the root. */
   state?: WorkorderState;
-  /** The successor's uid, when the state is `replaced`. */
+  /**
+   * The successor's uid, when the state is `replaced`.
+   *
+   * Read as part of the document's shape rather than written by it (no surface
+   * names a successor yet), which is why a document that carries it is accepted
+   * and no summary publishes it: a field a reader cannot trust is worse than
+   * one it is not shown.
+   */
   replacedBy?: string | null;
   checklist: WorkorderChecklist;
   /**
@@ -422,7 +429,6 @@ export interface WorkorderSummary {
   uid: string;
   name: string;
   state: WorkorderState;
-  replacedBy: string | null;
   /** The parts the caller may see: the global one and their own groups'. */
   parts: WorkorderPartView[];
   refs: WorkorderRef[];
