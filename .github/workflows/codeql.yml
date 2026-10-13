@@ -21,10 +21,13 @@ on:
 
 # Read-only. The analysis reads the run for status and does not publish its
 # SARIF (this repository is private without GitHub Code Security), so no write
-# permission is asked for.
+# permission is asked for. `security-events: read` is the CodeQL Action's own
+# API -- its telemetry endpoint and experimental opt-in -- and is what keeps the
+# action from warning that it cannot reach it; reading, like the rest.
 permissions:
   contents: read
   actions: read
+  security-events: read
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -37,6 +40,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      security-events: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
