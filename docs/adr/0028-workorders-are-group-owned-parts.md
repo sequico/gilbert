@@ -6,8 +6,10 @@ Implementation: Built. The shape, its validators and the wire views are one
 definition (`server/src/shared/workorder.ts`); the Master-owned door and its
 `/api/workorders` routes are `server/src/workorderAdmin.ts` and
 `server/src/app.ts`, with the boot ensure in `server/src/index.ts`; the client
-reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`)
-and the surface is a factory launcher in the top bar beside chat's opening a
+reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`),
+hears about a part changing on the FileNode rail wired in `web/src/App.tsx`'s
+StateChange dispatch, and the surface is a factory launcher in the top bar beside
+chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision, resolves the applicable steps from it
 (`resolveChecklist`, `server/src/shared/knowledge.ts`) and carries the per-path
@@ -189,13 +191,18 @@ tier, which is read through its own share (ADR 0024). Because the Master is the
 only writer, the surface **degrades to read-only** when its session is
 unavailable: a reader sees the last state served and a check waits, and no client
 writes on its own — a rule the product keeps, not a boundary, since a member's
-own session still reaches the part. Reading is also the only way this surface
-learns that anything changed: it carries **no push rail of its own**, so the panel
-re-reads on every open and on a refresh, and a step another reader checked appears
-at the reader's next read rather than as it happens. The FileNode state change a
-check does produce reaches a reader for the accounts their own session holds —
-their groups' parts — and never for the Master's root, which is why a push rail
-here would still have to re-read through the route.
+own session still reaches the part. A change on the rail is answered by a **read**,
+never by a document: the surface follows the FileNode state of the accounts a
+reader's own credential covers and a part may live in — their groups' — and, while
+the panel is open, turns a change on one of them into the same route read an open
+performs. The frame names an account and carries no payload, so it can leak
+nothing, and what comes back is the route's own answer for that caller. Where a
+document lives therefore decides who is woken by it: a check on a **group's**
+checklist is a write into that group's own account, and the group's members are
+woken by it as it happens; the **global** checklist and the registry are the
+Master's own account, which no reader's credential covers, so changes there reach
+a reader at their next read — the panel's next open, a refresh, or the read a
+change on their own group's account provokes.
 
 ### The checklist, and its signature
 
@@ -303,6 +310,13 @@ created.
   one resolution of the bound template revision, shared between the view the read
   composes and the gate reconcile that follows a write — asking per group paid for
   the same answer for every group the Master holds.
+- The live rail is the **FileNode state of the parts**, which is the one change a
+  reader's own credential covers: the frame names an account and carries no
+  payload, so the answer is a route read and visibility stays the route's decision.
+  It is followed while the panel is open, and a group's checks appear to its members
+  as they happen; a change to the global checklist, which lives in the Master's own
+  account, reaches a member at their next read — the limit the account a document
+  lives in puts on who can be woken by it.
 - A closed workorder is a **document moved**, not a tree that decides: the root's
   own state is the truth, `closed/` is the projection, and a root in the wrong
   folder is a finding. The move keeps the id, costs one write, and never touches

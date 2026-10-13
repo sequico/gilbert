@@ -9,8 +9,9 @@
  * The whole surface is **route-only** (ADR 0028): the Master does every read
  * and every write, and the server route decides what the caller may see and
  * act on by their own group membership alone. So these are `apiFetch` calls
- * rather than FileNode reads, there is no push rail, and `listWorkorders` is
- * the one read.
+ * rather than FileNode reads, and `listWorkorders` is the one read: a FileNode
+ * change on the rail names an account and nothing else, and the store turns
+ * that into this read.
  */
 
 import type {

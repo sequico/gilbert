@@ -1195,3 +1195,84 @@ test("a member's read probes each group once, not once per group", async () => {
   );
   assert.ok(probes >= memberGroups.size, `and they are read at all (asked ${probes})`);
 });
+
+test("a group check announces the group's part on the FileNode rail", async () => {
+  /*
+   * The client's live rail rests on this: a check on a group's part is a write
+   * to that group's app folder, and the server announces it as a FileNode
+   * StateChange naming the group's account — the frame a member is woken by,
+   * because their own credential's push subscription covers the group mailboxes
+   * they are in (ADR 0005/0028; the per-token scoping is live-verified, the mock
+   * broadcasts to its subscribers). Fails if the part stops being written where
+   * it is read from, or the write stops being announced.
+   */
+  assert.ok(firstGroup, "the mock has a group the Master holds");
+  const [groupName, groupAccount] = firstGroup;
+  const grouped = {
+    variants: [],
+    sections: [
+      { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
+      {
+        key: "teamwork",
+        label: "Team work",
+        group: groupAccount,
+        steps: [{ key: "t", label: "Team step" }],
+      },
+    ],
+  };
+  const template = await templateRef(grouped, "Rail checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Rail run",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const uid = workorderOf(created.body).uid;
+
+  // A member's own live-updates stream, as their tab opens it.
+  const auth = `Basic ${Buffer.from(`${MEMBER}:${MEMBER_PASSWORD}`).toString("base64")}`;
+  const stream = await fetch(
+    `http://127.0.0.1:${PORT}/jmap/eventsource/?types=*&closeafter=no&ping=30`,
+    { headers: { authorization: auth } },
+  );
+  assert.equal(stream.status, 200, "the member's stream opens");
+  const reader = stream.body?.getReader();
+  assert.ok(reader, "the stream has a body");
+  let text = "";
+  const pump = (async () => {
+    const decoder = new TextDecoder();
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value);
+      if (text.includes(groupAccount) && text.includes("FileNode")) break;
+    }
+  })();
+
+  try {
+    // The check on the group's step, as an administrator who is a member of it.
+    const checked = await post("/api/workorders/check", {
+      uid,
+      scope: "group",
+      group: groupName,
+      path: "teamwork.t",
+      state: "done",
+    });
+    assert.equal(checked.status, 200, JSON.stringify(checked.body));
+    await pump;
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+
+  assert.ok(
+    text.includes(`"${groupAccount}"`),
+    `the frame names the group's account (saw: ${text.slice(0, 200)})`,
+  );
+  assert.ok(
+    text.includes('"FileNode"'),
+    "and carries the FileNode type the client watches",
+  );
+});

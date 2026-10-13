@@ -42,6 +42,7 @@ import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { settingsInHandFor, syncedPart, useSettings } from "@/store/settings";
 import { useSieve } from "@/store/sieve";
+import { useWorkorders } from "@/store/workorder";
 import { ConfirmHost } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
 import { ToastHost, toast } from "@/ui/toast";
@@ -405,6 +406,13 @@ function AuthedApp() {
       // the company tier is read when opened, so it is not pushed here.
       if (types.has("FileNode"))
         work.push(useKnowledge.getState().applyChanges(accountId));
+      // A workorder's parts are app-folder documents in the reader's own groups
+      // (ADR 0028), and a check somebody else made is a write there: the store
+      // re-reads the list through the route, and answers only while its panel is
+      // open and only for an account it follows, so every FileNode change can be
+      // offered to it.
+      if (types.has("FileNode"))
+        work.push(useWorkorders.getState().applyChanges(accountId));
       return work;
     };
     /*

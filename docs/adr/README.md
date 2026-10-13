@@ -287,7 +287,9 @@ is, not what a user sees.
   own groups' parts, the door being the server route that checks the caller's
   membership — a workorder being a member's when the template assigns a section to
   a group they are in, so a part whose document is missing is a finding, never a
-  workorder that vanishes for its group; each step keeps its **state** (`open`, `done`, `skipped` or
+  workorder that vanishes for its group, and a group's checks appearing to its
+  members as they happen on the FileNode rail of the group's own account, while the
+  global checklist reaches a member at the next read; each step keeps its **state** (`open`, `done`, `skipped` or
   `not-applicable`) and the last signature, taken from the authenticated session,
   and a friendly name beside the uid. A checklist instantiates a KB template in
   force (ADR 0024) and materialises its applicable steps **by path** (ADR 0030).
