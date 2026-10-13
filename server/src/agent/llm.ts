@@ -414,13 +414,14 @@ function dataPrompt(context: ModelContext, note?: string): string {
   const by = context.by ? `\nAsked by: ${context.by}` : "";
   /*
    * The untrusted content sits between two markers, and the rule that it is
-   * data is restated **after** it.
+   * data comes directly after it — the lookup budget the call adds is the only
+   * line that can follow the rule.
    *
    * Every word between the markers comes from a mailbox, a file or a chat, and
    * any of it may have been written by somebody outside the group: the fence is
    * what makes "this is not an instruction" a boundary the answer is read
-   * against rather than a sentence at the top of a long prompt. The rule is
-   * repeated at the end because the end of the input is what a model follows
+   * against rather than a sentence at the top of a long prompt. The rule
+   * follows the content because the end of the data is what a model follows
    * most closely — and because `DATA_NOT_INSTRUCTIONS` is also the system
    * message's own first rule, one copy of it would be the copy a sender's text
    * can push furthest away.

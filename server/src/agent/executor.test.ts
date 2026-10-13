@@ -49,7 +49,9 @@ const {
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } = await import("../appFolder.js");
-const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
+const { isStateMismatch, JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import(
+  "../jmap.js"
+);
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const {
   buildDraft,
@@ -70,6 +72,7 @@ const { postMessage, readChat } = await import("./chat.js");
 const { automationLabel, newDecision, newJob, AGENT_LOOKUP_ROUNDS } = await import(
   "./documents.js"
 );
+const { DOCUMENT_TEXT_MAX } = await import("./documentFamily.js");
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
 const { claimAccount, saveClaimStates } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
@@ -303,12 +306,26 @@ async function setPolicy(
   over: Partial<Pick<AgentGroupPolicyDoc, "review" | "allowExternal">> = {},
 ): Promise<void> {
   policyMoved = true;
-  const found = await store.readPolicy();
-  await store.writePolicy(
-    { review: over.review ?? "never", allowExternal: over.allowExternal ?? false },
-    "admin@example.com",
-    found ? { ifInState: found.state } : {},
-  );
+  /*
+   * A run an earlier test started can still be finishing here -- `reconcile` is
+   * awaited, but not every effect it began -- and its write moves the account's
+   * FileNode state, which refuses this one. Losing that compare-and-set is a
+   * reason to read again, not to fail: the test is about the policy, not about
+   * who won the write, and the product's own writers retry for the same reason.
+   */
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const found = await store.readPolicy();
+    try {
+      await store.writePolicy(
+        { review: over.review ?? "never", allowExternal: over.allowExternal ?? false },
+        "admin@example.com",
+        found ? { ifInState: found.state } : {},
+      );
+      return;
+    } catch (err) {
+      if (attempt === 2 || !isStateMismatch(err)) throw err;
+    }
+  }
 }
 
 async function claimFor() {
@@ -850,6 +867,36 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
   assert.equal((marked?.keywords as Record<string, unknown>)?.["G-processed"], true);
 });
 
+test("a rule that holds only mail.send pauses without a draft, because the send carries no body", async () => {
+  /*
+   * `mail.send` is offered on its own — external and irreversible, so the
+   * editor keeps it out of the mail area — and a plan carrying it pauses
+   * whatever the policy says. What it does not carry is a body: the
+   * catalogue's `mail.send` takes a recipient and nothing else, so the draft a
+   * pause prepares has no text to hold and is not written. The proposal still
+   * reaches the group, which is what a person answers; a run that dead-lettered
+   * here would fail on a rule the editor lets an author write.
+   */
+  const sender = rule({ id: "send-only", capabilities: ["mail.send"] });
+  answerFor("Mail automation", {
+    summary: "Send the invoice on.",
+    confidence: 1,
+    actions: [{ do: "mail.send", with: { to: ADA } }],
+  });
+  await store.writeRules([sender]);
+  const emailId = await createMessage("An invoice a send-only rule answers");
+
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+
+  const job = (await jobsOf("send-only")).find(
+    (candidate) => candidate.trigger.emailId === emailId,
+  );
+  assert.ok(job);
+  assert.equal(job.state, "awaiting_approval", String(job.error));
+  assert.equal(job.proposal?.draft ?? null, null, "there is no body to leave a draft of");
+  assert.ok(job.proposal?.actions?.length, "and the proposal a member answers is there");
+});
+
 test("a draft that vanished is not an approval", async () => {
   const proposer = rule({
     id: "vanishing-draft",
@@ -1364,6 +1411,35 @@ test("a run may look something up, and reads what it asked for", async () => {
     { kind: "mail", query: "is:starred" },
     { kind: "message", id: starred },
   ]);
+});
+
+test("a message body past the read ceiling reaches the model cut, and says so", async () => {
+  /*
+   * A body is the sender's, and a sender chooses its size: what the prompt
+   * carries is the beginning of it (`DOCUMENT_TEXT_MAX`), and the cut is said
+   * in words so a run reads that there is more instead of taking its start for
+   * the whole of what arrived.
+   */
+  const tail = "THE-END-OF-A-LONG-BODY";
+  const heard = await createMessage(
+    "A message whose body runs past the ceiling",
+    "x".repeat(DOCUMENT_TEXT_MAX) + tail,
+  );
+  const reader = rule({ id: "long-body", capabilities: ["keyword.add"] });
+  await store.writeRules([reader]);
+  const job = newJob({
+    id: "long-body-job",
+    accountId: GROUP,
+    rule: { id: "long-body", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, reader, await claimFor());
+
+  const user = JSON.stringify(lastCallFor("email").messages);
+  assert.ok(!user.includes(tail), "the end of the body is not handed over");
+  assert.match(user, /the message is longer than one reading carries/);
 });
 
 test("a run reads the knowledge base through the knowledge lookup", async () => {

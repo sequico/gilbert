@@ -1440,8 +1440,13 @@ async function extractAttachments(
       );
     } catch (err) {
       if (!(err instanceof BlobTooLargeError)) throw err;
+      // The parts before this one are already written into the group's Files,
+      // so the refusal says what stands rather than that nothing was extracted.
+      const state = saved.length
+        ? `the message was not extracted in full: the ${saved.length} attachments before it are already in the group's Files, in "${folder}"`
+        : "nothing was extracted from the message";
       throw new Error(
-        `"${name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run writes, so nothing was extracted from the message`,
+        `"${name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run writes, so ${state}`,
       );
     }
     // A person has to be able to find this: the file goes into the group's

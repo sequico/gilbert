@@ -1962,10 +1962,14 @@ export class Executor {
       {
         from: this.deps.address,
         now: this.deps.now(),
-        // The grant is handed in like any other run's: the draft is derived
-        // from an action of the rule's own plan, so it is inside the grant by
-        // construction — but the check is what keeps that a fact rather than an
-        // argument, and it is the same check every other action passes.
+        /*
+         * The plan's own grant, like every other action's. A draft is derived
+         * only from a `mail.draft` of the plan — which the plan could not carry
+         * without the rule granting that capability — or from a `mail.send`,
+         * whose catalogue takes no body: there is no text, and this returns
+         * before the grant is ever consulted. So the strict check cannot refuse
+         * a draft that exists.
+         */
         allowed,
       },
       { beforeAction: this.leavingProcessFence(store, claim) },
@@ -4004,7 +4008,7 @@ function renderEmail(heading: string, view: AgentEmailView): string {
    * A body is the sender's, and a sender chooses its size. What the model is
    * handed is the beginning of it, bounded like every other reading
    * (`DOCUMENT_TEXT_MAX`), so a message that arrives as hundreds of megabytes
-   * cannot take the prompt — and the process — with it.
+   * cannot become a prompt of the same size.
    */
   const body = cutAtCeiling(view.body ?? "");
   return [

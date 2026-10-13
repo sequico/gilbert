@@ -252,7 +252,9 @@ export const DOCUMENT_TEXT_MAX = 200_000;
  * One rule for every kind's text: a document is read from its start, and what a
  * run is handed is the beginning of it rather than a selection nobody asked
  * for. Exported because a message's own body is a text handed to the model the
- * same way, and one ceiling for all of it is what keeps the prompt finite.
+ * same way: this is the ceiling for a document's text and for a message body,
+ * while a body read through a lookup is bounded tighter and sooner
+ * (`AGENT_LOOKUP_TEXT_MAX`).
  */
 export function cutAtCeiling(text: string): { text: string; truncated: boolean } {
   if (text.length <= DOCUMENT_TEXT_MAX) return { text, truncated: false };
