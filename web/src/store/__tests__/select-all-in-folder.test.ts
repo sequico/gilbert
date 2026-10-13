@@ -264,6 +264,53 @@ describe("a message that sits in several folders at once", () => {
   });
 });
 
+describe("a folder that arrives between the move and its Undo", () => {
+  /*
+   * A server-side filter or another device can file the same message in a
+   * folder while the move is on its way back. The move named two folders --
+   * where it came from and where it went -- and the Undo is the inverse of that
+   * move, so a folder it never touched keeps its membership: writing `null`
+   * over it would drop the message out of a folder the reader never asked to
+   * leave.
+   */
+  it("keeps the folder the move never named", async () => {
+    const s = server(2);
+    useMail.setState({
+      emails: {
+        e0: {
+          id: "e0",
+          threadId: "t0",
+          keywords: {},
+          mailboxIds: { [INBOX]: true },
+        },
+      } as never,
+    });
+    await useMail.getState().move(["e0"], ARCHIVE);
+    useMail.setState((st) => ({
+      emails: {
+        ...st.emails,
+        e0: {
+          ...st.emails.e0!,
+          mailboxIds: { [ARCHIVE]: true, mbProject: true },
+        },
+      },
+    }));
+
+    const undo = useToasts.getState().toasts[0]?.action;
+    await undo!.onClick();
+
+    // Archive away, Inbox back — and nothing at all about Project.
+    expect(Object.entries(s.updates[1]!)[0]![1]).toEqual({
+      [`mailboxIds/${ARCHIVE}`]: null,
+      [`mailboxIds/${INBOX}`]: true,
+    });
+    expect(useMail.getState().emails.e0?.mailboxIds).toEqual({
+      [INBOX]: true,
+      mbProject: true,
+    });
+  });
+});
+
 describe("the wider selection does not outlive the action that used it", () => {
   it("is dropped after a move, so the next action does not silently reach the folder again", async () => {
     server(2);

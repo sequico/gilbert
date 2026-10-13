@@ -203,6 +203,45 @@ describe("the reader's own mailbox", () => {
   });
 });
 
+describe("a subscription write that is refused", () => {
+  /*
+   * A refusal is not the end of it: the write is what makes the group readable
+   * in every client but this one, so it is asked again on the next read of the
+   * tree. What is held back is the report, once per outage.
+   */
+  it("is asked again on the next read of the tree", async () => {
+    const tree = groupTree();
+    const updates: string[][] = [];
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    let mode: "fail" | "ok" = "fail";
+    vi.spyOn(client, "call").mockImplementation((async (
+      method: string,
+      args: Record<string, unknown>,
+    ) => {
+      if (method === "Mailbox/get")
+        return { accountId: "gg", state: "1", list: Object.values(tree), notFound: [] };
+      if (method === "Mailbox/set") {
+        if (mode === "fail") throw new Error("refused");
+        updates.push(Object.keys((args.update ?? {}) as Record<string, unknown>));
+        return { accountId: "gg", oldState: "1", newState: "2" };
+      }
+      return { accountId: "gg", state: "1", list: [], notFound: [] };
+    }) as never);
+
+    await useMail.getState().refreshAccountTree("gg");
+    await flush();
+    // The first read was refused, so nothing was written...
+    expect(updates).toEqual([]);
+
+    // ...and the next one asks again rather than giving the group up for the
+    // rest of the session.
+    mode = "ok";
+    await useMail.getState().refreshAccountTree("gg");
+    await flush();
+    expect(updates).toEqual([["a", "l", "t"]]);
+  });
+});
+
 describe("a folder tree that cannot be read", () => {
   it("keeps the tree on screen and says so once for the outage", async () => {
     const tree = { a: box("a", "Inbox", null, true) };

@@ -53,7 +53,7 @@ import { labelsForAccount } from "../groupLabels";
 import { useSession } from "../session";
 import { settings, useSettings } from "../settings";
 import { useSieve } from "../sieve";
-import { releaseBodies, resetBodyOrder, touchBodies } from "./bodies";
+import { releaseBodies, releaseHeld, resetBodyOrder, touchBodies } from "./bodies";
 import { ensureFolderPath, folderRefs, rememberedMailAccount } from "./folders";
 import {
   EMPTY_IDENTITIES,
@@ -448,6 +448,7 @@ export const useMail = create<MailState>((set, get) => ({
     // A fresh window replaces whatever was on screen, so a page still on its
     // way for the old one is told to drop its answer.
     listEpoch++;
+    const epoch = listEpoch;
     set({
       list: {
         ...q,
@@ -472,6 +473,16 @@ export const useMail = create<MailState>((set, get) => ({
         settings().pageSize,
       );
       if (get().list?.key !== key) return;
+      /*
+       * A delete landed while this window was being read: the answer was
+       * computed before it, so it is read again rather than shown -- which also
+       * brings the loading flag down instead of leaving it up over an empty
+       * list.
+       */
+      if (epoch !== listEpoch) {
+        void get().refreshList();
+        return;
+      }
       set((s) => ({
         list: s.list
           ? {
@@ -552,11 +563,18 @@ export const useMail = create<MailState>((set, get) => ({
     // A full read supersedes any page still on its way: the generation moves so
     // that page drops its answer instead of appending over this one.
     listEpoch++;
+    const epoch = listEpoch;
     try {
       const limit = Math.max(settings().pageSize, l.ids.length);
       const { ids, total, queryState } = await runQuery(accountId, l, 0, limit);
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
+      /*
+       * A delete landed while this read was on its way: `destroy` moved the
+       * generation, and the ids it came back with name the message the reader
+       * just removed. The list on screen is left as the delete left it.
+       */
+      if (epoch !== listEpoch) return;
       set({
         list: {
           ...cur,
@@ -771,6 +789,9 @@ export const useMail = create<MailState>((set, get) => ({
     if (!accountId || !ids.length) return { ok: true };
     const { emails, mailboxes } = get();
     const prev: Record<Id, Record<Id, boolean>> = {};
+    // The folder this move puts each message into: the one folder its Undo may
+    // take it back out of (see `restoreMailboxPatch`).
+    const added: Record<Id, Id> = {};
     const update: Record<Id, Record<string, unknown>> = {};
     /*
      * Undo restores the folders each message was in, which can only be offered
@@ -790,6 +811,7 @@ export const useMail = create<MailState>((set, get) => ({
       const e = emails[id];
       if (!e) undoable = false;
       prev[id] = e?.mailboxIds ?? {};
+      added[id] = toMailboxId;
       update[id] = moveMailboxPatch(prev[id]!, toMailboxId, from);
     }
     // optimistic
@@ -820,7 +842,7 @@ export const useMail = create<MailState>((set, get) => ({
             ? undefined
             : {
                 label: "Undo",
-                onClick: moveUndo(ids, prev, accountId, set, get),
+                onClick: moveUndo(ids, prev, added, accountId, set, get),
               },
         });
       }
@@ -918,6 +940,13 @@ export const useMail = create<MailState>((set, get) => ({
       toast.error(refusalSentence(refused));
       return { ok: false, code: refused };
     }
+    /*
+     * The window moves here too: a list read already on its way was computed
+     * before this delete reached the server, so its answer names a message that
+     * is gone and must be dropped rather than written back over the removal
+     * below (see `listEpoch`).
+     */
+    listEpoch++;
     removeFromList(ids, set, get, null);
     set((s) => {
       const next = { ...s.emails };
@@ -1071,8 +1100,15 @@ export const useMail = create<MailState>((set, get) => ({
       };
     try {
       await setEmails(accountId, kw);
-    } catch {
-      /* keyword may be rejected; still move */
+    } catch (err) {
+      /*
+       * A server that refuses `$junk` still takes the move, so the message is
+       * filed either way -- but the keyword is what makes it spam, and a report
+       * of the move alone would say the action succeeded when half of it did
+       * not. Said the way this store says a refused keyword write everywhere
+       * else.
+       */
+      toast.error(t("Could not update: {error}", { error: (err as Error).message }));
     }
     return get().move(ids, target, { label: isSpam ? "Junk Mail" : "Inbox" });
   },
@@ -2077,9 +2113,10 @@ let changesReported = false;
 /**
  * The current list window's generation.
  *
- * A full read (`refreshList`, or a fresh `query`) moves it, so a page that was
- * already on its way for the previous window drops its answer instead of
- * appending over the new one.
+ * A full read (`refreshList`, or a fresh `query`) moves it, and so does a
+ * `destroy`: a page that was already on its way drops its answer instead of
+ * appending over the new window, and a list read computed before a delete drops
+ * its answer instead of putting the deleted message back on screen.
  */
 let listEpoch = 0;
 
@@ -2127,6 +2164,13 @@ async function runQueryOnce(
   position: number,
   limit: number,
 ) {
+  /*
+   * The window this answer belongs to, read when the request is issued. A
+   * delete -- or a read that started later -- moves the generation while it is
+   * on its way, and the ids this answer carries were computed before that
+   * happened, so they are not written back (see `listEpoch`).
+   */
+  const epoch = listEpoch;
   const calls: Array<[string, Record<string, unknown>, string]> = [
     [
       "Email/query",
@@ -2175,19 +2219,37 @@ async function runQueryOnce(
   const emailsRes = res.get("e")?.[0] as unknown as GetResponse<Email>;
   const threadsRes = res.get("t")?.[0] as unknown as GetResponse<Thread> | undefined;
   const threadEmails = res.get("te")?.[0] as unknown as GetResponse<Email> | undefined;
+  const answer = {
+    ids: query.ids,
+    total: query.total ?? query.ids.length,
+    queryState: query.queryState,
+  };
+  /*
+   * A delete -- or a read that started later -- moved the generation while this
+   * request was on its way, so the ids above were computed before it: the answer
+   * is not written back (see `listEpoch`).
+   */
+  if (epoch !== listEpoch) return answer;
   useMail.setState((s) => {
     const emails = { ...s.emails };
     for (const e of emailsRes.list) emails[e.id] = { ...emails[e.id], ...e };
     for (const e of threadEmails?.list ?? []) emails[e.id] = { ...emails[e.id], ...e };
     const threads = { ...s.threads };
     for (const t of threadsRes?.list ?? []) threads[t.id] = t;
-    return { emails, threads, emailState: s.emailState ?? emailsRes.state };
+    /*
+     * The window the caller is about to put on screen is what is kept, since
+     * `s.list` is still the one being replaced: its ids are the rows, and the
+     * conversation messages fetched beside them are what a collapsed row draws.
+     */
+    return {
+      ...releaseHeld({ ...s, emails, threads }, [
+        ...(query.ids ?? []),
+        ...(threadEmails?.list ?? []).map((e) => e.id),
+      ]),
+      emailState: s.emailState ?? emailsRes.state,
+    };
   });
-  return {
-    ids: query.ids,
-    total: query.total ?? query.ids.length,
-    queryState: query.queryState,
-  };
+  return answer;
 }
 
 /**

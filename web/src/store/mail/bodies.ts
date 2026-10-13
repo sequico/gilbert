@@ -1,4 +1,4 @@
-import type { Email, Id } from "@/jmap/types";
+import type { Email, Id, Thread } from "@/jmap/types";
 import { LIST_PROPS, type MailState } from "./types";
 
 /*
@@ -60,4 +60,45 @@ export function releaseBodies(s: MailState): MailState | Partial<MailState> {
 /** Forget what is held: for an account switch, where none of it applies. */
 export function resetBodyOrder(): void {
   bodyOrder.length = 0;
+}
+
+/**
+ * Let go of the messages and conversations nothing on screen needs.
+ *
+ * `emails` and `threads` hold what the list and the reading pane draw, and
+ * nothing else: what the list draws is its own ids and the messages of the
+ * conversations those rows belong to, what the reading pane draws is the open
+ * conversation, and what it is still showing while the next one loads is
+ * `lastThreadEmailIds`. `keep` names whatever else the caller knows is about to
+ * be on screen — the window it has just read. Everything else belongs to a
+ * window that has moved on, and is fetched again if it is ever shown.
+ */
+export function releaseHeld(
+  s: MailState,
+  keep: Iterable<Id>,
+): Pick<MailState, "emails" | "fullIds" | "threads"> {
+  const held = new Set<Id>(keep);
+  for (const id of s.list?.ids ?? []) held.add(id);
+  for (const id of s.lastThreadEmailIds) held.add(id);
+  const open = s.openThreadId ? s.threads[s.openThreadId] : undefined;
+  for (const id of open?.emailIds ?? []) held.add(id);
+  const emails: Record<Id, Email> = {};
+  const fullIds: Record<Id, true> = {};
+  const threads: Record<Id, Thread> = {};
+  for (const [id, email] of Object.entries(s.emails)) {
+    if (!held.has(id)) continue;
+    emails[id] = email;
+    if (s.fullIds[id]) fullIds[id] = true;
+    const thread = s.threads[email.threadId];
+    if (thread) threads[thread.id] = thread;
+  }
+  if (open) threads[open.id] = open;
+  /*
+   * A body kept for a message that is no longer held would be dropped by the
+   * next full read and, until then, drawn without one: the order bodies are
+   * released in follows what is held.
+   */
+  for (let i = bodyOrder.length - 1; i >= 0; i--)
+    if (!held.has(bodyOrder[i]!)) bodyOrder.splice(i, 1);
+  return { emails, fullIds, threads };
 }

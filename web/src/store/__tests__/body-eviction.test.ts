@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import type { Email, Id } from "@/jmap/types";
+import type { Email, EmailFilter, Id } from "@/jmap/types";
 import { BODIES_KEPT, LIST_PROPS, resetBodyOrder, useMail } from "@/store/mail";
 
 /**
@@ -130,5 +130,70 @@ describe("bodies past the limit are let go of", () => {
     const released = Object.keys(s.emails).filter((id) => !s.fullIds[id] && id !== "e0");
     expect(released.length).toBeGreaterThan(0);
     expect(released).not.toContain("e1");
+  });
+});
+
+/**
+ * How much of the mail store's memory the messages account for.
+ *
+ * The same bound as the bodies, one level down: what stays in `emails` and
+ * `threads` is what the list draws and what the reading pane is showing, so
+ * what a window has moved past — a folder the reader left, a conversation
+ * closed — is fetched again if it is ever shown.
+ */
+describe("messages the list has moved past are let go of", () => {
+  const listOf = (ids: string[]) =>
+    ({
+      key: "k",
+      filter: { inMailbox: "mb1" } as EmailFilter,
+      sort: [],
+      collapseThreads: false,
+      mailboxId: "mb1",
+      label: undefined,
+      ids,
+      total: ids.length,
+      queryState: "q0",
+      loading: false,
+      loadingMore: false,
+      error: null,
+      exhausted: true,
+    }) as never;
+
+  it("keeps the window and the open conversation, and drops the rest", async () => {
+    useMail.setState({
+      accountId: A,
+      emails: {
+        e0: email("e0", "t0"), // a folder the list has left
+        e1: email("e1", "t1"), // a row of the window being read
+        e2: email("e2", "t2"), // the conversation that is open...
+        e3: email("e3", "t2"), // ...and its other message
+      },
+      threads: {
+        t0: { id: "t0", emailIds: ["e0"] },
+        t1: { id: "t1", emailIds: ["e1"] },
+        t2: { id: "t2", emailIds: ["e2", "e3"] },
+      } as never,
+      list: listOf(["e0"]),
+      openThreadId: "t2",
+      lastThreadEmailIds: [],
+    });
+    vi.spyOn(client, "chain").mockResolvedValue(
+      new Map([
+        ["q", [{ ids: ["e1"], total: 1, queryState: "q1" }]],
+        ["e", [{ list: [email("e1", "t1")], state: "s1" }]],
+      ]) as never,
+    );
+
+    await useMail.getState().query({
+      key: "",
+      filter: { inMailbox: "mb1" },
+      sort: [],
+      collapseThreads: false,
+      mailboxId: "mb1",
+    });
+
+    const s = useMail.getState();
+    expect(Object.keys(s.emails).sort()).toEqual(["e1", "e2", "e3"]);
+    expect(Object.keys(s.threads).sort()).toEqual(["t1", "t2"]);
   });
 });

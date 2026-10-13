@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import type { Email, EmailFilter } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 
 /**
  * Loading the next page of a moving window.
@@ -93,6 +94,41 @@ describe("the window moved between pages", () => {
     await useMail.getState().loadMore();
 
     expect(useMail.getState().list?.ids).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("a delete racing the window's own read", () => {
+  /*
+   * The query was computed before the delete reached the server, so its answer
+   * still names the message the reader just removed. The generation the read
+   * was issued under is what the answer is checked against, and `destroy` moves
+   * it -- so the answer is dropped rather than putting the row back.
+   */
+  it("drops the read's answer instead of putting the message back", async () => {
+    listOn(["a", "b"], "q1");
+    useSession.setState({
+      session: { accounts: {}, primaryAccounts: {}, gilbert: { isAdmin: true } } as never,
+    });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((res) => {
+      release = res;
+    });
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      await gate;
+      return answer(["a", "b", "gone"], "q1");
+    }) as never);
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/set") return { destroyed: ["gone"] };
+      return { list: [], state: "s1", notFound: [] };
+    }) as never);
+
+    const read = useMail.getState().refreshList();
+    await useMail.getState().destroy(["gone"]);
+    release();
+    await read;
+
+    expect(Object.keys(useMail.getState().emails).sort()).toEqual(["a", "b"]);
+    expect(useMail.getState().list?.ids).toEqual(["a", "b"]);
   });
 });
 

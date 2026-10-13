@@ -125,16 +125,25 @@ export function patchMailboxIds(
 /**
  * The per-folder patch that puts a message back in exactly the folders it had
  * before (`prev`), undoing a move's per-folder patch over whatever it sits in
- * now. Written as patch paths like every other writer, so the undo cannot
- * drop a folder the move never touched.
+ * now (`cur`).
+ *
+ * `added` names the folder the move put the message into, and it is the only
+ * folder this patch may write away: a folder the message gained on its own — a
+ * server-side copy rule, another device — is left exactly as it is, because
+ * writing `null` over it would drop the message out of a folder the move never
+ * touched.
  */
 export function restoreMailboxPatch(
   prev: Record<Id, boolean>,
   cur: Record<Id, boolean>,
+  added: Iterable<Id>,
 ): Record<string, unknown> {
+  const moved = new Set(added);
   const patch: Record<string, unknown> = {};
-  for (const f of new Set([...Object.keys(prev), ...Object.keys(cur)]))
+  for (const f of new Set([...Object.keys(prev), ...Object.keys(cur)])) {
+    if (!prev[f] && !moved.has(f)) continue;
     patch[`mailboxIds/${f}`] = prev[f] ? true : null;
+  }
   return patch;
 }
 

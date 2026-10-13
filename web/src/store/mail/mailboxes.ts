@@ -62,17 +62,21 @@ export function adoptMailboxes(accountId: Id, list: Mailbox[]): Record<Id, Mailb
 export const subscribing = new Map<Id, Promise<void>>();
 
 /**
- * Accounts whose subscription write was refused, for this session.
+ * Accounts whose failed subscription write has already been reported.
  *
  * A member may write `isSubscribed` on a folder of their group (ADR 0021,
  * confirmed live on 0.16.23, 2026-09-24), but Stalwart is of two minds about the
  * field elsewhere -- it accepts the write on a calendar shared read-only and
- * refuses it on an address book -- so a refusal is still remembered rather than
- * repeated: a member on a server that refused would otherwise have a failing
- * request on every read of the tree, and the tree itself is drawn whole either
- * way.
+ * refuses it on an address book -- so a refusal is possible even where the
+ * folder is the member's to read. It is asked again on every read of the tree,
+ * because a member whose folders are unsubscribed is a member whose group reads
+ * as empty in every other client: one transient refusal must not leave it so
+ * for the session. Only the *report* is held back, in the shape `loadMailboxes`
+ * uses for a failed tree read, so a server that refuses persistently warns once
+ * per outage rather than on every read; a write that lands clears the entry, so
+ * a later refusal is news again.
  */
-export const subscriptionsRefused = new Set<Id>();
+export const subscriptionsReported = new Set<Id>();
 
 /**
  * The folders of a group the member is owed a subscription to, written once.
@@ -86,7 +90,7 @@ export const subscriptionsRefused = new Set<Id>();
  * which is also what makes it cover a folder that appeared a moment ago.
  */
 export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
-  if (subscriptionsRefused.has(accountId) || subscribing.has(accountId)) return;
+  if (subscribing.has(accountId)) return;
   const missing = unsubscribedFolders(tree);
   if (!missing.length) return;
   const run = (async () => {
@@ -96,11 +100,14 @@ export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void
         for (const id of part) update[id] = { isSubscribed: true };
         await client.call<SetResponse>("Mailbox/set", { accountId, update });
       }
+      subscriptionsReported.delete(accountId);
     } catch (err) {
-      subscriptionsRefused.add(accountId);
-      console.warn(
-        `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
-      );
+      if (!subscriptionsReported.has(accountId)) {
+        subscriptionsReported.add(accountId);
+        console.warn(
+          `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
+        );
+      }
     } finally {
       subscribing.delete(accountId);
     }
@@ -197,10 +204,19 @@ export async function moveToDestinations(
     prev[id] = get().emails[id]?.mailboxIds ?? {};
   }
 
+  /*
+   * Where each message was moved into, so the Undo can write away exactly that
+   * folder and leave alone any other the message sits in (see
+   * `restoreMailboxPatch`).
+   */
+  const added: Record<Id, Id> = {};
   const names: string[] = [];
   for (const [target, group] of targets) {
     const outcome = await get().move(group, target, { silent: true });
-    if (outcome.ok) names.push(nameOf(target));
+    if (outcome.ok) {
+      names.push(nameOf(target));
+      for (const id of group) added[id] = target;
+    }
   }
   /*
    * Nothing went: every move was refused, and what refused them is already
@@ -216,7 +232,7 @@ export async function moveToDestinations(
   toast.show(movedTo(ids.length, where), {
     action: !undoable
       ? undefined
-      : { label: "Undo", onClick: moveUndo(ids, prev, accountId, set, get) },
+      : { label: "Undo", onClick: moveUndo(ids, prev, added, accountId, set, get) },
   });
   void get().loadMailboxes();
   return { ok: true };
@@ -228,11 +244,13 @@ export async function moveToDestinations(
  * `move` and `moveToDestinations` each end by putting every message back in the
  * folders it was in and refreshing what the list and the sidebar show; a change
  * to the Undo has to reach both, so it is one function rather than two copies
- * that agree today.
+ * that agree today. `added` is the folder each message was moved into, which is
+ * the one folder the restore may take it out of.
  */
 export function moveUndo(
   ids: Id[],
   prev: Record<Id, Record<Id, boolean>>,
+  added: Record<Id, Id>,
   accountId: Id,
   set: (fn: (s: MailState) => Partial<MailState>) => void,
   get: () => MailState,
@@ -240,7 +258,11 @@ export function moveUndo(
   return async () => {
     const undo: Record<Id, Record<string, unknown>> = {};
     for (const id of ids)
-      undo[id] = restoreMailboxPatch(prev[id]!, get().emails[id]?.mailboxIds ?? {});
+      undo[id] = restoreMailboxPatch(
+        prev[id]!,
+        get().emails[id]?.mailboxIds ?? {},
+        added[id] ? [added[id]!] : [],
+      );
     await setEmails(accountId, undo);
     set((s) => {
       const next = { ...s.emails };

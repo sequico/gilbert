@@ -82,17 +82,20 @@ that write does.**
   that covers the folders that were already there, without an event to catch.
   One reconciliation runs per account at a time, and the batch is cut by the
   session's own `maxObjectsInSet`.
-- **A refusal is remembered, not retried.** A **member may** write
+- **A refusal is asked again on the next read; only the report is held back.**
+  A **member may** write
   `isSubscribed` on a folder of their group: confirmed live on 0.16.23
   (2026-09-24), `Mailbox/set` with
   `update: {<folder id>: {isSubscribed: true}}` on a folder of a group the
   credential is a member of answers `updated`, and the folder reads back
   subscribed. The client still depends on nothing here — the same tree has read
   the server refuse that field on an address book shared read-only while
-  accepting it on a shared calendar — so a refusal is logged once, remembered
-  for the rest of the session, and the tree is drawn whole either way: a server
-  that refused would cost every client but this one, never the reader looking at
-  it.
+  accepting it on a shared calendar — so the tree is drawn whole either way, and
+  a refusal costs every client but this one. What it may not do is persist: a
+  member whose folders stay unsubscribed is a member whose group reads as empty
+  in every other client, so one transient refusal must not last out the session.
+  The write is asked again on every read of the tree, and only the log is held
+  back — once per outage, not once per read.
 - **In a group nothing is hidden per user.** *Hide from list* is not offered on
   a group's folder (the tree does not read the field, so hiding one would do
   nothing to this client), which is also why setting the field for a member
