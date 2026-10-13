@@ -223,6 +223,23 @@ describe("importing a settings file", () => {
        other unknown key. */
     expect(s.notARealSetting).toBeUndefined();
   });
+
+  it("keeps a device key, where the account's own file drops it", () => {
+    /*
+     * One schema reads both documents, and the device-key rule is the one
+     * difference between them: an imported file is this device's own copy, so
+     * the pane width it carries is the one to keep, while the account's file is
+     * shared with every machine and a device key in it is an older build's
+     * leak. A reader that forgot the difference loses one of the two.
+     */
+    expect(
+      useSettings.getState().importJson(JSON.stringify({ density: "compact" })),
+    ).toBe(true);
+    expect(useSettings.getState().settings.density).toBe("compact");
+    // `hydrate` is the account's file: the same key there is not applied.
+    useSettings.getState().hydrate({ density: "cozy" });
+    expect(useSettings.getState().settings.density).toBe("compact");
+  });
 });
 
 describe("folder colours", () => {

@@ -458,19 +458,36 @@ export function isSettingsKey(key: string): boolean {
 }
 
 /**
+ * The settings a document may contribute, read through one schema.
+ *
+ * Every reader of a settings document goes through this, so a rule added here
+ * cannot reach one of them and miss the other: the keys `DEFAULT_SETTINGS`
+ * names, no `undefined` value, and — for a document that is not this device's
+ * own — no device key. A device key in the account's file is an older build's
+ * leak and is dropped; in this device's cache it is the entry that makes the
+ * pane width right on the next first frame, and is kept.
+ */
+function settingsFromDocument(
+  raw: Record<string, unknown>,
+  deviceKeys: "keep" | "drop",
+): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!isSettingsKey(key)) continue;
+    if (value === undefined) continue;
+    if (deviceKeys === "drop" && DEVICE_KEYS.has(key as keyof Settings)) continue;
+    out[key] = value;
+  }
+  return migratedThemeFields(out) as Partial<Settings>;
+}
+
+/**
  * What of a settings file we are willing to apply: known keys only, and never
  * a device one — an older Gilbert wrote the whole object up, and that file
  * should not now drag another machine's pane width across.
  */
 export function acceptRemote(remote: Record<string, unknown>): Partial<Settings> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(remote)) {
-    if (!isSettingsKey(key)) continue;
-    if (DEVICE_KEYS.has(key as keyof Settings)) continue;
-    if (value === undefined) continue;
-    out[key] = value;
-  }
-  return migratedThemeFields(out) as Partial<Settings>;
+  return settingsFromDocument(remote, "drop");
 }
 
 /**
@@ -592,16 +609,8 @@ interface SettingsState {
  */
 const initialSettings = {
   ...DEFAULT_SETTINGS,
-  ...knownSettings(loadJson<Record<string, unknown>>("settings", {})),
+  ...settingsFromDocument(loadJson<Record<string, unknown>>("settings", {}), "keep"),
 };
-
-/** The keys of `DEFAULT_SETTINGS`, and nothing else: the schema is that list. */
-function knownSettings(raw: Record<string, unknown>): Partial<Settings> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(raw))
-    if (isSettingsKey(key) && value !== undefined) out[key] = value;
-  return migratedThemeFields(out) as Partial<Settings>;
-}
 
 /**
  * The settings with `theme` brought back into line.
@@ -775,7 +784,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * reader that did not ask the schema. The migration is kept, so an export
        * from before palettes still imports as the palette and mode it means.
        */
-      return get().update(knownSettings(parsed)) === null;
+      return get().update(settingsFromDocument(parsed, "keep")) === null;
     } catch {
       return false;
     }
