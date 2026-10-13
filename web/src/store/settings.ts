@@ -555,8 +555,27 @@ interface SettingsState {
    * not, so a caller can say why nothing moved. A policy nobody could read is
    * not a policy that enforces nothing, and the patch is refused rather than
    * applied as though the installation had decided nothing.
+   *
+   * `push: false` applies a value without queueing it for the account's file.
+   * It exists for the one session that has no document to write against — the
+   * account's `settings.json` is there and could not be read — where the
+   * installation's enforced settings still hold in memory but a queued write
+   * would land this device's copy over a file nobody could read.
    */
-  update(patch: Partial<Settings>): SettingsWriteRefusal | null;
+  update(
+    patch: Partial<Settings>,
+    opts?: { push?: boolean },
+  ): SettingsWriteRefusal | null;
+  /**
+   * The installation's enforced settings, applied in memory and never written.
+   *
+   * For a session whose account document could not be read: the account's own
+   * values stay as the cache or the defaults left them rather than being
+   * replaced by a guess, and the enforced set is the one thing that still
+   * holds — it is the installation's, not the account's, so a blob that would
+   * not download must not quietly un-enforce it (issue #207's guarantee).
+   */
+  enforcePolicy(): void;
   /**
    * Back to how this installation starts an account.
    *
@@ -659,7 +678,7 @@ applyDateTimePrefs(initialSettings);
 
 export const useSettings = create<SettingsState>((set, get) => ({
   settings: initialSettings,
-  update(patch) {
+  update(patch, opts) {
     /*
      * A policy nobody could read is not a policy that enforces nothing, and
      * `policyEnforced()` cannot tell them apart: it answers `{}` for both, so a
@@ -689,12 +708,25 @@ export const useSettings = create<SettingsState>((set, get) => ({
     applyTheme(settings);
     applyDateTimePrefs(settings);
     applyLang(settings);
-    // Dragging a splitter changes a device key on every frame and must not put
-    // a request in the air; anything else is queued and coalesced.
-    if (Object.keys(patch).some((k) => !DEVICE_KEYS.has(k as keyof Settings))) {
+    /*
+     * Dragging a splitter changes a device key on every frame and must not put
+     * a request in the air; anything else is queued and coalesced. `push: false`
+     * is the caller saying there is no document to write against (see the
+     * interface), and it is not a licence to skip the door: the patch still
+     * went through this one.
+     */
+    if (
+      opts?.push !== false &&
+      Object.keys(patch).some((k) => !DEVICE_KEYS.has(k as keyof Settings))
+    ) {
       queueSettingsPush(syncedPart(settings));
     }
     return null;
+  },
+  enforcePolicy() {
+    const enforced = policyEnforced();
+    if (!Object.keys(enforced).length) return;
+    get().update(enforced, { push: false });
   },
   seedFromPolicy() {
     const defaults = policyDefaults();

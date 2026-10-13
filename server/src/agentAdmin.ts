@@ -128,7 +128,7 @@ import {
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
-import { isRecord } from "./shared/json.js";
+import { isRecord, stableJson } from "./shared/json.js";
 import { AGENT_LABELS, DRAFT_KEYWORD } from "./shared/labels.js";
 import {
   fetchUpstreamSession,
@@ -993,18 +993,6 @@ function sameRuleContent(a: AgentRule, b: AgentRule): boolean {
     return stableJson(rest);
   };
   return content(a) === content(b);
-}
-
-/** JSON with object keys in a stable order, so two documents compare by content. */
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
-  }
-  return JSON.stringify(value) ?? "null";
 }
 
 /* ------------------------------------------------------------------ */

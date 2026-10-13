@@ -75,7 +75,9 @@ function readInt(
  *
  * A value outside the range is a refused boot rather than a `listen()` that
  * fails later with less to say; `allowZero` is what separates an endpoint that
- * may be switched off from one that may not.
+ * may be switched off from one that may not. The range is stated in the
+ * refusal, because this is the whole of what a developer sees: the
+ * configuration is built at the import of `config.ts`.
  */
 function readPort(
   environment: InstallationEnvironment,
@@ -84,10 +86,32 @@ function readPort(
   allowZero = false,
 ): number {
   const value = readInt(environment, name, fallback);
-  if (value < (allowZero ? 0 : 1) || value > 65535)
+  const least = allowZero ? 0 : 1;
+  if (value < least || value > 65535)
     throw new Error(
-      `Invalid port for ${name}: ${value}${allowZero ? " (0 switches it off)" : ""}`,
+      `Invalid port for ${name}: ${value} is not between ${least} and 65535${allowZero ? " (0 switches it off)" : ""}`,
     );
+  return value;
+}
+
+/**
+ * An integer with a floor, where a value below it is a refused boot.
+ *
+ * The installation's own document refuses a duration below its minimum rather
+ * than flooring it (`readAtLeast`, `shared/installation.ts`), and the two paths
+ * must not disagree: a stated zero or negative number is a typo, not a request
+ * for a timer that fires a thousand times a second, and quieting it to one
+ * millisecond would honour neither reading.
+ */
+function readIntAtLeast(
+  environment: InstallationEnvironment,
+  name: string,
+  fallback: number,
+  least: number,
+): number {
+  const value = readInt(environment, name, fallback);
+  if (value < least)
+    throw new Error(`Invalid value for ${name}: ${value} is below ${least}`);
   return value;
 }
 
@@ -201,18 +225,17 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * this is deliberately unhurried: a minute of latency on a lost stream is
      * far cheaper than a minute of hammering Stalwart.
      *
-     * Floored at one, like the installation's own bound (`readBound`,
-     * `shared/installation.ts`): a deployment that states zero or a negative
-     * number here would otherwise get a timer that fires at once and for ever.
+     * A value below one is refused, like the installation's own bound
+     * (`readBound`, `shared/installation.ts`): a stated zero would otherwise be
+     * a timer that fires at once and for ever.
      */
-    pollMs: Math.max(
-      1,
-      readInt(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll),
-    ),
+    pollMs: readIntAtLeast(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll, 1),
     /* How often a working agent says it is alive, in its claims and heartbeat. */
-    heartbeatMs: Math.max(
+    heartbeatMs: readIntAtLeast(
+      environment,
+      "GILBERT_AGENT_HEARTBEAT_MS",
+      defaults.agent.heartbeat,
       1,
-      readInt(environment, "GILBERT_AGENT_HEARTBEAT_MS", defaults.agent.heartbeat),
     ),
     /*
      * How long a claim may go un-renewed before another agent takes it over.
@@ -220,13 +243,15 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * model call or wait on a person, and a takeover that fires during a
      * legitimate pause would run the same job twice.
      *
-     * Floored for the same reason as the poll: a negative lease makes every
-     * claim stale the instant it is written, which is a takeover storm rather
-     * than a lifetime.
+     * Refused below one for the same reason as the poll: a negative lifetime
+     * makes every claim stale the instant it is written, which is a takeover
+     * storm rather than a lifetime.
      */
-    leaseMs: Math.max(
+    leaseMs: readIntAtLeast(
+      environment,
+      "GILBERT_AGENT_LEASE_MS",
+      defaults.agent.lease,
       1,
-      readInt(environment, "GILBERT_AGENT_LEASE_MS", defaults.agent.lease),
     ),
     /*
      * Where the agent answers a health probe, or 0 for no endpoint at all.

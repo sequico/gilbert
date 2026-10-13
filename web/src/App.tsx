@@ -250,16 +250,23 @@ function AuthedApp() {
       if (cancelled) return;
       const remote = await loadRemoteSettings();
       if (cancelled) return;
-      if (remote.kind === "ok") useSettings.getState().hydrate(remote.doc);
       /*
-       * Seed only an account the server says has no settings file. A file that
+       * Seed only an account the server says has no settings file: a file that
        * is there and could not be read is not an empty account, and seeding it
-       * would queue a write of this device's copy over the account's own
-       * (`seedFromPolicy` goes through `update`, which queues). Left alone, the
-       * cached settings stay in charge and nothing is written — the writer
-       * refuses an unreadable file the same way, so a later edit cannot do it
-       * either.
-       */ else if (remote.kind === "absent") useSettings.getState().seedFromPolicy();
+       * would replace settings nobody could read with this device's copy.
+       */
+      if (remote.kind === "ok") useSettings.getState().hydrate(remote.doc);
+      else if (remote.kind === "absent") useSettings.getState().seedFromPolicy();
+      /*
+       * An unreadable file. The account's own values stay as the cache or the
+       * defaults left them, and the installation's enforced settings are
+       * applied in memory and never written — they are the installation's
+       * rather than the document's, so a blob that would not download must not
+       * quietly un-enforce them (issue #207). One write can still be queued
+       * after this: `applyPolicyChanges` below, for a change this account has
+       * not had. It is refused at the writer like any other and retried, so the
+       * file keeps the values it has until it can be read again.
+       */ else useSettings.getState().enforcePolicy();
       /*
        * After both, and for everybody: a change the installation wants applied
        * once has to reach accounts that already exist, which is the whole of

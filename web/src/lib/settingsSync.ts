@@ -334,7 +334,9 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
      * caller's to report.
      */
     if (read.kind === "unreadable")
-      throw new Error("the settings file could not be read");
+      throw new Error(
+        "the account's settings file could not be read, so nothing was written over it — what you change now stays on this device until it can be read again",
+      );
     /*
      * The queued settings over the document as it reads now. The queued body is
      * the whole synced document — `queueSettingsPush` is handed
