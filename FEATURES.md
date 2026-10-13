@@ -262,6 +262,9 @@ has granted it (ADR 0003). For the full design, see
   own Files — the folder the automation named, else the one the model chose, else
   `Needs attention` rather than loose in the root. A name already taken is that
   person's file: the run writes `2-note.txt` beside it and reports the name.
+  One run takes what it can hold and says so for the rest: a message carrying
+  more attachments than one extraction takes, or an attachment larger than one
+  run reads, is refused in words rather than paid for in memory.
   Gilbert's own documents (automations, jobs, decisions, audit) stay in the hidden
   `gilbert` folder, which the Files view does not look into; a path naming it is
   refused as a destination.

@@ -76,8 +76,11 @@ part are the same shape; the root carries what a part does not.
 - `v` — the schema version, an integer.
 - `uid` — the workorder's id.
 - `name` — the friendly name, on the root; a part does not carry it.
-- `state` — on the root: `running`, `completed`, `cancelled` or `replaced`, and
-  `replacedBy` names the successor's uid when it is `replaced`.
+- `state` — on the root: `running`, `completed`, `cancelled` or `replaced`. A
+  root also carries `replacedBy`, the successor's uid when the state is
+  `replaced`: it is read as part of the shape — a document carrying one is
+  accepted, and a writer preserves it — while no surface names a successor, so
+  no summary publishes it.
 - `checklist` — `{ template, variants, items, steps }`. `template` names the KB
   article and the revision it binds to (ADR 0024). `variants` is the **chosen
   value per variant** and `items` the **chosen items per repeated section**, both
@@ -113,8 +116,9 @@ When a workorder reaches a terminal state — `completed`, `cancelled` or
 `closed/` folder is not a bin: a terminal workorder is **kept for ever**, and
 nothing destroys one. A terminal state **freezes the checklist** — a check
 after the fact is refused — so the record is what was checked while the work
-ran. `replaced` means another workorder succeeds it, named in
-`replacedBy`, and nothing is copied from the one it replaces. The `closed/` **directory node** sits among the active
+ran. `replaced` means another workorder succeeds it; nothing is copied from the
+one it replaces, and `replacedBy` stays empty until a surface names a successor.
+The `closed/` **directory node** sits among the active
 roots in a listing of `workorders/` and is dropped by node type, so the active
 set is the files that remain. The folder is a **projection of the state, not the
 state**: the `state` field is the truth, a root standing in the wrong folder is a
