@@ -13,7 +13,9 @@ import { freePort } from "./testkit.js";
 process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-image-proxy";
 
-const { fetchPinned, imageResponse, isPrivateAddress } = await import("./imageproxy.js");
+const { discardUpstream, fetchPinned, imageResponse, isPrivateAddress } = await import(
+  "./imageproxy.js"
+);
 const { createApp } = await import("./app.js");
 
 /**
@@ -109,6 +111,40 @@ before(async () => {
 after(() => {
   viaName?.close();
   viaPin?.close();
+});
+
+/**
+ * An upstream body the proxy will not use is ended, not read.
+ *
+ * The three early exits — a status that is not 2xx, a content type that is not
+ * an image, a declared length over the cap — answer the client with JSON, and
+ * `done()` has already cleared the fetch's own abort timer by then. Draining the
+ * body would read to the end of whatever the publisher sends, so a public host
+ * with an endless body would hold the request open for as long as it liked.
+ * Destroying the response is what makes that impossible; the assertion is that
+ * the response is gone on the spot, which a `resume()` leaves false.
+ */
+test("an upstream body the proxy will not use is ended, not drained", async () => {
+  const upstream = createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "text/html" });
+    const timer = setInterval(() => res.write(Buffer.alloc(64 * 1024)), 2);
+    res.on("close", () => clearInterval(timer));
+  });
+  await new Promise<void>((r) => upstream.listen(0, PINNED, r));
+  const port = (upstream.address() as AddressInfo).port;
+  try {
+    const res = await fetchPinned(
+      new URL(`http://example.test:${port}/page.html`),
+      PINNED,
+    );
+    let finished = 0;
+    discardUpstream(res, () => finished++);
+    assert.equal(res.destroyed, true, "the upstream response is ended on the spot");
+    assert.ok(finished > 0, "and the fetch's own abort timer is cleared");
+  } finally {
+    upstream.closeAllConnections();
+    upstream.close();
+  }
 });
 
 const read = async (res: IncomingMessage) => {

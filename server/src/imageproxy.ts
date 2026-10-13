@@ -322,26 +322,39 @@ export function imageResponse(
   return new Response(body.pipeThrough(limiter), { status: 200, headers });
 }
 
+/**
+ * End an upstream response the proxy is not going to read, without reading it.
+ *
+ * Half of the checks below answer the client with JSON — a status that is not
+ * 2xx, a content type that is not an image, a declared length over the cap — and
+ * the body behind them is nobody's. Draining it would read to the end of
+ * whatever the publisher sends, and `done()` has already cleared the fetch's own
+ * abort timer, so a public host answering with an endless body would hold the
+ * request open for as long as it liked. Destroying the response closes the
+ * socket on the spot, which is all the caller needs before it answers.
+ */
+export function discardUpstream(res: IncomingMessage, done: () => void): void {
+  done();
+  res.destroy();
+}
+
 export async function imageProxyHandler(c: Context) {
   if (!config.imageProxy) return c.json({ error: "disabled" }, 404);
   const got = await safeFetch(c.req.query("url") ?? "");
   if (typeof got === "string") return c.json({ error: got }, safeFetchStatus(got) as 400);
   const { res, done } = got;
   if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
-    done();
-    res.resume();
+    discardUpstream(res, done);
     return c.json({ error: "fetch_failed" }, 502);
   }
   const type = mediaType(res.headers["content-type"]);
   if (!isInlineImage(type)) {
-    done();
-    res.resume();
+    discardUpstream(res, done);
     return c.json({ error: "not_image" }, 415);
   }
   const len = Number(res.headers["content-length"] ?? "0");
   if (len > MAX_IMAGE_BYTES) {
-    done();
-    res.resume();
+    discardUpstream(res, done);
     return c.json({ error: "too_large" }, 413);
   }
   return imageResponse(
