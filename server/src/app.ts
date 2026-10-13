@@ -79,6 +79,7 @@ import {
   writeProviders,
 } from "./agentAdmin.js";
 import {
+  AppFolderError,
   appFolderState,
   type Ctx,
   ensureAppFolder,
@@ -866,6 +867,16 @@ function upstreamFailureMessage(error: string): string {
  * `upstreamFailureMessage`) rather than the mail server's own message.
  */
 export function upstreamFailure(c: Context, err: unknown) {
+  /*
+   * This server's own refusal about a path is not an upstream failure: an
+   * `AppFolderError` carries its own code and status (`bad_path`, 400), and
+   * answering it as 502 both misnames the cause and tells the caller to retry
+   * something that will never work. Only the 4xx half is taken here — a 5xx
+   * from the same class is an upstream failure wearing it, and keeps the fixed
+   * sentence every other upstream failure gets, with the detail in the log.
+   */
+  if (err instanceof AppFolderError && err.status >= 400 && err.status < 500)
+    return c.json({ error: err.code, message: err.message }, err.status as 400);
   if (err instanceof UpstreamError) {
     // A 403 is a permission and a 404 a missing object: the code keeps the
     // reason the mail server distinguished, rather than collapsing both into a
