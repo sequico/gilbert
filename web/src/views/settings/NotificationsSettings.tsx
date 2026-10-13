@@ -140,6 +140,10 @@ export function NotificationsSettings() {
           onClick={() => {
             showNotification(t("Gilbert test"), {
               body: t("This is what a new-mail notification looks like."),
+              // The one notification asked for from a tab that is necessarily
+              // focused: without this it is held back and the test reads as
+              // broken.
+              evenWhenFocused: true,
             });
             playNewMailSound();
           }}

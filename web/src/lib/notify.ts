@@ -148,8 +148,10 @@ export function showNotification(
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   /*
    * A mail or chat notification over a focused window is the same news twice --
-   * the list has already updated. A calendar reminder is not: the event is not
-   * on screen, so it asks for `evenWhenFocused` and is shown anyway.
+   * the list has already updated. Two callers are not that news: a calendar
+   * reminder, whose event is not on screen, and the Settings test button, which
+   * is pressed in a tab that is necessarily focused. Both ask for
+   * `evenWhenFocused` and are shown anyway.
    */
   if (
     !opts.evenWhenFocused &&

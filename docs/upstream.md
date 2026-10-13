@@ -192,17 +192,36 @@ stands, and a decision moves the row.
 | `33dc8be` | in (adapted: the same rule moved Dutch too) | 64% | Turkish out of Beta: it comes from a native speaker |
 | `f8d282e` | in (adapted to this tree's send flow) | 90% | Never send a message twice; two small composer and sidebar fixes |
 
-## After the newest release
+## The newest release, `v2026.10.11-g1b6b5d0`
 
-`upstream/main` is ahead of `v2026.10.5-g20c32ed` (`20c32ed`) by 6 commits, 3 of
-them work commits (the rest are pull-request merges). Each row records where the
-reading stands, and a decision moves the row.
+Between `v2026.10.5-g20c32ed` (`20c32ed`) and the newest release,
+`v2026.10.11-g1b6b5d0` (`1b6b5d0`), upstream carries 28 commits, 11 of them work
+commits (the rest are pull-request merges). Each row records where the reading
+stands, and a decision moves the row. The overlap column is the share of a
+commit's added identifiers this tree already carries, where it was measured;
+`—` where it was not.
 
 | upstream | disposition | overlap | subject |
 |---|---|---|---|
 | `c1c4740` | in (this tree already counts ten translations) | 90% | Ten translations: count Turkish where the repo states the number |
 | `c6ae1bd` | attribution — not taken (our `NOTICE` names Coffey Labs) | 50% | Name Coffey Labs LLC as the copyright holder |
 | `78eafdb` | process — not taken (SECURITY/CONTRIBUTING/CODE_OF_CONDUCT are ours) | 50% | Send security and conduct reports to Coffey Labs LLC addresses |
+| `3f7433ee` | docs/process — not taken (ours) | — | Say SECURITY.md covers a project in maintenance mode |
+| `7f86167b` | docs/process — not taken (ours) | — | CONTRIBUTING: how to send a change without repository access |
+| `062d709c` | docs — not taken (ours; a badge is a link to upstream, and `NOTICE` is where its addresses live) | — | README: add forum badge |
+| `27548bd7` | docs — not taken (ours; same) | — | README: add Discord link |
+| `15350085` | content — not taken (upstream's funding addresses stay in `NOTICE`) | — | Publish .well-known/funding-manifest-urls |
+| `6303d653` | already ours — `dompurify` is `3.4.16` in `web/package.json`, in the lock and installed | — | web: bump DOMPurify to 3.4.16 (GHSA-p98j-92pf-mc4p) |
+| `c8a259b1` | CI / infra — not taken (GitHub Actions here) | — | ci: discourse-release at fd5fc9f |
+| `480876ed` | build — not taken (this image builds its own bases; a Docker Hub mirror is their build's concern) | — | build: pull base images through mirror.gcr.io |
+| `28822cd2` | **in (adapted: this tree's suppression already takes `evenWhenFocused`, and the test button is the caller that needed it)** | — | Settings: the test notification shows in the tab you're in |
+| `4b0a3dca` | in (already carried: `EventInstance.accountId` reaches every write about an event, and the editor offers the writable shared calendars, labelled with whose they are) | — | Calendar: write shared events in the account that holds them |
+| `18a66114` | diagnosis recorded, not taken for now — a front door that authenticates answers an expired session with a redirect, which a `fetch` reports as a network error; this tree's own front door is Caddy with no sign-in of its own, so nothing here raises that redirect. Rows move when a deployment has one. | — | Sign in again through a front-door proxy when its session ends |
+
+## After the newest release
+
+`upstream/main` is at `v2026.10.11-g1b6b5d0` (`1b6b5d0`) itself: nothing after the
+newest release.
 
 ## Keeping it current
 
