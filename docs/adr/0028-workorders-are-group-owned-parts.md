@@ -167,14 +167,17 @@ at all: an administrator sees every part **without being a member of every
 group**, because the view served is read as the Master, while a member sees the
 global checklist and the parts of their own groups.
 
-What a reader may reach is decided by **group membership alone**: for a part, the
-Master lists `workorders/` in each group the reader belongs to — every group, for
-an administrator — and matches the uid, because the name cannot be asked of the
-server. A root is found in the Master's `workorders/` or in its `closed/`, since
-a terminal state moves it. Nothing lists the parts in the root; the membership is
-the list, and a member's workorders are the union of their groups' parts. The
-Master's own registry is the administrator's index, not the member's: the member
-reaches their groups, not the Master's account.
+What a reader may reach is decided by **group membership alone**: a workorder is
+theirs when the template assigns a section to a group they are in (ADR 0030), so
+the membership is what makes it theirs and not the accident of a part's file
+being readable. For a part, the Master lists `workorders/` in each group the
+reader is competent for — every group, for an administrator — and matches the
+uid, because the name cannot be asked of the server. A root is found in the
+Master's `workorders/` or in its `closed/`, since a terminal state moves it.
+Nothing lists the parts in the root; the membership is the list, and a member's
+workorders are the union of their groups'. The Master's own registry is the
+administrator's index, not the member's: the member reaches their groups, not the
+Master's account.
 
 The door is therefore the **server route**, not the membership: the route answers
 the workorder surface as the Master and decides, per request, whether the caller
@@ -265,7 +268,9 @@ is copied and no marker is planted in a work folder. The Master does every read
 and write: it composes the surface from the root and the parts, an administrator
 sees every part through it, and a member sees the global checklist and their own
 groups' parts, the server route deciding what each caller may reach by their
-group membership alone. A checked step keeps the last signature — who, taken from
+group membership alone — which is also what makes the workorder theirs at all,
+since it is the template's assignment of a section to a group they are in that
+puts them on it. A checked step keeps the last signature — who, taken from
 the authenticated session, and when. Creation is the Master's or an
 administrator's, and no folder tree and no per-file share beside the documents is
 created.
@@ -273,8 +278,12 @@ created.
 ## Consequences
 
 - The boundary is the group membership the route checks, on top of the accounts
-  the parts live in: a part a reader cannot reach is simply not there for them,
-  never an empty part and never a permission error.
+  the parts live in: a workorder is a member's when a group they are in is one the
+  template assigns a section to (ADR 0030), and a part a reader cannot reach is
+  simply not there for them, never an empty part and never a permission error. A
+  part whose document is missing is a **finding the fleet reconciles**, not a
+  workorder that vanishes for its group: the global checklist stays readable to
+  the members the workorder is for.
 - The Master's membership is load-bearing, and where it does not hold for a group
   the surface says so (ADR 0007) rather than showing an empty part.
 - Because the Master writes for everybody, the document is the only record of a
@@ -283,6 +292,11 @@ created.
 - Every check is one write to a small document; `ifInState` is whole-account, so
   the route retries a lost compare-and-set rather than dropping a check under two
   writers racing.
+- A request resolves what it needs **once**: one Master session, one read of the
+  caller's own groups (one live session and one probe pass, not one per group) and
+  one resolution of the bound template revision, shared between the view the read
+  composes and the gate reconcile that follows a write — asking per group paid for
+  the same answer for every group the Master holds.
 - A closed workorder is a **document moved**, not a tree that decides: the root's
   own state is the truth, `closed/` is the projection, and a root in the wrong
   folder is a finding. The move keeps the id, costs one write, and never touches

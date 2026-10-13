@@ -285,7 +285,9 @@ is, not what a user sees.
   agent acts on its own when told to. The Master does every read and write, so an administrator sees every part without
   being a member of every group and a member sees the global checklist and their
   own groups' parts, the door being the server route that checks the caller's
-  membership; each step keeps its **state** (`open`, `done`, `skipped` or
+  membership — a workorder being a member's when the template assigns a section to
+  a group they are in, so a part whose document is missing is a finding, never a
+  workorder that vanishes for its group; each step keeps its **state** (`open`, `done`, `skipped` or
   `not-applicable`) and the last signature, taken from the authenticated session,
   and a friendly name beside the uid. A checklist instantiates a KB template in
   force (ADR 0024) and materialises its applicable steps **by path** (ADR 0030).

@@ -35,9 +35,17 @@ const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
 const { signInAsMaster } = await import("./bootstrap.js");
 const { groupAccountsDetailed } = await import("./agent/actions.js");
-const { ensureFolderPath, fileChildren, filesAccountId, findFolderPath, writeAppFileIn } =
-  await import("./appFolder.js");
+const {
+  destroyAppNode,
+  ensureFolderPath,
+  fileChildren,
+  filesAccountId,
+  findAppFileAt,
+  findFolderPath,
+  writeAppFileIn,
+} = await import("./appFolder.js");
 const { moveRoot, requireState } = await import("./workorderAdmin.js");
+const { fetchUpstreamSession, upstreamFor } = await import("./upstream.js");
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -206,6 +214,46 @@ async function call(path: string, init: RequestInit = {}) {
 }
 
 const post = postWith(call);
+
+/**
+ * A **member's** own session: the mock's agent principal is a member of the
+ * first group and is not an installation administrator, which is what a plain
+ * group member is on this surface (ADR 0028 — a member sees the global
+ * checklist and their own groups' parts, and checks only their own).
+ *
+ * Its cookie is kept apart from the administrator's (`call` keeps that one), so
+ * a test reads the same workorder as both without their sessions colliding.
+ */
+const MEMBER = "gilbert@example.com";
+const MEMBER_PASSWORD = "gilbert-password";
+
+async function loginAs(username: string, password: string): Promise<string> {
+  const res = await app.request("/api/auth/login", {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({ username, password }),
+  });
+  assert.equal(res.status, 200, await res.text());
+  const setCookie = res.headers.get("set-cookie");
+  assert.ok(setCookie, "the member's sign-in answers a session cookie");
+  return setCookie.split(";")[0]!;
+}
+
+async function callAs(cookie: string, path: string, init: RequestInit = {}) {
+  const res = await app.request(path, {
+    ...init,
+    headers: {
+      ...HEADERS,
+      ...(init.headers as Record<string, string>),
+      cookie,
+    },
+  });
+  const text = await res.text();
+  return {
+    status: res.status,
+    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
+  };
+}
 
 before(async () => {
   const res = await call("/api/auth/login", {
@@ -1012,4 +1060,138 @@ test("a close whose folder move is refused keeps the state and the workorder fin
     "cancelled",
     "the state is the truth even when the folder could not follow it",
   );
+});
+
+test("a member reaches a workorder whose group part document has gone missing", async () => {
+  /*
+   * Visibility is **competence**: the template assigns a section to a group the
+   * caller is in, so the workorder is theirs (ADR 0028, ADR 0030). A part whose
+   * document is gone is a finding the fleet reconciles and is simply not there
+   * in the view — it is never a reason the whole workorder, and with it the
+   * global checklist the member is entitled to read, disappears. Fails if
+   * visibility goes back to reading the part's presence.
+   */
+  assert.ok(firstGroup, "the mock has a group the Master holds");
+  const [groupName, groupAccount] = firstGroup;
+  const grouped = {
+    variants: [],
+    sections: [
+      { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
+      {
+        key: "teamwork",
+        label: "Team work",
+        group: groupAccount,
+        steps: [{ key: "t", label: "Team step" }],
+      },
+    ],
+  };
+  const template = await templateRef(grouped, "Part loss checklist");
+  const created = await post("/api/workorders/create", {
+    name: "Part loss",
+    template,
+    groups: [],
+    variants: {},
+    items: {},
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const uid = workorderOf(created.body).uid;
+
+  const member = await loginAs(MEMBER, MEMBER_PASSWORD);
+  const before = await callAs(member, `/api/workorders/${uid}`);
+  assert.equal(before.status, 200, "the member sees it while the part is there");
+  assert.ok(
+    workorderOf(before.body).parts.some((part) => part.group === groupName),
+    "and the group's part is part of what they see",
+  );
+
+  // The group's part document goes missing.
+  const path = `${WORKORDER_FOLDER}/${workorderFileName(uid)}`;
+  const found = await findAppFileAt(masterCtx, groupAccount, path);
+  assert.ok(found.file?.id, "the part document is there before the loss");
+  await destroyAppNode(masterCtx, groupAccount, String(found.file.id), {
+    removeChildren: true,
+  });
+
+  const read = await callAs(member, `/api/workorders/${uid}`);
+  assert.equal(
+    read.status,
+    200,
+    "the member still reaches it: competence is membership, not the part's bytes",
+  );
+  const summary = workorderOf(read.body);
+  assert.deepEqual(
+    summary.parts.map((part) => part.scope),
+    ["global"],
+    "the missing part is simply not there, and the global checklist still is",
+  );
+  const listed = await callAs(member, "/api/workorders");
+  assert.ok(
+    ((listed.body?.workorders as Summary[] | undefined) ?? []).some((w) => w.uid === uid),
+    "and the member's list holds it",
+  );
+
+  // Reading it is still not checking it: the global checklist is an
+  // administrator's, so the member's write there is refused.
+  const refused = await callAs(member, "/api/workorders/check", {
+    method: "POST",
+    body: JSON.stringify({ uid, scope: "global", path: "global.g", state: "done" }),
+  });
+  assert.equal(refused.status, 403, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "forbidden");
+});
+
+test("a member does not see a workorder no section of theirs is in", async () => {
+  /*
+   * The other half of the rule: competence must be *required*, not assumed.
+   * A template that assigns no section to any group gives the member nothing on
+   * this workorder — no part to check, no competence — so it is not theirs to
+   * see, exactly as the Master's own registry is not (ADR 0028). Fails if the
+   * visibility rule is loosened to "any member sees any workorder".
+   */
+  const template = await templateRef(PROCESS, "Ungrouped checklist");
+  const workorder = await createWorkorder("Ungrouped run", template);
+
+  const member = await loginAs(MEMBER, MEMBER_PASSWORD);
+  const read = await callAs(member, `/api/workorders/${workorder.uid}`);
+  assert.equal(read.status, 404, "an administrator reads it; a member does not");
+  const listed = await callAs(member, "/api/workorders");
+  assert.ok(
+    !((listed.body?.workorders as Summary[] | undefined) ?? []).some(
+      (w) => w.uid === workorder.uid,
+    ),
+    "and it is not in the member's list either",
+  );
+});
+
+test("a member's read probes each group once, not once per group", async () => {
+  /*
+   * One read resolves the caller's own groups **once** — one live session and
+   * one probe pass — where a per-group loop repeated the same answer for every
+   * group the Master holds, a quadratic walk that is what made the surface
+   * slow. The budget is one probe per candidate group on each side; the mock
+   * counts the method calls, so the regression is visible rather than a
+   * matter of a stopwatch.
+   */
+  const masterGroups = (await groupAccountsDetailed(masterCtx)).groups;
+  const memberAuth = `Basic ${Buffer.from(`${MEMBER}:${MEMBER_PASSWORD}`).toString("base64")}`;
+  const memberSession = await fetchUpstreamSession(memberAuth, upstreamFor(MEMBER));
+  const memberGroups = (
+    await groupAccountsDetailed({
+      authorization: memberAuth,
+      session: memberSession,
+      username: MEMBER,
+    })
+  ).groups;
+
+  const member = await loginAs(MEMBER, MEMBER_PASSWORD);
+  mock.resetCalls();
+  const listed = await callAs(member, "/api/workorders");
+  assert.equal(listed.status, 200);
+  const probes = mock.methodCalls["Mailbox/get"] ?? 0;
+  const budget = masterGroups.size + memberGroups.size;
+  assert.ok(
+    probes <= budget,
+    `the caller's groups are probed once, not once per group (asked ${probes}, budget ${budget})`,
+  );
+  assert.ok(probes >= memberGroups.size, `and they are read at all (asked ${probes})`);
 });

@@ -711,7 +711,9 @@ An administrator creates a workorder, closes it and edits its references; an age
 is designed to be asked for one in a group's chat, though the agent part is not
 functional yet (see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)). Every member checks
 their own groups' steps. A member sees the global checklist and their own groups' parts, an
-administrator sees every part, and an unreachable part is simply not there.
+administrator sees every part, and an unreachable part is simply not there. A workorder is a
+member's when the template assigns a section to a group they are in, so a part whose document is
+missing is a finding the fleet reconciles and never a workorder that vanishes for its group.
 
 ## What a workorder is not
 

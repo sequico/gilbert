@@ -28,7 +28,7 @@ import {
   requireState as requireStateWith,
 } from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
-import { memberGroupAccess } from "./agentAdmin.js";
+import { memberReach } from "./agentAdmin.js";
 import {
   appFolderState,
   type Ctx,
@@ -154,20 +154,56 @@ interface WorkorderReach {
   admin: boolean;
   /** Every group the Master holds, by name, with the account each answers as. */
   masterGroups: Map<string, string>;
+  /** Every group the caller's own session reaches, by name (ADR 0005, live). */
+  callerGroups: Map<string, string>;
   /** The groups the caller is a member of: the parts they may check. */
   own: Set<string>;
+  /**
+   * Those same groups by account id. A workorder's competence is read from the
+   * template's assignments (ADR 0030), which name accounts, so the two are
+   * compared on the account id rather than on the name.
+   */
+  ownAccounts: Set<string>;
+  /** One template revision's rules per request, resolved once (see `templateDef`). */
+  defs: Map<string, Promise<TemplateDef>>;
 }
 
+/**
+ * Everything one request needs, read **once**.
+ *
+ * The caller's own groups are read with a single `memberReach` — one live
+ * session and one probe pass — rather than once per group: the answer cannot
+ * differ between calls, and asking it for every group the Master holds made a
+ * read pay for the whole group set over and over (the check's slowness).
+ * The Master's session, its groups and the caller's groups are therefore
+ * resolved here and carried through the request, so the read that composes the
+ * view and the gate reconcile that follows a write share them instead of
+ * opening a second Master session and a second probe pass.
+ */
 async function workorderReach(session: LiveSession): Promise<WorkorderReach> {
   const admin = await administrator(session);
   const { ctx, accountId } = await masterAccount(session);
   const masterGroups = (await groupAccountsDetailed(ctx)).groups;
+  const mine = await memberReach(session);
   const own = new Set<string>();
+  const ownAccounts = new Set<string>();
   for (const name of masterGroups.keys()) {
-    const access = await memberGroupAccess(session, name, { need: "workorders" });
-    if (access.ok) own.add(name);
+    if (!mine.groups.has(name)) continue;
+    const groupAccount = masterGroups.get(name);
+    if (!groupAccount) continue;
+    own.add(name);
+    ownAccounts.add(groupAccount);
   }
-  return { ctx, accountId, admin, masterGroups, own };
+  return {
+    ctx,
+    accountId,
+    admin,
+    masterGroups,
+    callerGroups: mine.groups,
+    own,
+    ownAccounts,
+    defs: new Map(),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -298,6 +334,35 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
   return out;
 }
 
+/** A template revision's rules and title as the KB serves them (ADR 0030). */
+interface TemplateDef {
+  checklist: KnowledgeChecklist | null;
+  title: string | null;
+  rev: number | null;
+}
+
+/**
+ * A template revision's rules and title, **resolved once per request**.
+ *
+ * The same revision is read by the view a read composes (every visible part)
+ * and by the gate reconcile a write runs after it; on one request that is the
+ * same bytes asked for several times, so the promise is kept on the reach and
+ * returned to whoever asks next. The key is the bound reference — the account,
+ * the article and the revision it names (ADR 0028) — so two workorders bound to
+ * two revisions never share an answer.
+ */
+function templateDef(
+  reach: WorkorderReach,
+  template: WorkorderTemplateRef,
+): Promise<TemplateDef> {
+  const key = `${template.accountId}:${template.id}:${template.revision}`;
+  const cached = reach.defs.get(key);
+  if (cached) return cached;
+  const resolved = readTemplateDef(reach.ctx, template);
+  reach.defs.set(key, resolved);
+  return resolved;
+}
+
 /**
  * The template revision's **rules** and title, read from the KB (ADR 0030).
  *
@@ -307,14 +372,10 @@ async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
  * or a revision that is not there — leaves its rules unresolved and is a
  * finding, not a surface taken down.
  */
-async function templateDef(
+async function readTemplateDef(
   ctx: Ctx,
   template: WorkorderTemplateRef,
-): Promise<{
-  checklist: KnowledgeChecklist | null;
-  title: string | null;
-  rev: number | null;
-}> {
+): Promise<TemplateDef> {
   let title: string | null = null;
   let rev: number | null = null;
   try {
@@ -564,7 +625,8 @@ function checklistChoices(
  * A member sees only their own groups' parts; an administrator sees every part
  * the Master holds, because the route reads them as the Master. A part whose
  * document is gone is omitted — a finding the fleet reconciles, never an empty
- * part.
+ * part. Whether the workorder is the reader's at all is `maySee`'s answer, which
+ * competence decides and not this view.
  */
 async function summaryOf(
   reach: WorkorderReach,
@@ -575,7 +637,7 @@ async function summaryOf(
   const visible = (reach.admin ? [...reach.masterGroups.keys()] : [...reach.own]).sort(
     (a, b) => a.localeCompare(b),
   );
-  const global = await templateDef(reach.ctx, root.checklist.template);
+  const global = await templateDef(reach, root.checklist.template);
 
   /*
    * Every part this caller may see, gathered before the view is composed so
@@ -610,7 +672,7 @@ async function summaryOf(
     if (!groupAccount) continue;
     const part = await findActive(reach.ctx, groupAccount, root.uid);
     if (!part) continue;
-    const info = await templateDef(reach.ctx, part.doc.checklist.template);
+    const info = await templateDef(reach, part.doc.checklist.template);
     entries.push({
       scope: "group",
       accountId: groupAccount,
@@ -677,12 +739,29 @@ async function summaryOf(
  * Whether a caller may see a workorder at all.
  *
  * An administrator sees the whole registry. A member reaches their groups, not
- * the Master's registry (ADR 0028), so a workorder one of their groups has no
- * part in is not theirs to see — the same answer whether it is listed or read
- * by uid.
+ * the Master's registry (ADR 0028) — and what makes a workorder theirs is
+ * **competence**: the template assigns a section to a group they are in
+ * (ADR 0030), so that group is what the workorder is for. Membership therefore
+ * decides this, not the accident of whether the group's part document can be
+ * read right now: a part whose document is gone is a finding the fleet
+ * reconciles and is simply not there in the view (ADR 0028), never a reason the
+ * workorder — and with it the global checklist the member is entitled to read —
+ * disappears. A template whose rules cannot be read falls back to the part
+ * itself, which is the one thing that is known to be there.
+ *
+ * The same answer whether the workorder is listed or read by uid.
  */
-function maySee(reach: WorkorderReach, summary: WorkorderSummary): boolean {
-  return reach.admin || summary.parts.some((part) => part.scope === "group");
+async function maySee(
+  reach: WorkorderReach,
+  root: WorkorderDoc,
+  summary: WorkorderSummary,
+): Promise<boolean> {
+  if (reach.admin) return true;
+  if (summary.parts.some((part) => part.scope === "group")) return true;
+  const def = (await templateDef(reach, root.checklist.template)).checklist;
+  return def
+    ? checklistGroups(def).some((accountId) => reach.ownAccounts.has(accountId))
+    : false;
 }
 
 /** Every workorder the caller may see, newest write first. */
@@ -692,7 +771,7 @@ export async function listWorkorders(session: LiveSession): Promise<WorkorderSum
   const out: WorkorderSummary[] = [];
   for (const root of roots) {
     const summary = await summaryOf(reach, root);
-    if (maySee(reach, summary)) out.push(summary);
+    if (await maySee(reach, root, summary)) out.push(summary);
   }
   out.sort((a, b) => b.updated.at.localeCompare(a.updated.at));
   return out;
@@ -703,13 +782,27 @@ export async function readWorkorder(
   session: LiveSession,
   uid: string,
 ): Promise<WorkorderSummary | null> {
+  const reach = await workorderReach(session);
+  return readWorkorderWithReach(reach, uid);
+}
+
+/**
+ * One workorder by uid under a reach the caller already built.
+ *
+ * The write path resolves the reach once and reads the summary back through
+ * this, so a check does not open a second Master session and a second probe
+ * pass over the caller's groups just to answer with what it already holds.
+ */
+async function readWorkorderWithReach(
+  reach: WorkorderReach,
+  uid: string,
+): Promise<WorkorderSummary | null> {
   const id = (uid ?? "").trim();
   if (!id) return null;
-  const reach = await workorderReach(session);
   const root = await findRoot(reach.ctx, reach.accountId, id);
   if (!root) return null;
   const summary = await summaryOf(reach, root.doc);
-  return maySee(reach, summary) ? summary : null;
+  return (await maySee(reach, root.doc, summary)) ? summary : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -948,11 +1041,15 @@ async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise
  * prerequisite never hides a section a group has already been given. The check
  * is made over every part the Master holds, because a prerequisite may live in
  * another part (ADR 0030). A workorder with no gate writes nothing.
+ *
+ * It reads through the request's own reach — the Master's session, its groups
+ * and the resolved template — so the reconcile a write runs does not open a
+ * second Master session or resolve the template a second time.
  */
-async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise<void> {
-  const root = await findRoot(ctx, accountId, uid);
+async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void> {
+  const root = await findRoot(reach.ctx, reach.accountId, uid);
   if (!root || isTerminalState(root.doc.state ?? "running")) return;
-  const def = (await templateDef(ctx, root.doc.checklist.template)).checklist;
+  const def = (await templateDef(reach, root.doc.checklist.template)).checklist;
   if (!def) return;
   /*
    * The same gate the reader sees, decided through `gateOpen` so the latch
@@ -972,8 +1069,8 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
 
   for (const [key, value] of sectionCompletion(def, root.doc.checklist, null))
     gates.completion.set(key, value);
-  for (const groupAccount of (await groupAccountsDetailed(ctx)).groups.values()) {
-    const part = await findActive(ctx, groupAccount, uid);
+  for (const groupAccount of reach.masterGroups.values()) {
+    const part = await findActive(reach.ctx, groupAccount, uid);
     if (!part) continue;
     for (const [key, value] of sectionCompletion(def, part.doc.checklist, groupAccount))
       gates.completion.set(key, value);
@@ -985,8 +1082,8 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
   if (!opened.length) return;
 
   await writeRootUnderCas(
-    ctx,
-    accountId,
+    reach.ctx,
+    reach.accountId,
     uid,
     {
       code: "workorder_check_failed",
@@ -1010,13 +1107,9 @@ async function reconcileGates(ctx: Ctx, accountId: string, uid: string): Promise
  * is warned about rather than thrown: it only matters if a prerequisite is
  * reopened before the next write reconciles it.
  */
-async function recordOpenedGates(
-  ctx: Ctx,
-  accountId: string,
-  uid: string,
-): Promise<void> {
+async function recordOpenedGates(reach: WorkorderReach, uid: string): Promise<void> {
   try {
-    await reconcileGates(ctx, accountId, uid);
+    await reconcileGates(reach, uid);
   } catch (err) {
     console.warn(
       `[gilbert] workorder ${uid}: opened gates were not recorded:`,
@@ -1048,25 +1141,28 @@ export async function checkStep(
       "A step state must be open, done, skipped or not-applicable.",
     );
   const note = typeof input?.note === "string" ? input.note.trim() : "";
+  // One reach for the whole request: the validation, the write, the gate
+  // reconcile and the read-back all answer from it, so a check opens the
+  // Master's session, probes the groups and resolves the template once.
+  const reach = await workorderReach(session);
   if (input?.scope === "global") {
-    if (!(await administrator(session)))
+    if (!reach.admin)
       throw new WorkorderAdminError(
         "forbidden",
         "Only an installation administrator checks the global checklist.",
         403,
       );
-    const { ctx, accountId } = await masterAccount(session);
-    await refuseTerminal(ctx, accountId, uid);
+    await refuseTerminal(reach.ctx, reach.accountId, uid);
     await applyStep({
-      ctx,
-      accountId,
+      ctx: reach.ctx,
+      accountId: reach.accountId,
       uid,
       path,
       state,
       note,
       by: session.username,
     });
-    await recordOpenedGates(ctx, accountId, uid);
+    await recordOpenedGates(reach, uid);
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
     if (!group)
@@ -1074,8 +1170,9 @@ export async function checkStep(
         "bad_request",
         "A group checklist needs the group's name.",
       );
-    const access = await memberGroupAccess(session, group, { need: "workorders" });
-    if (!access.ok)
+    // The caller's own membership, from the same live read: a name they do not
+    // reach is not a group this person may check.
+    if (!reach.callerGroups.has(group.toLowerCase()))
       throw new WorkorderAdminError(
         "forbidden",
         `You are not a member of ${group}, so its checklist is not yours to check.`,
@@ -1084,11 +1181,8 @@ export async function checkStep(
     // The caller is a member; the Master must hold the group too, or there is
     // no part to write and the surface names the grant that is missing. The
     // root's state is read from the Master's own account before that.
-    const master = await masterAccount(session);
-    await refuseTerminal(master.ctx, master.accountId, uid);
-    const groupAccount = (await groupAccountsDetailed(master.ctx)).groups.get(
-      group.toLowerCase(),
-    );
+    await refuseTerminal(reach.ctx, reach.accountId, uid);
+    const groupAccount = reach.masterGroups.get(group.toLowerCase());
     if (!groupAccount)
       throw new WorkorderAdminError(
         "group_not_granted",
@@ -1096,7 +1190,7 @@ export async function checkStep(
         409,
       );
     await applyStep({
-      ctx: master.ctx,
+      ctx: reach.ctx,
       accountId: groupAccount,
       uid,
       path,
@@ -1104,14 +1198,14 @@ export async function checkStep(
       note,
       by: session.username,
     });
-    await recordOpenedGates(master.ctx, master.accountId, uid);
+    await recordOpenedGates(reach, uid);
   } else
     throw new WorkorderAdminError(
       "bad_request",
       'The scope must be "global" or "group".',
     );
 
-  const summary = await readWorkorder(session, uid);
+  const summary = await readWorkorderWithReach(reach, uid);
   if (!summary)
     throw new WorkorderAdminError(
       "workorder_not_found",

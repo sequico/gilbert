@@ -283,6 +283,46 @@ export async function resolveGroupAccess(
   return { ok: true, accountId, ctx: reach.ctx };
 }
 
+/** A member's own session and the groups it reaches, read live. */
+export interface MemberReach {
+  ctx: Ctx;
+  groups: Map<string, string>;
+  /** The candidates the mail server would not answer about (ADR 0005). */
+  unreadable: string[];
+}
+
+/**
+ * The groups a member's own session reaches, as **one** live read.
+ *
+ * Forced live, not the ordinary cached read: this is a membership check
+ * (ADR 0005 — "a member who leaves loses access", stated as immediate), and the
+ * cache this session's other calls otherwise share can be up to five minutes
+ * old. A cached answer would let a member removed from the group in Stalwart's
+ * own directory keep reading its standing instruction, rules, notebook and chat
+ * for up to that long after the grant was withdrawn — a gap the admin path
+ * (`agentGroupReach`) never had, since it always signs in fresh.
+ *
+ * It is one call for the whole group set, not one per group: a surface that
+ * needs to know every group the reader is in asks this once and reads the map,
+ * because asking per group repeats the same live session and probe pass for an
+ * answer that cannot differ.
+ */
+export async function memberReach(session: LiveSession): Promise<MemberReach> {
+  const upstream = await getUpstreamSession(
+    session.id,
+    session.authorization,
+    upstreamFor(session.username),
+    true,
+  );
+  const ctx: Ctx = {
+    authorization: session.authorization,
+    session: upstream,
+    username: session.username,
+  };
+  const { groups, unreadable } = await groupAccountsDetailed(ctx);
+  return { ctx, groups, unreadable };
+}
+
 /**
  * A member's own reach: the group is in their session, or it is not.
  *
@@ -297,26 +337,7 @@ export async function memberGroupAccess(
   name: string,
   opts: { need: GroupNeed },
 ): Promise<GroupAccessResult> {
-  // Forced live, not the ordinary cached read: this is a membership check
-  // (ADR 0005 — "a member who leaves loses access", stated as immediate), and
-  // the cache this session's other calls otherwise share can be up to five
-  // minutes old. A cached answer here would let a member removed from the
-  // group in Stalwart's own directory keep reading its standing instruction,
-  // rules, notebook and chat for up to that long after the grant was
-  // withdrawn — a gap the admin path (`agentGroupReach`) never had, since it
-  // always signs in fresh.
-  const upstream = await getUpstreamSession(
-    session.id,
-    session.authorization,
-    upstreamFor(session.username),
-    true,
-  );
-  const ctx: Ctx = {
-    authorization: session.authorization,
-    session: upstream,
-    username: session.username,
-  };
-  const reach = await groupAccountsDetailed(ctx);
+  const reach = await memberReach(session);
   const wanted = name.trim().toLowerCase();
   const accountId = reach.groups.get(wanted);
   if (!accountId)
@@ -324,7 +345,7 @@ export async function memberGroupAccess(
       opts.need,
       reach.unreadable.includes(wanted) ? GROUP_UNREADABLE : GROUP_NOT_ACCESSIBLE,
     );
-  return { ok: true, accountId, ctx };
+  return { ok: true, accountId, ctx: reach.ctx };
 }
 
 /**

@@ -2410,6 +2410,23 @@ export const casLoses = {
 export const uploads = { count: 0 };
 
 /**
+ * How many JMAP method calls this server has served, by name.
+ *
+ * A surface's cost is the number of calls it makes, and a call the client
+ * never sees (a probe behind a route, a session read) is invisible from the
+ * outside: this is the only way a test can see that a read paid for the same
+ * answer twice. A route that resolves one thing per request moves one counter;
+ * one that resolves it once per group moves it once per group, and with more
+ * than a couple of groups that is a quadratic walk, which is the difference
+ * this exists to catch. `resetCalls()` clears it; the mock nothing else reads
+ * it.
+ */
+export const methodCalls: Record<string, number> = {};
+export function resetCalls(): void {
+  for (const name of Object.keys(methodCalls)) delete methodCalls[name];
+}
+
+/**
  * The compare-and-set every `/set` on the mock honours: `ifInState` names the
  * state the client read, and a set whose type has moved on since is refused --
  * the whole method call, with the error object RFC 8620 §5.3 defines for it,
@@ -5202,6 +5219,7 @@ export const server = createServer(async (req, res) => {
     const touched = new Map<string, Set<string>>();
     const creations: Record<string, string> = {};
     for (const [name, rawArgs, id] of body.methodCalls) {
+      methodCalls[name] = (methodCalls[name] ?? 0) + 1;
       const h = handlers[name];
       // The registry, and every x: method with it, arrived in 0.16.
       if (!h) {
