@@ -16,6 +16,7 @@ import {
   isKnowledgeRevision,
   isKnowledgeState,
   isReservedArticleName,
+  isRetired,
   itemStepPath,
   KNOWLEDGE_FOLDER,
   type KnowledgeChecklist,
@@ -618,5 +619,31 @@ test("sibling order pins a locale, so Node and a browser read the same tree", ()
       { order: 0, title: "Same", nodeId: "b" },
     ) < 0,
     "a tie on title is broken by the node id",
+  );
+});
+
+test("a state document that predates the retirement marker is still a state", () => {
+  /*
+   * `retired` is a field this build writes. One written before it existed (or
+   * by an editor outside this build) carries none, and the difference matters:
+   * refusing the document reclassifies the article as a topic folder, so it
+   * disappears from the tree and its draft becomes unreachable — and reading
+   * the absent marker as "retired" withdraws a procedure nobody withdrew.
+   */
+  const { retired, ...withoutMarker } = buildState({
+    id: "a1",
+    title: "T",
+    tags: [],
+    by: "g",
+    at: "2026-10-01T00:00:00.000Z",
+  });
+  assert.equal(retired, null, "the builder writes the marker");
+  assert.ok(isKnowledgeState(withoutMarker), "and a document without it is a state");
+  assert.equal(isRetired(withoutMarker as KnowledgeState), false, "not a retired one");
+
+  // A marker that is there still means what it says.
+  assert.equal(
+    isRetired({ ...withoutMarker, retired: { by: "g", at: "2026-10-02T00:00:00.000Z" } } as KnowledgeState),
+    true,
   );
 });

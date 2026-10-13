@@ -463,7 +463,15 @@ export function isKnowledgeState(x: unknown): x is KnowledgeState {
     (x.pending === null || isKnowledgeIssued(x.pending)) &&
     typeof x.order === "number" &&
     Number.isFinite(x.order) &&
-    (x.retired === null || isTimes(x.retired)) &&
+    /*
+     * `undefined` is accepted here like every other optional field (see
+     * `template` below): a document written before the marker existed, or by an
+     * editor outside this build, must still read as a state. Refusing it
+     * reclassifies the article as a topic folder — it disappears from the tree
+     * and its draft becomes unreachable — which is a far worse failure than a
+     * missing marker, and `isRetired` reads an absent one as "never retired".
+     */
+    (x.retired === undefined || x.retired === null || isTimes(x.retired)) &&
     (x.template === undefined || x.template === null || x.template === "checklist") &&
     isTimes(x.created) &&
     isTimes(x.updated)
@@ -864,7 +872,13 @@ export function buildState(input: {
 
 /** Whether an article has been retired: withdrawn but kept for traceability. */
 export function isRetired(state: Pick<KnowledgeState, "retired">): boolean {
-  return state.retired !== null;
+  /*
+   * Absent and null both read as "never retired" (`!= null`, not `!== null`):
+   * the marker is one this build writes, and a state document that predates it
+   * — or was written by an editor outside this one — carries none. Reading
+   * `undefined` as retired would withdraw an article nobody withdrew.
+   */
+  return state.retired != null;
 }
 
 /* ------------------------------------------------------------------ */
