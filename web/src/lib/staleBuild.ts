@@ -1,4 +1,5 @@
 import { type PushState, push } from "@/jmap/push";
+import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
 import { withBase } from "./basePath";
 import { withDeadline } from "./deadline";
 import { APP_VERSION } from "./version";
@@ -28,7 +29,7 @@ import { pollWhileVisible } from "./visiblePoll";
  * the worse failure, and one that stays behind because someone left a draft
  * open is not automatic at all.
  */
-const TRIED_KEY = "gilbert:reloaded-for";
+const TRIED_KEY = deviceKey(DEVICE_KEYS.reloadedFor);
 
 /** sessionStorage throws outright in some privacy modes; treat that as absent. */
 function tried(): string | null {

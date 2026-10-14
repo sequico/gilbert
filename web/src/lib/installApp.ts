@@ -16,6 +16,8 @@
  * ready to be asked again -- so there is no re-arming to do here.
  */
 
+import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+
 /** The `beforeinstallprompt` event, which the DOM lib does not declare. */
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -129,7 +131,7 @@ export type AppInstallState = "in-app" | "installed" | "installable" | "manual";
  * a related app -- so a fresh browser profile falls back to offering the
  * install, which is the safe direction.
  */
-const INSTALLED_KEY = "gilbert:appInstalledOnDevice";
+const INSTALLED_KEY = deviceKey(DEVICE_KEYS.appInstalledOnDevice);
 
 function readInstalledMarker(): boolean {
   try {
@@ -165,7 +167,7 @@ export function appInstallState(): AppInstallState {
  * so a change worth a second word -- the install completing, say -- is shown
  * once and no more.
  */
-const BANNER_KEY = "gilbert:installBannerDismissed";
+const BANNER_KEY = deviceKey(DEVICE_KEYS.installBannerDismissed);
 
 export function installBannerDismissed(): boolean {
   if (justInstalled || appInstallState() === "in-app") return true;

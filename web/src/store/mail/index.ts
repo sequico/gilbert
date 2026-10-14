@@ -1,4 +1,5 @@
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -87,7 +88,6 @@ import {
   MAILBOX_PROPS,
   type MailState,
 } from "./types";
-import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 
 /**
  * Nothing carries the Archive role, so offer to fix it rather than explain it.

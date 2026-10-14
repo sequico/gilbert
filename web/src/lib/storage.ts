@@ -14,6 +14,51 @@
 const PREFIX = "gilbert:";
 
 /**
+ * The key space, named.
+ *
+ * Every key in this browser's storage belongs to this module: it owns the
+ * prefix, the trust gate every read and write passes, and the list of what
+ * survives a sign-out. A module that needs a key used to spell it out as
+ * `"gilbert:pushEnabled"` and touch `localStorage` itself, which put the two
+ * facts that matter in the wrong place: `KEEP_ON_SIGN_OUT` below decides by
+ * **name**, so a key renamed on one side and not the other is silently dropped
+ * at sign-out, and the trust gate was read as applying to `settings` and
+ * `lastPlace` while the crash marks, the install banner and the
+ * notifications-asked stamp were written straight through it.
+ *
+ * So: a key is a name from here, and a module that holds one asks
+ * `deviceKey(name)` for its storage key rather than writing the prefix out.
+ */
+export function deviceKey(name: string): string {
+  return `${PREFIX}${name}`;
+}
+
+/**
+ * The event a notification's click raises so the chat launcher opens.
+ *
+ * Two modules must name it identically — the store that raises it and the
+ * component that listens — and a name written twice is a listener that never
+ * fires: the click lands, nothing opens, and the notification is simply dead.
+ */
+export const OPEN_CHAT_EVENT = "gilbert:open-chat";
+
+/** The keys a module holds, by the name the sign-out list and this module use. */
+export const DEVICE_KEYS = {
+  lastUser: "lastUser",
+  deviceTrusted: "deviceTrusted",
+  pushDeviceId: "pushDeviceId",
+  pushEnabled: "pushEnabled",
+  pushOptOut: "pushOptOut",
+  pushEndpoint: "pushEndpoint",
+  reloadedFor: "reloaded-for",
+  lastCrash: "last-crash",
+  autoReloadMarks: "auto-reload-marks",
+  notificationsAskedAt: "notificationsAskedAt",
+  appInstalledOnDevice: "appInstalledOnDevice",
+  installBannerDismissed: "installBannerDismissed",
+} as const;
+
+/**
  * Kept when a session ends. Everything else is cleared, so a key added later
  * is forgotten by default rather than by nobody having thought about it.
  *
@@ -35,12 +80,12 @@ const PREFIX = "gilbert:";
  *   the exact failure the renewal exists to prevent. Signing out for real
  *   clears it directly, in `unsubscribeThisDevice`, alongside the subscription.
  */
-const KEEP_ON_SIGN_OUT = [
-  "lastUser",
-  "deviceTrusted",
-  "pushDeviceId",
-  "pushEnabled",
-  "pushOptOut",
+const KEEP_ON_SIGN_OUT: readonly string[] = [
+  DEVICE_KEYS.lastUser,
+  DEVICE_KEYS.deviceTrusted,
+  DEVICE_KEYS.pushDeviceId,
+  DEVICE_KEYS.pushEnabled,
+  DEVICE_KEYS.pushOptOut,
 ];
 
 /**
@@ -56,7 +101,7 @@ const KEEP_ON_SIGN_OUT = [
  */
 const KEEP_ON_SIGN_OUT_SUFFIX = [":lastPlace"];
 
-const TRUST_KEY = `${PREFIX}deviceTrusted`;
+const TRUST_KEY = deviceKey(DEVICE_KEYS.deviceTrusted);
 
 /**
  * Read at module load rather than waiting for the session, so a trusted device

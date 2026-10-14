@@ -25,8 +25,10 @@
  * attempts is left for a human, with the record intact.
  */
 
-const CRASH_KEY = "gilbert:last-crash";
-const RELOAD_MARKS_KEY = "gilbert:auto-reload-marks";
+import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+
+const CRASH_KEY = deviceKey(DEVICE_KEYS.lastCrash);
+const RELOAD_MARKS_KEY = deviceKey(DEVICE_KEYS.autoReloadMarks);
 
 /**
  * How old the page must be before a crash may trigger a reload.

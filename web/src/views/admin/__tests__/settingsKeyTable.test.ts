@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, isSettingsKey } from "@/store/settings";
-import { ENTRIES, exampleFor, EXAMPLES, GROUPS } from "../SettingsKeyTable";
+import { ENTRIES, EXAMPLES, exampleFor, GROUPS } from "../SettingsKeyTable";
 
 /**
  * The table and this build's settings, kept in step by something other than a

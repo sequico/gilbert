@@ -23,7 +23,7 @@ import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isIOS } from "@/lib/installApp";
 import type { PushTarget } from "@/lib/mailAccounts";
-import { isDeviceTrusted } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, isDeviceTrusted } from "@/lib/storage";
 import { clearWorkerFacts } from "@/lib/swFacts";
 
 /**
@@ -158,7 +158,7 @@ export function encodeKey(buffer: ArrayBuffer | null): string {
  */
 let fallbackDeviceId: string | null = null;
 export function deviceClientId(): string {
-  const KEY = "gilbert:pushDeviceId";
+  const KEY = deviceKey(DEVICE_KEYS.pushDeviceId);
   if (!isDeviceTrusted())
     return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
   try {
@@ -274,7 +274,7 @@ export function subscriptionPayload(
  * it -- `unsubscribeThisDevice` removes it -- which matches sign-out already
  * destroying the subscription itself.
  */
-const ENABLED_KEY = "gilbert:pushEnabled";
+const ENABLED_KEY = deviceKey(DEVICE_KEYS.pushEnabled);
 
 export function pushEnabledHere(): boolean {
   if (!isDeviceTrusted()) return false;
@@ -303,7 +303,7 @@ export function setPushEnabledHere(on: boolean): void {
  * somebody switched off. Kept across a sign-out (storage's `KEEP_ON_SIGN_OUT`),
  * so the decision outlives the session it was made in.
  */
-const OPTOUT_KEY = "gilbert:pushOptOut";
+const OPTOUT_KEY = deviceKey(DEVICE_KEYS.pushOptOut);
 
 export function pushOptedOutHere(): boolean {
   if (!isDeviceTrusted()) return false;
@@ -536,7 +536,7 @@ export async function extendSubscription(id: Id): Promise<void> {
  * since replaced. Extending a stale row would leave the account with a
  * subscription that is alive and delivering nowhere.
  */
-const ENDPOINT_KEY = "gilbert:pushEndpoint";
+const ENDPOINT_KEY = deviceKey(DEVICE_KEYS.pushEndpoint);
 
 export function registeredEndpoint(): string | null {
   try {

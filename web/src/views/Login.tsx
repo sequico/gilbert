@@ -5,6 +5,7 @@ import { ACRONYM_TAGLINE, DEFAULT_APP_NAME } from "@/lib/brand";
 import { currentLanguage, t } from "@/lib/i18n";
 import { rememberLoginLanguage } from "@/lib/loginLanguage";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
+import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
 import { APP_VERSION } from "@/lib/version";
 import { useSession } from "@/store/session";
 import { setInterfaceLanguage } from "@/store/settings";
@@ -44,7 +45,7 @@ export function LoginPage() {
     };
   }, []);
   const [username, setUsername] = useState(
-    () => localStorage.getItem("gilbert:lastUser") ?? "",
+    () => localStorage.getItem(deviceKey(DEVICE_KEYS.lastUser)) ?? "",
   );
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -75,7 +76,8 @@ export function LoginPage() {
       // No two-factor code: the field is not on this form until the flow works
       // end to end, and the server treats an absent code as none given.
       await login(username.trim(), password, "", trustDevice);
-      if (trustDevice) localStorage.setItem("gilbert:lastUser", username.trim());
+      if (trustDevice)
+        localStorage.setItem(deviceKey(DEVICE_KEYS.lastUser), username.trim());
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === "invalid_credentials") {

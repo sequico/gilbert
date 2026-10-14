@@ -1,3 +1,4 @@
+import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
 import { withBase } from "./basePath";
 
 let baseTitle = "gilbert";
@@ -120,7 +121,7 @@ export function shouldAskForNotifications(
  * asked again.
  */
 export const NOTIFICATION_ASK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
-const ASK_KEY = "gilbert:notificationsAskedAt";
+const ASK_KEY = deviceKey(DEVICE_KEYS.notificationsAskedAt);
 
 /** Whether this device is due to be asked again, given when it last was. */
 export function notificationAskDue(now: number = Date.now()): boolean {

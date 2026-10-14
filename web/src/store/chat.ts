@@ -43,6 +43,7 @@ import {
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { playNewMailSound, showNotification } from "@/lib/notify";
+import { OPEN_CHAT_EVENT } from "@/lib/storage";
 import { agentViewKey, useAgents } from "@/store/agents";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -742,7 +743,7 @@ export function notifyNewChat(
       body: `${m.from}: ${m.text}`.slice(0, CHAT_BODY_MAX).trim(),
       tag: `gilbert-chat-${m.id}`,
       onClick: () => {
-        window.dispatchEvent(new CustomEvent("gilbert:open-chat", { detail: accountId }));
+        window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: accountId }));
       },
     });
   }
