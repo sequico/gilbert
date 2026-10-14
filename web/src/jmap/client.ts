@@ -122,7 +122,9 @@ const API_TIMEOUT_MS = 30_000;
  * The blob legs' ceiling, longer than a JMAP call's: a whole attachment or file
  * may take its time, and the server gives both the `/blob` and `/upload` routes
  * five minutes (`app.ts`) rather than the thirty seconds the JSON-RPC route
- * allows. Bounding either at the API deadline would cut a transfer off midway.
+ * allows. Bounding either at the API deadline would cut a transfer off midway;
+ * the deadline here covers the transfer itself, headers and body, so a transfer
+ * that stalls after its headers is bounded too.
  */
 const BLOB_TIMEOUT_MS = 5 * 60_000;
 
@@ -138,17 +140,33 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const res = await withDeadline(API_TIMEOUT_MS, init.signal ?? undefined, (signal) =>
-    fetch(withBase(path), {
-      ...init,
-      headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
-      credentials: "same-origin",
-      // The caller's signal may cancel the request; the deadline bounds it
-      // whether or not the caller passed one.
-      signal,
-    }),
+  /*
+   * The whole exchange runs inside the deadline, the body included. A proxy that
+   * answers the request line and then goes silent leaves `res.text()` pending,
+   * and a deadline that bounds only the headers calls that bounded: what the
+   * deadline is for is the promise that never settles, so the read is part of it.
+   */
+  const { ok, status, statusText, text } = await withDeadline(
+    API_TIMEOUT_MS,
+    init.signal ?? undefined,
+    async (signal) => {
+      const res = await fetch(withBase(path), {
+        ...init,
+        headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
+        credentials: "same-origin",
+        // The caller's signal may cancel the request; the deadline bounds it
+        // whether or not the caller passed one.
+        signal,
+      });
+      return {
+        ok: res.ok,
+        status: res.status,
+        statusText: res.statusText,
+        text: res.status === 204 ? "" : await res.text(),
+      };
+    },
   );
-  if (res.status === 401 && !path.startsWith("/api/auth/login")) {
+  if (status === 401 && !path.startsWith("/api/auth/login")) {
     client.handleUnauthenticated();
     throw new ApiError(
       401,
@@ -156,14 +174,14 @@ export async function apiFetch<T = unknown>(
       "Your session has expired. Please sign in again.",
     );
   }
-  if (!res.ok) {
+  if (!ok) {
     let body: ApiErrorBody = {};
     try {
-      body = (await res.json()) as ApiErrorBody;
+      body = JSON.parse(text) as ApiErrorBody;
     } catch {
       /* ignore */
     }
-    if (res.status === 403 && body.error === PASSWORD_CHANGE_REQUIRED) {
+    if (status === 403 && body.error === PASSWORD_CHANGE_REQUIRED) {
       client.handleForcedPasswordChange();
     }
     /*
@@ -179,12 +197,11 @@ export async function apiFetch<T = unknown>(
         : body.need && body.error === GROUP_UNREADABLE
           ? groupUnreadableSentence(body.need)
           : agentErrorSentence(body as Record<string, unknown>);
-    const message =
-      composed ?? body.message ?? body.detail ?? body.title ?? res.statusText;
-    throw new ApiError(res.status, body.error ?? body.type ?? "error", message);
+    const message = composed ?? body.message ?? body.detail ?? body.title ?? statusText;
+    throw new ApiError(status, body.error ?? body.type ?? "error", message);
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  if (status === 204) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export class JmapClient {
@@ -554,19 +571,24 @@ export class JmapClient {
 
   /** Fetch a blob's content as text (via the download proxy). */
   async fetchBlobText(accountId: Id, blobId: Id, type = "text/plain"): Promise<string> {
-    const res = await withDeadline(BLOB_TIMEOUT_MS, undefined, (signal) =>
-      fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
-        credentials: "same-origin",
-        signal,
-      }),
+    const { status, text } = await withDeadline(
+      BLOB_TIMEOUT_MS,
+      undefined,
+      async (signal) => {
+        const res = await fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
+          credentials: "same-origin",
+          signal,
+        });
+        return { status: res.status, text: res.status === 204 ? "" : await res.text() };
+      },
     );
-    if (res.status === 401) {
+    if (status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
-    await this.forcedIfNeeded(res);
-    if (!res.ok) throw new ApiError(res.status, "download_failed");
-    return await res.text();
+    await this.forcedIfNeeded(status, text);
+    if (status < 200 || status >= 300) throw new ApiError(status, "download_failed");
+    return text;
   }
 
   async fetchBlob(
@@ -575,29 +597,39 @@ export class JmapClient {
     type = "application/octet-stream",
     signal?: AbortSignal,
   ): Promise<Blob> {
-    const res = await withDeadline(BLOB_TIMEOUT_MS, signal, (deadline) =>
-      fetch(this.downloadUrl(accountId, blobId, "blob", type), {
-        credentials: "same-origin",
-        signal: deadline,
-      }),
+    const { status, blob, text } = await withDeadline(
+      BLOB_TIMEOUT_MS,
+      signal,
+      async (deadline) => {
+        const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), {
+          credentials: "same-origin",
+          signal: deadline,
+        });
+        // The bytes are read inside the deadline too: a transfer that stalls
+        // after its headers would otherwise hold the promise for ever, which is
+        // the failure the deadline names.
+        return res.ok
+          ? { status: res.status, blob: (await res.blob()) as Blob | null, text: "" }
+          : { status: res.status, blob: null, text: await res.text().catch(() => "") };
+      },
     );
-    if (res.status === 401) {
+    if (status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
-    await this.forcedIfNeeded(res);
-    if (!res.ok) throw new ApiError(res.status, "download_failed");
-    return await res.blob();
+    await this.forcedIfNeeded(status, text);
+    if (!blob) throw new ApiError(status, "download_failed");
+    return blob;
   }
 
   /**
    * A blob download that the forced-password-change door stopped (403) must
    * switch the app to the wall like any other data request.
    */
-  private async forcedIfNeeded(res: Response): Promise<void> {
-    if (res.status !== 403) return;
+  private async forcedIfNeeded(status: number, text: string): Promise<void> {
+    if (status !== 403) return;
     try {
-      const body = (await res.json()) as ApiErrorBody;
+      const body = JSON.parse(text) as ApiErrorBody;
       if (body.error === PASSWORD_CHANGE_REQUIRED) this.handleForcedPasswordChange();
     } catch {
       /* not a JSON body: nothing to learn */

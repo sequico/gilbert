@@ -1,7 +1,13 @@
 /**
  * Run a request under a deadline, keeping the caller's own cancellation beside
  * it: the request is aborted when `ms` elapse or when `caller` aborts, whichever
- * comes first, and the timer is dropped the moment the request settles.
+ * comes first, and the timer is dropped the moment the request settles — or
+ * throws before it returns a promise at all, which is why the call is awaited
+ * inside a `try` rather than chained after it.
+ *
+ * What the deadline bounds is the whole of `request`, so a caller that reads a
+ * body must read it *inside* `request`: a deadline that ends when the response's
+ * headers arrive is not a bound on the promise the reader is waiting for.
  *
  * `AbortSignal.timeout` and `AbortSignal.any` express this in two calls, but
  * `any` needs Safari 17.4 and this app runs on the iOS 16.4 floor its PWA
@@ -20,8 +26,12 @@ export function withDeadline<T>(
   const forward = () => controller.abort();
   if (caller?.aborted) forward();
   else caller?.addEventListener("abort", forward, { once: true });
-  return request(controller.signal).finally(() => {
-    window.clearTimeout(timer);
-    caller?.removeEventListener("abort", forward);
-  });
+  return (async () => {
+    try {
+      return await request(controller.signal);
+    } finally {
+      window.clearTimeout(timer);
+      caller?.removeEventListener("abort", forward);
+    }
+  })();
 }

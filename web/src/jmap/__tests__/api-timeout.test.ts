@@ -97,4 +97,44 @@ describe("the request deadline", () => {
     await settled;
     expect(seen.signal?.aborted).toBe(true);
   });
+
+  it("bounds the body, not only the headers", async () => {
+    /*
+     * The failure the deadline is for is the promise that never settles, and a
+     * proxy that answers the request line and then goes silent leaves the *body*
+     * pending: a bound that ends when the headers arrive is no bound at all. The
+     * response resolves here and its body never does, so a client that reads it
+     * outside the deadline hangs for ever and this test never settles.
+     */
+    vi.useFakeTimers();
+    const seen: { signal?: AbortSignal } = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init: RequestInit) => {
+        const signal = init.signal as AbortSignal;
+        seen.signal = signal;
+        const body = new Promise<never>((_resolve, reject) => {
+          signal.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: () => body,
+        } as unknown as Response);
+      }),
+    );
+
+    const p = apiFetch("/api/jmap", { method: "POST", body: "{}" });
+    const settled = expect(p).rejects.toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(seen.signal?.aborted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await settled;
+    expect(seen.signal?.aborted).toBe(true);
+  });
 });
