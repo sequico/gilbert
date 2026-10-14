@@ -317,6 +317,21 @@ defaults, not to Gilbert's.
 palette are files (`web/public/img/logo.png`, `logo-inverse.png`, `mark.png`,
 `mark-inverse.png`).
 
+## One server replica
+
+Run **one** server process per installation — the compose file does. Sessions and
+the credential rate limits are per process: a session document is read at boot, so
+a revocation ("sign out my other sessions", or the kick that follows writing a
+policy) lands on the process that handled it and on the others at their next
+restart, and a limit of twenty attempts is twenty per replica. The agent may run
+beside the server or in a container of its own (`agent.inProcess`, ADR 0003); that
+is a second process serving the same installation, not a second server, and it is
+what the compose file's `agent` profile does.
+
+Scaling the server out would need those two shared first. Nothing else in Gilbert
+does: every durable byte is in Stalwart, so a replica holds no state that a
+replacement would miss.
+
 ## Live updates
 
 Live updates reach a tab by one of two transports, and both carry the same types,
