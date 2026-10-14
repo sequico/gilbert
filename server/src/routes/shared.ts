@@ -831,6 +831,7 @@ export function upstreamFailure(c: Context, err: unknown) {
  * administration surface reads the identical answer back after a restart
  * (`PublishJob`, `server/src/adminPolicy.ts`).
  */
+export type { PublishJob };
 export type PublishOutcome = PublishJob;
 
 /**

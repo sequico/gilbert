@@ -42,7 +42,7 @@ import { registerWorkorderRoutes } from "./routes/workorder.js";
  * everything else the routes share; these lines are the door callers use, so a
  * boot or a test does not have to know where the routes keep them.
  */
-export type { PublishOutcome } from "./routes/shared.js";
+export type { PublishJob, PublishOutcome } from "./routes/shared.js";
 export {
   acquireEventsStreamSlot,
   blobContentType,

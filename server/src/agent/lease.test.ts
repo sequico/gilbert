@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { type AgentStore as AgentStoreType } from "./store.js";
 import { freePort } from "../testkit.js";
 
 /**
@@ -362,7 +363,7 @@ test("a refusal says whether a peer holds the unit or the write kept losing", as
     readClaim: () => store.readClaim(),
     writeClaim: (claim: never, opts?: { ifInState?: string }) =>
       store.writeClaim(claim, opts),
-  } as unknown as AgentStore;
+  } as unknown as AgentStoreType;
   const contended: string[] = [];
   const lost = await claimAccount(slippery, "w1", {
     now: new Date(),
