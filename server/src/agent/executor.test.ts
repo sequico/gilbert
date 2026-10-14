@@ -15,9 +15,10 @@ import type { ScheduleGuard } from "./executor.js";
  * The executor end to end against the mock (ADR 0003).
  *
  * The mock does not reproduce everything the real server does: its clock is not
- * injectable, `ifInState` is not enforced (so the compare-and-set *retry* path
- * is exercised only through the lease tests), and a submission records itself
- * without an MTA. What it does reproduce is the rail this executor lives on —
+ * injectable, and a submission records itself without an MTA. It does enforce
+ * `ifInState` (`checkIfInState`, pinned by `compare-and-set.test.ts`), which is
+ * what the compare-and-set retry paths are exercised against. What it does
+ * reproduce is the rail this executor lives on —
  * `Email/changes`, `Thread/get`, `Email/get`, `Email/set`, `EmailSubmission/set`
  * and the group's own Files — so the lifecycle, the review gate, the approval
  * arbiter and the loud failure are all driven for real here.
