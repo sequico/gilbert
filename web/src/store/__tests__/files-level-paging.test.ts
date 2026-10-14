@@ -44,6 +44,59 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("the sidebar tree", () => {
+  it("reaches the module's ceiling in pages of what the server resolves", async () => {
+    /*
+     * The tree asked for a thousand and got one page of five hundred, so a level
+     * with more folders than the server resolves in one `/get` drew half of what
+     * it asked for and nothing said so. It reads up to its own ceiling now, in
+     * steps the server will answer — and stops there, which is the ceiling's own
+     * promise (a folder it cannot see is recovered by the create the server
+     * refuses).
+     */
+    const dirs = Array.from({ length: LEVEL_LIMIT + 500 }, (_, i) => ({
+      id: `d${i}`,
+      name: `dir${i}`,
+      nodeType: "directory",
+      parentId: null,
+    })) as unknown as FileNode[];
+    const srv = fakeJmapServer();
+    let page: FileNode[] = [];
+    srv.on("FileNode/query", (call) => {
+      const { position = 0, limit } = call.args as {
+        position?: number;
+        limit?: number;
+      };
+      page = dirs.slice(position, limit === undefined ? undefined : position + limit);
+      return {
+        accountId: A,
+        ids: page.map((n) => n.id),
+        total: dirs.length,
+        queryState: "1",
+      };
+    });
+    srv.on("FileNode/get", () => ({ accountId: A, list: page, state: "1" }));
+    useFiles.setState({
+      accountId: A,
+      ownAccountId: A,
+      available: true,
+      children: {},
+      nodes: {},
+      loading: false,
+      error: null,
+      dirIds: [],
+      treeLoaded: false,
+    });
+
+    await useFiles.getState().loadTree();
+
+    expect(useFiles.getState().dirIds).toHaveLength(LEVEL_LIMIT);
+    expect(srv.callsTo("FileNode/query").map((c) => c.args.position ?? 0)).toEqual([
+      0, 500,
+    ]);
+  });
+});
+
 describe("a level larger than one page", () => {
   it("reads every page, not only the first", async () => {
     const srv = fakeJmapServer();

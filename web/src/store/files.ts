@@ -510,12 +510,30 @@ async function readLevels(
   accountId: Id,
   scope: LevelScope,
 ): Promise<Map<string, Map<string, SiblingNode>>> {
-  const { list } = await listChildrenWithState(
-    accountId,
-    scope.kind === "level" ? scope.parentId : null,
-    ["id", "name", "nodeType", "parentId"],
-    { limit: pageSize(), scope: scope.kind === "account" ? "account" : "level" },
-  );
+  /*
+   * Up to the module's own ceiling, in pages of what the server will resolve:
+   * `LEVEL_LIMIT` is how much of a level this walk looks at, not the size of one
+   * request, so a level past the server's `/get` ceiling is read in steps rather
+   * than truncated at the first one. A short page ends it.
+   */
+  const list: FileNode[] = [];
+  const step = pageSize();
+  const parentId = scope.kind === "level" ? scope.parentId : null;
+  for (let position = 0; list.length < LEVEL_LIMIT; position += step) {
+    const page = await listChildrenWithState(
+      accountId,
+      parentId,
+      ["id", "name", "nodeType", "parentId"],
+      {
+        position,
+        limit: Math.min(step, LEVEL_LIMIT - list.length),
+        scope: scope.kind === "account" ? "account" : "level",
+      },
+    );
+    if (!page.list.length) break;
+    list.push(...page.list);
+    if (page.list.length < step) break;
+  }
   const levels = new Map<string, Map<string, SiblingNode>>();
   const key = scope.kind === "level" ? levelKey(scope.parentId) : null;
   for (const n of list) {
@@ -1041,22 +1059,33 @@ export const useFiles = create<FilesState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return;
     try {
-      const res = await client.chain(
-        queryThenGet({
-          query: "FileNode/query",
-          get: "FileNode/get",
-          accountId,
-          filter: { nodeType: "directory" },
-          sort: [{ property: "name", isAscending: true }],
-          limit: pageSize(),
-          properties: fileNodeProps(),
-        }),
-      );
-      const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
-      // Filtered again here rather than trusted: a server that ignores the
-      // nodeType filter answers with files as well, and the tree would draw
-      // them as folders you could open into nothing.
-      const dirs = withoutAppFolder(g.list).filter((n) => n.nodeType === "directory");
+      /*
+       * Up to the module's ceiling in pages of what the server resolves: the
+       * sidebar holds every folder the walk looked at, and a level past one
+       * request is read in steps rather than cut at the first.
+       */
+      const dirs: FileNode[] = [];
+      const step = pageSize();
+      for (let position = 0; dirs.length < LEVEL_LIMIT; position += step) {
+        const res = await client.chain(
+          queryThenGet({
+            query: "FileNode/query",
+            get: "FileNode/get",
+            accountId,
+            filter: { nodeType: "directory" },
+            sort: [{ property: "name", isAscending: true }],
+            position,
+            limit: Math.min(step, LEVEL_LIMIT - dirs.length),
+            properties: fileNodeProps(),
+          }),
+        );
+        const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
+        // Filtered again here rather than trusted: a server that ignores the
+        // nodeType filter answers with files as well, and the tree would draw
+        // them as folders you could open into nothing.
+        dirs.push(...withoutAppFolder(g.list).filter((n) => n.nodeType === "directory"));
+        if (g.list.length < step) break;
+      }
       set((s) => {
         const nodes = { ...s.nodes };
         for (const n of dirs) nodes[n.id] = n;
