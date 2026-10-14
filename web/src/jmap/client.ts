@@ -105,6 +105,27 @@ const HEADERS = {
   "x-requested-with": "gilbert",
 };
 
+/*
+ * How long a browser request may stay unanswered.
+ *
+ * The server leg puts this same deadline on its own call to the mail server
+ * (`config.upstreamTimeout`, thirty seconds by default), so a socket that opens
+ * and then goes silent -- a proxy holding it, half-open TCP after a suspend --
+ * fails here within the same time instead of leaving the promise pending for
+ * ever: the store awaiting it would keep `loading: true` with no error to show
+ * and no retry, because the catch-up only aborts on `offline`.
+ */
+const API_TIMEOUT_MS = 30_000;
+
+/*
+ * The download leg's ceiling, which is longer than a JMAP call's: a whole
+ * attachment or file may take its time, and the server already gives the blob
+ * route five minutes (`app.ts`) rather than the thirty seconds the JSON-RPC
+ * route allows. Bounding a download at the API deadline would cut one off
+ * mid-transfer.
+ */
+const BLOB_TIMEOUT_MS = 5 * 60_000;
+
 /**
  * Generic fetch against our same-origin API with CSRF header + auth handling.
  *
@@ -121,6 +142,12 @@ export async function apiFetch<T = unknown>(
     ...init,
     headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
     credentials: "same-origin",
+    // The caller's signal may cancel the request; the deadline bounds it
+    // whether or not the caller passed one.
+    signal: AbortSignal.any([
+      ...(init.signal ? [init.signal] : []),
+      AbortSignal.timeout(API_TIMEOUT_MS),
+    ]),
   });
   if (res.status === 401 && !path.startsWith("/api/auth/login")) {
     client.handleUnauthenticated();
@@ -269,10 +296,11 @@ export class JmapClient {
    * Queue a single method call; calls made within the same tick under the same
    * signal are batched into one HTTP request (up to maxCallsInRequest).
    *
-   * `signal` makes the call cancellable: the HTTP request carries it, and an
-   * already-aborted signal rejects without a request at all. A catch-up pass
-   * hands one signal to every call it makes, so a dropped line can abort the
-   * whole pass instead of letting its requests run against nothing.
+   * `signal` makes the call cancellable: the HTTP request carries it beside
+   * the deadline `apiFetch` adds, and an already-aborted signal rejects without
+   * a request at all. A catch-up pass hands one signal to every call it makes,
+   * so a dropped line can abort the whole pass instead of letting its requests
+   * run against nothing.
    */
   call<T = Record<string, unknown>>(
     method: string,
@@ -517,6 +545,7 @@ export class JmapClient {
   async fetchBlobText(accountId: Id, blobId: Id, type = "text/plain"): Promise<string> {
     const res = await fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
       credentials: "same-origin",
+      signal: AbortSignal.timeout(BLOB_TIMEOUT_MS),
     });
     if (res.status === 401) {
       this.handleUnauthenticated();
@@ -535,7 +564,10 @@ export class JmapClient {
   ): Promise<Blob> {
     const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), {
       credentials: "same-origin",
-      ...(signal ? { signal } : {}),
+      signal: AbortSignal.any([
+        ...(signal ? [signal] : []),
+        AbortSignal.timeout(BLOB_TIMEOUT_MS),
+      ]),
     });
     if (res.status === 401) {
       this.handleUnauthenticated();

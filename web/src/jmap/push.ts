@@ -16,8 +16,10 @@ export type PushState = "connected" | "connecting" | "disconnected";
  * the stream (a deploy, a proxy's idle timeout, a network that just came back)
  * end in seconds, and a heartbeat that never slows down reconnects the instant
  * the server does instead of waiting out a grown-backoff delay. The reachability
- * probe behind each failed attempt rides the same cadence, which is what keeps a
- * blocked stream's catch-up moving.
+ * probe behind each failed attempt rides the same cadence, which is how a blocked
+ * stream is noticed and reported; the catch-up that probe triggers is floored
+ * separately (`CATCH_UP_FLOOR_MS`), because a second is the right pace for
+ * reconnecting and the wrong one for re-reading an account.
  */
 const PUSH_RETRY_MS = 1000;
 

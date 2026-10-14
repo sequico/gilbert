@@ -456,23 +456,39 @@ function AuthedApp() {
     };
     const unsub = push.subscribe((acct, type) => queue(acct, type));
     /*
-     * One catch-up pass, run from the two signals that say the server can be
-     * reached: the live stream coming back after a drop, and the reachability
-     * probe behind each failed attempt — which is all a network that blocks the
-     * stream leaves. The pass is the same `catchUpLive` over the same account
-     * set the live path uses, so it cannot cover less than the live path does,
-     * and it is idempotent from each store's last-known state.
+     * One catch-up pass, run from the signals that say the server can be
+     * reached: the live stream coming back after a drop, the reachability probe
+     * behind each failed attempt — which is all a network that blocks the
+     * stream leaves — and the browser's own `online`. The pass is the same
+     * `catchUpLive` over the same account set the live path uses, so it cannot
+     * cover less than the live path does, and it is idempotent from each
+     * store's last-known state.
      *
      * It is single-flight and cancellable. One pass runs at a time and a signal
      * arriving meanwhile is coalesced into a single re-run; when the connection
      * leaves "connected" the pass in flight is aborted — through the signal
      * every call in it carries — so a line that drops mid-sync neither leaves
-     * requests running against nothing nor stacks a second pass on top.
+     * requests running against nothing nor stacks a second pass on top. Only
+     * the probe-driven passes are floored (`CATCH_UP_FLOOR_MS` below).
      */
     let catchUpAbort: AbortController | null = null;
     let catchUpRunning = false;
     let catchUpWanted = false;
+    /*
+     * The floor between two probe-driven passes, while the stream is down.
+     *
+     * The retry keeps its one second (`PUSH_RETRY_MS`) so the stream comes back
+     * the instant the server does, but the reachability probe behind each failed
+     * attempt rides that same second and every pass re-reads the whole account
+     * -- mail, the open conversation with bodies, contacts, calendar, files.
+     * Without a floor a blocked stream runs those passes back to back for as
+     * long as the tab is open, per tab. A reconnect does not wait it out: the
+     * stream coming back, and the line coming back, are followed at once.
+     */
+    const CATCH_UP_FLOOR_MS = 30_000;
+    let lastCatchUpAt = 0;
     const runCatchUp = async (signal: AbortSignal) => {
+      lastCatchUpAt = Date.now();
       const byAccount = new Map<string, Set<string>>();
       const mail = useMail.getState();
       catchUpLive(
@@ -537,12 +553,17 @@ function AuthedApp() {
       // Only the blocked-stream case needs this: while the stream is up it is
       // the catch-up trigger, and on a down line nothing is reachable.
       if (!reachable) stopCatchUp();
-      else if (!push.connected) startCatchUp();
+      else if (!push.connected && Date.now() - lastCatchUpAt >= CATCH_UP_FLOOR_MS)
+        startCatchUp();
     });
     // The browser knows a line dropped before the stream's error does; a pass
     // already in flight is stopped at once.
     const onOffline = () => stopCatchUp();
+    // And it knows the line came back before the stream's own retry does, so
+    // that pass is started at once rather than at the floor.
+    const onOnline = () => startCatchUp();
     window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();
       // A session refresh can add or drop group mailboxes; rediscover them.
@@ -555,6 +576,7 @@ function AuthedApp() {
       unsubReach();
       unsubState();
       window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
       // A live burst queued but not yet flushed must not dispatch against the
       // stores of the next account.
       if (timer) window.clearTimeout(timer);
