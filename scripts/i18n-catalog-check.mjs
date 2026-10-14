@@ -34,8 +34,11 @@ import {
  * 168 -> 169: the workorder surface's batch, plus the remote-image banner's
  * sentence for an installation whose proxy is off (`MessageView.tsx`), which is
  * a branch few deployments ever draw.
+ *
+ * 169 -> 170: the calendar's sentence for a subscription that did not answer in
+ * time (`store/calendar.ts`), a third-party server's silence rather than ours.
  */
-const MISSING_MAX = 169;
+const MISSING_MAX = 170;
 
 const { keys: wanted } = wantedStrings();
 

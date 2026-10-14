@@ -102,7 +102,7 @@ const SKIP_FILES = new Set([
 ]);
 
 /**
- * Whether one record carries its two lines. Pure: `{ name, text }` in, and
+ * Whether one record carries its two lines. Pure: `{ path, text }` in, and
  * `[{ line, why }]` out — the same shape the citation half reports in, so a
  * reader meets one kind of sentence.
  *
@@ -110,7 +110,7 @@ const SKIP_FILES = new Set([
  * where every record puts them: a `Status` under `## Consequences` is a record
  * whose header says nothing, and a reader looking for it does not scroll.
  */
-export function recordProblems({ name, text }) {
+export function recordProblems({ path, text }) {
   const problems = [];
   const headerEnd = FIRST_SECTION.exec(text)?.index ?? text.length;
 
@@ -148,12 +148,12 @@ export function recordProblems({ name, text }) {
       });
     }
   }
-  return problems.map((one) => ({ path: name, ...one }));
+  return problems.map((one) => ({ path, ...one }));
 }
 
 /**
  * Whether every record states its two lines. Pure: the records as
- * `[{ name, text }]` in, `{ ok, problems }` out.
+ * `[{ path, text }]` in, `{ ok, problems }` out.
  */
 export function checkRecordShape({ recordFiles = [] } = {}) {
   const problems = recordFiles.flatMap((record) => recordProblems(record));

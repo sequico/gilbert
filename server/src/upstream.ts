@@ -532,11 +532,21 @@ export async function fetchDirectoryPrincipals(
   session: UpstreamSession,
   kind: "individual" | "group",
 ): Promise<DirectoryPrincipals | { denied: string }> {
-  // The account that owns the principals capability, by the one rule for that
-  // question (`shared/accountRouting.ts`): the account the session names for
-  // it, then a personal one advertising it, then any account that does.
-  const accountId = processAccountForCapability(session, CAPABILITIES.principals);
-  // No such account, so there is no directory this session can read and
+  /*
+   * The account that owns the principals capability, by the one rule for that
+   * question (`shared/accountRouting.ts`) -- and then, if no account advertises
+   * it at all, the first account the session lists. The advertisement is not the
+   * gate here: `Principal/query` is governed by the server's own
+   * `allow_directory_query` (see above), so a session whose accounts carry no
+   * `principals` capability can still be one the directory answers. Answering
+   * "complete, and empty" for it would report a directory that was never asked
+   * as one with nothing in it, and the policy fan-out trusts that word.
+   */
+  const accountId =
+    processAccountForCapability(session, CAPABILITIES.principals) ||
+    Object.keys(session.accounts ?? {})[0] ||
+    "";
+  // No account at all, so there is no directory this session could read and
   // nothing it missed reading.
   if (!accountId) return { principals: [], complete: true, total: null };
   const batch = directoryBatch(session);

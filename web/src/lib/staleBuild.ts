@@ -103,16 +103,22 @@ async function check(): Promise<boolean> {
  */
 async function fetchServerVersion(): Promise<string | null> {
   try {
-    const res = await withDeadline(HEALTH_TIMEOUT_MS, undefined, (signal) =>
-      fetch(withBase("/api/health"), {
+    /*
+     * The body is read *inside* the deadline, as `deadline.ts` requires: a
+     * bound that ends when the headers arrive is no bound on a response that
+     * answers and then goes silent, and the latch this module holds would never
+     * be released.
+     */
+    const body = await withDeadline(HEALTH_TIMEOUT_MS, undefined, async (signal) => {
+      const res = await fetch(withBase("/api/health"), {
         credentials: "same-origin",
         cache: "no-store",
         signal,
-      }),
-    );
-    if (!res.ok) return null;
-    const body = (await res.json()) as { version?: unknown };
-    if (typeof body.version !== "string" || !body.version) return null;
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as { version?: unknown };
+    });
+    if (!body || typeof body.version !== "string" || !body.version) return null;
     return body.version;
   } catch {
     return null;

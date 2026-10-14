@@ -1084,16 +1084,29 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       try {
         // No CSRF header: this is a GET, which the server's guard does not
         // check, and a second spelling of the constant could only drift. The
-        // wait is bounded like every other request.
-        const res = await withDeadline(API_TIMEOUT_MS, undefined, (signal) =>
-          fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), { signal }),
-        );
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          errors[sub.id] = body.error ?? `HTTP ${res.status}`;
+        // body is read inside the deadline: another server's calendar can take
+        // its time, and one that answers and then stalls must not hold the
+        // list open for ever.
+        const answer = await withDeadline(API_TIMEOUT_MS, undefined, async (signal) => {
+          const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
+            signal,
+          });
+          return { ok: res.ok, status: res.status, text: await res.text() };
+        });
+        if (!answer.ok) {
+          // The body is already read (inside the deadline); what it says about
+          // the refusal is the server's own sentence, for this subscription.
+          let message = `HTTP ${answer.status}`;
+          try {
+            const body = JSON.parse(answer.text) as { error?: string };
+            if (body.error) message = body.error;
+          } catch {
+            /* not a JSON body: the status is all there is to say */
+          }
+          errors[sub.id] = message;
           continue;
         }
-        const text = await res.text();
+        const text = answer.text;
         if (!looksLikeCalendar(text)) {
           // A login page answering 200 is the usual shape of this.
           errors[sub.id] = "not_calendar";
@@ -1101,7 +1114,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         }
         events[sub.id] = parseIcs(text).events;
       } catch (err) {
-        errors[sub.id] = (err as Error).message;
+        errors[sub.id] =
+          (err as Error).name === "AbortError"
+            ? t("The calendar did not answer in time.")
+            : (err as Error).message;
       }
     }
     set({

@@ -238,8 +238,9 @@ function settle(read: PolicyRead): PolicyRead {
 /** Whether the settings already hold every value the installation enforces. */
 function alreadyEnforced(enforced: Partial<Settings>, current: Settings): boolean {
   return Object.entries(enforced).every(([key, value]) => {
-    // A key this build does not know is not one the settings can hold: the
-    // guard is the settings store's own, so the read is typed rather than cast.
+    // The policy's own reader refuses a key this build does not know before it
+    // reaches here (`known()`), so this is a guard on the invariant rather than
+    // a live branch -- and it is what keeps the index typed instead of cast.
     if (!isSettingsKey(key)) return false;
     return JSON.stringify(current[key]) === JSON.stringify(value);
   });
@@ -263,11 +264,14 @@ async function readPolicy(): Promise<PolicyRead> {
      * because a sign-in has no session yet: a 401 here is the ordinary answer,
      * not the door `apiFetch` would open.
      */
-    const res = await withDeadline(API_TIMEOUT_MS, undefined, (signal) =>
-      fetch(withBase("/api/account/policy"), { credentials: "same-origin", signal }),
-    );
-    if (!res.ok) return { status: "unavailable" };
-    const policy = policyDocument(await res.json());
+    const body = await withDeadline(API_TIMEOUT_MS, undefined, async (signal) => {
+      const res = await fetch(withBase("/api/account/policy"), {
+        credentials: "same-origin",
+        signal,
+      });
+      return res.ok ? ((await res.json()) as unknown) : null;
+    });
+    const policy = policyDocument(body);
     /* An installation that cannot be reached and one that sets nothing are
        the same silence here. Neither is a policy, and a sign-in does not stop
        for either. */

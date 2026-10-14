@@ -233,9 +233,10 @@ async function tierAccount(
  * same way `groupKnowledgeAccount` finds the group.
  */
 function scopeOfAccount(ctx: Ctx, accountId: string): KnowledgeScope {
-  return isGroupAccountRecord(ctx.session.accounts?.[accountId] as never)
-    ? "group"
-    : "company";
+  const account = ctx.session.accounts?.[accountId] as
+    | { name?: unknown; isPersonal?: unknown }
+    | undefined;
+  return isGroupAccountRecord(account) ? "group" : "company";
 }
 
 /* ------------------------------------------------------------------ */

@@ -114,13 +114,13 @@ const HEAD = "Status: Accepted\n\nImplementation: Built. `server/src/app.ts`.";
 
 /** The reasons `recordProblems` gave, for a header. */
 const why = (header: string) =>
-  recordProblems({ name: "docs/adr/0001-a.md", text: record(header) }).map(
+  recordProblems(file("docs/adr/0001-a.md", record(header))).map(
     (one) => one.why,
   );
 
 test("a record stating both lines passes", () => {
   assert.deepEqual(why(HEAD), []);
-  assert.ok(checkRecordShape({ recordFiles: [{ name: "x", text: record(HEAD) }] }).ok);
+  assert.ok(checkRecordShape({ recordFiles: [file("x", record(HEAD))] }).ok);
 });
 
 test("a record with no Status is reported, and says which line is missing", () => {
@@ -169,7 +169,7 @@ test("the three values Implementation may carry are the three it accepts", () =>
 
 test("lines below the first section are refused: the header says nothing anyway", () => {
   const text = `# ADR 0001 — Administration\n\n## Context\n\n${HEAD}\n`;
-  const reasons = recordProblems({ name: "docs/adr/0001-a.md", text }).map(
+  const reasons = recordProblems(file("docs/adr/0001-a.md", text)).map(
     (one) => one.why,
   );
   assert.equal(reasons.length, 2);
@@ -177,10 +177,9 @@ test("lines below the first section are refused: the header says nothing anyway"
 });
 
 test("the shape report says where, and names the record", () => {
-  const problems = recordProblems({
-    name: "docs/adr/0007-a.md",
-    text: record("Status: Maybe\n\nImplementation: Built. `x.ts`."),
-  });
+  const problems = recordProblems(
+    file("docs/adr/0007-a.md", record("Status: Maybe\n\nImplementation: Built. `x.ts`.")),
+  );
   assert.equal(problems[0]!.path, "docs/adr/0007-a.md");
   assert.equal(problems[0]!.line, 3);
   assert.match(
