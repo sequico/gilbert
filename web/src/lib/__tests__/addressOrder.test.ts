@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byAddress, compareAddress } from "@/lib/addressOrder";
+import { byAddress } from "@/lib/addressOrder";
 
 /**
  * The order accounts and group mailboxes are listed in.
@@ -35,7 +35,13 @@ describe("the order accounts are listed in", () => {
       "bob@example.org",
       "carol@example.org",
     ]);
-    expect(compareAddress("Alice@example.org", "alice@example.org")).toBe(0);
+    // Two spellings of one address are one place, which is what makes the
+    // capital above sort as itself rather than as a second entry: an ordering
+    // that put `Alice` before `alice` would split every account a person has
+    // typed with two hands.
+    expect(
+      byAddress([{ name: "Alice@example.org" }, { name: "alice@example.org" }]),
+    ).toEqual([{ name: "Alice@example.org" }, { name: "alice@example.org" }]);
   });
 
   it("sorts a copy, not the list it was handed", () => {

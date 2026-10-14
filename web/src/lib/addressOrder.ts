@@ -9,8 +9,8 @@
  * the key a person uses.
  */
 
-/** The comparator itself, for a caller that holds bare addresses. */
-export function compareAddress(a: string, b: string): number {
+/** The comparator itself: case-insensitive, and never the display name. */
+function compareAddress(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: "base" });
 }
 

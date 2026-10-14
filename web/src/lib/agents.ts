@@ -58,7 +58,6 @@ export type {
   AgentProseView,
   AgentProvidersView,
   AgentProviderView,
-  AgentRulesRead,
   AgentStatus,
   AgentStatusGroup,
   AgentStatusRow,
@@ -113,13 +112,6 @@ export function fetchAgentStatus(): Promise<AgentStatus> {
 export function fetchAgentGroup(name: string): Promise<AgentGroupSurface> {
   return apiFetch<AgentGroupSurface>(
     `/api/admin/groups/${encodeURIComponent(name)}/agent`,
-  );
-}
-
-/** `GET /api/admin/groups/:name/agent/rules` — the rules editor's document. */
-export function fetchAgentRules(name: string): Promise<AgentRulesRead> {
-  return apiFetch<AgentRulesRead>(
-    `/api/admin/groups/${encodeURIComponent(name)}/agent/rules`,
   );
 }
 

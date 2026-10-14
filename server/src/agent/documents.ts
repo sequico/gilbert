@@ -819,14 +819,6 @@ export interface AgentAddress {
   email?: string;
 }
 
-/** The rules that react to one kind of trigger, in document order. */
-export function rulesFor(
-  rules: ReadonlyArray<AgentRule>,
-  on: AgentTriggerOn,
-): AgentRule[] {
-  return rules.filter((r) => r.enabled && r.trigger.on === on);
-}
-
 /* ------------------------------------------------------------------ */
 /* The review gate, and the group's policy document                     */
 /* ------------------------------------------------------------------ */

@@ -159,11 +159,6 @@ function queuePendingAudit(accountId: string, entry: AgentAuditEntry): void {
   setPendingAudits(accountId, kept);
 }
 
-/** How many audit entries this account is holding back for a later attempt. */
-export function pendingAuditCount(accountId: string): number {
-  return pendingAudits(accountId).length;
-}
-
 /**
  * The documents of one account. Construct it for the group's account to work
  * on a group's rules and jobs, or for the agent's own account for its

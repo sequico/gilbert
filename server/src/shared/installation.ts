@@ -567,12 +567,6 @@ export function parseInstallationDocumentDetailed(
   return { doc };
 }
 
-/** The parsed document, or null when it is not one. */
-export function parseInstallationDocument(raw: string): InstallationDocument | null {
-  const result = parseInstallationDocumentDetailed(raw);
-  return "problem" in result ? null : result.doc;
-}
-
 /**
  * The value a secret may not be.
  *
