@@ -677,10 +677,12 @@ async function uploadOne(
  *
  * `readLevels` above answers what a walk over names needs and stops at one
  * page; this answers the nodes themselves and pages until the level is in hand,
- * for both callers that need all of it: a merge, which has to know *every* name
+ * for every caller that needs all of it: a merge, which has to know *every* name
  * of a level before it may move anything into it and would otherwise plan half
- * of one, and the listing, which would otherwise draw a page and leave the tail
- * of the alphabet unreachable.
+ * of one; the listing, which would otherwise draw a page and leave the tail of
+ * the alphabet unreachable; and the save-to-Files picker, which offers the
+ * folders of a level it read for the account it is filing into rather than from
+ * the store.
  *
  * Three ways out besides a stopped run, and the third is the point: a page
  * shorter than the ceiling is the last one, a page count that has reached
@@ -694,7 +696,7 @@ async function uploadOne(
  * first step and a reader who presses Cancel while it runs means it: the read
  * in flight rejects on the run's signal and the loop stops before asking again.
  */
-async function readChildren(
+export async function readChildren(
   accountId: Id,
   parentId: Id | null,
   signal?: AbortSignal,
@@ -1076,6 +1078,7 @@ export const useFiles = create<FilesState>((set, get) => ({
             sort: [{ property: "name", isAscending: true }],
             position,
             limit: Math.min(step, LEVEL_LIMIT - dirs.length),
+            maxObjectsInGet: client.maxObjectsInGet,
             properties: fileNodeProps(),
           }),
         );

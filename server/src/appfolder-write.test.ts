@@ -48,6 +48,7 @@ const {
   readAppJsonAt,
   readAppJsonForWrite,
   readVisibleFileAt,
+  unusedVisibleName,
   writeAppBytesAt,
   writeAppFileAt,
   writeAppFileIn,
@@ -484,4 +485,69 @@ test("a folder whose level outgrows one page is read whole", async () => {
 
   const children = await fileChildren(ctx, accountId, folderId);
   assert.equal(children.length, count, "every node of the level comes back");
+});
+
+/**
+ * A free numbered name costs one listing of the folder.
+ *
+ * `unusedVisibleName` picks the first free `n-name.txt` an extract may write
+ * under, so a person's existing files are not replaced. Asking `findVisibleFile`
+ * per candidate walked the folder path from the root for every number it tried:
+ * a folder already holding hundreds of `n-note.txt` files meant hundreds of
+ * round trips, and the search could be refused part-way through. The folder is
+ * read once now, and this counts the queries the account was actually asked.
+ */
+test("a free numbered name lists the folder once", async () => {
+  const folder = "name-search";
+  const taken = 20;
+  for (let n = 1; n <= taken; n++) {
+    await writeBytesIntoVisibleFolder(
+      ctx,
+      accountId,
+      folder,
+      n === 1 ? "note.txt" : `${n}-note.txt`,
+      utf8.encode(`note ${n}\n`),
+      "text/plain",
+    );
+  }
+
+  const real = globalThis.fetch;
+  const queries: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (body.includes("FileNode/query")) queries.push(body);
+    return real(input, init);
+  }) as typeof fetch;
+  let name: string;
+  try {
+    name = await unusedVisibleName(ctx, accountId, folder, "note.txt");
+  } finally {
+    globalThis.fetch = real;
+  }
+
+  assert.equal(
+    name,
+    `${taken + 1}-note.txt`,
+    "the first free number is the next one past what the folder holds",
+  );
+  // Two queries whatever the candidate count -- the folder path's one walk and
+  // the level's one listing -- against two per candidate before.
+  assert.ok(
+    queries.length <= 3,
+    `the folder is listed once, not once per candidate (${queries.length} queries)`,
+  );
+});
+
+/** The naming rule itself: a name nothing holds is returned as it stands. */
+test("a name the folder does not hold is used unchanged", async () => {
+  const folder = "name-free";
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    folder,
+    "taken.txt",
+    utf8.encode("x"),
+    "text/plain",
+  );
+  assert.equal(await unusedVisibleName(ctx, accountId, folder, "fresh.txt"), "fresh.txt");
 });

@@ -1,10 +1,13 @@
 import { appDocumentJson } from "@gilbert/shared/appDocument";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { client, JmapMethodError } from "@/jmap/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CAP, client, JmapMethodError } from "@/jmap/client";
+import type { FileNode, JmapSession } from "@/jmap/types";
+import { fakeJmapServer } from "@/test/jmapServer";
 import {
   findInFolder,
   findInFolderWithState,
   isStateMismatch,
+  listChildrenWithState,
   putFile,
   writeAppJson,
 } from "../appFolder";
@@ -407,5 +410,69 @@ describe("writing a file into the app folder", () => {
      */
     expect(server.uploads[0]?.text).toBe(appDocumentJson(doc));
     expect(server.uploads[0]?.text).not.toBe(JSON.stringify(doc));
+  });
+});
+
+/**
+ * The listing pair asks for a page the server will resolve.
+ *
+ * A query asking for ids and a get asking for those objects are one request,
+ * and a page wider than the server's `/get` ceiling (`maxObjectsInGet`) is
+ * refused **whole** — not cut short — so the whole listing fails. The clamp
+ * lives in the shared pair (`@gilbert/shared/jmapQuery`), and this asserts on
+ * what the server was actually asked: a caller naming a limit past the ceiling
+ * sends the ceiling, and one naming less keeps its own.
+ */
+describe("a listing asked for more ids than one get carries", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const session = (maxObjectsInGet: number) =>
+    ({
+      capabilities: { [CAP.core]: { maxObjectsInGet }, [CAP.filenode]: {} },
+      accounts: {},
+      primaryAccounts: {},
+      state: "s1",
+    }) as unknown as JmapSession;
+
+  const nodes = Array.from({ length: 600 }, (_, i) => ({
+    id: `n${i}`,
+    name: `f${i}`,
+    nodeType: "file",
+    parentId: null,
+  })) as unknown as FileNode[];
+
+  it("sends a page at the session's ceiling, not the limit the caller named", async () => {
+    client.session = session(500);
+    const srv = fakeJmapServer();
+    let page: FileNode[] = [];
+    srv.on("FileNode/query", (call) => {
+      const { position = 0, limit } = call.args as {
+        position?: number;
+        limit?: number;
+      };
+      const ids = nodes
+        .map((n) => n.id)
+        .slice(position, limit === undefined ? undefined : position + limit);
+      page = nodes.filter((n) => ids.includes(n.id));
+      return { accountId: ACCOUNT, ids, total: nodes.length, queryState: "1" };
+    });
+    srv.on("FileNode/get", () => ({ accountId: ACCOUNT, list: page, state: "1" }));
+
+    const { list } = await listChildrenWithState(ACCOUNT, null, ["id"], { limit: 5000 });
+
+    expect(srv.callsTo("FileNode/query")[0]?.args.limit).toBe(500);
+    expect(list).toHaveLength(500);
+  });
+
+  it("keeps a limit narrower than the ceiling as the caller named it", async () => {
+    client.session = session(500);
+    const srv = fakeJmapServer();
+    srv.on("FileNode/get", () => ({ accountId: ACCOUNT, list: [], state: "1" }));
+
+    await listChildrenWithState(ACCOUNT, null, ["id"], { limit: 3 });
+
+    expect(srv.callsTo("FileNode/query")[0]?.args.limit).toBe(3);
   });
 });

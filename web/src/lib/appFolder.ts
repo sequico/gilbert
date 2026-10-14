@@ -82,10 +82,12 @@ async function children(
  * that pages -- chat, walking its transcript -- knows what it asked for and
  * what came back. So the ceilings are described through the two values above
  * rather than through a verdict about them: `list` is what the `get` resolved,
- * `total` is what the query matched, and the two disagree exactly when the
- * `get`'s own ceiling (`maxObjectsInGet`) cut a query that was itself
- * complete. A caller needing a verdict draws it from `total` where the server
- * reported one and from its own page size where it did not.
+ * `total` is what the query matched, and the two disagree when the level holds
+ * more than this one page. A caller needing a verdict draws it from `total`
+ * where the server reported one and from its own page size where it did not.
+ * The pair itself clamps the query to the server's `/get` ceiling
+ * (`queryThenGet`), so one page is always one the server will resolve; paging a
+ * longer level is the caller's loop (`readLevels`, `readChildren`).
  *
  * `scope` is which nodes to look at. `"level"` (the default) is one folder:
  * the children of `parentId`, or the top level when it is null. `"account"` is
@@ -112,6 +114,7 @@ export async function listChildrenWithState(
       filter,
       position: opts.position ?? 0,
       limit: opts.limit ?? 1000,
+      maxObjectsInGet: client.maxObjectsInGet,
       properties,
     }),
   );

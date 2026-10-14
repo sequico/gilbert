@@ -128,7 +128,9 @@ export async function fileChildren(
   const filter = parentId ? { parentId } : { isTopLevel: true };
   const client = clientOf(ctx);
   // The server states its own ceiling, and a level past it is read in pages of
-  // that size: asking for more is not a shorter answer but a refused call.
+  // that size: asking for more is not a shorter answer but a refused call. The
+  // pair clamps the query to the same ceiling itself (`queryThenGet`); `size` is
+  // what this loop measures a short page against.
   const size = Math.min(limit, client.maxObjectsInGet);
   const out: FileNodeLike[] = [];
   let seenFirst: unknown;
@@ -141,6 +143,7 @@ export async function fileChildren(
         filter,
         position,
         limit: size,
+        maxObjectsInGet: client.maxObjectsInGet,
         properties,
       }),
       [FILENODE_CAP],
@@ -966,6 +969,12 @@ export async function findVisibleFile(
  * already taken there adds a numbered one beside it instead of replacing what
  * they have. `note.txt`, `2-note.txt`, `3-note.txt` — the same shape the
  * extract action uses for two attachments that arrive with one name.
+ *
+ * The folder is read **once**, and the first free candidate is picked from that
+ * listing. Looking each candidate up on its own would walk the folder path from
+ * the root for every number it tried, so an extract into a folder already
+ * holding hundreds of `n-note.txt` files would cost hundreds of round trips and
+ * could be refused part-way through.
  */
 export async function unusedVisibleName(
   ctx: Ctx,
@@ -973,12 +982,24 @@ export async function unusedVisibleName(
   folderPath: string,
   name: string,
 ): Promise<string> {
+  if (!name) throw new AppFolderError("a document path needs a file name");
   const folder = folderPath.replace(/\/+$/, "");
-  if (!(await findVisibleFile(ctx, accountId, `${folder}/${name}`))) return name;
+  const folderId = await findVisibleFolder(ctx, accountId, folder);
+  // A folder the caller names is one it is about to write into, so a miss is a
+  // folder not made yet: it holds nothing, and the name is free as it stands.
+  if (folderId === undefined) return name;
+  // Only a file with bytes counts as taken -- the same node `findVisibleFile`
+  // reads -- so a directory that happens to carry the name does not push the
+  // new file to a numbered one.
+  const taken = new Set(
+    (await fileChildren(ctx, accountId, folderId, FILE_PROPS))
+      .filter((n) => n.nodeType === "file" && typeof n.blobId === "string")
+      .map((n) => String(n.name)),
+  );
+  if (!taken.has(name)) return name;
   for (let n = 2; n < 1000; n++) {
     const candidate = `${n}-${name}`;
-    if (!(await findVisibleFile(ctx, accountId, `${folder}/${candidate}`)))
-      return candidate;
+    if (!taken.has(candidate)) return candidate;
   }
   throw new AppFolderError(
     `"${folder}" already holds a thousand files by the name of "${name}"`,

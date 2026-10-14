@@ -1,13 +1,13 @@
-import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
-import type { EmailBodyPart, FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { APP_FOLDER_NAME } from "@/lib/appFolder";
-import { directoryCreate, fileNodeProps } from "@/lib/filenode";
+import type { EmailBodyPart, FileNode, Id, SetResponse } from "@/jmap/types";
+import { sortFiles } from "@/lib/fileSort";
+import { DEFAULT_FILES_SORT } from "@/lib/lastPlace";
+import { directoryCreate } from "@/lib/filenode";
 import { plural, t as translate } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { useFiles } from "@/store/files";
+import { readChildren, useFiles, withoutAppFolder } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { Dialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -89,7 +89,10 @@ export function SaveToFilesDialog({
    * itself relies on, since `name` is not one Stalwart implements. The hidden
    * app folder is left out: it is housekeeping, and offering it as a place to
    * file a message's attachments would offer a folder the reader never sees in
-   * Files. A read that fails says so rather than drawing an empty folder.
+   * Files. The level is read whole through the Files store's own pager,
+   * `readChildren`, in pages of what the server resolves: a single request would
+   * offer the first page of the level and silently hide the folders past it. A
+   * read that fails says so rather than drawing an empty folder.
    */
   useEffect(() => {
     if (!destination) return;
@@ -97,26 +100,12 @@ export function SaveToFilesDialog({
     setFolders(null);
     void (async () => {
       try {
-        const res = await client.chain(
-          queryThenGet({
-            query: "FileNode/query",
-            get: "FileNode/get",
-            accountId: destination,
-            filter: folder ? { parentId: folder } : { isTopLevel: true },
-            sort: [{ property: "name", isAscending: true }],
-            // One page of what the server will resolve in one `/get`: asking
-            // for more is refused whole, and the picker would offer nowhere at
-            // all. A folder past this page is not offered here -- the Files
-            // view is where the whole level is read.
-            limit: client.maxObjectsInGet,
-            properties: fileNodeProps(),
-          }),
-        );
-        const got = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
+        const listed = withoutAppFolder(await readChildren(destination, folder));
         if (!live) return;
         setFolders(
-          got.list.filter(
-            (n) => n.nodeType === "directory" && String(n.name) !== APP_FOLDER_NAME,
+          sortFiles(
+            listed.filter((n) => n.nodeType === "directory"),
+            DEFAULT_FILES_SORT,
           ),
         );
       } catch (err) {
@@ -161,9 +150,9 @@ export function SaveToFilesDialog({
       if (err) throw new Error(setErrorMessage(err));
       const made = res.created!.d!;
       const node = { ...made, name, nodeType: "directory", parentId: folder } as FileNode;
-      // Beside its siblings, and open -- making a folder in order to save into
-      // it is one intention, not two.
-      setFolders((list) => [...(list ?? []), node]);
+      // Beside its siblings in the level's own order, and open -- making a
+      // folder in order to save into it is one intention, not two.
+      setFolders((list) => sortFiles([...(list ?? []), node], DEFAULT_FILES_SORT));
       enter(node);
     } catch (err) {
       toast.error((err as Error).message);

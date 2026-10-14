@@ -4,7 +4,7 @@
  *
  * The durable documents live in Stalwart — `agent/documents.ts` is their
  * schema and `agent/store.ts` is the one place they are addressed. This module
- * is the layer between those documents and the routes in `app.ts`: it resolves
+ * is the layer between those documents and the routes in `routes/agents.ts`: it resolves
  * which account a surface acts on, and it makes the two decisions the
  * documents themselves do not:
  *
@@ -1878,6 +1878,7 @@ async function readGroupMembers(
         accountId,
         filter: { memberGroupIds: groupAccountId },
         limit: ROSTER_LIMIT,
+        maxObjectsInGet: client.maxObjectsInGet,
         properties: ["id", "@type", "emailAddress"],
       }),
     );
