@@ -1,3 +1,4 @@
+import { client } from "@/jmap/client";
 import type {
   AddressBook,
   ContactCard,
@@ -5,7 +6,6 @@ import type {
   JSContactMedia,
   JSContactName,
 } from "@/jmap/types";
-import { withBase } from "@/lib/basePath";
 import { GLOBAL_CONTACTS_BOOK_ID } from "@/lib/globalContactsAdmin";
 import { foldLine } from "./contentLines";
 
@@ -269,8 +269,12 @@ export function contactPhoto(c: ContactCard, accountId: string): string | null {
   if (!m) return null;
   if (m.uri) return m.uri.startsWith("data:") ? m.uri : null;
   if (m.blobId)
-    return withBase(
-      `/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(m.blobId)}/photo?accept=${encodeURIComponent(m.mediaType ?? "image/jpeg")}&inline=1`,
+    return client.downloadUrl(
+      accountId,
+      m.blobId,
+      "photo",
+      m.mediaType ?? "image/jpeg",
+      true,
     );
   return null;
 }
