@@ -261,7 +261,6 @@ export const agentAccount = {
  * apart.
  */
 const state = { n: 1 };
-const nextState = () => String(state.n++);
 
 /**
  * State tokens, one per data type (and per `x:` registry type, keyed by its
@@ -5303,7 +5302,23 @@ export const server = createServer(async (req, res) => {
       }
     }
     if (touched.size) {
-      nextState();
+      /*
+       * The session state does not move for a data write, and that is the point
+       * of it: `sessionState` describes the session resource -- which accounts
+       * this session holds and what they advertise -- while a `/set` moves the
+       * per-type state of one account. A mock that advanced both together made
+       * every mark-read, every chat message and every document write look like
+       * a change to the account set, which is what a client refreshes its whole
+       * session for (ADR 0015 reads the group list from it); a test built on
+       * that signal was therefore calibrated against the wrong one. What a write
+       * does move is announced just below, as the `StateChange` a reader acts
+       * on.
+       *
+       * ADR-0016 OWED: session-state-on-a-write -- what a live 0.16 reports here
+       * is unverified, and this mock has nothing that changes its session (its
+       * groups and accounts are fixed), so the value it reports stays where it
+       * was rather than guessing.
+       */
       setTimeout(() => {
         /* A state change names the account that changed, so a group write is
            announced for the group's account — the reader's session has it too,
