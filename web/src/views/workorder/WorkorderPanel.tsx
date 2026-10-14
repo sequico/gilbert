@@ -25,6 +25,7 @@ import type { KnowledgeChecklist, KnowledgeRepeat } from "@gilbert/shared/knowle
 import { ArrowLeft, MoreHorizontal, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { mayAdminister } from "@/lib/administer";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import {
@@ -782,7 +783,7 @@ export function WorkorderPanel() {
   const check = useWorkorders((s) => s.check);
   const close = useWorkorders((s) => s.close);
 
-  const sessionAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
+  const sessionAdmin = useSession((s) => mayAdminister(s.session?.gilbert));
   const open = useWorkorders(openWorkorder);
   /*
    * The route decides in the end; this only decides what to offer. A summary

@@ -94,6 +94,66 @@ test("a member sees its groups' workorders with or without the device box", asyn
   }
 });
 
+test("a member checks its own group's steps, and not the installation's", async () => {
+  /*
+   * Checking is a member's act, not an administration's: the check route needs a
+   * session and membership, and the summary says per part whether it is theirs
+   * (`canCheck`). The global checklist is the exception, and it is the other way
+   * round — a member reads it, an administrator or the agent signs it.
+   */
+  const cookie = await signIn("gilbert@example.com", "gilbert-password", false);
+  const view = await app.request("/api/workorders/container-northwind", {
+    headers: { ...HEADERS, cookie },
+  });
+  const { workorder } = (await view.json()) as {
+    workorder: {
+      parts: Array<{
+        scope: string;
+        group?: string;
+        canCheck?: boolean;
+        checklist: { steps: Array<{ path: string; state: string }> };
+      }>;
+    };
+  };
+  const own = workorder.parts.find((part) => part.scope === "group");
+  const global = workorder.parts.find((part) => part.scope === "global");
+  assert.ok(own && global, "the member reads the global checklist and its own part");
+  assert.equal(own.canCheck, true, "its own part is theirs to check");
+  assert.equal(global.canCheck, false, "the installation's own checklist is not");
+
+  const check = async (body: Record<string, unknown>) => {
+    const res = await app.request("/api/workorders/check", {
+      method: "POST",
+      headers: { ...HEADERS, cookie },
+      body: JSON.stringify(body),
+    });
+    await res.text();
+    return res.status;
+  };
+
+  assert.equal(
+    await check({
+      uid: "container-northwind",
+      scope: "group",
+      group: own.group,
+      path: own.checklist.steps[0]?.path,
+      state: "done",
+    }),
+    200,
+    "a non-administrator checks their own group's step",
+  );
+  assert.equal(
+    await check({
+      uid: "container-northwind",
+      scope: "global",
+      path: global.checklist.steps[0]?.path,
+      state: "done",
+    }),
+    403,
+    "and the installation's own checklist stays the administration's",
+  );
+});
+
 test("an administrator reads the whole registry with or without the device box", async () => {
   for (const remember of [false, true]) {
     const cookie = await signIn("demo@example.com", "demo-password", remember);

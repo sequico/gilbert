@@ -30,6 +30,7 @@ import {
   useState,
 } from "react";
 import { Link, useLocation } from "wouter";
+import { mayAdminister } from "@/lib/administer";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
@@ -362,7 +363,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* The workorder launcher sits beside chat's: ADR 0028. It opens a
               panel rather than a popover, but the entry point is the same. */}
           <WorkorderLauncher />
-          {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
+          {mayAdminister(session?.gilbert) && (
             <button
               type="button"
               className={`icon-btn ${section === "admin" ? "active" : ""}`}
