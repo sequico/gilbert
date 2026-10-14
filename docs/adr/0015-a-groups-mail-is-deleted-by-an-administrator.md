@@ -121,7 +121,11 @@ which one it is and what still works.**
   session's `refresh()` and re-runs `discoverMailAccounts()` — so a group joined
   or left, and an administrator added or removed, are seen at that moment rather
   than only at the next sign-in. The window between the two is the rule's own
-  limit and is named in the consequences.
+  limit and is named in the consequences. What a live server *reports* as
+  `sessionState` when a data write lands — whether the state moves for a write
+  that changes nothing about the session — is the debt below; the refresh hangs
+  on that signal, and the mock reports it unmoved.
+<!-- owed: session-state-on-a-write -->
 - **The agents hold no delete at all.** The capability catalogue
   (`AGENT_ACTION_SPECS`) names no action that destroys mail, so what this record
   grants an administrator is a surface for a person; nothing an automation can

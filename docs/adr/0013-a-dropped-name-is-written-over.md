@@ -144,7 +144,11 @@ unbounded, and nothing in the account says which one is the current file.
 - **A reader who wants the old name kept cannot have it here**: no confirmation
   is asked before a replacement, because a drop is one gesture and a dialog per
   colliding file is not a gesture. What they can see afterwards is the file
-  holding the content just dropped, whose `modified` moved.
+  holding the content just dropped, whose `modified` moved. That a live server
+  moves it on an **update** and not only on a create is a read fact rather than a
+  running server's testimony, and the reader's `modified ?? created` holds either
+  answer.
+<!-- owed: modified-on-update -->
 - **The attachment path is the one refusal left**, and the summary string for a
   folder in the way is the only sentence a taken name produces.
 - **The read's own account of how much of a level it saw has no consumer.**

@@ -4678,9 +4678,9 @@ const handlers: Record<string, Handler> = {
        * every update look as old as the node it changed (`nodeStamp` in
        * `workorderAdmin.ts` reads `modified ?? created`).
        *
-       * ADR-0016 OWED: that a live 0.16 advances `modified` on an update, and
-       * not only on a create, is unverified. The read side's `?? created` is
-       * what keeps either answer harmless.
+       * ADR-0013 OWED: modified-on-update -- that a live 0.16 advances `modified`
+       * on an update, and not only on a create, is unverified. The read side's
+       * `?? created` is what keeps either answer harmless.
        */
       (o, patch) => {
         refuseSiblingClash({ ...o, ...patch });
@@ -5329,7 +5329,7 @@ export const server = createServer(async (req, res) => {
        * does move is announced just below, as the `StateChange` a reader acts
        * on.
        *
-       * ADR-0016 OWED: session-state-on-a-write -- what a live 0.16 reports here
+       * ADR-0015 OWED: session-state-on-a-write -- what a live 0.16 reports here
        * is unverified, and this mock has nothing that changes its session (its
        * groups and accounts are fixed), so the value it reports stays where it
        * was rather than guessing.
