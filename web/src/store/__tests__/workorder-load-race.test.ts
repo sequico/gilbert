@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMail } from "@/store/mail";
-import { useWorkorders } from "@/store/workorder";
+import { useWorkorders, WORKORDER_CHANGE_WINDOW_MS } from "@/store/workorder";
 
 /*
  * The workorder panel's one read, against two races it must survive, the open
@@ -10,7 +10,8 @@ import { useWorkorders } from "@/store/workorder";
  * put the older summary back, and a manual refresh asked for while a read is
  * running must still land a fresh read rather than being dropped. The rail
  * carries no payload, so a change on it is answered by this same read — while
- * the panel is open, and only for an account the surface follows.
+ * the panel is open, and only for an account the surface follows — collapsed
+ * over a short window so a burst of them costs one read rather than one each.
  */
 
 const summary = (uid: string, name: string) => ({ uid, name }) as never;
@@ -28,6 +29,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
   useMail.setState({ mailAccounts: [] });
 });
 
@@ -154,6 +156,14 @@ describe("the panel's open", () => {
 });
 
 describe("a FileNode change on the rail", () => {
+  /*
+   * A change does not read on the spot: the first one of a burst opens
+   * `WORKORDER_CHANGE_WINDOW_MS` and the close is the read. Fake timers let a
+   * test open the window, prove nothing was read yet, and close it.
+   */
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
   /** A group mailbox as the mail probe lists one. */
   const group = (accountId: string) => ({
     accountId,
@@ -177,6 +187,91 @@ describe("a FileNode change on the rail", () => {
     return () => gets;
   };
 
+  /** Fire one change, then let the window it opened close. */
+  const change = async (accountId: string) => {
+    await useWorkorders.getState().applyChanges(accountId);
+    await vi.advanceTimersByTimeAsync(WORKORDER_CHANGE_WINDOW_MS);
+  };
+
+  it("collapses a burst of changes into one read", async () => {
+    /*
+     * A group's chat, knowledge base and settings all ride the same rail, so a
+     * busy group fires this once per message: the panel wants a read per burst,
+     * not per message. Fails if a change is answered with a read on the spot
+     * instead of opening the window.
+     */
+    const reads = listOnce();
+    useMail.setState({ mailAccounts: [group("a3")] });
+    useWorkorders.setState({
+      workorders: [],
+      loaded: true,
+      loading: false,
+      error: null,
+      panelOpen: true,
+    });
+
+    await Promise.all([
+      useWorkorders.getState().applyChanges("a3"),
+      useWorkorders.getState().applyChanges("a3"),
+      useWorkorders.getState().applyChanges("a3"),
+    ]);
+
+    // The window is still open, so the burst has been read zero times yet.
+    expect(reads()).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(WORKORDER_CHANGE_WINDOW_MS);
+    await vi.waitFor(() => expect(reads()).toBe(1));
+    expect(useWorkorders.getState().workorders.some((w) => w.uid === "w1")).toBe(true);
+  });
+
+  it("re-reads when a change lands while a read is in flight", async () => {
+    /*
+     * The window's read takes longer than a window when the route is busy, and
+     * a change arriving during it must not be swallowed: it ends in a fresh
+     * read, `pendingReload`'s promise. Fails if a change is dropped while one
+     * is loading rather than folded into the next read.
+     */
+    let gets = 0;
+    const releases: Array<() => void> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        if (isList(url, init)) {
+          gets += 1;
+          const n = gets;
+          if (n === 1) await new Promise<void>((r) => releases.push(r));
+          return respond({ ok: true, workorders: [summary("w1", `v${n}`)] });
+        }
+        return respond({ ok: true });
+      }),
+    );
+    useMail.setState({ mailAccounts: [group("a3")] });
+    useWorkorders.setState({
+      workorders: [],
+      loaded: true,
+      loading: false,
+      error: null,
+      panelOpen: true,
+    });
+
+    void useWorkorders.getState().applyChanges("a3");
+    await vi.advanceTimersByTimeAsync(WORKORDER_CHANGE_WINDOW_MS);
+    await vi.waitFor(() => expect(gets).toBe(1));
+    expect(useWorkorders.getState().loading).toBe(true);
+
+    // A second change arrives while the first read is still in flight.
+    void useWorkorders.getState().applyChanges("a3");
+    await vi.advanceTimersByTimeAsync(WORKORDER_CHANGE_WINDOW_MS);
+
+    // The in-flight read answers, and the change it raced is read again.
+    const listed = () => useWorkorders.getState().workorders.find((w) => w.uid === "w1");
+    releases[0]!();
+    await vi.waitFor(() => expect(listed()?.name).toBe("v2"));
+
+    expect(gets).toBe(2);
+    expect(useWorkorders.getState().loading).toBe(false);
+  });
+
   it("re-reads a group account the reader holds, while the panel is open", async () => {
     /*
      * A check somebody else made is a write to their group's part, and the rail
@@ -195,9 +290,9 @@ describe("a FileNode change on the rail", () => {
       panelOpen: true,
     });
 
-    await useWorkorders.getState().applyChanges("a3");
+    await change("a3");
 
-    expect(reads()).toBe(1);
+    await vi.waitFor(() => expect(reads()).toBe(1));
     expect(useWorkorders.getState().workorders.some((w) => w.uid === "w1")).toBe(true);
   });
 
@@ -205,7 +300,8 @@ describe("a FileNode change on the rail", () => {
     /*
      * A group's chat and knowledge base ride the same rail, so an answer while
      * nobody is looking would read the route for every message for nothing.
-     * Fails if the change is answered with the panel put away.
+     * Fails if the route is read with the panel put away, whether the change
+     * opens a window or the window it opened is closed by the panel check.
      */
     const reads = listOnce();
     useMail.setState({ mailAccounts: [group("a3")] });
@@ -217,7 +313,7 @@ describe("a FileNode change on the rail", () => {
       panelOpen: false,
     });
 
-    await useWorkorders.getState().applyChanges("a3");
+    await change("a3");
 
     expect(reads()).toBe(0);
   });
@@ -225,8 +321,8 @@ describe("a FileNode change on the rail", () => {
   it("ignores an account this surface does not follow", async () => {
     /*
      * The reader's own mailbox and an unrelated account ride the rail too, and
-     * neither says anything about a workorder. Fails if every change is answered
-     * with a read.
+     * neither says anything about a workorder. Fails if every change opens a
+     * window.
      */
     const reads = listOnce();
     useMail.setState({ mailAccounts: [group("a3")] });
@@ -238,7 +334,7 @@ describe("a FileNode change on the rail", () => {
       panelOpen: true,
     });
 
-    await useWorkorders.getState().applyChanges("own-account");
+    await change("own-account");
 
     expect(reads()).toBe(0);
   });
@@ -259,9 +355,9 @@ describe("a FileNode change on the rail", () => {
       panelOpen: true,
     });
 
-    await useWorkorders.getState().applyChanges("a9");
+    await change("a9");
 
-    expect(reads()).toBe(1);
+    await vi.waitFor(() => expect(reads()).toBe(1));
   });
 });
 

@@ -7,11 +7,12 @@
  * FileNode rail says which account moved and nothing else, so the answer to one
  * is a read through the route — which is also what keeps visibility the route's
  * decision, since the store never composes a document itself. `load()` is that
- * read: an open and a FileNode change on an account this surface follows both
- * re-read, and the launcher exposes it for a manual refresh besides. The Master
- * is the only writer, so a failed mutation leaves the last state served in place
- * — it degrades to read-only rather than writing locally, and the panel shows the
- * error until the next attempt.
+ * read: an open performs it at once, a FileNode change on an account this
+ * surface follows opens a short window that collapses a burst into one read when
+ * it closes, and the launcher exposes it for a manual refresh besides. The
+ * Master is the only writer, so a failed mutation leaves the last state served
+ * in place — it degrades to read-only rather than writing locally, and the panel
+ * shows the error until the next attempt.
  *
  * The open workorder is the uid the panel shows, and its summary is derived
  * from the list (`openWorkorder`), so a mutation that replaces a summary is
@@ -36,6 +37,13 @@ import {
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 
+/**
+ * How long a burst of FileNode changes is collapsed over before the one read it
+ * causes. Long enough to swallow a busy group's chat and knowledge storm, short
+ * enough that a person watching the panel does not see a check sit stale.
+ */
+export const WORKORDER_CHANGE_WINDOW_MS = 1500;
+
 export interface WorkorderStore {
   workorders: WorkorderSummary[];
   loaded: boolean;
@@ -50,8 +58,9 @@ export interface WorkorderStore {
   load(): Promise<void>;
   /**
    * A FileNode change arrived for one account (the push rail's own frame, which
-   * names the account and never the document): re-read when it is an account
-   * this surface follows, so a check somebody else made appears.
+   * names the account and never the document): open the coalescing window when
+   * it is an account this surface follows, so a check somebody else made
+   * appears in the one read the window's close performs.
    */
   applyChanges(accountId: string): Promise<void>;
   show(uid: string | null): void;
@@ -82,6 +91,17 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
   const mutatedAt = new Map<string, number>();
   /** A refresh asked for while one is running, run again when it ends. */
   let pendingReload = false;
+  /**
+   * The coalescing window a FileNode change opens, and its timer. A panel a
+   * person is reading wants to be current to the eye, not to the message: the
+   * rail carries every change of an account, and a group's chat, knowledge base
+   * and settings writes ride it beside the workorder parts, so answering each
+   * one with a full recomposition re-reads the whole registry once per message.
+   * The window opens on the first change of a burst rather than being pushed
+   * back by every later one — a group that stays busy would otherwise defer the
+   * read forever — so the panel is at most one window behind the rail.
+   */
+  let changeWindow: ReturnType<typeof setTimeout> | undefined;
   /*
    * Bumped when the store is emptied, so a read that started under the session
    * that has since signed out drops its answer instead of repopulating the store
@@ -193,6 +213,12 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
      * an account this surface follows: the reader's own group mailboxes, and
      * the accounts of the parts already held (which covers the window before the
      * mail probe has listed the groups).
+     *
+     * What it follows, it does not read on the spot: the first change of a burst
+     * opens `WORKORDER_CHANGE_WINDOW_MS`, later ones ride it, and its close is
+     * the one read. The list is complete rather than the changed workorders'
+     * parts, so a workorder an administrator created in a followed account in
+     * between appears too.
      */
     async applyChanges(accountId) {
       if (!accountId || !get().panelOpen) return;
@@ -203,7 +229,16 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         (group) => group.accountId === accountId,
       );
       if (!held && !mine) return;
-      await get().load();
+      if (changeWindow !== undefined) return;
+      changeWindow = setTimeout(() => {
+        changeWindow = undefined;
+        // The panel may have been put away while the window was open, and nobody
+        // is looking then; the next open re-reads anyway.
+        if (!get().panelOpen) return;
+        // A read already in flight is not dropped: `load()` folds this one into
+        // `pendingReload`, so a change that lands mid-read still ends fresh.
+        void get().load();
+      }, WORKORDER_CHANGE_WINDOW_MS);
     },
 
     show(uid) {
@@ -272,6 +307,10 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     reset() {
       mutatedAt.clear();
       pendingReload = false;
+      if (changeWindow !== undefined) {
+        clearTimeout(changeWindow);
+        changeWindow = undefined;
+      }
       loadEpoch += 1;
       set({
         workorders: [],
