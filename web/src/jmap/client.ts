@@ -6,7 +6,7 @@ import {
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
-import { withDeadline } from "@/lib/deadline";
+import { DeadlineError, withDeadline } from "@/lib/deadline";
 import { groupAccessSentence, groupUnreadableSentence } from "@/lib/groupAccess";
 import type {
   Id,
@@ -167,26 +167,51 @@ export async function apiFetch<T = unknown>(
    * the request line and then goes silent leaves the body's read pending. A
    * deadline that bounds only the headers calls that bounded.
    */
-  const { ok, status, statusText, body } = await withDeadline(
-    API_TIMEOUT_MS,
-    init.signal ?? undefined,
-    async (signal) => {
-      const res = await fetch(withBase(path), {
-        ...init,
-        headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
-        credentials: "same-origin",
-        // The caller's signal may cancel the request; the deadline bounds it
-        // whether or not the caller passed one.
-        signal,
-      });
-      return {
-        ok: res.ok,
-        status: res.status,
-        statusText: res.statusText,
-        body: await jsonBody(res),
-      };
-    },
-  );
+  let ok: boolean;
+  let status: number;
+  let body: unknown;
+  try {
+    ({ ok, status, body } = await withDeadline(
+      API_TIMEOUT_MS,
+      init.signal ?? undefined,
+      async (signal) => {
+        const res = await fetch(withBase(path), {
+          ...init,
+          headers: {
+            ...HEADERS,
+            ...(init.headers as Record<string, string> | undefined),
+          },
+          credentials: "same-origin",
+          // The caller's signal may cancel the request; the deadline bounds it
+          // whether or not the caller passed one.
+          signal,
+        });
+        return {
+          ok: res.ok,
+          status: res.status,
+          statusText: res.statusText,
+          body: await jsonBody(res),
+        };
+      },
+    ));
+  } catch (err) {
+    /*
+     * A deadline that elapsed is its own answer, not a cancellation: nothing
+     * refused this request and the person did not stop it. It arrives here as
+     * the browser's `AbortError` otherwise, which is the very object a caller
+     * cancelling produces — so a stalled request was reported as one they
+     * chose, and a caller branching on `code` fell through its `aborted` case
+     * to the generic "something went wrong".
+     */
+    if (err instanceof DeadlineError) {
+      throw new ApiError(
+        0,
+        "deadline",
+        `The server did not answer within ${Math.round(err.ms / 1000)} seconds.`,
+      );
+    }
+    throw err;
+  }
   if (status === 401 && !path.startsWith("/api/auth/login")) {
     client.handleUnauthenticated();
     throw new ApiError(
@@ -213,7 +238,7 @@ export async function apiFetch<T = unknown>(
         : err.need && err.error === GROUP_UNREADABLE
           ? groupUnreadableSentence(err.need)
           : agentErrorSentence(err as Record<string, unknown>);
-    const message = composed ?? err.message ?? err.detail ?? err.title ?? statusText;
+    const message = composed ?? err.message ?? err.detail ?? err.title ?? "request_failed";
     throw new ApiError(status, err.error ?? err.type ?? "error", message);
   }
   if (status === 204) return undefined as T;
@@ -400,6 +425,26 @@ export class JmapClient {
         arr.push(inv);
         byId.set(inv[2], arr);
       }
+      /*
+       * A request-level refusal comes back as a single `error` response whose
+       * call id is `"0"` (RFC 8620 §3.6.1), which matches no invocation here —
+       * `invalidArguments`, `unknownMethod`, `limit`, `serverFail`. It is the
+       * request that failed, not the calls in it, so every pending takes that
+       * refusal as it is. Left to the per-call loop it matched nothing, and each
+       * call was rejected with a fabricated `serverFail: No response for call`:
+       * the server's own type thrown away, a type that meant something else
+       * attributed to a method that was never run, and a sentence about an
+       * internal failure shown to whoever asked.
+       */
+      const requestError = res.methodResponses.find(
+        ([name, , id]) =>
+          name === "error" && !calls.some(([, , callId]) => callId === id),
+      );
+      if (requestError) {
+        const refusal = requestError[1] as MethodError;
+        for (const p of batch) p.reject(new JmapMethodError("<request>", refusal));
+        return;
+      }
       batch.forEach((p, idx) => {
         const responses = byId.get(calls[idx]![2]);
         const first = responses?.[0];
@@ -455,6 +500,15 @@ export class JmapClient {
       ...(signal ? { signal } : {}),
     });
     if (res.sessionState && this.session && res.sessionState !== this.session.state) {
+      /*
+       * Advance the baseline here, where the change is seen, and not leave it
+       * to whoever refreshes next: the signal is edge-triggered, so "the state
+       * moved" must become "and the state is now this". Left where it was, the
+       * comparison stays true until some other code path replaces the whole
+       * session — and while the refresh the handler triggers keeps failing,
+       * **every** response re-fires it, at two extra requests per request.
+       */
+      this.session.state = res.sessionState;
       for (const fn of this.stateHandlers) fn(res.sessionState);
     }
     return res;

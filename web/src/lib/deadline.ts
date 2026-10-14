@@ -16,19 +16,43 @@
  * timer, and the caller's signal forwarded into it -- so every request in the
  * client shares one definition of "this dies at this moment".
  */
+/**
+ * Why a request under a deadline was cut off.
+ *
+ * `abort()` without a reason rejects with the browser's own `AbortError`, which
+ * is the same object a caller's cancellation produces — so a request that
+ * stalled for the full deadline was reported as one the person stopped, with
+ * nothing to tell them apart. The controller is aborted with this marker
+ * instead, and the rejection carries it, so "it never answered" and "I stopped
+ * it" are two answers the caller can act on differently: the first is worth
+ * retrying, the second is not.
+ */
+export const DEADLINE_ELAPSED = Symbol("gilbert:deadline");
+
+/** The rejection a deadline produces, in place of the browser's `AbortError`. */
+export class DeadlineError extends Error {
+  constructor(readonly ms: number) {
+    super(`no answer in ${ms}ms`);
+    this.name = "DeadlineError";
+  }
+}
+
 export function withDeadline<T>(
   ms: number,
   caller: AbortSignal | undefined,
   request: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), ms);
+  const timer = window.setTimeout(() => controller.abort(DEADLINE_ELAPSED), ms);
   const forward = () => controller.abort();
   if (caller?.aborted) forward();
   else caller?.addEventListener("abort", forward, { once: true });
   return (async () => {
     try {
       return await request(controller.signal);
+    } catch (err) {
+      if (controller.signal.reason === DEADLINE_ELAPSED) throw new DeadlineError(ms);
+      throw err;
     } finally {
       window.clearTimeout(timer);
       caller?.removeEventListener("abort", forward);
