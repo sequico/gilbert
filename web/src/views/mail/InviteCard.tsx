@@ -36,7 +36,6 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [part.blobId, cal.available]);
 
   if (!cal.available) return null;

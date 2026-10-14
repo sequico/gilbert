@@ -47,7 +47,6 @@ export function FiltersSettings() {
   };
   useEffect(() => {
     if (sieve.available && !sieve.scripts.length && !sieve.loading) void sieve.load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sieve.available]);
 
   if (!sieve.available) {

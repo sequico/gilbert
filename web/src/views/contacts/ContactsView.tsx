@@ -186,7 +186,6 @@ export function ContactsView({ id }: { id?: string }) {
   useEffect(() => {
     if (contacts.available && !contacts.loaded && !contacts.loading)
       void contacts.loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.available, contacts.loaded]);
 
   /* A selection belongs to the book it was made in. Carrying it across to
@@ -225,7 +224,6 @@ export function ContactsView({ id }: { id?: string }) {
       window.removeEventListener("ihm:contacts-import", onImport);
       window.removeEventListener("ihm:contacts-export", onExport);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
   /* The group mailboxes the reader belongs to, per the mail store's probe: one

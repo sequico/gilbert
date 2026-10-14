@@ -244,7 +244,6 @@ export function MessageList({
   // Re-measure when the row height changes (one-line ↔ two-line, density).
   useEffect(() => {
     virtualizer.measure();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowHeight]);
 
   // Infinite scroll

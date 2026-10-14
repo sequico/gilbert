@@ -241,7 +241,7 @@ function useTextField(
   useEffect(() => {
     if (!editing) setText(display(value));
     // `key` re-renders the text when the user changes the date format.
-  }, [value, editing, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value, editing, key]);
 
   const onBlur = () => {
     setEditing(false);
@@ -395,7 +395,7 @@ export function DateTimeField({
       return true;
     },
     [onChange, value],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const timeDisplay = useCallback(
     (v: string) => (v ? formatTimeInput(new Date(v)) : ""),
@@ -412,7 +412,7 @@ export function DateTimeField({
       return true;
     },
     [onChange, value],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const dateField = useTextField(value, dateDisplay, dateCommit);
   const timeField = useTextField(value, timeDisplay, timeCommit);

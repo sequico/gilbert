@@ -129,7 +129,7 @@ export function rfc5322Date(d: Date): string {
  * Everything here is UTF-8, so the alternative is a mangled subject line.
  */
 export function encodeHeaderWord(value: string): string {
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the printable-ASCII range, deliberately
   if (/^[\x20-\x7E]*$/.test(value)) return value;
   const bytes = new TextEncoder().encode(value);
   let bin = "";

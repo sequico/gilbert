@@ -259,7 +259,6 @@ export function ThreadView({
     return () => {
       if (markTimer.current) window.clearTimeout(markTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     messages.map((m) => m.id + (m.keywords.$seen ? "1" : "0")).join(","),
     settings.markReadDelay,
@@ -318,7 +317,6 @@ export function ThreadView({
       window.removeEventListener("keydown", release);
       window.clearTimeout(settled);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, messages.length > 0]);
 
   // Keyboard: reply/forward events from MailView

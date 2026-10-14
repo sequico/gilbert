@@ -1295,7 +1295,6 @@ function HtmlBody({
      * root rather than to its contents, which survives this rewriting anyway,
      * so a changing handler now costs a listener swap and nothing else.
      */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, bodyStyle, themed, forced]);
 
   useEffect(() => {

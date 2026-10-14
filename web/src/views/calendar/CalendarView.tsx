@@ -129,7 +129,6 @@ export function CalendarView({
 
   useEffect(() => {
     if (cal.available) void cal.loadRange(range.start, range.end);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cal.available, range.start.getTime(), range.end.getTime()]);
 
   /*
@@ -290,7 +289,6 @@ export function CalendarView({
           handler: () => openNew(),
         },
       ]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [view, anchor, openNew],
   );
 

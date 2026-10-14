@@ -45,7 +45,6 @@ export function FilePicker({
 
   useEffect(() => {
     void files.loadChildren(cur);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur, files.accountId]);
 
   const close = () => {

@@ -69,7 +69,6 @@ export function RecipientPicker({
     /* Shared books must answer here too, without a prior visit to Contacts.
        `loadShared` is idempotent and single-flight, so asking again is safe. */
     if (contacts.available && !contacts.sharedLoaded) void contacts.loadShared();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.available, contacts.loaded, contacts.sharedLoaded]);
 
   /* Added counts whether the server remembered it or the settings did --

@@ -144,7 +144,6 @@ export function Composer({ draft }: { draft: Draft }) {
         allowInInput: true,
       },
     ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, d.minimized]);
 
   const bodyText = useMemo(

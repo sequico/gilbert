@@ -219,7 +219,6 @@ export function EventEditor({
           )
           .then(setBase);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [init.event?.id]);
 
   if (base === undefined || scope === undefined) return null;
@@ -516,7 +515,6 @@ function EventForm({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     people.map((p) => p.email).join(","),
     fbWindow.start.getTime(),

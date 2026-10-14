@@ -110,7 +110,6 @@ export function SieveEditor({
     // Mounted once: `value` after the first render is applied by the effect
     // below, and `readOnly`/`minHeight`/`autoFocus` are not expected to
     // change under an already-mounted editor.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

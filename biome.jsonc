@@ -50,7 +50,9 @@
       "correctness": {
         // React/zustand effect deps are written to fire on store snapshots
         // and refs, not on every bound variable; exhaustive-deps churn
-        // against that (80 sites today).
+        // against that. The rule is off for the whole tree, so a site that
+        // wants to say "deliberately" says it in a comment of its own rather
+        // than in a suppression comment that suppresses nothing.
         "useExhaustiveDependencies": "off"
       },
       "suspicious": {

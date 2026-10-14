@@ -122,7 +122,6 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     // `accountId` is in here because opening a share changes which account the
     // same route means: at /files the parent is null before and after, so
     // without it the listing would keep showing the previous account's folder.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files.available, files.accountId, parentId]);
 
   /*
@@ -210,7 +209,6 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         })
         .catch((err) => toast.error((err as Error).message));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId, files.available]);
 
   if (!files.available)
@@ -1064,7 +1062,6 @@ export function MoveDialog({
   const [cur, setCur] = useState<string | null>(null);
   useEffect(() => {
     void files.loadChildren(cur);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur]);
   /*
    * One rule for both ways in: the same `canDropFileNodes` the drag-and-drop

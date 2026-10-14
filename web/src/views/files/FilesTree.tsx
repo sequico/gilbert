@@ -91,7 +91,6 @@ export function FilesTree() {
    */
   useEffect(() => {
     void refreshShares();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentId = location.startsWith("/files/")

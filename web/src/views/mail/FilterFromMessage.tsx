@@ -30,7 +30,6 @@ export function FilterFromMessageDialog({
       if (sieve.available && !sieve.scripts.length && !sieve.loading) await sieve.load();
       setReady(true);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!sieve.available) {
