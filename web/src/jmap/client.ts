@@ -14,6 +14,7 @@ import type {
   JmapResponse,
   JmapSession,
   MethodError,
+  SetError,
   UploadResponse,
 } from "./types";
 
@@ -238,7 +239,8 @@ export async function apiFetch<T = unknown>(
         : err.need && err.error === GROUP_UNREADABLE
           ? groupUnreadableSentence(err.need)
           : agentErrorSentence(err as Record<string, unknown>);
-    const message = composed ?? err.message ?? err.detail ?? err.title ?? "request_failed";
+    const message =
+      composed ?? err.message ?? err.detail ?? err.title ?? "request_failed";
     throw new ApiError(status, err.error ?? err.type ?? "error", message);
   }
   if (status === 204) return undefined as T;
@@ -781,10 +783,16 @@ export function chunk<T>(arr: T[], size: number): T[][] {
  * Servers name the offending field in `properties`, which is usually the whole
  * answer to "why was this rejected" — Stalwart's description alone is often
  * just "Invalid property or value." Keep both.
+ *
+ * Takes the shared `SetError` rather than a shape written out here: this
+ * declaration used to spell out the first three fields and drop the rest, and
+ * the one it dropped is the one with behaviour behind it — `existingId`, the
+ * node already carrying a name on an `alreadyExists` refusal, which is what
+ * lets a caller that lost a create race adopt it instead of reporting a name
+ * nobody can see. A copy can drift from the shared type without failing to
+ * compile; an import cannot.
  */
-export function setErrorMessage(
-  err: { type: string; description?: string; properties?: string[] } | null | undefined,
-): string {
+export function setErrorMessage(err: SetError | null | undefined): string {
   if (!err) return "Unknown error";
   const base = err.description ?? err.type;
   const props = err.properties?.length ? ` (${err.properties.join(", ")})` : "";
