@@ -2365,8 +2365,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "Нагадування: {title}",
     "Message not sent — {what}": "Лист не надіслано — {what}",
     "Not signed in": "Вхід не виконано",
-    "The mailbox changed before this message was sent":
-      "Скринька змінилася до того, як цей лист було надіслано",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "Переміщення контакту між вашими адресними книгами та книгою групи — справа адміністратора установлення, бо картка належить обліковому запису, до якого потрапляє. Змінювати її та складати нові контакти там, де вони є, усе ще можна.",
     "A file called “{name}” is already here.": "Файл з іменем «{name}» уже тут.",

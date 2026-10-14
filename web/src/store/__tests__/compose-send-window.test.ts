@@ -9,13 +9,13 @@ import { toast } from "@/ui/toast";
  * What a Send in the undo window is aimed at.
  *
  * Send hides the composer and submits the message five seconds later, and
- * what it submits must be the account and identity it was aimed at, not
- * whichever is on screen at the end of the window: signing out or switching to
- * a group mailbox inside it submits the message from the wrong account -- or
- * with no account at all, since the store's account id is null when nobody is
- * signed in. The identity is the same question in reverse: taking
- * `identities[0]` at send time picks another persona than the one the composer
- * is showing, once the list has been reloaded.
+ * every id the submission needs belongs to the account it was written in: the
+ * identity it goes out as and the folder the copy lands in. They are resolved
+ * when Send is pressed and travel with the send, so opening another mailbox
+ * inside the window -- a group mailbox, say -- cannot redirect the message,
+ * and an identity list that comes back in another order cannot change the
+ * persona. Only a session that ended stops it, because there is nothing left
+ * to submit with.
  */
 
 const jane = { id: "i1", name: "John", email: "john@example.org", replyTo: null };
@@ -82,17 +82,34 @@ function openDraft(): string {
 }
 
 describe("a switch to another mailbox inside the undo window", () => {
-  it("sends nothing rather than sending from the wrong account", async () => {
+  it("sends all the same, from the mailbox and persona Send was pressed under", async () => {
     const key = openDraft();
     void useCompose.getState().send(key);
     // Send hides the composer at once; the message goes out after the window.
     expect(useCompose.getState().drafts.some((d) => d.key === key)).toBe(false);
 
+    // The reader opens a group mailbox, whose identities and folders are its own.
     useMail.setState({ accountId: "a2", identities: [team] as never });
     await vi.advanceTimersByTimeAsync(5000);
     await settle();
 
-    expect(chainCalls).toEqual([]);
+    const set = chainCalls.find(([method]) => method === "Email/set")?.[1] as
+      | { accountId?: string; create?: { m?: { mailboxIds?: Record<string, boolean> } } }
+      | undefined;
+    expect(set?.accountId).toBe("a1");
+    // The copy lands in the Sent folder of the account Send was pressed in:
+    // `mb1` is that account's Sent, and the fixture's only one.
+    expect(set?.create?.m?.mailboxIds).toEqual({ mb1: true });
+
+    const submit = (
+      chainCalls.find(([method]) => method === "EmailSubmission/set")?.[1] as
+        | { create?: { s?: { identityId?: string } } }
+        | undefined
+    )?.create?.s;
+    expect(submit?.identityId).toBe("i1");
+
+    // And the message is not put back in Drafts: switching mailbox is not Undo.
+    expect(useCompose.getState().drafts.some((d) => d.key === key)).toBe(false);
   });
 
   it("sends nothing after a sign-out inside the window", async () => {

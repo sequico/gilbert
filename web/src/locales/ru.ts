@@ -2370,8 +2370,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "Напоминание: {title}",
     "Message not sent — {what}": "Письмо не отправлено — {what}",
     "Not signed in": "Вход не выполнен",
-    "The mailbox changed before this message was sent":
-      "Ящик изменился до того, как это письмо было отправлено",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "Перемещение контакта между вашими адресными книгами и книгой группы — дело администратора установки, потому что карточка принадлежит учётной записи, в которую попадает. Изменять её и складывать новые контакты там, где они есть, по-прежнему можно.",
     "A file called “{name}” is already here.": "Файл с именем «{name}» уже здесь.",

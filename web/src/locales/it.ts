@@ -3333,8 +3333,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "Promemoria: {title}",
     "Message not sent — {what}": "Messaggio non inviato — {what}",
     "Not signed in": "Accesso non effettuato",
-    "The mailbox changed before this message was sent":
-      "La casella è cambiata prima che questo messaggio fosse inviato",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "Spostare un contatto tra le tue rubriche e quella di un gruppo spetta a un amministratore dell'installazione, perché la scheda appartiene all'account in cui approda. Modificarla e archiviare nuovi contatti dove si trovano funziona ancora.",
     "A file called “{name}” is already here.": "Un file chiamato “{name}” è già qui.",

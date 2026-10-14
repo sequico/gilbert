@@ -1784,8 +1784,6 @@ export const catalog: Catalog = {
       "Arayüz dili; boş, İngilizce anlamına gelir.",
     "The mail-server locale; empty means follow the server.":
       "Posta sunucusu yerel ayarı; boş, sunucuyu izle anlamına gelir.",
-    "The mailbox changed before this message was sent":
-      "Bu ileti gönderilmeden önce posta kutusu değişti",
     "The message does not match what was signed — it was altered after signing, or damaged on the way.":
       "İleti imzalanan içerikle eşleşmiyor — imzalandıktan sonra değiştirilmiş veya yolda bozulmuş.",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":

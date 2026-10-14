@@ -2370,8 +2370,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "リマインダー: {title}",
     "Message not sent — {what}": "メッセージは送信されませんでした — {what}",
     "Not signed in": "サインインしていません",
-    "The mailbox changed before this message was sent":
-      "このメッセージの送信前にメールボックスが変わりました",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "連絡先を自分のアドレス帳とグループの間で移動するのはインストール管理者の仕事です。カードは落ち着く先のアカウントに属するためです。それを編集し、新しい連絡先を現在地に保管するのは引き続き機能します。",
     "A file called “{name}” is already here.":

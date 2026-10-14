@@ -2291,7 +2291,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "提醒：{title}",
     "Message not sent — {what}": "邮件未发送 — {what}",
     "Not signed in": "未登录",
-    "The mailbox changed before this message was sent": "在此邮件发送前邮箱发生了变化",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "在您自己的通讯录与群组通讯录之间移动联系人属于安装管理员，因为卡片属于它落到的账户。编辑它以及将新联系人归入它们所在之处仍然可行。",
     "A file called “{name}” is already here.": "名为“{name}”的文件已在此处。",

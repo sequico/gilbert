@@ -2371,8 +2371,6 @@ export const catalog: Catalog = {
     "Reminder: {title}": "Herinnering: {title}",
     "Message not sent — {what}": "Bericht niet verzonden — {what}",
     "Not signed in": "Niet aangemeld",
-    "The mailbox changed before this message was sent":
-      "Het postvak veranderde voordat dit bericht werd verzonden",
     "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.":
       "Een contact verplaatsen tussen uw eigen adresboeken en dat van een groep is aan een installatiebeheerder, omdat de kaart toebehoort aan het account waar die terechtkomt. Hem bewerken en nieuwe contacten opbergen waar ze zijn, werkt nog steeds.",
     "A file called “{name}” is already here.":

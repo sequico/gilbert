@@ -1047,15 +1047,19 @@ export const useCompose = create<ComposeState>((set, get) => ({
     /*
      * Settled here, when Send is pressed, and carried to the submission: the
      * undo window is long enough to switch mailbox or sign out, and a send
-     * that resolved its account afterwards would go out from whichever
-     * mailbox is on screen by then -- or from none at all.
+     * that resolved these afterwards would go out from whichever mailbox is on
+     * screen by then -- or from none at all. See `SendTarget`.
      */
     const mail = useMail.getState();
     const identity =
       mail.identities.find((i) => i.id === found.identityId) ?? mail.defaultIdentity();
     const target: SendTarget = {
       accountId: mail.accountId,
-      identityId: identity?.id ?? null,
+      identity: identity ?? null,
+      // The fallback is inside the capture rather than at the submission: a
+      // message with no folder to land in would be created nowhere.
+      sentId: mail.roleId("sent") ?? mail.roleId("inbox"),
+      draftsId: mail.roleId("drafts"),
     };
     // A draft that already has a Message-ID has been sent before, and failed.
     const retry = Boolean(found.sendMessageId);
@@ -1455,11 +1459,20 @@ const BLOB_URL_RE = escapeRe(BLOB_URL_PREFIX);
 /** Build the JMAP Email creation object from a draft. */
 export async function buildEmailObject(
   d: Draft,
-  opts: { forSend: boolean; mailboxId?: Id | null },
+  opts: { forSend: boolean; mailboxId?: Id | null; send?: SendTarget },
 ): Promise<Record<string, unknown>> {
   const mail = useMail.getState();
-  const accountId = mail.accountId!;
-  const ident = mail.identities.find((i) => i.id === d.identityId) ?? mail.identities[0];
+  /*
+   * The send path carries the account and the persona Send was pressed under
+   * (`SendTarget`), because by the time it runs the reader may be looking at
+   * another mailbox. A save answers from what is on screen, which is where the
+   * composer it belongs to is.
+   */
+  const accountId = opts.send?.accountId ?? mail.accountId!;
+  const ident =
+    opts.send?.identity ??
+    mail.identities.find((i) => i.id === d.identityId) ??
+    mail.identities[0];
   if (!ident) throw new Error(translate("No sending identity available"));
   const from: EmailAddress = { name: ident.name || null, email: ident.email };
 
@@ -1611,7 +1624,8 @@ export async function buildEmailObject(
     obj.mailboxIds = draftsId ? { [draftsId]: true } : { [mail.roleId("inbox")!]: true };
     obj.keywords = { $draft: true, $seen: true };
   } else {
-    const sentId = opts.mailboxId ?? mail.roleId("sent") ?? mail.roleId("inbox");
+    const sentId =
+      opts.mailboxId ?? opts.send?.sentId ?? mail.roleId("sent") ?? mail.roleId("inbox");
     obj.mailboxIds = { [sentId!]: true };
     obj.keywords = { $seen: true };
   }
@@ -1812,13 +1826,24 @@ export async function traceSend(
 }
 
 /**
- * The mailbox and identity a Send was pressed under, resolved once and
- * carried to the submission: a message goes out from the mailbox it was
- * written in, or not at all.
+ * The account, the persona and the folders a Send was pressed under, resolved
+ * once and carried to the submission.
+ *
+ * The undo window is long enough to open another mailbox inside it, and every
+ * id this send needs is one the *account* owns: the identity it is submitted
+ * as, the folder the copy lands in, the folder a draft is taken out of. Read
+ * afterwards, they describe whichever mailbox is on screen by then -- a send
+ * through another account's identity, or one from no account at all. So they
+ * are resolved when Send is pressed and travel with the send, which is also
+ * what makes switching mailbox inside the window a change of view rather than
+ * an Undo.
  */
 interface SendTarget {
   accountId: Id | null;
-  identityId: Id | null;
+  identity: Identity | null;
+  /** Where the copy lands: the account's Sent, or its Inbox when it has none. */
+  sentId: Id | null;
+  draftsId: Id | null;
 }
 
 async function sendInternal(
@@ -1830,18 +1855,15 @@ async function sendInternal(
   const accountId = target.accountId;
   if (!accountId) throw new Error(translate("Not signed in"));
   /*
-   * The account on screen is compared against the one Send was pressed
-   * under, before anything is submitted: the ids below -- the sent mailbox,
-   * the drafts folder, the identity -- are read from whichever account is
-   * active, and writing this message through another account's identity is
-   * not a mistake the reader could undo.
+   * Only a session missing stops a send here. The account, the persona and the
+   * folders were resolved when Send was pressed and travel in `target`, so
+   * opening another mailbox inside the undo window is a change of view and not
+   * an Undo: the message goes out from the mailbox it was written in, with the
+   * identity it was written as. A reader who signed out has nothing left to
+   * submit it with, and there the draft comes back.
    */
-  if (mail.accountId !== accountId)
-    throw new Error(translate("The mailbox changed before this message was sent"));
-  const ident =
-    target.identityId === null
-      ? undefined
-      : mail.identities.find((i) => i.id === target.identityId);
+  if (!mail.accountId) throw new Error(translate("Not signed in"));
+  const ident = target.identity;
   if (!ident) throw new Error(translate("No sending identity available"));
   if (d.attachments.some((a) => !a.blobId && !a.error))
     throw new Error(translate("Attachments are still uploading"));
@@ -1856,7 +1878,11 @@ async function sendInternal(
   saveChains.delete(d.key);
   const scheduled = d.sendAt !== null && d.sendAt > Date.now();
   const scheduledId = scheduled ? await ensureScheduledMailbox() : null;
-  const email = await buildEmailObject(d, { forSend: true, mailboxId: scheduledId });
+  const email = await buildEmailObject(d, {
+    forSend: true,
+    mailboxId: scheduledId,
+    send: target,
+  });
   const messageId = d.sendMessageId ?? newMessageId(ident.email);
   email.messageId = [messageId];
   /*
@@ -1888,8 +1914,8 @@ async function sendInternal(
     if (found.trace === "orphan" && found.emailIds.length)
       await destroyEmails(accountId, found.emailIds);
   }
-  const sentId = mail.roleId("sent");
-  const draftsId = mail.roleId("drafts");
+  const sentId = target.sentId;
+  const draftsId = target.draftsId;
   const rcpts = uniqueAddresses([...d.to, ...d.cc, ...d.bcc]).map((a) => ({
     email: a.email,
   }));
