@@ -1341,15 +1341,41 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return upstreamFailure(c, err);
   };
 
+  /** The limiter key one credential endpoint's attempts are counted under. */
+  const credentialLimitKey = (c: Context<Env>, scope: string) =>
+    `${scope}|${c.get("session").username.toLowerCase()}`;
+
   /** Guard the endpoints that check a password against brute-forcing. */
   const guarded = (c: Context<Env>, scope = "account"): Response | null => {
-    const key = `${scope}|${c.get("session").username.toLowerCase()}`;
+    const key = credentialLimitKey(c, scope);
     if (accountLimiter.check(key)) return null;
     c.header("Retry-After", String(accountLimiter.retryAfterSeconds(key)));
     return c.json(
       { error: "rate_limited", message: "Too many attempts. Please wait and try again." },
       429,
     );
+  };
+
+  /**
+   * Give the attempt back when the failure is not a judgement on the password.
+   *
+   * A 401 -- or a refusal the mail server itself phrased (`AccountError`) -- is
+   * about the credential and stays counted; anything else is the upstream
+   * failing to answer, which says nothing about the password and must not spend
+   * somebody's attempts while they wait for it to come back (#239, the login
+   * path's own rule). Only endpoints that passed `guarded` have an attempt to
+   * give back, so a refund past one is harmless.
+   */
+  const refundCredentialAttempt = (
+    c: Context<Env>,
+    err: unknown,
+    scope = "account",
+  ): void => {
+    const judged =
+      err instanceof UpstreamError
+        ? err.status === 401
+        : err instanceof AccountError && err.status < 500;
+    if (!judged) accountLimiter.refund(credentialLimitKey(c, scope));
   };
 
   api.get("/account/security", requireSession, async (c) => {
@@ -1388,6 +1414,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         otpCode: body.otpCode?.trim() || undefined,
       });
     } catch (err) {
+      refundCredentialAttempt(c, err);
       return accountFailure(c, err);
     }
     // The old password is now dead: re-seal this session with the new one and
@@ -1488,6 +1515,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       confirmed = await confirmsPassword(session, current);
     } catch (err) {
+      refundCredentialAttempt(c, err, "app-password");
       return accountFailure(c, err);
     }
     if (!confirmed)
@@ -1498,6 +1526,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       return c.json(await createAppPassword(await accountCtx(c), { description }));
     } catch (err) {
+      refundCredentialAttempt(c, err, "app-password");
       return accountFailure(c, err);
     }
   });
@@ -1512,6 +1541,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       await revokeAppPassword(await accountCtx(c), body.id);
       return c.json({ ok: true });
     } catch (err) {
+      refundCredentialAttempt(c, err);
       return accountFailure(c, err);
     }
   });
@@ -1532,7 +1562,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ url?: string; code?: string; current?: string }>(c);
     if (!body?.url || !body.code || !body.current)
       return c.json({ error: "bad_request" }, 400);
-    const ctx = await accountCtx(c);
+    let ctx: Awaited<ReturnType<typeof accountCtx>>;
+    try {
+      ctx = await accountCtx(c);
+    } catch (err) {
+      refundCredentialAttempt(c, err);
+      return accountFailure(c, err);
+    }
     const code = body.code.trim();
     /*
      * Every proxied call re-authenticates with the stored password, and once
@@ -1547,6 +1583,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       assertEnrolmentCode(body.url, code);
     } catch (err) {
+      refundCredentialAttempt(c, err);
       return accountFailure(c, err);
     }
     let app: { id: string; secret: string } | null = null;
@@ -1567,6 +1604,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         // Don't leave a credential behind for a change that never happened.
         await revokeAppPassword(ctx, app.id).catch(() => {});
       }
+      refundCredentialAttempt(c, err);
       return accountFailure(c, err);
     }
     let sessionKept = false;
@@ -1591,6 +1629,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         code: body.code.trim(),
       });
     } catch (err) {
+      refundCredentialAttempt(c, err);
       return accountFailure(c, err);
     }
     // This session may be running on the app password minted when 2FA went on;

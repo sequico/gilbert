@@ -343,6 +343,28 @@ test("an integer setting with trailing characters is refused, not truncated", ()
   );
 });
 
+/*
+ * A session TTL below one is a typo, not a request for a session that expires
+ * before it is read.
+ *
+ * The record would be written already stale, so sign-in looks successful and
+ * the very next request is a 401 with nothing naming the cause. The
+ * installation's own document refuses a duration below its minimum rather than
+ * flooring it (`readAtLeast`, `shared/installation.ts`), and this path must not
+ * disagree.
+ */
+test("a session TTL below one is refused, not accepted", () => {
+  for (const name of ["SESSION_TTL", "SESSION_REMEMBER_TTL"] as const) {
+    for (const v of ["0", "-1"]) {
+      assert.throws(
+        () => configurationFromEnvironment({ ...HANDSHAKE_ENV, [name]: v }),
+        new RegExp(`Invalid value for ${name}: ${v} is below 1`),
+        `${name}=${v} would expire a session the moment it is written`,
+      );
+    }
+  }
+});
+
 test("a boot runs on the document's values, and never on the document's provider switch", async () => {
   const env: InstallationEnvironment = {
     ...HANDSHAKE_ENV,

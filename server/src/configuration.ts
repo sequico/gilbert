@@ -435,11 +435,12 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     secureCookies: (
       environment.SECURE_COOKIES ?? defaults.server.secureCookies
     ).toLowerCase(),
-    sessionTtl: readInt(environment, "SESSION_TTL", defaults.sessions.ttl),
-    sessionRememberTtl: readInt(
+    sessionTtl: readIntAtLeast(environment, "SESSION_TTL", defaults.sessions.ttl, 1),
+    sessionRememberTtl: readIntAtLeast(
       environment,
       "SESSION_REMEMBER_TTL",
       defaults.sessions.rememberTtl,
+      1,
     ),
     /** True when this instance has asserted, and verified, that it is immutable. */
     immutable,

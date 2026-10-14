@@ -86,7 +86,8 @@ export function wellKnownUrl(base: string = config.stalwartUrl): string {
 
 /**
  * Fetch the JMAP session resource from Stalwart using the given Authorization
- * header. Throws UpstreamError(401) on bad credentials.
+ * header. Throws UpstreamError: a 401 on bad credentials, a 403 when the
+ * server refuses the account itself.
  */
 export async function fetchUpstreamSession(
   authorization: string,
@@ -97,9 +98,12 @@ export async function fetchUpstreamSession(
     redirect: "follow",
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new UpstreamError("Invalid credentials", 401);
-  }
+  if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
+  // A 403 is a permission, not a password: telling somebody their credentials
+  // are wrong sends them to re-enter a password that was never the problem,
+  // and the browser turns any 401 outside the login path into a sign-out.
+  if (res.status === 403)
+    throw new UpstreamError("The mail server refused this account", 403);
   if (!res.ok) {
     throw new UpstreamError(`Upstream session request failed (${res.status})`, 502);
   }
@@ -353,10 +357,11 @@ export interface AccountIntrospection {
 /**
  * Read the authenticated account's own `/api/account` introspection.
  *
- * Throws UpstreamError on any failure — a 401/403 means the credential was
- * refused, anything else non-ok is an upstream failure. Callers decide what
- * a refusal costs: the locale/edition path treats it as a nicety, the admin
- * paths (ADR 0001) fail closed on it.
+ * Throws UpstreamError on any failure: a 401 means the credential was refused,
+ * a 403 the account itself (a permission, a suspension or a policy block), and
+ * anything else non-ok is an upstream failure. Callers decide what a refusal
+ * costs: the locale/edition path treats it as a nicety, the admin paths
+ * (ADR 0001) fail closed on it.
  *
  * App-password credentials authenticate here exactly like a password
  * (live-verified 2026-09-09, Stalwart 0.16.21), so a session re-sealed onto
@@ -370,9 +375,12 @@ export async function fetchAccountIntrospection(
     headers: { authorization, accept: "application/json" },
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new UpstreamError("Invalid credentials", 401);
-  }
+  if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
+  // Same split as `fetchUpstreamSession`, and this is the enforcement behind
+  // every admin route: collapsing a 403 into 401 would sign out a reader whose
+  // account was merely refused (see `upstreamFailure`).
+  if (res.status === 403)
+    throw new UpstreamError("The mail server refused this account", 403);
   if (!res.ok) {
     throw new UpstreamError(`Account introspection failed (${res.status})`, 502);
   }
