@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { blankPdf, freePort } from "../testkit.js";
+import type { ActionOpts, ActionResult } from "./actions.js";
 import type { AgentAction } from "./documents.js";
 
 /**
@@ -28,9 +29,11 @@ const {
   writeBytesIntoVisibleFolder,
 } = await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
-const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
-  "./actions.js"
-);
+const {
+  fetchEmailRecord,
+  runActions: runPlan,
+  undefinedAgentLabels,
+} = await import("./actions.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { DRAFT_FILE, KNOWLEDGE_FOLDER, knowledgeFolderName } = await import(
   "../shared/knowledge.js"
@@ -46,6 +49,25 @@ const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
 const client = new JmapClient({ authorization: AUTH, session });
+
+/**
+ * Run one plan directly, with the grant for exactly what it drives.
+ *
+ * `allowed` is required of every caller (ADR 0003): the guard in `runActions`
+ * is the boundary before every effect, and a test that omitted it would be
+ * exercising the path production may no longer take — the guard reads an
+ * omission as nobody-checked. Deriving the grant from the plan is what a direct
+ * test means: it drives these actions and nothing else. A test *about* the
+ * grant passes its own, which wins over the derived one.
+ */
+const run = (
+  actions: ReadonlyArray<AgentAction>,
+  opts: Partial<ActionOpts> = {},
+): Promise<ActionResult[]> =>
+  runPlan(ctx, GROUP, actions, {
+    allowed: actions.map((a) => a.do),
+    ...opts,
+  });
 
 let draftsId = "";
 let messageId = "";
@@ -130,7 +152,7 @@ after(() => {
 
 test("a required parameter that is absent is refused before anything runs", async () => {
   await assert.rejects(
-    () => runActions(ctx, GROUP, [{ do: "file.write", with: { folder: "notes" } }]),
+    () => run([{ do: "file.write", with: { folder: "notes" } }]),
     /needs name, text to run/,
   );
 });
@@ -142,12 +164,9 @@ test("a G- keyword the group's catalog does not define is refused loudly", async
   assert.deepEqual(missing, ["G-nobody-defined-this"]);
   await assert.rejects(
     () =>
-      runActions(
-        ctx,
-        GROUP,
-        [{ do: "keyword.add", with: { keyword: "G-nobody-defined-this" } }],
-        { emailId: messageId },
-      ),
+      run([{ do: "keyword.add", with: { keyword: "G-nobody-defined-this" } }], {
+        emailId: messageId,
+      }),
     /does not define G-nobody-defined-this/,
   );
   const after_ = await fetchEmailRecord(client, GROUP, messageId, {});
@@ -159,9 +178,7 @@ test("a G- keyword the group's catalog does not define is refused loudly", async
 });
 
 test("a G- keyword the catalog defines is applied and removed", async () => {
-  await runActions(
-    ctx,
-    GROUP,
+  await run(
     [
       { do: "keyword.add", with: { keyword: "G-processed" } },
       { do: "keyword.add", with: { keyword: "invoice" } },
@@ -171,12 +188,9 @@ test("a G- keyword the catalog defines is applied and removed", async () => {
   const marked = await fetchEmailRecord(client, GROUP, messageId, {});
   assert.equal((marked?.keywords as Record<string, unknown>)?.["G-processed"], true);
   assert.equal((marked?.keywords as Record<string, unknown>)?.invoice, true);
-  await runActions(
-    ctx,
-    GROUP,
-    [{ do: "keyword.remove", with: { keyword: "G-processed" } }],
-    { emailId: messageId },
-  );
+  await run([{ do: "keyword.remove", with: { keyword: "G-processed" } }], {
+    emailId: messageId,
+  });
   const cleared = await fetchEmailRecord(client, GROUP, messageId, {});
   assert.equal(
     (cleared?.keywords as Record<string, unknown>)?.["G-processed"],
@@ -185,9 +199,7 @@ test("a G- keyword the catalog defines is applied and removed", async () => {
 });
 
 test("a move creates the folder when the action says so, and moves the message", async () => {
-  const [result] = await runActions(
-    ctx,
-    GROUP,
+  const [result] = await run(
     [{ do: "mail.move", with: { mailbox: "Filed invoices", create: "true" } }],
     { emailId: messageId },
   );
@@ -203,7 +215,7 @@ test("a move creates the folder when the action says so, and moves the message",
 test("a move into a folder that is not there is refused when the action does not create it", async () => {
   await assert.rejects(
     () =>
-      runActions(ctx, GROUP, [{ do: "mail.move", with: { mailbox: "Nowhere" } }], {
+      run([{ do: "mail.move", with: { mailbox: "Nowhere" } }], {
         emailId: messageId,
       }),
     /no mailbox named "Nowhere"/,
@@ -211,9 +223,7 @@ test("a move into a folder that is not there is refused when the action does not
 });
 
 test("attachments are written into the folder the rule names, with their own bytes", async () => {
-  const [result] = await runActions(
-    ctx,
-    GROUP,
+  const [result] = await run(
     [{ do: "mail.extract", with: { folder: "invoices/2026" } }],
     { emailId: attachedId },
   );
@@ -243,14 +253,9 @@ test("a name the group already filed is kept: the run writes beside it", async (
   );
   assert.deepEqual(
     (
-      await runActions(
-        ctx,
-        GROUP,
-        [{ do: "mail.extract", with: { folder: "invoices/2026" } }],
-        {
-          emailId: attachedId,
-        },
-      )
+      await run([{ do: "mail.extract", with: { folder: "invoices/2026" } }], {
+        emailId: attachedId,
+      })
     )[0]?.result?.saved,
     ["invoices/2026/2-note.txt"],
   );
@@ -271,7 +276,7 @@ test("a folder the model calls `gilbert` is refused: the hidden tree is not a de
   // anything is written.
   await assert.rejects(
     () =>
-      runActions(ctx, GROUP, [{ do: "mail.extract", with: { folder: "gilbert" } }], {
+      run([{ do: "mail.extract", with: { folder: "gilbert" } }], {
         emailId: attachedId,
       }),
     /Gilbert's own folder/,
@@ -279,7 +284,7 @@ test("a folder the model calls `gilbert` is refused: the hidden tree is not a de
 });
 
 test("an attachment nothing placed a folder for lands in the attention folder", async () => {
-  const [result] = await runActions(ctx, GROUP, [{ do: "mail.extract", with: {} }], {
+  const [result] = await run([{ do: "mail.extract", with: {} }], {
     emailId: attachedId,
   });
   assert.deepEqual(result?.result?.saved, [`${AGENT_ATTENTION_FOLDER}/note.txt`]);
@@ -290,18 +295,15 @@ test("an attachment nothing placed a folder for lands in the attention folder", 
 });
 
 test("a message without attachments extracts nothing, and says so", async () => {
-  const [result] = await runActions(
-    ctx,
-    GROUP,
-    [{ do: "mail.extract", with: { folder: "nowhere" } }],
-    { emailId: messageId },
-  );
+  const [result] = await run([{ do: "mail.extract", with: { folder: "nowhere" } }], {
+    emailId: messageId,
+  });
   assert.deepEqual(result?.result?.saved, []);
 });
 
 test("a draft lands in Drafts, marked $draft and deliberately unread", async () => {
   assert.ok(draftsId, "the group has a Drafts mailbox");
-  const [result] = await runActions(ctx, GROUP, [
+  const [result] = await run([
     {
       do: "mail.draft",
       with: {
@@ -328,7 +330,7 @@ test("a draft lands in Drafts, marked $draft and deliberately unread", async () 
 });
 
 test("a file is written where people look, and never over one already there", async () => {
-  const [first] = await runActions(ctx, GROUP, [
+  const [first] = await run([
     { do: "file.write", with: { folder: "notes", name: "summary.txt", text: "done" } },
   ]);
   assert.equal(first?.result?.path, "notes/summary.txt");
@@ -340,7 +342,7 @@ test("a file is written where people look, and never over one already there", as
     "and not in the hidden app folder, where a member would not find it",
   );
 
-  const [second] = await runActions(ctx, GROUP, [
+  const [second] = await run([
     { do: "file.write", with: { folder: "notes", name: "summary.txt", text: "again" } },
   ]);
   assert.equal(
@@ -360,7 +362,7 @@ test("a name that is only dots falls back instead of naming a directory step", a
   // whoever joins the path it reads as a step out of the folder. The action
   // writes its own fallback rather than a name that means another place, and a
   // separator is neutralised so a name cannot read as a path either.
-  const [dots] = await runActions(ctx, GROUP, [
+  const [dots] = await run([
     { do: "file.write", with: { folder: "notes-dots", name: "..", text: "safe" } },
   ]);
   assert.equal(dots?.result?.path, "notes-dots/note.txt");
@@ -369,7 +371,7 @@ test("a name that is only dots falls back instead of naming a directory step", a
     "the bytes land under the fallback name, in the folder the action named",
   );
 
-  const [separator] = await runActions(ctx, GROUP, [
+  const [separator] = await run([
     { do: "file.write", with: { folder: "notes-dots", name: "../escape", text: "safe" } },
   ]);
   assert.equal(
@@ -386,9 +388,7 @@ test("a run remembers a fact, corrects it, and lets it go", async () => {
    * removes one by writing it with no text. Every later run of the group reads
    * what is left, which is why a write to it is fenced like a file write.
    */
-  const [added] = await runActions(
-    ctx,
-    GROUP,
+  const [added] = await run(
     [
       {
         do: "notebook.write",
@@ -404,9 +404,7 @@ test("a run remembers a fact, corrects it, and lets it go", async () => {
   const id = String(doc?.facts?.[0]?.id ?? "");
   assert.ok(id, "the fact the run wrote is in the group's notebook");
 
-  const [corrected] = await runActions(
-    ctx,
-    GROUP,
+  const [corrected] = await run(
     [
       {
         do: "notebook.write",
@@ -424,7 +422,7 @@ test("a run remembers a fact, corrects it, and lets it go", async () => {
     "Invoices from Ada are filed under the client's name.",
   );
 
-  await runActions(ctx, GROUP, [{ do: "notebook.write", with: { id, text: "" } }], {
+  await run([{ do: "notebook.write", with: { id, text: "" } }], {
     from: AGENT,
   });
   const emptied = (await readAppJsonAt(ctx, GROUP, "agent/notebook.json")) as {
@@ -437,24 +435,19 @@ test("a run remembers a fact, corrects it, and lets it go", async () => {
   // neither a fact nor a text has nothing to write.
   await assert.rejects(
     () =>
-      runActions(
-        ctx,
-        GROUP,
-        [{ do: "notebook.write", with: { id: "not-a-fact", text: "x" } }],
-        { from: AGENT },
-      ),
+      run([{ do: "notebook.write", with: { id: "not-a-fact", text: "x" } }], {
+        from: AGENT,
+      }),
     /does not hold/,
   );
   await assert.rejects(
-    () => runActions(ctx, GROUP, [{ do: "notebook.write", with: {} }], { from: AGENT }),
+    () => run([{ do: "notebook.write", with: {} }], { from: AGENT }),
     /needs text to add a fact/,
   );
 });
 
 test("a chat post becomes a message document, and its mentions are recorded", async () => {
-  const posted = await runActions(
-    ctx,
-    GROUP,
+  const posted = await run(
     // The mention is the `@` plus the address; it ends at the whitespace (or
     // the end of the text), so a trailing full stop is not part of it.
     [{ do: "chat.post", with: { text: "Filed it for @ada@example.org" } }],
@@ -471,13 +464,13 @@ test("a chat post becomes a message document, and its mentions are recorded", as
 
 test("chat.post without the agent's address is refused", async () => {
   await assert.rejects(
-    () => runActions(ctx, GROUP, [{ do: "chat.post", with: { text: "hello" } }]),
+    () => run([{ do: "chat.post", with: { text: "hello" } }]),
     /needs the agent's own address/,
   );
 });
 
 test("noop runs and returns nothing", async () => {
-  const results = await runActions(ctx, GROUP, [{ do: "noop" }]);
+  const results = await run([{ do: "noop" }]);
   assert.deepEqual(results, [{ action: "noop", ok: true }]);
 });
 
@@ -497,18 +490,14 @@ test("document.read reads the pages the run is bounded to", async () => {
     await blankPdf(4),
     "application/pdf",
   );
-  const [bounded] = await runActions(
-    ctx,
-    GROUP,
+  const [bounded] = await run(
     [{ do: "document.read", with: { file: "Reads/four.pdf" } }],
     { maxPages: 2 },
   );
   assert.equal(bounded?.result?.pages, 4, "the document's own length is reported");
   assert.deepEqual(bounded?.result?.pixelPages, [1, 2], "and the pages the run may read");
 
-  const [whole] = await runActions(ctx, GROUP, [
-    { do: "document.read", with: { file: "Reads/four.pdf" } },
-  ]);
+  const [whole] = await run([{ do: "document.read", with: { file: "Reads/four.pdf" } }]);
   assert.deepEqual(
     whole?.result?.pixelPages,
     [1, 2, 3, 4],
@@ -534,7 +523,7 @@ test("a split refuses a document past its page ceiling, before copying a page", 
   );
   await assert.rejects(
     () =>
-      runActions(ctx, GROUP, [
+      run([
         {
           do: "document.split",
           with: { file: "Splits/long.pdf", folder: "Splits/out" },
@@ -559,7 +548,7 @@ test("a split within the ceiling writes one file a page", async () => {
     await blankPdf(2),
     "application/pdf",
   );
-  const [result] = await runActions(ctx, GROUP, [
+  const [result] = await run([
     { do: "document.split", with: { file: "Splits/two.pdf", folder: "Splits/two" } },
   ]);
   assert.equal(result?.result?.pages, 2, "the count the split reports");
@@ -605,7 +594,7 @@ test("a draft carries the group's own signature, as the composer writes it", asy
       "Team Greensley",
       "the fixture really carries the signature before the run",
     );
-    const [result] = await runActions(ctx, GROUP, [
+    const [result] = await run([
       {
         do: "mail.draft",
         with: { to: "ada@example.org", subject: "Signed", text: "On it." },
@@ -667,19 +656,14 @@ test("an action outside the run's grant is refused before it runs", async () => 
    */
   await assert.rejects(
     () =>
-      runActions(
-        ctx,
-        GROUP,
-        [{ do: "file.write", with: { folder: "notes", name: "a.txt", text: "hi" } }],
-        { allowed: ["keyword.add"] },
-      ),
+      run([{ do: "file.write", with: { folder: "notes", name: "a.txt", text: "hi" } }], {
+        allowed: ["keyword.add"],
+      }),
     /not in this run's grant/,
   );
   // The same action runs when the grant holds it, so the refusal is the grant
   // and not the action.
-  const [granted] = await runActions(
-    ctx,
-    GROUP,
+  const [granted] = await run(
     [{ do: "file.write", with: { folder: "notes", name: "granted.txt", text: "hi" } }],
     { allowed: ["file.write"] },
   );
@@ -690,7 +674,7 @@ test("an action name this build does not have is refused by name", async () => {
   // A phantom name would otherwise return `undefined` and record a result for
   // work that never happened.
   await assert.rejects(
-    () => runActions(ctx, GROUP, [{ do: "mail.archive" } as unknown as AgentAction]),
+    () => run([{ do: "mail.archive" } as unknown as AgentAction]),
     /"mail\.archive" is not an action this build can run/,
   );
 });
@@ -709,9 +693,7 @@ test("the company knowledge base is a grant of its own", async () => {
 
   await assert.rejects(
     () =>
-      runActions(
-        ctx,
-        GROUP,
+      run(
         [
           {
             do: "knowledge.write",
@@ -734,9 +716,7 @@ test("the company knowledge base is a grant of its own", async () => {
 
   // The `company` scope writes the installation's account once the grant holds
   // it.
-  const [scoped] = await runActions(
-    ctx,
-    GROUP,
+  const [scoped] = await run(
     [
       {
         do: "knowledge.write",
@@ -748,9 +728,7 @@ test("the company knowledge base is a grant of its own", async () => {
   assert.equal(scoped?.result?.account, company, "the scoped write reached the Master");
 
   // The action of its own is the same write, under its own grant.
-  const [direct] = await runActions(
-    ctx,
-    GROUP,
+  const [direct] = await run(
     [
       {
         do: "knowledge.writeCompany",
