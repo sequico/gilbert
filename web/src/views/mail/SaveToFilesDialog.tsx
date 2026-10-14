@@ -1,3 +1,4 @@
+import { FILENODE_SET } from "@gilbert/shared/appFolder";
 import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
@@ -142,7 +143,7 @@ export function SaveToFilesDialog({
     if (!name) return;
     setBusy(true);
     try {
-      const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+      const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
         accountId: destination,
         create: { d: directoryCreate(folder, name) },
       });

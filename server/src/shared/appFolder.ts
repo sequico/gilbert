@@ -37,6 +37,21 @@ export const APP_DOCUMENT_TYPE = "application/json";
 export const FOLDER_PROPS: string[] = ["id", "name", "nodeType", "parentId"];
 
 /**
+ * The FileNode methods the app folder is read and written through, named once.
+ *
+ * A writer and whoever has to notice a write must agree on the set method, and
+ * they sit in different modules: the server's memory drops a listing when a
+ * `FILENODE_SET` passes its client, which is a contract between the writer
+ * (`appFolder.ts`) and the trigger (`jmap.ts`) that a string on each side would
+ * let drift apart -- a rename on one side alone would leave the memory serving
+ * a listing a write had already changed, and nothing would report it.
+ */
+export const FILENODE_QUERY = "FileNode/query";
+export const FILENODE_GET = "FileNode/get";
+export const FILENODE_SET = "FileNode/set";
+export const FILENODE_CHANGES = "FileNode/changes";
+
+/**
  * The whole of a file node. The client asks for `state` beside these, which is
  * a fact about a conditional write rather than about the node.
  */

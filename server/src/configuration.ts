@@ -373,7 +373,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     production,
     appName: readEnv(environment, "APP_NAME", defaults.branding.appName),
     /**
-     * What this build calls itself: `2.16.57`. Set by the image build from
+     * What this build calls itself -- `2026.8.30+pr129`. Set by the image build from
      * `--build-arg GILBERT_VERSION`, since `.dockerignore` keeps `.git` out of
      * the build context and nothing in there could work it out. A dev checkout
      * has git, so it falls back to asking; see `scripts/version.mjs`.

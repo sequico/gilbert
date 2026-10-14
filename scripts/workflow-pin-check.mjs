@@ -111,6 +111,11 @@ export function collectRepoInput(root = ROOT) {
   return { files };
 }
 
+/** What this check reads, for the gate's read set (`gate-prepush.sh`). */
+export function readPaths(root = ROOT) {
+  return collectRepoInput(root).files.map((one) => one.path);
+}
+
 const USAGE =
   "An action's `uses:` is named by its full commit SHA, with the version it is " +
   "in a comment beside it: `owner/action@<40 hex> # vX.Y.Z`. A `./.github/…` " +

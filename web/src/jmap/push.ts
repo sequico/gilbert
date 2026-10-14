@@ -1,7 +1,8 @@
 import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
 import { withBase } from "@/lib/basePath";
+import { withDeadline } from "@/lib/deadline";
 import { t } from "@/lib/i18n";
-import { apiFetch } from "./client";
+import { API_TIMEOUT_MS, apiFetch } from "./client";
 import type { Id, StateChange } from "./types";
 
 export type PushListener = (accountId: Id, type: string, newState: string) => void;
@@ -162,7 +163,9 @@ class PushManager {
    */
   private async failureReason(): Promise<string> {
     try {
-      await fetch(withBase("/api/health"), { cache: "no-store" });
+      await withDeadline(API_TIMEOUT_MS, undefined, (signal) =>
+        fetch(withBase("/api/health"), { cache: "no-store", signal }),
+      );
       this.emitReachability(true);
       return t("the server closed the live-updates stream");
     } catch {

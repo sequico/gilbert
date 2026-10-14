@@ -41,6 +41,7 @@ import { queryThenGet } from "@gilbert/shared/jmapQuery";
  */
 export { APP_FOLDER_NAME };
 
+import { FILENODE_GET, FILENODE_QUERY, FILENODE_SET } from "@gilbert/shared/appFolder";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { fileCreate } from "@/lib/filenode";
@@ -108,8 +109,8 @@ export async function listChildrenWithState(
     opts.scope === "account" ? undefined : parentId ? { parentId } : { isTopLevel: true };
   const res = await client.chain(
     queryThenGet({
-      query: "FileNode/query",
-      get: "FileNode/get",
+      query: FILENODE_QUERY,
+      get: FILENODE_GET,
       accountId,
       filter,
       position: opts.position ?? 0,
@@ -144,7 +145,7 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
   return ensureAppFolderId(
     (parentId) => children(accountId, parentId, folderProps()),
     async () => {
-      const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
+      const set = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
         accountId,
         create: { d: appFolderCreate() },
       });
@@ -162,7 +163,7 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
 export async function nodeBlobId(accountId: Id, id?: Id): Promise<Id | undefined> {
   if (!id) return undefined;
   try {
-    const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    const res = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
       accountId,
       ids: [id],
       properties: ["id", "blobId"],
@@ -282,7 +283,7 @@ export async function putFile(
     // write a blob onto a folder. Nothing here writes over a non-file.
     if (existing.nodeType !== "file")
       throw new Error(`"${name}" is a folder, not a file, so it is not written over.`);
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
       accountId,
       ...conditional,
       update: { [existing.id]: { blobId, type } },
@@ -291,7 +292,7 @@ export async function putFile(
     if (err) throw new Error(setErrorMessage(err));
     return { id: existing.id, blobId };
   }
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+  const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
     accountId,
     ...conditional,
     create: { n: fileCreate(folderId, name, blobId, type) },

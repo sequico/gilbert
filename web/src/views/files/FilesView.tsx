@@ -1,3 +1,4 @@
+import { FILENODE_GET } from "@gilbert/shared/appFolder";
 import {
   ArrowDown,
   ArrowUp,
@@ -195,7 +196,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     const n = files.nodes[parentId];
     if (!n) {
       void client
-        .call<{ list: FileNode[] }>("FileNode/get", {
+        .call<{ list: FileNode[] }>(FILENODE_GET, {
           accountId: files.accountId,
           ids: [parentId],
           fetchParents: true,

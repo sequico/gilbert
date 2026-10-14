@@ -15,8 +15,9 @@
  * grant: a group mailbox. The store probes the candidates this module names
  * and keeps only the ones that answer.
  */
+
+import { ownAccountForCapability } from "@gilbert/shared/accountRouting";
 import { CAP } from "@/jmap/client";
-import { ownAccountForCapability } from "./accountRouting";
 
 export interface MailAccountInfo {
   accountId: string;

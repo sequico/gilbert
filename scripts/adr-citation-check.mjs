@@ -37,13 +37,11 @@
  * `checkCitations` is pure — it takes text, not paths — so the rules can be
  * exercised without a repository to stage.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 
+import { ADR_FILE, adrRecords } from "./lib/adr.mjs";
 import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
-
-/** The ADR a file name owns: `0003-agent-fleet.md` -> `0003`. */
-const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
 
 /**
  * `ADR 0003`, `ADR-0003`, and the same with a section pinned to it.
@@ -253,22 +251,15 @@ export function formatShapeReport(result) {
   );
 }
 
-/** Every file under a directory, relative to it, skipping what cannot cite. */
 /** Read this repository: the records that exist, and what cites them. */
 export function collectRepoInput(root = ROOT) {
-  const adrDir = join(root, "docs", "adr");
-  const entries = readdirSync(adrDir).sort();
-  const records = entries
-    .map((name) => ADR_FILE.exec(name)?.[1])
-    .filter((n) => n !== undefined);
-  /* The records read whole, for the header half: a citation is checked against
-     the numbers, and a record is checked against itself. */
-  const recordFiles = entries
-    .filter((name) => ADR_FILE.test(name))
-    .map((name) => ({
-      name: `docs/adr/${name}`,
-      text: readFileSync(join(adrDir, name), "utf8"),
-    }));
+  /*
+   * The records, read the one way (`lib/adr.mjs`): their numbers answer the
+   * citations, and their whole text answers the header half, where a citation
+   * is checked against the numbers and a record against itself.
+   */
+  const recordFiles = adrRecords(root);
+  const records = recordFiles.map((one) => ADR_FILE.exec(basename(one.path))?.[1]);
 
   const files = [];
   for (const base of ROOTS) {
@@ -288,6 +279,12 @@ export function collectRepoInput(root = ROOT) {
     }
   }
   return { files, records, recordFiles };
+}
+
+/** What this check reads, for the gate's read set (`gate-prepush.sh`). */
+export function readPaths(root = ROOT) {
+  const input = collectRepoInput(root);
+  return [...input.files, ...input.recordFiles].map((one) => one.path);
 }
 
 const USAGE =

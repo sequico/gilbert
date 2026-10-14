@@ -3,7 +3,7 @@ import {
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
 import { create } from "zustand";
-import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
+import { API_TIMEOUT_MS, CAP, chunk, client, setErrorMessage } from "@/jmap/client";
 import type {
   BusyPeriod,
   Calendar,
@@ -37,6 +37,7 @@ import {
   toUTCDate,
   zonedToDate,
 } from "@/lib/dates";
+import { withDeadline } from "@/lib/deadline";
 import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
@@ -1081,9 +1082,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     for (const sub of subs) {
       try {
-        const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
-          headers: { "X-Requested-With": "gilbert" },
-        });
+        // No CSRF header: this is a GET, which the server's guard does not
+        // check, and a second spelling of the constant could only drift. The
+        // wait is bounded like every other request.
+        const res = await withDeadline(API_TIMEOUT_MS, undefined, (signal) =>
+          fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), { signal }),
+        );
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           errors[sub.id] = body.error ?? `HTTP ${res.status}`;

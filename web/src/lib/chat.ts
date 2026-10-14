@@ -18,7 +18,7 @@
  */
 
 import { appDocumentJson } from "@gilbert/shared/appDocument";
-import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { APP_DOCUMENT_TYPE, FILENODE_GET, FILENODE_SET } from "@gilbert/shared/appFolder";
 import {
   CHAT_FOLDER,
   CHAT_STATE_FOLDER,
@@ -55,7 +55,7 @@ export async function ensureChatFolders(accountId: Id): Promise<ChatFolders> {
     const existing = await findInFolder(accountId, app, name);
     if (existing && existing.parentId === app && existing.nodeType === "directory")
       return existing.id;
-    const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    const set = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
       accountId,
       create: { d: directoryCreate(app, name) },
     });
@@ -135,7 +135,7 @@ export async function fetchMessage(
   id: Id,
   chatFolderId: Id,
 ): Promise<ChatMessage | null> {
-  const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+  const res = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
     accountId,
     ids: [id],
     properties: messageProps(),

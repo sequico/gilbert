@@ -1,3 +1,5 @@
+import { sameAddress } from "@gilbert/shared/address";
+import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { groupAccessSentence } from "@/lib/groupAccess";
@@ -28,15 +30,10 @@ export function GroupLabels() {
   // The accounts this session may reach; a group the administrator is a
   // member of appears here under its own address (ADR 0005).
   const session = useSession((s) => s.session);
-  const memberOf = (name: string): boolean => {
-    const want = name.trim().toLowerCase();
-    return Object.values(session?.accounts ?? {}).some(
-      (a) =>
-        a.isPersonal === false &&
-        typeof a.name === "string" &&
-        a.name.trim().toLowerCase() === want,
+  const memberOf = (name: string): boolean =>
+    Object.values(session?.accounts ?? {}).some(
+      (a) => isGroupAccountRecord(a) && sameAddress(a.name, name),
     );
-  };
   const selectedIsMember = selected !== null && memberOf(selected);
 
   /*

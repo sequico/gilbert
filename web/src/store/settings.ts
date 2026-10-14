@@ -453,7 +453,7 @@ export function syncedPart(s: Settings): Record<string, unknown> {
  * document could name one and have it accepted and merged as a setting. One
  * predicate for every reader that applies such a document.
  */
-export function isSettingsKey(key: string): boolean {
+export function isSettingsKey(key: string): key is keyof Settings {
   return Object.hasOwn(DEFAULT_SETTINGS, key);
 }
 

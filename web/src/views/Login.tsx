@@ -1,7 +1,6 @@
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { ApiError } from "@/jmap/client";
-import { withBase } from "@/lib/basePath";
+import { ApiError, apiFetch } from "@/jmap/client";
 import { ACRONYM_TAGLINE, DEFAULT_APP_NAME } from "@/lib/brand";
 import { currentLanguage, t } from "@/lib/i18n";
 import { rememberLoginLanguage } from "@/lib/loginLanguage";
@@ -30,11 +29,10 @@ export function LoginPage() {
   const [appName, setAppName] = useState(DEFAULT_APP_NAME);
   useEffect(() => {
     let live = true;
-    fetch(withBase("/api/config"))
-      .then((r) => (r.ok ? r.json() : null))
+    apiFetch<{ appName?: unknown; sourceUrl?: unknown }>("/api/config")
       .then((c) => {
-        if (!live || !c) return;
-        if (c.sourceUrl) setSourceUrl(c.sourceUrl as string);
+        if (!live) return;
+        if (typeof c.sourceUrl === "string") setSourceUrl(c.sourceUrl);
         if (typeof c.appName === "string" && c.appName.trim())
           setAppName(c.appName.trim());
       })

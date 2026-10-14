@@ -345,9 +345,54 @@ export const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
 /* The forced-password-change directive (ADR 0001)                     */
 /* ------------------------------------------------------------------ */
 
-export interface DirectiveCheck {
-  forced: boolean;
+/**
+ * A verdict about a session, and when it was read.
+ *
+ * One shape for both verdicts below, because they are one mechanism: a map keyed
+ * by user, one window, and the same expiry rule.
+ */
+/** The upstream session for a live one, asked the same way by both verdicts. */
+function upstreamForSession(session: LiveSession): Promise<UpstreamSession> {
+  return getUpstreamSession(
+    session.id,
+    session.authorization,
+    upstreamFor(session.username),
+  );
+}
+
+export interface SessionVerdict<T> {
+  value: T;
   checkedAt: number;
+}
+
+/**
+ * How long a session verdict may be believed.
+ *
+ * Admin set/clear deletes the entry it changed, so its effect is immediate, and
+ * this bounds how long a fact written behind the server's back -- another
+ * instance, a direct JMAP write -- takes to land. One window for the same rule
+ * in two places.
+ */
+export const SESSION_VERDICT_TTL_MS = 30_000;
+
+/**
+ * A verdict about a session, remembered for the window.
+ *
+ * A stale entry is dropped rather than overwritten in place: the map would
+ * otherwise keep one entry per user ever checked for the life of the process,
+ * with nothing ever deleting the ones that stop requesting.
+ */
+export async function cachedVerdict<T>(
+  cache: Map<string, SessionVerdict<T>>,
+  key: string,
+  read: () => Promise<T>,
+): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.checkedAt < SESSION_VERDICT_TTL_MS) return hit.value;
+  if (hit) cache.delete(key);
+  const value = await read();
+  cache.set(key, { value, checkedAt: Date.now() });
+  return value;
 }
 
 /**
@@ -355,13 +400,9 @@ export interface DirectiveCheck {
  *
  * The door judges every data request against this, so a user forced while
  * already signed in is stopped at their next request without every request
- * paying for a FileNode read of their own account. Admin set/clear and the
- * clear-on-change delete the entry, so their effect is immediate; the TTL
- * bounds how long a directive written behind the server's back (another
- * instance, a direct JMAP write) takes to land.
+ * paying for a FileNode read of their own account.
  */
-export const directiveCache = new Map<string, DirectiveCheck>();
-export const DIRECTIVE_CACHE_TTL_MS = 30_000;
+export const directiveCache = new Map<string, SessionVerdict<boolean>>();
 
 /**
  * Whether this session's user is currently forced to change their password.
@@ -375,91 +416,61 @@ export async function sessionForcedState(
   upstream?: UpstreamSession,
 ): Promise<boolean> {
   if (session.appPassword) return false;
-  const key = normalizeUsername(session.username);
-  const hit = directiveCache.get(key);
-  if (hit && Date.now() - hit.checkedAt < DIRECTIVE_CACHE_TTL_MS) return hit.forced;
-  // A stale entry is dropped, not overwritten in place: the map would
-  // otherwise keep one entry per user ever checked for the life of the
-  // process, with nothing ever deleting the ones that stop requesting.
-  if (hit) directiveCache.delete(key);
-  let forced = false;
-  try {
-    const up =
-      upstream ??
-      (await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      ));
-    forced = await isPasswordChangeForced({
-      authorization: session.authorization,
-      session: up,
-      username: session.username,
-    });
-  } catch (err) {
-    // An unreadable directive reads as absent: refusing the data path on an
-    // upstream hiccup would be a new failure mode, and the proxied call
-    // itself fails with its own error when the upstream is genuinely down.
-    console.warn(
-      `[gilbert] could not check the forced-password-change directive for ${session.username}:`,
-      (err as Error).message,
-    );
-  }
-  directiveCache.set(key, { forced, checkedAt: Date.now() });
-  return forced;
+  return cachedVerdict(directiveCache, normalizeUsername(session.username), async () => {
+    try {
+      return await isPasswordChangeForced({
+        authorization: session.authorization,
+        session: upstream ?? (await upstreamForSession(session)),
+        username: session.username,
+      });
+    } catch (err) {
+      // An unreadable directive reads as absent: refusing the data path on an
+      // upstream hiccup would be a new failure mode, and the proxied call
+      // itself fails with its own error when the upstream is genuinely down.
+      console.warn(
+        `[gilbert] could not check the forced-password-change directive for ${session.username}:`,
+        (err as Error).message,
+      );
+      return false;
+    }
+  });
 }
 
 /* ------------------------------------------------------------------ */
 /* The identity lock (ADR 0007, ADR 0001)                           */
 /* ------------------------------------------------------------------ */
 
-export interface LockCheck {
-  locked: boolean;
-  checkedAt: number;
-}
-
 /**
- * Short-TTL cache of a session's own lock state, the same shape as
+ * Short-TTL cache of a session's own lock state, the same mechanism as
  * `directiveCache` above and for the same reason: every session refresh would
- * otherwise pay for a FileNode read of the account's own app folder. The
- * lock endpoint deletes the entry it just changed, so applying or releasing
- * one is immediate; the TTL bounds how long a lock written behind the
- * server's back takes to land.
+ * otherwise pay for a FileNode read of the account's own app folder.
  */
-export const identityLockCache = new Map<string, LockCheck>();
-export const IDENTITY_LOCK_CACHE_TTL_MS = 30_000;
+export const identityLockCache = new Map<string, SessionVerdict<boolean>>();
 
 /** Whether the signed-in session's own account is currently locked. */
 export async function sessionIdentityLockState(
   session: LiveSession,
   upstream?: UpstreamSession,
 ): Promise<boolean> {
-  const key = normalizeUsername(session.username);
-  const hit = identityLockCache.get(key);
-  if (hit && Date.now() - hit.checkedAt < IDENTITY_LOCK_CACHE_TTL_MS) return hit.locked;
-  if (hit) identityLockCache.delete(key);
-  let locked = false;
-  try {
-    const up =
-      upstream ??
-      (await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      ));
-    locked = await identityLockedForSession({
-      authorization: session.authorization,
-      session: up,
-      username: session.username,
-    });
-  } catch (err) {
-    console.warn(
-      `[gilbert] could not check the identity lock for ${session.username}:`,
-      (err as Error).message,
-    );
-  }
-  identityLockCache.set(key, { locked, checkedAt: Date.now() });
-  return locked;
+  return cachedVerdict(
+    identityLockCache,
+    normalizeUsername(session.username),
+    async () => {
+      try {
+        return await identityLockedForSession({
+          authorization: session.authorization,
+          session: upstream ?? (await upstreamForSession(session)),
+          username: session.username,
+        });
+      } catch (err) {
+        console.warn(
+          `[gilbert] could not check the identity lock for ${session.username}:`,
+          (err as Error).message,
+        );
+        return false;
+      }
+    },
+  );
 }
 
 /** Batched: whether each listed account currently carries the directive (ADR 0001). */

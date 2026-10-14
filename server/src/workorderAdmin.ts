@@ -29,15 +29,15 @@ import {
   appFolderState,
   type Ctx,
   ensureFolderPath,
-  FILENODE_CAP,
   type FileNodeLike,
   fileChildren,
   findAppFileAt,
   findFolderPath,
   readAppJsonAt,
+  updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
-import { isStateMismatch, JmapClient } from "./jmap.js";
+import { isStateMismatch } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
@@ -1346,17 +1346,10 @@ export async function moveRoot(
   nodeId: string,
   parentId: string,
 ): Promise<void> {
-  const client = new JmapClient(ctx);
   for (let attempt = 0; attempt < 2; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
     try {
-      const res = await client.call<{
-        notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
-      }>(
-        "FileNode/set",
-        { accountId, ifInState: token, update: { [nodeId]: { parentId } } },
-        [FILENODE_CAP],
-      );
+      const res = await updateAppNode(ctx, accountId, nodeId, { parentId }, token);
       const refused = res.notUpdated?.[nodeId];
       if (refused)
         throw new WorkorderAdminError(

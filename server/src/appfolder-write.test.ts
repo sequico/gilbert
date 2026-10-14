@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { isAppFolder } from "./shared/appFolder.js";
+import { FILE_PROPS, FOLDER_PROPS, isAppFolder } from "./shared/appFolder.js";
 import { freePort, waitForPort } from "./testkit.js";
 
 /**
- * The write funnel's no-op rule, against the mock Stalwart.
+ * The app-folder funnel's guarantees, against the mock Stalwart.
  *
  * Every durable document Gilbert keeps is written by uploading a blob and
  * pointing a `FileNode` at it, and Stalwart charges the account for every blob
@@ -21,6 +21,13 @@ import { freePort, waitForPort } from "./testkit.js";
  * quota. The account state token is asserted alongside it, because a skipped
  * write must not advance it either — a no-op that bumped the state would
  * invalidate another writer's compare-and-set token for nothing.
+ *
+ * The other half is the read. Resolving one request's documents walks the same
+ * levels over and over and every walk is a round trip; `fileChildren` remembers
+ * a level for as long as the request runs (`requestMemory.ts`) and a write
+ * forgets it — both counted here too, because the mock answers every call in the
+ * same process, so a level read seven times costs nothing visible in the time
+ * this suite takes.
  */
 
 const PORT = await freePort();
@@ -61,6 +68,13 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
 const utf8 = new TextEncoder();
 
+/*
+ * One `Ctx` for the whole file, deliberately: production builds one per HTTP
+ * request, and the guarantee under test is "a level is read once per `Ctx`", so
+ * the suite's own memory spans its tests. A test that reads a level without
+ * having written first is served what an earlier test read -- write first, as
+ * every one of them does, or build a `Ctx` of its own to stand in for a request.
+ */
 let ctx: Ctx;
 let accountId: string;
 
@@ -77,6 +91,53 @@ before(async () => {
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
+
+/**
+ * Run `run` with the process's `fetch` wrapped, and put it back afterwards.
+ *
+ * A suite counts reads and stages a race by watching what goes to the mail
+ * server, and both are the same act: stand in front of `fetch`, look at the
+ * call, hand it on. The hook runs once the answer is in hand and before its
+ * caller resumes, which is where a write has to land to be a race and where a
+ * count is neither early nor late. The restore is the part that must never be
+ * forgotten, so it is written once.
+ */
+async function withFetchHook<T>(
+  hook: (res: Response, init?: RequestInit) => Promise<void>,
+  run: () => Promise<T>,
+): Promise<T> {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await real(input, init);
+    await hook(res, init);
+    return res;
+  }) as typeof fetch;
+  try {
+    return await run();
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
+/**
+ * How many level reads go out while `run` runs.
+ *
+ * The mock answers every call in the same process, so a level read seven times
+ * costs nothing a suite can see in the time it takes. Counting what was asked is
+ * the only way to hold a guarantee about how much a unit of work reads. The pair
+ * a level read is (`FileNode/query` then `FileNode/get`) travels in one request,
+ * and both names count it once.
+ */
+async function queriesDuring<T>(
+  run: () => Promise<T>,
+): Promise<{ result: T; queries: number }> {
+  let queries = 0;
+  const result = await withFetchHook(async (_res, init) => {
+    if (typeof init?.body === "string" && /FileNode\/(query|get)/.test(init.body))
+      queries += 1;
+  }, run);
+  return { result, queries };
+}
 
 test("the same document written twice consumes one upload and leaves the state where it was", async () => {
   const path = "write-skip/same.json";
@@ -511,30 +572,20 @@ test("a free numbered name lists the folder once", async () => {
     );
   }
 
-  const real = globalThis.fetch;
-  const queries: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const body = typeof init?.body === "string" ? init.body : "";
-    if (body.includes("FileNode/query")) queries.push(body);
-    return real(input, init);
-  }) as typeof fetch;
-  let name: string;
-  try {
-    name = await unusedVisibleName(ctx, accountId, folder, "note.txt");
-  } finally {
-    globalThis.fetch = real;
-  }
+  const { result: name, queries } = await queriesDuring(() =>
+    unusedVisibleName(ctx, accountId, folder, "note.txt"),
+  );
 
   assert.equal(
     name,
     `${taken + 1}-note.txt`,
     "the first free number is the next one past what the folder holds",
   );
-  // Two queries whatever the candidate count -- the folder path's one walk and
-  // the level's one listing -- against two per candidate before.
+  // Two level reads whatever the candidate count -- the folder path's walk and
+  // the level's own listing -- against two per candidate before.
   assert.ok(
-    queries.length <= 3,
-    `the folder is listed once, not once per candidate (${queries.length} queries)`,
+    queries <= 2,
+    `the folder is listed once, not once per candidate (${queries} reads)`,
   );
 });
 
@@ -550,4 +601,155 @@ test("a name the folder does not hold is used unchanged", async () => {
     "text/plain",
   );
   assert.equal(await unusedVisibleName(ctx, accountId, folder, "fresh.txt"), "fresh.txt");
+});
+
+/**
+ * A level is read once per request, however often that request looks at it.
+ *
+ * Resolving one request's documents -- a workorder, its parts, the template it
+ * instantiates -- walks the same folders over and over, and every walk was a
+ * query and a get against the mail server: a click on one checklist step asked
+ * it a hundred times. The level is remembered for as long as the request runs
+ * (`requestMemory.ts`) and no longer, so the next request reads it again.
+ */
+test("a level is listed once however often one request reads it", async () => {
+  await ensureFolderPath(ctx, accountId, "levels/read-once");
+
+  const first = await queriesDuring(() =>
+    findAppFileAt(ctx, accountId, "levels/read-once/one.json"),
+  );
+  assert.ok(first.queries > 0, "the first lookup walks the path from the app folder");
+
+  const again = await queriesDuring(() =>
+    findAppFileAt(ctx, accountId, "levels/read-once/two.json"),
+  );
+  assert.equal(
+    again.queries,
+    0,
+    "a second lookup in the same request reads nothing it has already read",
+  );
+
+  const later: Ctx = {
+    authorization: AUTH,
+    session: await fetchUpstreamSession(AUTH, BASE),
+    username: "demo@example.com",
+  };
+  const other = await queriesDuring(() =>
+    findAppFileAt(later, accountId, "levels/read-once/three.json"),
+  );
+  assert.ok(
+    other.queries > 0,
+    "the next request reads the level for itself, having seen nothing of this one",
+  );
+});
+
+/**
+ * A write is what makes a listing wrong, and a reader cannot see who writes.
+ *
+ * The memory is dropped by every write in the process, not only by the writer's
+ * own: a request, a suite's fixture and the agent beside the server all write
+ * through the same mail client, and a reader served a listing from before a
+ * write it never made would read a folder as it was.
+ */
+test("a level read before a write is read again after it", async () => {
+  const folderId = await ensureFolderPath(ctx, accountId, "levels/written-into");
+  assert.deepEqual(
+    (await fileChildren(ctx, accountId, folderId, FOLDER_PROPS)).map((n) => n.name),
+    [],
+    "the folder starts empty in this request's own listing",
+  );
+
+  await writeAppFileAt(ctx, accountId, "levels/written-into/note.json", { v: 1 });
+
+  assert.deepEqual(
+    (await fileChildren(ctx, accountId, folderId, FOLDER_PROPS)).map((n) => n.name),
+    ["note.json"],
+    "the file the write made is in the level read after it",
+  );
+
+  // Somebody else's write, in a request of its own.
+  const other: Ctx = {
+    authorization: AUTH,
+    session: await fetchUpstreamSession(AUTH, BASE),
+    username: "demo@example.com",
+  };
+  await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+  await writeAppFileAt(other, accountId, "levels/written-into/second.json", { v: 2 });
+
+  assert.deepEqual(
+    (await fileChildren(ctx, accountId, folderId, FOLDER_PROPS)).map((n) => n.name),
+    ["note.json", "second.json"],
+    "a write this reader never made makes its listing wrong too",
+  );
+});
+
+/**
+ * A write that lands while a level is being read is not read over.
+ *
+ * Every write drops the memories, and a read that is already in flight answers
+ * with what the server held when it was asked: remembering that answer would put
+ * a listing from before the write back into the memory the write just cleared,
+ * and every later lookup in this request would be served it. The write here is
+ * made *inside* the read's own round trip -- the only place the race exists, and
+ * the only way a sequential suite reaches it.
+ */
+test("a write while a level is being read is not read over", async () => {
+  const folderId = await ensureFolderPath(ctx, accountId, "levels/in-flight");
+  await writeAppFileAt(ctx, accountId, "levels/in-flight/first.json", { v: 1 });
+
+  let overlapped = false;
+  const listed = await withFetchHook(
+    async (_res, init) => {
+      const body = typeof init?.body === "string" ? init.body : "";
+      // The read's own answer is in hand; the write lands before the reader can
+      // remember it.
+      if (!overlapped && body.includes(folderId)) {
+        overlapped = true;
+        await writeAppFileAt(ctx, accountId, "levels/in-flight/second.json", { v: 2 });
+      }
+    },
+    async () =>
+      (await fileChildren(ctx, accountId, folderId, FOLDER_PROPS)).map((n) => n.name),
+  );
+
+  assert.equal(overlapped, true, "the read really was overlapped by a write");
+  assert.deepEqual(listed, ["first.json"], "the read answers with what it asked for");
+
+  assert.deepEqual(
+    (await fileChildren(ctx, accountId, folderId, FOLDER_PROPS)).map((n) => n.name),
+    ["first.json", "second.json"],
+    "the level the overlapping write changed is read again, not served from before it",
+  );
+});
+
+/**
+ * One read serves the folder lookup and the file lookup.
+ *
+ * `readProps` widens the caller's property list to `FILE_PROPS` (`appFolder.ts`),
+ * because that set carries everything `FOLDER_PROPS` names: a caller asking for
+ * the folders and a caller asking for the files of one level are answered by the
+ * same read. Without that widening the walk from the app folder to a file is two
+ * reads of the level it lands in, which is most of what made a click on a
+ * checklist step a hundred round trips -- so it is pinned here, where the counts
+ * live.
+ */
+test("one read serves both property sets", async () => {
+  const folderId = await ensureFolderPath(ctx, accountId, "levels/one-read");
+  await writeAppFileAt(ctx, accountId, "levels/one-read/a.json", { v: 1 });
+  await writeAppFileAt(ctx, accountId, "levels/one-read/b.json", { v: 2 });
+
+  const folders = await queriesDuring(() =>
+    fileChildren(ctx, accountId, folderId, FOLDER_PROPS),
+  );
+  const files = await queriesDuring(() =>
+    fileChildren(ctx, accountId, folderId, FILE_PROPS),
+  );
+
+  assert.ok(folders.queries > 0, "the first of the two reads goes to the mail server");
+  assert.equal(files.queries, 0, "the second is answered by the first, wider read");
+  assert.deepEqual(
+    files.result.map((n) => n.name),
+    ["a.json", "b.json"],
+    "and it names every node of the level",
+  );
 });

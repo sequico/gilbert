@@ -1,5 +1,7 @@
 import { isRecord } from "@gilbert/shared/json";
+import { API_TIMEOUT_MS } from "@/jmap/client";
 import { withBase } from "@/lib/basePath";
+import { withDeadline } from "@/lib/deadline";
 import { isSettingsKey, type Settings, useSettings } from "@/store/settings";
 
 /**
@@ -235,10 +237,12 @@ function settle(read: PolicyRead): PolicyRead {
 
 /** Whether the settings already hold every value the installation enforces. */
 function alreadyEnforced(enforced: Partial<Settings>, current: Settings): boolean {
-  const now = current as unknown as Record<string, unknown>;
-  return Object.entries(enforced).every(
-    ([key, value]) => JSON.stringify(now[key]) === JSON.stringify(value),
-  );
+  return Object.entries(enforced).every(([key, value]) => {
+    // A key this build does not know is not one the settings can hold: the
+    // guard is the settings store's own, so the read is typed rather than cast.
+    if (!isSettingsKey(key)) return false;
+    return JSON.stringify(current[key]) === JSON.stringify(value);
+  });
 }
 
 /**
@@ -252,9 +256,16 @@ function alreadyEnforced(enforced: Partial<Settings>, current: Settings): boolea
  */
 async function readPolicy(): Promise<PolicyRead> {
   try {
-    const res = await fetch(withBase("/api/account/policy"), {
-      credentials: "same-origin",
-    });
+    /*
+     * Bounded, like every other browser request (`withDeadline`): a proxy that
+     * answers the request line and then goes silent never throws, and this read
+     * drives the settings in force, so it must not hang. It is not `apiFetch`
+     * because a sign-in has no session yet: a 401 here is the ordinary answer,
+     * not the door `apiFetch` would open.
+     */
+    const res = await withDeadline(API_TIMEOUT_MS, undefined, (signal) =>
+      fetch(withBase("/api/account/policy"), { credentials: "same-origin", signal }),
+    );
     if (!res.ok) return { status: "unavailable" };
     const policy = policyDocument(await res.json());
     /* An installation that cannot be reached and one that sets nothing are

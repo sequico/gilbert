@@ -115,13 +115,13 @@ const root = process.argv[1];
 const paths = new Set();
 for (const rel of [
   "scripts/dead-config-check.mjs",
+  "scripts/adr-owed-check.mjs",
   "scripts/adr-citation-check.mjs",
   "scripts/workflow-pin-check.mjs",
 ]) {
   const mod = await import(pathToFileURL(`${root}/${rel}`).href);
-  const input = mod.collectRepoInput();
-  for (const file of [...(input.files ?? []), ...(input.recordFiles ?? [])])
-    paths.add(file.path ?? file.name);
+  // One question, one shape: a check answers with the paths it reads.
+  for (const path of mod.readPaths()) paths.add(path);
 }
 process.stdout.write([...paths].join("\n"));
 ' "$root")"; then

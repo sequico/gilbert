@@ -52,6 +52,7 @@ import {
 import { agentAddress } from "./config.js";
 import { isStateMismatch, JMAP_SUBMISSION, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
+import { ownAccountForCapability } from "./shared/accountRouting.js";
 import { sameAddress } from "./shared/address.js";
 import {
   accountOwnIdentity,
@@ -355,17 +356,13 @@ export function identityAddress(value: string, what = "account"): string {
 /**
  * The account a principal's **own** identities live in.
  *
- * The personal account the session names for JMAP submission — the same rule
- * the client's settings follow, so the surface and the person are looking at
- * one list.
+ * The account the reader's own identities live in, by the one rule for that
+ * question (`shared/accountRouting.ts`, `ownAccountForCapability`) -- the same
+ * one the client's own state follows, so the surface and the person are looking
+ * at one list.
  */
 export function ownIdentityAccount(ctx: Ctx): string {
-  const primary = ctx.session.primaryAccounts?.[JMAP_SUBMISSION];
-  if (primary) return primary;
-  for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
-    if ((account as { isPersonal?: unknown }).isPersonal === true) return id;
-  }
-  return "";
+  return ownAccountForCapability(ctx.session, JMAP_SUBMISSION) ?? "";
 }
 
 /**

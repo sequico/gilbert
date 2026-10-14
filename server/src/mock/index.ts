@@ -7,6 +7,12 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { MASKED } from "../shared/accountSecurity.js";
+import {
+  FILENODE_CHANGES,
+  FILENODE_GET,
+  FILENODE_QUERY,
+  FILENODE_SET,
+} from "../shared/appFolder.js";
 import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
@@ -4457,7 +4463,7 @@ const handlers: Record<string, Handler> = {
     }
     return { accountId: ACCOUNT, parsed, notParsable: [] };
   },
-  "FileNode/query": (a) => {
+  [FILENODE_QUERY]: (a) => {
     const f = (a.filter as Obj) ?? {};
     const fileNodes = nodesFor(a.accountId);
     // `nodeType` is a filter 0.16.19 really applies -- checked live on
@@ -4491,8 +4497,8 @@ const handlers: Record<string, Handler> = {
       ...(a.calculateTotal ? { total } : {}),
     };
   },
-  "FileNode/get": (a) => genericGet(nodesFor(a.accountId), "FileNode")(a),
-  "FileNode/changes": (a) => {
+  [FILENODE_GET]: (a) => genericGet(nodesFor(a.accountId), "FileNode")(a),
+  [FILENODE_CHANGES]: (a) => {
     // FileNode/changes on a real 0.16 server works from a `sinceState` and
     // reports what changed (verified live 2026-09-07, see the Stalwart skill);
     // the mock answers the same way from its own change log. The log holds
@@ -4521,7 +4527,7 @@ const handlers: Record<string, Handler> = {
       destroyed: pick("destroyed"),
     };
   },
-  "FileNode/set": (a, who) => {
+  [FILENODE_SET]: (a, who) => {
     /*
      * The compare-and-set a test asked this server to lose (`casLoses`):
      * somebody else's write lands first, so the caller's `ifInState` is stale

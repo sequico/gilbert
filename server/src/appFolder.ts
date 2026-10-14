@@ -24,6 +24,8 @@
  */
 
 import { isAlreadyExistsRefusal } from "./jmap.js";
+import { recalled } from "./requestMemory.js";
+import { ownAccountForCapability } from "./shared/accountRouting.js";
 import { appDocumentJson } from "./shared/appDocument.js";
 import {
   APP_DOCUMENT_TYPE,
@@ -31,6 +33,9 @@ import {
   appFolderCreate,
   ensureAppFolderId,
   FILE_PROPS,
+  FILENODE_GET,
+  FILENODE_QUERY,
+  FILENODE_SET,
   FOLDER_PROPS,
   findAppFolderId,
 } from "./shared/appFolder.js";
@@ -81,26 +86,13 @@ export interface Ctx {
 /**
  * The account that owns this principal's Files.
  *
- * The client reads and writes its own state through `ownAccountFor(CAP.filenode)`
- * (`web/src/lib/accountRouting.ts`): the primary filenode account when it is
- * personal, else the first personal account advertising the capability. The
- * server resolves the same way, so the document lands exactly where the
+ * The reader's own Files account, by the one rule for that question
+ * (`shared/accountRouting.ts`, `ownAccountForCapability`): the client and this
+ * tier ask it the same way on purpose, so a document lands exactly where the
  * client's settings live.
  */
 export function filesAccountId(ctx: Ctx): string {
-  const prim = ctx.session.primaryAccounts?.[FILENODE_CAP];
-  if (prim) {
-    const account = ctx.session.accounts?.[prim] as { isPersonal?: unknown } | undefined;
-    if (account?.isPersonal !== false) return prim;
-  }
-  for (const [id, acc] of Object.entries(ctx.session.accounts ?? {})) {
-    const a = acc as {
-      isPersonal?: unknown;
-      accountCapabilities?: Record<string, unknown>;
-    };
-    if (a.isPersonal !== false && a.accountCapabilities?.[FILENODE_CAP]) return id;
-  }
-  return "";
+  return ownAccountForCapability(ctx.session, FILENODE_CAP) ?? "";
 }
 
 /**
@@ -113,18 +105,54 @@ export function filesAccountId(ctx: Ctx): string {
  * an arbitrary subset of it. A name a writer then failed to find would be
  * created again over a document that is already there.
  *
- * `limit` is the page size, narrowed to what the server will resolve in one
- * `/get` (see below): the pair asks for ids and then for those objects, and a
- * page the server cannot resolve is refused whole rather than cut short. A page
- * that repeats the previous one — a server ignoring `position` — is a failure
- * rather than a loop.
+ * The page is the widest the server will resolve in one `/get` (see below): the
+ * pair asks for ids and then for those objects, and a page the server cannot
+ * resolve is refused whole rather than cut short. A page that repeats the
+ * previous one — a server ignoring `position` — is a failure rather than a loop.
+ * Nobody chooses the page size, because nobody wants a part of a level: a caller
+ * that shows the first twenty entries bounds what it *renders*, never what it
+ * reads, and a smaller page would only be more round trips.
  */
 export async function fileChildren(
   ctx: Ctx,
   accountId: string,
   parentId: string | null,
   properties: string[] = FILE_PROPS,
-  limit = 1000,
+): Promise<FileNodeLike[]> {
+  const props = readProps(properties);
+  /*
+   * One listing per folder per request.
+   *
+   * Resolving one request's documents -- a workorder, its parts, the template it
+   * instantiates -- walks the same levels over and over, and every walk is a
+   * query and a get against the mail server. A single click on a checklist step
+   * asked it a hundred times, and the read is the same answer every time. The
+   * level is remembered for as long as the request runs and no longer, so no
+   * reader can be handed a listing from before its own request began; a write
+   * forgets it (`requestMemory.ts`), which is what makes a listing wrong.
+   *
+   * The read asks for `readProps(properties)` -- `FILE_PROPS` when the caller
+   * asked for less, so the folder lookups and the file lookups are answered by
+   * one read; a caller asking for anything else is remembered under its own key.
+   *
+   * The answer is copied out, so a caller that changes the list it was
+   * given does not change the memory -- the nodes in it are shared, and none is
+   * written to by a reader today.
+   */
+  const level = await recalled(
+    ctx,
+    `${accountId}\u0000${parentId ?? ""}\u0000${props.join(",")}`,
+    () => readLevel(ctx, accountId, parentId, props),
+  );
+  return [...level];
+}
+
+/** The level as the mail server has it: one page after another, to the end. */
+async function readLevel(
+  ctx: Ctx,
+  accountId: string,
+  parentId: string | null,
+  props: string[],
 ): Promise<FileNodeLike[]> {
   const filter = parentId ? { parentId } : { isTopLevel: true };
   const client = clientOf(ctx);
@@ -132,20 +160,23 @@ export async function fileChildren(
   // that size: asking for more is not a shorter answer but a refused call. The
   // pair clamps the query to the same ceiling itself (`queryThenGet`); `size` is
   // what this loop measures a short page against.
-  const size = Math.min(limit, client.maxObjectsInGet);
+  // The page is the widest the server will resolve in one `/get`, so a level
+  // costs the fewest round trips it can: a smaller page is not a shorter answer,
+  // only more calls.
+  const size = client.maxObjectsInGet;
   const out: FileNodeLike[] = [];
   let seenFirst: unknown;
   for (let position = 0; ; ) {
     const res = await client.chain(
       queryThenGet({
-        query: "FileNode/query",
-        get: "FileNode/get",
+        query: FILENODE_QUERY,
+        get: FILENODE_GET,
         accountId,
         filter,
         position,
         limit: size,
         maxObjectsInGet: client.maxObjectsInGet,
-        properties,
+        properties: props,
       }),
       [FILENODE_CAP],
     );
@@ -163,6 +194,19 @@ export async function fileChildren(
   return out;
 }
 
+/*
+ * The properties a level is read with: the caller's own, widened to
+ * `FILE_PROPS` when the caller asked for less. `FILE_PROPS` carries everything
+ * `FOLDER_PROPS` names, so the folder lookups and the file lookups share one
+ * read; a caller asking for something else (`created`, `state`) is read as
+ * itself, and its answer is remembered under its own key.
+ */
+function readProps(properties: string[]): string[] {
+  return properties.every((property) => FILE_PROPS.includes(property))
+    ? FILE_PROPS
+    : [...new Set([...FILE_PROPS, ...properties])];
+}
+
 /**
  * The FileNode state of an account, which is the CAS token every conditional
  * write compares against: Stalwart keeps one state per type per account, so
@@ -170,7 +214,7 @@ export async function fileChildren(
  */
 export async function appFolderState(ctx: Ctx, accountId: string): Promise<string> {
   const res = await clientOf(ctx).call<{ state?: unknown }>(
-    "FileNode/get",
+    FILENODE_GET,
     { accountId, ids: [] },
     [FILENODE_CAP],
   );
@@ -195,7 +239,7 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
     (parentId) => fileChildren(ctx, accountId, parentId, FOLDER_PROPS),
     async () => {
       const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
-        "FileNode/set",
+        FILENODE_SET,
         { accountId, create: { d: appFolderCreate() } },
         [FILENODE_CAP],
       );
@@ -233,7 +277,7 @@ async function ensureChildFolder(
   const existing = children.find((n) => n.nodeType === "directory" && n.name === name);
   if (existing?.id) return String(existing.id);
   const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
-    "FileNode/set",
+    FILENODE_SET,
     { accountId, create: { d: { parentId, name, nodeType: "directory" } } },
     [FILENODE_CAP],
   );
@@ -632,7 +676,7 @@ async function setFileNode(
     // it wrote — the trail, and the lineage a chain is read along — can only
     // name an id the server gave it.
     const created = await client.call<SetResponse<{ id?: unknown }>>(
-      "FileNode/set",
+      FILENODE_SET,
       {
         accountId,
         ...conditional,
@@ -675,7 +719,7 @@ async function setFileNode(
    * write succeeded would be told so about nothing; it is thrown instead.
    */
   const res = await client.call<SetResponse>(
-    "FileNode/set",
+    FILENODE_SET,
     { accountId, ...conditional, update: { [id]: { blobId, type } } },
     [FILENODE_CAP],
   );
@@ -1071,7 +1115,7 @@ export async function destroyAppNode(
   opts: { ifInState?: string; removeChildren?: boolean } = {},
 ): Promise<void> {
   const res = await clientOf(ctx).call<SetResponse>(
-    "FileNode/set",
+    FILENODE_SET,
     {
       accountId,
       ...(opts.ifInState ? { ifInState: opts.ifInState } : {}),
@@ -1092,4 +1136,26 @@ export async function destroyAppNode(
   const refused = res.notDestroyed?.[id];
   if (refused && refused.type !== "notFound")
     throw new AppFolderError(refusalOf(refused));
+}
+
+/**
+ * Move or rename a node.
+ *
+ * Beside the destroy because it is the other way a level's membership changes.
+ * `ifInState` is the conditional the caller read -- the three callers hold the
+ * state of the account they are writing in -- and the refusal comes back for the
+ * caller to name in its own words.
+ */
+export async function updateAppNode(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  change: { name?: string; parentId?: string },
+  ifInState: string,
+): Promise<SetResponse> {
+  return await clientOf(ctx).call<SetResponse>(
+    FILENODE_SET,
+    { accountId, ifInState, update: { [id]: change } },
+    [FILENODE_CAP],
+  );
 }

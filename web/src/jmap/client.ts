@@ -116,7 +116,7 @@ const HEADERS = {
  * ever: the store awaiting it would keep `loading: true` with no error to show
  * and no retry, because the catch-up only aborts on `offline`.
  */
-const API_TIMEOUT_MS = 30_000;
+export const API_TIMEOUT_MS = 30_000;
 
 /*
  * The blob legs' ceiling, longer than a JMAP call's: a whole attachment or file

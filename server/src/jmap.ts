@@ -12,6 +12,8 @@
  */
 
 import { config } from "./config.js";
+import { forgetRemembered } from "./requestMemory.js";
+import { FILENODE_SET } from "./shared/appFolder.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   absoluteUpstream,
@@ -257,26 +259,6 @@ export class JmapClient {
     return core?.maxObjectsInGet ?? 500;
   }
 
-  /** The account that owns a capability, personal accounts preferred. */
-  accountFor(capability: string): string {
-    const primary = this.session.primaryAccounts?.[capability];
-    if (primary) return primary;
-    let fallback = "";
-    for (const [id, account] of Object.entries(this.session.accounts ?? {})) {
-      const a = account as {
-        isPersonal?: boolean;
-        accountCapabilities?: Record<string, unknown>;
-      };
-      if (!a.accountCapabilities?.[capability]) continue;
-      // Personal first: the first match can be a share that advertises the
-      // capability too, and reading the reader's own mail through a group is
-      // the wrong answer with no visible cause.
-      if (a.isPersonal === true) return id;
-      if (!fallback) fallback = id;
-    }
-    return fallback;
-  }
-
   /**
    * Send one JMAP request. Returns the batch; a method-level error is not an
    * exception here (use `call` for that), because a batch may carry several
@@ -286,6 +268,14 @@ export class JmapClient {
     methodCalls: Invocation[],
     using: ReadonlyArray<string> = [],
   ): Promise<MethodResponses> {
+    /*
+     * A write to the tree is what makes anything remembered about it wrong
+     * (`requestMemory.ts`), and this is where every write goes through: a
+     * helper's, a route's, a fixture's. Forgetting it here is what lets a writer
+     * stay unaware that a memory exists at all -- and it is forgotten for every
+     * reader, not only this one, because a reader cannot see who else writes.
+     */
+    if (methodCalls.some(([name]) => name === FILENODE_SET)) forgetRemembered();
     const res = await fetch(absoluteUpstream(this.session.apiUrl, this.session.baseUrl), {
       method: "POST",
       headers: {

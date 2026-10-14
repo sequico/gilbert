@@ -39,7 +39,8 @@ services:
       # the installation: what it serves, and where its source can be had.
       IMMUTABLE: "1"
       BASE_PATH: ${BASE_PATH:-}
-      SOURCE_URL: ${SOURCE_URL:-https://github.com/sequico/gilbert}
+      # Left unset, the server's own default stands (`.env.example` names it).
+      SOURCE_URL: ${SOURCE_URL:-}
       # The operator's own statement: may the agent reach a model endpoint
       # inside this network. Not the installation's to decide (ADR 0003).
       GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
@@ -72,6 +73,7 @@ services:
       GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
+      HEALTH_URL: http://127.0.0.1:8081/health
       IMMUTABLE: "1"
     # The same posture as the server above: nothing to write, nothing to gain
     # and no way to gain it.
@@ -84,13 +86,12 @@ services:
       - no-new-privileges:true
     # What the restart policy asks: is this worker serving what it claimed.
     # `restart: unless-stopped` restarts a dead process; this catches one that
-    # is up and holding nothing.
+    # is up and holding nothing. The probe is the app's own
+    # (`scripts/healthcheck.mjs`, already in the image) rather than a second
+    # spelling of it in YAML: the agent's health server is not the app's route,
+    # so its endpoint is named rather than derived from `BASE_PATH` and `PORT`.
     healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      test: ["CMD", "node", "scripts/healthcheck.mjs"]
       interval: 30s
       timeout: 5s
       retries: 3

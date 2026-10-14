@@ -38,7 +38,7 @@ import {
   type JmapClient,
   JmapError,
 } from "../jmap.js";
-import { APP_FOLDER_NAME } from "../shared/appFolder.js";
+import { APP_FOLDER_NAME, FILENODE_GET } from "../shared/appFolder.js";
 import {
   CHAT_FOLDER,
   type ChatMessage,
@@ -742,7 +742,7 @@ export class Executor {
     ids: ReadonlyArray<string>,
   ): Promise<FileNodeLike[]> {
     const res = await this.deps.client.call<{ list?: FileNodeLike[] }>(
-      "FileNode/get",
+      FILENODE_GET,
       { accountId, ids, properties: ["id", "name", "parentId", "nodeType", "size"] },
       [FILENODE_CAP],
     );
@@ -1414,13 +1414,7 @@ export class Executor {
         ? `${rendered}\n…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`
         : rendered;
     }
-    const nodes = await fileChildren(
-      this.deps.ctx,
-      accountId,
-      folderId,
-      undefined,
-      AGENT_LOOKUP_MESSAGES_MAX,
-    );
+    const nodes = await fileChildren(this.deps.ctx, accountId, folderId, undefined);
     // The app folder is not a place in a member's Files, so a listing never
     // names it: the agent's own documents are not something a run reads back
     // as the group's files (ADR 0003).
@@ -1454,13 +1448,7 @@ export class Executor {
     // more.
     if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;
     if (depth > AGENT_LOOKUP_DEPTH_MAX) return false;
-    const nodes = await fileChildren(
-      this.deps.ctx,
-      accountId,
-      folderId,
-      undefined,
-      AGENT_LOOKUP_FILES_MAX,
-    );
+    const nodes = await fileChildren(this.deps.ctx, accountId, folderId, undefined);
     for (const node of nodes) {
       if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;
       const name = String(node.name ?? "");
@@ -1631,13 +1619,7 @@ export class Executor {
     // happens to find: a KB of many plain folders would otherwise traverse far
     // past the cap while `out` stayed small.
     if (depth > AGENT_LOOKUP_DEPTH_MAX || visited.n >= AGENT_LOOKUP_FILES_MAX) return;
-    const children = await fileChildren(
-      this.deps.ctx,
-      accountId,
-      folderId,
-      undefined,
-      AGENT_LOOKUP_FILES_MAX,
-    );
+    const children = await fileChildren(this.deps.ctx, accountId, folderId, undefined);
     for (const node of children) {
       if (visited.n >= AGENT_LOOKUP_FILES_MAX) return;
       if (node.nodeType !== "directory" || !node.id) continue;

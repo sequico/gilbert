@@ -127,6 +127,7 @@ import {
   STALWART_CAP,
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
+import { processAccountForCapability } from "./shared/accountRouting.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import { isRecord, stableJson } from "./shared/json.js";
 import { AGENT_LABELS, DRAFT_KEYWORD } from "./shared/labels.js";
@@ -1823,7 +1824,7 @@ const rosterCache = new Map<string, RosterEntry>();
  */
 export async function rosterReadability(ctx: Ctx): Promise<RosterReadability> {
   const client = new JmapClient(ctx);
-  const accountId = client.accountFor(STALWART_CAP);
+  const accountId = processAccountForCapability(client.upstream, STALWART_CAP);
   if (!accountId) return "unknown";
   try {
     await client.call("x:Account/query", { accountId, limit: 1 });
@@ -1872,7 +1873,7 @@ async function readGroupMembers(
   groupAccountId: string,
 ): Promise<string[] | null> {
   const client = new JmapClient(ctx);
-  const accountId = client.accountFor(STALWART_CAP);
+  const accountId = processAccountForCapability(client.upstream, STALWART_CAP);
   if (!accountId) return null;
   try {
     const result = await client.chain(

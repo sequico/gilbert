@@ -1,8 +1,11 @@
+import {
+  accountForCapability,
+  ownAccountForCapability,
+} from "@gilbert/shared/accountRouting";
 import { create } from "zustand";
 import { ApiError, apiFetch, CAP, client } from "@/jmap/client";
 import { type PushState, push } from "@/jmap/push";
 import type { Id, JmapSession } from "@/jmap/types";
-import { accountForCapability, ownAccountForCapability } from "@/lib/accountRouting";
 import { setServerLocale } from "@/lib/datetime";
 import { startIdleLogout, stopIdleLogout } from "@/lib/idleLogout";
 import { flushSettingsPush, stopSettingsSync } from "@/lib/settingsSync";

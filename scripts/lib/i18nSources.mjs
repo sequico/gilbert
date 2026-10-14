@@ -203,3 +203,117 @@ export function sourceAst(
 ) {
   return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
 }
+
+/** The one join `tc()` uses between a context and its source. */
+export function contextKey(context, source) {
+  return `${context}\u0004${source}`;
+}
+
+/**
+ * Every English string the app asks a catalogue for, and every plural set it
+ * asks about.
+ *
+ * One rule set, because there are two readers and they must not disagree: the
+ * check that counts the keys a catalogue is still missing and the extractor
+ * that lists them. The check's rules are the wider ones -- a label held in a
+ * constant and translated where it renders, a keyboard scope's description and
+ * group, a palette entry marked translatable -- and the extractor read only the
+ * calls, so it reported keys the check called stale. The wider set is the
+ * answer: each rule below carries the reason it exists.
+ */
+export function wantedStrings() {
+  const keys = new Set();
+  const pluralForms = new Set();
+  for (const file of sourceFiles()) {
+    const src = sourceAst(file);
+    const visit = (n) => {
+      /*
+       * Labels held in a constant and translated where they render -- t(s.label)
+       * -- reach t() as a variable, so there is no literal for this to find and
+       * every one of them looked "stale". They are collected from the constants
+       * instead: a `label:` property, or a value in an object of them.
+       */
+      if (
+        ts.isPropertyAssignment(n) &&
+        n.name.getText(src) === "label" &&
+        ts.isStringLiteral(n.initializer)
+      )
+        keys.add(n.initializer.text);
+      if (
+        ts.isVariableDeclaration(n) &&
+        ts.isIdentifier(n.name) &&
+        /_LABELS?$/.test(n.name.text)
+      ) {
+        const walk = (x) => {
+          if (ts.isStringLiteral(x)) keys.add(x.text);
+          ts.forEachChild(x, walk);
+        };
+        if (n.initializer) walk(n.initializer);
+      }
+      /*
+       * A keyboard scope entry carries `keys`, a `description` and a `group`;
+       * the surfaces that render it look the first two up through t() where
+       * they render -- t(b.description), a variable lookup this scan cannot see
+       * -- and the group heading does the same. The `keys` sibling is what marks
+       * an object as a scope entry rather than some other description-bearing
+       * shape.
+       */
+      if (ts.isObjectLiteralExpression(n)) {
+        const props = n.properties.filter(ts.isPropertyAssignment);
+        const hasKeys = props.some((p) => p.name.getText(src) === "keys");
+        const desc = props.find((p) => p.name.getText(src) === "description");
+        if (hasKeys && desc && ts.isStringLiteral(desc.initializer))
+          keys.add(desc.initializer.text);
+        const group = props.find((p) => p.name.getText(src) === "group");
+        if (hasKeys && group && ts.isStringLiteral(group.initializer))
+          keys.add(group.initializer.text);
+        /*
+         * A palette entry's `name` is translated only when the entry marks it
+         * as prose rather than a proper name ("Classic" against "Dracula").
+         */
+        const name = props.find((p) => p.name.getText(src) === "name");
+        const translatable = props.find((p) => p.name.getText(src) === "translatable");
+        if (
+          name &&
+          ts.isStringLiteral(name.initializer) &&
+          translatable &&
+          translatable.initializer.kind === ts.SyntaxKind.TrueKeyword
+        )
+          keys.add(name.initializer.text);
+      }
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+        const fn = n.expression.text;
+        const a0 = n.arguments[0];
+        if (TRANSLATED_CALLS.has(fn) && a0 && ts.isStringLiteral(a0)) keys.add(a0.text);
+        // Only the contextual key is required: the plain one is tc()'s
+        // fallback, not a second obligation.
+        if (
+          fn === CONTEXT_CALL &&
+          a0 &&
+          ts.isStringLiteral(a0) &&
+          n.arguments[1] &&
+          ts.isStringLiteral(n.arguments[1])
+        )
+          keys.add(contextKey(a0.text, n.arguments[1].text));
+        if (
+          fn === PLURAL_CALL &&
+          n.arguments[1] &&
+          ts.isObjectLiteralExpression(n.arguments[1])
+        ) {
+          const forms = {};
+          for (const p of n.arguments[1].properties) {
+            if (ts.isPropertyAssignment(p) && ts.isStringLiteral(p.initializer))
+              forms[p.name.getText(src)] = p.initializer.text;
+          }
+          if (forms.other) {
+            keys.add(forms.other);
+            pluralForms.add(JSON.stringify(forms));
+          }
+        }
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(src);
+  }
+  return { keys, pluralForms: [...pluralForms].map((p) => JSON.parse(p)) };
+}

@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   accountForCapability,
   ownAccountForCapability,
   type SessionLike,
-} from "@/lib/accountRouting";
+} from "@gilbert/shared/accountRouting";
+import { describe, expect, it } from "vitest";
 
 /**
  * Found by sharing a folder between two real accounts.

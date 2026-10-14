@@ -41,7 +41,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isEntryPoint } from "./lib/repoWalk.mjs";
 
 /**
  * The language this repository's analysis is configured with.
@@ -329,7 +330,7 @@ export function main({
 }
 
 /* Only when run as a command: the pieces above are what a test imports. */
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isEntryPoint(import.meta.url)) {
   const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   process.exit(main({ repo }));
 }

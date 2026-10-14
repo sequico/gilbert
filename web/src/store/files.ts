@@ -1,4 +1,9 @@
-import { isAppFolder } from "@gilbert/shared/appFolder";
+import {
+  FILENODE_GET,
+  FILENODE_QUERY,
+  FILENODE_SET,
+  isAppFolder,
+} from "@gilbert/shared/appFolder";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { create, type StoreApi } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
@@ -336,7 +341,7 @@ async function writeContent(
   type: string,
   size: number,
 ): Promise<void> {
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+  const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
     accountId,
     update: { [id]: { blobId, type, size } },
   });
@@ -385,7 +390,7 @@ async function putFile(
     onProgress:
       onProgress && ((loaded, total) => onProgress(Math.round((loaded / total) * 100))),
   });
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+  const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
     accountId,
     create: { f: fileCreate(parentId, file.name, up.blobId, type) },
   });
@@ -406,7 +411,7 @@ async function putFile(
    */
   const id = err.existingId;
   if (!id) throw new NameTakenError(undefined, nameTakenMessage(file.name));
-  const node = await client.call<GetResponse<FileNode>>("FileNode/get", {
+  const node = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
     accountId,
     ids: [id],
     properties: ["nodeType"],
@@ -432,7 +437,7 @@ async function createDirectory(
   parentId: Id | null,
   name: string,
 ): Promise<Id> {
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+  const res = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
     accountId,
     create: { d: directoryCreate(parentId, name) },
   });
@@ -765,7 +770,7 @@ function mergeTree(accountId: Id, root: FileNode, signal: AbortSignal): MergeTre
  */
 async function moveNodes(accountId: Id, ids: Id[], parentId: Id | null): Promise<void> {
   const update = Object.fromEntries(ids.map((id) => [id, { parentId }]));
-  const res = await client.call<SetResponse>("FileNode/set", { accountId, update });
+  const res = await client.call<SetResponse>(FILENODE_SET, { accountId, update });
   const failed = Object.values(res.notUpdated ?? {})[0];
   if (failed) throw new Error(setErrorMessage(failed));
 }
@@ -782,7 +787,7 @@ async function moveNodes(accountId: Id, ids: Id[], parentId: Id | null): Promise
  * honest answer instead.
  */
 async function destroyNodes(accountId: Id, ids: Id[], cascade: boolean): Promise<void> {
-  const res = await client.call<SetResponse>("FileNode/set", {
+  const res = await client.call<SetResponse>(FILENODE_SET, {
     accountId,
     destroy: ids,
     ...(cascade ? { onDestroyRemoveChildren: true } : {}),
@@ -994,7 +999,7 @@ export const useFiles = create<FilesState>((set, get) => ({
     );
     const answers = await Promise.all(
       candidates.map(([id, a]) =>
-        client.call<QueryResponse>("FileNode/query", { accountId: id, limit: 1 }).then(
+        client.call<QueryResponse>(FILENODE_QUERY, { accountId: id, limit: 1 }).then(
           (res): SharedAccount | null => (res.ids.length ? { id, name: a.name } : null),
           // Refused means nothing here is ours to see, which is the same answer.
           () => null,
@@ -1030,7 +1035,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       if (seen.has(accountId)) continue;
       seen.add(accountId);
       try {
-        const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+        const res = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
           accountId,
           ids: [nodeId],
           properties: fileNodeProps(),
@@ -1072,8 +1077,8 @@ export const useFiles = create<FilesState>((set, get) => ({
       for (let position = 0; dirs.length < LEVEL_LIMIT; position += step) {
         const res = await client.chain(
           queryThenGet({
-            query: "FileNode/query",
-            get: "FileNode/get",
+            query: FILENODE_QUERY,
+            get: FILENODE_GET,
             accountId,
             filter: { nodeType: "directory" },
             sort: [{ property: "name", isAscending: true }],
@@ -1338,7 +1343,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   async refresh(ids) {
     const accountId = get().accountId;
     if (!accountId || !ids.length) return;
-    const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    const res = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
       accountId,
       ids,
       properties: fileNodeProps(),
@@ -1555,7 +1560,7 @@ export const useFiles = create<FilesState>((set, get) => ({
      * it" when nobody did learns to click through the warning. The node's own
      * blobId is the thing that actually answers the question.
      */
-    const fresh = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    const fresh = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
       accountId,
       ids: [id],
       properties: fileNodeProps(),
@@ -1579,7 +1584,7 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   async rename(id, name) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("FileNode/set", {
+    const res = await client.call<SetResponse>(FILENODE_SET, {
       accountId,
       update: { [id]: { name } },
     });

@@ -1,4 +1,5 @@
 import { config } from "./config.js";
+import { processAccountForCapability } from "./shared/accountRouting.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import { normalizeLocale } from "./shared/locale.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
@@ -531,20 +532,12 @@ export async function fetchDirectoryPrincipals(
   session: UpstreamSession,
   kind: "individual" | "group",
 ): Promise<DirectoryPrincipals | { denied: string }> {
-  // The account that owns the principals capability, picked the way the
-  // client picks it: the personal account advertising it, then any account
-  // that does.
-  const accounts = Object.entries(session.accounts ?? {});
-  const withCap = accounts.filter(([, a]) => {
-    const account = a as { accountCapabilities?: Record<string, unknown> };
-    return !!account.accountCapabilities?.[CAPABILITIES.principals];
-  });
-  const personal =
-    withCap.find(([, a]) => (a as { isPersonal?: unknown }).isPersonal === true) ??
-    withCap[0];
-  const accountId = personal?.[0] ?? accounts[0]?.[0];
-  // No account advertises the principals capability, so there is no directory
-  // this session can read and nothing it missed reading.
+  // The account that owns the principals capability, by the one rule for that
+  // question (`shared/accountRouting.ts`): the account the session names for
+  // it, then a personal one advertising it, then any account that does.
+  const accountId = processAccountForCapability(session, CAPABILITIES.principals);
+  // No such account, so there is no directory this session can read and
+  // nothing it missed reading.
   if (!accountId) return { principals: [], complete: true, total: null };
   const batch = directoryBatch(session);
 

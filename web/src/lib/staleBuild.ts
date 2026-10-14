@@ -1,5 +1,6 @@
 import { type PushState, push } from "@/jmap/push";
 import { withBase } from "./basePath";
+import { withDeadline } from "./deadline";
 import { APP_VERSION } from "./version";
 import { pollWhileVisible } from "./visiblePoll";
 
@@ -101,22 +102,20 @@ async function check(): Promise<boolean> {
  * seconds and let the next ask try again on a fresh connection.
  */
 async function fetchServerVersion(): Promise<string | null> {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
   try {
-    const res = await fetch(withBase("/api/health"), {
-      credentials: "same-origin",
-      cache: "no-store",
-      signal: controller.signal,
-    });
+    const res = await withDeadline(HEALTH_TIMEOUT_MS, undefined, (signal) =>
+      fetch(withBase("/api/health"), {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal,
+      }),
+    );
     if (!res.ok) return null;
     const body = (await res.json()) as { version?: unknown };
     if (typeof body.version !== "string" || !body.version) return null;
     return body.version;
   } catch {
     return null;
-  } finally {
-    window.clearTimeout(timer);
   }
 }
 

@@ -16,6 +16,7 @@ import { pathToFileURL } from "node:url";
 import { type Ctx, filesAccountId, readAppJsonAt, writeAppFileAt } from "../appFolder.js";
 import { config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
+import { forgetRememberedFor } from "../requestMemory.js";
 import { sleep } from "../shared/async.js";
 import { basicAuth } from "../shared/basicAuth.js";
 import {
@@ -269,6 +270,10 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     servedAccounts.has(accountId) ? [...RECONCILED_TYPES] : [];
 
   const reconcileAccount = async (accountId: string): Promise<void> => {
+    // This pass is the unit of work, and what the last one read is not what this
+    // one acts on: the levels it remembers (`requestMemory.ts`) are dropped
+    // here, exactly as the chat cell below is scoped to this call.
+    forgetRememberedFor(deps.ctx);
     const store = new AgentStore(deps.ctx, accountId);
     const types = typesOf(accountId);
     // The chat is read once for the whole account-level unit: the reconciles,

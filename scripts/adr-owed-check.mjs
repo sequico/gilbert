@@ -37,13 +37,11 @@
  * `checkOwed` is pure -- it takes text, not paths -- so the rules can be
  * exercised without a repository to stage, the way `scripts/version.mjs` is.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
+import { ADR_FILE, adrRecords } from "./lib/adr.mjs";
 import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
-
-/** The ADR a file name owns the debt of: `0003-agent-fleet.md` -> `0003`. */
-const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
 
 /** The whole body of one HTML comment, so `--` inside it cannot end it early. */
 const HTML_COMMENT = /<!--([\s\S]*?)-->/g;
@@ -242,17 +240,9 @@ export function formatReport(result) {
   return lines;
 }
 
-/** Every file under a directory, relative to it, skipping what cannot be a site. */
 /** Read this repository: the ADRs, and the code that could owe them something. */
 export function collectRepoInput(root = ROOT) {
-  const adrDir = join(root, "docs", "adr");
-  const adrFiles = readdirSync(adrDir)
-    .filter((name) => ADR_FILE.test(name))
-    .sort()
-    .map((name) => ({
-      path: `docs/adr/${name}`,
-      text: readFileSync(join(adrDir, name), "utf8"),
-    }));
+  const adrFiles = adrRecords(root);
 
   const codeFiles = [];
   for (const base of CODE_ROOTS) {
@@ -264,6 +254,12 @@ export function collectRepoInput(root = ROOT) {
     }
   }
   return { adrFiles, codeFiles };
+}
+
+/** What this check reads, for the gate's read set (`gate-prepush.sh`). */
+export function readPaths(root = ROOT) {
+  const input = collectRepoInput(root);
+  return [...input.adrFiles, ...input.codeFiles].map((one) => one.path);
 }
 
 const USAGE =

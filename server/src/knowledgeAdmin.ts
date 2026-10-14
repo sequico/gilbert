@@ -30,16 +30,17 @@ import {
   destroyAppNode,
   downloadBlobText,
   ensureFolderPath,
-  FILENODE_CAP,
   type FileNodeLike,
   fileChildren,
   findFolderPath,
+  pathSegments,
   readAppJsonAt,
   readAppJsonForWrite,
+  updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
 import { groupAccountId } from "./identityAdmin.js";
-import { isStateMismatch, JmapClient } from "./jmap.js";
+import { isStateMismatch } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import { refusalOf } from "./shared/jmap.js";
@@ -73,6 +74,7 @@ import {
   knowledgeFolderName,
   knowledgeId,
   knowledgeSummary,
+  leafFolderName,
   MAX_TITLE,
   plainTextFromBlocks,
   REVISIONS_FOLDER,
@@ -82,6 +84,7 @@ import {
   STATE_FILE,
   stateAfterApproval,
 } from "./shared/knowledge.js";
+import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 
 /** A refusal a KB caller will read: a code, and the sentence to show. */
 export class KnowledgeAdminError extends Error {
@@ -230,10 +233,9 @@ async function tierAccount(
  * same way `groupKnowledgeAccount` finds the group.
  */
 function scopeOfAccount(ctx: Ctx, accountId: string): KnowledgeScope {
-  const account = ctx.session.accounts?.[accountId] as
-    | { isPersonal?: unknown }
-    | undefined;
-  return account?.isPersonal === false ? "group" : "company";
+  return isGroupAccountRecord(ctx.session.accounts?.[accountId] as never)
+    ? "group"
+    : "company";
 }
 
 /* ------------------------------------------------------------------ */
@@ -250,13 +252,6 @@ interface ArticleFolder {
   folder: string;
 }
 
-function folderSegments(folder: string): string[] {
-  return folder
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-}
-
 /**
  * Walk `tierFolderId` down the article path, or null when a segment is
  * missing. The walk is by listing, because `FileNode/query` cannot filter by
@@ -268,7 +263,7 @@ async function findArticleFolder(
   tierFolderId: string,
   folder: string,
 ): Promise<ArticleFolder | null> {
-  const segments = folderSegments(folder);
+  const segments = pathSegments(folder);
   if (!segments.length) return null;
   let current = tierFolderId;
   let path = "";
@@ -1361,7 +1356,6 @@ export async function renameArticle(
       `"${wantedName}" is reserved for an article's revision store; choose another title.`,
       400,
     );
-  const client = new JmapClient(ctx);
   for (let attempt = 0; attempt < 2; attempt++) {
     // Re-resolved by the node id, which a rename leaves alone: an article whose
     // folder a previous attempt moved is read where it is now.
@@ -1378,7 +1372,7 @@ export async function renameArticle(
         404,
       );
     const articlePath = articlePathOf(current);
-    const leaf = current.folder.split("/").pop() ?? current.folder;
+    const leaf = leafFolderName(current.folder);
     // The token is read before the documents, so a save landing between them and
     // the writes is refused rather than silently overwritten.
     const token = requireState(await appFolderState(ctx, accountId));
@@ -1408,16 +1402,12 @@ export async function renameArticle(
           current.parentId ?? folderId,
           wantedName,
         );
-        const renamed = await client.call<{
-          notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
-        }>(
-          "FileNode/set",
-          {
-            accountId,
-            ifInState: token,
-            update: { [current.nodeId]: { name } },
-          },
-          [FILENODE_CAP],
+        const renamed = await updateAppNode(
+          ctx,
+          accountId,
+          current.nodeId,
+          { name },
+          token,
         );
         const nameRefused = renamed.notUpdated?.[current.nodeId];
         if (nameRefused)
@@ -1587,26 +1577,21 @@ export async function moveArticle(
       "An article cannot be moved into itself or one of its own folders.",
       400,
     );
-  const leaf = article.folder.split("/").pop() ?? article.folder;
+  const leaf = leafFolderName(article.folder);
   const nextFolder = parent ? `${parent.folder}/${leaf}` : leaf;
   // The FileNode sits under the tier's own KB folder at the root; only the
   // summary spells that as a null parent, exactly as the listing does.
   const destNodeId = parent ? parent.nodeId : tierFolderId;
   const destParentId = parent ? parent.nodeId : null;
-  const client = new JmapClient(ctx);
   for (let attempt = 0; attempt < 2; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
     try {
-      const res = await client.call<{
-        notUpdated?: Record<string, { type?: unknown; description?: unknown }>;
-      }>(
-        "FileNode/set",
-        {
-          accountId,
-          ifInState: token,
-          update: { [article.nodeId]: { parentId: destNodeId } },
-        },
-        [FILENODE_CAP],
+      const res = await updateAppNode(
+        ctx,
+        accountId,
+        article.nodeId,
+        { parentId: destNodeId },
+        token,
       );
       const refused = res.notUpdated?.[article.nodeId];
       if (refused)
@@ -1732,7 +1717,7 @@ async function retireArticle(
     const draft = asDraft(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
     );
-    const leaf = article.folder.split("/").pop() ?? article.folder;
+    const leaf = leafFolderName(article.folder);
     const base =
       state ??
       buildState({

@@ -14,6 +14,7 @@
  * dispatches into `applyChanges`.
  */
 
+import { FILENODE_CHANGES, FILENODE_GET } from "@gilbert/shared/appFolder";
 import { create } from "zustand";
 import { client, JmapMethodError } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
@@ -575,7 +576,7 @@ export const useChat = create<ChatState>((set, get) => {
         let guard = 0;
         while (hasMore && guard++ < 8) {
           const ch = await client.call<ChangesResponse>(
-            "FileNode/changes",
+            FILENODE_CHANGES,
             {
               accountId,
               sinceState: since,
@@ -626,7 +627,7 @@ export const useChat = create<ChatState>((set, get) => {
           // One get for the batch, then the shared parser keeps only the
           // nodes that actually live in this conversation's chat folder.
           const got = await client.call<GetResponse<FileNode>>(
-            "FileNode/get",
+            FILENODE_GET,
             {
               accountId,
               ids: fresh,

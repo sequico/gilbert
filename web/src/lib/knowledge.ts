@@ -19,7 +19,7 @@
  * still goes through the route, an administrator's alone.
  */
 
-import { APP_DOCUMENT_TYPE, FOLDER_PROPS } from "@gilbert/shared/appFolder";
+import { APP_DOCUMENT_TYPE, FILENODE_GET, FOLDER_PROPS } from "@gilbert/shared/appFolder";
 import {
   compareKnowledgeSiblings,
   compareRevisionsNewestFirst,
@@ -273,14 +273,14 @@ export async function listArticles(
  */
 async function parentArticleId(accountId: Id, nodeId: Id): Promise<Id | null> {
   try {
-    const got = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    const got = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
       accountId,
       ids: [nodeId],
       properties: ["id", "parentId"],
     });
     const parent = got.list[0]?.parentId ?? null;
     if (!parent) return null;
-    const pg = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    const pg = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
       accountId,
       ids: [parent],
       properties: ["id", "name"],
