@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
@@ -25,7 +25,7 @@ process.env.GILBERT_AGENT_PASSWORD = "gilbert-password";
 const BASE = `http://127.0.0.1:${PORT}`;
 const DEMO = "demo@example.com";
 
-await import("./mock/index.js");
+const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
 const { signInAsMaster } = await import("./bootstrap.js");
 const { filesAccountId } = await import("./appFolder.js");
@@ -39,6 +39,10 @@ await useDurableSessions(
 
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
+
+after(() => {
+  (mock as { server?: { close(): void } }).server?.close();
+});
 const login = loginWith(jsonCallAs(app, HEADERS));
 
 test("the session names the installation's own account, which no member holds", async () => {

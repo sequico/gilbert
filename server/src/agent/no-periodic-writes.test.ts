@@ -38,6 +38,12 @@ const { startAgent, groupNameOf } = await import("./agent.js");
 const { AgentStore } = await import("./store.js");
 const { writeAppFileAt, writeBytesIntoVisibleFolder } = await import("../appFolder.js");
 
+after(() => {
+  // The mock listens, and a file that leaves its server open does not exit when
+  // it is the only one running.
+  (mock as { server?: { close(): void } }).server?.close();
+});
+
 const BASE = `http://127.0.0.1:${PORT}`;
 /** A group mailbox of the demo session, and its second one. */
 const GROUPS = ["a3", "a5"];

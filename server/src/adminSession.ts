@@ -117,6 +117,18 @@ export async function openMasterAccount(
  * An unreadable introspection is non-admin: this only decides what a view
  * offers, while `requireAdmin` stays the enforcement on every write.
  */
+/**
+ * Whether this session's account is a Stalwart administrator (ADR 0001).
+ *
+ * The marker alone, and deliberately: what the *door* allows an administrator to
+ * do is a separate question with its own answer (`adminAllows`: the installation
+ * offers administration, and the device is the person's own, ADR 0017) and it
+ * bounds writes. Visibility is not a write, and an owner's decision keeps these
+ * two apart: a workorder a member may see is decided by competence, and whether
+ * a session may *administer* never changes what it may read. So a session signed
+ * in without "this is my device" sees exactly the same workorders it would have
+ * seen with it.
+ */
 export async function administrator(session: LiveSession): Promise<boolean> {
   try {
     const intro = await fetchAccountIntrospection(

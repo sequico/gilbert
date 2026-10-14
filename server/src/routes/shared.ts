@@ -940,6 +940,11 @@ export const refundCredentialAttempt = (
  * of every door — this is the second one, and the version of the product that
  * only hid the menu would leave every one of these routes open to a browser
  * console.
+ *
+ * It bounds **writes**, and only writes: what a session may *read* is decided by
+ * the rules of the surface it reads — a workorder's visibility is competence
+ * (ADR 0028) — so neither condition here ever changes what a member or an
+ * administrator sees.
  */
 export const adminAllows = (session: LiveSession) =>
   administrationAllowed(
@@ -947,6 +952,7 @@ export const adminAllows = (session: LiveSession) =>
     config.administrationNeedsOwnDevice,
     session.remember,
   );
+
 /**
  * The administrator door, in one place: the checks `requireAdmin` performs,
  * and the same checks a route needs when only one tier of a shared write is
