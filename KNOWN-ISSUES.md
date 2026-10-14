@@ -1,4 +1,4 @@
-# Known issues and verified behaviour
+# Known issues and what they need
 
 > **The whole `gilbertagents` part is not functional, and a refactor is
 > planned.** The Master principal, the agent fleet, the automations, the
@@ -154,8 +154,8 @@ For what is not built yet, see [ROADMAP.md](ROADMAP.md).
   (`urn:ietf:params:jmap:mdn` is not among its capabilities), so Gilbert assembles
   the `multipart/report` itself — raw MIME uploaded as a blob, `Email/import`, then
   `EmailSubmission` — which is why the receipt lands in Sent. Non-ASCII parts are
-  base64, not `8bit`. There is deliberately no "always send" setting; each receipt
-  is a decision.
+  base64, not `8bit`. What a reader sees is in
+  [FEATURES.md](FEATURES.md#read-receipts-mdn-rfc-8098).
 
 - **Where 0.16 advertises `urn:stalwart:jmap` decides whether sign-in is
   allowed.** Stalwart builds session-level `capabilities` from a fixed list

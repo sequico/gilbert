@@ -76,10 +76,10 @@ three refuses to make with raw correspondence.
 
 ## What is deliberately absent
 
-- **No author's notes beside the prose.** The two documents carried a free-text
-  field for remarks aimed at the next editor, read by no model. It was a fourth
-  and fifth level of prose that nothing read, and the reasoning it held belongs
-  in the sentence that states the rule.
+- **No author's notes beside the prose.** Neither document carries a free-text
+  field for remarks aimed at the next editor: it would be a fourth and fifth
+  level of prose that nothing reads, and the reasoning it holds belongs in the
+  sentence that states the rule.
 - **No grant, at any level.** A level that could widen what an automation may do
   would be a second enforcement door, and ADR 0003 keeps one: the allowlist,
   checked in code against every answer the model gives.

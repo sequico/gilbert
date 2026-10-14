@@ -30,15 +30,10 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   so nothing could act on a mailbox while you are away.
 
 - **A translation anybody has checked.** Twelve languages ship (English plus
-  eleven translations), and their extraction is done — see
-  [FEATURES.md](FEATURES.md#interface-language). All eleven were AI-produced
-  against standard dictionaries. Two have since been read by native speakers —
-  Dutch in September 2026, and Turkish, contributed by **Hakan Arslan**, in
-  October 2026 — and ship without the Beta mark. The other nine ship marked
-  Beta, said in Settings with a link for reporting anything wrong. A language
-  loses Beta when a speaker reads it and says so — a person's act, not a
-  coverage percentage. Reading a few hundred strings is the most useful
-  contribution available right now.
+  eleven translations), and their extraction is done — what each one is, which are
+  out of Beta and what is still owed is
+  [FEATURES.md](FEATURES.md#interface-language). Reading a few hundred strings
+  and saying so is the most useful contribution available right now.
 
 - **Right-to-left languages.** Arabic, Hebrew and Persian are held back
   deliberately, not for want of translators: RTL is bidi and layout work
@@ -101,10 +96,10 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   loop (parse `methodCalls`, one `methodResponses` per call in its id, own method
   map and grab-bag default). `web/src/test/jmapServer.ts` is that loop once —
   register methods (`srv.on("Mailbox/set", ({ args }) => …)`), close over state,
-  read `srv.calls`/`srv.callsTo`/`srv.count`. Four suites use it
-  (`files-push-tree`, `thread-not-found`, `select-all-in-folder`,
-  `archive-by-date`); the other twenty-six migrate as touched. The shared fake
-  deliberately does not model Stalwart (unregistered methods return an empty
-  result of every shape); the simulation is `server/src/mock`, and pointing the
-  suites at it would make "one Stalwart" literal — a bigger change, since the mock
-  is a Node server and the suites stub `fetch`.
+  read `srv.calls`/`srv.callsTo`/`srv.count`. Thirteen suites use it, from the
+  first (`files-push-tree`) to the most recent (`save-to-files-folders`); the
+  other seventeen migrate as touched. The shared fake deliberately does not model
+  Stalwart (unregistered methods return an empty result of every shape); the
+  simulation is `server/src/mock`, and pointing the suites at it would make "one
+  Stalwart" literal — a bigger change, since the mock is a Node server and the
+  suites stub `fetch`.

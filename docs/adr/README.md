@@ -55,33 +55,10 @@ is, not what a user sees.
   be resolved is skipped and counted; no nesting, and no threshold of its own.
 - **0005 — Group chat and the group label catalog.** Both are layers on the
   group account's own JMAP Files, owned by the group from creation.
-- **0006 — The minimal automation.** A group authors one enabled automation
-  per trigger it uses — up to the four `AGENT_TRIGGERS`, never one
-  per business case — and the count is enforced, because an automation carries
-  no filter and nothing else tells two of them on one trigger apart: the save
-  refuses a second, the editor offers only the triggers nothing holds, and the
-  executor says so once if a document carries one anyway. A disabled automation
-  is a draft and is allowed. The grant is chosen as three areas (Mail, Chat,
-  Files and documents) instead of thirteen individual actions, and the
-  expansion is computed from the catalogue — one tag per entry, minus anything
-  marked `external` or `irreversible` — so a future flagged action leaves every
-  area without a list being kept in step; `mail.send` is excluded from the area
-  it belongs to and keeps its own entry, so ticking an area can never grant
-  sending as a side effect. Doing nothing is not a permission but the absence of
-  one, granted to every automation by `effectiveCapabilities`. How cautious a
-  group's runs are is the **group's own policy document** rather than a field on
-  every automation — two choices, no number, with the floors in code — and a
-  group that has written none runs on the confident reading: an in-group action
-  the model is sure of goes ahead, an unsure one stops for a person. New
-  context belongs in one of two speeds — distilled into the group's notebook by
-  an infrequent process, staying in the prompt's cached head, or fetched
-  narrowly and by name into the volatile tail — never attached wholesale
-  (a full mailbox, an unbounded document set), which would defeat the
-  provider's own prompt caching and widen the untrusted-content surface at
-  once. The one-automation-per-trigger rule, the areas, the policy and the two
-  speeds of context — the notebook a run may write, and the named lookup it may
-  ask for (ADR 0020) — are the intended shape; the code is present but the agent
-  part is not functional yet (see `ROADMAP.md`).
+- **0006 — The minimal automation.** One enabled automation per trigger a group
+  uses, grants chosen as areas rather than individual actions, and a cautiousness
+  that is the group's own policy document rather than a field on every
+  automation. The agent part is not functional yet (see `ROADMAP.md`).
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
@@ -187,8 +164,8 @@ is, not what a user sees.
   builder produces that order for both callers, a run's decision and an
   administrator's reading of a draft. None of them grants anything: the grant is
   the automation's capability allowlist, checked on every answer. The two
-  documents are one type and one pair of readers, and the remarks that used to
-  sit beside each of them — prose read by no model — are gone with them.
+  documents are one type and one pair of readers, and neither carries a
+  free-text field.
 - **0020 — A run may look something up.** The deciding call may answer with a
   lookup from a closed catalogue instead of actions: the group's mail and its
   chat by the **search grammar the mail client already speaks**
@@ -229,27 +206,11 @@ is, not what a user sees.
   well as being merged in it; its cards are ordinary cards. A `shareWith` naming
   every account cannot work — Stalwart caps a share at 10 principals per item
   (live-probed, 2026-10-02) — so the route is the door.
-- **0024 — The knowledge base (accepted).** An enterprise
-  knowledge base inside Gilbert, for people and for agents: a company-wide KB
-  owned by the Master and read through a route, plus a KB per group owned by the group, over
-  app-folder documents in Stalwart — policies, procedures and the checklist
-  templates a workorder instantiates (ADR 0028). An article has **one shared
-  unapproved draft that users and agents both edit**, the fleet reviews it, and
-  **only an
-  administrator approves it into force with an effective instant**, the revision it
-  replaces staying in history as superseded. It takes the editor (BlockNote) and
-  the search (Orama) off the shelf and builds the rest — storage, ownership,
-  versioning, approval — itself, and makes the fleet a **document controller**
-  that keeps policies aligned, finds inconsistencies and plans multi-document
-  edits. The record is **Accepted**, every design question settled: it carries
-  the findings, the design as it stands, the lifecycle, versioning and publication
-  (e.g. ISO 9001 policies), and the library choice. **Built** for v1 — the storage
-  and lifecycle, the Master-owned door and its routes, the boot ensure, the client
-  read/write, the surface with its BlockNote editor, the fleet's `knowledge`
-  read, `knowledge.write` and `knowledge.review` with the plan and findings on the
-  run's own job, and the checklist templates a workorder instantiates (ADR 0028);
-  co-editing and diagrams are the deferred phases. The company KB is read
-  through the same route as Global contacts.
+- **0024 — The knowledge base (accepted).** An enterprise knowledge base inside
+  Gilbert, for people and for agents: a company-wide one owned by the Master and
+  one per group, over app-folder documents in Stalwart. An article has one shared
+  unapproved draft that users and agents both edit, and only an administrator
+  approves it into force. Built for v1; co-editing and diagrams are deferred.
 - **0025 — One gate, and nothing merges or ships unverified.** The gate has one
   source — `npm run check:ci` — run by the pre-push hook and by the CI release
   pre-check, so the two cannot diverge; the action-pin rule is a check
@@ -275,28 +236,11 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
-- **0028 — Workorders are group-owned parts (accepted).** A workorder is one
-  uid: a root document in the Master's `gilbert/workorders/` — identity, global
-  checklist and the registry of every workorder, the root moved to `closed/` when
-  the state turns terminal (a projection, the state being the truth) — and a part
-  in each competent group's own app folder, holding that group's checklist and
-  its references by id to that group's folders and files; nothing is copied and
-  no marker is planted in a work folder. Mail is out of v1 entirely, and the
-  agent acts on its own when told to. The Master does every read and write, so an administrator sees every part without
-  being a member of every group and a member sees the global checklist and their
-  own groups' parts, the door being the server route that checks the caller's
-  membership — a workorder being a member's when the template assigns a section to
-  a group they are in, so a part whose document is missing is a finding, never a
-  workorder that vanishes for its group, and a group's checks appearing to its
-  members as they happen on the FileNode rail of the group's own account, while the
-  global checklist reaches a member through the subscription the deployment holds on
-  the Master's account; each step keeps its **state** (`open`, `done`, `skipped` or
-  `not-applicable`) and the last signature, taken from the authenticated session,
-  and a friendly name beside the uid. A checklist instantiates a KB template in
-  force (ADR 0024) and materialises its applicable steps **by path** (ADR 0030).
-  **Built** — the shape (`server/src/shared/workorder.ts`), the Master-owned door
-  and its `/api/workorders` routes, the boot ensure, the route-only client and
-  the factory launcher's large panel (`web/src/views/workorder/`).
+- **0028 — Workorders are group-owned parts (accepted).** A workorder is one uid
+  with a root document in the Master's and a part in each competent group's own
+  app folder; nothing is copied and no marker is planted in a work folder. The
+  Master does every read and write. A checklist instantiates a KB template in
+  force (ADR 0024) and materialises its applicable steps by path (ADR 0030).
 - **0029 — The composer's editor is Squire (accepted, built).** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for

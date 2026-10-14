@@ -8,9 +8,10 @@ own** first — the groups, the chat and above all the agents — and the client
 mail core derives from after it.
 
 [ROADMAP.md](ROADMAP.md) is what Gilbert deliberately does **not** do and why;
-[KNOWN-ISSUES.md](KNOWN-ISSUES.md) is what was verified live and where Stalwart
-departs from a spec. Gilbert targets Stalwart **0.16** or newer and refuses older
-servers at sign-in, by name; the tree is followed against **0.16.22**.
+[KNOWN-ISSUES.md](KNOWN-ISSUES.md) is where Stalwart departs from a spec, the
+settings a feature needs, and what Gilbert deliberately does not do. Gilbert
+targets Stalwart **0.16** or newer and refuses older servers at sign-in, by
+name; the tree is followed against **0.16.23**.
 
 ## The shape of it
 

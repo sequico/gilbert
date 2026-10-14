@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
-  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; followed against 0.16.22" src="https://img.shields.io/badge/Stalwart-0.16.22-6366f1?style=flat-square"></a>
+  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; followed against 0.16.23" src="https://img.shields.io/badge/Stalwart-0.16.23-6366f1?style=flat-square"></a>
   <a href="CONTRIBUTING.md"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
   <a href="INSTALL.md"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
   <br>
@@ -174,7 +174,7 @@ install and operation guide is [INSTALL.md](INSTALL.md).
 | --- | --- |
 | 🚀 **[INSTALL.md](INSTALL.md)** | Installing, running, configuring and operating Gilbert |
 | 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature |
-| 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
+| 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | Where Stalwart departs from a spec, the settings a feature needs, and what Gilbert deliberately does not do |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
 | 🧭 **[CONTRIBUTING.md](CONTRIBUTING.md)** | Building, the gates, the mock, and how to contribute |
 | 🏛 **[docs/adr](docs/adr/README.md)** | The architecture decisions behind all of it |
