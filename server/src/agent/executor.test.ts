@@ -76,7 +76,9 @@ const { automationLabel, newDecision, newJob, AGENT_LOOKUP_ROUNDS } = await impo
   "./documents.js"
 );
 const { DOCUMENT_TEXT_MAX } = await import("./documentFamily.js");
-const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
+const { Executor, JOB_MAX_ATTEMPTS, DECISION_PENDING_RETENTION_MS } = await import(
+  "./executor.js"
+);
 const { claimAccount, saveClaimStates } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 
@@ -854,7 +856,7 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
     { accountId: GROUP, update: { [draft.emailId]: { mailboxIds: { "g-sent": true } } } },
     [JMAP_MAIL],
   );
-  const swept = await executor.sweepDrafts(GROUP, [String(job.decisionId)]);
+  const swept = await executor.sweepDecisions(GROUP, [String(job.decisionId)]);
   assert.deepEqual(swept, [String(job.decisionId)]);
 
   const settled = (await store.readDecision(String(job.decisionId)))?.doc;
@@ -926,7 +928,7 @@ test("a draft that vanished is not an approval", async () => {
     { accountId: GROUP, destroy: [job.proposal.draft.emailId] },
     [JMAP_MAIL],
   );
-  await executor.sweepDrafts(GROUP, [String(job.decisionId)]);
+  await executor.sweepDecisions(GROUP, [String(job.decisionId)]);
   const settled = (await store.readDecision(String(job.decisionId)))?.doc;
   assert.equal(
     settled?.state,
@@ -934,6 +936,62 @@ test("a draft that vanished is not an approval", async () => {
     "nothing can be sent from a draft that is gone",
   );
   assert.equal((await store.readJob(String(job.id)))?.doc.state, "done");
+});
+
+test("a decision nobody answers is settled as expired once its window passes", async () => {
+  /*
+   * A decision waits on a person who may never come: the draft stays in Drafts,
+   * `prune` keeps a pending decision and its job, and every pass reads both back
+   * for ever. Past the window the sweep settles it the way a discarded draft is
+   * settled — expired, named by the timeout — so the ordinary retention can drop
+   * it and close the job it holds open.
+   */
+  const waiting = rule({ id: "never-answered" });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
+  await store.writeRules([waiting]);
+  const emailId = await createMessage("An invoice nobody will approve");
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+
+  const job = (await jobsOf("never-answered")).find(
+    (candidate) => candidate.trigger.emailId === emailId,
+  );
+  assert.ok(job?.decisionId, String(job?.error));
+  const decisionId = String(job.decisionId);
+  assert.equal((await store.readDecision(decisionId))?.doc.state, "pending");
+
+  // A fresh decision is not settled: the window is time, not a pass.
+  assert.deepEqual(await executor.sweepDecisions(GROUP, [decisionId]), []);
+  assert.equal((await store.readDecision(decisionId))?.doc.state, "pending");
+  assert.equal((await store.readJob(job.id))?.doc.state, "awaiting_approval");
+
+  // Age it past the window, as the wait of a person who never answered would.
+  const found = await store.readDecision(decisionId);
+  assert.ok(found);
+  const aged = new Date(Date.now() - DECISION_PENDING_RETENTION_MS - 1000);
+  await store.writeDecision({ ...found.doc, createdAt: aged.toISOString() });
+
+  assert.deepEqual(await executor.sweepDecisions(GROUP, [decisionId]), [decisionId]);
+  const settled = (await store.readDecision(decisionId))?.doc;
+  assert.equal(settled?.state, "expired");
+  assert.equal(settled?.decidedBy, "timeout", "the timeout is named as what settled it");
+  assert.equal(
+    (await store.readJob(job.id))?.doc.state,
+    "done",
+    "the job waiting on the decision closes with it",
+  );
+  const audit = await store.readAuditAt(new Date());
+  assert.ok(
+    audit?.entries.some(
+      (entry) => entry.jobId === job.id && entry.outcome === "rejected",
+    ),
+    "the trail records the expired decision as a rejection",
+  );
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some((message) => message.text.includes("Not sent")),
+    "and the group's chat says the proposal was not sent",
+  );
 });
 
 test("a draft moved to Trash is a rejection, not a send", async () => {
@@ -982,7 +1040,7 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
     },
     [JMAP_MAIL],
   );
-  const swept = await executor.sweepDrafts(GROUP, [String(job.decisionId)]);
+  const swept = await executor.sweepDecisions(GROUP, [String(job.decisionId)]);
   assert.deepEqual(swept, [String(job.decisionId)]);
 
   const settled = (await store.readDecision(String(job.decisionId)))?.doc;
@@ -1479,6 +1537,58 @@ test("a run reads the group's chat once, however many times it asks for it", asy
     read <= 2 * children.length,
     `the run's chat is read once, not once per use (downloads: ${read}, messages: ${children.length})`,
   );
+});
+
+test("one unit of work reads the group's chat once, across the passes it builds", async () => {
+  /*
+   * The chat folder only grows, and an account-level unit of work reads it for a
+   * chat rule, for a run's context and for the decisions it answers. One cell
+   * per unit is what makes that one read: every pass the unit builds reads
+   * through it, so the transcript is not fetched again for the next reader.
+   * Fails if a pass goes back to the folder, because every message is a blob
+   * download and the count of those names how many times it was fetched.
+   */
+  const talker = rule({
+    id: "chat-reader",
+    trigger: { on: "chat" },
+    capabilities: ["chat.post"],
+  });
+  await store.writeRules([talker]);
+  // The anchor first: the messages below are the changes this unit's reconcile
+  // reads, so it is its chat rule that asks for the transcript.
+  const claim = await claimAnchoredOnTheAccount();
+  for (let i = 0; i < 20; i += 1) await postMessage(ctx, GROUP, ADA, `a note ${i}`);
+
+  const chatFolder = await findFolderPath(ctx, GROUP, CHAT_FOLDER);
+  assert.ok(chatFolder, "the group has a chat folder");
+  const children = await fileChildren(ctx, GROUP, chatFolder);
+  const blobs = new Set(children.map((child) => String(child.blobId)));
+
+  const real = JmapClient.prototype.downloadBlob;
+  let read = 0;
+  JmapClient.prototype.downloadBlob = async function (
+    this: InstanceType<typeof JmapClient>,
+    ...args: Parameters<typeof real>
+  ) {
+    if (blobs.has(String(args[1]))) read += 1;
+    return real.apply(this, args);
+  };
+  try {
+    const chats = {};
+    await executor.reconcile(GROUP, "FileNode", claim, chats);
+    const afterReconcile = read;
+    assert.ok(afterReconcile > 0, "the pass that reads the chat read it");
+    // The decisions are answered through the same cell, so the folder is not
+    // visited a second time.
+    await executor.chatOf(GROUP, chats);
+    assert.equal(
+      read,
+      afterReconcile,
+      "the unit's chat is read once, not once per pass it builds",
+    );
+  } finally {
+    JmapClient.prototype.downloadBlob = real;
+  }
 });
 
 test("a message body past the read ceiling reaches the model cut, and says so", async () => {
@@ -2050,7 +2160,7 @@ test("a failure that stayed inside the group waits before trying again", async (
   );
 
   // And the sweep respects the wait instead of burning the attempts at once.
-  const ran = await executor.runPending(GROUP, ["mail"]);
+  const ran = await executor.runPending(GROUP);
   const still = await store.readJob("internal-job");
   assert.equal(still?.doc.attempts, 1, "a job inside its backoff is not run");
   assert.equal(typeof ran, "number");
@@ -2076,7 +2186,7 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
     },
   });
 
-  await executor.runPending(GROUP, ["mail"]);
+  await executor.runPending(GROUP);
 
   const closed = await store.readJob("abandoned-job");
   assert.equal(
@@ -2117,7 +2227,7 @@ test("a run whose agent died is taken up again by the next pass", async () => {
   });
 
   await claimFor();
-  await executor.runPending(GROUP, ["mail"]);
+  await executor.runPending(GROUP);
 
   const after = await store.readJob("resume-job");
   assert.equal(
@@ -2163,7 +2273,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   });
   assert.ok(taken, "another agent holds mail now");
 
-  await executor.runPending(GROUP, ["mail"]);
+  await executor.runPending(GROUP);
 
   const untouched = await store.readJob("fenced-job");
   assert.equal(

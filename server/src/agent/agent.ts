@@ -25,11 +25,12 @@ import {
   upstreamFor,
 } from "../upstream.js";
 import { groupAccountsDetailed } from "./actions.js";
-import { greetUnspoken, readChat } from "./chat.js";
+import { greetUnspoken } from "./chat.js";
 import type { AgentClaim, AgentRecord, AgentStreamClaim } from "./documents.js";
 import {
   AUDIT_RETENTION_MS,
   type ChangeType,
+  type ChatShare,
   DOCUMENT_RETENTION_MS,
   Executor,
   type GuardOutcome,
@@ -270,6 +271,12 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
   const reconcileAccount = async (accountId: string): Promise<void> => {
     const store = new AgentStore(deps.ctx, accountId);
     const types = typesOf(accountId);
+    // The chat is read once for the whole account-level unit: the reconciles,
+    // the schedule catch-up, the pending sweep and the decisions answered here
+    // all read through this cell, so a long transcript is fetched once however
+    // many passes ask for it. It lives on this call and is gone with it, so no
+    // later unit reads a transcript that has moved on.
+    const chats: ChatShare = {};
     for (const type of types) {
       const claim = (await store.readClaim())?.doc;
       if (!claim) continue;
@@ -284,7 +291,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
         return;
       }
       try {
-        await executor.reconcile(accountId, type, claim);
+        await executor.reconcile(accountId, type, claim, chats);
       } catch (err) {
         // A lost reconcile is not a lost agent: the state stays where it was,
         // so the next pass re-reads the same range.
@@ -296,9 +303,9 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     // Nothing wakes the agent for a time trigger — it is not a change — so the
     // pass asks. This is the catch-up for the runs a agent was away for, and
     // it reads the due entries back out of the document on every round.
-    const due = await executor.runDueSchedules(accountId);
+    const due = await executor.runDueSchedules(accountId, chats);
     if (due) log(`${accountId}: ${due} scheduled run(s) due`);
-    const retried = await executor.runPending(accountId);
+    const retried = await executor.runPending(accountId, chats);
     if (retried) log(`${accountId}: retried ${retried} job(s)`);
     // An audit entry a contended document pushed out of its retries is held in
     // memory: the pass writes it, so a group that has gone quiet does not carry
@@ -322,12 +329,14 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       // member who sent the draft and then wrote "sì" has approved once by
       // sending it, and the document that wins is the one a person acted on.
       // Resolving the reply first would settle the decision on the
-      // conversational answer and leave the sent draft unexplained.
-      await executor.sweepDrafts(
+      // conversational answer and leave the sent draft unexplained. The same
+      // sweep also settles a decision nobody answered inside its window, and
+      // it takes every pending decision — one with no draft can still time out.
+      await executor.sweepDecisions(
         accountId,
-        decisions.filter((decision) => decision.draft).map((decision) => decision.id),
+        decisions.map((decision) => decision.id),
       );
-      const messages = await readChat(deps.ctx, accountId, client);
+      const messages = await executor.chatOf(accountId, chats);
       const answered = await executor.answerDecisions(accountId, messages);
       if (answered.length)
         log(`${accountId}: ${answered.length} decision(s) answered in the chat`);

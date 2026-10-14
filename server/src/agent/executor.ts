@@ -217,6 +217,22 @@ export const JOB_MAX_ATTEMPTS = 3;
 export const DOCUMENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * How long a decision waits for a person before it is settled as expired.
+ *
+ * A decision nobody answers is a job nobody can finish: the draft it left in
+ * Drafts may sit there for the life of the account, `prune` keeps a pending
+ * decision and its job, and every pass reads them both back for ever. Past this
+ * window the decision is settled the way one whose draft left Drafts is —
+ * expired, with the trail and the group's chat saying why — so the ordinary
+ * retention can drop it and the job it holds open.
+ */
+export const DECISION_PENDING_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** The same window in the days the trail and the group's chat name. */
+const DECISION_PENDING_RETENTION_DAYS =
+  DECISION_PENDING_RETENTION_MS / (24 * 60 * 60 * 1000);
+
+/**
  * How long the audit is kept, in the ADR's own terms: twelve months. It is the
  * record that outlives every job and decision document, so it is pruned on its
  * own clock and by whole months.
@@ -383,7 +399,12 @@ export class Executor {
    * turned into a second job — the durable job document is the deduplication,
    * which is what makes at-least-once delivery harmless.
    */
-  async reconcile(accountId: string, type: ChangeType, claim: AgentClaim): Promise<void> {
+  async reconcile(
+    accountId: string,
+    type: ChangeType,
+    claim: AgentClaim,
+    chats?: ChatShare,
+  ): Promise<void> {
     // The fence is the agent's claim on the unit, asked before anything here
     // writes: a caller that hands a claim belonging to another process — what a
     // leaving process's push wake reads during a rolling restart — would
@@ -426,7 +447,7 @@ export class Executor {
       // on are read again once the document can be read, instead of being
       // consumed by a pass that had nothing to match them against.
       if (!rules) return;
-      const pass = await this.jobIndex(store, claim.statesAt?.[type]);
+      const pass = await this.jobIndex(store, claim.statesAt?.[type], chats);
       if (type === "Email")
         await this.emailRecords(store, accountId, ids, rules, pass, claim);
       else await this.fileRecords(store, accountId, ids, rules, pass, claim);
@@ -677,7 +698,7 @@ export class Executor {
           .map((node) => String(node.id)),
       );
       if (chatIds.size) {
-        const messages = await this.readChatOf(accountId, pass);
+        const messages = await this.readChatOf(accountId, pass.chats);
         const requests = pendingRequests(
           messages,
           this.deps.address,
@@ -761,12 +782,17 @@ export class Executor {
    * What one pass knows about the changes it is reporting: the account's jobs,
    * and when the state it reads from was observed (ADR 0003).
    */
-  private async jobIndex(store: AgentStore, since?: string): Promise<Pass> {
+  private async jobIndex(
+    store: AgentStore,
+    since?: string,
+    chats: ChatShare = {},
+  ): Promise<Pass> {
     const jobs = (await store.listJobs()).map((entry) => entry.doc);
     const pass: Pass = {
       keys: new Set(jobs.map((job) => jobKey(job.ruleId, job.trigger))),
       producers: producersOf(jobs, since),
       chainHops: await this.chainHops(),
+      chats,
     };
     if (since) pass.since = since;
     return pass;
@@ -1499,7 +1525,7 @@ export class Executor {
     lookup: Extract<AgentLookup, { kind: "chat" }>,
     pass: Pass,
   ): Promise<string> {
-    const messages = await this.readChatOf(accountId, pass);
+    const messages = await this.readChatOf(accountId, pass.chats);
     // The same grammar, applied to what a transcript can mean: the words a
     // message says, who wrote it, and when. A field a chat has no use for (a
     // size, an attachment) narrows nothing.
@@ -1767,10 +1793,13 @@ export class Executor {
       // The same grant the plan was decided under, read again here: a resumed
       // plan runs without the model's answer in hand, and an action outside the
       // grant is refused before it runs (ADR 0003).
-      {
-        ...(await this.actionOpts(accountId, plan.actions, job, pass)),
-        allowed: effectiveCapabilities(rule),
-      },
+      await this.actionOpts(
+        accountId,
+        plan.actions,
+        job,
+        effectiveCapabilities(rule),
+        pass,
+      ),
       {
         // Recorded as each action lands, so a retry resumes after it.
         onApplied: async (action: AgentAction, result: ActionResult) => {
@@ -1933,11 +1962,12 @@ export class Executor {
    * Drop a decision a pause wrote but never carried to the group's chat.
    *
    * A decision is answered through the chat message that names it; one written
-   * before the post is a document `answerDecisions` never walks and `prune`
-   * never removes, because both read a pending decision by its `chatId` and by
-   * a terminal state. Removing it is what keeps a pause that failed from
-   * leaving work behind that is nobody's to answer, and a removal that itself
-   * fails is logged rather than left to mask the failure that caused it.
+   * before the post is a document `answerDecisions` never walks, because it
+   * reads a pending decision by its `chatId`, and `prune` never removes a
+   * pending decision. Removing it is what keeps a pause that failed from
+   * leaving work behind that is nobody's to answer. A removal that itself fails
+   * is logged rather than left to mask the failure that caused it; the pending
+   * window settles the leftover either way.
    */
   private async removeUncarriedDecision(store: AgentStore, id: string): Promise<void> {
     try {
@@ -2040,7 +2070,7 @@ export class Executor {
       return context;
     }
     if (trigger.on === "chat" && trigger.chatId) {
-      const messages = await this.readChatOf(accountId, pass);
+      const messages = await this.readChatOf(accountId, pass.chats);
       const anchor = messages.find((message) => message.id === trigger.chatId);
       // Only a person asking widens the window; the run never does it
       // itself.
@@ -2242,23 +2272,40 @@ export class Executor {
     return out;
   }
 
-  private async readChatOf(accountId: string, pass?: Pass): Promise<ChatMessage[]> {
-    // The pass holds the promise, so a run that reads the chat for its context,
-    // for a lookup and for its mentions reads the folder once. A caller with no
-    // pass — an approval being resolved, a draft being swept — reads it for
-    // itself, because that work is not this pass's.
-    if (!pass) return readChat(this.deps.ctx, accountId, this.deps.client);
-    pass.chat ??= readChat(this.deps.ctx, accountId, this.deps.client);
-    return pass.chat;
+  private async readChatOf(accountId: string, chats?: ChatShare): Promise<ChatMessage[]> {
+    // A caller with no shared cell — an approval being resolved, a draft being
+    // swept — reads it for itself, because that work is not this unit's.
+    if (!chats) return readChat(this.deps.ctx, accountId, this.deps.client);
+    chats.chat ??= readChat(this.deps.ctx, accountId, this.deps.client);
+    return chats.chat;
+  }
+
+  /**
+   * The group's chat, read once through a unit of work's own cell.
+   *
+   * The account-level work reads the chat for the decisions it answers; giving
+   * it the same cell the unit's passes build keeps that read the one the unit
+   * paid for.
+   */
+  chatOf(accountId: string, chats?: ChatShare): Promise<ChatMessage[]> {
+    return this.readChatOf(accountId, chats);
   }
 
   private async actionOpts(
     accountId: string,
     actions: ReadonlyArray<AgentAction>,
     job: AgentJob | null,
+    allowed: ReadonlyArray<AgentActionName>,
     pass?: Pass,
   ): Promise<ActionOpts> {
-    const opts: ActionOpts = { from: this.deps.address, now: this.deps.now() };
+    // The grant is not optional: every action runs under the rule's own
+    // allowlist (ADR 0003), and the one thing that may never happen is a
+    // caller that forgets it and so runs under a boundary that is not there.
+    const opts: ActionOpts = {
+      from: this.deps.address,
+      now: this.deps.now(),
+      allowed,
+    };
     if (job?.trigger.emailId) opts.emailId = job.trigger.emailId;
     if (job?.trigger.chatId) opts.replyTo = job.trigger.chatId;
     if (job?.proposal?.draft) {
@@ -2279,7 +2326,7 @@ export class Executor {
   /** Who a chat post may mention: the transcript's participants, plus the agent. */
   private async chatParticipants(accountId: string, pass?: Pass): Promise<string[]> {
     try {
-      const messages = await this.readChatOf(accountId, pass);
+      const messages = await this.readChatOf(accountId, pass?.chats);
       return participantsOf(messages, this.deps.address);
     } catch (err) {
       this.deps.log(`could not read the chat participants: ${errorMessage(err)}`);
@@ -2359,6 +2406,16 @@ export class Executor {
     );
   }
 
+  /**
+   * Apply Gilbert's own label to the message a run was about.
+   *
+   * The grant is the action's own, stated here rather than read from the rule:
+   * the label is the product's bookkeeping — "processed", "needs attention",
+   * "awaiting", "rejected" — and the run that failed must be marked however
+   * narrow the automation's grant is, and whether or not its rule still exists.
+   * It is a grant all the same, so the boundary ADR 0003 puts before every
+   * effect is not skipped for the quiet writes.
+   */
   private async labelQuietly(
     accountId: string,
     action: AgentAction,
@@ -2372,7 +2429,7 @@ export class Executor {
         this.deps.ctx,
         accountId,
         [action],
-        { emailId, from: this.deps.address },
+        { emailId, from: this.deps.address, allowed: [action.do] },
         { beforeAction: this.leavingProcessFence(store, claim) },
       );
     } catch (err) {
@@ -2544,12 +2601,16 @@ export class Executor {
     }
     const actions = approvedActions(decided);
     try {
-      const opts = await this.actionOpts(accountId, actions, job);
-      // The approval runs the plan a person read, under the same grant it was
-      // decided with (ADR 0003): the allowlist is read from the rule the
-      // decision names, and a decision whose rule is gone never reaches this
-      // point — it was refused above, for having no grant at all.
-      opts.allowed = effectiveCapabilities(rule);
+      const opts = await this.actionOpts(
+        accountId,
+        actions,
+        job,
+        // The approval runs the plan a person read, under the same grant it was
+        // decided with (ADR 0003): the allowlist is read from the rule the
+        // decision names, and a decision whose rule is gone never reaches this
+        // point — it was refused above, for having no grant at all.
+        effectiveCapabilities(rule),
+      );
       // The draft the run left is what an approval sends, even when the job
       // document that recorded it is already pruned.
       if (decided.draft) {
@@ -2657,20 +2718,23 @@ export class Executor {
   }
 
   /**
-   * The draft-leaving-Drafts rule (ADR resolution 10).
+   * Settle the pending decisions a pass can settle by reading the account.
    *
-   * A pending decision whose draft is no longer in the Drafts mailbox, and is
-   * not in Trash either, was sent by a person, and what they sent — edits
-   * included — is what was approved. That wins over the conversational reply,
-   * so it is settled here.
-   *
+   * The draft-leaving-Drafts rule (ADR resolution 10): a pending decision whose
+   * draft is no longer in the Drafts mailbox, and is not in Trash either, was
+   * sent by a person, and what they sent — edits included — is what was
+   * approved. That wins over the conversational reply, so it is settled here.
    * A draft that vanished entirely, or that a person moved to Trash — the
-   * ordinary way to discard a draft one disagrees with, in any mail client —
-   * is not an approval at all: nothing was ever submitted, so nothing is
-   * settled as sent. Treating a trashed draft as "sent" would run the rest of
-   * the plan anyway and have the audit trail record a send that never happened.
+   * ordinary way to discard a draft one disagrees with, in any mail client — is
+   * not an approval at all: nothing was ever submitted, so nothing is settled as
+   * sent. Treating a trashed draft as "sent" would run the rest of the plan
+   * anyway and have the audit trail record a send that never happened.
+   *
+   * The other ending is time: a decision nobody answers inside
+   * `DECISION_PENDING_RETENTION_MS` is settled as expired, so it and the job
+   * waiting on it are not kept for the life of the account.
    */
-  async sweepDrafts(
+  async sweepDecisions(
     accountId: string,
     decisionIds: ReadonlyArray<string>,
   ): Promise<string[]> {
@@ -2690,42 +2754,83 @@ export class Executor {
       for (let attempt = 0; attempt < DECISION_SETTLE_ATTEMPTS; attempt++) {
         const found = await store.readDecision(id);
         const decision = found?.doc;
-        if (!found || !decision || decision.state !== "pending" || !decision.draft) break;
-        const record = await fetchEmailRecord(
-          this.deps.client,
-          accountId,
-          decision.draft.emailId,
-          {},
-        );
-        const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
-        if (inDrafts) break;
-        const inTrash = record
-          ? await this.inMailboxRole(accountId, record, "trash")
-          : false;
-        if (!record || inTrash) {
-          // `false` is the document having moved: read it again and settle what
-          // is actually there, rather than leaving it pending over a write that
-          // landed somewhere else.
-          if (await this.expireDraftDecision(store, found)) {
+        if (!found || !decision || decision.state !== "pending") break;
+        /*
+         * What a person did with the draft decides before the clock does: a
+         * draft they sent is an approval, one they discarded is a rejection, and
+         * recording either of those as "the window ran out" would put a false
+         * line in the trail. Only a draft still in Drafts — or one moved
+         * somewhere that is neither sent nor discarded — leaves the window as
+         * the ending.
+         */
+        if (decision.draft) {
+          const record = await fetchEmailRecord(
+            this.deps.client,
+            accountId,
+            decision.draft.emailId,
+            {},
+          );
+          const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
+          if (!inDrafts) {
+            const inTrash = record
+              ? await this.inMailboxRole(accountId, record, "trash")
+              : false;
+            if (!record || inTrash) {
+              // `false` is the document having moved: read it again and settle
+              // what is actually there, rather than leaving it pending over a
+              // write that landed somewhere else.
+              if (
+                await this.expireDecision(
+                  store,
+                  found,
+                  "draft",
+                  "the draft was discarded without being sent, so nothing the proposal asked for ran",
+                )
+              ) {
+                closed.push(decision.id);
+                break;
+              }
+              continue;
+            }
+            // Positive evidence of submission, not merely absence from Drafts:
+            // a draft a person moved to another folder — Archive, a label,
+            // Spam — is neither sent nor discarded, and settling it as sent
+            // would run the rest of the plan and have the trail record a send
+            // that never happened. It falls through to the window instead.
+            if (await this.inMailboxRole(accountId, record, "sent")) {
+              if (await this.settleSentDraft(store, accountId, found, "draft")) {
+                closed.push(decision.id);
+              }
+              break;
+            }
+          }
+        }
+        // Nobody answered inside the window: the decision is settled as expired
+        // and its job closed, so the ordinary retention can drop both.
+        if (this.decisionTimedOut(decision)) {
+          if (
+            await this.expireDecision(
+              store,
+              found,
+              "timeout",
+              `no answer came within ${DECISION_PENDING_RETENTION_DAYS} days, so nothing the proposal asked for ran`,
+            )
+          ) {
             closed.push(decision.id);
             break;
           }
           continue;
         }
-        // Positive evidence of submission, not merely absence from Drafts: a
-        // draft a person moved to another folder — Archive, a label, Spam — is
-        // neither sent nor discarded, and settling it as sent would run the
-        // rest of the plan and have the trail record a send that never
-        // happened. It is left pending, so a person can still answer in the
-        // chat.
-        if (!(await this.inMailboxRole(accountId, record, "sent"))) break;
-        if (await this.settleSentDraft(store, accountId, found, "draft")) {
-          closed.push(decision.id);
-        }
         break;
       }
     }
     return closed;
+  }
+
+  /** Whether a pending decision has waited past the window the product allows. */
+  private decisionTimedOut(decision: AgentDecision): boolean {
+    const waited = this.deps.now().getTime() - Date.parse(decision.createdAt);
+    return waited >= DECISION_PENDING_RETENTION_MS;
   }
 
   /**
@@ -2742,22 +2847,25 @@ export class Executor {
   }
 
   /**
-   * Settle a decision whose draft is gone or discarded: nothing was sent, so
-   * the job closes without running the rest of the plan.
+   * Settle a pending decision as expired: nothing it proposed is run.
    *
-   * The draft a pause prepared is the thing a person was shown, and its
-   * disappearance is a rejection: it is recorded in the trail and said in the
-   * group's chat as a rejection is, never left as a job that simply stopped.
+   * One ending, two causes — the draft a person was shown is gone or was
+   * discarded, or nobody answered inside the window. Both are the same kind of
+   * thing: the decision is expired, named by what settled it, the job closes
+   * without running the rest of the plan, and the trail and the group's chat
+   * record a rejection rather than leave a job that simply stopped.
    */
-  private async expireDraftDecision(
+  private async expireDecision(
     store: AgentStore,
     found: AgentDoc<AgentDecision>,
+    by: "draft" | "timeout",
+    reason: string,
   ): Promise<boolean> {
     const decision = found.doc;
     const expired: AgentDecision = {
       ...decision,
       state: "expired",
-      decidedBy: "draft",
+      decidedBy: by,
       decidedAt: this.deps.now().toISOString(),
     };
     try {
@@ -2772,8 +2880,6 @@ export class Executor {
       id: decision.ruleId,
       version: decision.ruleVersion,
     };
-    const reason =
-      "the draft was discarded without being sent, so nothing the proposal asked for ran";
     if (job)
       await this.writeJobIfCurrent(store, job.id, (latest) => closeState(latest, "done"));
     await recordAudit(
@@ -2887,14 +2993,11 @@ export class Executor {
           this.deps.ctx,
           accountId,
           actions,
-          {
-            ...(await this.actionOpts(accountId, actions, job)),
-            // The rest of the plan runs under the rule's own grant, read again
-            // here: what a person sent is what they read, and nothing else in
-            // the plan runs unless the rule still holds it (ADR 0003). A rule
-            // that is gone was refused above, so there is always one to read.
-            allowed: effectiveCapabilities(rule),
-          },
+          // The rest of the plan runs under the rule's own grant, read again
+          // here: what a person sent is what they read, and nothing else in
+          // the plan runs unless the rule still holds it (ADR 0003). A rule
+          // that is gone was refused above, so there is always one to read.
+          await this.actionOpts(accountId, actions, job, effectiveCapabilities(rule)),
           { beforeAction: this.leavingProcessFence(store, claim) },
         );
       if (job)
@@ -3175,7 +3278,7 @@ export class Executor {
    * wakes the agent for one — and each due run is started with the claim on
    * its own account's claim, because the schedule is the account's.
    */
-  async runDueSchedules(accountId: string): Promise<number> {
+  async runDueSchedules(accountId: string, chats?: ChatShare): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
@@ -3204,7 +3307,7 @@ export class Executor {
       owned,
     );
     await this.writeSchedule(store, next, scheduleDoc?.state);
-    const pass = await this.jobIndex(store);
+    const pass = await this.jobIndex(store, undefined, chats);
     let started = 0;
     for (const entry of mine) {
       const rule = rules.find((candidate) => candidate.id === entry.ruleId);
@@ -3373,7 +3476,7 @@ export class Executor {
    * Retry the jobs a failed run left pending, and record the approvals that
    * were consumed with no run to account for them.
    */
-  async runPending(accountId: string): Promise<number> {
+  async runPending(accountId: string, chats?: ChatShare): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
     /*
      * The fence is the agent's claim on the unit, so nothing here — not the
@@ -3396,7 +3499,7 @@ export class Executor {
     if (!rules.length) return 0;
     // The retried runs share one pass, so a sweep that runs several jobs reads
     // the group's chat once rather than once per job.
-    const pass = await this.jobIndex(store);
+    const pass = await this.jobIndex(store, undefined, chats);
     let ran = 0;
     for (const entry of await store.listJobs()) {
       const job = entry.doc;
@@ -3616,6 +3719,21 @@ function effectsOf(result: ActionResult, at: string): AgentEffect[] {
   return wrote;
 }
 
+/**
+ * One account-level unit of work's chat read.
+ *
+ * The chat folder is never pruned and only grows, so one pass over it is what
+ * every reader in a unit of work shares: a run's context, a chat lookup, the
+ * mention list and the decisions that unit answers all read through this cell.
+ * A cell rather than a value, so the several passes one unit builds — the
+ * reconcile, the schedule catch-up, the pending sweep — share one promise; it
+ * belongs to the caller and never outlives the call it was read for. It is a
+ * promise, so the readers that reach it together share one read.
+ */
+export interface ChatShare {
+  chat?: Promise<ChatMessage[]>;
+}
+
 /** What one pass knows about the changes it is reporting. */
 interface Pass {
   /** Which triggers are already a job: the durable half of at-least-once. */
@@ -3630,16 +3748,8 @@ interface Pass {
    * (ADR 0003). Read once for the pass, like the other installation settings.
    */
   chainHops: number;
-  /**
-   * The group's chat, read once and shared by every reader in the pass.
-   *
-   * The folder is never pruned and only grows, so a run that read it for its
-   * context, for a chat lookup and for the mention list paid for the whole
-   * transcript several times over. It is a promise, so the readers that reach it
-   * together share one read, and it is kept on the pass — not in the executor —
-   * so it cannot outlive the work it was read for.
-   */
-  chat?: Promise<ChatMessage[]>;
+  /** The chat this pass reads through, shared with the unit of work's others. */
+  chats: ChatShare;
 }
 
 /**

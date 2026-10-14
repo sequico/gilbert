@@ -127,11 +127,16 @@ export interface ActionOpts {
    * The model's answer is checked against this grant when it is decided, and
    * the same grant is read again at the moment the plan runs: a resume, an
    * approval or a draft sent from Drafts runs a plan written earlier, and an
-   * action outside the grant is refused before anything runs (ADR 0003). A
-   * caller that states none — the executor's own bookkeeping, a label it
-   * applies on a failure — is not running a plan the model chose.
+   * action outside the grant is refused before anything runs (ADR 0003).
+   *
+   * Required, not optional: the guard in `runActions` is the single boundary
+   * the ADR puts before every effect, and a caller that states no grant used to
+   * run every action. A caller that runs no plan the model chose — the
+   * executor's own bookkeeping, a label it applies on a failure — states the
+   * one capability it uses, so the compiler catches a forgotten grant rather
+   * than a reviewer.
    */
-  allowed?: ReadonlyArray<AgentActionName>;
+  allowed: ReadonlyArray<AgentActionName>;
 }
 
 export interface ActionResult {
@@ -665,7 +670,7 @@ export async function runActions(
   ctx: Ctx,
   accountId: string,
   actions: ReadonlyArray<AgentAction>,
-  opts: ActionOpts = {},
+  opts: ActionOpts,
   hooks: ActionHooks = {},
 ): Promise<ActionResult[]> {
   const client = new JmapClient(ctx);
@@ -673,7 +678,10 @@ export async function runActions(
   for (const action of actions) {
     // The grant is the boundary ADR 0003 puts before anything runs: an action
     // the rule does not hold is refused here, whatever path wrote the plan.
-    if (opts.allowed && !opts.allowed.includes(action.do))
+    // `allowed` is required of every caller (see `ActionOpts`), so a forgotten
+    // grant is a compile error; the check below is what refuses an action the
+    // grant does not hold.
+    if (opts?.allowed && !opts.allowed.includes(action.do))
       throw new RefusedError(
         `"${action.do}" is not in this run's grant, so nothing is run`,
       );
