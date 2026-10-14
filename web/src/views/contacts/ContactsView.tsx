@@ -95,6 +95,20 @@ export function ContactsView({ id }: { id?: string }) {
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const liveWidthRef = useRef<number | null>(null);
   const [q, setQ] = useState("");
+  /*
+   * The typed text, and the query the list is actually filtered by.
+   *
+   * Filtering costs a sort of every card with a rebuild of each one's sort key
+   * per comparison, so running it on each keystroke is why typing an address
+   * crawls on a full book. The list therefore waits for typing to settle:
+   * 150 ms is longer than the gap between two keystrokes at speed and short
+   * enough that the list still answers while the reader watches.
+   */
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const t = window.setTimeout(() => setQuery(q), 150);
+    return () => window.clearTimeout(t);
+  }, [q]);
   /* The mail store's probe is the one classifier for what is a group, read as
      state so the answer turns up when it lands -- the same read the sidebar and
      the editor make. */
@@ -275,28 +289,23 @@ export function ContactsView({ id }: { id?: string }) {
   }, [contacts, groupCardAccounts, bookId, sel.accountId]);
 
   /*
-   * The query is the store's own filter, and the rows are put back by the card
-   * they came from: one rule for what a search matches, and the account that
-   * travelled with the card stays with it.
+   * The rows the search box leaves, each put back together with the account
+   * that travelled with it. The store's filter is the one rule for what a
+   * search matches, and it hands its answer back sorted already -- consuming
+   * that order, rather than sorting the same rows again here, is what keeps the
+   * letter headings below grouping on adjacency (the reader's own book and a
+   * group's each restarting at "A" would draw the same heading twice) without
+   * paying for a second sort of every card on every keystroke.
    */
   const listed = useMemo(() => {
-    const kept = new Set(
-      contacts.filterCards(
+    const rowOf = new Map(rowsInBook.map((p) => [p.card, p]));
+    return contacts
+      .filterCards(
         rowsInBook.map((p) => p.card),
-        q,
-      ),
-    );
-    /*
-     * Sorted again after the rows are put back by their book: `filterCards`
-     * order is thrown away by the filter above, and the letter headings below
-     * group on adjacency. Without this, the reader's own book and a group's
-     * each restart at "A", so the same letter appears twice and two headings
-     * share a React key.
-     */
-    return rowsInBook
-      .filter((p) => kept.has(p.card))
-      .sort((a, b) => sortKey(a.card).localeCompare(sortKey(b.card)));
-  }, [contacts, rowsInBook, q]);
+        query,
+      )
+      .map((c) => rowOf.get(c)!);
+  }, [contacts, rowsInBook, query]);
 
   /*
    * The rows a selection can act on: the directory is read-only from here, so
@@ -812,9 +821,9 @@ export function ContactsView({ id }: { id?: string }) {
           ) : !list.length ? (
             <Empty
               icon={<Users size={36} />}
-              title={q ? translate("No matches") : translate("No contacts yet")}
+              title={query ? translate("No matches") : translate("No contacts yet")}
             >
-              {q
+              {query
                 ? translate("Try another search.")
                 : translate("Add a contact or import a vCard file.")}
             </Empty>
@@ -893,7 +902,7 @@ export function ContactsView({ id }: { id?: string }) {
                         }}
                       >
                         {photo ? (
-                          <img src={photo} alt="" />
+                          <img src={photo} alt="" loading="lazy" />
                         ) : c.kind === "group" ? (
                           <Users size={16} />
                         ) : (

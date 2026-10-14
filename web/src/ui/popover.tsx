@@ -62,6 +62,20 @@ export function Popover({
   ariaLabel,
 }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
+  /*
+   * The caller's `onClose`, read through a ref.
+   *
+   * A caller passing an inline callback (`() => setMenu(null)`) hands this
+   * component a new function on every render of its own. The dismiss listeners
+   * below are only registered a macrotask after the effect runs, so an effect
+   * keyed on that identity would tear them down and re-add them, leaving a
+   * window with no listener in which an outside click is swallowed. Reading the
+   * current callback from a ref keeps registration tied to what actually
+   * changed -- the anchor, the trigger -- and still closes through the callback
+   * in hand now.
+   */
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(
     null,
   );
@@ -108,7 +122,7 @@ export function Popover({
         // not a dismissal: dragging the handle between panes must not close
         // what is open (the chat panel sits beside one).
         if (target?.closest?.(".splitter")) return;
-        onClose();
+        onCloseRef.current();
       }
     };
     const onScroll = (e: Event) => {
@@ -117,7 +131,7 @@ export function Popover({
       // Its own content scrolling is not the page moving, so it is ignored.
       const target = e.target;
       if (ref.current && target instanceof Node && ref.current.contains(target)) return;
-      onClose();
+      onCloseRef.current();
     };
     // Defer so the opening click doesn't immediately close.
     const t = window.setTimeout(() => {
@@ -135,16 +149,15 @@ export function Popover({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [anchor, trigger, onClose]);
+  }, [anchor, trigger]);
 
   /*
    * Escape is the arbiter's (see `registerEscape`), registered once per open
    * rather than on every render: a popover closing on Escape must win over the
    * dialog it sits in, and re-registering would keep moving it above overlays
-   * that opened after it.
+   * that opened after it. The callback itself comes from `onCloseRef`, for the
+   * reason given there.
    */
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const open = Boolean(anchor);
   useEffect(() => {
     if (!open) return;

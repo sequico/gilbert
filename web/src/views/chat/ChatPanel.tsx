@@ -9,7 +9,7 @@
  * lives in the group accounts' own Files.
  */
 import { Bot, CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import {
   CHAT_PAGE,
@@ -107,6 +107,83 @@ function MentionedText({
     </>
   );
 }
+
+/**
+ * One message of the transcript.
+ *
+ * Memoised on the message it draws. The store hands a new `nodes` array on
+ * every change -- one message arriving, a draft being typed -- and a
+ * conversation holds a few hundred rows, so re-drawing all of them for a change
+ * that touched one is work nobody asked for. The callbacks are stable, so a row
+ * is redrawn when its own message, its quote or its reader changes, and not
+ * otherwise.
+ */
+const ChatRow = memo(function ChatRow({
+  message: m,
+  mine,
+  reply,
+  me,
+  members,
+  onReply,
+  onJump,
+}: {
+  message: ChatMessage;
+  mine: boolean;
+  /** What this message answers, when it is in the loaded window. */
+  reply?: ChatMessage;
+  me: string;
+  /** The group's members, or null when no roster could be read. */
+  members: string[] | null;
+  onReply: (id: Id) => void;
+  onJump: (id: Id) => void;
+}) {
+  return (
+    <div data-mid={m.id} className={`chat-row ${mine ? "mine" : ""}`}>
+      <div className="chat-bubble">
+        {reply && (
+          <button
+            type="button"
+            className="chat-quote"
+            onClick={() => onJump(m.replyTo!)}
+            title={t("Go to the message being answered")}
+          >
+            <span className="chat-quote-name">
+              {reply.from === me ? t("You") : localPart(reply.from)}
+            </span>
+            <span className="chat-quote-text">
+              <MentionedText
+                text={reply.text}
+                mentions={reply.mentions}
+                me={me}
+                members={members}
+              />
+            </span>
+          </button>
+        )}
+        <div className="chat-bubble-meta">
+          <span className="chat-sender">{mine ? t("You") : localPart(m.from)}</span>
+          <span className="chat-clock">{formatListDate(m.at)}</span>
+          <button
+            type="button"
+            className="icon-btn xs chat-reply"
+            aria-label={t("Reply")}
+            title={t("Reply")}
+            // A mouse reply must not lift the caret out of the composer (same
+            // pattern as the mention menu); when the editor had no focus, hand
+            // it back so typing starts at once.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onReply(m.id)}
+          >
+            <CornerUpLeft size={13} />
+          </button>
+        </div>
+        <div className="chat-text">
+          <MentionedText text={m.text} mentions={m.mentions} me={me} members={members} />
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
@@ -276,11 +353,24 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setResults(null);
   };
 
-  const jumpTo = (id: Id) => {
+  const jumpTo = useCallback((id: Id) => {
     threadRef.current
       ?.querySelector(`[data-mid="${id}"]`)
       ?.scrollIntoView({ block: "center" });
-  };
+  }, []);
+
+  /*
+   * Stable for the rows' memo: the store's own `setReply`, and the
+   * conversation on screen -- which is the one whose transcript is drawn, so
+   * this changes when the conversation does and not on every store snapshot.
+   */
+  const replyToMessage = useCallback(
+    (id: Id) => {
+      if (openAccountId) setReply(openAccountId, id);
+      chatInputRef.current?.focus();
+    },
+    [openAccountId, setReply],
+  );
 
   // Focus the composer when a conversation opens. The editor lives in a
   // popover that starts `visibility: hidden` until it has been positioned,
@@ -498,71 +588,18 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   {t("Start of the conversation")}
                 </div>
               )}
-              {open.nodes.map((m) => {
-                const mine = m.from === me;
-                const reply = m.replyTo ? byId.get(m.replyTo) : undefined;
-                return (
-                  <div
-                    key={m.id}
-                    data-mid={m.id}
-                    className={`chat-row ${mine ? "mine" : ""}`}
-                  >
-                    <div className="chat-bubble">
-                      {reply && (
-                        <button
-                          type="button"
-                          className="chat-quote"
-                          onClick={() => jumpTo(m.replyTo!)}
-                          title={t("Go to the message being answered")}
-                        >
-                          <span className="chat-quote-name">
-                            {reply.from === me ? t("You") : localPart(reply.from)}
-                          </span>
-                          <span className="chat-quote-text">
-                            <MentionedText
-                              text={reply.text}
-                              mentions={reply.mentions}
-                              me={me}
-                              members={members}
-                            />
-                          </span>
-                        </button>
-                      )}
-                      <div className="chat-bubble-meta">
-                        <span className="chat-sender">
-                          {mine ? t("You") : localPart(m.from)}
-                        </span>
-                        <span className="chat-clock">{formatListDate(m.at)}</span>
-                        <button
-                          type="button"
-                          className="icon-btn xs chat-reply"
-                          aria-label={t("Reply")}
-                          title={t("Reply")}
-                          // A mouse reply must not lift the caret out of the
-                          // composer (same pattern as the mention menu); when
-                          // the editor had no focus, hand it back so typing
-                          // starts at once.
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            setReply(open.accountId, m.id);
-                            chatInputRef.current?.focus();
-                          }}
-                        >
-                          <CornerUpLeft size={13} />
-                        </button>
-                      </div>
-                      <div className="chat-text">
-                        <MentionedText
-                          text={m.text}
-                          mentions={m.mentions}
-                          me={me}
-                          members={members}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {open.nodes.map((m) => (
+                <ChatRow
+                  key={m.id}
+                  message={m}
+                  mine={m.from === me}
+                  reply={m.replyTo ? byId.get(m.replyTo) : undefined}
+                  me={me}
+                  members={members}
+                  onReply={replyToMessage}
+                  onJump={jumpTo}
+                />
+              ))}
             </>
           )
         ) : (

@@ -29,10 +29,12 @@ import {
 import {
   type DragEvent,
   Fragment,
+  memo,
   type ReactNode,
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Link, useLocation } from "wouter";
@@ -160,6 +162,29 @@ interface MailTree {
   rows: MailTreeRow[];
   childrenOf: (id: Id | null) => Mailbox[];
   subtreeUnread: (id: Id) => number;
+}
+
+/**
+ * What a folder row asks of the tree it is drawn in.
+ *
+ * One object with one identity, whose methods read the current render's
+ * handlers when they are called. A row is memoised on its own data, and a
+ * handler rebuilt on every store change would make that memo worth nothing:
+ * the row would re-render with its parent every time anyway.
+ */
+interface MailboxActions {
+  /** Open or shut one folder, by its expansion key (account and folder together). */
+  toggle(expandedKey: string, open: boolean): void;
+  /** Show this folder's children one level down (the phone's tree). */
+  drill(id: Id): void;
+  /** Open this folder's menu at the element it was asked from. */
+  menu(mailbox: Mailbox, e: { currentTarget: Element }): void;
+  dragStart(id: Id): void;
+  dragEnd(): void;
+  /** A folder dropped on another: `draggedId` moves under `targetId`. */
+  drop(draggedId: Id, targetId: Id): void;
+  /** Open a folder that lives in another account, after switching to it. */
+  openIn(accountId: Id, id: Id): void;
 }
 
 /**
@@ -368,6 +393,51 @@ export function MailboxTree() {
     if (m) setDrillId(m.parentId && mailboxes[m.parentId] ? m.parentId : null);
   }, [isMobile, currentId, mailboxes]);
 
+  /*
+   * The rows' one stable handle on the tree's live state. `moveFolder`,
+   * `openMailbox` and the menu's opener are rebuilt every render, so the
+   * actions object reads them from here at call time instead of closing over
+   * the render it was made in -- see `MailboxActions`.
+   */
+  const live = useRef({
+    moveFolder,
+    openMailbox,
+    setFolder,
+    setDrillId,
+    setMenuTarget,
+    setDraggingId,
+    setRootDrop,
+    openMenu: menu.open,
+  });
+  live.current = {
+    moveFolder,
+    openMailbox,
+    setFolder,
+    setDrillId,
+    setMenuTarget,
+    setDraggingId,
+    setRootDrop,
+    openMenu: menu.open,
+  };
+  const actions = useMemo<MailboxActions>(
+    () => ({
+      toggle: (expandedKey, open) => live.current.setFolder(expandedKey, !open),
+      drill: (id) => live.current.setDrillId(id),
+      menu: (mailbox, e) => {
+        live.current.setMenuTarget(mailbox);
+        live.current.openMenu(e);
+      },
+      dragStart: (id) => live.current.setDraggingId(id),
+      dragEnd: () => {
+        live.current.setDraggingId(null);
+        live.current.setRootDrop(false);
+      },
+      drop: (draggedId, targetId) => void live.current.moveFolder(draggedId, targetId),
+      openIn: (accountId, id) => void live.current.openMailbox(accountId, id),
+    }),
+    [],
+  );
+
   const createFolder = async (parentId: Id | null) => {
     const name = await promptDialog({
       title: parentId ? t("New subfolder") : t("New folder"),
@@ -471,19 +541,13 @@ export function MailboxTree() {
               depth={0}
               hasChildren={false}
               open={false}
+              expandedKey=""
               hiddenUnread={0}
               childUnread={subtreeUnread(drill.id)}
-              onToggle={() => {}}
               currentId={currentId}
-              onMenu={(mb, e) => {
-                setMenuTarget(mb);
-                menu.open(e);
-              }}
               dragging={false}
               acceptsFolder={false}
-              onFolderDragStart={() => {}}
-              onFolderDragEnd={() => {}}
-              onFolderDrop={() => {}}
+              actions={actions}
             />
           </>
         )}
@@ -505,23 +569,14 @@ export function MailboxTree() {
             depth={depth}
             hasChildren={hasChildren}
             open={open}
+            expandedKey={folderKey(accountId, m.id)}
             hiddenUnread={hiddenUnread}
             childUnread={childUnread}
-            onToggle={() => setFolder(folderKey(accountId, m.id), !open)}
-            onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
+            drillable={isMobile && hasChildren}
             currentId={currentId}
-            onMenu={(mb, e) => {
-              setMenuTarget(mb);
-              menu.open(e);
-            }}
             dragging={draggingId === m.id}
             acceptsFolder={canDropOn(m.id)}
-            onFolderDragStart={() => setDraggingId(m.id)}
-            onFolderDragEnd={() => {
-              setDraggingId(null);
-              setRootDrop(false);
-            }}
-            onFolderDrop={(id) => void moveFolder(id, m.id)}
+            actions={actions}
           />
         ))}
         {/**
@@ -609,18 +664,15 @@ export function MailboxTree() {
                     depth={depth}
                     hasChildren={hasChildren}
                     open={open}
+                    expandedKey={folderKey(a.info.accountId, m.id)}
                     hiddenUnread={hiddenUnread}
                     childUnread={childUnread}
-                    onToggle={() => setFolder(folderKey(a.info.accountId, m.id), !open)}
                     currentId={a.info.accountId === accountId ? currentId : undefined}
-                    onMenu={() => {}}
                     readOnly
-                    onOpen={() => void openMailbox(a.info.accountId, m.id)}
+                    openAccount={a.info.accountId}
                     dragging={false}
                     acceptsFolder={false}
-                    onFolderDragStart={() => {}}
-                    onFolderDragEnd={() => {}}
-                    onFolderDrop={() => {}}
+                    actions={actions}
                   />
                 ),
               )}
@@ -686,50 +738,56 @@ export function MailboxTree() {
   );
 }
 
-function FolderRow({
+/**
+ * One folder in a tree.
+ *
+ * Memoised on the mailbox it draws: a mail-store change (a count moving, a
+ * message read) re-renders the tree, and every row it holds would otherwise be
+ * walked again for it. What a row is told stays referentially stable between
+ * such changes -- its own data, and the tree's `actions` object -- so the rows
+ * that did not change are left alone.
+ */
+const FolderRow = memo(function FolderRow({
   mailbox: m,
   label,
   depth,
   hasChildren,
   open,
+  expandedKey,
   hiddenUnread,
   childUnread,
-  onToggle,
-  onDrillIn,
   currentId,
-  onMenu,
+  actions,
   dragging,
   acceptsFolder,
-  onFolderDragStart,
-  onFolderDragEnd,
-  onFolderDrop,
   readOnly,
-  onOpen,
+  drillable,
+  openAccount,
 }: {
   mailbox: Mailbox;
   label: string;
   depth: number;
   hasChildren: boolean;
   open: boolean;
+  /** This row's expansion key: the account and folder together (see `folderKey`). */
+  expandedKey: string;
   hiddenUnread: number;
   childUnread: number;
-  onToggle: () => void;
-  onDrillIn?: () => void;
   currentId?: string;
-  onMenu: (m: Mailbox, e: { currentTarget: Element }) => void;
+  /** What the row may ask of the tree (see `MailboxActions`). */
+  actions: MailboxActions;
   dragging: boolean;
   acceptsFolder: boolean;
-  onFolderDragStart: () => void;
-  onFolderDragEnd: () => void;
-  onFolderDrop: (id: Id) => void;
   /** Folders the reader does not own: no menu, no drag, no colour pick. */
   readOnly?: boolean;
-  /** Replaces the row's own navigation, for folders that need an account switch first. */
-  onOpen?: () => void;
+  /** Offers to drill into this row's children, which replaces its twisty. */
+  drillable?: boolean;
+  /** The row is another account's: opening it must switch account first. */
+  openAccount?: Id;
 }) {
   const [dropping, setDropping] = useState(false);
   /** Expanding in place and drilling in are the same relationship; only one shows. */
-  const twisty = hasChildren && !onDrillIn;
+  const twisty = hasChildren && !drillable;
   // Scheduled counts like Drafts: everything in it is already read, so the
   // useful number is how many messages are waiting, not how many are unseen.
   const scheduled = isScheduledMailbox(m);
@@ -771,7 +829,7 @@ function FolderRow({
     setDropping(false);
     const folderId = e.dataTransfer.getData(FOLDER_MIME);
     if (folderId) {
-      if (acceptsFolder) onFolderDrop(folderId);
+      if (acceptsFolder) actions.drop(folderId, m.id);
       return;
     }
     const raw = e.dataTransfer.getData(EMAILS_MIME);
@@ -796,7 +854,7 @@ function FolderRow({
     onLongPress: (target) => {
       if (readOnly) return;
       haptic(15);
-      onMenu(m, { currentTarget: target });
+      actions.menu(m, { currentTarget: target });
     },
   });
 
@@ -806,7 +864,7 @@ function FolderRow({
     e.dataTransfer.effectAllowed = "move";
     // A folder row is a link, and a link drag would otherwise carry its URL.
     e.stopPropagation();
-    onFolderDragStart();
+    actions.dragStart(m.id);
   };
 
   return (
@@ -816,11 +874,11 @@ function FolderRow({
       title={label}
       {...press}
       onClick={
-        onOpen
+        openAccount
           ? (e) => {
               e.preventDefault();
               e.stopPropagation();
-              onOpen();
+              actions.openIn(openAccount, m.id);
             }
           : undefined
       }
@@ -828,7 +886,7 @@ function FolderRow({
       // starts it from the same long press that now opens the menu.
       draggable={!readOnly && movable(m) && !isTouch}
       onDragStart={onDragStart}
-      onDragEnd={onFolderDragEnd}
+      onDragEnd={() => actions.dragEnd()}
       onDragOver={onDragOver}
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
@@ -837,7 +895,7 @@ function FolderRow({
           ? undefined
           : (e) => {
               e.preventDefault();
-              onMenu(m, { currentTarget: e.currentTarget });
+              actions.menu(m, { currentTarget: e.currentTarget });
             }
       }
     >
@@ -855,7 +913,7 @@ function FolderRow({
             ? (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onToggle();
+                actions.toggle(expandedKey, open);
               }
             : undefined
         }
@@ -889,7 +947,7 @@ function FolderRow({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onMenu(m, e);
+            actions.menu(m, e);
           }}
         >
           <MoreVertical size={16} />
@@ -902,14 +960,14 @@ function FolderRow({
         the name as it goes. Tapping the row still opens the folder, which is
         what a folder is for; this only changes what the list underneath shows.
       */}
-      {onDrillIn && (
+      {drillable && (
         <button
           className="icon-btn drill-into"
           aria-label={t("Open subfolders of {name}", { name: label })}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onDrillIn();
+            actions.drill(m.id);
           }}
         >
           <ChevronRight size={20} />
@@ -917,7 +975,7 @@ function FolderRow({
       )}
     </Link>
   );
-}
+});
 
 function MailboxMenu({
   mailbox: m,
