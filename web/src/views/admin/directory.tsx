@@ -39,52 +39,45 @@ export interface DirectoryRead {
 }
 
 /**
- * One read of the account directory, and its reload.
+ * One read of a directory, and its reload.
  *
- * Read on mount and kept until asked again: the directory is a fact about the
- * server's accounts, and nothing in these surfaces changes it — they change
- * identities and labels inside accounts it lists.
+ * The account directory and the group directory differ in what the server
+ * answers and in nothing else: read on mount, kept until asked again, with the
+ * same three pieces of state and the same message when the read itself failed.
+ * The directory is a fact about the server's accounts and groups, and nothing in
+ * these surfaces changes it — they change identities and labels inside what it
+ * lists — so it is read once per mount rather than per surface.
  */
-export function useUserDirectory(): AdminUserDirectory & DirectoryRead {
-  const [listing, setListing] = useState<AdminUserDirectory>({
-    users: [],
-    enumeration: true,
-    enumerationMessage: null,
-    impersonation: "unknown",
-  });
+function useDirectory<L>(empty: L, fetchIt: () => Promise<L>): L & DirectoryRead {
+  const [listing, setListing] = useState<L>(empty);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(() => {
     setLoadError(null);
     setLoading(true);
-    void fetchAdminUserDirectory()
+    void fetchIt()
       .then(setListing)
       .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [fetchIt]);
   useEffect(reload, [reload]);
   return { ...listing, loading, loadError, reload };
 }
 
+/** One read of the account directory, and its reload. */
+export function useUserDirectory(): AdminUserDirectory & DirectoryRead {
+  return useDirectory<AdminUserDirectory>(
+    { users: [], enumeration: true, enumerationMessage: null, impersonation: "unknown" },
+    fetchAdminUserDirectory,
+  );
+}
+
 /** The same, for the group mailboxes a picker may offer. */
 export function useGroupDirectory(): AdminGroupDirectory & DirectoryRead {
-  const [listing, setListing] = useState<AdminGroupDirectory>({
-    groups: [],
-    enumeration: true,
-    enumerationMessage: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(() => {
-    setLoadError(null);
-    setLoading(true);
-    void fetchAdminGroups()
-      .then(setListing)
-      .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, []);
-  useEffect(reload, [reload]);
-  return { ...listing, loading, loadError, reload };
+  return useDirectory<AdminGroupDirectory>(
+    { groups: [], enumeration: true, enumerationMessage: null },
+    fetchAdminGroups,
+  );
 }
 
 /** A directory read that failed, with the retry that makes it worth reading again. */

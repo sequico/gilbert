@@ -35,7 +35,7 @@ import Squire from "squire-rte";
 import { sanitizeEditorFragment } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
 import { isLinkUrl } from "@/lib/linkUrl";
-import { Popover, useMenu } from "@/ui/popover";
+import { type Anchor, Popover, useMenu } from "@/ui/popover";
 
 export interface RichEditorHandle {
   focus(): void;
@@ -117,6 +117,55 @@ const COLORS = [
   "#674ea7",
   "#a64d79",
 ];
+
+/**
+ * The palette, and what picking from it does.
+ *
+ * Text colour and highlight are the same grid over the same palette, and the
+ * two popovers were written out one after the other: the same buttons, the same
+ * `onMouseDown` that stops the editor losing the selection, the same grid — with
+ * the one line that differs being the editor method called. `apply` is that
+ * line, so the grid and the reason it exists (the editor must not lose the
+ * selection before the colour is applied) are written once.
+ */
+function ColorPopover({
+  anchor,
+  trigger,
+  onClose,
+  apply,
+}: {
+  anchor: Anchor | null;
+  trigger: Element | null;
+  onClose: () => void;
+  apply: (color: string) => void;
+}) {
+  return (
+    <Popover
+      anchor={anchor}
+      onClose={onClose}
+      trigger={trigger}
+      side="top"
+      closeOnClick={false}
+      width={230}
+    >
+      <div className="color-grid">
+        {COLORS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            style={{ background: c }}
+            onMouseDown={(ev) => ev.preventDefault()}
+            onClick={() => {
+              apply(c);
+              onClose();
+            }}
+            aria-label={c}
+          />
+        ))}
+      </div>
+    </Popover>
+  );
+}
 
 /*
  * The editor is Squire, an HTML editor built for email: the HTML is the source
@@ -684,54 +733,18 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
           ))}
         </div>
       </Popover>
-      <Popover
+      <ColorPopover
         anchor={colorMenu.anchor}
         onClose={colorMenu.close}
         trigger={colorMenu.trigger}
-        side="top"
-        closeOnClick={false}
-        width={230}
-      >
-        <div className="color-grid">
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              style={{ background: c }}
-              onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => {
-                run((editor) => editor.setTextColor(c));
-                colorMenu.close();
-              }}
-              aria-label={c}
-            />
-          ))}
-        </div>
-      </Popover>
-      <Popover
+        apply={(c) => run((editor) => editor.setTextColor(c))}
+      />
+      <ColorPopover
         anchor={hiliteMenu.anchor}
         onClose={hiliteMenu.close}
         trigger={hiliteMenu.trigger}
-        side="top"
-        closeOnClick={false}
-        width={230}
-      >
-        <div className="color-grid">
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              style={{ background: c }}
-              onMouseDown={(ev) => ev.preventDefault()}
-              onClick={() => {
-                run((editor) => editor.setHighlightColor(c));
-                hiliteMenu.close();
-              }}
-              aria-label={c}
-            />
-          ))}
-        </div>
-      </Popover>
+        apply={(c) => run((editor) => editor.setHighlightColor(c))}
+      />
       <Popover
         anchor={linkMenu.anchor}
         onClose={linkMenu.close}

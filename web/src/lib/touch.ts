@@ -24,6 +24,44 @@ import { useCallback, useEffect, useRef } from "react";
  * every drag.
  */
 
+/**
+ * The three touch events every gesture in this file listens to, and how each
+ * one is registered.
+ *
+ * Three hooks bound them by hand, and the binding is not the interesting part
+ * of any of them: `touchstart` is passive (nothing here cancels it), `touchmove`
+ * is not (the gesture is what stops the browser scrolling), and `touchend` and
+ * `touchcancel` are the same handler because a cancelled touch ends a gesture
+ * exactly as a lifted one does. A fourth listener added to one gesture and not
+ * the others would be invisible, so the list is here once.
+ */
+const TOUCH_EVENTS: ReadonlyArray<
+  [string, (h: GestureHandlers) => EventListener, AddEventListenerOptions | undefined]
+> = [
+  ["touchstart", (h) => h.start as EventListener, { passive: true }],
+  ["touchmove", (h) => h.move as EventListener, { passive: false }],
+  ["touchend", (h) => h.end as EventListener, undefined],
+  ["touchcancel", (h) => h.end as EventListener, undefined],
+];
+
+interface GestureHandlers {
+  start: (e: TouchEvent) => void;
+  move: (e: TouchEvent) => void;
+  end: (e: TouchEvent) => void;
+}
+
+/** Bind the four touch events to `handlers`, and return what unbinds them. */
+function bindTouch(el: HTMLElement, handlers: GestureHandlers): () => void {
+  const bound = TOUCH_EVENTS.map(
+    ([type, pick, options]) => [type, pick(handlers), options] as const,
+  );
+  for (const [type, handler, options] of bound)
+    el.addEventListener(type, handler, options);
+  return () => {
+    for (const [type, handler] of bound) el.removeEventListener(type, handler);
+  };
+}
+
 /** A press held this long, with the finger still, is a long press. */
 export const LONG_PRESS_MS = 450;
 
@@ -456,7 +494,7 @@ export function usePullToRefresh(
       pull.current(distance, armed, true);
     };
 
-    const onEnd = () => {
+    const onEnd = (_e: TouchEvent) => {
       if (startY === null) return;
       startY = null;
       if (!armed) {
@@ -473,16 +511,7 @@ export function usePullToRefresh(
       });
     };
 
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("touchend", onEnd);
-    el.addEventListener("touchcancel", onEnd);
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
-    };
+    return bindTouch(el, { start: onStart, move: onMove, end: onEnd });
   }, [el, enabled]);
 }
 
@@ -541,7 +570,7 @@ export function useEdgeBack(
       settle(Math.max(0, dx * 0.9), false);
     };
 
-    const onEnd = () => {
+    const onEnd = (_e: TouchEvent) => {
       if (startX === null) return;
       const offset = parseFloat(el.style.transform.replace(/[^\d.-]/g, "")) || 0;
       startX = null;
@@ -559,15 +588,9 @@ export function useEdgeBack(
       }
     };
 
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("touchend", onEnd);
-    el.addEventListener("touchcancel", onEnd);
+    const unbind = bindTouch(el, { start: onStart, move: onMove, end: onEnd });
     return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
+      unbind();
       el.style.transform = "";
       el.style.transition = "";
     };
@@ -687,15 +710,6 @@ export function useSwipeNav(
       if (dir !== 0) step.current(dir);
     };
 
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("touchend", onEnd);
-    el.addEventListener("touchcancel", onEnd);
-    return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchmove", onMove);
-      el.removeEventListener("touchend", onEnd);
-      el.removeEventListener("touchcancel", onEnd);
-    };
+    return bindTouch(el, { start: onStart, move: onMove, end: onEnd });
   }, [el, enabled, ignore]);
 }

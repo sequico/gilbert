@@ -24,7 +24,21 @@ import { DEFAULT_SETTINGS, isSettingsKey } from "@/store/settings";
  * of their own, and the table's own test fences those in.
  */
 
-type Example = string | number | boolean | null | string[] | Record<string, never>;
+/**
+ * A value as the JSON fragment that activates a key.
+ *
+ * Objects and arrays of objects are here too (`knownSigners`, `folderColors`,
+ * the calendar's colour categories): the column shows what to paste, and a
+ * fragment that could not be pasted would be no fragment at all.
+ */
+type Example =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | Record<string, unknown>
+  | unknown[];
 
 export interface KeyEntry {
   /** English source; rendered through t(). */
@@ -49,8 +63,9 @@ export const EXAMPLES: Record<string, Example> = {
 
 /** The JSON to copy for `key`: the default this build ships, or a sample. */
 export function exampleFor(key: string): Example {
-  if (key in EXAMPLES) return EXAMPLES[key];
-  return (DEFAULT_SETTINGS as unknown as Record<string, Example>)[key] ?? "";
+  const sample = (EXAMPLES as Record<string, Example | undefined>)[key];
+  if (sample !== undefined) return sample;
+  return (DEFAULT_SETTINGS as unknown as Record<string, Example | undefined>)[key] ?? "";
 }
 
 export const ENTRIES: Record<string, KeyEntry> = {

@@ -5,7 +5,6 @@ import {
   Code,
   GripVertical,
   Plus,
-  Power,
   Trash2,
   Wand2,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import { useSieve } from "@/store/sieve";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { Spinner, Switch } from "@/ui/misc";
 import { toast } from "@/ui/toast";
+import { SieveScriptList } from "@/views/sieve/SieveScriptList";
 import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { saveAndApply } from "../mail/FilterFromMessage";
 import { RuleDialog } from "./RuleDialog";
@@ -521,56 +521,18 @@ function ScriptsEditor() {
           "Advanced: manage raw Sieve scripts. Only one script can be active at a time.",
         )}
       </p>
-      {sieve.scripts.map((s) => (
-        <div key={s.id} className="card">
-          <div className="card-head">
-            <h3>
-              <span>{s.name} </span>
-              {s.isActive && (
-                <span className="tag" style={{ background: "var(--success)" }}>
-                  {t("active")}
-                </span>
-              )}
-            </h3>
-            <button className="btn btn-sm" onClick={() => void open(s)}>
-              {t("Edit")}
-            </button>
-            <button
-              className="btn btn-sm"
-              onClick={async () => {
-                try {
-                  await sieve.activate(s.isActive ? null : s.id);
-                } catch (err) {
-                  toast.error((err as Error).message);
-                }
-              }}
-            >
-              <Power size={14} /> {s.isActive ? t("Deactivate") : t("Activate")}
-            </button>
-            <button
-              className="icon-btn sm danger"
-              aria-label={t("Delete script")}
-              onClick={async () => {
-                if (
-                  await confirmDialog({
-                    title: t("Delete script “{name}”?", { name: s.name }),
-                    confirmLabel: t("Delete"),
-                    danger: true,
-                  })
-                ) {
-                  try {
-                    await sieve.destroy(s.id);
-                  } catch (err) {
-                    toast.error((err as Error).message);
-                  }
-                }
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
-      ))}
+      <SieveScriptList
+        scripts={sieve.scripts}
+        onEdit={(s) => void open(s)}
+        // A person's own filters hold one active script, so arming any of them
+        // disarms the rest: `null` is what the store means by "none active".
+        onToggle={async (s) => {
+          await sieve.activate(s.isActive ? null : s.id);
+        }}
+        onDelete={async (s) => {
+          await sieve.destroy(s.id);
+        }}
+      />
       <button
         className="btn"
         onClick={async () => {

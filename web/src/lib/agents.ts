@@ -33,7 +33,6 @@ import type {
   AgentProseView,
   AgentProvidersView,
   AgentReadingView,
-  AgentRulesRead,
   AgentStatus,
   GroupMembersView,
   GroupNotebookView,

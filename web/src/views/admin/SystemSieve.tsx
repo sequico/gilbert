@@ -18,7 +18,7 @@
  * list-level actions (activate/deactivate, delete), reloaded after every one
  * of them whether it succeeded or not so the next attempt starts fresh.
  */
-import { AlertTriangle, Plus, Power, Trash2 } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   deleteSystemSieveScript,
@@ -30,9 +30,9 @@ import {
 } from "@/lib/adminSieve";
 import { t } from "@/lib/i18n";
 import { useUnsavedChanges } from "@/lib/unsavedChanges";
-import { confirmDialog } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
 import { toast } from "@/ui/toast";
+import { SieveScriptList } from "@/views/sieve/SieveScriptList";
 import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 
 interface Opened {
@@ -195,68 +195,22 @@ export function SystemSieve() {
           <h3>{t("No system scripts yet")}</h3>
         </div>
       )}
-      {scripts.map((s) => (
-        <div key={s.id} className="card">
-          <div className="card-head">
-            <h3>
-              <span>{s.name} </span>
-              {s.isActive && (
-                <span className="tag" style={{ background: "var(--success)" }}>
-                  {t("active")}
-                </span>
-              )}
-            </h3>
-            <button className="btn btn-sm" onClick={() => void open(s)}>
-              {t("Edit")}
-            </button>
-            <button
-              className="btn btn-sm"
-              onClick={async () => {
-                try {
-                  await setSystemSieveScriptActive(
-                    s.id,
-                    !s.isActive,
-                    listState ?? undefined,
-                  );
-                } catch (err) {
-                  toast.error((err as Error).message);
-                } finally {
-                  // Reload whether it worked or not: a lost race is exactly
-                  // when the list this button reads from is stale, and the
-                  // next attempt needs the current state to have a chance.
-                  await load();
-                }
-              }}
-            >
-              <Power size={14} /> {s.isActive ? t("Deactivate") : t("Activate")}
-            </button>
-            <button
-              className="icon-btn sm danger"
-              aria-label={t("Delete script")}
-              onClick={async () => {
-                if (
-                  await confirmDialog({
-                    title: t("Delete script “{name}”?", { name: s.name }),
-                    confirmLabel: t("Delete"),
-                    danger: true,
-                  })
-                ) {
-                  try {
-                    await deleteSystemSieveScript(s.id, listState ?? undefined);
-                  } catch (err) {
-                    toast.error((err as Error).message);
-                  } finally {
-                    await load();
-                  }
-                }
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-          {s.description && <p className="hint">{s.description}</p>}
-        </div>
-      ))}
+      <SieveScriptList
+        scripts={scripts}
+        onEdit={(s) => void open(s)}
+        onToggle={async (s) => {
+          await setSystemSieveScriptActive(s.id, !s.isActive, listState ?? undefined);
+          // Reload whether it worked or not: a lost race is exactly when the
+          // list this button reads from is stale, and the next attempt needs the
+          // current state to have a chance. The failure has already been reported
+          // by the card, so it is swallowed here rather than raised twice.
+          await load();
+        }}
+        onDelete={async (s) => {
+          await deleteSystemSieveScript(s.id, listState ?? undefined);
+          await load();
+        }}
+      />
       <div className="row save-bar">
         <button className="btn" onClick={() => void open(null)}>
           <Plus size={16} /> {t("New script")}

@@ -21,11 +21,12 @@
  * record of its own to fall out of step.
  */
 import { ArrowRight, Bot } from "lucide-react";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { pollWhileVisible } from "@/lib/visiblePoll";
+import { TabPanel, TabStrip } from "@/ui/tabs";
 import { agentGroupNames, useAgents } from "@/store/agents";
 import { fleetMeterLines, fleetReasonText, rosterText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
@@ -55,6 +56,9 @@ const MASTER_PARTS = [
   { id: "groups", label: "Groups" },
 ] as const;
 
+/** The strip's own name for a reader arriving at it, as a `label:` the check finds. */
+const MASTER_TABS = { label: "Master sections" };
+
 type MasterPart = (typeof MASTER_PARTS)[number]["id"];
 
 export function AdminAgents() {
@@ -77,22 +81,6 @@ export function AdminAgents() {
     return pollWhileVisible(() => void loadStatus(), STATUS_POLL_MS);
   }, [loadStatus]);
 
-  /*
-   * Arrow-key movement across the tab strip, the way the tab ARIA pattern asks
-   * for: the strip is one stop in the tab order and the arrows move between the
-   * tabs, instead of every tab being its own stop.
-   */
-  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
-    event.preventDefault();
-    const at = MASTER_PARTS.findIndex((entry) => entry.id === part);
-    const next = MASTER_PARTS[(at + step + MASTER_PARTS.length) % MASTER_PARTS.length];
-    if (!next) return;
-    setPart(next.id);
-    document.getElementById(`master-tab-${next.id}`)?.focus();
-  };
-
   return (
     <div>
       <h1>
@@ -110,37 +98,14 @@ export function AdminAgents() {
         </div>
       )}
 
-      <div
-        className="segmented agent-tabs"
-        role="tablist"
-        aria-label={t("Master sections")}
-        onKeyDown={onTabKey}
-      >
-        {MASTER_PARTS.map((entry) => (
-          <button
-            key={entry.id}
-            id={`master-tab-${entry.id}`}
-            type="button"
-            role="tab"
-            aria-selected={part === entry.id}
-            // One shared panel, so only the selected tab names it: a reference
-            // from an inactive tab would point at a panel that is not its own.
-            aria-controls={part === entry.id ? "master-tabpanel" : undefined}
-            tabIndex={part === entry.id ? 0 : -1}
-            className={part === entry.id ? "active" : ""}
-            onClick={() => setPart(entry.id)}
-          >
-            {t(entry.label)}
-          </button>
-        ))}
-      </div>
-      <div
-        role="tabpanel"
-        id="master-tabpanel"
-        aria-labelledby={`master-tab-${part}`}
-        tabIndex={-1}
-        style={{ marginTop: 20 }}
-      >
+      <TabStrip
+        parts={MASTER_PARTS}
+        selected={part}
+        onSelect={setPart}
+        idPrefix="master-tab-"
+        label={MASTER_TABS.label}
+      />
+      <TabPanel idPrefix="master-tab-" selected={part} style={{ marginTop: 20 }}>
         {part === "identity" && <Identity status={status} />}
         {part === "model" && <AgentProviders />}
         {part === "rules" && (
@@ -159,7 +124,7 @@ export function AdminAgents() {
           />
         )}
         {part === "groups" && <Groups status={status} />}
-      </div>
+      </TabPanel>
     </div>
   );
 }

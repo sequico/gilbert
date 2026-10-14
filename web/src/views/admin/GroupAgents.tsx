@@ -36,12 +36,13 @@
  * and a page that tried to answer both was harder to read than either.
  */
 import { Bot, CheckCircle2, Tags } from "lucide-react";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { type AgentStatus, addAgentLabels } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { agentGroupNames, agentViewKey, useAgents } from "@/store/agents";
+import { TabPanel, TabStrip } from "@/ui/tabs";
 import { toast } from "@/ui/toast";
 import { GroupAudit } from "./agent/GroupAudit";
 import { GroupInstruction } from "./agent/GroupInstruction";
@@ -61,6 +62,9 @@ const GROUP_PARTS = [
   { id: "knowledge", label: "Knowledge" },
   { id: "activity", label: "Activity" },
 ] as const;
+
+/** The strip's own name for a reader arriving at it, as a `label:` the check finds. */
+const GROUP_TABS = { label: "Group agent sections" };
 
 type GroupPart = (typeof GROUP_PARTS)[number]["id"];
 
@@ -132,22 +136,6 @@ export function GroupAgents() {
     w.groups.includes(group),
   ).length;
 
-  /*
-   * Arrow-key movement across the tab strip, the way the tab ARIA pattern asks
-   * for: the strip is one stop in the tab order and the arrows move between the
-   * tabs, instead of every tab being its own stop.
-   */
-  const onTabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
-    event.preventDefault();
-    const at = GROUP_PARTS.findIndex((entry) => entry.id === part);
-    const next = GROUP_PARTS[(at + step + GROUP_PARTS.length) % GROUP_PARTS.length];
-    if (!next) return;
-    setPart(next.id);
-    document.getElementById(`agent-tab-${next.id}`)?.focus();
-  };
-
   return (
     <div>
       <h1>
@@ -207,36 +195,14 @@ export function GroupAgents() {
           {known && <LabelSetup group={group} />}
         </div>
       )}
-      <div
-        className="segmented agent-tabs"
-        role="tablist"
-        aria-label={t("Group agent sections")}
-        onKeyDown={onTabKey}
-      >
-        {GROUP_PARTS.map((entry) => (
-          <button
-            key={entry.id}
-            id={`agent-tab-${entry.id}`}
-            type="button"
-            role="tab"
-            aria-selected={part === entry.id}
-            // One shared panel, so only the selected tab names it: a reference
-            // from an inactive tab would point at a panel that is not its own.
-            aria-controls={part === entry.id ? "agent-tabpanel" : undefined}
-            tabIndex={part === entry.id ? 0 : -1}
-            className={part === entry.id ? "active" : ""}
-            onClick={() => setPart(entry.id)}
-          >
-            {t(entry.label)}
-          </button>
-        ))}
-      </div>
-      <div
-        role="tabpanel"
-        id="agent-tabpanel"
-        aria-labelledby={`agent-tab-${part}`}
-        tabIndex={-1}
-      >
+      <TabStrip
+        parts={GROUP_PARTS}
+        selected={part}
+        onSelect={setPart}
+        idPrefix="agent-tab-"
+        label={GROUP_TABS.label}
+      />
+      <TabPanel idPrefix="agent-tab-" selected={part}>
         {part === "behaviour" && (
           <>
             {/* The two documents a run is held to before any automation is:
@@ -259,7 +225,7 @@ export function GroupAgents() {
             <Fleet status={status} group={group} />
           </>
         )}
-      </div>
+      </TabPanel>
     </div>
   );
 }

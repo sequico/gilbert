@@ -8,6 +8,7 @@ import {
   startingInstallationDocument,
 } from "@/lib/installationAdmin";
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
+import { LoadState } from "@/ui/LoadState";
 
 /**
  * The installation's own document (ADR 0003 — the installation is configured
@@ -107,18 +108,7 @@ export function AdminInstallation() {
     return (
       <div>
         <h1>{t("Installation document")}</h1>
-        {loadError ? (
-          <>
-            <div className="error-box">{loadError}</div>
-            <p>
-              <button className="btn" onClick={() => void load()}>
-                {t("Retry")}
-              </button>
-            </p>
-          </>
-        ) : (
-          <p className="hint">{t("Loading…")}</p>
-        )}
+        <LoadState loadError={loadError} reload={() => void load()} loading={!loaded} />
       </div>
     );
   }

@@ -137,10 +137,21 @@ function toPending(s: EmailSubmission): PendingSend {
   };
 }
 
-/** Every submission still sitting in the server's queue. */
-async function loadPending(accountId: Id): Promise<PendingSend[]> {
+/**
+ * The submissions matching a filter, whatever the filter is.
+ *
+ * Two questions are asked of the queue — "what is still sitting in it" and "what
+ * went out with these messages" — and they were two functions whose bodies
+ * differed by one line, the filter. The query and the `/get` that follows it are
+ * the same pair either way, and a property list that drifted between them would
+ * show a submission missing a field in one list and carrying it in the other.
+ */
+async function loadWhere(
+  accountId: Id,
+  filter: { undoStatus?: "pending"; emailIds?: Id[] },
+): Promise<PendingSend[]> {
   const res = await client.chain([
-    ["EmailSubmission/query", { accountId, filter: { undoStatus: "pending" } }, "q"],
+    ["EmailSubmission/query", { accountId, filter }, "q"],
     [
       "EmailSubmission/get",
       {
@@ -155,23 +166,18 @@ async function loadPending(accountId: Id): Promise<PendingSend[]> {
   return (got?.list ?? []).map(toPending);
 }
 
+/** Every submission still sitting in the server's queue. */
+async function loadPending(accountId: Id): Promise<PendingSend[]> {
+  return loadWhere(accountId, { undoStatus: "pending" });
+}
+
 /** The submissions belonging to a specific set of messages, whatever their status. */
 async function loadFor(accountId: Id, emailIds: Id[]): Promise<PendingSend[]> {
+  // An empty list is not a filter the server answers, it is the question of
+  // whether there is one at all: `filter: { emailIds: [] }` is a request with
+  // no ids, and some servers refuse it.
   if (!emailIds.length) return [];
-  const res = await client.chain([
-    ["EmailSubmission/query", { accountId, filter: { emailIds } }, "q"],
-    [
-      "EmailSubmission/get",
-      {
-        accountId,
-        "#ids": ref("q", "EmailSubmission/query", "/ids"),
-        properties: SUB_PROPS,
-      },
-      "g",
-    ],
-  ]);
-  const got = res.get("g")?.[0] as unknown as GetResponse<EmailSubmission> | undefined;
-  return (got?.list ?? []).map(toPending);
+  return loadWhere(accountId, { emailIds });
 }
 
 export const useScheduled = create<ScheduledState>((set, get) => ({

@@ -44,6 +44,39 @@ const EMPTY: Identity[] = [];
  * reads them here and does not write them. A locked account is offered none of
  * this: the section is gone from the settings navigation entirely.
  */
+/**
+ * What an identity carries that a reader cannot see from its address: the first
+ * lines of its signature, and the two lists that send mail to somebody the
+ * reader did not name in To.
+ *
+ * An identity's card is drawn in two places — the reader's own list and a
+ * group's — and the three lines were written in both. They are the lines that
+ * decide whether an identity is safe to pick: a Reply-To and a Bcc are the two
+ * ways a message leaves somewhere its sender did not type.
+ */
+function IdentityHints({ identity }: { identity: Identity }) {
+  const signature = identity.htmlSignature || identity.textSignature;
+  return (
+    <>
+      {signature && (
+        <div className="hint" style={{ marginTop: 4 }}>
+          {htmlToText(signature).slice(0, 120)}
+        </div>
+      )}
+      {identity.replyTo?.length ? (
+        <div className="hint">
+          {t("Reply-To: {addresses}", { addresses: formatAddressList(identity.replyTo) })}
+        </div>
+      ) : null}
+      {identity.bcc?.length ? (
+        <div className="hint">
+          {t("Bcc: {addresses}", { addresses: formatAddressList(identity.bcc) })}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function IdentitiesSettings() {
   const session = useSession((s) => s.session);
   const ownAccountId = ownIdentityAccountId(session);
@@ -180,21 +213,7 @@ export function IdentitiesSettings() {
               )}
             </div>
           )}
-          {(i.htmlSignature || i.textSignature) && (
-            <div className="hint" style={{ marginTop: 4 }}>
-              {htmlToText(i.htmlSignature || i.textSignature).slice(0, 120)}
-            </div>
-          )}
-          {i.replyTo?.length ? (
-            <div className="hint">
-              {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
-            </div>
-          ) : null}
-          {i.bcc?.length ? (
-            <div className="hint">
-              {t("Bcc: {addresses}", { addresses: formatAddressList(i.bcc) })}
-            </div>
-          ) : null}
+          <IdentityHints identity={i} />
         </div>
       ))}
       <button
@@ -323,21 +342,7 @@ function GroupIdentities({ account }: { account: MailAccountInfo }) {
                 </span>
               )}
             </div>
-            {(i.htmlSignature || i.textSignature) && (
-              <div className="hint" style={{ marginTop: 4 }}>
-                {htmlToText(i.htmlSignature || i.textSignature).slice(0, 120)}
-              </div>
-            )}
-            {i.replyTo?.length ? (
-              <div className="hint">
-                {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
-              </div>
-            ) : null}
-            {i.bcc?.length ? (
-              <div className="hint">
-                {t("Bcc: {addresses}", { addresses: formatAddressList(i.bcc) })}
-              </div>
-            ) : null}
+            <IdentityHints identity={i} />
           </div>
         );
       })}

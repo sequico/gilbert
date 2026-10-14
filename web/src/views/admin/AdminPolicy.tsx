@@ -6,6 +6,7 @@ import { plural, t } from "@/lib/i18n";
 import { policyEnforced, refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
+import { LoadState } from "@/ui/LoadState";
 import { SettingsKeyTable } from "@/views/admin/SettingsKeyTable";
 
 /** A valid document the editor can be reset to, with one of each section. */
@@ -261,18 +262,7 @@ export function AdminPolicy() {
     return (
       <div>
         <h1>{t("Installation-wide policy")}</h1>
-        {loadError ? (
-          <>
-            <div className="error-box">{loadError}</div>
-            <p>
-              <button className="btn" onClick={() => void load()}>
-                {t("Retry")}
-              </button>
-            </p>
-          </>
-        ) : (
-          <p className="hint">{t("Loading…")}</p>
-        )}
+        <LoadState loadError={loadError} reload={() => void load()} loading={!loaded} />
       </div>
     );
   }
