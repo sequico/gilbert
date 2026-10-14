@@ -305,7 +305,7 @@ export interface MailState {
 
   select(ids: Id[], on: boolean): void;
   clearSelection(): void;
-  /** Refresh the per-label unread counts, in one request. */
+  /** Refresh the per-label unread counts, in slices of the server's batch ceiling. */
   loadLabelCounts(): Promise<void>;
   selectAll(): void;
   /** Extend the selection from the loaded rows to everything the query matches. */

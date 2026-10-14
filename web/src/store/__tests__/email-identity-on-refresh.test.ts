@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import type { Email } from "@/jmap/types";
+import type { Email, EmailFilter } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 
 /**
@@ -120,5 +120,49 @@ describe("a change to mail keeps the objects it did not change", () => {
     }) as never);
     await useMail.getState().applyChanges(new Set(["Email"]));
     expect(useMail.getState().emails.e1).toBeUndefined();
+  });
+});
+
+describe("a list read keeps the objects it did not change", () => {
+  /*
+   * `runQueryOnce` is the one path every list read goes through -- a folder
+   * open, a refresh, the re-read a push triggers -- and it wrote a fresh object
+   * per row. The reasoning above applies to it identically; it was simply not
+   * the path the other half of this file covers.
+   */
+  it("hands back the same row when a re-read brought the same message", async () => {
+    useMail.setState({
+      emails: { e1: one() },
+      fullIds: {},
+      threads: {},
+      list: {
+        key: "k",
+        filter: {} as EmailFilter,
+        sort: [],
+        collapseThreads: false,
+        mailboxId: "mb1",
+        label: undefined,
+        ids: ["e1"],
+        total: 1,
+        queryState: "q1",
+        loading: false,
+        loadingMore: false,
+        error: null,
+        exhausted: false,
+      },
+    });
+    // A fresh object each time, holding the same data: what a server answers.
+    vi.spyOn(client, "chain").mockResolvedValue(
+      new Map([
+        ["q", [{ ids: ["e1"], total: 1, queryState: "q1" }]],
+        ["e", [{ list: [one()] }]],
+      ]) as never,
+    );
+
+    await useMail.getState().refreshList();
+    const before = useMail.getState().emails.e1;
+    await useMail.getState().refreshList();
+
+    expect(useMail.getState().emails.e1).toBe(before);
   });
 });

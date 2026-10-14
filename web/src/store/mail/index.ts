@@ -1743,9 +1743,9 @@ export const useMail = create<MailState>((set, get) => ({
     }
     /*
      * Two queries per keyword -- the total, and the unread half -- carried in
-     * one request. The count is the whole answer, so `limit: 0` keeps the
-     * server from sending ids that would only be thrown away: what is wanted
-     * is `total`.
+     * slices of the server's batch ceiling. The count is the whole answer, so
+     * `limit: 0` keeps the server from sending ids that would only be thrown
+     * away: what is wanted is `total`.
      *
      * Both are asked at once rather than derived, because one cannot be
      * derived from the other and the sidebar needs both: the row shows the
@@ -1787,17 +1787,27 @@ export const useMail = create<MailState>((set, get) => ({
         `u${i}`,
       ],
     ]) as Invocation[];
+    const counts: Record<string, KeywordCounts> = {};
+    for (const keyword of keywords) counts[keyword] = { total: 0, unread: 0 };
     try {
-      const res = await client.request(calls);
-      const counts: Record<string, KeywordCounts> = {};
-      for (const keyword of keywords) counts[keyword] = { total: 0, unread: 0 };
-      for (const [, result, id] of res.methodResponses) {
-        const which = String(id).slice(0, 1);
-        const keyword = keywords[Number(String(id).slice(1))];
-        if (!keyword) continue;
-        const total = (result as { total?: number }).total ?? 0;
-        if (which === "t") counts[keyword]!.total = total;
-        else counts[keyword]!.unread = total;
+      /*
+       * Sliced to the server's batch ceiling (`maxCallsInRequest`, advertised
+       * as 16 and honoured by `call`/`flush`): two queries per keyword means a
+       * reader with nine labels sends eighteen calls, and a real server refuses
+       * the whole request, with nothing landing here. The low-level `request`
+       * does not chunk on its own, so the bound is applied here.
+       */
+      const max = client.maxCallsInRequest;
+      for (let at = 0; at < calls.length; at += max) {
+        const res = await client.request(calls.slice(at, at + max));
+        for (const [, result, id] of res.methodResponses) {
+          const which = String(id).slice(0, 1);
+          const keyword = keywords[Number(String(id).slice(1))];
+          if (!keyword) continue;
+          const total = (result as { total?: number }).total ?? 0;
+          if (which === "t") counts[keyword]!.total = total;
+          else counts[keyword]!.unread = total;
+        }
       }
       set({ labelCounts: counts });
     } catch {
@@ -2265,8 +2275,13 @@ async function runQueryOnce(
   if (epoch !== listEpoch) return answer;
   useMail.setState((s) => {
     const emails = { ...s.emails };
-    for (const e of emailsRes.list) emails[e.id] = { ...emails[e.id], ...e };
-    for (const e of threadEmails?.list ?? []) emails[e.id] = { ...emails[e.id], ...e };
+    /*
+     * `mergeEmail`, not a spread: a row is memoised on its message object, so a
+     * re-read that changed nothing must hand back the object already held, or
+     * every push, delete, move and folder open re-renders the whole list.
+     */
+    for (const e of emailsRes.list) emails[e.id] = mergeEmail(emails[e.id], e);
+    for (const e of threadEmails?.list ?? []) emails[e.id] = mergeEmail(emails[e.id], e);
     const threads = { ...s.threads };
     for (const t of threadsRes?.list ?? []) threads[t.id] = t;
     /*

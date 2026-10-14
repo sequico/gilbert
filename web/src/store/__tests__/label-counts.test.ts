@@ -150,6 +150,61 @@ describe("reading the counts", () => {
   });
 });
 
+describe("more labels than one request carries", () => {
+  /*
+   * Two queries per keyword, so starred plus eight labels is eighteen calls --
+   * past the sixteen `maxCallsInRequest` advertises. A real server refuses the
+   * whole request and every number disappears, and the low-level `request` does
+   * not chunk on its own, so the store has to. The assertion is on the requests
+   * actually sent: the mock advertises the cap without enforcing it, so an
+   * answer landing is not evidence that the batch respected it.
+   */
+  it("splits the queries across requests and lands every count", async () => {
+    const labels = Array.from({ length: 8 }, (_, i) => ({
+      keyword: `k${i}`,
+      name: `K${i}`,
+      color: "#000",
+    }));
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS, labels } });
+
+    const sizes: number[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string) as {
+          methodCalls: [string, Record<string, unknown>, string][];
+        };
+        sizes.push(body.methodCalls.length);
+        const methodResponses = body.methodCalls.map(([name, args, id]) => {
+          const filter = args.filter as { operator?: string } | undefined;
+          return [
+            name,
+            { accountId: args.accountId, total: filter?.operator ? 2 : 7 },
+            id,
+          ];
+        });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ methodResponses, sessionState: "s1" }),
+        } as Response;
+      }),
+    );
+
+    await useMail.getState().loadLabelCounts();
+
+    expect(sizes.length).toBeGreaterThan(1);
+    expect(sizes.every((n) => n <= client.maxCallsInRequest)).toBe(true);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(18);
+    for (const keyword of countedKeywords(labels)) {
+      expect(useMail.getState().labelCounts[keyword]).toEqual({
+        total: 7,
+        unread: 2,
+      });
+    }
+  });
+});
+
 describe("a group mailbox's own labels", () => {
   /** The group in the foreground, with its catalog already read. */
   const onGroup = () => {
