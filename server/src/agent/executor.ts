@@ -90,7 +90,7 @@ import {
   postMessage,
   readApproval,
   readChat,
-  readChatMessage,
+  readChatThread,
   widenRequested,
 } from "./chat.js";
 import {
@@ -2076,13 +2076,17 @@ export class Executor {
       /*
        * The read is the newest `CHAT_READ_MAX` messages, and a run can arrive
        * long after the message that woke it: its own trigger is then read on its
-       * own rather than the run refused. The window is a bound on the read, not a
+       * own — with the chain that led to it, which the context is built from —
+       * rather than the run refused. The window is a bound on the read, not a
        * statement that an older message no longer exists.
        */
       if (!anchor) {
-        anchor =
-          (await readChatMessage(this.deps.ctx, accountId, trigger.chatId)) ?? undefined;
-        if (anchor) messages = [...messages, anchor];
+        const thread = await readChatThread(this.deps.ctx, accountId, trigger.chatId);
+        if (thread.length) {
+          anchor = thread[0];
+          const held = new Set(messages.map((message) => message.id));
+          messages = [...messages, ...thread.filter((message) => !held.has(message.id))];
+        }
       }
       // Only a person asking widens the window; the run never does it
       // itself.

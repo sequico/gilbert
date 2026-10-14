@@ -144,31 +144,51 @@ function toMessage(node: FileNodeLike, doc: ChatMessageDoc): ChatMessage {
 }
 
 /**
- * One message by node id, for the case the read window does not hold it.
+ * The message a run answers, with the chain of replies that led to it.
  *
  * A run is woken by a message and answers *that* one, while a read covers the
  * newest `CHAT_READ_MAX` messages: a run arriving after more than that many were
  * written would otherwise find its own trigger missing and refuse to answer it.
- * One listing finds the node and one download reads it — a page and a read,
- * never a wider window.
+ * The chain comes with it — `conversationContext` walks `replyTo` inside what it
+ * is handed, and a chain is context a member wrote on purpose — so this answers
+ * a list, its first entry being the message the run was woken by. One listing
+ * finds the nodes; each hop is one read, and the walk is bounded by the context
+ * ceiling the chain itself is bounded by.
  */
+export async function readChatThread(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<ChatMessage[]> {
+  const folderId = await findFolderPath(ctx, accountId, CHAT_FOLDER);
+  if (!folderId) return [];
+  const nodes = await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, "created"]);
+  const byId = new Map(nodes.map((node) => [String(node.id), node]));
+  const thread: ChatMessage[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined = id;
+  while (cursor && !seen.has(cursor) && thread.length < CHAT_CONTEXT_MAX) {
+    // A reply chain is whatever the senders wrote and can point in a circle; the
+    // walk stops at an id it has already read.
+    seen.add(cursor);
+    const node = byId.get(cursor);
+    if (!node) break;
+    const doc = await readChatDoc(ctx, accountId, node);
+    if (!isChatMessageDoc(doc)) break;
+    const message = toMessage(node, doc);
+    thread.push(message);
+    cursor = message.replyTo;
+  }
+  return thread;
+}
+
+/** One message by node id, or null when the transcript does not hold it. */
 export async function readChatMessage(
   ctx: Ctx,
   accountId: string,
   id: string,
 ): Promise<ChatMessage | null> {
-  const folderId = await findFolderPath(ctx, accountId, CHAT_FOLDER);
-  if (!folderId) return null;
-  const nodes = await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, "created"]);
-  const node = nodes.find(
-    (candidate) =>
-      String(candidate.id) === id &&
-      candidate.nodeType === "file" &&
-      typeof candidate.blobId === "string",
-  );
-  if (!node) return null;
-  const doc = await readChatDoc(ctx, accountId, node);
-  return isChatMessageDoc(doc) ? toMessage(node, doc) : null;
+  return (await readChatThread(ctx, accountId, id))[0] ?? null;
 }
 
 /**

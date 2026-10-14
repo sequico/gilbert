@@ -35,6 +35,7 @@ const {
   readApproval,
   readChat,
   readChatMessage,
+  readChatThread,
 } = await import("./chat.js");
 const { CHAT_FOLDER } = await import("../shared/chat.js");
 
@@ -371,14 +372,17 @@ test("a transcript longer than the window reads only the newest messages", async
   );
 });
 
-test("a message the window does not hold is still read when a run answers it", async () => {
+test("a message the window does not hold is still read when a run answers it, with its chain", async () => {
   /*
    * A run is woken by a message and answers *that* one, and the window is a
    * bound on how much is read, never a statement that an older message is gone.
    * Without this read the run would be refused for a trigger the group can see,
-   * which is the failure the window would otherwise introduce.
+   * and without the chain it would lose the context a member wrote on purpose —
+   * `conversationContext` walks `replyTo` inside what it is handed, so the reply
+   * has to be handed in with its parent.
    */
   const oldest = seededIds[0]!;
+  const reply = await postMessage(ctx, GROUP, ADA, "answering the oldest", oldest);
   assert.ok(
     !(await readChat(ctx, GROUP, client)).some((message) => message.id === oldest),
     "the message is outside the window a read covers",
@@ -386,6 +390,12 @@ test("a message the window does not hold is still read when a run answers it", a
   const read = await readChatMessage(ctx, GROUP, oldest);
   assert.equal(read?.id, oldest, "and is read on its own");
   assert.equal(read?.text, "seeded 0");
+  const thread = await readChatThread(ctx, GROUP, reply);
+  assert.deepEqual(
+    thread.map((message) => message.id),
+    [reply, oldest],
+    "a reply brings the message it answers with it",
+  );
   assert.equal(
     await readChatMessage(ctx, GROUP, "no-such-message"),
     null,
