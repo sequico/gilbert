@@ -1678,6 +1678,8 @@ export const catalog: Catalog = {
     "Edit Global contacts": "编辑全局联系人",
     "My contacts": "我的联系人",
     "Group contacts": "群组联系人",
+    "Some shared address books could not be read, so they are missing from this list: {error}":
+      "部分共享地址簿无法读取，因此不在此列表中：{error}",
     "Nothing added yet.": "尚未添加任何内容。",
     "Looking…": "正在查找…",
     "· organization": "· 组织",

@@ -1,4 +1,14 @@
 /**
+ * The account a shared key names, when the key is all that is held.
+ *
+ * `accountOfSharedKey` above needs the id beside the key because it slices the
+ * suffix off; a reader holding a list of keys and nothing else -- what a store
+ * keeps as "which shared items this window holds" -- has the suffix inside the
+ * key and must split on the same colon. One format, read here.
+ */
+export const accountOf = (key: string): string => key.slice(0, key.lastIndexOf(":"));
+
+/**
  * The key a shared item is held under, in one place.
  *
  * A calendar or an address book shared with this account arrives with ids that

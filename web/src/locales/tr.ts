@@ -1171,6 +1171,8 @@ export const catalog: Catalog = {
     Notes: "Notlar",
     Nothing: "Hiçbiri",
     "Nothing (top level)": "Hiçbiri (en üst düzey)",
+    "Some shared address books could not be read, so they are missing from this list: {error}":
+      "Paylaşılan bazı adres kitapları okunamadı, bu yüzden bu listede yer almıyor: {error}",
     "Nothing added yet.": "Henüz hiçbir şey eklenmedi.",
     "Nothing here": "Burada hiçbir şey yok",
     "Nothing here yet.": "Burada henüz hiçbir şey yok.",

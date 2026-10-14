@@ -374,6 +374,14 @@ interface ContactsState {
   /** Their cards, keyed by account and id. See `sharedKey`. */
   sharedCards: Record<string, ContactCard>;
   sharedLoaded: boolean;
+  /**
+   * Which shared accounts could not be read, when some of them could not.
+   *
+   * A book missing from the sidebar reads as a book nobody shared, so the
+   * answer for "nothing added yet" has to say *which* is the case. Null is the
+   * ordinary state; the sidebar draws this instead of the empty sentence.
+   */
+  sharedLoadError: string | null;
   selection: BookSelection;
 
   init(): Promise<void>;
@@ -707,6 +715,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   sharedBooks: [],
   sharedCards: {},
   sharedLoaded: false,
+  sharedLoadError: null,
   selection: { accountId: null, bookId: "all" },
 
   async init() {
@@ -782,12 +791,18 @@ export const useContacts = create<ContactsState>((set, get) => ({
       }
       if (!accounts.length) {
         if (epoch !== sessionEpoch) return;
-        set({ sharedBooks: directory, sharedCards: cards, sharedLoaded: true });
+        set({
+          sharedBooks: directory,
+          sharedCards: cards,
+          sharedLoaded: true,
+          sharedLoadError: null,
+        });
         restoreBookPlace();
         return;
       }
       const groupIds = await groupMailboxIds();
       const books: SharedBook[] = [];
+      const failures: string[] = [];
       /*
        * Every account at once. `client.call` batches the calls made in one tick
        * into a single request, so the loop this replaces sent one request after
@@ -796,6 +811,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
        */
       await Promise.all(
         accounts.map(async ([accountId, account]) => {
+          /*
+           * One account that cannot be read is one account missing from the
+           * sidebar, and the reader is told: a swallowed failure here looks
+           * exactly like a group that has shared nothing, which is the reading
+           * nobody can act on. What the accounts that answered is still kept --
+           * the whole load is not thrown away for one unreadable book.
+           */
           try {
             const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
               accountId,
@@ -862,7 +884,9 @@ export const useContacts = create<ContactsState>((set, get) => ({
               if (!q.ids.length || q.ids.length < page) break;
               position += q.ids.length;
             }
-          } catch {}
+          } catch (err) {
+            failures.push(`${account.name ?? accountId}: ${(err as Error).message}`);
+          }
         }),
       );
       /*
@@ -888,6 +912,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
         sharedBooks: [...directory, ...books],
         sharedCards: cards,
         sharedLoaded: true,
+        sharedLoadError: failures.length ? failures.join(" · ") : null,
       });
       restoreBookPlace();
     })();
@@ -2039,6 +2064,7 @@ useSession.subscribe((s) => {
       sharedBooks: [],
       sharedCards: {},
       sharedLoaded: false,
+      sharedLoadError: null,
       selection: { accountId: null, bookId: "all" },
       loading: false,
       error: null,

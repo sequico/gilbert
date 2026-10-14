@@ -1736,6 +1736,8 @@ export const catalog: Catalog = {
     "Edit Global contacts": "Editar contactos globales",
     "My contacts": "Mis contactos",
     "Group contacts": "Contactos del grupo",
+    "Some shared address books could not be read, so they are missing from this list: {error}":
+      "Algunas libretas de direcciones compartidas no se pudieron leer, por lo que no aparecen en esta lista: {error}",
     "Nothing added yet.": "Todavía no se ha añadido nada.",
     "Looking…": "Buscando…",
     "· organization": "· organización",

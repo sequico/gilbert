@@ -404,7 +404,14 @@ export function ContactsSidebar() {
       ))}
       {sharedOnlySubscribed.length === 0 && (
         <p className="hint" style={{ padding: "4px 12px" }}>
-          {contacts.sharedLoaded ? t("Nothing added yet.") : t("Looking…")}
+          {!contacts.sharedLoaded
+            ? t("Looking…")
+            : contacts.sharedLoadError
+              ? t(
+                  "Some shared address books could not be read, so they are missing from this list: {error}",
+                  { error: contacts.sharedLoadError },
+                )
+              : t("Nothing added yet.")}
         </p>
       )}
 

@@ -1715,6 +1715,8 @@ export const catalog: Catalog = {
     "Edit Global contacts": "Змінити глобальні контакти",
     "My contacts": "Мої контакти",
     "Group contacts": "Контакти групи",
+    "Some shared address books could not be read, so they are missing from this list: {error}":
+      "Деякі спільні адресні книги не вдалося прочитати, тому їх немає в цьому списку: {error}",
     "Nothing added yet.": "Поки нічого не додано.",
     "Looking…": "Пошук…",
     "· organization": "· організація",

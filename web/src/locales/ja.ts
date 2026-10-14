@@ -1727,6 +1727,8 @@ export const catalog: Catalog = {
     "Edit Global contacts": "グローバル連絡先を編集",
     "My contacts": "自分の連絡先",
     "Group contacts": "グループの連絡先",
+    "Some shared address books could not be read, so they are missing from this list: {error}":
+      "共有されたアドレス帳の一部を読み取れなかったため、この一覧には含まれていません: {error}",
     "Nothing added yet.": "まだ何も追加されていません。",
     "Looking…": "検索しています…",
     "· organization": "· 組織",

@@ -382,7 +382,7 @@ export interface SharedCalendar {
  * that stops being found. Re-exported because this store's callers key shared
  * calendars by it.
  */
-import { accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
+import { accountOf, accountOfSharedKey, sharedKey } from "@/lib/sharedKey";
 
 export { sharedKey };
 
@@ -900,12 +900,24 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const accounts = [...new Set(shared.map((c) => c.accountId))];
     const ids: string[] = [];
     const events: Record<string, CalendarEvent> = {};
+    const failed: string[] = [];
     for (const accountId of accounts) {
+      /*
+       * The keys this account contributed to the window last time. A failed
+       * read keeps them: an account that answered with nothing is an account
+       * whose events were all cancelled, and an account that could not be read
+       * is an account whose events are unknown. Treating the two the same is how
+       * a meeting somebody moved out of one shared calendar disappears from
+       * every window without a word.
+       */
+      const held = (get().sharedRanges[key] ?? []).filter(
+        (k) => accountOf(k) === accountId,
+      );
       try {
         /*
          * Read in pages of what the server will resolve in one `/get`: the ids
          * and the objects are asked for together, and a window wider than that
-         * is refused whole -- which the `catch` below would turn into a shared
+         * is refused whole -- which the catch below would turn into a shared
          * calendar that silently shows nothing.
          */
         const page = client.maxObjectsInGet;
@@ -953,7 +965,18 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           }
           if (pageIds.length < page) break;
         }
-      } catch {}
+      } catch (err) {
+        /*
+         * One account among several failed, so what it contributed last time
+         * stays in this window and the failure is reported like every other
+         * read in this store (`error` is what the window draws). Swallowing it
+         * instead would close the window over the accounts that did answer,
+         * which is how a meeting somebody moved in the unreadable account comes
+         * to look deleted.
+         */
+        ids.push(...held);
+        failed.push((err as Error).message);
+      }
     }
     set((s) => {
       const sharedRanges = { ...s.sharedRanges, [key]: ids };
@@ -973,6 +996,9 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       }
       return { sharedEvents, sharedRanges };
     });
+    // Cleared as well as set: a window that read cleanly after a failed one is
+    // no longer a window with something wrong on it.
+    set({ error: failed.length ? failed.join(" ") : null });
   },
 
   async loadCalendars() {
@@ -1088,9 +1114,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         // its time, and one that answers and then stalls must not hold the
         // list open for ever.
         const answer = await withDeadline(API_TIMEOUT_MS, undefined, async (signal) => {
-          const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
-            signal,
-          });
+          const res = await fetch(
+            withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`),
+            {
+              signal,
+            },
+          );
           return { ok: res.ok, status: res.status, text: await res.text() };
         });
         if (!answer.ok) {
