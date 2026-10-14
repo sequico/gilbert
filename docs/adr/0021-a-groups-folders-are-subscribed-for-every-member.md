@@ -76,13 +76,16 @@ that write does.**
   because there an unsubscribed folder is one they hid themselves, and the
   entry that hides one exists only there. Nothing about the write touches an
   account that is the reader's own.
-- **The write rides the read, and is idempotent.** It is asked on every read of
-  a group's folder list, and sends nothing when nothing is missing — so a folder
+- **The write rides the read, and is idempotent.** It is asked on a read of a
+  group's folder list, and sends nothing when nothing is missing — so a folder
   that appeared a moment ago, whoever created it, is covered by the same rule
   that covers the folders that were already there, without an event to catch.
   One reconciliation runs per account at a time, and the batch is cut by the
-  session's own `maxObjectsInSet`.
-- **A refusal is asked again on the next read; only the report is held back.**
+  session's own `maxObjectsInSet`. **A refused write holds it back for half a
+  minute** (`SUBSCRIBE_RETRY_MS`), because a server that refuses once is likely
+  to refuse every read until it changes, and one `Mailbox/set` per tree read is
+  a storm rather than a retry.
+- **A refusal is asked again after that back-off; only the report is held back.**
   A **member may** write
   `isSubscribed` on a folder of their group: confirmed live on 0.16.23
   (2026-09-24), `Mailbox/set` with

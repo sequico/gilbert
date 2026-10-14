@@ -918,8 +918,8 @@ applied from `l` or the context menu, and optionally listed in the sidebar.
   message of it that this folder holds; with it off a row is a message. Inside an
   open conversation each message keeps its **own** star; the conversation's star is
   the one at the top.
-- **The unread half is kept, and the row leads with it** — two queries per keyword
-  in one request.
+- **The unread half is kept, and the row leads with it** — two queries per keyword,
+  carried in slices of the server's batch ceiling.
 - **The number follows a write**: the row is the unit the count is taken over, so a
   write touching several messages of one conversation moves its number once.
   Reading a message moves only the unread halves. A failed write puts the messages
@@ -1105,7 +1105,11 @@ minimisable and maximisable; full-screen on mobile.
 
 - **Undo send** holds the message in the browser for five seconds and shows a toast
   naming the mail, with a way back. Nothing has been submitted. The window is a
-  product constant, not a setting.
+  product constant, not a setting. The account, the sending identity and the
+  folders a send needs are settled when Send is pressed, so opening another
+  mailbox inside the window redirects nothing: the message goes out from the
+  mailbox it was written in, and the Undo stays the only way back. A session that
+  ended before the window closed is the one thing that stops it.
 - **Scheduled send** hands the message to *Stalwart's* queue. JMAP has no
   client-settable `sendAt`, so the hold is requested through SMTP FUTURERELEASE
   (RFC 4865) as a `HOLDUNTIL` parameter, and the server reports the `sendAt` it
@@ -1354,8 +1358,8 @@ JMAP Contacts and JSContact.
 
 JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 
-- **Folder tree** in the left pane, fetched **in one request**, so opening a folder
-  never waits on a round trip. **Collapsed by default, and remembered per reader**,
+- **Folder tree** in the left pane, read up to a thousand folders in pages of what
+  the server resolves, so opening a folder never waits on a round trip. **Collapsed by default, and remembered per reader**,
   by account and id, because node ids are unique per account.
 - Browse, download, create folders, rename, move, delete.
 - **Sorted by a clicked column, and each folder keeps its own order.** Clicking
@@ -1393,10 +1397,10 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   file may not write over a **folder** of its name — nothing is renamed, destroyed
   or put beside it, and the file is reported on top. A folder the drop could not
   create stops with its whole subtree reported.
-- **A drop resolves its tree in one request.** The account is read once and the
-  whole walk answers from it; an account larger than one read (a thousand nodes) is
-  finished by reading the levels it must, not by paging the account. A file's name
-  is answered by the create itself.
+- **A drop resolves its tree up to a thousand nodes, in pages of what the server
+  resolves.** The levels it needs are read once each and the whole walk answers from
+  them; an account larger than that is finished by reading the levels it must, not
+  by paging the account. A file's name is answered by the create itself.
 - **Cancel an upload.** Every upload in flight shows its count ("3 of 12 files")
   beside its percentage, and **Cancel** stops one file or the whole run a drop or
   picker action started. What has already gone up stays and nothing not started is
