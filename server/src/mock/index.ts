@@ -4675,9 +4675,19 @@ const handlers: Record<string, Handler> = {
        * A rename or a move must not land on a name a sibling holds. The check
        * runs on the node the patch would leave behind, before it is applied, so
        * the name and parent the update asks for are what is compared.
+       *
+       * The write also moves the node's own `modified`: the web tier orders a
+       * listing by it, and a mock that stamped that field only on a create made
+       * every update look as old as the node it changed (`nodeStamp` in
+       * `workorderAdmin.ts` reads `modified ?? created`).
+       *
+       * ADR-0016 OWED: that a live 0.16 advances `modified` on an update, and
+       * not only on a create, is unverified. The read side's `?? created` is
+       * what keeps either answer harmless.
        */
       (o, patch) => {
         refuseSiblingClash({ ...o, ...patch });
+        o.modified = new Date(now()).toISOString();
       },
     )(a);
     /* A real server pushes a FileNode StateChange after a set, and the chat
