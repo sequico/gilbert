@@ -1034,13 +1034,15 @@ export class Executor {
       // what it holds is the prefix of the very plan that produced it.
       const plan = current.proposal?.actions?.length
         ? planOf(current.proposal)
-        : await this.planFor(store, accountId, running, rule, pass);
+        : await this.planFor(store, accountId, running, rule, claim, pass);
       // The plan is written before it is run: a retry resumes this same work,
       // and a failure can name what was about to happen instead of guessing.
-      const planned = await this.writeJobIfCurrent(store, job.id, (latest) => ({
-        ...latest,
-        proposal: proposalOf(plan),
-      }));
+      const planned = await this.writeJobIfCurrent(
+        store,
+        job.id,
+        (latest) => ({ ...latest, proposal: proposalOf(plan) }),
+        claim,
+      );
       if (!planned) return;
       // Fencing, at the last moment before anything leaves the process: a run
       // whose unit was taken over while it was deciding has had its lease
@@ -1081,22 +1083,32 @@ export class Executor {
    * every write in the account moves it — this run's own audit line and the
    * action that just landed included — so the state is read here, immediately
    * before the write it guards. The change is applied to the document as it is
-   * read rather than to the copy a run has carried since it claimed the job,
-   * because a write onto that copy would put a lapsed agent's `applied` and
-   * `attempts` over the view its successor is working on. A refusal means the
-   * document moved in that window, and the answer is to write nothing: `null`
-   * says so, and a job document that is no longer there answers the same way.
+   * read rather than to the copy a run has carried since it claimed the job.
+   * A refusal means the document moved in that window, and the answer is to
+   * write nothing: `null` says so, and a job document that is no longer there
+   * answers the same way.
    *
-   * A caller that must not stop (a failure being reported, a rejection being
-   * recorded) may go on with its report; a caller that is working a run stops.
+   * A caller that is **working a run** passes the claim it works under, and the
+   * write is refused once that claim has moved. It has to be: the change these
+   * callers make carries the run's own accumulated list (`applied`, `lookups`,
+   * `effects`) rather than anything read from the document, so a lapsed run
+   * writing it puts its list over the view its successor is working on — the
+   * successor's own landed actions disappear, the job says it has done work it
+   * did not do, and both processes believe they own the result. A caller that
+   * **reports** (a failure being announced, a decision being recorded) passes
+   * nothing and keeps writing: it is not the run, and the run's successor is
+   * not waiting on it.
    */
   private async writeJobIfCurrent(
     store: AgentStore,
     id: string,
     change: (job: AgentJob) => AgentJob,
+    claim?: AgentClaim,
   ): Promise<AgentJob | null> {
     const found = await store.readJob(id);
     if (!found) return null;
+    if (claim && !(await claimStillMine(store, this.deps.agentId, claimEpoch(claim))))
+      return null;
     const next = change(found.doc);
     // Every checkpoint a running job's own work already writes here — planned,
     // then each landed action — is also where its lease can be renewed for
@@ -1135,6 +1147,7 @@ export class Executor {
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
+    claim: AgentClaim,
     pass: Pass,
   ): Promise<RunPlan> {
     const problem = ruleProblem(rule);
@@ -1198,7 +1211,7 @@ export class Executor {
           continue;
         }
         await this.guardLabels(accountId, answer.actions);
-        if (lookups.length) await this.recordLookups(store, job, lookups);
+        if (lookups.length) await this.recordLookups(store, job, lookups, claim);
         return {
           actions: answer.actions,
           confidence: answer.confidence,
@@ -1210,7 +1223,7 @@ export class Executor {
       // A run that read something and then failed still says what it read: the
       // reads happened, and a trail that hid them would make "why did it say
       // that" unanswerable (ADR 0020).
-      if (lookups.length) await this.recordLookups(store, job, lookups);
+      if (lookups.length) await this.recordLookups(store, job, lookups, claim);
       throw err;
     }
     // The last call has no lookups left, so a lookup answer is refused inside
@@ -1692,12 +1705,15 @@ export class Executor {
     store: AgentStore,
     job: AgentJob,
     lookups: ReadonlyArray<AgentLookup>,
+    claim: AgentClaim,
   ): Promise<void> {
     try {
-      await this.writeJobIfCurrent(store, job.id, (latest) => ({
-        ...latest,
-        lookups: [...(latest.lookups ?? []), ...lookups],
-      }));
+      await this.writeJobIfCurrent(
+        store,
+        job.id,
+        (latest) => ({ ...latest, lookups: [...(latest.lookups ?? []), ...lookups] }),
+        claim,
+      );
     } catch (err) {
       // The run's record is a courtesy to whoever reads it afterwards; losing
       // it must not lose the work the run is about to do.
@@ -1719,20 +1735,29 @@ export class Executor {
   }
 
   /**
-   * The fence asked before an action that leaves the process.
+   * The fence asked before every action.
    *
    * A lease can lapse during a long run, and a run whose unit was taken over
-   * must not send, post, draft or file what its successor is doing too. Every
-   * path that runs actions asks through this one hook, so a new call site
-   * cannot run effects unfenced by forgetting it. A null claim is not this
-   * process's unit at all, so a leaving action is refused rather than run.
+   * must not write what its successor is writing. Every path that runs actions
+   * asks through this one hook, so a new call site cannot run effects unfenced
+   * by forgetting it. A null claim is not this process's unit at all, so every
+   * action is refused rather than run.
+   *
+   * The question asked is **ownership**, and it is asked of every action, not
+   * of the ones `leavesTheProcess` calls irreversible. Those two are different
+   * questions — one is "may a retry redo this", the other is "is this unit
+   * still mine" — and asking the second only of the first's answers left a
+   * lapse unguarded for everything else: a keyword added to a message whose
+   * mail the successor is reading right now, a message filed into a mailbox the
+   * successor is about to file it into, a knowledge page written over the one
+   * the successor is about to write. `leavesTheProcess` stays what it says on
+   * its own doc: the retry-safety set, read by `failLoudly` and by recovery.
    */
   private leavingProcessFence(
     store: AgentStore,
     claim: AgentClaim | null,
   ): (action: AgentAction) => Promise<void> {
-    return async (action: AgentAction) => {
-      if (!leavesTheProcess(action)) return;
+    return async () => {
       const mine =
         claim !== null &&
         (await claimStillMine(store, this.deps.agentId, claimEpoch(claim)));
@@ -1808,22 +1833,26 @@ export class Executor {
         onApplied: async (action: AgentAction, result: ActionResult) => {
           landed.push(action.do);
           const wrote = effectsOf(result, this.deps.now().toISOString());
-          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) =>
-            withKnowledgeOutcome(
-              {
-                ...latest,
-                applied: [...landed],
-                // The record the action wrote, beside the action that wrote it: a
-                // change naming that id is how the next run of a chain knows which
-                // job woke it (ADR 0003).
-                ...(wrote.length
-                  ? { effects: [...(latest.effects ?? []), ...wrote] }
-                  : {}),
-              },
-              action,
-              result,
-              this.deps.now().toISOString(),
-            ),
+          const recorded = await this.writeJobIfCurrent(
+            store,
+            job.id,
+            (latest) =>
+              withKnowledgeOutcome(
+                {
+                  ...latest,
+                  applied: [...landed],
+                  // The record the action wrote, beside the action that wrote it: a
+                  // change naming that id is how the next run of a chain knows which
+                  // job woke it (ADR 0003).
+                  ...(wrote.length
+                    ? { effects: [...(latest.effects ?? []), ...wrote] }
+                    : {}),
+                },
+                action,
+                result,
+                this.deps.now().toISOString(),
+              ),
+            claim,
           );
           // What just landed is not recorded, so the run stops here rather than
           // running the rest of a plan whose prefix nobody can read — and a
@@ -1837,8 +1866,11 @@ export class Executor {
         beforeAction: this.leavingProcessFence(store, claim),
       },
     );
-    const done = await this.writeJobIfCurrent(store, job.id, (latest) =>
-      closeState({ ...latest, applied: [...landed] }, "done"),
+    const done = await this.writeJobIfCurrent(
+      store,
+      job.id,
+      (latest) => closeState({ ...latest, applied: [...landed] }, "done"),
+      claim,
     );
     if (!done) return;
     await recordAudit(store, auditEntry(done, rule, "done", plan.actions, plan.summary));
@@ -1889,16 +1921,21 @@ export class Executor {
     // A paused job belongs to a person now, not to a agent: clearing the lease
     // keeps it out of the takeover path while it waits. A refused write stops
     // the pause before a decision a person could answer exists.
-    const paused = await this.writeJobIfCurrent(store, job.id, (latest) => {
-      const waiting: AgentJob = {
-        ...latest,
-        state: "awaiting_approval",
-        proposal,
-        decisionId: decision.id,
-      };
-      delete waiting.lease;
-      return waiting;
-    });
+    const paused = await this.writeJobIfCurrent(
+      store,
+      job.id,
+      (latest) => {
+        const waiting: AgentJob = {
+          ...latest,
+          state: "awaiting_approval",
+          proposal,
+          decisionId: decision.id,
+        };
+        delete waiting.lease;
+        return waiting;
+      },
+      claim,
+    );
     if (!paused) return;
     // The decision is written once more as it learns things: the draft it will
     // send, then the chat message that carries it. Both live on the decision —
@@ -1927,10 +1964,12 @@ export class Executor {
       );
       if (draft) {
         paused.proposal = { ...proposal, draft };
-        const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
-          ...latest,
-          proposal: { ...proposal, draft },
-        }));
+        const recorded = await this.writeJobIfCurrent(
+          store,
+          job.id,
+          (latest) => ({ ...latest, proposal: { ...proposal, draft } }),
+          claim,
+        );
         if (recorded) {
           open = { ...open, draft };
           await store.writeDecision(open);
