@@ -329,14 +329,14 @@ function usageOf(body: unknown): AgentUsage | undefined {
 }
 
 function messageContent(body: unknown): string | null {
-  if (!body || typeof body !== "object") return null;
+  if (!isRecord(body)) return null;
   const choices = (body as { choices?: unknown }).choices;
   if (!Array.isArray(choices) || !choices.length) return null;
   // A provider that answers `{"choices":[null]}` is malformed, not fatal: the
   // same "answered without a message" the caller already reports for a missing
   // content, rather than a TypeError from indexing null.
   const first = choices[0];
-  if (!first || typeof first !== "object") return null;
+  if (!isRecord(first)) return null;
   const message = (first as { message?: { content?: unknown } }).message;
   const content = message?.content;
   return typeof content === "string" && content.trim() ? content : null;

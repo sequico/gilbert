@@ -13,11 +13,13 @@
  * `crypto.randomUUID`, which both Node and the browser provide.
  */
 
+import { isRecord } from "./json.js";
+
 export const CHAT_FOLDER = "chat";
 export const CHAT_STATE_FOLDER = "chat-state";
 
 /** Messages are plain text; the bound keeps the documents small (ADR 0005). */
-export const MAX_TEXT = 4000;
+export const CHAT_MAX_TEXT = 4000;
 
 /** How many messages one transcript page holds (scroll-up paging). */
 export const CHAT_PAGE = 200;
@@ -98,13 +100,13 @@ export const messageProps = (): string[] => [
 ];
 
 function isChatMention(x: unknown): x is ChatMention {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   return d.kind === "principal" && typeof d.id === "string";
 }
 
 export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   return (
     d.v === 1 &&
@@ -118,7 +120,7 @@ export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
 }
 
 export function isChatMarkerDoc(x: unknown): x is ChatMarkerDoc {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   return d.v === 1 && (d.lastRead === null || typeof d.lastRead === "string");
 }

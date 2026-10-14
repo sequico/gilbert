@@ -109,7 +109,7 @@ export function isAgentLabel(keyword: string): boolean {
 }
 
 export function isLabelCatalogEntry(x: unknown): x is LabelCatalogEntry {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const l = x as Record<string, unknown>;
   return (
     typeof l.keyword === "string" &&

@@ -9,6 +9,7 @@
  * backoff, so a silent agent is never the failure mode.
  */
 
+import { isRecord } from "../shared/json.js";
 import { absoluteUpstream, expandTemplate, type UpstreamSession } from "../upstream.js";
 
 /** The first reconnect delay, doubling up to the ceiling below. */
@@ -62,15 +63,15 @@ function stateChanges(data: string): Array<{ accountId: string; type: string }> 
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object") return null;
+  if (!isRecord(parsed)) return null;
   const frame = parsed as { "@type"?: unknown; changed?: unknown };
   if (frame["@type"] !== "StateChange") return [];
-  if (!frame.changed || typeof frame.changed !== "object") return [];
+  if (!isRecord(frame.changed)) return [];
   const out: Array<{ accountId: string; type: string }> = [];
   for (const [accountId, byType] of Object.entries(
     frame.changed as Record<string, unknown>,
   )) {
-    if (!byType || typeof byType !== "object") continue;
+    if (!isRecord(byType)) continue;
     for (const type of Object.keys(byType as Record<string, unknown>))
       out.push({ accountId, type });
   }

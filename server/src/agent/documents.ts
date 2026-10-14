@@ -493,7 +493,7 @@ export function isAgentActionName(x: unknown): x is AgentActionName {
 }
 
 export function isAgentAction(x: unknown): x is AgentAction {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const a = x as Record<string, unknown>;
   if (!isAgentActionName(a.do)) return false;
   if (a.with === undefined) return true;
@@ -715,7 +715,7 @@ function isActionList(x: unknown): x is AgentAction[] {
 }
 
 export function isAgentTrigger(x: unknown): x is AgentTrigger {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const t = x as Record<string, unknown>;
   if (!isAgentTriggerOn(t.on)) return false;
   if (t.everyMinutes !== undefined) {
@@ -726,7 +726,7 @@ export function isAgentTrigger(x: unknown): x is AgentTrigger {
 }
 
 export function isAgentRule(x: unknown): x is AgentRule {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const r = x as Record<string, unknown>;
   if (r.v !== 1) return false;
   if (typeof r.id !== "string" || !r.id) return false;
@@ -1367,7 +1367,7 @@ export interface AgentEffect {
 }
 
 export function isAgentEffect(x: unknown): x is AgentEffect {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const e = x as Record<string, unknown>;
   if (e.type !== "Email" && e.type !== "FileNode") return false;
   if (typeof e.id !== "string" || !e.id.length) return false;
@@ -1415,7 +1415,7 @@ export function isAgentKnowledgePlan(x: unknown): x is AgentKnowledgePlan {
 }
 
 export function isAgentLease(x: unknown): x is AgentLease {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const l = x as Record<string, unknown>;
   return typeof l.owner === "string" && typeof l.heartbeatAt === "string";
 }
@@ -1425,7 +1425,7 @@ export function isAgentJobState(x: unknown): x is AgentJobState {
 }
 
 export function isAgentTriggerRecord(x: unknown): x is AgentTriggerRecord {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const t = x as Record<string, unknown>;
   if (!isAgentJobTriggerOn(t.on)) return false;
   for (const k of ["emailId", "nodeId", "chatId", "by", "parentJobId"] as const) {
@@ -1437,7 +1437,7 @@ export function isAgentTriggerRecord(x: unknown): x is AgentTriggerRecord {
 }
 
 export function isAgentProposal(x: unknown): x is AgentProposal {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const p = x as Record<string, unknown>;
   if (typeof p.summary !== "string") return false;
   if (!isActionList(p.actions)) return false;
@@ -1450,7 +1450,7 @@ export function isAgentProposal(x: unknown): x is AgentProposal {
 }
 
 export function isAgentJob(x: unknown): x is AgentJob {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const j = x as Record<string, unknown>;
   if (j.v !== 1) return false;
   if (typeof j.id !== "string" || !j.id) return false;
@@ -1564,7 +1564,7 @@ export function isAgentDecisionState(x: unknown): x is AgentDecisionState {
 }
 
 export function isAgentDecision(x: unknown): x is AgentDecision {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1) return false;
   for (const k of ["id", "jobId", "accountId", "ruleId", "summary"] as const) {
@@ -1670,7 +1670,7 @@ export function claimEpoch(claim: { epoch?: number }): number {
 }
 
 export function isAgentClaim(x: unknown): x is AgentClaim {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const c = x as Record<string, unknown>;
   if (c.v !== 1) return false;
   if (typeof c.accountId !== "string") return false;
@@ -1701,7 +1701,7 @@ export interface AgentStreamClaim {
 }
 
 export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const c = x as Record<string, unknown>;
   return (
     c.v === 1 &&
@@ -1832,7 +1832,7 @@ export interface AgentProseDoc {
 }
 
 export function isAgentProseDoc(x: unknown): x is AgentProseDoc {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   return (
     d.v === 1 &&
@@ -1889,7 +1889,7 @@ export const AGENT_NOTEBOOK_FACTS_MAX = 100;
 export const AGENT_NOTEBOOK_FACT_MAX = 500;
 
 export function isAgentNotebookFact(x: unknown): x is AgentNotebookFact {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const f = x as Record<string, unknown>;
   if (typeof f.id !== "string" || !f.id) return false;
   if (typeof f.text !== "string" || f.text.length > AGENT_NOTEBOOK_FACT_MAX) return false;
@@ -1899,7 +1899,7 @@ export function isAgentNotebookFact(x: unknown): x is AgentNotebookFact {
 }
 
 export function isAgentNotebookDoc(x: unknown): x is AgentNotebookDoc {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || !Array.isArray(d.facts)) return false;
   if (d.facts.length > AGENT_NOTEBOOK_FACTS_MAX) return false;
@@ -2033,7 +2033,7 @@ export interface AgentUsage {
 }
 
 export function isAgentUsage(x: unknown): x is AgentUsage {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const u = x as Record<string, unknown>;
   return (
     countOrNull(u.inputHitTokens) === u.inputHitTokens &&
@@ -2168,7 +2168,7 @@ export function isAgentAuthoringDoc(x: unknown): x is AgentAuthoringDoc {
   if (d.v !== 1 || typeof d.month !== "string" || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
     const a = e as Record<string, unknown>;
-    if (!a || typeof a !== "object") return false;
+    if (!isRecord(a)) return false;
     if (typeof a.at !== "string" || typeof a.about !== "string") return false;
     if (a.group !== undefined && typeof a.group !== "string") return false;
     if (a.by !== undefined && typeof a.by !== "string") return false;
@@ -2185,7 +2185,7 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
   if (d.v !== 1 || typeof d.month !== "string" || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
     const a = e as Record<string, unknown>;
-    if (!a || typeof a !== "object") return false;
+    if (!isRecord(a)) return false;
     if (typeof a.at !== "string" || typeof a.jobId !== "string") return false;
     if (typeof a.ruleId !== "string" || typeof a.ruleVersion !== "number") return false;
     if (!isAgentAuditOutcome(a.outcome)) return false;
@@ -2332,7 +2332,7 @@ export function isModelMaxOutput(x: unknown): x is number {
 export const AGENT_ACTIONS_MAX = 20;
 
 export function isAgentProvider(x: unknown): x is AgentProvider {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const p = x as Record<string, unknown>;
   return (
     typeof p.provider === "string" &&
@@ -2393,7 +2393,7 @@ export interface AgentRecord {
 }
 
 export function isAgentRecord(x: unknown): x is AgentRecord {
-  if (!x || typeof x !== "object") return false;
+  if (!isRecord(x)) return false;
   const w = x as Record<string, unknown>;
   return (
     w.v === 1 &&

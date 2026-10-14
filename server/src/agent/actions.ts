@@ -30,15 +30,16 @@ import {
 import { ownIdentityAccount } from "../identityAdmin.js";
 import {
   BlobTooLargeError,
-  retryStateMismatch,
-  WRITE_ATTEMPTS,
   JMAP_MAIL,
   JMAP_SUBMISSION,
   JmapClient,
+  retryStateMismatch,
+  WRITE_ATTEMPTS,
 } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import type { SetResponse } from "../shared/jmap.js";
+import { isRecord } from "../shared/json.js";
 import {
   blocksFromText,
   buildDraft,
@@ -274,7 +275,7 @@ function addressesOf(
 ): Array<{ name?: string; email?: string }> {
   const out: Array<{ name?: string; email?: string }> = [];
   for (const entry of list) {
-    if (!entry || typeof entry !== "object") continue;
+    if (!isRecord(entry)) continue;
     const address = entry as { name?: unknown; email?: unknown };
     const parsed: { name?: string; email?: string } = {};
     if (typeof address.name === "string" && address.name) parsed.name = address.name;
@@ -1496,7 +1497,7 @@ function attachmentParts(record: EmailRecord): AttachmentPart[] {
   if (listed.length) return listed.filter((part) => Boolean(part.blobId));
   const out: AttachmentPart[] = [];
   const walk = (part: AttachmentPart | undefined) => {
-    if (!part || typeof part !== "object") return;
+    if (!isRecord(part)) return;
     const type = typeof part.type === "string" ? part.type : "";
     if (part.blobId && !type.startsWith("multipart/")) out.push(part);
     if (Array.isArray(part.subParts))

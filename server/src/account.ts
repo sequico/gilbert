@@ -235,7 +235,7 @@ export function beginOtpEnrolment(ctx: Ctx): { secret: string; url: string } {
     url: otpauthUrl({
       secret,
       account: ctx.username,
-      issuer: config.appName || "Gilbert",
+      issuer: config.appName,
     }),
   };
 }

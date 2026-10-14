@@ -20,6 +20,7 @@ import { client, JmapMethodError } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
 import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
+  CHAT_MAX_TEXT,
   CHAT_PAGE,
   type ChatFolders,
   type ChatMessage,
@@ -28,7 +29,6 @@ import {
   ensureChatFolders,
   fetchMessage,
   isChatMarkerDoc,
-  MAX_TEXT,
   markerNameFor,
   mentionablesOf,
   mentionsFromText,
@@ -450,7 +450,7 @@ export const useChat = create<ChatState>((set, get) => {
     setDraft(accountId, text) {
       const conv = get().conversations[accountId];
       if (!conv) return;
-      if (text.length > MAX_TEXT) return; // the input caps, but never trust it here
+      if (text.length > CHAT_MAX_TEXT) return; // the input caps, but never trust it here
       set((s) => ({
         conversations: { ...s.conversations, [accountId]: { ...conv, draft: text } },
       }));
@@ -495,7 +495,7 @@ export const useChat = create<ChatState>((set, get) => {
         const folders = conv.folders ?? (await ensureChatFolders(accountId));
         const me = get().me();
         if (!me) return;
-        const body = text.slice(0, MAX_TEXT);
+        const body = text.slice(0, CHAT_MAX_TEXT);
         /* The group's agent is a participant before it has ever posted (ADR
            0003 resolution 11): the picker offers it, so a mention of it has to
            reach the document too — otherwise the mention lives in the text and

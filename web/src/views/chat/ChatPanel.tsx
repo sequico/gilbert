@@ -12,11 +12,11 @@ import { Bot, CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import {
+  CHAT_MAX_TEXT,
   CHAT_PAGE,
   type ChatMention,
   type ChatMessage,
   localPart,
-  MAX_TEXT,
   mentionablesOf,
   mentionRegex,
   participantsOf,
@@ -679,7 +679,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
             <ChatInput
               ref={chatInputRef}
               value={open.draft}
-              maxLength={MAX_TEXT}
+              maxLength={CHAT_MAX_TEXT}
               mentionables={mentionables}
               placeholder={t("Message {group}", { group: localPart(open.name) })}
               onChange={(text) => setDraft(open.accountId, text)}

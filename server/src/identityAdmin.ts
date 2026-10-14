@@ -401,7 +401,7 @@ export function groupAccountId(ctx: Ctx, group: string): string {
 /* ------------------------------------------------------------------ */
 
 function toIdentity(raw: unknown): Identity | null {
-  if (!raw || typeof raw !== "object") return null;
+  if (!isRecord(raw)) return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.id !== "string") return null;
   return {
@@ -443,7 +443,7 @@ function checkedPatch(raw: unknown, creating: boolean): IdentityPatch {
     if (!Array.isArray(value))
       throw new IdentityAdminError("invalid_identity", `"${field}" must be a list.`);
     return value.map((entry) => {
-      if (!entry || typeof entry !== "object")
+      if (!isRecord(entry))
         throw new IdentityAdminError("invalid_identity", `"${field}" must be a list.`);
       const a = entry as Record<string, unknown>;
       const email = typeof a.email === "string" ? a.email.trim() : "";

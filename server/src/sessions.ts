@@ -305,12 +305,12 @@ function accountOf(s: StoredSession): string {
  * written before `appPassword` existed is a password session (ADR 0001).
  */
 function readRecords(value: unknown): StoredSession[] {
-  if (!value || typeof value !== "object") return [];
+  if (!isRecord(value)) return [];
   const list = (value as { sessions?: unknown }).sessions;
   if (!Array.isArray(list)) return [];
   const out: StoredSession[] = [];
   for (const entry of list) {
-    if (!entry || typeof entry !== "object") continue;
+    if (!isRecord(entry)) continue;
     const r = entry as Record<string, unknown>;
     if (typeof r.idHash !== "string" || !r.idHash) continue;
     if (typeof r.secretHash !== "string" || !r.secretHash) continue;

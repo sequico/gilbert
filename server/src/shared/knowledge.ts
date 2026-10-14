@@ -45,7 +45,7 @@ export function revisionFileName(revision: string): string {
 export const MAX_TITLE = 200;
 export const MAX_TAG = 60;
 export const MAX_TAGS = 40;
-export const MAX_TEXT = 200_000;
+export const KNOWLEDGE_MAX_TEXT = 200_000;
 
 /** Who and when, on every document this KB writes. */
 export interface KnowledgeTimes {
@@ -529,7 +529,7 @@ export function plainTextFromBlocks(blocks: unknown): string {
     const children = plainTextFromBlocks(block.children);
     if (children) out.push(children);
   }
-  return out.join("\n").slice(0, MAX_TEXT);
+  return out.join("\n").slice(0, KNOWLEDGE_MAX_TEXT);
 }
 
 function inlineText(content: unknown): string {
@@ -814,7 +814,7 @@ export function buildDraft(input: {
     title: input.title,
     tags: normalizeKnowledgeTags(input.tags),
     blocks,
-    text: text.slice(0, MAX_TEXT),
+    text: text.slice(0, KNOWLEDGE_MAX_TEXT),
     checklist,
     created: input.created ?? times,
     updated: times,
