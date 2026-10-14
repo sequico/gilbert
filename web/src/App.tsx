@@ -423,9 +423,10 @@ function AuthedApp() {
       // (ADR 0028), and a check somebody else made is a write there: the store
       // re-reads the list through the route, and answers only while its panel is
       // open and only for an account it follows, so every FileNode change can be
-      // offered to it.
-      if (types.has("FileNode"))
-        work.push(useWorkorders.getState().applyChanges(accountId));
+      // offered to it. It arms a coalescing window rather than performing the
+      // read, so it is not awaited here: the barrier is what the pass means by
+      // "everything on screen is fresh", and the panel is deliberately not that.
+      if (types.has("FileNode")) useWorkorders.getState().applyChanges(accountId);
       return work;
     };
     /*

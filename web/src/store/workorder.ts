@@ -78,8 +78,13 @@ export interface WorkorderStore {
    * names the account and never the document): open the coalescing window when
    * it is an account this surface follows, so a check somebody else made
    * appears in the one read the window's close performs.
+   *
+   * It **arms** that window and returns: it answers no promise, because there is
+   * no read to await — the read happens when the window closes. A caller that
+   * awaits it as if the panel were fresh is awaiting nothing of the sort, which
+   * is why the shape says so.
    */
-  applyChanges(accountId: string): Promise<void>;
+  applyChanges(accountId: string): void;
   show(uid: string | null): void;
   create(input: WorkorderCreateInput): Promise<boolean>;
   /** Set one step's state, and the reason a skipped / not-applicable one carries. */
@@ -239,7 +244,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
      * parts, so a workorder an administrator created in a followed account in
      * between appears too.
      */
-    async applyChanges(accountId) {
+    applyChanges(accountId) {
       if (!accountId || !get().panelOpen) return;
       const held = get().workorders.some((w) =>
         w.parts.some((part) => part.accountId === accountId),

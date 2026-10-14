@@ -106,6 +106,13 @@ export function ContactsView({ id }: { id?: string }) {
    */
   const [query, setQuery] = useState("");
   useEffect(() => {
+    // Clearing the box is not a keystroke to wait out: the intent is
+    // unambiguous, and the list would otherwise show the old results -- or the
+    // empty state for a query nobody typed -- for the length of the timer.
+    if (!q) {
+      setQuery("");
+      return;
+    }
     const t = window.setTimeout(() => setQuery(q), 150);
     return () => window.clearTimeout(t);
   }, [q]);
@@ -299,12 +306,21 @@ export function ContactsView({ id }: { id?: string }) {
    */
   const listed = useMemo(() => {
     const rowOf = new Map(rowsInBook.map((p) => [p.card, p]));
+    /*
+     * Each filtered card is drawn through the row it came in as. `filterCards`
+     * returns the cards it was handed today, but its signature promises an order,
+     * not an identity: a card without a row is dropped rather than asserted away,
+     * so a future dedupe inside the filter is a missing row and not a crash.
+     */
     return contacts
       .filterCards(
         rowsInBook.map((p) => p.card),
         query,
       )
-      .map((c) => rowOf.get(c)!);
+      .flatMap((c) => {
+        const row = rowOf.get(c);
+        return row ? [row] : [];
+      });
   }, [contacts, rowsInBook, query]);
 
   /*

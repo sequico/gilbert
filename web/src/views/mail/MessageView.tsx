@@ -947,7 +947,19 @@ export const MessageView = memo(function MessageView({
             <div className="remote-banner" style={{ margin: "0 16px 8px" }}>
               <ImageIcon size={16} />
               <span className="grow">
-                {translate("Remote images are blocked to protect your privacy.")}
+                {/*
+                 * Two sentences, because there are two reasons. With the
+                 * installation's proxy off the CSP refuses a direct fetch
+                 * (`img-src 'self' data: blob:`), so the cause is the operator's
+                 * setting and no answer of the reader's would change it — telling
+                 * them privacy, with every control to resolve it absent, was a
+                 * reason that was not the one in force.
+                 */}
+                {imageProxy
+                  ? translate("Remote images are blocked to protect your privacy.")
+                  : translate(
+                      "This installation does not load remote images through its proxy.",
+                    )}
               </span>
               {/*
                * The controls only when the installation can load a remote image

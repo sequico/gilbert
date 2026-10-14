@@ -1111,9 +1111,11 @@ export const useFiles = create<FilesState>((set, get) => ({
        * A level larger than one page is read whole: a single page would show
        * the first rows and silently drop the rest, leaving the tail of the
        * folder unreachable (`readChildren` pages it, and stops when a page
-       * comes back short). The read carries no sort any more, so the stored
-       * order -- which the file picker and the move dialog draw directly -- is
-       * the one the Files view itself uses.
+       * comes back short). The read carries no sort any more, so what is stored
+       * is `DEFAULT_FILES_SORT` — the order the picker and the move dialog draw
+       * directly. The Files view sorts what it draws by the reader's own
+       * per-folder order (`useFilesSort`), which is not this one and is not
+       * meant to be.
        */
       const listed = sortFiles(
         withoutAppFolder(await readChildren(accountId, parentId)),

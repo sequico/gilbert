@@ -366,6 +366,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
    */
   const replyToMessage = useCallback(
     (id: Id) => {
+      // `openAccountId` and the open conversation's own `accountId` are the same
+      // by construction -- conversations are keyed by their account -- and this
+      // spelling is the stable one the rows' memo needs.
       if (openAccountId) setReply(openAccountId, id);
       chatInputRef.current?.focus();
     },

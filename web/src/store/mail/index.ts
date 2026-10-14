@@ -892,9 +892,12 @@ export const useMail = create<MailState>((set, get) => ({
       toast.error(t("Move failed: {error}", { error: (err as Error).message }));
       void get().refreshList();
       /*
-       * The server refused, so nothing moved and the optimistic patch above is
-       * undone by the refresh. A caller reads this to know the move did not
-       * happen -- reporting it as done would move focus off a row still here.
+       * The server refused, so nothing moved: the refresh re-reads the list's
+       * window and the optimistic patch goes with it. A second change landing
+       * while that read is in flight moves the generation and the read is
+       * dropped, so the rows come back with the next one rather than instantly —
+       * which is why a caller is told the move did not happen instead of being
+       * shown a repair.
        */
       return { ok: false, code: "server_refused" };
     }
