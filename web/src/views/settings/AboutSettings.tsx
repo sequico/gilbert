@@ -1,6 +1,6 @@
 import { STALWART_MIN_VERSION } from "@gilbert/shared/capabilities";
 import { client } from "@/jmap/client";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { appNameFor } from "@/lib/brand";
 import { t, tNode } from "@/lib/i18n";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { APP_VERSION } from "@/lib/version";
@@ -12,7 +12,7 @@ export function AboutSettings() {
   const caps = Object.keys(session?.capabilities ?? {});
   // A deployment running modified code should offer its own source, not ours.
   const sourceUrl = session?.gilbert?.sourceUrl ?? DEFAULT_SOURCE_URL;
-  const appName = session?.gilbert?.appName ?? DEFAULT_APP_NAME;
+  const appName = appNameFor(session);
   return (
     <div>
       <h1>{t("About Gilbert")}</h1>

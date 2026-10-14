@@ -1,7 +1,7 @@
 import { client, setErrorMessage } from "@/jmap/client";
 import type { Email, EmailAddress, Id, SetResponse } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { appNameFor } from "@/lib/brand";
 import { uid } from "@/lib/format";
 import { buildMdn, MDN_SENT_KEYWORD, mdnDecision } from "@/lib/mdn";
 import { APP_VERSION } from "@/lib/version";
@@ -51,7 +51,7 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     // The instance's own name and this build's version, both from their one
     // source: a receipt that says "Gilbert 2.0" hardcoded names a product and a
     // version this deployment may not be.
-    const appName = useSession.getState().session?.gilbert?.appName || DEFAULT_APP_NAME;
+    const appName = appNameFor(useSession.getState().session);
     const mime = buildMdn({
       email,
       from,

@@ -1,41 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { appNameFor, DEFAULT_APP_NAME } from "@/lib/brand";
 
 /*
  * The name an instance calls itself.
  *
  * `APP_NAME` is a runtime variable, so every place showing the name asks the
  * server rather than having it written in; the sign-in page fetches
- * `/api/config` for it. These pin the shape of the answer rather than the
- * name.
+ * `/api/config` for it. `appNameFor` is the one answer a session's flag gets,
+ * and these pin the shape of that answer rather than the name.
  */
 
-const nameFrom = (config: { appName?: unknown } | null) =>
-  config && typeof config.appName === "string" && config.appName.trim()
-    ? config.appName.trim()
-    : DEFAULT_APP_NAME;
-
-describe("resolving the instance name", () => {
-  it("uses what the server says", () => {
-    expect(nameFrom({ appName: "Acme Mail" })).toBe("Acme Mail");
-  });
-
-  it("trims it, because a name with an edge of whitespace is a layout bug", () => {
-    expect(nameFrom({ appName: "  Acme Mail  " })).toBe("Acme Mail");
+describe("appNameFor", () => {
+  it("uses what the session says", () => {
+    expect(appNameFor({ gilbert: { appName: "Acme Mail" } })).toBe("Acme Mail");
   });
 
   it("falls back when the request failed", () => {
     // A sign-in form with no name on it is worse than one with the wrong name.
-    expect(nameFrom(null)).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor(null)).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor(undefined)).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor({})).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor({ gilbert: {} })).toBe(DEFAULT_APP_NAME);
   });
 
-  it("falls back on a name that is empty or only spaces", () => {
-    expect(nameFrom({ appName: "" })).toBe(DEFAULT_APP_NAME);
-    expect(nameFrom({ appName: "   " })).toBe(DEFAULT_APP_NAME);
+  it("falls back on a name that is empty, only spaces, or not a string", () => {
+    expect(appNameFor({ gilbert: { appName: "" } })).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor({ gilbert: { appName: "   " } })).toBe(DEFAULT_APP_NAME);
+    expect(appNameFor({ gilbert: { appName: 42 } })).toBe(DEFAULT_APP_NAME);
   });
 
-  it("falls back on a name that is not a string at all", () => {
-    expect(nameFrom({ appName: 42 })).toBe(DEFAULT_APP_NAME);
-    expect(nameFrom({})).toBe(DEFAULT_APP_NAME);
+  it("keeps a name whose edge whitespace is the deployment's own business", () => {
+    // A leading space in a configured name is the operator's to see; only a
+    // name with nothing in it is a missing answer.
+    expect(appNameFor({ gilbert: { appName: " Acme Mail " } })).toBe(" Acme Mail ");
   });
 });

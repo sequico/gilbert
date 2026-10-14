@@ -3,7 +3,7 @@ import { Redirect, Route, Router, Switch } from "wouter";
 import { client } from "@/jmap/client";
 import { catchUpLive, push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { appNameFor } from "@/lib/brand";
 import { shouldCatchUp } from "@/lib/catchUp";
 import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
@@ -615,7 +615,7 @@ function AuthedApp() {
     }
     return 0;
   });
-  const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
+  const appName = useSession((s) => appNameFor(s.session));
   useEffect(() => {
     setBaseTitle(appName);
     setUnreadBadge(inboxUnread);

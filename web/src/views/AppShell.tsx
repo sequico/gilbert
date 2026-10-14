@@ -31,7 +31,7 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import { mayAdminister } from "@/lib/administer";
-import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { appNameFor } from "@/lib/brand";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
@@ -231,7 +231,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     : t(PUSH_LABEL[pushState]);
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
-  const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
+  const appName = useSession((s) => appNameFor(s.session));
   const acctMenu = useMenu();
   /*
    * "Go to folder" (#233), hosted here rather than in the mail view because

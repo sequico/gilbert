@@ -13,6 +13,25 @@
 export const DEFAULT_APP_NAME = "Gilbert";
 
 /**
+ * The name this session reads, once the session has said one.
+ *
+ * The same question was asked in four places and answered two ways: three read
+ * `appName || DEFAULT_APP_NAME` and one read `?? DEFAULT_APP_NAME`, so an
+ * installation that sent an empty string by accident was "Gilbert" on the
+ * sign-in page and an empty heading in Settings. An empty string is not a name,
+ * so it falls back here, once, for every reader.
+ *
+ * The session type is structural so a store's `getState()` snapshot and a
+ * rendered `session` both fit.
+ */
+export function appNameFor(
+  session: { gilbert?: { appName?: unknown } | null } | null | undefined,
+): string {
+  const name = session?.gilbert?.appName;
+  return typeof name === "string" && name.trim() ? name : DEFAULT_APP_NAME;
+}
+
+/**
  * The name, expanded: Gilbert is a backronym, and this is what it stands for.
  *
  * A name rather than a sentence, so it is never translated -- the sign-in form
