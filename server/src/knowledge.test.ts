@@ -29,7 +29,9 @@ const DEMO = "demo@example.com";
 
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
-const { fileChildren, findFolderPath, writeAppFile } = await import("./appFolder.js");
+const { fileChildren, FILENODE_CAP, findAppFileAt, findFolderPath, writeAppFile } =
+  await import("./appFolder.js");
+const { clientOf } = await import("./util.js");
 const { signInAsMaster } = await import("./bootstrap.js");
 const {
   readArticle: readArticleDoor,
@@ -597,4 +599,44 @@ test("a create whose listing key cannot be written is not left half-made", async
   // numbered sibling from the orphaned directory.
   const again = await create("Half made");
   assert.equal(again.folder, "Half made", "no orphan kept the name");
+});
+
+/**
+ * A save refuses to replace an article document it cannot read.
+ *
+ * The shared draft and its listing key are read together, and a save that reads
+ * either as absent treats the article as new: it mints an `id` and writes the
+ * lifecycle pointers back as `null`, which revives a retired article and loses
+ * the revision in force. A document whose bytes cannot be read reads as absent
+ * in a reader's eyes, so the save refuses it instead — and nothing is uploaded
+ * to replace what it could not read.
+ */
+test("a save refuses to replace an article document it cannot read", async () => {
+  const article = await create("Unreadable draft");
+  await save(article.folder, "body");
+  const where = await company();
+  const path = `knowledge/${article.folder}/draft.json`;
+  const draft = await findAppFileAt(ctx, where.accountId, path);
+  const nodeId = draft.file?.id;
+  assert.ok(nodeId, "the article has a draft document to read");
+  await clientOf(ctx).call(
+    "FileNode/set",
+    {
+      accountId: where.accountId,
+      update: { [String(nodeId)]: { blobId: "no-such-blob" } },
+    },
+    [FILENODE_CAP],
+  );
+
+  const uploaded = mock.uploads.count;
+  const refused = await post("/api/knowledge/save", {
+    scope: "company",
+    folder: article.folder,
+    input: { title: article.folder, tags: [], blocks: [], text: "another body" },
+  });
+  assert.equal(refused.status, 502, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "article_unreadable");
+  assert.equal(mock.uploads.count, uploaded, "nothing was uploaded to replace it with");
+  const after = await findAppFileAt(ctx, where.accountId, path);
+  assert.equal(after.file?.blobId, "no-such-blob", "the document is where it was");
 });

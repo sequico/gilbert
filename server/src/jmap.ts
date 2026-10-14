@@ -242,6 +242,21 @@ export class JmapClient {
     return this.session;
   }
 
+  /**
+   * The most ids one `/get` may name, as the server states it.
+   *
+   * A listing asks for ids and then asks for those objects in the same request,
+   * so a page wider than this is refused whole (`requestTooLarge`) rather than
+   * cut short: a reader pages at this size, never at whatever it would prefer.
+   * The fallback is the ceiling every server must advertise (RFC 8620).
+   */
+  get maxObjectsInGet(): number {
+    const core = this.session.capabilities?.[JMAP_CORE] as
+      | { maxObjectsInGet?: number }
+      | undefined;
+    return core?.maxObjectsInGet ?? 500;
+  }
+
   /** The account that owns a capability, personal accounts preferred. */
   accountFor(capability: string): string {
     const primary = this.session.primaryAccounts?.[capability];

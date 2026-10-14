@@ -42,23 +42,28 @@ const BOB = "bob@example.com";
 const BOB_PASS = "bob-password";
 const GROUP = "team@example.org";
 const OTHER_GROUP = "sales@example.org";
+const AGENT = process.env.GILBERT_AGENT_ADDRESS ?? "gilbert@example.com";
+const AGENT_PASS = process.env.GILBERT_AGENT_PASSWORD ?? "gilbert-password";
 
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
-const { readDefaultIdentity, writeDefaultIdentity, requireState } = await import(
-  "./identityAdmin.js"
-);
+const { groupAccountId, readDefaultIdentity, writeDefaultIdentity, requireState } =
+  await import("./identityAdmin.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const {
+  ensureAppFolder,
+  FILENODE_CAP,
   fileChildren,
   findAppFileAt,
   findAppFolder,
   readAppJsonAt,
+  removeAppFile,
   writeAppBytesAt,
   writeAppFile,
 } = await import("./appFolder.js");
 const { JMAP_SUBMISSION } = await import("./jmap.js");
 const { useDurableSessions } = await import("./app.js");
+const { clientOf } = await import("./util.js");
 
 /*
  * This deployment names a Master, so sessions live in that account's own
@@ -520,6 +525,63 @@ test("a malformed address is refused before any server is asked", async () => {
   const res = await call("/api/admin/identities/user?address=nonsense", adminCookie);
   assert.equal(res.status, 400);
   assert.equal(res.body?.error, "invalid_address");
+});
+
+/**
+ * A read-modify-write refuses to replace an assignments document it cannot read.
+ *
+ * One save reads the group's whole assignment list and writes it back with the
+ * change merged in. A document whose bytes cannot be read reads as "no
+ * assignments yet", and the write would then replace every member's assignment
+ * with the single one being made — so the door refuses instead, and nothing is
+ * uploaded to replace it. A group the agent is not granted on never reaches
+ * this, which is why the fixture writes the document as the agent itself.
+ */
+test("a group assignment write refuses a document it cannot read", async () => {
+  const agentAuth = basic(AGENT, AGENT_PASS);
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: AGENT,
+  };
+  const groupAccount = groupAccountId(agentCtx, GROUP);
+  assert.ok(groupAccount, "the agent holds the group's account");
+  // A document whose bytes cannot come back: the file is there, so the
+  // assignments are not absent, and they cannot be read.
+  await removeAppFile(agentCtx, groupAccount, "identity-assignments.json");
+  const folderId = await ensureAppFolder(agentCtx, groupAccount);
+  await clientOf(agentCtx).call(
+    "FileNode/set",
+    {
+      accountId: groupAccount,
+      create: {
+        n: {
+          parentId: folderId,
+          name: "identity-assignments.json",
+          blobId: "no-such-blob",
+          type: "application/json",
+          nodeType: "file",
+        },
+      },
+    },
+    [FILENODE_CAP],
+  );
+
+  const uploaded = mock.uploads.count;
+  const refused = await post("/api/admin/identities/group", adminCookie, {
+    name: GROUP,
+    id: null,
+    patch: { email: GROUP },
+  });
+  assert.equal(refused.status, 502, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "assignments_unreadable");
+  assert.equal(mock.uploads.count, uploaded, "nothing was uploaded to replace it with");
+  const { file } = await findAppFileAt(
+    agentCtx,
+    groupAccount,
+    "identity-assignments.json",
+  );
+  assert.equal(file?.blobId, "no-such-blob", "the document is where it was");
 });
 
 /* ------------------------------------------------------------------ */

@@ -73,7 +73,7 @@ import type {
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
-import type { SetResponse } from "./shared/jmap.js";
+import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 /*
@@ -389,16 +389,6 @@ export function groupAccountId(ctx: Ctx, group: string): string {
 /* ------------------------------------------------------------------ */
 /* Reading and writing one account's identities                        */
 /* ------------------------------------------------------------------ */
-
-/** What a method-level refusal says, when it says anything. */
-export function refusalOf(
-  entry: { type?: unknown; description?: unknown } | undefined,
-): string {
-  if (!entry) return "the mail server refused the change without saying why";
-  const description = typeof entry.description === "string" ? entry.description : "";
-  const type = typeof entry.type === "string" ? entry.type : "";
-  return description || type || "the mail server refused the change without saying why";
-}
 
 function toIdentity(raw: unknown): Identity | null {
   if (!raw || typeof raw !== "object") return null;

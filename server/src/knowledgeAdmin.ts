@@ -37,10 +37,11 @@ import {
   readAppJsonForWrite,
   writeAppFileIn,
 } from "./appFolder.js";
-import { groupAccountId, refusalOf } from "./identityAdmin.js";
+import { groupAccountId } from "./identityAdmin.js";
 import { isStateMismatch, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
+import { refusalOf } from "./shared/jmap.js";
 import {
   buildDraft,
   buildFolderDoc,

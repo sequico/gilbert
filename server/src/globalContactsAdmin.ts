@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { openMasterAccount } from "./adminSession.js";
 import type { Ctx } from "./appFolder.js";
-import { IdentityAdminError, refusalOf, requireState } from "./identityAdmin.js";
+import { IdentityAdminError, requireState } from "./identityAdmin.js";
 import { isStateMismatch, JMAP_CONTACTS, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import {
@@ -9,6 +9,7 @@ import {
   type GlobalContactInput,
   type GlobalContactView,
 } from "./shared/globalContacts.js";
+import { refusalOf } from "./shared/jmap.js";
 
 /**
  * The Global contacts directory, written and read as the Master (ADR 0023).

@@ -50,3 +50,21 @@ export interface SetResponse<T = Record<string, unknown>> {
   notUpdated?: Record<string, SetError>;
   notDestroyed?: Record<string, SetError>;
 }
+
+/**
+ * What a method-level refusal says, when it says anything.
+ *
+ * A `/set` answers a refusal inside a successful response, so every caller that
+ * reads one has to turn it into a sentence for whoever asked. It lives here,
+ * beside the shape it reads, because both tiers' writers need it: the admin
+ * doors that write identities and contacts, and the app folder both of them
+ * write through.
+ */
+export function refusalOf(
+  entry: { type?: unknown; description?: unknown } | undefined,
+): string {
+  if (!entry) return "the mail server refused the change without saying why";
+  const description = typeof entry.description === "string" ? entry.description : "";
+  const type = typeof entry.type === "string" ? entry.type : "";
+  return description || type || "the mail server refused the change without saying why";
+}

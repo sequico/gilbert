@@ -34,8 +34,11 @@ const mock = await import("./mock/index.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { isStateMismatch } = await import("./jmap.js");
 const {
+  AppFolderError,
   appFolderState,
+  destroyAppNode,
   ensureAppFolder,
+  ensureFolderPath,
   FILENODE_CAP,
   fileChildren,
   filesAccountId,
@@ -47,6 +50,7 @@ const {
   readVisibleFileAt,
   writeAppBytesAt,
   writeAppFileAt,
+  writeAppFileIn,
   writeBytesIntoVisibleFolder,
 } = await import("./appFolder.js");
 const { clientOf } = await import("./util.js");
@@ -379,4 +383,105 @@ test("a writer refuses to replace a settings document it cannot read", async () 
     uploaded,
     "and nothing was uploaded to replace it with",
   );
+});
+
+/**
+ * The document a create was refused over is the one the caller asked for.
+ *
+ * A write looks the name up first, and a second writer of the same new name can
+ * commit it between that lookup and the create — which the server then refuses
+ * `alreadyExists`. The refusal is neither a failure nor a no-op: the node the
+ * refusal names is where these bytes belong, so the write lands them there.
+ * Reading only the create's id, which a refusal does not carry, would leave the
+ * bytes unstored while the caller was told the write succeeded.
+ */
+test("a create refused because the name is taken writes into the node that holds it", async () => {
+  const folderId = await ensureAppFolder(ctx, accountId);
+  // A node holding the name with no bytes yet: what a writer's own lookup does
+  // not count as the document (it wants a `blobId`), and what the create then
+  // collides with.
+  const held = await clientOf(ctx).call<{ created?: Record<string, { id?: string }> }>(
+    "FileNode/set",
+    {
+      accountId,
+      create: {
+        n: {
+          parentId: folderId,
+          name: "raced.json",
+          blobId: null,
+          type: "application/json",
+          nodeType: "file",
+        },
+      },
+    },
+    [FILENODE_CAP],
+  );
+  const nodeId = held.created?.n?.id;
+  assert.ok(nodeId, "the node that holds the name is there");
+
+  await writeAppFileIn(ctx, accountId, folderId, "raced.json", { v: 1 });
+
+  assert.deepEqual(
+    await readAppJsonAt(ctx, accountId, "raced.json"),
+    { v: 1 },
+    "the refused write's bytes are stored",
+  );
+  const { file } = await findAppFileAt(ctx, accountId, "raced.json");
+  assert.equal(file?.id, nodeId, "in the node that already held the name");
+});
+
+/**
+ * A refused removal is the caller's to see.
+ *
+ * `FileNode/set` answers a refusal inside `notDestroyed` in an otherwise
+ * successful response — a folder that still holds something is the everyday
+ * one — and a destroy that reads only the call's own success reports a removal
+ * that never happened. Missing stays success; a refusal is thrown.
+ */
+test("a refused destroy reaches the caller, and a missing node does not", async () => {
+  const folderId = await ensureFolderPath(ctx, accountId, "destroy-refused");
+  await writeAppFileIn(ctx, accountId, folderId, "inside.json", { v: 1 });
+
+  await assert.rejects(
+    () => destroyAppNode(ctx, accountId, folderId),
+    (err: unknown) => err instanceof AppFolderError,
+    "a folder that still holds a file is refused, and the refusal is thrown",
+  );
+
+  await destroyAppNode(ctx, accountId, folderId, { removeChildren: true });
+  // Gone is not refused: removing a node that is no longer there is the
+  // "missing is success" `removeAppFile` relies on.
+  await destroyAppNode(ctx, accountId, folderId);
+});
+
+/**
+ * A level larger than one page is read whole.
+ *
+ * Folders here only grow — one chat file per message, an article's revisions,
+ * an agent's jobs, the workorder registry — and a reader handed the first page
+ * alone sees an arbitrary subset of the level, which is how a write misses the
+ * document that is there and makes a second one.
+ */
+test("a folder whose level outgrows one page is read whole", async () => {
+  const folderId = await ensureFolderPath(ctx, accountId, "many-nodes");
+  const count = 1005; // past the 1000-node page
+  // A `/set` carries at most 500 objects (the mock's ceiling, and a real
+  // server's), so the fixture is built a batch at a time, the way any writer
+  // filling a level past a page has to.
+  const batch = 400;
+  for (let from = 0; from < count; from += batch) {
+    const create: Record<string, unknown> = {};
+    for (let n = from; n < Math.min(from + batch, count); n++)
+      create[`n${n}`] = {
+        parentId: folderId,
+        name: `file-${n}.json`,
+        blobId: null,
+        type: "application/json",
+        nodeType: "file",
+      };
+    await clientOf(ctx).call("FileNode/set", { accountId, create }, [FILENODE_CAP]);
+  }
+
+  const children = await fileChildren(ctx, accountId, folderId);
+  assert.equal(children.length, count, "every node of the level comes back");
 });

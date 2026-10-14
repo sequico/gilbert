@@ -36,6 +36,7 @@ import {
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
@@ -101,7 +102,22 @@ export function filesAccountId(ctx: Ctx): string {
   return "";
 }
 
-/** One level of the Files tree: the top level, or the children of a folder. */
+/**
+ * One level of the Files tree: the top level, or the children of a folder.
+ *
+ * Read whole: the level is paged (`position`/`limit`) until a page comes back
+ * short, because a level that outgrows one page is an ordinary state here — a
+ * chat that keeps one file per message, an article's revisions, an agent's
+ * jobs, the workorder registry — and a reader handed only the first page sees
+ * an arbitrary subset of it. A name a writer then failed to find would be
+ * created again over a document that is already there.
+ *
+ * `limit` is the page size, narrowed to what the server will resolve in one
+ * `/get` (see below): the pair asks for ids and then for those objects, and a
+ * page the server cannot resolve is refused whole rather than cut short. A page
+ * that repeats the previous one — a server ignoring `position` — is a failure
+ * rather than a loop.
+ */
 export async function fileChildren(
   ctx: Ctx,
   accountId: string,
@@ -110,18 +126,37 @@ export async function fileChildren(
   limit = 1000,
 ): Promise<FileNodeLike[]> {
   const filter = parentId ? { parentId } : { isTopLevel: true };
-  const res = await clientOf(ctx).chain(
-    queryThenGet({
-      query: "FileNode/query",
-      get: "FileNode/get",
-      accountId,
-      filter,
-      limit,
-      properties,
-    }),
-    [FILENODE_CAP],
-  );
-  return res.list<FileNodeLike>("g");
+  const client = clientOf(ctx);
+  // The server states its own ceiling, and a level past it is read in pages of
+  // that size: asking for more is not a shorter answer but a refused call.
+  const size = Math.min(limit, client.maxObjectsInGet);
+  const out: FileNodeLike[] = [];
+  let seenFirst: unknown;
+  for (let position = 0; ; ) {
+    const res = await client.chain(
+      queryThenGet({
+        query: "FileNode/query",
+        get: "FileNode/get",
+        accountId,
+        filter,
+        position,
+        limit: size,
+        properties,
+      }),
+      [FILENODE_CAP],
+    );
+    const page = res.list<FileNodeLike>("g");
+    if (!page.length) break;
+    if (page[0]?.id === seenFirst)
+      throw new AppFolderError(
+        "The mail server answered the same page twice while listing a folder.",
+      );
+    seenFirst = page[0]?.id;
+    out.push(...page);
+    position += page.length;
+    if (page.length < size) break;
+  }
+  return out;
 }
 
 /**
@@ -155,15 +190,30 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
   return ensureAppFolderId(
     (parentId) => fileChildren(ctx, accountId, parentId, FOLDER_PROPS),
     async () => {
-      const created = await clientOf(ctx).call<{
-        created?: Record<string, { id?: string }>;
-      }>("FileNode/set", { accountId, create: { d: appFolderCreate() } }, [FILENODE_CAP]);
+      const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+        "FileNode/set",
+        { accountId, create: { d: appFolderCreate() } },
+        [FILENODE_CAP],
+      );
       const id = created.created?.d?.id;
-      if (!id)
-        throw new AppFolderError(
-          "The mail server created the app folder but returned no id.",
-        );
-      return String(id);
+      if (id) return String(id);
+      /*
+       * A create that lost the race is not a failure to report, for the same
+       * reason `ensureChildFolder` says below: two processes booting on a fresh
+       * account both find the folder missing and both ask for it, and the
+       * server refuses the second with `alreadyExists`, naming the folder that
+       * is there. That folder is the one this call wanted.
+       */
+      const refused = created.notCreated?.d;
+      if (isAlreadyExistsRefusal(refused)) {
+        const named = refused?.existingId;
+        if (named) return named;
+        const again = await findAppFolder(ctx, accountId);
+        if (again) return again;
+      }
+      throw new AppFolderError(
+        "The mail server created the app folder but returned no id.",
+      );
     },
   );
 }
@@ -178,10 +228,7 @@ async function ensureChildFolder(
   const children = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
   const existing = children.find((n) => n.nodeType === "directory" && n.name === name);
   if (existing?.id) return String(existing.id);
-  const created = await clientOf(ctx).call<{
-    created?: Record<string, { id?: string }>;
-    notCreated?: Record<string, { type?: string; existingId?: string }>;
-  }>(
+  const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
     "FileNode/set",
     { accountId, create: { d: { parentId, name, nodeType: "directory" } } },
     [FILENODE_CAP],
@@ -524,7 +571,8 @@ async function holdsSameDocument(
  *
  * The returned id is the one the write would have returned anyway: the existing
  * node's id when there is one (the update path returned it too), the id the
- * server minted when the name is new.
+ * server minted when the name is new — or the node already carrying the name,
+ * when that create was refused and the write recovered onto it.
  */
 async function writeFile(
   ctx: Ctx,
@@ -574,28 +622,62 @@ async function setFileNode(
   // permission — leaves a blob nothing refers to. It is the server's to
   // collect, and the alternative (uploading after the node exists) trades it
   // for a node with no bytes, which is worse.
-  if (file?.id) {
-    await client.call(
+  let id = file?.id ? String(file.id) : "";
+  if (!id) {
+    // The node the write made comes back, because a caller that has to say what
+    // it wrote — the trail, and the lineage a chain is read along — can only
+    // name an id the server gave it.
+    const created = await client.call<SetResponse<{ id?: unknown }>>(
       "FileNode/set",
-      { accountId, ...conditional, update: { [String(file.id)]: { blobId, type } } },
+      {
+        accountId,
+        ...conditional,
+        create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
+      },
       [FILENODE_CAP],
     );
-    return String(file.id);
+    const createdId = created.created?.n?.id;
+    if (typeof createdId === "string") return createdId;
+    const refused = created.notCreated?.n;
+    /*
+     * A create refused because a sibling already carries the name is the
+     * document this call was writing, made by whoever won the race: the lookup
+     * this write began with ran before that node existed, so the name was free
+     * then and collides now. Taking the node that is there and writing these
+     * bytes into it is the whole answer — the name the caller asked for then
+     * holds what the caller asked it to hold.
+     *
+     * `existingId` names that node when the create met a committed sibling, and
+     * is absent when it collided with one made earlier in the same request
+     * (`isAlreadyExistsRefusal`); re-reading the folder is the fallback, and it
+     * is also the last thing that can be done before the refusal is thrown.
+     */
+    if (isAlreadyExistsRefusal(refused)) {
+      const existing =
+        refused?.existingId ?? (await findInFolder(ctx, accountId, folderId, name))?.id;
+      if (existing) id = String(existing);
+    }
+    if (!id)
+      throw new AppFolderError(
+        refused
+          ? refusalOf(refused)
+          : "The mail server accepted the write but returned no node id.",
+      );
   }
-  // The node the write made comes back, because a caller that has to say what
-  // it wrote — the trail, and the lineage a chain is read along — can only name
-  // an id the server gave it.
-  const created = await client.call<{ created?: Record<string, { id?: unknown }> }>(
+  /*
+   * The write itself, one call for both ways in: the id is the node the lookup
+   * found, or the one a refused create was recovered onto. A refusal lands in
+   * `notUpdated` in an otherwise successful response, so a caller told the
+   * write succeeded would be told so about nothing; it is thrown instead.
+   */
+  const res = await client.call<SetResponse>(
     "FileNode/set",
-    {
-      accountId,
-      ...conditional,
-      create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
-    },
+    { accountId, ...conditional, update: { [id]: { blobId, type } } },
     [FILENODE_CAP],
   );
-  const id = created.created?.n?.id;
-  return typeof id === "string" ? id : "";
+  const refusedUpdate = res.notUpdated?.[id];
+  if (refusedUpdate) throw new AppFolderError(refusalOf(refusedUpdate));
+  return id;
 }
 
 /**
@@ -711,12 +793,11 @@ export async function readAppJsonAt(
  * that failed, and bytes that are not JSON — each of them a document that may
  * well exist — is the whole of the difference.
  *
- * `absent` is what the listing of the holding folder says: a name past the page
- * `fileChildren` returns, or a node the walk does not recognise as a file, reads
- * the same way. The writer then creates its document rather than replacing one —
- * the failure that costs, and one a folder holding a thousand sibling documents
- * would see. Nothing about that is new here; the difference is that the answer
- * is now stated rather than folded into `null`.
+ * `absent` is what the listing of the holding folder says: a node the walk does
+ * not recognise as a file reads the same way as nothing there. The writer then
+ * creates its document rather than replacing one — the failure that costs.
+ * Nothing about that is new here; the difference is that the answer is now
+ * stated rather than folded into `null`.
  */
 export type AppDocumentRead =
   | { kind: "ok"; doc: unknown }
@@ -967,7 +1048,7 @@ export async function destroyAppNode(
   id: string,
   opts: { ifInState?: string; removeChildren?: boolean } = {},
 ): Promise<void> {
-  await clientOf(ctx).call(
+  const res = await clientOf(ctx).call<SetResponse>(
     "FileNode/set",
     {
       accountId,
@@ -979,4 +1060,14 @@ export async function destroyAppNode(
     },
     [FILENODE_CAP],
   );
+  /*
+   * A refusal lands in `notDestroyed` in an otherwise successful response, and
+   * reading only the call's own success would report a removal that never
+   * happened — a folder still holding something, a lost compare-and-set, a
+   * permission. `notFound` is not one of those: the node is already gone, which
+   * is the absence the doc above calls success.
+   */
+  const refused = res.notDestroyed?.[id];
+  if (refused && refused.type !== "notFound")
+    throw new AppFolderError(refusalOf(refused));
 }
