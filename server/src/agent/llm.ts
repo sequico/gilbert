@@ -46,6 +46,18 @@ import {
 export const MODEL_TIMEOUT_MS = 60_000;
 
 /**
+ * The most of a provider's answer a call holds before it gives up.
+ *
+ * The other end is not trusted: a provider that is compromised, misconfigured
+ * or merely buggy can stream for the whole minute the call allows, and
+ * `res.text()` would hold however many megabytes it is handed. The ceiling is
+ * far above any useful answer — `max_tokens` caps the intended one at a few
+ * kilobytes, and `MODEL_MAX_OUTPUT_DEFAULT` bounds that — so a body past it is
+ * not an answer at all.
+ */
+export const MODEL_RESPONSE_BYTES_MAX = 4 * 1024 * 1024;
+
+/**
  * The zero-retention opt-out that rides on **every** request.
  *
  * The data a run hands a model is a group's own mail and files, so a provider
@@ -213,7 +225,7 @@ export async function callModel(
     }),
     signal: AbortSignal.timeout(req.timeoutMs ?? MODEL_TIMEOUT_MS),
   });
-  const raw = await res.text();
+  const raw = await readAnswer(res, provider.provider);
   if (!res.ok)
     throw new Error(`${provider.provider} answered ${res.status}: ${firstLine(raw)}`);
   let body: unknown;
@@ -333,6 +345,37 @@ function messageContent(body: unknown): string | null {
 function firstLine(text: string): string {
   const line = text.split("\n")[0] ?? "";
   return line.length > 300 ? `${line.slice(0, 300)}…` : line;
+}
+
+/**
+ * Read the provider's answer, bounded (see `MODEL_RESPONSE_BYTES_MAX`).
+ *
+ * The body is streamed and the read is abandoned the moment it passes the
+ * ceiling, so a provider that answers with more than a call bargains for cannot
+ * put however many megabytes into the process — the difference between this and
+ * `res.text()` on a body of unknown size. The refusal quotes the provider's own
+ * words, so a body that is a gateway's error page reads like one.
+ */
+async function readAnswer(res: Response, provider: string): Promise<string> {
+  const body = res.body;
+  if (!body) return "";
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MODEL_RESPONSE_BYTES_MAX) {
+      await reader.cancel().catch(() => {});
+      throw new Error(
+        `${provider} answered with more than the ${MODEL_RESPONSE_BYTES_MAX} bytes a call reads: ` +
+          firstLine(Buffer.concat(chunks).toString("utf8")),
+      );
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function asRecord(answer: unknown, provider: AgentProvider): Record<string, unknown> {

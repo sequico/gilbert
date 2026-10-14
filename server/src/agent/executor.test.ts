@@ -43,6 +43,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const {
   filesAccountId,
   FILENODE_CAP,
+  fileChildren,
   findFolderPath,
   readAppJsonAt,
   readVisibleFileAt,
@@ -69,6 +70,7 @@ const { fetchEmailRecord, findMailboxByName, mailboxIdByRole } = await import(
   "./actions.js"
 );
 const { postMessage, readChat } = await import("./chat.js");
+const { CHAT_FOLDER } = await import("../shared/chat.js");
 const { automationLabel, newDecision, newJob, AGENT_LOOKUP_ROUNDS } = await import(
   "./documents.js"
 );
@@ -1413,6 +1415,71 @@ test("a run may look something up, and reads what it asked for", async () => {
   ]);
 });
 
+test("a run reads the group's chat once, however many times it asks for it", async () => {
+  /*
+   * The chat folder is never pruned and only grows, so a run that read it for
+   * its context, for a chat lookup and for the mentions it may post paid for
+   * the whole transcript three times. The pass holds one read and every reader
+   * shares it. Fails if a reader goes back to the folder: every message is a
+   * blob download, so the count of those names how many times the transcript
+   * was read.
+   */
+  const said: string[] = [];
+  for (let i = 0; i < 20; i += 1)
+    said.push(await postMessage(ctx, GROUP, ADA, `invoice ${i}`));
+
+  const chatFolder = await findFolderPath(ctx, GROUP, CHAT_FOLDER);
+  assert.ok(chatFolder, "the group has a chat folder");
+  const children = await fileChildren(ctx, GROUP, chatFolder);
+  const blobs = new Set(children.map((child) => String(child.blobId)));
+
+  const talker = rule({
+    id: "chat-talker",
+    trigger: { on: "chat" },
+    capabilities: ["chat.post"],
+  });
+  await store.writeRules([talker]);
+  answerSequence("Chat automation", [
+    { lookup: { kind: "chat", query: "invoice" } },
+    {
+      summary: "Answered in the chat.",
+      confidence: 1,
+      actions: [{ do: "chat.post", with: { text: "ok" } }],
+    },
+  ]);
+  const job = newJob({
+    id: "chat-read-job",
+    accountId: GROUP,
+    rule: { id: "chat-talker", version: 1 },
+    trigger: {
+      on: "chat",
+      chatId: said[said.length - 1],
+      at: new Date().toISOString(),
+    },
+  });
+  await store.writeJob(job);
+
+  const real = JmapClient.prototype.downloadBlob;
+  let read = 0;
+  JmapClient.prototype.downloadBlob = async function (
+    this: InstanceType<typeof JmapClient>,
+    ...args: Parameters<typeof real>
+  ) {
+    if (blobs.has(String(args[1]))) read += 1;
+    return real.apply(this, args);
+  };
+  try {
+    await executor.runJob(GROUP, job, talker, await claimFor());
+  } finally {
+    JmapClient.prototype.downloadBlob = real;
+  }
+
+  assert.ok(
+    read <= 2 * children.length,
+    `the run's chat is read once, not once per use (downloads: ${read}, messages: ${children.length})`,
+  );
+});
+
 test("a message body past the read ceiling reaches the model cut, and says so", async () => {
   /*
    * A body is the sender's, and a sender chooses its size: what the prompt
@@ -2115,6 +2182,37 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   await claimAccount(store, WORKER, {
     now: new Date(Date.now() + 20 * LEASE),
     startedAt: new Date(Date.now() + 20 * LEASE),
+  });
+});
+
+test("a reconcile of an account whose unit is somebody else's writes nothing", async () => {
+  const fenced = rule({ id: "fenced-reconcile" });
+  await store.writeRules([fenced]);
+  await createMessage("An invoice only one agent may reconcile");
+
+  // The successor holds the unit. A reconcile handed the successor's claim —
+  // what a leaving process's push wake reads once the claim has moved on — must
+  // not write a job into an account it does not own: the successor would read
+  // it as an abandoned run and re-run or dead-letter it.
+  const taken = await claimAccount(store, "another-agent", {
+    now: new Date(Date.now() + 1000 * LEASE),
+    startedAt: new Date(Date.now() + 1000 * LEASE),
+  });
+  assert.ok(taken, "another agent holds mail now");
+
+  await executor.reconcile(GROUP, "Email", taken);
+
+  const jobs = await store.listJobs();
+  assert.equal(
+    jobs.filter((entry) => entry.doc.ruleId === "fenced-reconcile").length,
+    0,
+    "a agent that does not hold the unit starts no job in it",
+  );
+
+  // The claim is a fixture: give the unit back to this suite's agent.
+  await claimAccount(store, WORKER, {
+    now: new Date(Date.now() + 2000 * LEASE),
+    startedAt: new Date(Date.now() + 2000 * LEASE),
   });
 });
 

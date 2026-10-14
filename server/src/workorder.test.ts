@@ -1163,6 +1163,83 @@ test("a member does not see a workorder no section of theirs is in", async () =>
   );
 });
 
+test("a member's list composes only the workorders they may see", async () => {
+  /*
+   * Visibility is decided from the root and the template revision it names, so
+   * a workorder the member cannot see costs them no group read: no part is
+   * probed and no summary is composed for it. Fails if the list composes first
+   * and asks afterwards — a member who can see nothing then pays a part walked
+   * in each of their groups for every root in the registry. The mock counts the
+   * method calls, so the extra walk is visible rather than a matter of a
+   * stopwatch.
+   */
+  const memberGroupAccount = firstGroup[1];
+  const hidden = [...masterGroups.entries()].find(
+    ([, account]) => account !== memberGroupAccount,
+  );
+  assert.ok(hidden, "the installation has a group the member is not in");
+  const hiddenAccount = hidden[1];
+
+  // The member's own group has a registry folder, so the walk the fix spares is
+  // a real read rather than a missing folder's early answer.
+  await ensureFolderPath(masterCtx, memberGroupAccount, WORKORDER_FOLDER);
+
+  const hiddenTemplate = await templateRef(
+    {
+      variants: [],
+      sections: [
+        { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
+        {
+          key: "teamwork",
+          label: "Team work",
+          group: hiddenAccount,
+          steps: [{ key: "t", label: "Team step" }],
+        },
+      ],
+    },
+    "Hidden checklist",
+  );
+  const createHidden = async (name: string): Promise<string> => {
+    const created = await post("/api/workorders/create", {
+      name,
+      template: hiddenTemplate,
+      groups: [],
+      variants: {},
+      items: {},
+    });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    return workorderOf(created.body).uid;
+  };
+
+  const member = await loginAs(MEMBER, MEMBER_PASSWORD);
+  const firstUid = await createHidden("Hidden one");
+  mock.resetCalls();
+  const one = await callAs(member, "/api/workorders");
+  assert.equal(one.status, 200);
+  assert.ok(
+    !((one.body?.workorders as Summary[] | undefined) ?? []).some(
+      (w) => w.uid === firstUid,
+    ),
+    "and the hidden workorder is not in the member's list",
+  );
+  const atOne = mock.methodCalls["FileNode/query"] ?? 0;
+
+  const more = 6;
+  for (let i = 0; i < more; i += 1) await createHidden(`Hidden ${i + 2}`);
+  mock.resetCalls();
+  const listed = await callAs(member, "/api/workorders");
+  assert.equal(listed.status, 200);
+  const atMany = mock.methodCalls["FileNode/query"] ?? 0;
+
+  // Six more roots add only their own documents: no part of the member's group
+  // is walked for a workorder they may not see. Composing first would add a
+  // probe of every group they are in, for every root.
+  assert.ok(
+    atMany - atOne <= 5 * more,
+    `a hidden workorder adds no group probe (one root: ${atOne}, seven: ${atMany})`,
+  );
+});
+
 test("a member's read probes each group once, not once per group", async () => {
   /*
    * One read resolves the caller's own groups **once** — one live session and

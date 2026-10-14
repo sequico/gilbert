@@ -384,6 +384,18 @@ export class Executor {
    * which is what makes at-least-once delivery harmless.
    */
   async reconcile(accountId: string, type: ChangeType, claim: AgentClaim): Promise<void> {
+    // The fence is the agent's claim on the unit, asked before anything here
+    // writes: a caller that hands a claim belonging to another process — what a
+    // leaving process's push wake reads during a rolling restart — would
+    // otherwise write a job into a unit it does not own, and the successor
+    // would later read it as an abandoned run. The caller that learns this
+    // stops serving the account.
+    if (claim.agent !== this.deps.agentId) {
+      this.deps.log(
+        `${accountId}: the account's automation is held by another agent, so this ${type} reconcile is left to its holder`,
+      );
+      return;
+    }
     const store = new AgentStore(this.deps.ctx, accountId);
     const since = claim.states[type] ?? "0";
     // When that anchor was observed: the window this pass reports is everything
@@ -665,7 +677,7 @@ export class Executor {
           .map((node) => String(node.id)),
       );
       if (chatIds.size) {
-        const messages = await this.readChatOf(accountId);
+        const messages = await this.readChatOf(accountId, pass);
         const requests = pendingRequests(
           messages,
           this.deps.address,
@@ -874,7 +886,7 @@ export class Executor {
     // The claim travels with the job: a run started by a trigger is fenced the
     // same way a retried one is, and without this the fencing would only ever
     // apply to the pending sweep.
-    await this.runJob(accountId, job, rule, claim);
+    await this.runJob(accountId, job, rule, claim, pass);
   }
 
   /**
@@ -942,6 +954,7 @@ export class Executor {
     job: AgentJob,
     rule: AgentRule,
     claim: AgentClaim,
+    pass?: Pass,
   ): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const found = await store.readJob(job.id);
@@ -984,13 +997,17 @@ export class Executor {
       throw err;
     }
     try {
+      // A caller with no pass of its own — a test driving one job — still
+      // shares one chat read across this job's own context, lookups and
+      // mentions, which is what the pass is for.
+      pass ??= await this.jobIndex(store);
       // A job that already carries a plan keeps it. Re-planning a retry would
       // run a plan nobody approved — an approved job would go back to the model
       // for a second opinion — and it would make `applied` mean nothing, since
       // what it holds is the prefix of the very plan that produced it.
       const plan = current.proposal?.actions?.length
         ? planOf(current.proposal)
-        : await this.planFor(store, accountId, running, rule);
+        : await this.planFor(store, accountId, running, rule, pass);
       // The plan is written before it is run: a retry resumes this same work,
       // and a failure can name what was about to happen instead of guessing.
       const planned = await this.writeJobIfCurrent(store, job.id, (latest) => ({
@@ -1017,7 +1034,7 @@ export class Executor {
        */
       const policy = policyOf((await store.readPolicy())?.doc ?? null);
       if (reviewOutcome(policy, plan.actions, plan.confidence) === "execute") {
-        await this.execute(store, accountId, planned, rule, plan, claim);
+        await this.execute(store, accountId, planned, rule, plan, claim, pass);
       } else {
         await this.pause(store, accountId, planned, rule, plan, claim);
       }
@@ -1091,6 +1108,7 @@ export class Executor {
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
+    pass: Pass,
   ): Promise<RunPlan> {
     const problem = ruleProblem(rule);
     if (problem) throw new RefusedError(`the rule cannot run: ${problem}`);
@@ -1099,7 +1117,7 @@ export class Executor {
     // the same shape as every other bound, and one reader for the prompt and
     // for the page work (ADR 0003).
     const pages = await this.maxPages();
-    const context = await this.contextFor(accountId, job, rule, pages);
+    const context = await this.contextFor(accountId, job, rule, pages, pass);
     //
     // The prose this run carries, read once per run: the installation's own
     // rules from the agent's account, then the group's facts, then the group's
@@ -1149,7 +1167,7 @@ export class Executor {
         usage = addUsage(usage, answer.usage);
         if (answer.kind === "lookup") {
           lookups.push(answer.lookup);
-          text = `${text}\n\n${await this.lookupSlice(accountId, answer.lookup)}`;
+          text = `${text}\n\n${await this.lookupSlice(accountId, answer.lookup, pass)}`;
           continue;
         }
         await this.guardLabels(accountId, answer.actions);
@@ -1185,7 +1203,11 @@ export class Executor {
    * reachable without a mailbox ever being attached wholesale (ADR 0006
    * decision three).
    */
-  private async lookupSlice(accountId: string, lookup: AgentLookup): Promise<string> {
+  private async lookupSlice(
+    accountId: string,
+    lookup: AgentLookup,
+    pass: Pass,
+  ): Promise<string> {
     try {
       switch (lookup.kind) {
         case "mail":
@@ -1201,7 +1223,7 @@ export class Executor {
         case "file":
           return await this.fileLookup(accountId, lookup);
         case "chat":
-          return await this.chatLookup(accountId, lookup);
+          return await this.chatLookup(accountId, lookup, pass);
         case "knowledge":
           return await this.knowledgeLookup(accountId, lookup);
       }
@@ -1475,8 +1497,9 @@ export class Executor {
   private async chatLookup(
     accountId: string,
     lookup: Extract<AgentLookup, { kind: "chat" }>,
+    pass: Pass,
   ): Promise<string> {
-    const messages = await this.readChatOf(accountId);
+    const messages = await this.readChatOf(accountId, pass);
     // The same grammar, applied to what a transcript can mean: the words a
     // message says, who wrote it, and when. A field a chat has no use for (a
     // size, an attachment) narrows nothing.
@@ -1698,6 +1721,7 @@ export class Executor {
     rule: AgentRule,
     plan: RunPlan,
     claim: AgentClaim,
+    pass: Pass,
   ): Promise<void> {
     // Intent first: the trail says what was about to run before it runs, so an
     // effect can never exist without a line that accounts for it, even if the
@@ -1744,7 +1768,7 @@ export class Executor {
       // plan runs without the model's answer in hand, and an action outside the
       // grant is refused before it runs (ADR 0003).
       {
-        ...(await this.actionOpts(accountId, plan.actions, job)),
+        ...(await this.actionOpts(accountId, plan.actions, job, pass)),
         allowed: effectiveCapabilities(rule),
       },
       {
@@ -1994,6 +2018,7 @@ export class Executor {
     rule: AgentRule,
     /** How many pages of a document this run reads, as the installation set it. */
     pages: number,
+    pass: Pass,
   ): Promise<ModelContext> {
     const trigger = job.trigger;
     if (trigger.on === "email" && trigger.emailId) {
@@ -2015,7 +2040,7 @@ export class Executor {
       return context;
     }
     if (trigger.on === "chat" && trigger.chatId) {
-      const messages = await this.readChatOf(accountId);
+      const messages = await this.readChatOf(accountId, pass);
       const anchor = messages.find((message) => message.id === trigger.chatId);
       // Only a person asking widens the window; the run never does it
       // itself.
@@ -2217,14 +2242,21 @@ export class Executor {
     return out;
   }
 
-  private async readChatOf(accountId: string): Promise<ChatMessage[]> {
-    return readChat(this.deps.ctx, accountId, this.deps.client);
+  private async readChatOf(accountId: string, pass?: Pass): Promise<ChatMessage[]> {
+    // The pass holds the promise, so a run that reads the chat for its context,
+    // for a lookup and for its mentions reads the folder once. A caller with no
+    // pass — an approval being resolved, a draft being swept — reads it for
+    // itself, because that work is not this pass's.
+    if (!pass) return readChat(this.deps.ctx, accountId, this.deps.client);
+    pass.chat ??= readChat(this.deps.ctx, accountId, this.deps.client);
+    return pass.chat;
   }
 
   private async actionOpts(
     accountId: string,
     actions: ReadonlyArray<AgentAction>,
     job: AgentJob | null,
+    pass?: Pass,
   ): Promise<ActionOpts> {
     const opts: ActionOpts = { from: this.deps.address, now: this.deps.now() };
     if (job?.trigger.emailId) opts.emailId = job.trigger.emailId;
@@ -2234,7 +2266,7 @@ export class Executor {
       opts.draftMailboxId = job.proposal.draft.mailboxId;
     }
     if (actions.some((action) => action.do === "chat.post"))
-      opts.participants = await this.chatParticipants(accountId);
+      opts.participants = await this.chatParticipants(accountId, pass);
     if (job?.trigger.nodeId) {
       const path = await this.pathOfNode(accountId, job.trigger.nodeId);
       if (path) opts.filePath = path;
@@ -2245,9 +2277,9 @@ export class Executor {
   }
 
   /** Who a chat post may mention: the transcript's participants, plus the agent. */
-  private async chatParticipants(accountId: string): Promise<string[]> {
+  private async chatParticipants(accountId: string, pass?: Pass): Promise<string[]> {
     try {
-      const messages = await this.readChatOf(accountId);
+      const messages = await this.readChatOf(accountId, pass);
       return participantsOf(messages, this.deps.address);
     } catch (err) {
       this.deps.log(`could not read the chat participants: ${errorMessage(err)}`);
@@ -3362,6 +3394,9 @@ export class Executor {
     const spent = await this.recoverSpentApprovals(store, rules);
     if (spent) this.deps.log(`${accountId}: ${spent} spent approval(s) recorded`);
     if (!rules.length) return 0;
+    // The retried runs share one pass, so a sweep that runs several jobs reads
+    // the group's chat once rather than once per job.
+    const pass = await this.jobIndex(store);
     let ran = 0;
     for (const entry of await store.listJobs()) {
       const job = entry.doc;
@@ -3415,7 +3450,7 @@ export class Executor {
       // it in the list. The claim was asked once at the top, before anything
       // wrote: every job reached here belongs to a agent that holds the account.
       try {
-        await this.runJob(accountId, job, rule, claim);
+        await this.runJob(accountId, job, rule, claim, pass);
         ran += 1;
       } catch (err) {
         this.deps.log(
@@ -3595,6 +3630,16 @@ interface Pass {
    * (ADR 0003). Read once for the pass, like the other installation settings.
    */
   chainHops: number;
+  /**
+   * The group's chat, read once and shared by every reader in the pass.
+   *
+   * The folder is never pruned and only grows, so a run that read it for its
+   * context, for a chat lookup and for the mention list paid for the whole
+   * transcript several times over. It is a promise, so the readers that reach it
+   * together share one read, and it is kept on the pass — not in the executor —
+   * so it cannot outlive the work it was read for.
+   */
+  chat?: Promise<ChatMessage[]>;
 }
 
 /**

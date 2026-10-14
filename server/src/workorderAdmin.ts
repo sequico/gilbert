@@ -36,11 +36,11 @@ import {
   readAppJsonAt,
   writeAppFileIn,
 } from "./appFolder.js";
-import { refusalOf } from "./identityAdmin.js";
 import { isStateMismatch, JmapClient } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
+import { refusalOf } from "./shared/jmap.js";
 import {
   checklistGroups,
   isKnowledgeRevision,
@@ -739,19 +739,25 @@ async function summaryOf(
  * disappears. A template whose rules cannot be read falls back to the part
  * itself, which is the one thing that is known to be there.
  *
- * The same answer whether the workorder is listed or read by uid.
+ * The reference the root carries names the revision whose assignments decide
+ * this, so the answer is read from the root and its template alone — a hidden
+ * workorder has no group's part probed for it and no summary composed. The same
+ * answer whether the workorder is listed or read by uid.
  */
-async function maySee(
-  reach: WorkorderReach,
-  root: WorkorderDoc,
-  summary: WorkorderSummary,
-): Promise<boolean> {
+async function maySee(reach: WorkorderReach, root: WorkorderDoc): Promise<boolean> {
   if (reach.admin) return true;
-  if (summary.parts.some((part) => part.scope === "group")) return true;
   const def = (await templateDef(reach, root.checklist.template)).checklist;
-  return def
-    ? checklistGroups(def).some((accountId) => reach.ownAccounts.has(accountId))
-    : false;
+  // A template's own assignment is the whole of competence, and it is the same
+  // set of groups a part is written for at creation — so a readable template
+  // answers without reading a group's part at all.
+  if (def)
+    return checklistGroups(def).some((accountId) => reach.ownAccounts.has(accountId));
+  // A template whose rules cannot be read falls back to the part a group
+  // already holds (ADR 0028).
+  for (const accountId of reach.ownAccounts) {
+    if (await findActive(reach.ctx, accountId, root.uid)) return true;
+  }
+  return false;
 }
 
 /** Every workorder the caller may see, newest write first. */
@@ -760,8 +766,8 @@ export async function listWorkorders(session: LiveSession): Promise<WorkorderSum
   const roots = await rootDocs(reach.ctx, reach.accountId);
   const out: WorkorderSummary[] = [];
   for (const root of roots) {
-    const summary = await summaryOf(reach, root);
-    if (await maySee(reach, root, summary)) out.push(summary);
+    if (!(await maySee(reach, root))) continue;
+    out.push(await summaryOf(reach, root));
   }
   out.sort((a, b) => b.updated.at.localeCompare(a.updated.at));
   return out;
@@ -791,8 +797,10 @@ async function readWorkorderWithReach(
   if (!id) return null;
   const root = await findRoot(reach.ctx, reach.accountId, id);
   if (!root) return null;
-  const summary = await summaryOf(reach, root.doc);
-  return (await maySee(reach, root.doc, summary)) ? summary : null;
+  // Visibility first, the same as the list: a workorder the caller may not see
+  // is not composed at all.
+  if (!(await maySee(reach, root.doc))) return null;
+  return summaryOf(reach, root.doc);
 }
 
 /* ------------------------------------------------------------------ */

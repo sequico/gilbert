@@ -69,8 +69,14 @@ const provider = {
   apiKey: "sk-test-key",
 };
 
-const { assertUsableProvider, callModel, decideActions, providerFor, readProse } =
-  await import("./llm.js");
+const {
+  assertUsableProvider,
+  callModel,
+  decideActions,
+  MODEL_RESPONSE_BYTES_MAX,
+  providerFor,
+  readProse,
+} = await import("./llm.js");
 const { AGENT_ACTIONS_MAX, AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } =
   await import("./documents.js");
 const { documentContent, renderPages } = await import("./documentFamily.js");
@@ -235,6 +241,19 @@ test("a body that is not JSON is an error, not a silent empty answer", async () 
   status = 200;
   body = "<html>gateway</html>";
   await assert.rejects(() => callModel(provider, { system: "s", user: "u" }), /not JSON/);
+});
+
+test("a provider's answer past the byte ceiling is refused, not read whole", async () => {
+  // The other end is not trusted: a body that streams past the ceiling must not
+  // be held in the process, and the refusal names the provider. Fails if the
+  // read goes back to `res.text()`, which would read the megabyte and then fail
+  // it for a different reason (a body that is not JSON).
+  status = 200;
+  body = "x".repeat(MODEL_RESPONSE_BYTES_MAX + 1);
+  await assert.rejects(
+    () => callModel(provider, { system: "s", user: "u" }),
+    new RegExp(`openai answered with more than the ${MODEL_RESPONSE_BYTES_MAX} bytes`),
+  );
 });
 
 test("without a configured model nothing can run", () => {

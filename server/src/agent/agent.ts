@@ -273,6 +273,16 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     for (const type of types) {
       const claim = (await store.readClaim())?.doc;
       if (!claim) continue;
+      // A claim held by another process is not this one's to reconcile: during
+      // a rolling restart the successor takes the unit while the leaving
+      // process still lists the account, and the next push wake would otherwise
+      // write a second job into a unit it no longer owns. The account is
+      // dropped from what this process serves, exactly as `stillMine` drops one
+      // whose claim has moved on.
+      if (claim.agent !== id) {
+        servedAccounts.delete(accountId);
+        return;
+      }
       try {
         await executor.reconcile(accountId, type, claim);
       } catch (err) {
