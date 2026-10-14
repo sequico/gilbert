@@ -4,6 +4,7 @@ import { client } from "@/jmap/client";
 import { catchUpLive, push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { shouldCatchUp } from "@/lib/catchUp";
 import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
@@ -475,20 +476,13 @@ function AuthedApp() {
     let catchUpRunning = false;
     let catchUpWanted = false;
     /*
-     * The floor between two probe-driven passes, while the stream is down.
-     *
-     * The retry keeps its one second (`PUSH_RETRY_MS`) so the stream comes back
-     * the instant the server does, but the reachability probe behind each failed
-     * attempt rides that same second and every pass re-reads the whole account
-     * -- mail, the open conversation with bodies, contacts, calendar, files.
-     * Without a floor a blocked stream runs those passes back to back for as
-     * long as the tab is open, per tab. A reconnect does not wait it out: the
-     * stream coming back, and the line coming back, are followed at once.
+     * The floor between two probe-driven passes is `lib/catchUp.ts`'s, with the
+     * decision it feeds. What lives here is the pass itself and when the last
+     * one *ended*: the floor measures completed passes, so a pass that outlives
+     * it does not hand the next probe a free start.
      */
-    const CATCH_UP_FLOOR_MS = 30_000;
     let lastCatchUpAt = 0;
     const runCatchUp = async (signal: AbortSignal) => {
-      lastCatchUpAt = Date.now();
       const byAccount = new Map<string, Set<string>>();
       const mail = useMail.getState();
       catchUpLive(
@@ -516,6 +510,12 @@ function AuthedApp() {
       void runCatchUp(controller.signal).finally(() => {
         catchUpRunning = false;
         if (catchUpAbort === controller) catchUpAbort = null;
+        // Stamped when the pass ends, which is the property the floor is about:
+        // a pass that outlives it must not hand the next probe a free start. An
+        // aborted pass stamps too — it did start reading — and the triggers that
+        // are not the probe (a reconnect, the line coming back) do not consult
+        // the floor at all.
+        lastCatchUpAt = Date.now();
         // A signal that arrived during the pass re-runs it. An abort does not:
         // `stopCatchUp` cleared the flag before aborting, so only a trigger
         // that came *after* the abort can still be waiting here.
@@ -553,15 +553,30 @@ function AuthedApp() {
       // Only the blocked-stream case needs this: while the stream is up it is
       // the catch-up trigger, and on a down line nothing is reachable.
       if (!reachable) stopCatchUp();
-      else if (!push.connected && Date.now() - lastCatchUpAt >= CATCH_UP_FLOOR_MS)
+      else if (
+        shouldCatchUp({
+          reachable,
+          connected: push.connected,
+          lastPassAt: lastCatchUpAt,
+          now: Date.now(),
+        })
+      )
         startCatchUp();
     });
     // The browser knows a line dropped before the stream's error does; a pass
     // already in flight is stopped at once.
     const onOffline = () => stopCatchUp();
-    // And it knows the line came back before the stream's own retry does, so
-    // that pass is started at once rather than at the floor.
-    const onOnline = () => startCatchUp();
+    /*
+     * And it knows the line came back before the stream's own retry does, so
+     * that pass is started at once rather than at the floor. Only while the
+     * stream is down: with it up its own reconnect is the trigger, and an
+     * interface flap (or a captive portal claiming a line that is not there)
+     * would otherwise spend a whole-account re-read and hold the next probe
+     * behind it.
+     */
+    const onOnline = () => {
+      if (!push.connected) startCatchUp();
+    };
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", onOnline);
     const unsubState = client.onSessionState(() => {
