@@ -457,14 +457,15 @@ type SiblingNode = Pick<FileNode, "id" | "name" | "nodeType">;
 const levelKey = (parentId: Id | null): string => parentId ?? "root";
 
 /**
- * How many nodes one read of a level or of the account will ask for.
+ * How many nodes one read of a level or of the account will ask for, in pages.
  *
- * It is the page size of the reads that page (`readChildren`) and the ceiling
- * of the ones that do not (`readLevels`, `loadTree`). As a ceiling it is not a
- * promise: a read that comes back holding exactly this many may have been cut
- * short. What that costs a walk is a folder it cannot see, and a folder is
- * recovered by the create the server refuses -- so the ceiling never turns into
- * a wrong answer, only into a request that was not needed (see `uploadPlan`).
+ * It is the ceiling every read in this module works to: `readChildren`,
+ * `readLevels` and `loadTree` each page up to it in steps of what the session
+ * resolves (`pageSize`) and stop there. As a ceiling it is not a promise: a read
+ * that comes back holding exactly this many may have been cut short. What that
+ * costs a walk is a folder it cannot see, and a folder is recovered by the create
+ * the server refuses -- so the ceiling never turns into a wrong answer, only into
+ * a request that was not needed (see `uploadPlan`).
  */
 export const LEVEL_LIMIT = 1000;
 
