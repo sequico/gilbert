@@ -1240,3 +1240,43 @@ test("a verification that arrives before the subscription exists is refused", as
     restoreUpstream();
   }
 });
+
+test("a tab follows an account its own credential does not cover, and is handed its change", async () => {
+  const push = await isolatedPush("follow-installation");
+  const restore = stubUpstream();
+  const capture = captureToken();
+  try {
+    /* The installation's own account (ADR 0028): the caller's session is not a
+       member of it, so Stalwart never delivers its change to the caller's own
+       subscription. The follow creates the installation's subscription with the
+       credential it is given, and hands the tab the StateChange as it arrived. */
+    const tab = fakeOut();
+    push.followAccount("gilbert@example.com", "b", "Basic master", tab as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.ok(capture.token(), "the follow created the installation's subscription");
+    // The tab arrived before that subscription verified; verifying moves it on
+    // to the fan-out like any tab that was holding its own upstream stream.
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      200,
+    );
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "StateChange",
+        changed: { b: { FileNode: "s1" } },
+      }),
+      200,
+    );
+    assert.match(
+      tab.written.at(-1) ?? "",
+      /^event: state\ndata: \{"@type":"StateChange","changed":\{"b":\{"FileNode":"s1"/,
+      "the frame names the account and carries nothing but the state",
+    );
+  } finally {
+    capture.restore();
+    restore();
+  }
+});

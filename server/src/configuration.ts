@@ -522,7 +522,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * "subscribe" registers one JMAP PushSubscription per account and fans
      * Stalwart's POSTs out to that account's tabs, holding no upstream connection
      * at all -- see push.ts. The origin Stalwart POSTs back to is derived from the
-     * request (see pushOrigin in app.ts); an account we cannot state one for
+     * request (see pushOrigin in routes/shared.ts); an account we cannot state one for
      * stays on the relay.
      */
     /*

@@ -10,9 +10,10 @@ npm workspaces: the root coordinates, the two packages hold the code.
   chat, groupLabels), `lib/`, `views/`, `ui/`, `locales/`. Entry:
   `web/src/main.tsx`.
 - `server/` — `@gilbert/server`, Node + Hono: `server/src/index.ts` serves the
-  SPA and `/api/*`; `server/src/agent/agent.ts` is the agent fleet's entrypoint;
-  `server/src/mock/` is the in-memory fake Stalwart; `server/src/shared/` is the
-  tree both tiers read.
+  SPA and `/api/*`, assembled by `server/src/app.ts` and answered by the route
+  groups under `server/src/routes/`; `server/src/agent/agent.ts` is the agent
+  fleet's entrypoint; `server/src/mock/` is the in-memory fake Stalwart;
+  `server/src/shared/` is the tree both tiers read.
 - **One definition, two readers.** The client imports the server's shared tree
   as `@gilbert/shared/*` (and `@gilbert/agent/*`), aliased in
   `web/tsconfig.json` and `web/vite.config.ts`. Never copy a shape or helper

@@ -669,8 +669,9 @@ is open, a **FileNode change** for an account the reader's groups own re-reads i
 too, so a step one member checks appears to the others as it happens. The change
 carries no data — the read goes through the route, which is what decides what each
 reader may see — and the **global** checklist, kept in the installation's own
-account, reaches a member at their next read, because no member's credential covers
-that account.
+account, arrives the same way: that is the one account a tab's own credential does
+not cover, so the deployment subscribes to it with the credential it already holds
+and fans its frames out to the tabs that follow it (ADR 0028).
 
 ## Checklists, and who checked what
 

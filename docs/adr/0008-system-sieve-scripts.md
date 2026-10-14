@@ -3,7 +3,7 @@
 Status: Accepted
 
 Implementation: Built. `server/src/adminSieve.ts`, behind `requireAdmin` on every
-route (`server/src/app.ts`); the form both this surface and the personal scripts
+route (`server/src/routes/installation.ts`); the form both this surface and the personal scripts
 tab draw is one component, `web/src/views/sieve/SieveScriptPanel.tsx`, with each
 surface handing in what it loads and what saving it means.
 
@@ -39,9 +39,9 @@ does for a person's own app passwords.
 
 A system script is not scoped to any account, so writing one needs no
 impersonation (ADR 0001): the call runs as the signed-in administrator's own
-session, through a bespoke route (`server/src/adminSieve.ts`, wired in
-`server/src/app.ts`'s "System Sieve scripts" section) rather than the client
-calling JMAP directly — the shape every other admin write in this product
+session, through a bespoke route (`server/src/adminSieve.ts`, wired as the
+`/api/admin/sieve/system` routes in `server/src/routes/installation.ts`) rather
+than the client calling JMAP directly — the shape every other admin write in this product
 already takes (identities, policy, forced passwords), so `requireAdmin` gates
 the route itself and not only whether the section is shown. `accountId(ctx)`
 (exported from `server/src/account.ts`) is threaded through because JMAP
@@ -179,7 +179,7 @@ destroyed.
 
 - `server/src/adminSieve.ts` — the five operations, over `JmapClient` as the
   administrator's own session
-- `server/src/app.ts` — the "System Sieve scripts" route section
+- `server/src/routes/installation.ts` — the "System Sieve scripts" route section
   (`requireAdmin`), `accountCtx`
 - `server/src/account.ts` — `accountId(ctx)`, exported for this module; the
   existing `x:AppPassword`/`x:AccountPassword` call pattern this one repeats

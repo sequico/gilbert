@@ -6,7 +6,7 @@ Implementation: Built. The rules and their resolver are `KnowledgeChecklist`,
 its `variants`/`sections`/`steps`, the conditions, the section **gate**
 (`KnowledgeSection.requires`) and `resolveChecklist` in
 `server/src/shared/knowledge.ts`; the write door is `server/src/knowledgeAdmin.ts`
-and `server/src/app.ts`; the template's own body is derived (`checklistBlocks`).
+and `server/src/routes/knowledge.ts`; the template's own body is derived (`checklistBlocks`).
 The authoring surface is Gilbert's own (`web/src/views/knowledge/ChecklistSurface.tsx`).
 The instance side is `server/src/shared/workorder.ts` and
 `server/src/workorderAdmin.ts`, with the panel `web/src/views/workorder/` (ADR 0028):

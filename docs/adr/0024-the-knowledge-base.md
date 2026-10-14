@@ -6,7 +6,7 @@ Implementation: Built. The article shape, the storage layout, the
 validators and the lifecycle arithmetic are one definition
 (`server/src/shared/knowledge.ts`); the Master-owned write door and its
 `/api/knowledge/*` routes are `server/src/knowledgeAdmin.ts` and
-`server/src/app.ts`; the company KB is created at boot and read through the
+`server/src/routes/knowledge.ts`; the company KB is created at boot and read through the
 route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client reads
 and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its

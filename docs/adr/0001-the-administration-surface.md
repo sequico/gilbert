@@ -4,7 +4,7 @@ Status: Accepted
 
 Implementation: Built. `isStalwartAdmin` reads the marker from the principal's
 own permission list and `requireAdmin` repeats the check on every privileged
-route (`server/src/upstream.ts`, `server/src/app.ts`); every privileged write
+route (`server/src/upstream.ts`, `server/src/routes/shared.ts`); every privileged write
 goes through `impersonationAuthorization` (`server/src/sessions.ts`), and the
 policy, identity-lock and forced-password documents are written by
 `server/src/adminPolicy.ts` and `server/src/identityAdmin.ts`.
@@ -147,8 +147,8 @@ an administrator.
 ## References
 
 - `server/src/upstream.ts` — `isStalwartAdmin`
-- `server/src/app.ts` — `requireAdmin`, `requireSession`, the policy and
-  force-password-change routes
+- `server/src/routes/shared.ts` — `requireAdmin`, `requireSession`
+- `server/src/routes/admin.ts` — the policy and force-password-change routes
 - `server/src/adminPolicy.ts` — installation policy read, write and fan-out
 - `server/src/identityAdmin.ts` — the identity lock file
 - `server/src/sessions.ts` — sealed session, impersonation authorization,

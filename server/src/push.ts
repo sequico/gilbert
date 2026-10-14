@@ -13,6 +13,14 @@
  * when Stalwart POSTs a change, fans it out to that account's open tabs over
  * the browser-facing streams it already holds. Nothing is held upstream.
  *
+ * A tab is not limited to the accounts it is a member of: the installation's
+ * own account is written by the Master and read by nobody else's credential,
+ * so a member's subscription never covers it, and a tab that must hear it
+ * follows it here instead (`followAccount`). The subscription is the
+ * installation's, created with the credential the deployment already holds,
+ * and what a tab receives is the StateChange as Stalwart sent it -- an
+ * account and a state, never data.
+ *
  * Nothing here is taken from any other client's implementation; the shapes
  * are the RFC's.
  *
@@ -584,6 +592,35 @@ export function attachRelay(
   out.on("close", () => {
     entry.relays.delete(out);
   });
+}
+
+/**
+ * Have a tab follow an account its own credential does not cover.
+ *
+ * The step an administrator checks on the installation's checklist is written
+ * in the Master's account (ADR 0028), and no member is a member of it, so
+ * Stalwart never delivers that change to a member's own subscription -- this
+ * fan-out is the only thing that can reach them. One subscription is kept for
+ * that account, created with the credential the installation already holds
+ * rather than the tab's, and every tab following it is handed the StateChange
+ * as it arrived: an account id and a state, no data. A reader answers it by
+ * re-reading through its own route, which is what decides what it may see.
+ *
+ * A tab that arrives before the subscription verifies is parked in `relays`
+ * with nothing to give up, so `verify` moves it to the fan-out exactly like a
+ * tab that was holding its own upstream stream.
+ */
+export function followAccount(
+  username: string,
+  accountId: string,
+  authorization: string,
+  out: ServerResponse,
+  origin: string | null,
+): void {
+  const entry = prepare(username, accountId, authorization, origin);
+  if (!entry) return;
+  if (entry.state === "verified") addFanoutTab(entry, out);
+  else attachRelay(username, out, () => {});
 }
 
 /**

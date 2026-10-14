@@ -5,7 +5,7 @@ Status: Accepted
 Implementation: Built. The lock and the assignment are documents written through
 the impersonation door (`server/src/identityAdmin.ts`), and a member reads their
 own assignment from the group's account (`/identities/assignment` in
-`server/src/app.ts`).
+`server/src/routes/identities.ts`).
 
 An identity belongs to the account and is written by it: display name,
 address, `replyTo`, `bcc` and a signature (text and HTML, the latter capped by

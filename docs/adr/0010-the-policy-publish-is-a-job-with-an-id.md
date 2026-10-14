@@ -110,7 +110,7 @@ sign-in reads it. What this record decides is the record of what a publish did.
 
 ## References
 
-- `server/src/app.ts` — `publishAccountPolicy`, `deliver`, `GET`/`POST
+- `server/src/routes/admin.ts` — `publishAccountPolicy`, `deliver`, `GET`/`POST
   /admin/policy`
 - `server/src/adminPolicy.ts` — `PublishJob`, `PublishRefusal`,
   `PublishUnreached`, `PolicyPublished`, `PUBLISH_JOB_FILE`, `readPublishJob`,

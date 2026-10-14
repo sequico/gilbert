@@ -5,13 +5,13 @@
  * `bootstrap.ts` reads the document once, at boot, and hands it to `config.ts`;
  * this module is the administrator's door onto the same file. It signs in as
  * nothing — the `Ctx` arrives as an argument — but the context it is handed
- * **is the Master's**: `app.ts` reaches that account by the same impersonation
+ * **is the Master's**: `routes/installation.ts` reaches that account by the same impersonation
  * the policy publish uses (`impersonateAs`), so what is read and written here
  * is the document the next boot of this installation runs on, whoever is doing
  * the administering. A deployment that names no Master has no such account,
- * and `app.ts` refuses the door as a value rather than opening it onto somebody
- * else's Files. It serves nothing: each function returns a result and `app.ts`
- * owns the HTTP shape. The document's rules stay where they already are:
+ * and the routes refuse the door as a value rather than opening it onto somebody
+ * else's Files. It serves nothing: each function returns a result and
+ * `routes/installation.ts` owns the HTTP shape. The document's rules stay where they already are:
  * validation is `shared/installation.ts`'s validator (the boot's own) and the
  * write is `installation.ts`'s `writeInstallation`, so a publish cannot produce
  * a document this build would refuse to boot from.

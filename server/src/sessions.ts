@@ -144,8 +144,9 @@ export interface SessionTtls {
  * The installation's session document, as the caller reaches it.
  *
  * This file does no JMAP of its own. Signing in as the master, finding that
- * account and its own `gilbert` app folder is boot wiring, and it stays in
- * `app.ts` beside the rest of it; what the store needs from there is much
+ * account and its own `gilbert` app folder is boot wiring, and it stays in the
+ * store's binding (`bindSessions` in `routes/shared.ts`) beside the rest of it;
+ * what the store needs from there is much
  * smaller than the wiring — read this one document, write this one document —
  * and that is the whole of the dependency.
  *
@@ -199,7 +200,7 @@ export interface SessionDocumentValue {
  * has to be enumerable somewhere. `destroyAllExcept` reaches every session
  * but one — the kick a rule publish needs (ADR 0001: publish → re-login).
  * `destroyAllForUser` is not only the "sign out my
- * other sessions" button: `app.ts` also calls it when the password or the app
+ * other sessions" button: the routes also call it when the password or the app
  * password changes, so it carries the guarantee that changing a credential
  * invalidates the sessions still holding the old one. A stateless backend
  * cannot honour that alone; the plan is for OAuth to hand the job to
@@ -258,7 +259,7 @@ export function impersonationAuthorization(
  *
  * An account name is an address, and addresses do not differ by case or by
  * surrounding space. Every place that has only the typed name to go on goes
- * through this -- the caches `app.ts` keeps per account, and the fallback for a
+ * through this -- the caches `upstream.ts` keeps per account, and the fallback for a
  * record written before sessions carried their account. Where the session
  * knows which account it is, `accountKey` is the answer instead, because a bare
  * `alice` and `Alice@example.com` are one account to Stalwart and must be one
@@ -389,7 +390,7 @@ export class SessionStore implements SessionBackend {
    *   where the numbers come from.
    * @param onDestroy called with the identity of every session this store
    *   destroys, whatever the reason (expiry sweep, lazy expiry on resolve,
-   *   logout, revocation, a rejected credential). app.ts wires it to
+   *   logout, revocation, a rejected credential). The store's binding wires it to
    *   forgetUpstreamSession, so a session that dies here does not leave its
    *   upstream session/info cache entries behind for the life of the process.
    *   The identity is what those caches are keyed by, so it is what they are

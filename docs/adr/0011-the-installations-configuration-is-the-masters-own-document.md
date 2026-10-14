@@ -132,7 +132,7 @@ being asked to believe.
 - `server/src/config.ts` — `useConfiguration`, `assertServable`,
   `assertImmutable`
 - `server/src/installationAdmin.ts` — the administration's read and publish
-- `server/src/app.ts` — `GET`/`POST /api/admin/installation`
+- `server/src/routes/installation.ts` — `GET`/`POST /api/admin/installation`
 - `.env.example` — the environment's own list, in the words a deployment reads
 - ADR 0001 — administration, impersonation, and the admin permission marker
 - ADR 0003 — the Master, and the agent fleet that acts as it

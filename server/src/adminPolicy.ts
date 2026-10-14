@@ -10,7 +10,7 @@ import {
 /*
  * The document's name is re-exported, so a module that reads a job through the
  * reader that lives here names the file here. The job's *shape* is not: it is
- * `shared/publishJob.ts`, and `app.ts` imports it from there.
+ * `shared/publishJob.ts`, and the routes import it from there.
  */
 export { PUBLISH_JOB_FILE };
 

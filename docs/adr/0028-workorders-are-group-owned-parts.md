@@ -5,10 +5,13 @@ Status: Accepted
 Implementation: Built. The shape, its validators and the wire views are one
 definition (`server/src/shared/workorder.ts`); the Master-owned door and its
 `/api/workorders` routes are `server/src/workorderAdmin.ts` and
-`server/src/app.ts`, with the boot ensure in `server/src/index.ts`; the client
-reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`),
+`server/src/routes/workorder.ts`, with the boot ensure in `server/src/index.ts`;
+the client reads through the route (`web/src/lib/workorder.ts`, `web/src/store/workorder.ts`),
 hears about a part changing on the FileNode rail wired in `web/src/App.tsx`'s
-StateChange dispatch, and the surface is a factory launcher in the top bar beside
+StateChange dispatch — and about the installation's own checklist through the
+subscription the deployment holds on that account (`followAccount` in
+`server/src/push.ts`, followed by `server/src/routes/mail.ts`) — and the surface
+is a factory launcher in the top bar beside
 chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision, resolves the applicable steps from it
@@ -204,9 +207,9 @@ nothing, and what comes back is the route's own answer for that caller. Where a
 document lives therefore decides who is woken by it: a check on a **group's**
 checklist is a write into that group's own account, and the group's members are
 woken by it as it happens; the **global** checklist and the registry are the
-Master's own account, which no reader's credential covers, so changes there reach
-a reader at their next read — the panel's next open, a refresh, or the read a
-change on their own group's account provokes.
+Master's own account, which no reader's credential covers, so the subscription the
+deployment already holds on that account — fanned out to the tabs that follow it —
+is what carries a change there to a reader as it happens.
 
 ### The checklist, and its signature
 
@@ -319,8 +322,9 @@ created.
   payload, so the answer is a route read and visibility stays the route's decision.
   It is followed while the panel is open, and a group's checks appear to its members
   as they happen; a change to the global checklist, which lives in the Master's own
-  account, reaches a member at their next read — the limit the account a document
-  lives in puts on who can be woken by it.
+  account, reaches a member through the subscription the deployment holds on that
+  account and fans out to the tabs following it — a member's own credential cannot
+  cover it, so the installation's is what must.
 - A closed workorder is a **document moved**, not a tree that decides: the root's
   own state is the truth, `closed/` is the projection, and a root in the wrong
   folder is a finding. The move keeps the id, costs one write, and never touches

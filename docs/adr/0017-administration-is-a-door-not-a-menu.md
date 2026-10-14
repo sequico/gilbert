@@ -4,9 +4,10 @@ Status: Accepted
 
 Implementation: Built. `server/src/adminGate.ts` holds the allowlist
 (`SELF_SERVICE`) and the two rules a session is measured against
-(`administrationAllowed`, `gateAdministration`); `server/src/app.ts` refuses an
-inspected `/api/jmap` body that names a registry object and enforces the same
-two conditions beside `requireAdmin` on every `/api/admin` route
+(`administrationAllowed`, `gateAdministration`); `server/src/routes/mail.ts`
+refuses an inspected `/api/jmap` body that names a registry object, and
+`server/src/routes/shared.ts` enforces the same two conditions beside
+`requireAdmin` on every `/api/admin` route
 (`administrationRefusal`, `MAX_GATED_REQUEST`, `sessionExtras`);
 `server/src/upstream.ts` compares two permission lists (`outranks`) and
 `/api/admin/force-password-change` refuses with `target_outranks`;
@@ -182,8 +183,10 @@ client is cosmetic, exactly as in ADR 0001.
   act on. An installation whose administration is a single role sees no change —
   the marker and the comparison agree on every account there.
 - `server/src/upstream.ts` — `isStalwartAdmin`, `outranks`
-- `server/src/app.ts` — the `/api/jmap` gate, `administrationRefusal`,
-  `requireAdmin`, `MAX_GATED_REQUEST`, `sessionExtras`, the force-password route
+- `server/src/routes/mail.ts` — the `/api/jmap` gate
+- `server/src/routes/shared.ts` — `administrationRefusal`, `requireAdmin`,
+  `MAX_GATED_REQUEST`, `sessionExtras`
+- `server/src/routes/account.ts` — the force-password-change route
 - `server/src/adminGate.ts` — `administrationAllowed`, `gateAdministration`,
   `mayNameRegistryMethod`, `SELF_SERVICE`
 - `server/src/configuration.ts` — `ADMINISTRATION` and

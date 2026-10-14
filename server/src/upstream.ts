@@ -520,7 +520,7 @@ function directoryBatch(session: UpstreamSession): number {
  * publish fans out over exactly this list, so an incomplete read is the
  * difference between "every account holds the policy" and "every account this
  * read could see holds it". Read `complete` wherever the list is treated as
- * the installation (app.ts's `/admin/policy` fan-out) rather than as a
+ * the installation (the `/admin/policy` fan-out in `routes/admin.ts`) rather than as a
  * directory page. Confirmed live on 0.16.23 (2026-09-24) that a real server
  * pages the way this read assumes — `position`, `limit` and `calculateTotal`
  * are honoured, the walk reaches the end, and a reported `total` is the

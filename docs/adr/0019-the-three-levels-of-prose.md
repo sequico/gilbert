@@ -8,7 +8,7 @@ does not work; a refactor is planned (see `ROADMAP.md`).
 and `proseFor` in `server/src/agent/documents.ts`; `AgentStore.readProse`/
 `writeProse` in `server/src/agent/store.ts`; `preambleBlock`/`proseHead` in
 `server/src/agent/llm.ts`; `readAgentProse`/`saveAgentProse` and the two routes
-in `server/src/agentAdmin.ts` and `server/src/app.ts`; `ProsePanel.tsx`,
+in `server/src/agentAdmin.ts` and `server/src/routes/agents.ts`; `ProsePanel.tsx`,
 `AgentPreamble`'s place in `AdminAgents.tsx` and `GroupInstruction.tsx` in the
 web tree.
 
@@ -120,6 +120,6 @@ three refuses to make with raw correspondence.
 - `server/src/agent/executor.ts` — `planFor`, where the three documents are read
   once per run and handed to the call
 - `server/src/agentAdmin.ts` — `readAgentProse`, `saveAgentProse`, `readDraft`
-- `server/src/app.ts` — the two routes the prose is reached by
+- `server/src/routes/agents.ts` — the two routes the prose is reached by
 - `web/src/views/admin/agent/ProsePanel.tsx` — the one component both scopes are
   written and read with

@@ -66,6 +66,15 @@ export interface JmapSession {
      */
     identityLocked?: boolean;
     /**
+     * ADR 0028: Stalwart's id for the installation's own account, where the
+     * global checklist and the registry live. No member's session is a member
+     * of it, so a `StateChange` naming that account cannot be recognised from
+     * the session's own accounts — this is the fact that turns it into a read.
+     * Absent when the installation has no account to name, and the surfaces
+     * that follow it then follow none.
+     */
+    installationAccount?: string;
+    /**
     /** Locale configured for the account in Stalwart, if the server exposes it. */
     userLocale?: string | null;
     /** What the upstream server was willing to say about itself. */

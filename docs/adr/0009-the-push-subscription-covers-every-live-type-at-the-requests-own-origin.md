@@ -36,7 +36,7 @@ optimisation; the relay is its fallback.
 ## Where it POSTs
 
 A `PushSubscription` names an `https` callback URL. `pushOrigin()` in
-`server/src/app.ts` derives it from the request that carried the session,
+`server/src/routes/shared.ts` derives it from the request that carried the session,
 never from configuration, answering `https://host` only when the peer is a
 trusted proxy (`TRUST_PROXY`, `TRUSTED_PROXIES`), the request arrived over
 `https` (from `X-Forwarded-Proto` for a trusted peer, the socket otherwise),
@@ -76,7 +76,8 @@ operator can read which accounts verified and which path each is on.
 
 - `server/src/shared/push.ts` — `PUSH_STATE_TYPES`
 - `server/src/push.ts` — subscription lifecycle, `pushOrigin`
-- `server/src/app.ts` — `pushOrigin()`, `TRUSTED_PROXIES`
+- `server/src/routes/shared.ts` — `pushOrigin()`, `followAccount`'s caller
+- `server/src/configuration.ts` — `TRUSTED_PROXIES`
 - `server/src/push.test.ts` — the list pinned against the stores
 - ADR 0003 — `TYPES_BY_AREA`, the agent's own narrower read
 - ADR 0005 — chat's `FileNode` documents
