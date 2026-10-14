@@ -40,7 +40,7 @@ import {
   writeAppFileIn,
 } from "./appFolder.js";
 import { groupAccountId } from "./identityAdmin.js";
-import { isStateMismatch } from "./jmap.js";
+import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
 import { refusalOf } from "./shared/jmap.js";
@@ -935,7 +935,7 @@ export async function saveDraft(
 ): Promise<KnowledgeSummary> {
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
   const articlePath = articlePathOf(article);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     await ensureFolderPath(ctx, accountId, articlePath);
     const state = requireState(await appFolderState(ctx, accountId));
     /*
@@ -1051,7 +1051,15 @@ export async function saveDraft(
         saved: true,
       });
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      // The race lost twice is refused here, not left to the guard below: the
+      // revision above is already written, and a state that never points at it
+      // is an issued document nobody can read.
+      if (retryStateMismatch(err, attempt))
+        throw new KnowledgeAdminError(
+          "knowledge_approve_failed",
+          "The revision was recorded but its state could not be written because another write kept winning the race.",
+          502,
+        );
     }
   }
   throw new KnowledgeAdminError(
@@ -1154,7 +1162,7 @@ export async function approveArticle(
    * just recorded is an issued document nobody can read.
    */
   let nextState: KnowledgeState | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the state document, as `saveDraft` reads it: a
     // token read after it is still valid while what it would be compared
     // against has already moved. Both are re-read on a retry, so whatever
@@ -1189,7 +1197,7 @@ export async function approveArticle(
       });
       break;
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   if (!nextState)
@@ -1242,7 +1250,7 @@ export async function restoreArticle(
     );
   await ensureFolderPath(ctx, accountId, articlePath);
   const by = admin.username;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while the documents it would be compared
     // against have already moved, which is the lost update this guards.
@@ -1314,7 +1322,7 @@ export async function restoreArticle(
         saved: true,
       });
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(
@@ -1357,7 +1365,7 @@ export async function renameArticle(
       `"${wantedName}" is reserved for an article's revision store; choose another title.`,
       400,
     );
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // Re-resolved by the node id, which a rename leaves alone: an article whose
     // folder a previous attempt moved is read where it is now.
     const current = await findArticle(
@@ -1447,7 +1455,7 @@ export async function renameArticle(
         saved: nextDraft !== null,
       });
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(
@@ -1476,7 +1484,7 @@ export async function reorderArticle(
     throw new KnowledgeAdminError("bad_request", "An order must be a number.");
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
   const articlePath = articlePathOf(article);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the documents, as `saveDraft` reads it: a token
     // read after them is still valid while what it would be compared against
     // has already moved.
@@ -1532,7 +1540,7 @@ export async function reorderArticle(
         folderOrder: order,
       });
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(
@@ -1584,7 +1592,7 @@ export async function moveArticle(
   // summary spells that as a null parent, exactly as the listing does.
   const destNodeId = parent ? parent.nodeId : tierFolderId;
   const destParentId = parent ? parent.nodeId : null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
     try {
       const res = await updateAppNode(
@@ -1617,7 +1625,7 @@ export async function moveArticle(
         saved: draft !== null,
       });
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(
@@ -1705,7 +1713,7 @@ async function retireArticle(
   by: string,
 ): Promise<void> {
   const articlePath = articlePathOf(article);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
@@ -1740,7 +1748,7 @@ async function retireArticle(
       });
       return;
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(

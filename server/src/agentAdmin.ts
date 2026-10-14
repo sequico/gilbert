@@ -120,7 +120,7 @@ import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
 import { isPrivateAddress } from "./imageproxy.js";
 import {
-  isStateMismatch,
+  retryStateMismatch,
   JMAP_MAIL,
   JmapClient,
   JmapError,
@@ -846,9 +846,12 @@ export async function saveRules(
       await store.writeRules(next, found ? { ifInState: found.state } : {});
       return next;
     } catch (err) {
-      // Someone else wrote the account between the read and the write: read
-      // again and re-apply this save on top of what landed, once.
-      if (!isStateMismatch(err) || attempt > 0) throw err;
+      // Someone else wrote the account between the read and the write: the
+      // shared policy reads the state again and re-applies this save on top of
+      // what landed, once. A race lost twice leaves the loop, and the write's
+      // own failure is what the caller reads: this surface's refusals are codes
+      // the client composes a sentence from, and a lost race has none of its own.
+      if (retryStateMismatch(err, attempt)) throw err;
     }
   }
 }
@@ -1149,7 +1152,7 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
       await store.writeConfig(doc, found ? { ifInState: found.state } : {});
       return;
     } catch (err) {
-      if (!isStateMismatch(err) || attempt > 0) throw err;
+      if (retryStateMismatch(err, attempt)) throw err;
     }
   }
 }

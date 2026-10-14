@@ -122,7 +122,37 @@ export class JmapResult {
  * has to recognise it. One definition, in the shared tree, because the client
  * tier recognises the same refusal the same way.
  */
-export { isStateMismatch } from "./shared/errors.js";
+import { isStateMismatch } from "./shared/errors.js";
+
+export { isStateMismatch };
+
+/**
+ * How many times a conditional write is attempted: the first, and one retry.
+ *
+ * JMAP offers no lock, and the state a write is made against is whole-account,
+ * so two writers that read the same state is a race one of them loses. The
+ * retry re-reads the state and writes again; a race lost twice is refused
+ * rather than retried a third time.
+ */
+export const WRITE_ATTEMPTS = 2;
+
+/**
+ * What a conditional write's failure means, decided here so that every door
+ * answers a lost race the same way.
+ *
+ * A state mismatch -- the `ifInState` token no longer matching, because another
+ * write landed between this attempt's read and its write -- on an earlier
+ * attempt is the race the retry exists for: `false` sends the caller round its
+ * loop, where the state is read again. On the last attempt it is a race this
+ * writer kept losing, and `true` says so: the caller leaves its loop and refuses
+ * with its own surface's sentence, never the raw upstream `stateMismatch`, which
+ * names neither a surface nor a document. Anything that is not a mismatch is the
+ * write's own failure, thrown as it came.
+ */
+export function retryStateMismatch(err: unknown, attempt: number): boolean {
+  if (!isStateMismatch(err)) throw err;
+  return attempt >= WRITE_ATTEMPTS - 1;
+}
 
 /**
  * A create refused because a sibling already carries the name.

@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { openMasterAccount } from "./adminSession.js";
 import type { Ctx } from "./appFolder.js";
 import { IdentityAdminError, requireState } from "./identityAdmin.js";
-import { isStateMismatch, JMAP_CONTACTS, JmapClient } from "./jmap.js";
+import {
+  JMAP_CONTACTS,
+  JmapClient,
+  retryStateMismatch,
+  WRITE_ATTEMPTS,
+} from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,
@@ -318,7 +323,7 @@ export async function writeGlobalContact(
       // The update is conditional on the account's ContactCard state and retried
       // once, so two administrators acting at once is a lost race for one of
       // them rather than a silent overwrite of the other.
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
         const state = requireState(await contactCardState(client, accountId));
         try {
           const res = await client.call<{ notUpdated?: Record<string, unknown> }>(
@@ -335,8 +340,7 @@ export async function writeGlobalContact(
             );
           return id;
         } catch (err) {
-          if (err instanceof IdentityAdminError || !isStateMismatch(err)) throw err;
-          if (attempt > 0) throw contactMoved();
+          if (retryStateMismatch(err, attempt)) break;
         }
       }
       throw contactMoved();
@@ -414,7 +418,7 @@ export async function destroyGlobalContact(
       "That card is not in the Global contacts directory.",
       404,
     );
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const state = requireState(await contactCardState(client, accountId));
     try {
       const res = await client.call<{ notDestroyed?: Record<string, unknown> }>(
@@ -431,8 +435,7 @@ export async function destroyGlobalContact(
         );
       return;
     } catch (err) {
-      if (err instanceof IdentityAdminError || !isStateMismatch(err)) throw err;
-      if (attempt > 0) throw contactMoved();
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw contactMoved();

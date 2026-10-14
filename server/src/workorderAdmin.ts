@@ -37,7 +37,7 @@ import {
   updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
-import { isStateMismatch } from "./jmap.js";
+import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
@@ -286,7 +286,7 @@ async function writeRootUnderCas(
   fail: { code: string; message: string },
   mutate: (found: WorkorderFound) => WorkorderDoc,
 ): Promise<WorkorderFound> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the document, so a write landing between the two
     // is refused rather than overwritten.
     const token = requireState(await appFolderState(ctx, accountId));
@@ -304,7 +304,7 @@ async function writeRootUnderCas(
       });
       return { ...found, doc: next };
     } catch (err) {
-      if (!isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new WorkorderAdminError(fail.code, fail.message, 502);
@@ -1346,7 +1346,7 @@ export async function moveRoot(
   nodeId: string,
   parentId: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const token = requireState(await appFolderState(ctx, accountId));
     try {
       const res = await updateAppNode(ctx, accountId, nodeId, { parentId }, token);
@@ -1359,8 +1359,7 @@ export async function moveRoot(
         );
       return;
     } catch (err) {
-      if (!isStateMismatch(err)) throw err;
-      if (attempt > 0)
+      if (retryStateMismatch(err, attempt))
         throw new WorkorderAdminError(
           "workorder_move_failed",
           "The workorder could not be moved because another write kept winning the race.",

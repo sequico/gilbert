@@ -30,7 +30,8 @@ import {
 import { ownIdentityAccount } from "../identityAdmin.js";
 import {
   BlobTooLargeError,
-  isStateMismatch,
+  retryStateMismatch,
+  WRITE_ATTEMPTS,
   JMAP_MAIL,
   JMAP_SUBMISSION,
   JmapClient,
@@ -1115,7 +1116,7 @@ async function writeKnowledgeDraft(
   const path = `${KNOWLEDGE_FOLDER}/${folder}`;
   const draftPath = `${path}/${DRAFT_FILE}`;
   await ensureFolderPath(ctx, account, path);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     // The token is read before the documents, so a save landing between them
     // and the writes is refused rather than silently overwritten.
     const token = await appFolderState(ctx, account);
@@ -1202,7 +1203,7 @@ async function writeKnowledgeDraft(
         account,
       };
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new Error(

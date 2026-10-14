@@ -50,7 +50,12 @@ import {
   writeAppFile,
 } from "./appFolder.js";
 import { agentAddress } from "./config.js";
-import { isStateMismatch, JMAP_SUBMISSION, JmapClient } from "./jmap.js";
+import {
+  JMAP_SUBMISSION,
+  JmapClient,
+  retryStateMismatch,
+  WRITE_ATTEMPTS,
+} from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { ownAccountForCapability } from "./shared/accountRouting.js";
 import { sameAddress } from "./shared/address.js";
@@ -235,7 +240,7 @@ async function writeAssignmentDoc(
   change: (members: Record<string, string>) => Record<string, string>,
   by: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     await ensureAppFolder(ctx, accountId);
     const state = requireState(await appFolderState(ctx, accountId));
     /*
@@ -277,7 +282,15 @@ async function writeAssignmentDoc(
       );
       return;
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      // A race lost twice is not "the assignments could not be read": the
+      // document is there, and another writer kept winning it. The surface's
+      // own code says so -- the raw `stateMismatch` names no document.
+      if (retryStateMismatch(err, attempt))
+        throw new IdentityAdminError(
+          "assignments_moved",
+          "This group's identity assignments could not be written because another write kept winning the race. Nothing was changed; try again.",
+          502,
+        );
     }
   }
 }
@@ -615,7 +628,7 @@ export async function writeDefaultIdentity(
   accountId: string,
   identityId: string | null,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     await ensureAppFolder(ctx, accountId);
     const state = requireState(await appFolderState(ctx, accountId));
     /*
@@ -658,7 +671,14 @@ export async function writeDefaultIdentity(
       await writeAppFile(ctx, accountId, SETTINGS_FILE, doc, { ifInState: state });
       return;
     } catch (err) {
-      if (attempt > 0 || !isStateMismatch(err)) throw err;
+      // As above: the settings document moved under this write twice, and that is
+      // this surface's own refusal rather than the upstream one.
+      if (retryStateMismatch(err, attempt))
+        throw new IdentityAdminError(
+          "settings_moved",
+          "This account's settings could not be written because another write kept winning the race — the default identity was not set. Try again.",
+          502,
+        );
     }
   }
 }
