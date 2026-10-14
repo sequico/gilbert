@@ -418,6 +418,15 @@ interface CalendarState {
   ranges: Record<string, Id[]>;
   loading: boolean;
   error: string | null;
+  /**
+   * Which shared accounts a window read could not reach.
+   *
+   * Its own field rather than a second writer of `error`: that one belongs to
+   * the reader's own calendars and range, and a shared window that read cleanly
+   * must not clear a failure the reader was just shown — nor must a failed one
+   * hide it.
+   */
+  sharedError: string | null;
   identities: ParticipantIdentity[];
   hidden: Record<Id, true>;
   /** Events from each subscribed calendar, by subscription id. Never persisted. */
@@ -722,6 +731,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   ranges: {},
   loading: false,
   error: null,
+  sharedError: null,
   identities: [],
   hidden: {},
   subscriptionEvents: {},
@@ -998,7 +1008,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     });
     // Cleared as well as set: a window that read cleanly after a failed one is
     // no longer a window with something wrong on it.
-    set({ error: failed.length ? failed.join(" ") : null });
+    set({ sharedError: failed.length ? failed.join(" ") : null });
   },
 
   async loadCalendars() {
@@ -2320,6 +2330,7 @@ useSession.subscribe((s, prev) => {
       sharedCalendars: [],
       sharedEvents: {},
       sharedRanges: {},
+      sharedError: null,
       identities: [],
     });
     return;

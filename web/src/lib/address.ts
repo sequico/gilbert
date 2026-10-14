@@ -1,10 +1,20 @@
+import { isEmailAddress } from "@gilbert/shared/address";
 import type { EmailAddress } from "@/jmap/types";
 import { stripControls, withoutBidiControls } from "@/lib/text";
 
-const EMAIL_RE = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]+$/;
-
+/**
+ * Whether a string is an address this product will accept.
+ *
+ * The shared predicate, imported rather than written out: the client and the
+ * server both name an address with it, and the copy that lived here was
+ * stricter in a way that lost mail. It excluded `' " , ;` from the local part,
+ * so `o'brien@example.com` — an address the server accepted, stored and would
+ * have delivered — was refused at the composer, the recipient chip marked
+ * invalid and the send stopped. A person whose address contains an apostrophe
+ * could not write to anybody.
+ */
 export function isValidEmail(s: string): boolean {
-  return EMAIL_RE.test(s.trim());
+  return isEmailAddress(s);
 }
 
 /**

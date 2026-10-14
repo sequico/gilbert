@@ -16,7 +16,7 @@ import { t } from "@/lib/i18n";
  */
 export interface TabPart<Id extends string = string> {
   id: Id;
-  /** English source; rendered through `t()` where the tab is drawn. */
+  /** English source; `TabStrip` renders it through `t()`. */
   label: string;
 }
 

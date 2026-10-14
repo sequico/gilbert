@@ -65,7 +65,13 @@ export const EXAMPLES: Record<string, Example> = {
 export function exampleFor(key: string): Example {
   const sample = (EXAMPLES as Record<string, Example | undefined>)[key];
   if (sample !== undefined) return sample;
-  return (DEFAULT_SETTINGS as unknown as Record<string, Example | undefined>)[key] ?? "";
+  const shipped = (DEFAULT_SETTINGS as unknown as Record<string, Example | undefined>)[
+    key
+  ];
+  // `null` is an answer, not a missing one: a key whose shipped default is null
+  // is quoted as null, because quoting it as `""` would be a value this build
+  // does not ship -- the drift this column exists to remove.
+  return shipped === undefined ? null : shipped;
 }
 
 export const ENTRIES: Record<string, KeyEntry> = {

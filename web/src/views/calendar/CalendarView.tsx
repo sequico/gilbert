@@ -411,9 +411,11 @@ export function CalendarView({
           </button>
         )}
       </div>
-      {cal.error && (
+      {(cal.error || cal.sharedError) && (
         <div className="error-box" style={{ margin: 12 }}>
           {cal.error}
+          {cal.error && cal.sharedError ? " · " : ""}
+          {cal.sharedError}
         </div>
       )}
       {effectiveView === "month" && (

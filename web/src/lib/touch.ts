@@ -25,15 +25,16 @@ import { useCallback, useEffect, useRef } from "react";
  */
 
 /**
- * The three touch events every gesture in this file listens to, and how each
- * one is registered.
+ * The touch events every gesture in this file listens to, and how each one is
+ * registered.
  *
  * Three hooks bound them by hand, and the binding is not the interesting part
  * of any of them: `touchstart` is passive (nothing here cancels it), `touchmove`
  * is not (the gesture is what stops the browser scrolling), and `touchend` and
  * `touchcancel` are the same handler because a cancelled touch ends a gesture
- * exactly as a lifted one does. A fourth listener added to one gesture and not
- * the others would be invisible, so the list is here once.
+ * exactly as a lifted one does — three handlers over four event types. A fourth
+ * listener added to one gesture and not the others would be invisible, so the
+ * list is here once.
  */
 const TOUCH_EVENTS: ReadonlyArray<
   [string, (h: GestureHandlers) => EventListener, AddEventListenerOptions | undefined]

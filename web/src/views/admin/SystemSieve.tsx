@@ -199,16 +199,24 @@ export function SystemSieve() {
         scripts={scripts}
         onEdit={(s) => void open(s)}
         onToggle={async (s) => {
-          await setSystemSieveScriptActive(s.id, !s.isActive, listState ?? undefined);
-          // Reload whether it worked or not: a lost race is exactly when the
-          // list this button reads from is stale, and the next attempt needs the
-          // current state to have a chance. The failure has already been reported
-          // by the card, so it is swallowed here rather than raised twice.
-          await load();
+          try {
+            await setSystemSieveScriptActive(s.id, !s.isActive, listState ?? undefined);
+          } finally {
+            // Reload whether it worked or not: a lost race is exactly when the
+            // list this button reads from is stale, and the next attempt needs
+            // the current state to have a chance. Every write here carries
+            // `listState`, so a refused write is the ordinary case and leaving
+            // the old token in place makes every further attempt fail the same
+            // way. The card owns the toast, so nothing is raised twice.
+            await load();
+          }
         }}
         onDelete={async (s) => {
-          await deleteSystemSieveScript(s.id, listState ?? undefined);
-          await load();
+          try {
+            await deleteSystemSieveScript(s.id, listState ?? undefined);
+          } finally {
+            await load();
+          }
         }}
       />
       <div className="row save-bar">

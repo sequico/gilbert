@@ -27,6 +27,14 @@ describe("address parsing", () => {
   it("validates and initials", () => {
     expect(isValidEmail("a@b.co")).toBe(true);
     expect(isValidEmail("nope")).toBe(false);
+    /*
+     * The client and the server name an address with one predicate, so an
+     * address one of them accepts the other accepts too. An apostrophe is legal
+     * in the local part: the client used to exclude it, and a person with one
+     * could not write to anybody — the composer refused the send.
+     */
+    expect(isValidEmail("o'brien@example.com")).toBe(true);
+    expect(isValidEmail("first last@example.com")).toBe(false);
     expect(initials({ name: "Grace Hopper", email: "" })).toBe("GH");
     expect(initials({ name: null, email: "linus@kernel.org" })).toBe("LK");
   });
