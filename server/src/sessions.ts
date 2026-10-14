@@ -54,6 +54,7 @@ import { randomBytes } from "node:crypto";
 import { config } from "./config.js";
 import { deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 import type { SessionSummary } from "./shared/accountSecurity.js";
+import { isRecord } from "./shared/json.js";
 
 export interface StoredSession {
   /**
