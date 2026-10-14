@@ -112,9 +112,16 @@ export async function readChat(
   const folderId = await findFolderPath(ctx, accountId, CHAT_FOLDER);
   if (!folderId) return [];
   const nodes = await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, "created"]);
+  /*
+   * The greeting marker is a document in this folder that is not a message, and
+   * it must not take a slot of the window: a read covers the newest
+   * `CHAT_READ_MAX` *messages*, and a window that counts its own bookkeeping
+   * covers fewer than the number says.
+   */
   const files = nodes.filter(
     (node) =>
       node.nodeType === "file" &&
+      node.name !== GREETING_FILE &&
       typeof node.name === "string" &&
       typeof node.blobId === "string",
   );

@@ -677,11 +677,11 @@ export async function runActions(
   const results: ActionResult[] = [];
   for (const action of actions) {
     // The grant is the boundary ADR 0003 puts before anything runs: an action
-    // the rule does not hold is refused here, whatever path wrote the plan.
-    // `allowed` is required of every caller (see `ActionOpts`), so a forgotten
-    // grant is a compile error; the check below is what refuses an action the
-    // grant does not hold.
-    if (opts?.allowed && !opts.allowed.includes(action.do))
+    // the rule does not hold is refused here, whatever path wrote the plan. The
+    // check is unconditional — `allowed` is required of every caller, and a
+    // caller that reached here without one is refused rather than permitted,
+    // which is what keeps this a boundary instead of a statement of intent.
+    if (!opts.allowed.includes(action.do))
       throw new RefusedError(
         `"${action.do}" is not in this run's grant, so nothing is run`,
       );

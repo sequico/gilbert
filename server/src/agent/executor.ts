@@ -2842,8 +2842,16 @@ export class Executor {
 
   /** Whether a pending decision has waited past the window the product allows. */
   private decisionTimedOut(decision: AgentDecision): boolean {
-    const waited = this.deps.now().getTime() - Date.parse(decision.createdAt);
-    return waited >= DECISION_PENDING_RETENTION_MS;
+    const at = Date.parse(decision.createdAt);
+    /*
+     * A stamp that does not parse is treated as expired rather than as "not yet":
+     * every comparison against `NaN` is false, so the other reading would keep
+     * that decision — and its job — for the life of the account, which is the
+     * retention this window exists to end.
+     */
+    return (
+      Number.isNaN(at) || this.deps.now().getTime() - at >= DECISION_PENDING_RETENTION_MS
+    );
   }
 
   /**
