@@ -272,15 +272,31 @@ export async function greetUnspoken(
   client: JmapClient,
 ): Promise<string | null> {
   const messages = await readChat(ctx, accountId, client);
-  if (hasSpoken(messages, address)) return null;
+  if (hasSpoken(messages, address)) {
+    /*
+     * A greeting written before the marker existed is recorded the moment it is
+     * seen, so the transcript's own greeting is what carries the fact into the
+     * window's future. Without this the only greets that ever got a marker would
+     * be the ones posted from here on, and a group greeted by an older build
+     * would hear from the agent a second time once its chat passed the window.
+     */
+    if (!(await hasGreeted(ctx, accountId, address)))
+      await markGreeted(ctx, accountId, address);
+    return null;
+  }
   if (await hasGreeted(ctx, accountId, address)) return null;
   const node = await postMessage(ctx, accountId, address, AGENT_GREETING);
   // Written after the message: a marker that outlived a failed post would
   // silence a greeting the group never heard.
+  await markGreeted(ctx, accountId, address);
+  return node;
+}
+
+/** Record that this address has greeted the group. */
+async function markGreeted(ctx: Ctx, accountId: string, address: string): Promise<void> {
   await writeAppFileAt(ctx, accountId, `${CHAT_FOLDER}/${GREETING_FILE}`, {
     from: address,
   });
-  return node;
 }
 
 /**

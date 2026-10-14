@@ -322,6 +322,13 @@ test("the agent greets a group it has never spoken in, and only once", async () 
 test("a group the agent already speaks in is never greeted", async () => {
   assert.ok(await hasSpoken(await readChat(ctx, GROUP, client), AGENT));
   assert.equal(await greetUnspoken(ctx, GROUP, AGENT, client), null);
+  // Seen once, recorded for good: the marker is what keeps this group quiet once
+  // its chat grows past the window that still holds the greeting.
+  assert.equal(
+    await hasGreeted(ctx, GROUP, AGENT),
+    true,
+    "the greeting it found leaves the marker",
+  );
 });
 
 test("a transcript longer than the window reads only the newest messages", async () => {
