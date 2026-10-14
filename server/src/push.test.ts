@@ -64,7 +64,7 @@ function fakeOut() {
  */
 function stubUpstream(created = true, expiresInMs = 7 * 86_400_000) {
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
     const url = String(input);
     if (url.endsWith("/.well-known/jmap") || url.includes("/jmap/session")) {
       return new Response(
@@ -124,7 +124,7 @@ async function isolatedPush(tag: string): Promise<typeof import("./push.js")> {
 function captureToken(): { restore(): void; token: () => string | null } {
   const real = globalThis.fetch;
   let token: string | null = null;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
       typeof init?.body === "string" ? init.body : "",
     );
@@ -153,7 +153,7 @@ function fakePushServer(
   const calls: Array<{ method: string; args: Obj }> = [];
   const cap = opts.cap ?? 15;
   let seq = 0;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = String(input);
     const body = init?.body ? (JSON.parse(String(init.body)) as Obj) : null;
     if (body?.methodCalls) {
@@ -483,7 +483,7 @@ test("a StateChange is written to attached tabs as an SSE frame, and closed tabs
     // subscribe request the stub saw. Simplest faithful route: capture the URL Stalwart would POST to.
     let token: string | null = null;
     const real = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
       const b = typeof init?.body === "string" ? init.body : "";
       const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(b);
       if (m) token = m[1];
@@ -541,7 +541,7 @@ test("a tab on the relay is moved to fan-out when its account verifies, and its 
   try {
     let token: string | null = null;
     const real = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
       const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
         typeof init?.body === "string" ? init.body : "",
       );
@@ -823,7 +823,7 @@ function captureSubscribe(): {
   const real = globalThis.fetch;
   let types: string[] | null = null;
   let url: string | null = null;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     if (typeof init?.body === "string") {
       try {
         const parsed = JSON.parse(init.body) as {
@@ -1059,7 +1059,7 @@ test("a create that lands after its entry was torn down is destroyed, not leaked
     release = r;
   });
   const stub = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     if (typeof init?.body === "string" && init.body.includes('"PushSubscription/set"'))
       await gate;
     return stub(input, init);
@@ -1100,7 +1100,7 @@ test("a create that lands after its entry was torn down is destroyed, not leaked
  */
 function stubRefusedVerification(answer: "notUpdated" | "error") {
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith("/.well-known/jmap") || url.includes("/jmap/session")) {
       return new Response(
@@ -1211,7 +1211,7 @@ test("a verification that arrives before the subscription exists is refused", as
   const gate = new Promise<void>((r) => {
     release = r;
   });
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     /* The capture wrapper runs first, synchronously, so the token is read off
        the create's URL body; the gate then holds the answer, leaving
        `subscriptionId` unset while the request is in flight. */

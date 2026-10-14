@@ -452,7 +452,7 @@ test("the first assignment a group ever gets is written, for one upload", async 
 
   const realFetch = globalThis.fetch;
   const uploads: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     if (init?.method === "POST" && String(input).includes("/upload/"))
       uploads.push(String(input));
     return realFetch(input, init);
@@ -506,7 +506,7 @@ test("a write that lands between the state and the list is not overwritten", asy
     status: 0,
     body: null,
   };
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (!interposed && body.includes("FileNode/get") && body.includes('"ids":[]')) {
       interposed = true;

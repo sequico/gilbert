@@ -44,7 +44,7 @@ after(() => {
 
 test("a download the mail server refuses for credentials signs the reader out", async () => {
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     if (String(input).includes("/jmap/download/"))
       return new Response("", { status: 401 });
     return real(input, init);

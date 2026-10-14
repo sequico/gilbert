@@ -114,7 +114,7 @@ function failAgentSignIn(status: number): () => void {
     `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
   ).toString("base64")}`;
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url =
       typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const headers = new Headers(
@@ -269,7 +269,7 @@ test("a save that loses the account-wide compare-and-set is retried, not shown",
    */
   let injected = false;
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (!injected && body.includes("FileNode/query")) {
       injected = true;

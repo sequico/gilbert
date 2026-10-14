@@ -57,7 +57,7 @@ async function countDownloads<T>(
 ): Promise<{ result: T; reads: number }> {
   const real = globalThis.fetch;
   let reads = 0;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     if (String(input).includes("/jmap/download/")) reads += 1;
     return real(input, init);
   }) as typeof fetch;

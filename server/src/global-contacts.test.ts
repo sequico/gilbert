@@ -178,7 +178,7 @@ test("an update and a destroy carry the card's compare-and-set", async () => {
 
   const real = globalThis.fetch;
   const carries: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (body.includes("ContactCard/set")) carries.push(body);
     return real(input, init);

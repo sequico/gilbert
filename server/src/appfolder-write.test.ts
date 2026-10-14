@@ -107,7 +107,7 @@ async function withFetchHook<T>(
   run: () => Promise<T>,
 ): Promise<T> {
   const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const res = await real(input, init);
     await hook(res, init);
     return res;

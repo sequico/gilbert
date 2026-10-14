@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { freePort, postWith } from "../testkit.js";
+import type { Obj } from "./types.js";
 
 /**
  * The mock models a group (team) mailbox the demo user is a member of: an extra

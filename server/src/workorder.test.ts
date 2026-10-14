@@ -1351,7 +1351,7 @@ async function countDownloads<T>(
 ): Promise<{ result: T; urls: string[] }> {
   const real = globalThis.fetch;
   const urls: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/jmap/download/")) urls.push(url);
     return real(input, init);

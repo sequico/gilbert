@@ -503,7 +503,7 @@ test("a rename that loses the race on its title re-resolves the article by id", 
   const real = globalThis.fetch;
   let renamed = false;
   let injected = false;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (
       body.includes("FileNode/set") &&
@@ -562,7 +562,7 @@ test("a create whose listing key cannot be written is not left half-made", async
    */
   const real = globalThis.fetch;
   let injected = false;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (!injected && body.includes("FileNode/set") && body.includes('"state.json"')) {
       injected = true;
