@@ -10,6 +10,46 @@ Gilbert deliberately does not do. The supported server is the **0.16** line —
 Stalwart **0.15 is not supported** — and each entry states how it behaves there.
 For what is not built yet, see [ROADMAP.md](ROADMAP.md).
 
+## `gilbertagents`: what the refactor has to carry over
+
+Four defects found in the executor are **not** fixed, because the part is being
+rewritten and a fix here would be overwritten by the rewrite. Each is written
+down so the rewrite is judged against it, and none of them is subtle enough to
+survive being rediscovered.
+
+- **A member's answer is silently lost when it meets a concurrent write.**
+  `resolveApproval` consumes a decision with one conditional write
+  (`executor.ts`, `store.writeDecision(…, { ifInState })`), and its token is the
+  account's **whole** FileNode state — so a chat message, a job closing or an
+  anchor advanced between the read and the write loses the comparison. The
+  handler returns on `isStateMismatch`, and the answer goes with it: no audit
+  row, no chat line, the decision still `pending`, the job still
+  `awaiting_approval`, and the group waiting out `DECISION_PENDING_RETENTION_MS`
+  (30 days) for something it had already answered. `sweepDecisions` in the same
+  file names this exact hazard against itself and retries; this one does not.
+- **A run that lost its unit tells the group it failed.** `runJob`'s failure path
+  passes `deadLetter: err instanceof RefusedError`, so a `RefusedError` raised
+  because a successor took the claim — which is the fence working, not a failure
+  — reaches `failLoudly` and posts "I could not finish …" into the group's chat,
+  while the successor completes the same job. The group reads a failure for work
+  that succeeded.
+- **`settleSentDraft` breaks out of its retry loop instead of retrying.** In
+  `sweepDecisions`, a settle lost to ordinary account bookkeeping ends the loop
+  for that decision rather than continuing it, so one pass leaves a decision
+  pending that a person had already answered. The loop's own comment is what
+  justifies continuing.
+- **Two constants for one concept.** `CAS_ATTEMPTS` (`lease.ts`, 4) and
+  `DECISION_SETTLE_ATTEMPTS` (`executor.ts`, 3) both mean "how many times a
+  read-modify-write retries after losing a compare-and-set", with different
+  values and no shared reader. `AUDIT_CAS_ATTEMPTS` (`store.ts`, 6) does have a
+  reason of its own — the state it compares against is the whole account's, and
+  it pauses and jitters between tries.
+
+Two further defects in the same area were fixed rather than deferred, and must
+not be undone by the rewrite: a lapsed run no longer writes the job its successor
+is running (neither `writeJobIfCurrent` nor the action fence), and the lease is
+no longer renewed for a claim that has moved.
+
 - **`npm run i18n:coverage` counts only what it can see; an unseen string renders
   English however many catalogues ship.** It reads JSX text, missing a
   `toast.error(…)` argument, a `confirmDialog({ title, confirmLabel })` prop, a
