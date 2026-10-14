@@ -431,6 +431,16 @@ test("a submission from the group account sends as the group and files itself in
     ],
   ]);
   const emailId = createdId(responseOf(draft, "e"), "m");
+  /*
+   * The Email state as a reader holds it, before the send. The move out of
+   * Drafts is a mutation of an Email, and a mutation of an Email is only real
+   * to a reader that reconciles from `Email/changes` if the state moves with it
+   * — which is what the assertion at the end of this test asks.
+   */
+  const beforeSend = await jmap(AGENT_AUTH, using, [
+    ["Email/changes", { accountId: GROUP_ACCOUNT, sinceState: "0" }, "c"],
+  ]);
+  const sinceState = String(responseOf(beforeSend, "c")[1].newState);
 
   const sent = await jmap(AGENT_AUTH, using, [
     [
@@ -499,4 +509,25 @@ test("a submission from the group account sends as the group and files itself in
   const row = rows.find((r) => r.id === submission.id)!;
   assert.equal(row.identityId, GROUP_IDENTITY);
   assert.equal(row.envelope.mailFrom.email, "team@example.org");
+
+  /*
+   * The send is announced on the Email rail, not only on the submission's.
+   * `onSuccessUpdateEmail` is what moves the message out of Drafts, and it used
+   * to do it in silence: no state bump, no change-log entry, no push — so a
+   * second session and the group's own agent, both of which reconcile from
+   * `Email/changes`, kept reading the message as an unsent draft until
+   * something else happened to touch it.
+   */
+  const changes = await jmap(AGENT_AUTH, using, [
+    ["Email/changes", { accountId: GROUP_ACCOUNT, sinceState }, "c"],
+  ]);
+  assert.ok(
+    (responseOf(changes, "c")[1].updated as string[]).includes(emailId),
+    "the sent message is a change a reader reconciles from its own state",
+  );
+  assert.notEqual(
+    responseOf(changes, "c")[1].newState,
+    sinceState,
+    "and the state it is recorded at is one the reader has not seen",
+  );
 });

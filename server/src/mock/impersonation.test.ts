@@ -244,3 +244,52 @@ test("the impersonated session reaches no contacts of another account", async ()
     "the demo account's own contacts are untouched",
   );
 });
+
+/**
+ * An over-long signature refuses its own identity, and only its own.
+ *
+ * Stalwart caps a signature at 2047 bytes of UTF-8 and refuses by name. The mock
+ * returned on the first over-long entry, throwing the rest of the request away:
+ * a client saving two identities at once got a 200 carrying one refusal and no
+ * word about the other, and read that as saved — while a real server applied it.
+ * RFC 8620 §5.3 requires every id in a set to be accounted for in
+ * `created`/`updated` or `notCreated`/`notUpdated`, never in neither.
+ */
+test("Identity/set refuses over-long signatures one by one", async () => {
+  const auth = basic(DEMO, "demo-password");
+  const long = "x".repeat(2048);
+
+  const res = await jmap(auth, [
+    [
+      "Identity/set",
+      {
+        accountId: "a1",
+        create: {
+          bad: { name: "Too long", email: DEMO, htmlSignature: long },
+          good: { name: "Fine", email: DEMO, htmlSignature: "short" },
+        },
+      },
+      "s",
+    ],
+  ]);
+  assert.equal(res.status, 200);
+  const answer = res.body.methodResponses[0][1] as {
+    created: Record<string, { id: string }>;
+    notCreated: Record<string, { type: string; properties: string[] }>;
+  };
+  assert.deepEqual(
+    Object.keys(answer.created),
+    ["good"],
+    "the identity that fits is created",
+  );
+  assert.deepEqual(
+    answer.notCreated.bad?.properties,
+    ["htmlSignature"],
+    "and the one that does not is refused by the property that was too long",
+  );
+  assert.equal(
+    Object.keys(answer.notCreated).length,
+    1,
+    "the refusal names one entry, not the whole request",
+  );
+});

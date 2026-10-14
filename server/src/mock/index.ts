@@ -3723,27 +3723,37 @@ const handlers: Record<string, Handler> = {
   },
   "Identity/get": (a) => genericGet(identitiesFor(a.accountId), "Identity")(a),
   "Identity/set": (a) => {
-    // Stalwart's cap is `value.len() < 2048` on a Rust string: 2047 bytes of
-    // UTF-8, not characters. Anything longer is refused by name.
-    for (const [where, entries] of [
-      ["notCreated", (a.create as Obj) ?? {}],
-      ["notUpdated", (a.update as Obj) ?? {}],
+    /*
+     * Stalwart's cap is `value.len() < 2048` on a Rust string: 2047 bytes of
+     * UTF-8, not characters. Anything longer is refused by name — and refused
+     * **by name**, one entry at a time. Returning on the first over-long
+     * signature threw the rest of the request away: a client saving two
+     * identities at once, one of them with a long signature, got a 200 carrying
+     * a single refusal and no word about the other, which it read as saved. A
+     * real server applies it, and RFC 8620 §5.3 requires every id in a set to be
+     * accounted for in `created`/`updated` or `notCreated`/`notUpdated` — never
+     * in neither.
+     */
+    const create = { ...((a.create as Obj) ?? {}) };
+    const update = { ...((a.update as Obj) ?? {}) };
+    const notCreated: Obj = {};
+    const notUpdated: Obj = {};
+    for (const [entries, refused] of [
+      [create, notCreated],
+      [update, notUpdated],
     ] as const) {
       for (const [key, obj] of Object.entries(entries)) {
         const over = ["htmlSignature", "textSignature"].find((prop) => {
           const v = (obj as Obj)[prop];
           return typeof v === "string" && Buffer.byteLength(v, "utf8") > 2047;
         });
-        if (over)
-          return setResp(accountOf(a), "Identity", {
-            [where]: {
-              [key]: {
-                type: "invalidProperties",
-                properties: [over],
-                description: "Invalid property.",
-              },
-            },
-          });
+        if (!over) continue;
+        refused[key] = {
+          type: "invalidProperties",
+          properties: [over],
+          description: "Invalid property.",
+        };
+        delete entries[key];
       }
     }
     /* The list the *request* named, not the demo user's: `Identity/get` reads
@@ -3751,7 +3761,7 @@ const handlers: Record<string, Handler> = {
        a set that wrote the module-level list would answer 200 and change
        nothing the caller can see — which is how a group's signature edits
        silently did nothing. */
-    return genericSet(
+    const r = genericSet(
       identitiesFor(a.accountId),
       "i",
       (o) =>
@@ -3764,7 +3774,16 @@ const handlers: Record<string, Handler> = {
           ...o,
         }),
       "Identity",
-    )(a);
+    )({ ...a, create, update });
+    return {
+      ...r,
+      ...(Object.keys(notCreated).length
+        ? { notCreated: { ...((r.notCreated as Obj) ?? {}), ...notCreated } }
+        : {}),
+      ...(Object.keys(notUpdated).length
+        ? { notUpdated: { ...((r.notUpdated as Obj) ?? {}), ...notUpdated } }
+        : {}),
+    };
   },
   "EmailSubmission/get": (a) => {
     const ids = a.ids as string[] | null | undefined;
@@ -3803,6 +3822,9 @@ const handlers: Record<string, Handler> = {
     const notCreated: Obj = {};
     const updated: Obj = {};
     const notUpdated: Obj = {};
+    /* Every email `onSuccessUpdateEmail` patched, so the move out of Drafts is
+       announced below the way `Email/set` announces its own. */
+    const patchedEmails: string[] = [];
     for (const [cid, raw] of Object.entries((a.create as Obj) ?? {})) {
       const sub = raw as Obj;
       const emailId = sub.emailId as string;
@@ -3851,7 +3873,10 @@ const handlers: Record<string, Handler> = {
         undoStatus: undoStatusOf(rec, now()),
       };
       const patch = (a.onSuccessUpdateEmail as Obj)?.[`#${cid}`] as Obj | undefined;
-      if (patch) applyPatch(e, patch);
+      if (patch) {
+        applyPatch(e, patch);
+        patchedEmails.push(emailId);
+      }
     }
     for (const [id, raw] of Object.entries((a.update as Obj) ?? {})) {
       const patch = raw as Obj;
@@ -3883,6 +3908,21 @@ const handlers: Record<string, Handler> = {
       updated[id] = null;
     }
     recount();
+    /*
+     * The send moved the email itself — out of Drafts, `$draft` cleared,
+     * `$seen` set — through `onSuccessUpdateEmail`, and a mutation of an Email
+     * is only real to a reader if the Email state moves with it. `Email/set`
+     * announces its own writes the same way, and for the same reason: the
+     * agent's reconcile rail (ADR 0003) and a second session both read
+     * `Email/changes`, and a message whose state never changed stays an unsent
+     * draft in the group's account until something else happens to touch it.
+     */
+    if (patchedEmails.length) {
+      const account = String(a.accountId ?? ACCOUNT);
+      bumpState(account, "Email");
+      emailChanges.record(account, { updated: patchedEmails }, stateOf(account, "Email"));
+      broadcast(["Email", "Mailbox", "Thread"], account);
+    }
     return setResp(accountOf(a), "EmailSubmission", {
       created,
       updated,
