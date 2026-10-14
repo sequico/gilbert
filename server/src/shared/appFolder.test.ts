@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import {
   APP_FOLDER_NAME,
   appFolderCreate,
   ensureAppFolderId,
+  FILENODE_SET,
   findAppFolderId,
   isAppFolder,
+  writesTheTree,
 } from "./appFolder.js";
 
 /**
@@ -88,4 +90,61 @@ test("ensuring creates the folder when it is missing, and only then", async () =
   const fresh = await ensureAppFolderId(async () => [], create);
   assert.equal(fresh, "new");
   assert.equal(created, 1);
+});
+
+/**
+ * Whether a forwarded request body writes the tree.
+ *
+ * The mechanism this exists for: `/api/jmap` forwards the browser's own JMAP
+ * calls, so the FileNode writes a person makes never pass `JmapClient` and
+ * never had its remembered levels forgotten. An agent pass running beside that
+ * request was then handed a listing from before the save — and a name-creating
+ * write decides against such a listing, so it would invent a name that exists.
+ *
+ * These pin the question rather than the parser: a body that cannot be read for
+ * the name must answer false, because a reader here that guessed would forget
+ * levels on a read.
+ */
+describe("writesTheTree", () => {
+  const envelope = (...names: string[]) =>
+    JSON.stringify({
+      using: ["urn:ietf:params:jmap:core"],
+      methodCalls: names.map((name) => [name, { accountId: "a" }, "c0"]),
+    });
+
+  test("is true for a call that sets a file node", () => {
+    assert.equal(writesTheTree(envelope(FILENODE_SET)), true);
+  });
+
+  test("is true when the set is one of several calls", () => {
+    assert.equal(writesTheTree(envelope("Mailbox/get", FILENODE_SET, "Email/get")), true);
+  });
+
+  test("is false for reads", () => {
+    assert.equal(writesTheTree(envelope("FileNode/query", "FileNode/get")), false);
+  });
+
+  test("is false for a body that is not a JMAP envelope at all", () => {
+    assert.equal(writesTheTree(""), false);
+    assert.equal(writesTheTree("not json"), false);
+    assert.equal(writesTheTree("[]"), false);
+    assert.equal(writesTheTree('{"using":[]}'), false);
+    assert.equal(writesTheTree('{"methodCalls":"FileNode/set"}'), false);
+  });
+
+  test("does not match the name in a value or a string elsewhere in the body", () => {
+    assert.equal(
+      writesTheTree(
+        JSON.stringify({ methodCalls: [["Mailbox/get", FILENODE_SET, "c0"]] }),
+      ),
+      false,
+      "the name must be the method, not an argument to it",
+    );
+    assert.equal(writesTheTree(JSON.stringify({ note: FILENODE_SET })), false);
+  });
+
+  test("is false for a call written as something other than a pair", () => {
+    assert.equal(writesTheTree(JSON.stringify({ methodCalls: [FILENODE_SET] })), false);
+    assert.equal(writesTheTree(JSON.stringify({ methodCalls: [null, 7] })), false);
+  });
 });

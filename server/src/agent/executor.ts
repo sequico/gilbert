@@ -1423,7 +1423,22 @@ export class Executor {
       if (!matchesName(node, lookup.name)) continue;
       rows.push(fileLine(node, ""));
     }
-    return renderItemList(lookup, rows.length, rows);
+    /*
+     * The listing is bounded here rather than at the fetch. `fileChildren`
+     * pages a level whole -- one read per `maxObjectsInGet` until a short page,
+     * and remembered for the rest of the request -- so a cap on the fetch would
+     * be paid as extra round trips on a folder the run is going to filter
+     * anyway, and the two paths that share this one read (a named search and a
+     * bare listing) would each pay it. The bound that matters is the one on the
+     * text handed to the model: a group with thousands of files must not put
+     * thousands of lines into a run's context, which is a failure the provider
+     * reports as a context error rather than as a listing.
+     */
+    const shown = rows.slice(0, AGENT_LOOKUP_FILES_MAX);
+    const rendered = renderItemList(lookup, rows.length, shown);
+    return rows.length > shown.length
+      ? `${rendered}\n…(${rows.length - shown.length} more; narrow the search or list a folder to see them)`
+      : rendered;
   }
 
   /**
@@ -1448,6 +1463,11 @@ export class Executor {
     // more.
     if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;
     if (depth > AGENT_LOOKUP_DEPTH_MAX) return false;
+    // The level is read whole and the bound is applied while it is walked: the
+    // read is the one this request remembers (`requestMemory.ts`), so the pages
+    // it takes are paid once for the walk rather than per level, and the bound
+    // on the text a run sees is what stops a group with thousands of files from
+    // filling a context.
     const nodes = await fileChildren(this.deps.ctx, accountId, folderId, undefined);
     for (const node of nodes) {
       if (rows.length >= AGENT_LOOKUP_FILES_MAX) return true;

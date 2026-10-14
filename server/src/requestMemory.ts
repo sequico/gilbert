@@ -10,13 +10,15 @@
  * every walk is a round trip the person waiting on the answer pays for.
  *
  * A memory is wrong the moment something is written, and every write this
- * process *sends* passes one place: `JmapClient` forgets them all whenever a
- * `FILENODE_SET` goes through it -- a helper's write, a route's, a fixture's,
- * another request's -- so no writer has to know that any memory exists, and a
- * reader is not served a listing from before a write it never made. The mock
- * writes its own arrays directly, the way the server it simulates would, and is
- * not a writer of this process: a suite that caches a level the mock's own
- * traffic then changes reads it as old until the next write or the unit ends.
+ * process *sends* forgets them: `JmapClient` whenever a `FILENODE_SET` goes
+ * through it -- a helper's write, a route's, a fixture's, another request's --
+ * and `/api/jmap` on the forwarded bodies it carries, which is the path the
+ * browser's own file writes take (`writesTheTree`, `shared/appFolder.ts`). So
+ * no writer has to know that any memory exists, and a reader is not served a
+ * listing from before a write it never made. The mock writes its own arrays
+ * directly, the way the server it simulates would, and is not a writer of this
+ * process: a suite that caches a level the mock's own traffic then changes reads
+ * it as old until the next write or the unit ends.
  *
  * shortcut: a write from another process -- an agent started apart (the
  * deployment's `agent` profile), a second replica -- is not seen when it lands,

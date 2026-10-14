@@ -52,6 +52,34 @@ export const FILENODE_SET = "FileNode/set";
 export const FILENODE_CHANGES = "FileNode/changes";
 
 /**
+ * Whether a raw JMAP request body carries a write to the tree.
+ *
+ * The second reader of `FILENODE_SET`, beside the one in `jmap.ts` that serves a
+ * call this process sends itself. The browser's own writes are forwarded whole
+ * by `/api/jmap` (`routes/mail.ts`) and never pass the client, so that route
+ * cannot rely on `JmapClient` having forgotten what the memory holds -- and it
+ * is not an occasional path: `store/files.ts` sends every `FileNode/set` a
+ * person makes through it.
+ *
+ * The body is untrusted text and the answer is one question about it: does a
+ * call named `FileNode/set` appear in it. A body that is not JSON, or whose
+ * `methodCalls` is not a list, answers false -- the upstream is what decides
+ * whether the call is well formed, and a reader here that guessed would forget
+ * levels on reads.
+ */
+export function writesTheTree(body: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return false;
+  }
+  const calls = (parsed as { methodCalls?: unknown } | null)?.methodCalls;
+  if (!Array.isArray(calls)) return false;
+  return calls.some((call) => (Array.isArray(call) ? call[0] : null) === FILENODE_SET);
+}
+
+/**
  * The whole of a file node. The client asks for `state` beside these, which is
  * a fact about a conditional write rather than about the node.
  */

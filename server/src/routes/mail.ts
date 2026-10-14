@@ -15,6 +15,8 @@ import { config } from "../config.js";
 import { icsProxyHandler } from "../icsproxy.js";
 import { imageProxyHandler } from "../imageproxy.js";
 import { followAccount, attach as pushAttach } from "../push.js";
+import { forgetRemembered } from "../requestMemory.js";
+import { writesTheTree } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { isInlineSafe } from "../shared/media.js";
 import { withoutBidiControls } from "../shared/text.js";
@@ -23,7 +25,6 @@ import {
   expandTemplate,
   forgetUpstreamSession,
   sessionUpstream,
-  upstreamFor,
 } from "../upstream.js";
 import type { Env } from "./shared.js";
 import {
@@ -117,6 +118,20 @@ export function registerMailRoutes(api: Hono<Env>): void {
     }
     try {
       const upstream = await sessionUpstream(session);
+      /*
+       * This route forwards a call the browser built, so it is a writer of this
+       * process exactly as a helper's write is -- and it is the path the web
+       * client's own `FileNode/set` takes (`store/files.ts`), not a rare one.
+       * `JmapClient` forgets the remembered levels on the writes it sends; a
+       * write forwarded here must do the same, or an agent pass running beside
+       * this request is handed a listing from before the person saved the file.
+       *
+       * The body is untrusted text, so the question is asked without trusting
+       * its shape: anything naming the FileNode set is enough to forget, and a
+       * body that cannot be read for the name is not read for anything else
+       * either -- the upstream decides whether the call is well formed.
+       */
+      if (typeof body === "string" && writesTheTree(body)) forgetRemembered();
       const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
         method: "POST",
         headers: {
