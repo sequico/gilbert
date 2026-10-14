@@ -28,12 +28,13 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
     v: 1,
     id: "r1",
     version: 1,
-    name: "Every hour",
     enabled: true,
     trigger: { on: "schedule", everyMinutes: 60 },
-    tier: "T0",
-    review: { mode: "never" },
-    actions: [{ do: "noop" }],
+    // A rule carries its instruction and a capability allowlist, and nothing
+    // else: the model answers with actions, and the grant is what it is offered
+    // (ADR 0006). There is no tier, no per-rule review and no action list.
+    instruction: "Do nothing.",
+    capabilities: [],
     ...overrides,
   };
 }
@@ -306,7 +307,7 @@ test("a run that fired arms its next occurrence, planned from the document the f
 
 test("an entry this agent does not own keeps its instant instead of being re-planned away", () => {
   const now = new Date("2026-09-10T10:00:00.000Z");
-  const rules = [rule(), rule({ id: "filing", name: "File it" })];
+  const rules = [rule(), rule({ id: "filing", instruction: "File it" })];
   // The document as the account holds it: both entries are due at once, and
   // this agent owns only the first of them.
   const stored: AgentScheduleEntry[] = [

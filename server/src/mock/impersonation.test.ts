@@ -62,7 +62,7 @@ before(async () => {
   // A known app password on the demo account, the way x:AppPassword/set
   // would mint one.
   (
-    mock as { account: { appPasswords: { id: string; secret: string }[] } }
+    mock as unknown as { account: { appPasswords: Record<string, unknown>[] } }
   ).account.appPasswords.push({
     id: "ap-fixed",
     description: "fixture",
@@ -95,7 +95,7 @@ test("the target signs in as themselves with their own password", async () => {
     headers: { authorization: basic(BOB, "bob-password") },
   });
   assert.equal(intro.status, 200);
-  const introBody = await intro.json();
+  const introBody = (await intro.json()) as { permissions: string[] };
   assert.equal(
     introBody.permissions.includes("sysAccountCreate"),
     false,
@@ -118,7 +118,7 @@ test("the composite username authenticates as the target with the master's crede
     headers: { authorization: basic(`${BOB}%${DEMO}`, "demo-password") },
   });
   assert.equal(intro.status, 200);
-  const introBody = await intro.json();
+  const introBody = (await intro.json()) as { permissions: string[] };
   assert.equal(
     introBody.permissions.includes("sysAccountCreate"),
     false,

@@ -26,7 +26,7 @@ test("a debt marked on both sides passes", () => {
     adrFiles: [adr(marked)],
     codeFiles: [file("server/src/x.ts", tagged("0003"))],
   });
-  assert.equal(result.ok, true, formatReport(result));
+  assert.equal(result.ok, true, formatReport(result).join("\n"));
   assert.equal(result.counts.adrMarkers, 1);
   assert.equal(result.counts.codeMarkers, 1);
 });
@@ -71,7 +71,7 @@ test("the comparison is per ADR, so one slug in two ADRs is two debts", () => {
       file("server/src/y.ts", tagged("9999")),
     ],
   });
-  assert.equal(result.ok, true, formatReport(result));
+  assert.equal(result.ok, true, formatReport(result).join("\n"));
   assert.equal(result.counts.adrs, 2);
 });
 
@@ -91,7 +91,7 @@ test("this repository passes, and it was actually read", () => {
   const { adrFiles, codeFiles } = collectRepoInput();
   assert.ok(codeFiles.length > 100, "the code walk read the tree");
   const result = checkOwed({ adrFiles, codeFiles });
-  assert.equal(result.ok, true, formatReport(result));
+  assert.equal(result.ok, true, formatReport(result).join("\n"));
   // Zero markers is the state this convention works towards, so it is not what
   // proves the convention is in use: every marker the tree does carry is
   // answered by a tag in the code, and the ADRs were read to know that. The

@@ -398,13 +398,13 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     WITHDRAWALS_PATH,
   )) as Array<{ account: string; group: string; at: string }>;
   assert.equal(report.length, 1, "one withdrawal, reported once");
-  assert.equal(report[0].account, GROUP);
+  assert.equal(report[0]?.account, GROUP);
   assert.equal(
-    report[0].group,
+    report[0]?.group,
     groupNameOf(session, GROUP),
     "the name the session had given",
   );
-  assert.equal(report[0].at, start.toISOString());
+  assert.equal(report[0]?.at, start.toISOString());
 
   // The claim it held is left where it is: a withdrawal is not a release, and a
   // agent that deleted another account's documents on its way out would be

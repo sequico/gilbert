@@ -120,10 +120,10 @@ import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
 import { isPrivateAddress } from "./imageproxy.js";
 import {
-  retryStateMismatch,
   JMAP_MAIL,
   JmapClient,
   JmapError,
+  retryStateMismatch,
   STALWART_CAP,
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
@@ -814,6 +814,8 @@ export async function saveRules(
   }
 
   const store = new AgentStore(access.ctx, accountId);
+  // Bounded by `retryStateMismatch`, which throws on the last attempt: the bound
+  // is written with the refusal rather than repeated at each of these.
   for (let attempt = 0; ; attempt++) {
     /*
      * The editor authors the whole list, so a document in an older shape is
@@ -1105,6 +1107,8 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
       400,
     );
 
+  // Bounded by `retryStateMismatch`, which throws on the last attempt: the bound
+  // is written with the refusal rather than repeated at each of these.
   for (let attempt = 0; ; attempt++) {
     const found = await store.readConfig();
     const existing = found?.doc;

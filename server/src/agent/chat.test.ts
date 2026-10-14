@@ -234,6 +234,7 @@ test("only a person saying so widens the run's context", async () => {
 test("the message being answered is always in the context, or the run is refused", () => {
   const at = (n: number) => new Date(Date.UTC(2026, 0, 1, 12, n)).toISOString();
   const chain = Array.from({ length: 80 }, (_, i) => ({
+    v: 1 as const,
     id: `m${i}`,
     created: at(i),
     from: "ada@example.org",
@@ -271,6 +272,7 @@ test("a reply chain that points in a circle is read once and stops", () => {
   // same two messages for ever.
   const circular = [
     {
+      v: 1 as const,
       id: "c1",
       created: at(1),
       from: "ada@example.org",
@@ -279,6 +281,7 @@ test("a reply chain that points in a circle is read once and stops", () => {
       replyTo: "c2",
     },
     {
+      v: 1 as const,
       id: "c2",
       created: at(2),
       from: "ada@example.org",

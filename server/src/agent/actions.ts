@@ -843,12 +843,7 @@ async function runOne(
       return {
         action: action.do,
         ok: true,
-        result: await writeKnowledgeDraft(
-          ctx,
-          companyAccountOf(ctx),
-          action,
-          opts,
-        ),
+        result: await writeKnowledgeDraft(ctx, companyAccountOf(ctx), action, opts),
       };
     }
     case "knowledge.review": {

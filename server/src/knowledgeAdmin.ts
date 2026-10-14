@@ -31,7 +31,6 @@ import {
   documentType,
   downloadBlobText,
   ensureFolderPath,
-  type FileNodeLike,
   fileChildren,
   findFolderPath,
   nodeStamp,
@@ -600,7 +599,7 @@ async function readRevisions(
   ]);
   const newest = files
     .filter((file) => file.nodeType === "file" && typeof file.blobId === "string")
-    .sort((a, b) => String(nodeStamp(b)).localeCompare(String(nodeStamp(a))))
+    .sort((a, b) => nodeStamp(b).localeCompare(nodeStamp(a)))
     .slice(0, REVISION_HISTORY_MAX);
   const out: KnowledgeRevision[] = [];
   for (const file of newest) {
@@ -1143,6 +1142,9 @@ export async function approveArticle(
    * rather than allowed to fail: a state that never points at the revision it
    * just recorded is an issued document nobody can read.
    */
+  // Bounded by `retryStateMismatch`, which throws on the last attempt -- so the
+  // header is not the shape of an unbounded loop, it is the shape of one whose
+  // bound is stated where the refusal is written rather than repeated here.
   for (let attempt = 0; ; attempt++) {
     // The token is read before the state document, as `saveDraft` reads it: a
     // token read after it is still valid while what it would be compared

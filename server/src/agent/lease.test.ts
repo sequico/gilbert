@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { type AgentStore as AgentStoreType } from "./store.js";
 import { freePort } from "../testkit.js";
+import type { AgentStore as AgentStoreType } from "./store.js";
 
 /**
  * The claim machinery against the mock's FileNode store (ADR 0003).

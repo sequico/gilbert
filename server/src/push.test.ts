@@ -128,7 +128,7 @@ function captureToken(): { restore(): void; token: () => string | null } {
     const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
       typeof init?.body === "string" ? init.body : "",
     );
-    if (m) token = m[1];
+    if (m?.[1]) token = m[1];
     return real(input, init);
   }) as typeof fetch;
   return { restore: () => (globalThis.fetch = real), token: () => token };
@@ -144,6 +144,11 @@ function captureToken(): { restore(): void; token: () => string | null } {
  * This fake counts them, so "one subscription, whatever has happened" is
  * something a test can assert rather than assume.
  */
+/** The one key a single-entry update carries; the fake answers about it. */
+function firstKey(update: Obj): string {
+  return Object.keys(update)[0] ?? "";
+}
+
 function fakePushServer(
   opts: { cap?: number; waitFor?: number } = {},
   start: Obj[] = [],
@@ -313,7 +318,7 @@ test("a refused create takes back what earlier builds left, and a browser's own 
       fake.subs.some((s) => s.id === "browser"),
       "the browser's own registration was not reclaimed",
     );
-    const fresh = fake.subs.find((s) => s.id.startsWith("ps"));
+    const fresh = fake.subs.find((s) => String(s.id).startsWith("ps"));
     assert.match(
       String(fresh?.url),
       new RegExp(`^${ORIGIN}${configBasePath()}/api/push/`),
@@ -398,9 +403,7 @@ test("a subscription destroyed under us is noticed, and its tabs go back on the 
     await new Promise((r) => setTimeout(r, 30));
     assert.equal(
       await push.receive(
-        (fake.subs[0].url as string).slice(
-          (fake.subs[0].url as string).lastIndexOf("/") + 1,
-        ),
+        String(fake.subs[0]?.url).slice(String(fake.subs[0]?.url).lastIndexOf("/") + 1),
         { "@type": "PushVerification", verificationCode: "v" },
       ),
       200,
@@ -483,10 +486,13 @@ test("a StateChange is written to attached tabs as an SSE frame, and closed tabs
     // subscribe request the stub saw. Simplest faithful route: capture the URL Stalwart would POST to.
     let token: string | null = null;
     const real = globalThis.fetch;
-    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: RequestInit,
+    ) => {
       const b = typeof init?.body === "string" ? init.body : "";
       const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(b);
-      if (m) token = m[1];
+      if (m?.[1]) token = m[1];
       return real(input, init);
     }) as typeof fetch;
     // Force a renewal-style subscribe so the URL passes through the capturing fetch.
@@ -541,11 +547,14 @@ test("a tab on the relay is moved to fan-out when its account verifies, and its 
   try {
     let token: string | null = null;
     const real = globalThis.fetch;
-    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: RequestInit,
+    ) => {
       const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
         typeof init?.body === "string" ? init.body : "",
       );
-      if (m) token = m[1];
+      if (m?.[1]) token = m[1];
       return real(input, init);
     }) as typeof fetch;
     push.prepare("move@example.com", "a", "Basic m", ORIGIN); // sign-in starts the subscription
@@ -889,7 +898,7 @@ test("every type a client store reacts to is in the subscription's list", () => 
   const consumed = new Set<string>();
   for (const file of files) {
     for (const m of readFileSync(file, "utf8").matchAll(/types\.has\("([A-Za-z]+)"\)/g)) {
-      consumed.add(m[1]);
+      if (m[1]) consumed.add(m[1]);
     }
   }
   assert.ok(consumed.size > 0, "the stores were read");
@@ -1119,7 +1128,7 @@ function stubRefusedVerification(answer: "notUpdated" | "error") {
     }
     const body = JSON.parse(String(init?.body)) as Obj;
     const responses = ((body.methodCalls as Obj[]) ?? []).map((call) => {
-      const [name, args, id] = call as [string, Obj, string];
+      const [name, args, id] = call as unknown as [string, Obj, string];
       const update = args.update as Obj | undefined;
       if (update) {
         if (answer === "error")
@@ -1128,7 +1137,7 @@ function stubRefusedVerification(answer: "notUpdated" | "error") {
           name,
           {
             updated: {},
-            notUpdated: { [Object.keys(update)[0]]: { type: "invalidProperties" } },
+            notUpdated: { [firstKey(update)]: { type: "invalidProperties" } },
           },
           id,
         ];

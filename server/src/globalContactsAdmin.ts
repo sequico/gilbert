@@ -2,12 +2,7 @@ import { randomUUID } from "node:crypto";
 import { openMasterAccount } from "./adminSession.js";
 import type { Ctx } from "./appFolder.js";
 import { IdentityAdminError, requireState } from "./identityAdmin.js";
-import {
-  JMAP_CONTACTS,
-  JmapClient,
-  retryStateMismatch,
-  WRITE_ATTEMPTS,
-} from "./jmap.js";
+import { JMAP_CONTACTS, JmapClient, retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,

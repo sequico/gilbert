@@ -296,6 +296,10 @@ test("a validated answer is the summary a member reads", async () => {
     "keyword.add",
     "noop",
   ]);
+  // A call that decided carries the three things a run acts on; the other
+  // variant of this answer is a lookup, which decides nothing (ADR 0020).
+  assert.equal(answer.kind, "actions");
+  assert.ok(answer.kind === "actions", "this call decided rather than looked up");
   assert.equal(answer.summary, "It would label the message.");
   assert.equal(answer.confidence, 0.4);
   assert.equal(

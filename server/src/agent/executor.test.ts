@@ -4,12 +4,14 @@ import { after, before, beforeEach, test } from "node:test";
 import { sleep } from "../shared/async.js";
 import { blankPdf, freePort } from "../testkit.js";
 import type {
+  AgentClaim,
   AgentGroupPolicyDoc,
   AgentJob,
   AgentRule,
   AgentTriggerOn,
 } from "./documents.js";
 import type { ScheduleGuard } from "./executor.js";
+import type { AgentStore as AgentStoreType } from "./store.js";
 
 /**
  * The executor end to end against the mock (ADR 0003).
@@ -535,7 +537,7 @@ test("a matching message is filed: the job runs, the audit records it, the claim
     "the rule's own action labeled the message",
   );
 
-  const advanced = await store.readClaim("mail");
+  const advanced = await store.readClaim();
   assert.ok(
     advanced?.doc.states.Email,
     "the claim records the state it reconciled up to",
@@ -704,7 +706,7 @@ test("a job whose pinned rule version is gone refuses instead of running another
   });
   await store.writeJob(job);
 
-  await executor.runJob(GROUP, job, { ...pinned, version: 2 });
+  await executor.runJob(GROUP, job, { ...pinned, version: 2 }, await claimFor());
 
   const stored = await store.readJob("pinned-job");
   assert.equal(stored?.doc.state, "failed");
@@ -1728,7 +1730,7 @@ test("a run writes a knowledge base draft through knowledge.write", async () => 
         `job=${JSON.stringify({
           state: jobAfter?.doc.state,
           attempts: jobAfter?.doc.attempts,
-          outcome: jobAfter?.doc.outcome,
+          state2: jobAfter?.doc.state,
           error: jobAfter?.doc.error,
         })}`,
         `rules=${JSON.stringify((rulesAfter?.doc ?? []).map((r) => r.id))}`,
@@ -2087,7 +2089,6 @@ test("a whole-tree listing past its bound says so", async () => {
 test("a failure that could have sent mail is not retried", async () => {
   const sender = rule({
     id: "sender",
-    actions: [{ do: "mail.send", with: { to: ADA, subject: "x", text: "y" } }],
     capabilities: ["mail.send"],
   });
   await store.writeRules([sender]);
@@ -2446,12 +2447,11 @@ test("an extraction that fails is not retried, because it leaves a file behind",
   // is dead-lettered rather than repeated (resolution 20).
   const extractor = rule({
     id: "extract",
-    actions: [{ do: "mail.extract", with: { folder: "invoices" } }],
     capabilities: ["mail.extract"],
   });
   const proposal = {
     summary: "save the attachments",
-    actions: [{ do: "mail.extract", with: { folder: "invoices" } }],
+    actions: [{ do: "mail.extract" as const, with: { folder: "invoices" } }],
     confidence: 1,
   };
   const job = {
@@ -2680,7 +2680,7 @@ test("a job write carries the state it was read against, and a refusal writes no
   // write it guards, which is the window a successor's write arrives in. The
   // failure is still reported — the trail and the chat are the report — but
   // nothing is written onto a document somebody else holds.
-  const moved = Object.create(store) as AgentStore;
+  const moved = Object.create(store) as AgentStoreType;
   moved.readJob = async (id: string) => {
     const found = await store.readJob(id);
     return found ? { ...found, state: `${found.state}-moved-past` } : null;
@@ -2712,7 +2712,7 @@ test("a job write carries the state it was read against, and a refusal writes no
 test("an approval that was consumed and never ran is recorded, not left silent", async () => {
   const spent = rule({
     id: "spent-approval",
-    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    capabilities: ["keyword.add"],
   });
   await store.writeRules([spent]);
   const emailId = await createMessage("An invoice a person approved");

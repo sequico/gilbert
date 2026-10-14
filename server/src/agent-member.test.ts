@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import type { MemberAgentView } from "./agent/views.js";
 import { freePort, jsonCall } from "./testkit.js";
 
 /**
@@ -74,15 +75,9 @@ test("a member who is not an administrator reads the group's agent view", async 
     200,
     "the member route needs a session on the group, not a role",
   );
-  const view = res.body as {
-    group: string;
-    granted: boolean;
-    agentAddress: string;
-    rules: unknown[];
-    instruction: unknown;
-    jobs: unknown[];
-    audit: unknown[];
-  };
+  // The route's own type, so a field it stops answering fails here rather than
+  // reading as `unknown` and comparing equal to nothing.
+  const view = res.body as unknown as MemberAgentView;
   assert.equal(view.group, TEAM);
   assert.equal(view.granted, false, "nothing has been written for this group yet");
   assert.equal(view.agentAddress, "", "no agent is registered in this installation");

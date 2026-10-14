@@ -51,9 +51,7 @@ export function checkCitations(args?: { files?: RepoFile[]; records?: string[] }
   counts: { citations: number; records: number };
 };
 export function formatReport(result: ReturnType<typeof checkCitations>): string[];
-export function formatShapeReport(
-  result: ReturnType<typeof checkRecordShape>,
-): string[];
+export function formatShapeReport(result: ReturnType<typeof checkRecordShape>): string[];
 export function collectRepoInput(root?: string): {
   files: RepoFile[];
   /** The four-digit numbers of every record the repository holds. */

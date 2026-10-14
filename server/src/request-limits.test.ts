@@ -50,7 +50,11 @@ function chunked(size: number, chunk = 256 * 1024): ReadableStream<Uint8Array> {
   });
 }
 
-const jmap = (body: BodyInit) =>
+/*
+ * A body or a stream: a chunked request carries no length, and this file is
+ * about requests the limiter reads while they arrive.
+ */
+const jmap = (body: string | ReadableStream<Uint8Array>) =>
   app.request("/api/jmap", {
     method: "POST",
     headers: { ...HEADERS, cookie },
@@ -137,10 +141,10 @@ test("one session cannot hold more than a few checked reads at once", async () =
         c.enqueue(new TextEncoder().encode("{"));
       },
     });
-    pending.push(jmap(s));
+    pending.push(Promise.resolve(jmap(s)));
   }
-  await new Promise((r) => setTimeout(r, 50));
-  const fifth = await jmap("{}");
+  await new Promise<void>((r) => setTimeout(r, 50));
+  const fifth = (await jmap("{}")) as Response;
   assert.equal(fifth.status, 429);
   assert.ok(fifth.headers.get("retry-after"));
   for (const c of controllers) c.error(new Error("client went away"));
