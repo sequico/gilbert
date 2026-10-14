@@ -1207,7 +1207,16 @@ export const useContacts = create<ContactsState>((set, get) => ({
   filterCards(cards, text) {
     const q = text.trim().toLowerCase();
     const filtered = q ? cards.filter((c) => cardHaystack(c).includes(q)) : cards;
-    return filtered.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    /*
+     * Each card's sort key is built once and the comparator reads what it built:
+     * the sort runs O(n log n) comparisons, and a comparator that rebuilt and
+     * lower-cased a display name on each side of every one of them was the
+     * larger half of what a keystroke cost.
+     */
+    return filtered
+      .map((card) => ({ card, key: sortKey(card) }))
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map((entry) => entry.card);
   },
 
   search(text) {
