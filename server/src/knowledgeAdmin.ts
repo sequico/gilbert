@@ -28,6 +28,7 @@ import {
   appFolderState,
   type Ctx,
   destroyAppNode,
+  documentType,
   downloadBlobText,
   ensureFolderPath,
   type FileNodeLike,
@@ -601,8 +602,7 @@ async function readRevisions(
   const out: KnowledgeRevision[] = [];
   for (const file of newest) {
     const name = typeof file.name === "string" ? file.name : "revision.json";
-    const type =
-      typeof file.type === "string" && file.type ? file.type : "application/json";
+    const type = documentType(file);
     try {
       const text = await downloadBlobText(
         ctx,

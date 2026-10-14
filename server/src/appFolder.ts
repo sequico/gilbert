@@ -46,6 +46,22 @@ import { queryThenGet } from "./shared/jmapQuery.js";
 import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
 
+/** The media type these documents are, when a node does not state one. */
+export const DOCUMENT_TYPE_DEFAULT = "application/json";
+
+/**
+ * The media type a document node is read or written as: its own when it has
+ * one, the JSON these documents are otherwise.
+ *
+ * Read in three places (the app-folder read, the account's own document read,
+ * the knowledge base's revision read), and the fallback is the same one the
+ * writer uses (`DOCUMENT_TYPE_DEFAULT`): a reader that guessed a different type
+ * would download the bytes as something they are not.
+ */
+export function documentType(file: { type?: unknown }): string {
+  return typeof file.type === "string" && file.type ? file.type : DOCUMENT_TYPE_DEFAULT;
+}
+
 /** The one encoder: what a document is about to be written as is bytes. */
 const utf8 = new TextEncoder();
 
@@ -742,7 +758,7 @@ export async function writeAppFileIn(
   value: unknown,
   opts: { ifInState?: string; type?: string } = {},
 ): Promise<void> {
-  const type = opts.type ?? "application/json";
+  const type = opts.type ?? DOCUMENT_TYPE_DEFAULT;
   // The bytes this document is about to be written as, before any of them are
   // uploaded: the same serialization `uploadJsonBlob` sends
   // (`appDocumentJson`), so what is compared is what would be stored.
@@ -799,8 +815,7 @@ export async function readAppFileAt(
 ): Promise<{ text: string; file: FileNodeLike } | null> {
   const { file } = await findAppFileAt(ctx, accountId, path);
   if (!file) return null;
-  const type =
-    typeof file.type === "string" && file.type ? file.type : "application/json";
+  const type = documentType(file);
   const text = await downloadBlobText(
     ctx,
     accountId,

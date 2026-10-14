@@ -1,5 +1,6 @@
 import {
   type Ctx,
+  documentType,
   downloadBlobText,
   filesAccountId,
   findAppFileAt,
@@ -350,7 +351,7 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
         ctx,
         accountId,
         String(file.blobId),
-        typeof file.type === "string" && file.type ? file.type : "application/json",
+        documentType(file),
       );
     } catch (err) {
       // The node vanished between the listing and the download: not forced.
