@@ -103,7 +103,14 @@ describe("upload() and its abort signal", () => {
 
     const p = client.upload("acc", blob());
     const xhr = FakeXHR.last!;
-    const settled = expect(p).rejects.toMatchObject({ code: "aborted" });
+    /*
+     * `deadline`, not `aborted`: the two were one code, so a stalled upload was
+     * reported to the composer as one the person had stopped and the attachment
+     * was discarded as if they had chosen to. Nothing refuses this request and
+     * nobody cancelled it — it never answered, which is worth retrying, where a
+     * cancellation is not. The caller's own cancel is the case above this one.
+     */
+    const settled = expect(p).rejects.toMatchObject({ code: "deadline" });
     expect(xhr.sent).toBe(true);
 
     await vi.advanceTimersByTimeAsync(4 * 60_000 + 59_000);

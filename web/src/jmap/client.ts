@@ -638,7 +638,23 @@ export class JmapClient {
           signal.addEventListener("abort", onAbort);
           xhr.send(data);
         }),
-    );
+    ).catch((err) => {
+      /*
+       * The deadline's own error, raised where every other request raises it.
+       * `withDeadline` answers it instead of the browser's `AbortError` so the
+       * two are separable, and this maps it into the vocabulary the rest of this
+       * client uses — the same code and the same sentence shape `apiFetch`
+       * gives, so a caller reads one answer for "it never answered", whether the
+       * bytes were going out or coming back.
+       */
+      if (err instanceof DeadlineError)
+        throw new ApiError(
+          0,
+          "deadline",
+          `The upload did not complete within ${Math.round(err.ms / 1000)} seconds.`,
+        );
+      throw err;
+    });
   }
 
   /** Fetch a blob's content as text (via the download proxy). */
