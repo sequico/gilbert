@@ -304,7 +304,23 @@ function bumpState(accountId: string, type: string): void {
  * role is what the client branches on; the name is only ever displayed, which
  * is exactly why it has to look right.
  */
-/** Push subscriptions, as a fresh account has none. */
+/**
+ * Push subscriptions, as a fresh account has none.
+ *
+ * One list for the whole installation rather than one per account, and the same
+ * goes for `vacation` below — unlike every other list here, which
+ * `...For(accountId)` reaches per account. Nothing in Gilbert asks for these
+ * from an account other than the one it signed in as, so the difference is not
+ * observable today; it becomes observable the moment something does, and the
+ * two symptoms are the ceiling at `MAX_PUSH_SUBSCRIPTIONS` counting a second
+ * account's subscriptions against the first, and an out-of-office set in one
+ * account being read back from another. Correcting it is a per-account map and
+ * a caller to exercise it, which is why it is written down here rather than
+ * guessed at.
+ *
+ * shortcut: both are installation-wide; make them per account when a surface
+ * reads either from an account other than the signed-in one.
+ */
 const pushSubscriptions: Obj[] = [];
 /**
  * How many subscriptions one account may hold before a create is refused.
@@ -1114,6 +1130,7 @@ const identities: Obj[] = [
     mayDelete: true,
   },
 ];
+/** One vacation response for the installation; see `pushSubscriptions` above. */
 let vacation: Obj = {
   id: "singleton",
   isEnabled: false,
@@ -2558,7 +2575,7 @@ function genericGet(list: Obj[], type: string) {
       ? (ids.map((id) => list.find((x) => x.id === id)).filter(Boolean) as Obj[])
       : list;
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), type),
       list: found.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !list.some((x) => x.id === id)) : [],
@@ -2642,6 +2659,22 @@ class SetError extends Error {
  * refusal belongs against that id in `notDestroyed` and nowhere else, exactly as
  * a create's refusal sits in `notCreated`.
  */
+/**
+ * What this mock can say about a Sieve script without a Sieve parser.
+ *
+ * The checks are structural — it is not empty, its braces balance — which is
+ * what a caller gets from a real server's own compile step's first refusal, and
+ * enough that the client's validate-before-save path is not permanently green.
+ * The message a real 0.16 gives is longer; no surface reads past it.
+ */
+function badSieveContents(contents: unknown): string | null {
+  if (typeof contents !== "string" || !contents.trim()) return "Sieve script is empty.";
+  const opens = (contents.match(/\{/g) ?? []).length;
+  const closes = (contents.match(/\}/g) ?? []).length;
+  if (opens !== closes) return "Unbalanced braces in Sieve script.";
+  return null;
+}
+
 function genericSet(
   list: Obj[],
   prefix: string,
@@ -3082,7 +3115,7 @@ const handlers: Record<string, Handler> = {
       .filter((id) => id === "singleton")
       .map((id) => ({ id, locale: MOCK_LOCALE, timeZone: null, description: null }));
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), "x:AccountSettings"),
       list: list.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids.filter((id) => id !== "singleton"),
@@ -3172,7 +3205,7 @@ const handlers: Record<string, Handler> = {
     return r;
   },
   "Mailbox/changes": (a) => ({
-    accountId: ACCOUNT,
+    accountId: String(a.accountId ?? ACCOUNT),
     oldState: "1",
     newState: stateOf(accountOf(a), "Mailbox"),
     hasMoreChanges: false,
@@ -3215,7 +3248,7 @@ const handlers: Record<string, Handler> = {
     const { position: pos, limit } = queryPaging(a);
     const page = limit ?? 50;
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       queryState: stateOf(accountOf(a), "Email"),
       canCalculateChanges: false,
       position: pos,
@@ -3245,7 +3278,7 @@ const handlers: Record<string, Handler> = {
       ...new Set(relevant.flatMap((c) => c[k])),
     ];
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       oldState: String(a.sinceState ?? "1"),
       newState: stateOf(accountId, "Email"),
       hasMoreChanges: false,
@@ -3268,18 +3301,29 @@ const handlers: Record<string, Handler> = {
          */
         o.keywords = (o.keywords as Obj | undefined) ?? {};
         const bv = (o.bodyValues as Record<string, { value: string }>) ?? {};
+        /*
+         * A part names its body one of two ways: `bodyValues` when the caller is
+         * supplying it (a draft being created), or `blobId` when the message is
+         * already stored. This walk only collected the first, so every part of a
+         * body read the second way was dropped from `textBody`/`htmlBody` — and
+         * a body with no parts is a message the view renders empty, in dev only,
+         * where the real server sends it.
+         */
+        const bodyTextOf = (p: Obj): string =>
+          (p.partId ? bv[p.partId as string]?.value : undefined) ??
+          (p.blobId
+            ? (blobOf(accountOf(a), p.blobId as string)?.data.toString() ?? "")
+            : "");
         const walk = (p: Obj | undefined, acc: Obj[]) => {
           if (!p) return;
-          if (p.partId && bv[p.partId as string])
+          const inline = p.partId ? bv[p.partId as string] : undefined;
+          if (inline)
             acc.push({
               ...p,
-              blobId: putBlob(
-                accountOf(a),
-                bv[p.partId as string]!.value,
-                p.type as string,
-              ),
-              size: bv[p.partId as string]!.value.length,
+              blobId: putBlob(accountOf(a), inline.value, p.type as string),
+              size: inline.value.length,
             });
+          else if (p.blobId) acc.push({ ...p, size: bodyTextOf(p).length });
           (p.subParts as Obj[] | undefined)?.forEach((s) => walk(s, acc));
         };
         const parts: Obj[] = [];
@@ -3303,7 +3347,14 @@ const handlers: Record<string, Handler> = {
           : `t${o.id}`;
         o.receivedAt = new Date(now()).toISOString().replace(/\.\d{3}Z$/, "Z");
         o.size = 2000;
-        o.preview = (bv.text?.value ?? "").slice(0, 100);
+        /*
+         * The preview is the opening of the message, and it read a body part
+         * called `text` — an id no real `bodyStructure` ever carries, so it was
+         * always empty. It is the first text part's body, however that part
+         * named it.
+         */
+        const firstText = (o.textBody as Obj[]).find((p) => bodyTextOf(p).length > 0);
+        o.preview = (firstText ? bodyTextOf(firstText) : "").slice(0, 100);
         o.messageId = [`${o.id}@mock`];
         o.blobId = putBlob(
           accountOf(a),
@@ -3314,22 +3365,33 @@ const handlers: Record<string, Handler> = {
       "Email",
     )(a);
     recount();
-    /* The change is visible at the state the set left behind: record that
-       state, so a client asking from the state it read before is told what
-       arrived. Nothing is bumped here -- `setResp` already moved the Email
-       state, and a second bump would put the change beyond the state the
-       client is handed. */
-    emailChanges.record(
-      String(a.accountId ?? ACCOUNT),
-      {
-        created: Object.values((r.created ?? {}) as Record<string, { id: string }>).map(
-          (x) => x.id,
-        ),
-        updated: Object.keys((a.update as Obj) ?? {}),
-        destroyed: (r.destroyed as string[] | undefined) ?? [],
-      },
-      String(r.newState),
-    );
+    /*
+     * The change is visible at the state the set left behind: record that
+     * state, so a client asking from the state it read before is told what
+     * arrived. Nothing is bumped here -- `setResp` already moved the Email
+     * state, and a second bump would put the change beyond the state the
+     * client is handed.
+     *
+     * What is recorded is the *answer's* ids, never the request's keys: an
+     * update refused `notFound` or `invalidProperties` is announced as written
+     * otherwise, and a reconciler fetches an id nobody wrote, or believes a
+     * refused write landed. And a set that changed nothing records nothing --
+     * `setResp` left the state where it was, so an entry at that state is a
+     * change every reader is told about and none of them can find.
+     */
+    if (r.newState !== r.oldState) {
+      emailChanges.record(
+        String(a.accountId ?? ACCOUNT),
+        {
+          created: Object.values((r.created ?? {}) as Record<string, { id: string }>).map(
+            (x) => x.id,
+          ),
+          updated: Object.keys((r.updated as Obj) ?? {}),
+          destroyed: (r.destroyed as string[] | undefined) ?? [],
+        },
+        String(r.newState),
+      );
+    }
     /* A real server pushes a state change after a set, and the client acts on
        it -- `Email/changes` runs and the store reconciles what came back. The
        mock stayed silent, so that whole path never ran here and a bug living
@@ -3423,7 +3485,7 @@ const handlers: Record<string, Handler> = {
       }))
       .filter((t) => t.emailIds.length);
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), "Thread"),
       list,
       notFound: ids.filter((id) => !list.some((t) => t.id === id)),
@@ -3791,7 +3853,7 @@ const handlers: Record<string, Handler> = {
       ? (ids.map((id) => submissions.find((x) => x.id === id)).filter(Boolean) as Obj[])
       : submissions;
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), "EmailSubmission"),
       list: found.map((x) => pick(submissionView(x), a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !submissions.some((x) => x.id === id)) : [],
@@ -3805,7 +3867,7 @@ const handlers: Record<string, Handler> = {
     const pos = Number(a.position ?? 0);
     const limit = Number(a.limit ?? 50);
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       queryState: stateOf(accountOf(a), "EmailSubmission"),
       canCalculateChanges: false,
       position: pos,
@@ -3931,7 +3993,7 @@ const handlers: Record<string, Handler> = {
     });
   },
   "VacationResponse/get": (a) => ({
-    accountId: ACCOUNT,
+    accountId: String(a.accountId ?? ACCOUNT),
     state: stateOf(accountOf(a), "VacationResponse"),
     list: [vacation],
     notFound: [],
@@ -3988,7 +4050,24 @@ const handlers: Record<string, Handler> = {
     if (a.onSuccessDeactivateScript) for (const s of sieveScripts) s.isActive = false;
     return r;
   },
-  "SieveScript/validate": () => ({ accountId: ACCOUNT, error: null }),
+  /*
+   * Content is not compiled for real — no Sieve parser lives here — but a
+   * validator that answers `error: null` whatever it is handed makes the
+   * client's whole save-a-checked-script path permanently green: a surface that
+   * trusts the server's verdict and does not parse Sieve itself ships a broken
+   * script with a tick beside it. The one check this mock can make it does, and
+   * it is the same one `x:SieveSystemScript/set` refuses on.
+   */
+  "SieveScript/validate": (a) => {
+    const contents = a.blobId
+      ? (blobOf(accountOf(a), a.blobId as string)?.data.toString() ?? "")
+      : "";
+    const bad = badSieveContents(contents);
+    return {
+      accountId: String(a.accountId ?? ACCOUNT),
+      error: bad ? { type: "invalidScript", description: bad } : null,
+    };
+  },
   /**
    * `x:SieveSystemScript` (ADR 0008): a global registry object, so unlike
    * every other `x:` handler here it does not read `who` at all — one list
@@ -4002,14 +4081,6 @@ const handlers: Record<string, Handler> = {
   "x:SieveSystemScript/get": genericGet(systemSieveScripts, "x:SieveSystemScript"),
   "x:SieveSystemScript/set": (a) => {
     checkIfInState(a, "x:SieveSystemScript");
-    const badContents = (contents: unknown): string | null => {
-      if (typeof contents !== "string" || !contents.trim())
-        return "Sieve script is empty.";
-      const opens = (contents.match(/\{/g) ?? []).length;
-      const closes = (contents.match(/\}/g) ?? []).length;
-      if (opens !== closes) return "Unbalanced braces in Sieve script.";
-      return null;
-    };
     const activeNameClash = (name: string, selfId: string | null): boolean =>
       systemSieveScripts.some(
         (s) =>
@@ -4026,7 +4097,7 @@ const handlers: Record<string, Handler> = {
       const isActive = Boolean(o.isActive);
       const problem =
         (!name && "A script needs a name.") ||
-        badContents(o.contents) ||
+        badSieveContents(o.contents) ||
         (isActive && activeNameClash(name, null)
           ? `Another active system Sieve script is already named ${JSON.stringify(name)}, script names are case insensitive.`
           : null);
@@ -4065,7 +4136,7 @@ const handlers: Record<string, Handler> = {
         p.isActive !== undefined ? Boolean(p.isActive) : Boolean(s.isActive);
       const problem =
         (!name && "A script needs a name.") ||
-        badContents(contents) ||
+        badSieveContents(contents) ||
         (isActive && activeNameClash(name, id)
           ? `Another active system Sieve script is already named ${JSON.stringify(name)}, script names are case insensitive.`
           : null);
@@ -4180,7 +4251,7 @@ const handlers: Record<string, Handler> = {
     // With no ids every event comes back under its stored id, none synthetic.
     if (!ids)
       return {
-        accountId: ACCOUNT,
+        accountId: String(a.accountId ?? ACCOUNT),
         state: stateOf(accountOf(a), "CalendarEvent"),
         list: list.map((x) => eventGetView(x, false, properties)),
         notFound: [],
@@ -4200,7 +4271,7 @@ const handlers: Record<string, Handler> = {
       );
     }
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), "CalendarEvent"),
       list: found,
       notFound,
@@ -4261,7 +4332,7 @@ const handlers: Record<string, Handler> = {
         : total - start;
     const page = list.slice(start, start + askedLimit);
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       queryState: "1",
       canCalculateChanges: false,
       position: start,
@@ -4344,14 +4415,39 @@ const handlers: Record<string, Handler> = {
       "AddressBook",
     )(a);
   },
+  /*
+   * Filtered and paged, like `Email/query` beside it. Answering every card id
+   * whatever was asked made the client's own `limit` a fiction: paging was
+   * never exercised here, and a caller filtering by `inAddressBook` — which is
+   * how the store lists one book — silently received every book's cards. Both
+   * are places where a client bug passes in dev and fails on a real server,
+   * which is the one thing this mock exists to prevent.
+   */
   "ContactCard/query": (a) => {
-    const list = cardsFor(a.accountId);
+    const filter = a.filter as Obj | undefined;
+    const { position, limit } = queryPaging(a);
+    const list = cardsFor(a.accountId).filter((card) => {
+      if (!filter) return true;
+      if (
+        filter.inAddressBook &&
+        !(card.addressBookIds as Obj)[filter.inAddressBook as string]
+      )
+        return false;
+      if (filter.text) {
+        const hay =
+          `${JSON.stringify(card.name)} ${JSON.stringify(card.emails)} ${JSON.stringify(card.organizations)}`.toLowerCase();
+        if (!hay.includes(String(filter.text).toLowerCase())) return false;
+      }
+      return true;
+    });
+    const page =
+      limit === null ? list.slice(position) : list.slice(position, position + limit);
     return {
       accountId: a.accountId ?? ACCOUNT,
       queryState: "1",
       canCalculateChanges: false,
-      position: 0,
-      ids: list.map((c) => c.id),
+      position,
+      ids: page.map((c) => c.id),
       ...(a.calculateTotal ? { total: list.length } : {}),
     };
   },
@@ -4485,7 +4581,7 @@ const handlers: Record<string, Handler> = {
       ...new Set(relevant.flatMap((c) => c[k])),
     ];
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       oldState: String(a.sinceState ?? "1"),
       newState: stateOf(accountId, "ContactCard"),
       hasMoreChanges: false,
@@ -4539,7 +4635,7 @@ const handlers: Record<string, Handler> = {
     const ids = list.map((n) => n.id);
     const paged = limit == null ? ids : ids.slice(position, position + limit);
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       queryState: "1",
       canCalculateChanges: false,
       position,
@@ -4568,7 +4664,7 @@ const handlers: Record<string, Handler> = {
       ...new Set(relevant.flatMap((c) => c[k])),
     ];
     return {
-      accountId: ACCOUNT,
+      accountId: String(a.accountId ?? ACCOUNT),
       oldState: String(a.sinceState ?? "1"),
       newState: stateOf(accountId, "FileNode"),
       hasMoreChanges: false,

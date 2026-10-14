@@ -101,6 +101,77 @@ test("the state an empty-id get answers is the ContactCard compare-and-set token
   assert.equal((stale[1] as { type: string }).type, "stateMismatch");
 });
 
+/**
+ * An Email created from `bodyValues` reads back with a body and a preview.
+ *
+ * The mock walked `bodyStructure` collecting only the parts that had a
+ * `bodyValues` entry, so every part of a body named by `blobId` was dropped from
+ * `textBody`/`htmlBody` — a body with no parts being a message the view renders
+ * empty. And the preview was read from a part id literally called `text`, which
+ * no real `bodyStructure` carries, so it was always empty: the sent-mail view
+ * rendered plain text with no preview in dev and the composed HTML with one in
+ * production, which is exactly the divergence that keeps a regression in that
+ * path invisible until deploy.
+ */
+test("a created Email reads back with its text body and a preview", async () => {
+  const text = "The figures are agreed, and the schedule slips by a week.";
+  const created = responseOf(
+    await jmap([
+      [
+        "Email/set",
+        {
+          accountId: ACCOUNT,
+          create: {
+            p: {
+              mailboxIds: { mb1: true },
+              subject: "Preview",
+              from: [{ email: "ada@example.org" }],
+              to: [{ email: "bob@example.org" }],
+              bodyStructure: { partId: "1", type: "text/plain", subParts: [] },
+              bodyValues: {
+                "1": { value: text, isEncodingProblem: false, isTruncated: false },
+              },
+            },
+          },
+        },
+        "s",
+      ],
+    ]),
+    "s",
+  )[1];
+  const emailId = (created.created as Record<string, { id: string }>).p?.id;
+  assert.ok(emailId, "the message was created");
+
+  const got = responseOf(
+    await jmap([["Email/get", { accountId: ACCOUNT, ids: [emailId] }, "g"]]),
+    "g",
+  )[1];
+  const email = (got.list as Array<Record<string, unknown>>)[0]!;
+  assert.ok(
+    (email.textBody as unknown[]).length > 0,
+    "the body a caller supplied is in textBody",
+  );
+  assert.equal(email.preview, text.slice(0, 100), "and the preview opens the message");
+});
+
+/**
+ * A change names the account it happened in.
+ *
+ * These handlers computed the account from the request and then answered with
+ * the demo account's id beside the answer — so a change to the group's mail was
+ * reported as a change in `a1`, and a reader that trusts the field attributed it
+ * to the wrong account.
+ */
+test("Email/changes and Email/query name the account they were asked about", async () => {
+  for (const call of [
+    ["Email/changes", { accountId: "a3", sinceState: "0" }, "c"],
+    ["Email/query", { accountId: "a3" }, "q"],
+  ] as const) {
+    const body = responseOf(await jmap([call]), call[2])[1] as { accountId: string };
+    assert.equal(body.accountId, "a3", `${call[0]} answers with the account it read`);
+  }
+});
+
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });

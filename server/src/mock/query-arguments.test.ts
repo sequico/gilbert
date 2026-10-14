@@ -81,7 +81,7 @@ async function query(name: string, args: Record<string, unknown>): Promise<Metho
   return answered;
 }
 
-for (const name of ["Email/query", "FileNode/query"]) {
+for (const name of ["Email/query", "FileNode/query", "ContactCard/query"]) {
   test(`${name} refuses a negative position, as RFC 8620 and Stalwart do`, async () => {
     const [method, body] = await query(name, { position: -1, limit: 10 });
     assert.equal(
@@ -107,3 +107,61 @@ for (const name of ["Email/query", "FileNode/query"]) {
     );
   });
 }
+
+/**
+ * A `/query` honours the filter and the page it was asked for.
+ *
+ * `ContactCard/query` answered every id in the account whatever was asked — no
+ * filter, no paging, `position: 0` always. The client's `limit` was a fiction
+ * against the mock, so paging was never exercised here; and the store lists one
+ * address book at a time by `inAddressBook`, so a filter that a real server
+ * applies was silently ignored and every book's cards came back together. Both
+ * are the class this mock exists to catch: a client bug that passes in dev and
+ * fails in production.
+ */
+test("ContactCard/query applies inAddressBook and returns a real page", async () => {
+  const all = await query("ContactCard/query", { calculateTotal: true });
+  const total = (all[1] as { total: number }).total;
+  assert.ok(total > 1, "the demo account holds more than one card");
+
+  const first = await query("ContactCard/query", { position: 0, limit: 1 });
+  assert.equal((first[1] as { ids: string[] }).ids.length, 1);
+
+  const second = await query("ContactCard/query", { position: 1, limit: 1 });
+  assert.notDeepEqual(
+    (second[1] as { ids: string[] }).ids,
+    (first[1] as { ids: string[] }).ids,
+    "a second page is a different page, not the same one again",
+  );
+  assert.equal(
+    (second[1] as { position: number }).position,
+    1,
+    "and it says where it is",
+  );
+
+  /*
+   * Everything the demo account holds is in one book, so `inAddressBook` cannot
+   * narrow here — but it must still be consulted, and `text` is what shows the
+   * difference: a filter a real server applies, which this handler used to
+   * ignore while answering every card in the account.
+   */
+  const named = await query("ContactCard/query", {
+    filter: { text: "Hopper" },
+    calculateTotal: true,
+  });
+  const matched = (named[1] as { ids: string[] }).ids;
+  assert.ok(matched.length > 0, "a name in the account is found");
+  assert.ok(
+    matched.length < total,
+    "and the filter narrowed the answer rather than being ignored",
+  );
+
+  const empty = await query("ContactCard/query", {
+    filter: { inAddressBook: "no-such-book" },
+  });
+  assert.deepEqual(
+    (empty[1] as { ids: string[] }).ids,
+    [],
+    "a book nobody holds matches nothing",
+  );
+});
