@@ -24,10 +24,14 @@ const team = { id: "i2", name: "Team", email: "team@example.org", replyTo: null 
 /** Every method the send chain asked the server to run. */
 const chainCalls: Array<[string, Record<string, unknown>]> = [];
 
+/** Every direct call the send chain made, method and arguments. */
+const callCalls: Array<[string, Record<string, unknown>]> = [];
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.useFakeTimers();
   chainCalls.length = 0;
+  callCalls.length = 0;
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
   useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
   useMail.setState({
@@ -41,11 +45,19 @@ beforeEach(() => {
     loadMailboxes: (async () => undefined) as never,
     refreshList: (async () => undefined) as never,
   });
-  vi.spyOn(client, "call").mockResolvedValue({
-    accountId: "a1",
-    created: {},
-    destroyed: {},
-  } as never);
+  vi.spyOn(client, "call").mockImplementation((async (
+    method: string,
+    args: Record<string, unknown>,
+  ) => {
+    callCalls.push([method, args]);
+    // The Scheduled folder is created and read where the send is aimed at; the
+    // answer names the account it was asked for, so the test can tell them apart.
+    if (method === "Mailbox/set")
+      return { accountId: args.accountId, created: { sched: { id: "sch1" } } };
+    if (method === "Mailbox/get")
+      return { accountId: args.accountId, list: [{ id: "sch1", name: "Scheduled" }] };
+    return { accountId: "a1", created: {}, destroyed: {} };
+  }) as never);
   vi.spyOn(client, "chain").mockImplementation(async (calls) => {
     const out = new Map<string, Record<string, unknown>[]>();
     for (const [method, args, id] of calls) {
@@ -121,6 +133,35 @@ describe("a switch to another mailbox inside the undo window", () => {
     await settle();
 
     expect(chainCalls).toEqual([]);
+  });
+
+  it("holds a scheduled message in the Scheduled folder of the account Send was pressed in", async () => {
+    const key = openDraft();
+    useCompose.getState().update(key, { sendAt: Date.now() + 60_000 });
+    void useCompose.getState().send(key);
+
+    // The reader opens another mailbox inside the window.
+    useMail.setState({ accountId: "a2", identities: [team] as never });
+    await vi.advanceTimersByTimeAsync(5000);
+    await settle();
+
+    const set = chainCalls.find(([method]) => method === "Email/set")?.[1] as
+      | { accountId?: string; create?: { m?: { mailboxIds?: Record<string, boolean> } } }
+      | undefined;
+    expect(set?.accountId).toBe("a1");
+    expect(set?.create?.m?.mailboxIds).toEqual({ sch1: true });
+    /*
+     * And the folder was read — or created — in that account, not in the mailbox
+     * the reader opened since: a "Scheduled" made there would be named by a
+     * message in another account, which the server refuses whole, and would sit
+     * in a folder nobody asked for.
+     */
+    expect(
+      callCalls.filter(
+        ([method, args]) => method.startsWith("Mailbox/") && args.accountId !== "a1",
+      ),
+      "no folder was read or created anywhere but the captured account",
+    ).toEqual([]);
   });
 });
 

@@ -1877,7 +1877,7 @@ async function sendInternal(
   const draftId = saveChains.get(d.key)?.lastId ?? d.draftId;
   saveChains.delete(d.key);
   const scheduled = d.sendAt !== null && d.sendAt > Date.now();
-  const scheduledId = scheduled ? await ensureScheduledMailbox() : null;
+  const scheduledId = scheduled ? await ensureScheduledMailbox(accountId) : null;
   const email = await buildEmailObject(d, {
     forSend: true,
     mailboxId: scheduledId,

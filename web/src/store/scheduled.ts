@@ -12,7 +12,9 @@ import { t } from "@/lib/i18n";
 import { canScheduleSend, maxDelayMs, type SubmissionCapability } from "@/lib/schedule";
 import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
+import { mailboxMap } from "./mail/mailboxes";
 import { setEmails } from "./mail/mutations";
+import { MAILBOX_PROPS } from "./mail/types";
 import { useSession } from "./session";
 
 /**
@@ -64,24 +66,45 @@ export function scheduledMailboxId(): Id | null {
 }
 
 /** The Scheduled folder, creating it the first time something is scheduled. */
-export async function ensureScheduledMailbox(): Promise<Id> {
-  const existing = scheduledMailboxId();
+export async function ensureScheduledMailbox(accountId?: Id): Promise<Id> {
+  const account = accountId ?? useMail.getState().accountId;
+  if (!account) throw new Error("Not signed in");
+  /*
+   * The folder is looked for — and created — in the account that will hold the
+   * message, which is not always the one on screen: a send inside the undo window
+   * carries the account Send was pressed in, and a "Scheduled" created in
+   * whichever mailbox the reader opened since would leave the message naming a
+   * folder its own account does not hold, so the whole `Email/set` is refused and
+   * a stray folder is left in the account they just opened.
+   */
+  const onScreen = useMail.getState().accountId === account;
+  const ofAccount = async (): Promise<Record<Id, Mailbox>> =>
+    onScreen
+      ? useMail.getState().mailboxes
+      : mailboxMap(
+          (
+            await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+              accountId: account,
+              ids: null,
+              properties: MAILBOX_PROPS,
+            })
+          ).list,
+        );
+  const existing = scheduledMailboxIdFrom(await ofAccount());
   if (existing) return existing;
-  const accountId = useMail.getState().accountId!;
   const res = await client.call<SetResponse<Mailbox>>("Mailbox/set", {
-    accountId,
+    accountId: account,
     create: { sched: { name: SCHEDULED_MAILBOX, parentId: null, isSubscribed: true } },
   });
   const err = res.notCreated?.sched;
   // A racing tab (or another client) may have created it between the two calls.
   if (err) {
-    await useMail.getState().loadMailboxes();
-    const again = scheduledMailboxId();
+    const again = scheduledMailboxIdFrom(await ofAccount());
     if (again) return again;
     throw new Error(setErrorMessage(err));
   }
   const id = res.created!.sched!.id;
-  await useMail.getState().loadMailboxes();
+  if (onScreen) await useMail.getState().loadMailboxes();
   return id;
 }
 
