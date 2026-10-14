@@ -803,9 +803,19 @@ async function summaryOf(
 async function maySee(reach: WorkorderReach, root: WorkorderDoc): Promise<boolean> {
   if (reach.admin) return true;
   const def = (await templateDef(reach, root.checklist.template)).checklist;
-  // A template's own assignment is the whole of competence, and it is the same
-  // set of groups a part is written for at creation — so a readable template
-  // answers without reading a group's part at all.
+  /*
+   * A template's own assignment is the whole of competence, and it is the same
+   * set of groups a part is written for at creation — so a readable template
+   * answers without reading a group's part at all. What carries that equality is
+   * an invariant nothing else enforces: **a root's template reference is written
+   * once, at creation, and never changes** (`createWorkorder` is its only
+   * writer, and no route re-binds one), so the parts that exist are exactly the
+   * groups the revision it names assigns. Re-pin a live workorder to another
+   * revision and a member whose part holds the finished work would lose the
+   * workorder, silently: their template no longer names their group. The
+   * fallback below is the part-probe for the case the template cannot be read;
+   * it is not a substitute for that invariant.
+   */
   if (def)
     return checklistGroups(def).some((accountId) => reach.ownAccounts.has(accountId));
   // A template whose rules cannot be read falls back to the part a group
