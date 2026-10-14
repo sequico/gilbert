@@ -3,14 +3,7 @@ import {
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
-import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
-/*
- * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
- * `settings.addedShares` stores, so a second spelling here would be a selection
- * that stops being found. Re-exported because this store's callers key cards by
- * it.
- */
-import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
+import { isGroupAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -46,6 +39,13 @@ import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { cardFromLdif } from "@/lib/mozillaAb";
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key cards by
+ * it.
+ */
+import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
 import { accountKey, loadRaw, saveJson } from "@/lib/storage";
 import { useMail } from "./mail";
 import { useSession } from "./session";
@@ -765,7 +765,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const own = session.ownAccountFor(CAP.contacts);
       const s = session.session;
       const accounts = Object.entries(s?.accounts ?? {}).filter(
-        ([id, a]) => a.isPersonal === false && id !== own,
+        ([id, a]) => isGroupAccountRecord(a) && id !== own,
       );
       /*
        * The installation's directory first (ADR 0023). It is not a share and it
@@ -2021,7 +2021,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
      */
     if (accountId && accountId !== get().accountId) {
       const s = useSession.getState().session;
-      const shared = s?.accounts?.[accountId]?.isPersonal === false;
+      const shared = isGroupAccountRecord(s?.accounts?.[accountId]);
       if (shared && (types.has("AddressBook") || types.has("ContactCard")))
         void get().reloadShared();
       return;

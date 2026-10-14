@@ -49,4 +49,5 @@ describe("isGroupAccountRecord", () => {
     assert.equal(isGroupAccountRecord({ isPersonal: false }), false);
     assert.equal(isGroupAccountRecord(undefined), false);
   });
+
 });

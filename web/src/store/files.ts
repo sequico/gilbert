@@ -5,6 +5,7 @@ import {
   isAppFolder,
 } from "@gilbert/shared/appFolder";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
+import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create, type StoreApi } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
@@ -970,7 +971,7 @@ export const useFiles = create<FilesState>((set, get) => ({
      */
     const browsing = get().accountId;
     const offered = Object.entries(session.session?.accounts ?? {}).some(
-      ([id, a]) => id === browsing && a.isPersonal === false,
+      ([id, a]) => id === browsing && isGroupAccountRecord(a),
     );
     if (!(browsing && (browsing === ownAccountId || offered)))
       set(emptyForAccount(ownAccountId));
@@ -994,8 +995,8 @@ export const useFiles = create<FilesState>((set, get) => ({
   async discoverShared() {
     const session = useSession.getState();
     const ownAccountId = get().ownAccountId;
-    const candidates = Object.entries(session.session?.accounts ?? {}).filter(
-      ([, a]) => a.isPersonal === false,
+    const candidates = Object.entries(session.session?.accounts ?? {}).filter(([, a]) =>
+      isGroupAccountRecord(a),
     );
     const answers = await Promise.all(
       candidates.map(([id, a]) =>
