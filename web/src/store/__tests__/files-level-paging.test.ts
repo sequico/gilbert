@@ -86,6 +86,9 @@ describe("a level larger than one page", () => {
     // is why the reads go 0/500/1000 and then one more for the empty tail.
     const queries = srv.callsTo("FileNode/query");
     expect(new Set(queries.map((c) => c.args.limit))).toEqual(new Set([500]));
-    expect(queries.map((c) => c.args.position ?? 0)).toEqual([0, 500, 1000, 1500]);
+    // Three pages of 500, and no fourth: the query reports `total`, and the
+    // pager stops as soon as the position reaches it rather than asking for one
+    // more empty page.
+    expect(queries.map((c) => c.args.position ?? 0)).toEqual([0, 500, 1000]);
   });
 });

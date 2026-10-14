@@ -33,7 +33,17 @@ const silentFetch = (seen: { signal?: AbortSignal }) =>
 describe("apiFetch's deadline", () => {
   it("gives a request that goes silent the server leg's own deadline", async () => {
     vi.useFakeTimers();
-    const timeout = vi.spyOn(AbortSignal, "timeout");
+    /*
+     * `AbortSignal.timeout` is native and vitest's fake timers do not reach
+     * inside it, so the clock the test advances would never fire the deadline.
+     * The stub is the platform's own shape, over the global timer the fake
+     * clock controls, and the assertion below still pins the value asked for.
+     */
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), ms);
+      return controller.signal;
+    });
     const seen: { signal?: AbortSignal } = {};
     vi.stubGlobal("fetch", silentFetch(seen));
 
