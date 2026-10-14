@@ -570,7 +570,17 @@ export async function findArticleById(
   return findArticle(ctx, accountId, tierFolderId, ({ state }) => state?.id === id);
 }
 
-/** Read every readable revision of an article, newest first by approval. */
+/**
+ * How many revisions of an article one history read takes.
+ *
+ * A revision is a document of its own and the folder keeps them for ever, so the
+ * history is chosen from the listing newest-first and only this many documents
+ * are downloaded: the surface shows a history, not an archive, and an article
+ * past this many revisions still answers its newest ones.
+ */
+const REVISION_HISTORY_MAX = 50;
+
+/** Read the newest revisions of an article, newest first by approval. */
 async function readRevisions(
   ctx: Ctx,
   accountId: string,
@@ -582,10 +592,16 @@ async function readRevisions(
     `${articlePath}/${REVISIONS_FOLDER}`,
   );
   if (!revisionsFolder) return [];
-  const files = await fileChildren(ctx, accountId, revisionsFolder, FILE_PROPS);
+  const files = await fileChildren(ctx, accountId, revisionsFolder, [
+    ...FILE_PROPS,
+    "created",
+  ]);
+  const newest = files
+    .filter((file) => file.nodeType === "file" && typeof file.blobId === "string")
+    .sort((a, b) => String(b.created ?? "").localeCompare(String(a.created ?? "")))
+    .slice(0, REVISION_HISTORY_MAX);
   const out: KnowledgeRevision[] = [];
-  for (const file of files) {
-    if (file.nodeType !== "file" || typeof file.blobId !== "string") continue;
+  for (const file of newest) {
     const name = typeof file.name === "string" ? file.name : "revision.json";
     const type =
       typeof file.type === "string" && file.type ? file.type : "application/json";
