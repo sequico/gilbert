@@ -13,6 +13,7 @@ import {
   isAlreadyExists,
   NameTakenError,
 } from "@/lib/filenode";
+import { sortFiles } from "@/lib/fileSort";
 import {
   type MergePlan,
   type MergeTree,
@@ -21,7 +22,6 @@ import {
 } from "@/lib/folderMerge";
 import { t as translate } from "@/lib/i18n";
 import { DEFAULT_FILES_SORT, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
-import { sortFiles } from "@/lib/fileSort";
 import { useSession } from "./session";
 
 interface SharedAccount {
