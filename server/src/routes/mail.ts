@@ -11,10 +11,8 @@ import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Hono } from "hono";
 import { deleteCookie } from "hono/cookie";
 import { gateAdministration } from "../adminGate.js";
-import { filesAccountId } from "../appFolder.js";
 import { config } from "../config.js";
 import { icsProxyHandler } from "../icsproxy.js";
-import { agentSession } from "../identityAdmin.js";
 import { imageProxyHandler } from "../imageproxy.js";
 import { followAccount, attach as pushAttach } from "../push.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
@@ -47,6 +45,7 @@ import {
   readGated,
   relayPushRaw,
   requireSession,
+  resolveInstallationAccount,
   SSE_HEADERS,
   securityHeadersFor,
   sessions,
@@ -331,23 +330,25 @@ export function registerMailRoutes(api: Hono<Env>): void {
          * frame is Stalwart's own StateChange -- an account and a state, no
          * data -- and the reader answers it by re-reading through its own
          * route, which decides what it may see.
+         *
+         * One resolution answers both this and the session payload (`ADR 0028`'s
+         * `installationAccount`), so the id the client filters on and the account
+         * subscribed here cannot be different accounts.
+         *
+         * The fan-out needs the subscribe mode: the per-tab relay below carries
+         * the tab's own credential and cannot follow an account the credential
+         * does not hold. A deployment on that path hears no installation change,
+         * and its client keeps the panel it has until the next read.
          */
-        try {
-          const master = await agentSession(session);
-          const installationAccount = filesAccountId(master);
-          if (installationAccount)
-            followAccount(
-              master.username,
-              installationAccount,
-              master.authorization,
-              out,
-              origin,
-            );
-        } catch {
-          // A deployment with no installation account to follow -- no agent
-          // named, or one that cannot be opened -- simply leaves this tab
-          // hearing what it is a member of. Not a failure of its own stream.
-        }
+        const installation = await resolveInstallationAccount(session);
+        if (installation)
+          followAccount(
+            installation.master.username,
+            installation.id,
+            installation.master.authorization,
+            out,
+            origin,
+          );
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();
         out.write(": subscribed\n\n");

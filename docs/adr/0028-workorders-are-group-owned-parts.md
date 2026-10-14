@@ -10,7 +10,9 @@ the client reads through the route (`web/src/lib/workorder.ts`, `web/src/store/w
 hears about a part changing on the FileNode rail wired in `web/src/App.tsx`'s
 StateChange dispatch — and about the installation's own checklist through the
 subscription the deployment holds on that account (`followAccount` in
-`server/src/push.ts`, followed by `server/src/routes/mail.ts`) — and the surface
+`server/src/push.ts`, followed by `server/src/routes/mail.ts`; the fan-out needs
+the subscribe mode, since the per-tab relay carries the tab's own credential and
+cannot follow an account that credential does not hold) — and the surface
 is a factory launcher in the top bar beside
 chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A

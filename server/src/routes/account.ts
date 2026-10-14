@@ -240,7 +240,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
             // making the directive check fetch it again.
             await sessionForcedState(session, upstream),
             await sessionIdentityLockState(session, upstream),
-            await resolveInstallationAccount(session),
+            (await resolveInstallationAccount(session))?.id ?? null,
           ),
         ),
       );
@@ -304,7 +304,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
             await resolveAdminState(session),
             await sessionForcedState(session),
             await sessionIdentityLockState(session),
-            await resolveInstallationAccount(session),
+            (await resolveInstallationAccount(session))?.id ?? null,
           ),
         ),
       );

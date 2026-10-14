@@ -1168,33 +1168,52 @@ export function appPasswordName(c: Context): string {
 }
 
 /** The installation's own account, once this process has resolved it. */
-let installationAccountId: string | null = null;
+let installationAccount: {
+  /** The agent address it was resolved from: a change of configuration re-resolves. */
+  address: string;
+  account: InstallationAccount;
+} | null = null;
+
+/** The installation's own account, with the session that reaches it. */
+export interface InstallationAccount {
+  id: string;
+  /** The Master's own context: the credential the deployment holds. */
+  master: Ctx;
+}
 
 /**
- * Stalwart's id for the installation's own account, or null when there is none.
+ * Stalwart's id for the installation's own account, and the session that reaches
+ * it, or null when there is none.
  *
  * The account is the Master's, and it is the whole reason the client cannot
  * find this fact on its own: no member's session is a member of it, so its id
  * is on no list the session holds, and a FileNode change naming it would mean
  * nothing to a reader (ADR 0028, `followAccount` in push.ts). Resolved through
  * the identity door with the credential the deployment holds, and remembered
- * once it answers: it is a property of the installation rather than of the
- * session, and asking again on every session read would pay for a JMAP session
- * fetch each time. A failure is not remembered — a credential that could not be
- * used yet gets another look rather than leaving the fact untrue for the life
- * of the process.
+ * once it answers — the id *and* the session, because both callers need the
+ * session to act on the account: the session payload states the id, and the
+ * push rail subscribes with it. A change of configuration re-resolves rather
+ * than serving the earlier installation's account, and a failure is not
+ * remembered — a credential that could not be used yet gets another look rather
+ * than leaving the fact untrue for the life of the process.
  */
 export async function resolveInstallationAccount(
   session: LiveSession,
-): Promise<string | null> {
-  if (installationAccountId) return installationAccountId;
+): Promise<InstallationAccount | null> {
+  const address = agentAddress();
+  if (!address) return null;
+  if (installationAccount?.address === address) return installationAccount.account;
   try {
-    installationAccountId = filesAccountId(await agentSession(session)) || null;
+    const master = await agentSession(session);
+    const id = filesAccountId(master);
+    if (!id) return null;
+    installationAccount = { address, account: { id, master } };
+    return installationAccount.account;
   } catch {
     // No agent named, or one that cannot be used: there is no installation
     // account to name, and this session follows none.
   }
-  return installationAccountId;
+  return null;
 }
 
 export function sessionExtras(
