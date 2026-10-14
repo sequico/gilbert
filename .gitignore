@@ -1,3 +1,6 @@
+# The pair of ignore files: an entry added here belongs in `.dockerignore`
+# too, and the two differ in spelling only because a name matches at any
+# depth here and a path does not there.
 node_modules/
 dist/
 .env
