@@ -22,8 +22,10 @@ import {
   AGENT_TRIGGERS,
   type AgentAction,
   type AgentGroupPolicyDoc,
+  type AgentJob,
   type AgentNotebookDoc,
   type AgentRule,
+  type AgentTrigger,
   actionParamsText,
   agentRuleJsonSchema,
   areaActions,
@@ -387,10 +389,16 @@ test("an area grants a group of actions and never a flagged one", () => {
    * pointed at a catalogue with a new flagged action, the same function leaves
    * it out.
    */
+  /*
+   * A catalogue with two actions the build has never heard of, one leaving the
+   * process and one irreversible. The names are real ones taken apart from the
+   * flags they are given here, so the fixtures type: what is under test is
+   * that the *tags* decide, not the name.
+   */
   const grown = [
     ...AGENT_ACTION_SPECS,
     {
-      name: "mail.forward" as const,
+      name: "mail.extract" as const,
       area: "mail" as const,
       label: "Forward",
       description: "",
@@ -398,7 +406,7 @@ test("an area grants a group of actions and never a flagged one", () => {
       external: true,
     },
     {
-      name: "file.delete" as const,
+      name: "document.read" as const,
       area: "files" as const,
       label: "Delete a file",
       description: "",
@@ -406,8 +414,8 @@ test("an area grants a group of actions and never a flagged one", () => {
       irreversible: true,
     },
   ];
-  assert.equal(areaActions("mail", grown).includes("mail.forward"), false);
-  assert.equal(areaActions("files", grown).includes("file.delete"), false);
+  assert.equal(areaActions("mail", grown).includes("mail.extract"), false);
+  assert.equal(areaActions("files", grown).includes("document.read"), false);
   /*
    * Every action is accounted for: it is in exactly one area, or it is one of
    * the entries that stand beside them. Nothing falls between.
@@ -702,8 +710,18 @@ test("the published schema is what a save is refused against", () => {
   assert.deepEqual(schemaProblems(rule()), []);
   assert.deepEqual(ruleProblems(rule()), []);
 
-  const noActions = schemaProblems(rule({ actions: [] }));
-  assert.deepEqual(noActions, [], "an empty action list is a shape the schema allows");
+  /*
+   * `actions` is not a field of a rule and never was in this shape: the model
+   * answers with actions, the rule carries none. The case a form hits instead
+   * is an empty **capability** list, which the schema allows and the
+   * cross-field half refuses -- so the two are asked separately below.
+   */
+  const emptyCaps = schemaProblems(rule({ capabilities: [] }));
+  assert.deepEqual(
+    emptyCaps,
+    [],
+    "an empty capability list is a shape the schema allows",
+  );
 
   // The cross-field half comes through the same door, so a form shows one list.
   const noCaps = ruleProblems(rule({ capabilities: [] }));

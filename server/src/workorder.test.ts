@@ -130,6 +130,8 @@ interface StepView {
 
 interface PartView {
   scope: string;
+  /** The group's own name, null for the global part. See `WorkorderPartView`. */
+  group: string | null;
   groups: Array<{
     key: string;
     label: string;
@@ -1161,7 +1163,8 @@ test("a member's list composes only the workorders they may see", async () => {
    * method calls, so the extra walk is visible rather than a matter of a
    * stopwatch.
    */
-  const memberGroupAccount = firstGroup[1];
+  const memberGroupAccount = firstGroup?.[1];
+  assert.ok(memberGroupAccount, "the mock has a group the Master holds");
 
   // The member's own group has a registry folder, so the walk the fix spares is
   // a real read rather than a missing folder's early answer.

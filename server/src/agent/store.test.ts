@@ -22,6 +22,7 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { filesAccountId } = await import("../appFolder.js");
 type Ctx = import("../appFolder.js").Ctx;
+type AgentStore = import("./store.js").AgentStore;
 const { AgentDocumentError, AgentStore } = await import("./store.js");
 const { readAppJsonAt, writeAppFileAt } = await import("../appFolder.js");
 const { newJob } = await import("./documents.js");
@@ -57,7 +58,7 @@ after(() => {
 test("a document that was never written reads as absent, not as empty", async () => {
   assert.equal(await store.readRules(), null);
   assert.equal(await store.readConfig(), null);
-  assert.equal(await store.readClaim("mail"), null);
+  assert.equal(await store.readClaim(), null);
   assert.deepEqual(await store.listJobs(), []);
   assert.equal(await store.readAudit("2026-09"), null);
 });

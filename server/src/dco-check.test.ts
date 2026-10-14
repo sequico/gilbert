@@ -39,15 +39,15 @@ test("a commit with no sign-off fails", () => {
   const { ok, findings } = checkCommits([commit()]);
   assert.equal(ok, false);
   assert.equal(findings.length, 1);
-  assert.equal(findings[0].sha, SHA);
-  assert.match(findings[0].reason, /no Signed-off-by/);
+  assert.equal(findings[0]?.sha, SHA);
+  assert.match(findings[0]?.reason ?? "", /no Signed-off-by/);
 });
 
 test("a sign-off by an unknown email fails", () => {
   const message = "feat: a thing\n\nSigned-off-by: Someone Else <else@example.org>\n";
   const { ok, findings } = checkCommits([commit({ message })]);
   assert.equal(ok, false);
-  assert.match(findings[0].reason, /neither the author's nor the committer's/);
+  assert.match(findings[0]?.reason ?? "", /neither the author's nor the committer's/);
 });
 
 test("the committer's sign-off is enough, not only the author's", () => {
@@ -63,7 +63,7 @@ test("a body line that merely mentions the trailer is not a sign-off", () => {
   const message = "docs: explain the trailer\n\nSee Signed-off-by: in DCO.\n";
   const { ok, findings } = checkCommits([commit({ message })]);
   assert.equal(ok, false);
-  assert.match(findings[0].reason, /no Signed-off-by/);
+  assert.match(findings[0]?.reason ?? "", /no Signed-off-by/);
 });
 
 test("a co-author trailer is not a sign-off", () => {

@@ -907,7 +907,7 @@ export function isAgentGroupPolicyDoc(x: unknown): x is AgentGroupPolicyDoc {
  * executor and the member's panel cannot read "no policy" two different ways.
  */
 export function policyOf(
-  doc: AgentGroupPolicyDoc | null,
+  doc: Pick<AgentGroupPolicyDoc, "review" | "allowExternal"> | null,
 ): Pick<AgentGroupPolicyDoc, "review" | "allowExternal"> {
   if (!doc)
     return {
@@ -2081,8 +2081,16 @@ export const EMPTY_METER: AgentMeter = {
   uncounted: 0,
 };
 
-/** A meter over the entries a surface reads. The one aggregator. */
-export function meterOver(entries: ReadonlyArray<AgentAuditEntry>): AgentMeter {
+/**
+ * A meter over the entries a surface reads. The one aggregator.
+ *
+ * Takes what `meterOf` reads — the outcome, the usage and whether the pass
+ * resumed — because that is what a meter is: a caller folding a listing must
+ * not have to carry a job id and a rule version it does not use.
+ */
+export function meterOver(
+  entries: ReadonlyArray<Pick<AgentAuditEntry, "usage" | "outcome" | "resumed">>,
+): AgentMeter {
   return entries.reduce(meterOf, EMPTY_METER);
 }
 

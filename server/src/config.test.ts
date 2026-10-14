@@ -518,8 +518,9 @@ test("a silent environment resolves to the document's own defaults", () => {
 
 test("a production process refuses to serve a prefix nobody stated", () => {
   /* A secret of its own, so the only thing in question here is the prefix. */
-  const { BASE_PATH: _unstated, ...env } = {
-    ...HANDSHAKE_ENV,
+  const { BASE_PATH: _stated, ...rest } = HANDSHAKE_ENV;
+  const env: Record<string, string | undefined> = {
+    ...rest,
     NODE_ENV: "production",
     APP_SECRET: A_SECRET,
   };
