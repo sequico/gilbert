@@ -3,6 +3,14 @@ import {
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key cards by
+ * it.
+ */
+import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -345,15 +353,6 @@ function contactMoveSentence(code: ContactMoveRefusal): string {
       );
   }
 }
-
-/*
- * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
- * `settings.addedShares` stores, so a second spelling here would be a selection
- * that stops being found. Re-exported because this store's callers key cards by
- * it.
- */
-import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
-import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 
 export { sharedKey };
 
