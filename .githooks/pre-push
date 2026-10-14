@@ -7,9 +7,11 @@
 # `git config core.hooksPath .githooks`; bypass a run deliberately with
 # `git push --no-verify`.
 #
-# Code scanning is not here: GitHub runs it on the push itself, and its
-# toolchain is a 686 MB bundle. `npm run prepush:full` is both gates, for a
-# machine that has one; `npm run codeql` is the analysis on its own.
+# CodeQL is not here: its toolchain is a 686 MB bundle, so it runs with the
+# release and weekly (codeql.yml), not on every push. What GitHub does run on
+# the push is the security workflow (ci-security.yml). `npm run prepush:full` is
+# both gates, for a machine that has one; `npm run codeql` is the analysis on
+# its own.
 set -u
 
 if [ ! -x node_modules/.bin/tsc ]; then

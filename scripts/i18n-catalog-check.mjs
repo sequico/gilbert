@@ -19,6 +19,7 @@ import {
   catalogFiles,
   catalogKeys,
   sourceAst,
+  sourceFiles,
   wantedStrings,
 } from "./lib/i18nSources.mjs";
 
@@ -40,6 +41,18 @@ import {
  */
 const MISSING_MAX = 170;
 
+/**
+ * What this check reads, for the pre-push hook's skip decision.
+ *
+ * The catalogues, the strings the code asks for, and the registry that says
+ * which of them are offered. `i18n-literals` reads the same two of the three
+ * and adds nothing; each answer is its own, because a check that named another's
+ * files would skip a push over a path its sibling actually reads.
+ */
+export function readPaths() {
+  return [...catalogFiles(), ...sourceFiles(), "web/src/lib/languages.ts"];
+}
+
 const { keys: wanted } = wantedStrings();
 
 /*
@@ -50,68 +63,73 @@ const { keys: wanted } = wantedStrings();
  * replacement anchored on a line that did not exist on that branch, so it was
  * a silent no-op and nothing anywhere complained.
  */
-const languagesSrc = readFileSync("web/src/lib/languages.ts", "utf8");
-const registered = new Set(
-  [...languagesSrc.matchAll(/tag:\s*"([\w-]+)"/g)].map((m) => m[1]),
-);
-const catalogues = new Set(
-  catalogFiles().map((f) => f.split("/").pop().replace(".ts", "")),
-);
-
-let failed = false;
-for (const tag of catalogues) {
-  if (!registered.has(tag)) {
-    failed = true;
-    console.log(
-      `!! ${tag}.ts exists but is not in UI_LANGUAGES — the language is never offered\n`,
-    );
-  }
-}
-for (const tag of registered) {
-  if (tag !== "en" && !catalogues.has(tag)) {
-    failed = true;
-    console.log(
-      `!! UI_LANGUAGES offers ${tag} but there is no ${tag}.ts — it would fall back to English\n`,
-    );
-  }
-}
-
-for (const file of catalogFiles()) {
-  const tag = file.split("/").pop().replace(".ts", "");
-  const src = sourceAst(file, { kind: ts.ScriptKind.TS });
-  const have = catalogKeys(src);
-  /*
-   * `catalogKeys` reads the `strings` and `plurals` objects structurally, so a
-   * plural entry's form names (`one`, `other`, …) are the shape of the file and
-   * are not keys at all: they never reach this list. A key literally named
-   * `one` in `strings` is a string nothing looks up, exactly like any other
-   * stale key, and is reported.
-   */
-  const stale = [...have].filter((k) => !wanted.has(k));
-  const missing = [...wanted].filter((k) => !have.has(k));
-  const pct = Math.round(((wanted.size - missing.length) / wanted.size) * 100);
-  console.log(
-    `${tag}: ${wanted.size - missing.length}/${wanted.size} translated (${pct}%), ${missing.length} falling back to English`,
+/** Run the check over the tree, and say what is wrong. 0 or 1. */
+function main() {
+  const languagesSrc = readFileSync("web/src/lib/languages.ts", "utf8");
+  const registered = new Set(
+    [...languagesSrc.matchAll(/tag:\s*"([\w-]+)"/g)].map((m) => m[1]),
   );
-  if (missing.length > MISSING_MAX) {
-    failed = true;
+  const catalogues = new Set(
+    catalogFiles().map((f) => f.split("/").pop().replace(".ts", "")),
+  );
+
+  let failed = false;
+  for (const tag of catalogues) {
+    if (!registered.has(tag)) {
+      failed = true;
+      console.log(
+        `!! ${tag}.ts exists but is not in UI_LANGUAGES — the language is never offered\n`,
+      );
+    }
+  }
+  for (const tag of registered) {
+    if (tag !== "en" && !catalogues.has(tag)) {
+      failed = true;
+      console.log(
+        `!! UI_LANGUAGES offers ${tag} but there is no ${tag}.ts — it would fall back to English\n`,
+      );
+    }
+  }
+
+  for (const file of catalogFiles()) {
+    const tag = file.split("/").pop().replace(".ts", "");
+    const src = sourceAst(file, { kind: ts.ScriptKind.TS });
+    const have = catalogKeys(src);
+    /*
+     * `catalogKeys` reads the `strings` and `plurals` objects structurally, so a
+     * plural entry's form names (`one`, `other`, …) are the shape of the file and
+     * are not keys at all: they never reach this list. A key literally named
+     * `one` in `strings` is a string nothing looks up, exactly like any other
+     * stale key, and is reported.
+     */
+    const stale = [...have].filter((k) => !wanted.has(k));
+    const missing = [...wanted].filter((k) => !have.has(k));
+    const pct = Math.round(((wanted.size - missing.length) / wanted.size) * 100);
     console.log(
-      `\n  ${missing.length} key(s) have no catalogue entry, above the pinned ${MISSING_MAX}:`,
+      `${tag}: ${wanted.size - missing.length}/${wanted.size} translated (${pct}%), ${missing.length} falling back to English`,
     );
-    for (const k of missing.slice(0, 25)) console.log(`    ${JSON.stringify(k)}`);
-    if (missing.length > 25) console.log(`    …and ${missing.length - 25} more`);
+    if (missing.length > MISSING_MAX) {
+      failed = true;
+      console.log(
+        `\n  ${missing.length} key(s) have no catalogue entry, above the pinned ${MISSING_MAX}:`,
+      );
+      for (const k of missing.slice(0, 25)) console.log(`    ${JSON.stringify(k)}`);
+      if (missing.length > 25) console.log(`    …and ${missing.length - 25} more`);
+    }
+    if (stale.length) {
+      failed = true;
+      console.log(
+        `\n  ${stale.length} STALE key(s) — translated but never looked up, so they do nothing:`,
+      );
+      for (const k of stale.slice(0, 25)) console.log(`    ${JSON.stringify(k)}`);
+      if (stale.length > 25) console.log(`    …and ${stale.length - 25} more`);
+    }
+    if (process.argv.includes("--missing")) {
+      console.log(`\n  missing:`);
+      for (const k of missing) console.log(`    ${JSON.stringify(k)}`);
+    }
   }
-  if (stale.length) {
-    failed = true;
-    console.log(
-      `\n  ${stale.length} STALE key(s) — translated but never looked up, so they do nothing:`,
-    );
-    for (const k of stale.slice(0, 25)) console.log(`    ${JSON.stringify(k)}`);
-    if (stale.length > 25) console.log(`    …and ${stale.length - 25} more`);
-  }
-  if (process.argv.includes("--missing")) {
-    console.log(`\n  missing:`);
-    for (const k of missing) console.log(`    ${JSON.stringify(k)}`);
-  }
+  if (failed && process.argv.includes("--check")) process.exit(1);
 }
-if (failed && process.argv.includes("--check")) process.exit(1);
+
+if (import.meta.url === `file://${process.argv[1]}`) main();

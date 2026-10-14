@@ -11,7 +11,6 @@
   paths = [
     '''web/src/lib/__tests__/webpush\.test\.ts''',
     '''web/src/lib/__tests__/pushRegistration\.test\.ts''',
-    '''web/src/lib/__tests__/pushRegistration\.test\.ts''',
     '''server/src/totp\.test\.ts''',
     '''server/src/mock/index\.ts''',
     '''scripts/probe-degraded-statechange\.mjs''',

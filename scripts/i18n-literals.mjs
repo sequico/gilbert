@@ -41,6 +41,17 @@ import {
   WRAPPERS,
 } from "./lib/i18nSources.mjs";
 
+/**
+ * What this check reads, for the pre-push hook's skip decision.
+ *
+ * The same two scopes the catalogue check reads -- the strings the code asks for
+ * and the catalogues that may carry them -- and nothing else: this check has no
+ * pin and no registry to compare, so it names no file the other does not.
+ */
+export function readPaths() {
+  return [...catalogFiles(), ...sourceFiles()];
+}
+
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([
   "title",
@@ -116,160 +127,165 @@ const looksLikeLabel = (s) => /^[A-Z]/.test(s) && /[a-z]/.test(s);
  * structurally, so a bare identifier (`Archive: "…"`) is a key exactly as a
  * quoted one is.
  */
-const keys = new Set();
-for (const file of catalogFiles()) {
-  for (const key of catalogKeys(sourceAst(file, { kind: ts.ScriptKind.TS })))
-    keys.add(key);
-}
+/** Walk the tree, print what the extractor cannot see, and answer 0 or 1. */
+function main() {
+  const keys = new Set();
+  for (const file of catalogFiles()) {
+    for (const key of catalogKeys(sourceAst(file, { kind: ts.ScriptKind.TS })))
+      keys.add(key);
+  }
 
-const found = [];
-for (const file of sourceFiles()) {
-  const src = sourceAst(file);
-  const report = (node, text, { label = false } = {}) => {
-    if (
-      (label ? !looksLikeLabel(text) : !looksLikeUi(text)) ||
-      keys.has(text) ||
-      NEVER_TRANSLATED.has(text)
-    )
-      return;
-    const { line } = src.getLineAndCharacterOfPosition(node.getStart(src));
-    found.push({ file, line: line + 1, text });
-  };
+  const found = [];
+  for (const file of sourceFiles()) {
+    const src = sourceAst(file);
+    const report = (node, text, { label = false } = {}) => {
+      if (
+        (label ? !looksLikeLabel(text) : !looksLikeUi(text)) ||
+        keys.has(text) ||
+        NEVER_TRANSLATED.has(text)
+      )
+        return;
+      const { line } = src.getLineAndCharacterOfPosition(node.getStart(src));
+      found.push({ file, line: line + 1, text });
+    };
 
-  /*
-   * English assembled around values: `aria-label={`Remove ${email}`}`.
-   *
-   * No key is asked for -- the literal cannot be one as written -- and
-   * `looksLikeUi` reads the opening of a sentence, which `${name}, shared by
-   * ${owner}` does not have. What is left of the template once its values are
-   * taken out is asked the kit's own question instead: `NOT_PROSE` is how this
-   * repository says "punctuation, digits and symbols -- nothing to translate",
-   * so `${name} (${size})` is quiet and `${name} — shared by ${owner}` is not.
-   * A template whose whole static text is punctuation and digits (`${p}%`) is
-   * formatting rather than prose, so it is asked for a letter and left quiet.
-   */
-  const reportTemplate = (x) => {
-    const parts = ts.isNoSubstitutionTemplateLiteral(x)
-      ? [x.text]
-      : [x.head.text, ...x.templateSpans.map((s) => s.literal.text)];
-    const staticText = parts.join("");
-    if (
-      !/[A-Za-z]/.test(staticText) ||
-      NOT_PROSE.test(staticText) ||
-      NEVER_TRANSLATED.has(staticText)
-    )
-      return;
-    const { line } = src.getLineAndCharacterOfPosition(x.getStart(src));
-    found.push({ file, line: line + 1, text: parts.join("{}") });
-  };
-  const isTemplate = (x) =>
-    ts.isTemplateExpression(x) || ts.isNoSubstitutionTemplateLiteral(x);
-
-  /*
-   * Literals that are not text on their way to a reader.
-   *
-   * Two kinds. One is already inside t("...") -- walking into the call would
-   * report the very string that proves it is handled. The other is an operand
-   * of an equality test: `rule.name === "New filter"` compares against a
-   * sentinel stored in the Sieve script, and translating it would not change
-   * what a reader sees, it would break the comparison.
-   */
-  const exempt = new Set();
-  const mark = (n) => {
-    if (
-      ts.isCallExpression(n) &&
-      ts.isIdentifier(n.expression) &&
-      WRAPPERS.has(n.expression.text)
-    ) {
-      const walk = (x) => {
-        if (ts.isStringLiteral(x)) exempt.add(x);
-        ts.forEachChild(x, walk);
-      };
-      for (const a of n.arguments) walk(a);
-    }
-    if (ts.isBinaryExpression(n) && EQUALITY.has(n.operatorToken.kind)) {
-      for (const side of [n.left, n.right])
-        if (ts.isStringLiteral(side)) exempt.add(side);
-    }
-    ts.forEachChild(n, mark);
-  };
-  mark(src);
-  const wrapped = exempt;
-
-  /*
-   * English behind a branch or a fallback is still English a reader sees:
-   * `cond ? "Yes" : "No"`, `value ?? "None"`, a template inside either. The
-   * old reader looked only at a literal sitting directly in the position, so
-   * the login button's own two labels stayed hardcoded while the gate stayed
-   * green. Walks any expression but a call (a wrapper or a helper is out of
-   * scope here) and a nested element, and reports the string or template it
-   * reaches.
-   */
-  const walkText = (x, label = false) => {
-    if (isTemplate(x)) {
-      reportTemplate(x);
-      return;
-    }
-    if (ts.isStringLiteral(x)) {
-      if (!wrapped.has(x)) report(x, x.text, { label });
-      return;
-    }
-    if (
-      ts.isCallExpression(x) ||
-      ts.isJsxElement(x) ||
-      ts.isJsxSelfClosingElement(x) ||
-      ts.isJsxFragment(x)
-    )
-      return;
-    ts.forEachChild(x, (child) => walkText(child, label));
-  };
-
-  const visit = (n) => {
-    if (
-      ts.isPropertyAssignment(n) &&
-      UI_PROPS.has(n.name.getText(src).replace(/['"]/g, ""))
-    ) {
-      if (ts.isStringLiteral(n.initializer) && !wrapped.has(n.initializer))
-        report(n.initializer, n.initializer.text, { label: true });
-      if (isTemplate(n.initializer)) reportTemplate(n.initializer);
-    }
-    if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src)))
-      walkText(n.initializer, true);
     /*
-     * A JSX child that is an expression: `{busy ? "Signing in…" : "Sign in"}`.
-     * The coverage report reads JSX *text*, and the gate reads attributes and
-     * toasts, so a string chosen by a branch as a child fell between the two.
+     * English assembled around values: `aria-label={`Remove ${email}`}`.
+     *
+     * No key is asked for -- the literal cannot be one as written -- and
+     * `looksLikeUi` reads the opening of a sentence, which `${name}, shared by
+     * ${owner}` does not have. What is left of the template once its values are
+     * taken out is asked the kit's own question instead: `NOT_PROSE` is how this
+     * repository says "punctuation, digits and symbols -- nothing to translate",
+     * so `${name} (${size})` is quiet and `${name} — shared by ${owner}` is not.
+     * A template whose whole static text is punctuation and digits (`${p}%`) is
+     * formatting rather than prose, so it is asked for a letter and left quiet.
      */
-    if (
-      ts.isJsxExpression(n) &&
-      n.expression &&
-      (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))
-    )
-      walkText(n.expression);
-    if (
-      ts.isCallExpression(n) &&
-      ts.isPropertyAccessExpression(n.expression) &&
-      n.expression.expression.getText(src) === "toast" &&
-      TOASTS.has(n.expression.name.text) &&
-      n.arguments[0]
-    )
-      walkText(n.arguments[0]);
-    ts.forEachChild(n, visit);
-  };
-  visit(src);
+    const reportTemplate = (x) => {
+      const parts = ts.isNoSubstitutionTemplateLiteral(x)
+        ? [x.text]
+        : [x.head.text, ...x.templateSpans.map((s) => s.literal.text)];
+      const staticText = parts.join("");
+      if (
+        !/[A-Za-z]/.test(staticText) ||
+        NOT_PROSE.test(staticText) ||
+        NEVER_TRANSLATED.has(staticText)
+      )
+        return;
+      const { line } = src.getLineAndCharacterOfPosition(x.getStart(src));
+      found.push({ file, line: line + 1, text: parts.join("{}") });
+    };
+    const isTemplate = (x) =>
+      ts.isTemplateExpression(x) || ts.isNoSubstitutionTemplateLiteral(x);
+
+    /*
+     * Literals that are not text on their way to a reader.
+     *
+     * Two kinds. One is already inside t("...") -- walking into the call would
+     * report the very string that proves it is handled. The other is an operand
+     * of an equality test: `rule.name === "New filter"` compares against a
+     * sentinel stored in the Sieve script, and translating it would not change
+     * what a reader sees, it would break the comparison.
+     */
+    const exempt = new Set();
+    const mark = (n) => {
+      if (
+        ts.isCallExpression(n) &&
+        ts.isIdentifier(n.expression) &&
+        WRAPPERS.has(n.expression.text)
+      ) {
+        const walk = (x) => {
+          if (ts.isStringLiteral(x)) exempt.add(x);
+          ts.forEachChild(x, walk);
+        };
+        for (const a of n.arguments) walk(a);
+      }
+      if (ts.isBinaryExpression(n) && EQUALITY.has(n.operatorToken.kind)) {
+        for (const side of [n.left, n.right])
+          if (ts.isStringLiteral(side)) exempt.add(side);
+      }
+      ts.forEachChild(n, mark);
+    };
+    mark(src);
+    const wrapped = exempt;
+
+    /*
+     * English behind a branch or a fallback is still English a reader sees:
+     * `cond ? "Yes" : "No"`, `value ?? "None"`, a template inside either. The
+     * old reader looked only at a literal sitting directly in the position, so
+     * the login button's own two labels stayed hardcoded while the gate stayed
+     * green. Walks any expression but a call (a wrapper or a helper is out of
+     * scope here) and a nested element, and reports the string or template it
+     * reaches.
+     */
+    const walkText = (x, label = false) => {
+      if (isTemplate(x)) {
+        reportTemplate(x);
+        return;
+      }
+      if (ts.isStringLiteral(x)) {
+        if (!wrapped.has(x)) report(x, x.text, { label });
+        return;
+      }
+      if (
+        ts.isCallExpression(x) ||
+        ts.isJsxElement(x) ||
+        ts.isJsxSelfClosingElement(x) ||
+        ts.isJsxFragment(x)
+      )
+        return;
+      ts.forEachChild(x, (child) => walkText(child, label));
+    };
+
+    const visit = (n) => {
+      if (
+        ts.isPropertyAssignment(n) &&
+        UI_PROPS.has(n.name.getText(src).replace(/['"]/g, ""))
+      ) {
+        if (ts.isStringLiteral(n.initializer) && !wrapped.has(n.initializer))
+          report(n.initializer, n.initializer.text, { label: true });
+        if (isTemplate(n.initializer)) reportTemplate(n.initializer);
+      }
+      if (ts.isJsxAttribute(n) && n.initializer && UI_ATTRS.has(n.name.getText(src)))
+        walkText(n.initializer, true);
+      /*
+       * A JSX child that is an expression: `{busy ? "Signing in…" : "Sign in"}`.
+       * The coverage report reads JSX *text*, and the gate reads attributes and
+       * toasts, so a string chosen by a branch as a child fell between the two.
+       */
+      if (
+        ts.isJsxExpression(n) &&
+        n.expression &&
+        (ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent))
+      )
+        walkText(n.expression);
+      if (
+        ts.isCallExpression(n) &&
+        ts.isPropertyAccessExpression(n.expression) &&
+        n.expression.expression.getText(src) === "toast" &&
+        TOASTS.has(n.expression.name.text) &&
+        n.arguments[0]
+      )
+        walkText(n.arguments[0]);
+      ts.forEachChild(n, visit);
+    };
+    visit(src);
+  }
+
+  if (!found.length) {
+    console.log(
+      "i18n literals: none -- every user-visible string is wrapped or has a catalogue key",
+    );
+    process.exit(0);
+  }
+  console.log(
+    `${found.length} user-visible string(s) the extractor cannot see and no catalogue can translate:\n`,
+  );
+  for (const f of found)
+    console.log(`  ${f.file}:${f.line}\n    ${JSON.stringify(f.text)}`);
+  console.log("\nWrap them in t() / plural(), or -- for a label held in a constant and");
+  console.log("translated where it renders -- make sure the English is a catalogue key.");
+  process.exit(process.argv.includes("--check") ? 1 : 0);
 }
 
-if (!found.length) {
-  console.log(
-    "i18n literals: none -- every user-visible string is wrapped or has a catalogue key",
-  );
-  process.exit(0);
-}
-console.log(
-  `${found.length} user-visible string(s) the extractor cannot see and no catalogue can translate:\n`,
-);
-for (const f of found)
-  console.log(`  ${f.file}:${f.line}\n    ${JSON.stringify(f.text)}`);
-console.log("\nWrap them in t() / plural(), or -- for a label held in a constant and");
-console.log("translated where it renders -- make sure the English is a catalogue key.");
-process.exit(process.argv.includes("--check") ? 1 : 0);
+if (import.meta.url === `file://${process.argv[1]}`) main();

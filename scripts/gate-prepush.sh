@@ -3,7 +3,7 @@
 #
 # The gate is `npm run check:ci` (== `npm run prepush`). Behaviour:
 #   - default        -> the FULL gate (`npm run check:ci`)
-#   - GATE=fast      -> only the fast checks (typecheck + lint/Biome)
+#   - GATE=fast      -> only the fast checks (`npm run check:fast`)
 #   - GATE=off       -> skip, deliberately (like --no-verify, but explicit)
 #   - a push whose tip is not the checked-out commit is REFUSED, rather than
 #     gated against this checkout's tree: the gate verifies a tree, and this
@@ -112,19 +112,16 @@ if [ -n "$changed" ]; then
 	if reads="$(node --input-type=module -e '
 import { pathToFileURL } from "node:url";
 const root = process.argv[1];
+const { checkModules } = await import(`${root}/scripts/lib/gateChecks.mjs`);
 const paths = new Set();
-for (const rel of [
-  "scripts/dead-config-check.mjs",
-  "scripts/adr-owed-check.mjs",
-  "scripts/adr-citation-check.mjs",
-  "scripts/workflow-pin-check.mjs",
-]) {
+for (const rel of checkModules(root)) {
   const mod = await import(pathToFileURL(`${root}/${rel}`).href);
   // One question, one shape: a check answers with the paths it reads.
+  if (typeof mod.readPaths !== "function") continue;
   for (const path of mod.readPaths()) paths.add(path);
 }
 process.stdout.write([...paths].join("\n"));
-' "$root")"; then
+' "$root" 2>/dev/null)"; then
 		binary="$(git diff --numstat "${base}..${target}" 2>/dev/null | awk -F'\t' '$1 == "-" { print $3 }')"
 		run=0
 		while IFS= read -r path; do
@@ -162,8 +159,8 @@ if [ "$mode" = "full" ]; then
 	echo "pre-push: FULL gate (npm run check:ci)…"
 	npm run check:ci
 else
-	echo "pre-push: fast gate (typecheck + lint)…"
-	npm run typecheck && npm run lint
+	echo "pre-push: fast gate (npm run check:fast)…"
+	npm run check:fast
 fi
 status=$?
 if [ "$status" -eq 0 ]; then
