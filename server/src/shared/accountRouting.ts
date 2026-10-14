@@ -44,9 +44,27 @@ interface AccountShape {
   accountCapabilities?: Record<string, unknown>;
 }
 
+/**
+ * Whether an account is the reader's own rather than a group's.
+ *
+ * The literal `true`, not "anything that is not `false`". RFC 8620 makes
+ * `isPersonal` a boolean and every conforming server sends it, so the two rules
+ * answer alike on a real session; they part on an account record that omits it,
+ * and this one calls that account a group's. The safe direction is the point:
+ * an account Gilbert cannot prove is somebody's own is one nobody's own state
+ * may land in, and the group classifier (`isGroupAccountRecord`) reads the
+ * mirror of this rule.
+ */
 const personal = (account: unknown): boolean =>
   (account as AccountShape | undefined)?.isPersonal === true;
 
+/**
+ * Whether an account advertises a capability.
+ *
+ * The value's truthiness, because a capability map carries an object or a
+ * boolean and `{}` is how a server answers "yes" (RFC 8620). A `null` value is
+ * not a capability, and a key alone is not proof of one.
+ */
 const advertises = (account: unknown, capability: string): boolean =>
   Boolean((account as AccountShape | undefined)?.accountCapabilities?.[capability]);
 

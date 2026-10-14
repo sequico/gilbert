@@ -569,16 +569,35 @@ export async function fetchDirectoryPrincipals(
   kind: "individual" | "group",
 ): Promise<DirectoryPrincipals | { denied: string }> {
   /*
-   * The account that owns the principals capability, by the one rule for that
-   * question (`shared/accountRouting.ts`) -- and then, if no account advertises
-   * it at all, the first account the session lists. The advertisement is not the
-   * gate here: `Principal/query` is governed by the server's own
-   * `allow_directory_query` (see above), so a session whose accounts carry no
-   * `principals` capability can still be one the directory answers. Answering
-   * "complete, and empty" for it would report a directory that was never asked
-   * as one with nothing in it, and the policy fan-out trusts that word.
+   * The account that owns the principals capability -- a **personal** one
+   * advertising it, then whatever the one routing rule answers
+   * (`shared/accountRouting.ts`), then the first account the session lists.
+   *
+   * The personal-first step is not decoration. That routing rule honours the
+   * switcher and the primary map, so it names a shared account whenever the
+   * session's primary for this capability is one -- and a group account is a
+   * directory of members rather than of the installation, so a directory read
+   * through it answers with the wrong population and the policy fan-out reads
+   * that population as the installation.
+   *
+   * The advertisement is not the gate here: `Principal/query` is governed by
+   * the server's own `allow_directory_query` (see above), so a session whose
+   * accounts carry no `principals` capability can still be one the directory
+   * answers. Answering "complete, and empty" for it would report a directory
+   * that was never asked as one with nothing in it, and the policy fan-out
+   * trusts that word.
    */
+  const personalWithDirectory = Object.entries(session.accounts ?? {}).find(
+    ([, a]) =>
+      (a as { isPersonal?: unknown }).isPersonal === true &&
+      Boolean(
+        (a as { accountCapabilities?: Record<string, unknown> }).accountCapabilities?.[
+          CAPABILITIES.principals
+        ],
+      ),
+  );
   const accountId =
+    personalWithDirectory?.[0] ||
     processAccountForCapability(session, CAPABILITIES.principals) ||
     Object.keys(session.accounts ?? {})[0] ||
     "";
