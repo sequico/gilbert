@@ -173,8 +173,21 @@ export function registerAccountRoutes(api: Hono<Env>): void {
      * the body was read.
      */
     const limitKey = `${rateIp}|${username.toLowerCase()}`;
-    if (!loginLimiter().check(limitKey) || !loginLimiter().check(rateIp)) {
-      c.header("Retry-After", String(loginLimiter().retryAfterSeconds(limitKey)));
+    /*
+     * Whichever budget is spent is the one whose wait is reported. Asking the
+     * per-address one was the wrong answer when *that* is what is blocked — the
+     * case an attacker rotating usernames creates: the current attempt's own key
+     * is fresh, so the header read `Retry-After: 0` while the address budget
+     * still had the full window on it. A `0` is an invitation to retry
+     * immediately, and the reply is another refusal.
+     */
+    const perAccount = loginLimiter().check(limitKey);
+    const perAddress = perAccount ? loginLimiter().check(rateIp) : true;
+    if (!perAccount || !perAddress) {
+      c.header(
+        "Retry-After",
+        String(loginLimiter().retryAfterSeconds(perAccount ? rateIp : limitKey)),
+      );
       return c.json(
         {
           error: "rate_limited",

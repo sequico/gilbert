@@ -2411,6 +2411,10 @@ export const catalog: Catalog = {
     "Looking for workorders that use this…":
       "Шукаємо workorder, які використовують цю сторінку…",
     "Not used by any workorder yet.": "Поки що не використовується жодним workorder.",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "Частину перенумерованих сусідів було відхилено, починаючи з {folder}: {error}",
+    "Some of the renumbered siblings were refused.":
+      "Частину перенумерованих сусідів було відхилено.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

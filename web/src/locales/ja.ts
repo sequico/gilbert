@@ -2417,6 +2417,10 @@ export const catalog: Catalog = {
     "Looking for workorders that use this…":
       "このテンプレートを使うワークオーダーを探しています…",
     "Not used by any workorder yet.": "まだどのワークオーダーも使っていません。",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "番号を振り直した兄弟の一部が拒否されました（{folder} 以降）: {error}",
+    "Some of the renumbered siblings were refused.":
+      "番号を振り直した兄弟の一部が拒否されました。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

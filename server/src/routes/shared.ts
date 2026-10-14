@@ -781,7 +781,7 @@ export function upstreamFailure(c: Context, err: unknown) {
    * sentence every other upstream failure gets, with the detail in the log.
    */
   if (err instanceof AppFolderError && err.status >= 400 && err.status < 500)
-    return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return c.json(...refusal(err));
   if (err instanceof UpstreamError) {
     // A 403 is a permission and a 404 a missing object: the code keeps the
     // reason the mail server distinguished, rather than collapsing both into a
@@ -890,10 +890,21 @@ export const accountCtx = async (c: Context<Env>) => {
   };
 };
 
+/**
+ * The body and status of a refusal from one of this product's own error classes.
+ *
+ * Six surfaces answer with it — identities, the system Sieve registry, the
+ * knowledge base, workorders, the agent administration and the account itself —
+ * and each had the shape written out beside its own `instanceof`. A copy of a
+ * refusal shape is a copy that can drift, and the four that differ only in the
+ * class they test are exactly the ones that would: what the classes share is
+ * `code`, `message` and `status`, and that is all this reads.
+ */
+export const refusal = (err: { code: string; message: string; status: number }) =>
+  [{ error: err.code, message: err.message }, err.status as 400] as const;
+
 export const accountFailure = (c: Context, err: unknown) => {
-  if (err instanceof AccountError) {
-    return c.json({ error: err.code, message: err.message }, err.status as 400);
-  }
+  if (err instanceof AccountError) return c.json(...refusal(err));
   return upstreamFailure(c, err);
 };
 

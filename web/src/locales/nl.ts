@@ -2418,6 +2418,10 @@ export const catalog: Catalog = {
       "Kan niet lezen welke werkorders dit gebruiken: {error}. Er staat hier niet welke, en geen ervan zou dit moeten gebruiken.",
     "Looking for workorders that use this…": "Zoeken naar werkorders die dit gebruiken…",
     "Not used by any workorder yet.": "Nog door geen enkel werkorder gebruikt.",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "Sommige van de hernummerde items zijn geweigerd, te beginnen met {folder}: {error}",
+    "Some of the renumbered siblings were refused.":
+      "Sommige van de hernummerde items zijn geweigerd.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

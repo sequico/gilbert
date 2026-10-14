@@ -2335,6 +2335,9 @@ export const catalog: Catalog = {
       "无法读取哪些工单使用了此模板：{error}。此处未说明是哪些，而它们都不应再使用。",
     "Looking for workorders that use this…": "正在查找使用此模板的工单…",
     "Not used by any workorder yet.": "尚未被任何工单使用。",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "部分重新编号的相邻项被拒绝，从 {folder} 开始：{error}",
+    "Some of the renumbered siblings were refused.": "部分重新编号的相邻项被拒绝。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

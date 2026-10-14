@@ -2336,6 +2336,10 @@ export const catalog: Catalog = {
       "Bu sayfayı hangi iş emirlerinin kullandığı okunamadı: {error}. Burada hangileri olduğu yazmıyor ve hiçbiri kullanmamalı.",
     "Looking for workorders that use this…": "Bu sayfayı kullanan iş emirleri aranıyor…",
     "Not used by any workorder yet.": "Henüz hiçbir iş emri tarafından kullanılmıyor.",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "Yeniden numaralandırılan kardeşlerin bazıları reddedildi, {folder} ile başlayarak: {error}",
+    "Some of the renumbered siblings were refused.":
+      "Yeniden numaralandırılan kardeşlerin bazıları reddedildi.",
   },
   plurals: {
     "({n} deleted first)": {

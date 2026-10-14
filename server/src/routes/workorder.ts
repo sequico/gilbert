@@ -24,19 +24,37 @@ import {
   WorkorderAdminError,
 } from "../workorderAdmin.js";
 import type { Env } from "./shared.js";
-import { readJson, requireAdmin, requireSession, upstreamFailure } from "./shared.js";
+import {
+  readJson,
+  refusal,
+  requireAdmin,
+  requireSession,
+  upstreamFailure,
+} from "./shared.js";
 
 export function registerWorkorderRoutes(api: Hono<Env>): void {
   // ---------- Workorders (ADR 0028) ----------
 
   /** A refusal from the workorder surface: its code and sentence, or upstream's. */
   const workorderFailure = (c: Context, err: unknown) => {
-    if (err instanceof WorkorderAdminError)
-      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    if (err instanceof WorkorderAdminError) return c.json(...refusal(err));
     return upstreamFailure(c, err);
   };
 
-  /** The creation body, narrowed to what the door writes. */
+  /*
+   * The creation body, narrowed to what the door writes.
+   *
+   * Narrowed by **refusing**, never by dropping: this used to skip a variant
+   * whose value was not a string, an `items` entry whose `data` was an object
+   * instead of a list, and a field whose value was a number or a boolean — and
+   * then answer `{ ok: true }`. The caller was told the workorder was created
+   * while its steps and its field values were quietly missing, and the missing
+   * half was exactly the half a person would notice at the workface. A body
+   * that does not fit is a mistake to correct, not a limb to remove.
+   */
+  const badBody = (what: string) =>
+    new WorkorderAdminError("bad_request", `A workorder's ${what} is not its shape.`);
+
   const workorderCreate = (raw: unknown): WorkorderCreateInput => {
     const r = (raw ?? {}) as Record<string, unknown>;
     if (typeof r.name !== "string" || !isWorkorderTemplateRef(r.template))
@@ -50,22 +68,28 @@ export function registerWorkorderRoutes(api: Hono<Env>): void {
     };
     if (isRecord(r.variants)) {
       const variants: Record<string, string> = {};
-      for (const [key, value] of Object.entries(r.variants))
-        if (typeof value === "string") variants[key] = value;
+      for (const [key, value] of Object.entries(r.variants)) {
+        if (typeof value !== "string") throw badBody(`variant "${key}"`);
+        variants[key] = value;
+      }
       input.variants = variants;
     }
     if (isRecord(r.items)) {
       const items: Record<string, WorkorderItemInput[]> = {};
       for (const [key, list] of Object.entries(r.items)) {
-        if (!Array.isArray(list)) continue;
+        if (!Array.isArray(list)) throw badBody(`variant "${key}" items`);
         const chosen: WorkorderItemInput[] = [];
         for (const entry of list) {
-          if (!isRecord(entry) || typeof entry.key !== "string") continue;
+          if (!isRecord(entry) || typeof entry.key !== "string")
+            throw badBody(`item in variant "${key}"`);
           const one: WorkorderItemInput = { key: entry.key };
           if (isRecord(entry.data)) {
             const data: Record<string, string> = {};
-            for (const [field, value] of Object.entries(entry.data))
-              if (typeof value === "string") data[field] = value;
+            for (const [field, value] of Object.entries(entry.data)) {
+              if (typeof value !== "string")
+                throw badBody(`item field "${field}" in variant "${key}"`);
+              data[field] = value;
+            }
             one.data = data;
           }
           chosen.push(one);

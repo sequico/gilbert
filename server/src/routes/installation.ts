@@ -2,8 +2,13 @@
  * The installation's own document (ADR 0011) and the system Sieve scripts
  * (ADR 0008).
  *
- * Both doors open onto the Master's account by impersonation from the
- * administrator's own session; no second credential and no Management API.
+ * The document's door opens onto the Master's account by impersonation from the
+ * administrator's own session — no second credential and no Management API. The
+ * Sieve door does not: `x:SieveSystemScript` is a server-wide registry object
+ * that belongs to no account, so those calls run as the signed-in
+ * administrator's own session and an `accountId` is passed only because JMAP
+ * requires one on every call. `adminSieve.ts` states the same thing from its own
+ * side.
  */
 
 import type { Context, Hono } from "hono";
@@ -29,6 +34,7 @@ import type { Env } from "./shared.js";
 import {
   accountCtx,
   readJson,
+  refusal,
   requireAdmin,
   requireSession,
   upstreamFailure,
@@ -140,8 +146,7 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
 
   /** A refusal from this surface: the code and the sentence, or upstream's. */
   function systemSieveFailure(c: Context, err: unknown) {
-    if (err instanceof SystemSieveError)
-      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    if (err instanceof SystemSieveError) return c.json(...refusal(err));
     return upstreamFailure(c, err);
   }
 

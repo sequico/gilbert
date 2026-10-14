@@ -3376,6 +3376,10 @@ export const catalog: Catalog = {
       "Non è stato possibile leggere quali workorder usano questa: {error}. Qui non è scritto quali, e nessuno dovrebbe usarla.",
     "Looking for workorders that use this…": "Ricerca dei workorder che usano questa…",
     "Not used by any workorder yet.": "Non è ancora usata da nessun workorder.",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "Alcuni degli elementi rinumerati sono stati rifiutati, a partire da {folder}: {error}",
+    "Some of the renumbered siblings were refused.":
+      "Alcuni degli elementi rinumerati sono stati rifiutati.",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

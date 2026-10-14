@@ -28,6 +28,7 @@ import type { Env } from "./shared.js";
 import {
   identityLockCache,
   readJson,
+  refusal,
   requireAdmin,
   requireSession,
   upstreamFailure,
@@ -35,8 +36,7 @@ import {
 
 /** A refusal from these surfaces: the code and the sentence, or upstream's. */
 export function identityFailure(c: Context, err: unknown) {
-  if (err instanceof IdentityAdminError)
-    return c.json({ error: err.code, message: err.message }, err.status as 400);
+  if (err instanceof IdentityAdminError) return c.json(...refusal(err));
   return upstreamFailure(c, err);
 }
 

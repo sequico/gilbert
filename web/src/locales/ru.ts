@@ -2415,6 +2415,10 @@ export const catalog: Catalog = {
       "Не удалось прочитать, какие workorder используют эту страницу: {error}. Здесь не сказано какие, и ни одна из них не должна её использовать.",
     "Looking for workorders that use this…": "Ищем workorder, использующие эту страницу…",
     "Not used by any workorder yet.": "Пока не используется ни одним workorder.",
+    "Some of the renumbered siblings were refused, starting with {folder}: {error}":
+      "Часть перенумерованных соседей была отклонена, начиная с {folder}: {error}",
+    "Some of the renumbered siblings were refused.":
+      "Часть перенумерованных соседей была отклонена.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

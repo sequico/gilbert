@@ -48,6 +48,7 @@ import {
 import { apiFetch, client } from "@/jmap/client";
 import type { FileNode, GetResponse, Id } from "@/jmap/types";
 import { findAppFolder, findInFolder, listChildrenWithState } from "@/lib/appFolder";
+import { t } from "@/lib/i18n";
 
 export * from "@gilbert/shared/knowledge";
 
@@ -436,17 +437,38 @@ export async function reorderKnowledgeArticle(
  * Used when a drop's fractional order has run out of precision: the whole
  * family is renumbered and its new places travel together rather than one
  * request per row (ADR 0024). The server applies each with its own
- * compare-and-set, so the numbers stay independent and a write that loses a
- * race leaves the rest as they were sent.
+ * compare-and-set, so the numbers stay independent.
+ *
+ * A batch can half-apply, and the answer says which half: a write that is
+ * refused does not undo the ones before it, and the numbers on screen are
+ * then neither the old family nor the new one. Reporting that as a plain
+ * success leaves the reader looking at an order no client will see again.
  */
 export async function reorderKnowledgeArticles(
   target: KnowledgeTarget,
   orders: Array<{ folder: string; order: number }>,
 ): Promise<void> {
-  await apiFetch<{ ok: true }>("/api/knowledge/reorder", {
+  const res = await apiFetch<{
+    ok: boolean;
+    applied?: string[];
+    refused?: Array<{ folder: string; error: string }>;
+  }>("/api/knowledge/reorder", {
     method: "POST",
     body: JSON.stringify({ ...target, orders }),
   });
+  if (res.ok) return;
+  const first = res.refused?.[0];
+  throw new Error(
+    first
+      ? t(
+          "Some of the renumbered siblings were refused, starting with {folder}: {error}",
+          {
+            folder: first.folder,
+            error: first.error,
+          },
+        )
+      : t("Some of the renumbered siblings were refused."),
+  );
 }
 
 /**

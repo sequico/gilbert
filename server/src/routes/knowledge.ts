@@ -29,6 +29,7 @@ import type { Env } from "./shared.js";
 import {
   enforceAdmin,
   readJson,
+  refusal,
   requireAdmin,
   requireSession,
   upstreamFailure,
@@ -39,8 +40,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
 
   /** A refusal from the KB surfaces: the code and the sentence, or upstream's. */
   const knowledgeFailure = (c: Context, err: unknown) => {
-    if (err instanceof KnowledgeAdminError)
-      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    if (err instanceof KnowledgeAdminError) return c.json(...refusal(err));
     return upstreamFailure(c, err);
   };
 
@@ -79,6 +79,12 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
     return target;
   };
 
+  /** A tag that is not text is a body that does not fit, not a tag to drop. */
+  const badTags = new KnowledgeAdminError(
+    "bad_request",
+    "An article's tags are text: one of them is not.",
+  );
+
   /** The editor's small shape, narrowed to what the draft writes. */
   const knowledgeInput = (raw: unknown): KnowledgeArticleInput => {
     const r = (raw ?? {}) as Record<string, unknown>;
@@ -96,7 +102,16 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       );
     return {
       title: r.title,
-      tags: r.tags.filter((tag): tag is string => typeof tag === "string"),
+      /*
+       * Refused rather than filtered. A tag that is a number or an object is a
+       * body that does not fit, and dropping it would write the article without
+       * the label a reader files it by, answer success, and leave the person's
+       * own text missing from the page they just saved.
+       */
+      tags: r.tags.map((tag) => {
+        if (typeof tag !== "string") throw badTags;
+        return tag;
+      }),
       blocks: r.blocks,
       text: r.text,
       checklist: (checklist as KnowledgeChecklist | null) ?? null,
@@ -345,22 +360,40 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
        * A family renumbered at once. A drop orders two neighbours by their
        * midpoint, and the fractional gap runs out of precision after enough
        * drops into one slot; the client then sends every sibling's new place in
-       * one request. Each is applied with its own compare-and-set, so a write
-       * that loses a race leaves the rest as the client sent them (ADR 0024).
+       * one request. Each is applied with its own compare-and-set, so the
+       * numbers stay independent (ADR 0024).
+       *
+       * What a failure does **not** do is leave the rest as the client sent
+       * them: this is a loop of writes, and one that throws stops the loop with
+       * its predecessors already written. An error answer alone would then be
+       * a lie in both directions — the client's cached order is wrong, and a
+       * retry applies a different set from the one that landed. So each item is
+       * reported: what was written, and what was not.
        */
       if (Array.isArray(body?.orders)) {
+        const applied: string[] = [];
+        const refused: Array<{ folder: string; error: string }> = [];
         for (const item of body.orders as Array<{
           folder?: unknown;
           order?: unknown;
         }>) {
-          await reorderArticle(
-            c.get("session"),
-            target,
-            typeof item?.folder === "string" ? item.folder : "",
-            typeof item?.order === "number" ? item.order : Number.NaN,
-          );
+          const folder = typeof item?.folder === "string" ? item.folder : "";
+          try {
+            await reorderArticle(
+              c.get("session"),
+              target,
+              folder,
+              typeof item?.order === "number" ? item.order : Number.NaN,
+            );
+            applied.push(folder);
+          } catch (err) {
+            refused.push({
+              folder,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
         }
-        return c.json({ ok: true });
+        return c.json({ ok: refused.length === 0, applied, refused });
       }
       const summary = await reorderArticle(
         c.get("session"),
