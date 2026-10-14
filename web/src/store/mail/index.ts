@@ -719,6 +719,15 @@ export const useMail = create<MailState>((set, get) => ({
           lastThreadEmailIds: thread.emailIds,
         };
       });
+      /*
+       * The bodies this read inserted are the most recently wanted, and the
+       * cache's oldest bodies are let go of to pay for them — exactly as a full
+       * `getEmails` does. Without this the conversation's bodies sit outside
+       * `bodyOrder` and are never counted against `BODIES_KEPT`, so a session
+       * that opens conversations holds every one of their bodies.
+       */
+      touchBodies(thread.emailIds);
+      set((s) => releaseBodies(s));
       return get().threadEmails(threadId);
     } catch (err) {
       set((s) => {

@@ -62,21 +62,33 @@ export function adoptMailboxes(accountId: Id, list: Mailbox[]): Record<Id, Mailb
 export const subscribing = new Map<Id, Promise<void>>();
 
 /**
- * Accounts whose failed subscription write has already been reported.
+ * How long a refused subscription write is left alone before it is asked again.
  *
- * A member may write `isSubscribed` on a folder of their group (ADR 0021,
- * confirmed live on 0.16.23, 2026-09-24), but Stalwart is of two minds about the
- * field elsewhere -- it accepts the write on a calendar shared read-only and
- * refuses it on an address book -- so a refusal is possible even where the
- * folder is the member's to read. It is asked again on every read of the tree,
- * because a member whose folders are unsubscribed is a member whose group reads
- * as empty in every other client: one transient refusal must not leave it so
- * for the session. Only the *report* is held back, in the shape `loadMailboxes`
- * uses for a failed tree read, so a server that refuses persistently warns once
- * per outage rather than on every read; a write that lands clears the entry, so
- * a later refusal is news again.
+ * A refusal is not permanent — Stalwart is of two minds about `isSubscribed`,
+ * accepting the write on a calendar shared read-only and refusing it on an
+ * address book — so the write is asked again rather than given up for the
+ * session. But not on every read of the tree: a group's tree is read by the
+ * probe, on the account's own change beat and on every folder action, and one
+ * `Mailbox/set` per read is a storm against a server that keeps saying no. Half
+ * a minute collapses that storm into one attempt, and is short enough that a
+ * refusal which was transient — a redeploy, a lock — heals within the same
+ * session with nobody doing anything. It is deliberately not exponential: a
+ * persistent refusal is either permanent or gone in seconds, and a grown delay
+ * only postpones the write that makes a group readable in every client.
  */
-export const subscriptionsReported = new Set<Id>();
+export const SUBSCRIBE_RETRY_MS = 30_000;
+
+/**
+ * When each account's refused subscription write may be tried again.
+ *
+ * Keyed by account, because a member reads several group mailboxes and a
+ * refusal in one says nothing about another — a single flag would let the first
+ * account's refusal silence the second's. An entry is also the report of the
+ * outage it stands for: it silences the warning for a refusal already told, and
+ * a write that lands removes it, so the folders being subscribed again makes
+ * the next refusal news.
+ */
+export const subscriptionBackoff = new Map<Id, number>();
 
 /**
  * The folders of a group the member is owed a subscription to, written once.
@@ -87,10 +99,14 @@ export const subscriptionsReported = new Set<Id>();
  * from every client that honours subscriptions, which is every client but
  * this one. Nothing is sent when nothing is missing, and one reconciliation
  * is in flight per account: this sits on every read of a group's folder list,
- * which is also what makes it cover a folder that appeared a moment ago.
+ * which is also what makes it cover a folder that appeared a moment ago. A
+ * refusal is asked again only once the back-off above has passed, so a server
+ * that keeps refusing is not written to on every read.
  */
 export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
   if (subscribing.has(accountId)) return;
+  const retryAt = subscriptionBackoff.get(accountId);
+  if (retryAt !== undefined && Date.now() < retryAt) return;
   const missing = unsubscribedFolders(tree);
   if (!missing.length) return;
   const run = (async () => {
@@ -100,14 +116,18 @@ export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void
         for (const id of part) update[id] = { isSubscribed: true };
         await client.call<SetResponse>("Mailbox/set", { accountId, update });
       }
-      subscriptionsReported.delete(accountId);
+      // The write landed: the folders are subscribed, and the outage this entry
+      // stood for is over -- a later refusal is news again.
+      subscriptionBackoff.delete(accountId);
     } catch (err) {
-      if (!subscriptionsReported.has(accountId)) {
-        subscriptionsReported.add(accountId);
+      // One report per outage: the entry silences the warning it already made
+      // and holds the write back until the back-off above expires.
+      if (!subscriptionBackoff.has(accountId)) {
         console.warn(
           `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
         );
       }
+      subscriptionBackoff.set(accountId, Date.now() + SUBSCRIBE_RETRY_MS);
     } finally {
       subscribing.delete(accountId);
     }

@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import {
+  SUBSCRIBE_RETRY_MS,
+  subscribing,
+  subscriptionBackoff,
+} from "@/store/mail/mailboxes";
 import { useSession } from "@/store/session";
 import { flushMicrotasks as flush } from "@/test/testkit";
 
@@ -137,6 +142,10 @@ const subscribedIds = (calls: Array<{ name: string; args: Record<string, unknown
 beforeEach(() => {
   client.session = SESSION;
   useSession.setState({ session: SESSION });
+  // The back-off and the in-flight map are module state shared by every case:
+  // a refusal one case leaves behind would silence the next one's first read.
+  subscribing.clear();
+  subscriptionBackoff.clear();
   useMail.setState({
     accountId: null,
     ownAccountId: "own",
@@ -206,23 +215,29 @@ describe("the reader's own mailbox", () => {
 describe("a subscription write that is refused", () => {
   /*
    * A refusal is not the end of it: the write is what makes the group readable
-   * in every client but this one, so it is asked again on the next read of the
-   * tree. What is held back is the report, once per outage.
+   * in every client but this one, so it is asked again — but only after a short
+   * back-off, because a group's tree is read by the probe, the account's change
+   * beat and every folder action, and one write per read is a storm against a
+   * server that keeps saying no. A clock the suite controls stands in for the
+   * wall clock the back-off is measured against.
    */
-  it("is asked again on the next read of the tree", async () => {
+  let now = 0;
+  beforeEach(() => {
+    now = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+  });
+
+  it("is asked again once the back-off has passed, not on the next read", async () => {
     const tree = groupTree();
-    const updates: string[][] = [];
+    let attempts = 0;
+    let fail = true;
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    let mode: "fail" | "ok" = "fail";
-    vi.spyOn(client, "call").mockImplementation((async (
-      method: string,
-      args: Record<string, unknown>,
-    ) => {
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
       if (method === "Mailbox/get")
         return { accountId: "gg", state: "1", list: Object.values(tree), notFound: [] };
       if (method === "Mailbox/set") {
-        if (mode === "fail") throw new Error("refused");
-        updates.push(Object.keys((args.update ?? {}) as Record<string, unknown>));
+        attempts += 1;
+        if (fail) throw new Error("refused");
         return { accountId: "gg", oldState: "1", newState: "2" };
       }
       return { accountId: "gg", state: "1", list: [], notFound: [] };
@@ -230,15 +245,74 @@ describe("a subscription write that is refused", () => {
 
     await useMail.getState().refreshAccountTree("gg");
     await flush();
-    // The first read was refused, so nothing was written...
-    expect(updates).toEqual([]);
+    // The first read was refused, so it wrote and failed.
+    expect(attempts).toBe(1);
 
-    // ...and the next one asks again rather than giving the group up for the
-    // rest of the session.
-    mode = "ok";
+    // ...and a read still inside the back-off does not ask again, however well
+    // the server would answer now.
+    fail = false;
     await useMail.getState().refreshAccountTree("gg");
     await flush();
-    expect(updates).toEqual([["a", "l", "t"]]);
+    expect(attempts).toBe(1);
+
+    // Once the back-off has passed the write is asked again, so a transient
+    // refusal heals within the session rather than after a reload.
+    now += SUBSCRIBE_RETRY_MS;
+    await useMail.getState().refreshAccountTree("gg");
+    await flush();
+    expect(attempts).toBe(2);
+  });
+
+  it("asks once for a burst of reads, and reports the refusal once", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let attempts = 0;
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Mailbox/get")
+        return {
+          accountId: "gg",
+          state: "1",
+          list: Object.values(groupTree()),
+          notFound: [],
+        };
+      if (method === "Mailbox/set") {
+        attempts += 1;
+        throw new Error("refused");
+      }
+      return { accountId: "gg", state: "1", list: [], notFound: [] };
+    }) as never);
+
+    // Five reads inside one back-off: the probe, the beat and a person's clicks
+    // all land here, and the server repeats the same "no" to each.
+    for (let i = 0; i < 5; i++) {
+      await useMail.getState().refreshAccountTree("gg");
+      await flush();
+    }
+
+    expect(attempts).toBe(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns for a second account refused too, not only the first", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Both accounts carry the same unsubscribed tree and the same refusal: a
+    // report keyed globally would be silenced by the first account's refusal.
+    vi.spyOn(client, "call").mockImplementation((async (
+      method: string,
+      args: Record<string, unknown>,
+    ) => {
+      const accountId = String(args.accountId ?? "gg");
+      if (method === "Mailbox/get")
+        return { accountId, state: "1", list: Object.values(groupTree()), notFound: [] };
+      if (method === "Mailbox/set") throw new Error("refused");
+      return { accountId, state: "1", list: [], notFound: [] };
+    }) as never);
+
+    await useMail.getState().refreshAccountTree("gg");
+    await flush();
+    await useMail.getState().refreshAccountTree("gg2");
+    await flush();
+
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 });
 

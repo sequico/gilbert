@@ -134,6 +134,42 @@ describe("bodies past the limit are let go of", () => {
 });
 
 /**
+ * A conversation read is a full read of its messages, exactly like opening one
+ * message, so its bodies are held under the same bound.
+ */
+describe("the bodies a conversation read inserts", () => {
+  it("are counted against the bound, like any other full read", async () => {
+    /*
+     * `loadThread` is what opening a conversation does, and it fetches every
+     * message in full. Without registering them in `bodyOrder` those bodies sit
+     * outside the bound: never counted against `BODIES_KEPT`, so a session that
+     * only ever opens conversations holds every one of them. Fails if the read
+     * inserts into `emails`/`fullIds` without paying for it the way `getEmails`
+     * does.
+     */
+    await open(BODIES_KEPT);
+    const ids = ["t1a", "t1b", "t1c"];
+    vi.spyOn(client, "chain").mockResolvedValue(
+      new Map([
+        ["t", [{ list: [{ id: "T1", emailIds: ids }], state: "s1" }]],
+        ["e", [{ list: ids.map((id) => email(id, "T1")), state: "s1" }]],
+      ]) as never,
+    );
+
+    await useMail.getState().loadThread("T1");
+
+    const s = useMail.getState();
+    // The conversation's bodies paid for themselves: the oldest messages read
+    // before are gone and the held count is still the bound.
+    expect(Object.keys(s.fullIds).length).toBe(BODIES_KEPT);
+    for (const id of ids) {
+      expect(s.fullIds[id], "the bodies read last are the ones kept").toBe(true);
+      expect(s.emails[id]?.bodyValues, `${id} keeps its body`).toBeDefined();
+    }
+  });
+});
+
+/**
  * How much of the mail store's memory the messages account for.
  *
  * The same bound as the bodies, one level down: what stays in `emails` and
