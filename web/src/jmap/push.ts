@@ -31,10 +31,14 @@ const PUSH_RETRY_MS = 1000;
  * stream returns after a drop, and the reachability probe that runs while the
  * stream is down. Push plays nothing back to a client that was away — asleep,
  * offline, or behind a connection that dropped — so a tab has to ask for
- * everything it shows. The types come from the list the subscription itself is
- * built from (`PUSH_STATE_TYPES`), never from a hand-picked few: a surface left
- * out here stays stale for as long as the connection looks healthy, which is
- * the one failure nobody notices.
+ * everything it shows. The types come from `PUSH_STATE_TYPES`, never from a
+ * hand-picked few: a surface left out here stays stale for as long as the
+ * connection looks healthy, which is the one failure nobody notices.
+ *
+ * The stream itself subscribes to `types=*`, which is the wider net of the two
+ * on purpose — a type this build does not know about still arrives and is
+ * dispatched, and this list is what the catch-up asks for, so adding a surface
+ * means adding its type here and not to the URL as well.
  */
 export function catchUpLive(
   accountIds: Iterable<Id>,
@@ -68,8 +72,6 @@ class PushManager {
   private reachabilityListeners = new Set<(reachable: boolean) => void>();
   /** Whether this connection has already asked the session a question. */
   private authChecked = false;
-  /** Whether the current EventSource ever opened; see the error handler. */
-  private wasOpen = false;
   private reconnectTimer: number | null = null;
   private stopped = true;
   /** Whether this session has ever had a connection up (reset by stop()). */
@@ -104,7 +106,6 @@ class PushManager {
     // singleton must not let an opaque state from the last session suppress a
     // first StateChange of this one.
     this.lastStates.clear();
-    this.wasOpen = false;
     this.setState("disconnected");
   }
 
@@ -174,8 +175,16 @@ class PushManager {
     }
   }
 
-  /** Tell every listener what the reachability probe just found. */
+  /**
+   * Tell every listener what the reachability probe just found.
+   *
+   * Nothing after `stop()`. The probe is a network round trip and outlives the
+   * stream it was asked about, so one that resolves after a sign-out would tell
+   * every listener the server is reachable and send them into a catch-up pass
+   * against a session that no longer exists.
+   */
   private emitReachability(reachable: boolean) {
+    if (this.stopped) return;
     for (const fn of this.reachabilityListeners) fn(reachable);
   }
 
@@ -209,7 +218,6 @@ class PushManager {
     const es = new EventSource(url, { withCredentials: true });
     this.es = es;
     es.onopen = () => {
-      this.wasOpen = true;
       this.authChecked = false;
       this.setState("connected");
       // After the state, so a reachability listener does not read this as a
@@ -232,7 +240,21 @@ class PushManager {
             const key = `${accountId}/${type}`;
             if (this.lastStates.get(key) === state) continue;
             this.lastStates.set(key, state);
-            for (const fn of this.listeners) fn(accountId, type, state);
+            /*
+             * One listener at a time. The state is recorded before the loop, and
+             * push only ever fires on a change — so a listener that throws would
+             * escape both loops with the state already marked delivered, every
+             * listener after it never called, and the server never repeating the
+             * change. One store's bug would silently starve every other store of
+             * that change, with nothing anywhere to say so.
+             */
+            for (const fn of this.listeners) {
+              try {
+                fn(accountId, type, state);
+              } catch (err) {
+                console.error("[gilbert] a push listener threw:", err);
+              }
+            }
           }
         }
       } catch {
@@ -245,8 +267,6 @@ class PushManager {
     es.onerror = () => {
       // A drop and a first-attempt failure are the same thing here: close and
       // retry on a fixed one-second heartbeat, for as long as the tab is open.
-      const opened = this.wasOpen;
-      this.wasOpen = false;
       es.close();
       this.es = null;
       if (this.stopped) {
@@ -260,8 +280,14 @@ class PushManager {
        * cheap route tells the two apart -- `apiFetch` signs the client out on a
        * 401, which takes this stream down with it -- and it is asked once per
        * connection rather than on every retry.
+       *
+       * Not gated on `opened`: a tab loaded with a session that had already
+       * ended never reaches `onopen` at all, so gating on it meant the probe
+       * never ran in exactly the case it exists for, and the tab retried every
+       * second for ever with the sign-out resting on some other request 401-ing
+       * first.
        */
-      if (opened && !this.authChecked) {
+      if (!this.authChecked) {
         this.authChecked = true;
         void apiFetch("/api/config").catch(() => undefined);
       }
