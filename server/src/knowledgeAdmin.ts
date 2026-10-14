@@ -1051,15 +1051,7 @@ export async function saveDraft(
         saved: true,
       });
     } catch (err) {
-      // The race lost twice is refused here, not left to the guard below: the
-      // revision above is already written, and a state that never points at it
-      // is an issued document nobody can read.
-      if (retryStateMismatch(err, attempt))
-        throw new KnowledgeAdminError(
-          "knowledge_approve_failed",
-          "The revision was recorded but its state could not be written because another write kept winning the race.",
-          502,
-        );
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new KnowledgeAdminError(
@@ -1161,8 +1153,7 @@ export async function approveArticle(
    * rather than allowed to fail: a state that never points at the revision it
    * just recorded is an issued document nobody can read.
    */
-  let nextState: KnowledgeState | null = null;
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+  for (let attempt = 0; ; attempt++) {
     // The token is read before the state document, as `saveDraft` reads it: a
     // token read after it is still valid while what it would be compared
     // against has already moved. Both are re-read on a retry, so whatever
@@ -1185,7 +1176,7 @@ export async function approveArticle(
     // The listing follows the revision now in force: a future-dated approval
     // waits, and the title readers see stays the current one until then.
     const inForceNow = after.inForce?.revision === revision;
-    nextState = {
+    const nextState = {
       ...after,
       title: inForceNow ? draft.title : base.title,
       tags: inForceNow ? draft.tags : base.tags,
@@ -1195,25 +1186,26 @@ export async function approveArticle(
       await writeAppFileIn(ctx, accountId, article.nodeId, STATE_FILE, nextState, {
         ifInState: token,
       });
-      break;
+      return knowledgeSummary({
+        state: nextState,
+        draft,
+        folder: article.folder,
+        nodeId: article.nodeId,
+        parentId: article.parentId,
+        saved: true,
+      });
     } catch (err) {
-      if (retryStateMismatch(err, attempt)) break;
+      // The race lost twice is refused here, inside the loop: the revision
+      // above is already written, and a state that never points at it is an
+      // issued document nobody can read.
+      if (retryStateMismatch(err, attempt))
+        throw new KnowledgeAdminError(
+          "knowledge_approve_failed",
+          "The revision was recorded but its state could not be written because another write kept winning the race.",
+          502,
+        );
     }
   }
-  if (!nextState)
-    throw new KnowledgeAdminError(
-      "knowledge_approve_failed",
-      "The revision was recorded but its state could not be written because another write kept winning the race.",
-      502,
-    );
-  return knowledgeSummary({
-    state: nextState,
-    draft,
-    folder: article.folder,
-    nodeId: article.nodeId,
-    parentId: article.parentId,
-    saved: true,
-  });
 }
 
 /**

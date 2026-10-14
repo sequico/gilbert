@@ -1359,12 +1359,7 @@ export async function moveRoot(
         );
       return;
     } catch (err) {
-      if (retryStateMismatch(err, attempt))
-        throw new WorkorderAdminError(
-          "workorder_move_failed",
-          "The workorder could not be moved because another write kept winning the race.",
-          502,
-        );
+      if (retryStateMismatch(err, attempt)) break;
     }
   }
   throw new WorkorderAdminError(
