@@ -287,6 +287,8 @@ export const catalog: Catalog = {
     "Add to calendar": "Добавить в календарь",
     "Add to my calendar": "Добавить в мой календарь",
     "Remove from calendar": "Убрать из календаря",
+    "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.":
+      "Почтовый сервер не подписался на этот календарь, поэтому он запомнен только на этом устройстве. Подписаться на него нужно будет заново.",
     "Remove from my calendar": "Убрать из моего календаря",
     "All day": "Весь день",
     "all-day": "весь день",

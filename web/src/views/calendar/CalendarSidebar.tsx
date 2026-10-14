@@ -46,6 +46,24 @@ import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
 import { CalendarDialog } from "./CalendarDialog";
 
+/**
+ * Say so when the server refused to subscribe a shared calendar.
+ *
+ * The store records the choice for this reader either way and shows the
+ * calendar as subscribed, because that is what is true here. When the server
+ * refused it is true *only* here, and the next device or a cleared cache
+ * reverts it — so a reader who pressed the button and heard nothing cannot tell
+ * a subscribed calendar from a refused one.
+ */
+async function subscribed(written: Promise<boolean>): Promise<void> {
+  if (await written) return;
+  toast.error(
+    t(
+      "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.",
+    ),
+  );
+}
+
 export function CalendarSidebar() {
   const [location, navigate] = useLocation();
   const cal = useCalendar();
@@ -239,9 +257,9 @@ export function CalendarSidebar() {
           className="icon-btn xs nav-more"
           title={t("Remove from my calendar")}
           aria-label={t("Remove from my calendar")}
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
-            void cal.setSharedSubscribed(accountId, c.id, false);
+            await subscribed(cal.setSharedSubscribed(accountId, c.id, false));
           }}
         >
           <X size={14} />
@@ -279,9 +297,9 @@ export function CalendarSidebar() {
         className="icon-btn sm"
         title={t("Add to my calendar")}
         aria-label={t("Add to my calendar")}
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation();
-          void cal.setSharedSubscribed(accountId, c.id, true);
+          await subscribed(cal.setSharedSubscribed(accountId, c.id, true));
         }}
       >
         <Plus size={14} />

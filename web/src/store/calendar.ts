@@ -444,7 +444,18 @@ interface CalendarState {
   loadSharedCalendars(): Promise<void>;
   loadSharedRange(start: Date, end: Date): Promise<void>;
   /** Add a shared calendar to, or remove it from, the reader's own view. */
-  setSharedSubscribed(accountId: Id, calendarId: Id, subscribed: boolean): Promise<void>;
+  /**
+   * Arm or disarm a shared calendar, and say whether the server took it.
+   *
+   * `false` means the write was refused and the choice was recorded for this
+   * reader alone (`addedShares`), which the surface has to say: the calendar is
+   * not subscribed on the server, it is remembered here.
+   */
+  setSharedSubscribed(
+    accountId: Id,
+    calendarId: Id,
+    subscribed: boolean,
+  ): Promise<boolean>;
   loadRange(start: Date, end: Date, force?: boolean): Promise<void>;
   instancesIn(start: Date, end: Date): EventInstance[];
   /** Re-fetch every subscribed calendar. */
@@ -900,6 +911,15 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       const [from, to] = key.split("|").map((n) => new Date(Number(n)));
       if (from && to) void get().loadSharedRange(from, to);
     }
+    /*
+     * Whether the server took it. `false` is not a failure of the action: the
+     * choice is recorded for this reader in `addedShares` and the calendar is
+     * shown as subscribed, which is true here and false on the server. A caller
+     * that does not learn which happened draws a subscribed calendar over a
+     * refusal, and the reader has no way to tell that from a calendar the
+     * server subscribed for them.
+     */
+    return stored;
   },
 
   /** The same window, from every account that shared a calendar. */

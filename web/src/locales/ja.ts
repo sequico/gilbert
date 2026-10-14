@@ -284,6 +284,8 @@ export const catalog: Catalog = {
     "Add to calendar": "カレンダーに追加",
     "Add to my calendar": "マイカレンダーに追加",
     "Remove from calendar": "カレンダーから削除",
+    "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.":
+      "メールサーバーはこのカレンダーを購読しませんでした。そのためこの端末にのみ記憶されます。別の場所で再度購読する必要があります。",
     "Remove from my calendar": "マイカレンダーから削除",
     "All day": "終日",
     "all-day": "終日",

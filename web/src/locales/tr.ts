@@ -1391,6 +1391,8 @@ export const catalog: Catalog = {
     "Remove condition": "Koşulu kaldır",
     "Remove formatting": "Biçimlendirmeyi kaldır",
     "Remove from calendar": "Takvimden kaldır",
+    "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.":
+      "Posta sunucusu bu takvimi abone olmadı, bu yüzden yalnızca bu cihazda hatırlanıyor. Başka bir yerde yeniden abone olunması gerekecek.",
     "Remove from my calendar": "Takvimimden kaldır",
     "Remove from my contacts": "Kişilerimden kaldır",
     "Remove photo": "Fotoğrafı kaldır",

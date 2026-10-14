@@ -277,6 +277,8 @@ export const catalog: Catalog = {
     "Add to calendar": "添加到日历",
     "Add to my calendar": "添加到我的日历",
     "Remove from calendar": "从日历中移除",
+    "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.":
+      "邮件服务器未订阅此日历，因此它只被记在此设备上。需要在别处重新订阅。",
     "Remove from my calendar": "从我的日历中移除",
     "All day": "全天",
     "all-day": "全天",

@@ -436,6 +436,8 @@ export const catalog: Catalog = {
 
     "Remove from calendar": "Rimuovi dal calendario",
 
+    "The mail server did not subscribe this calendar, so it is remembered on this device only. It will need subscribing again elsewhere.":
+      "Il server di posta non ha sottoscritto questo calendario, quindi è ricordato solo su questo dispositivo. Va sottoscritto di nuovo altrove.",
     "Remove from my calendar": "Rimuovi dal mio calendario",
 
     "All day": "Tutto il giorno",
