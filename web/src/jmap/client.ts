@@ -6,6 +6,7 @@ import {
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
+import { withDeadline } from "@/lib/deadline";
 import { groupAccessSentence, groupUnreadableSentence } from "@/lib/groupAccess";
 import type {
   Id,
@@ -118,11 +119,10 @@ const HEADERS = {
 const API_TIMEOUT_MS = 30_000;
 
 /*
- * The download leg's ceiling, which is longer than a JMAP call's: a whole
- * attachment or file may take its time, and the server already gives the blob
- * route five minutes (`app.ts`) rather than the thirty seconds the JSON-RPC
- * route allows. Bounding a download at the API deadline would cut one off
- * mid-transfer.
+ * The blob legs' ceiling, longer than a JMAP call's: a whole attachment or file
+ * may take its time, and the server gives both the `/blob` and `/upload` routes
+ * five minutes (`app.ts`) rather than the thirty seconds the JSON-RPC route
+ * allows. Bounding either at the API deadline would cut a transfer off midway.
  */
 const BLOB_TIMEOUT_MS = 5 * 60_000;
 
@@ -138,17 +138,16 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(withBase(path), {
-    ...init,
-    headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
-    credentials: "same-origin",
-    // The caller's signal may cancel the request; the deadline bounds it
-    // whether or not the caller passed one.
-    signal: AbortSignal.any([
-      ...(init.signal ? [init.signal] : []),
-      AbortSignal.timeout(API_TIMEOUT_MS),
-    ]),
-  });
+  const res = await withDeadline(API_TIMEOUT_MS, init.signal ?? undefined, (signal) =>
+    fetch(withBase(path), {
+      ...init,
+      headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
+      credentials: "same-origin",
+      // The caller's signal may cancel the request; the deadline bounds it
+      // whether or not the caller passed one.
+      signal,
+    }),
+  );
   if (res.status === 401 && !path.startsWith("/api/auth/login")) {
     client.handleUnauthenticated();
     throw new ApiError(
@@ -471,7 +470,15 @@ export class JmapClient {
     return inline ? `${u}&inline=1` : u;
   }
 
-  /** Upload a blob with progress reporting (XHR because fetch lacks upload progress). */
+  /**
+   * Upload a blob with progress reporting (XHR because fetch lacks upload
+   * progress).
+   *
+   * The request carries the blob legs' deadline like the download legs do, so
+   * a connection that opens and then goes silent -- a proxy holding the socket
+   * -- rejects instead of leaving the composer waiting on it for ever; the
+   * caller's own signal cancels it just the same.
+   */
   upload(
     accountId: Id,
     data: Blob,
@@ -481,72 +488,78 @@ export class JmapClient {
       signal?: AbortSignal;
     } = {},
   ): Promise<UploadResponse> {
-    return new Promise((resolve, reject) => {
-      const signal = opts.signal;
-      // A caller that changed its mind before the upload started is answered,
-      // as `request` does, rather than sending the bytes anyway.
-      if (signal?.aborted) {
-        reject(new ApiError(0, "aborted", "Upload aborted"));
-        return;
-      }
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", this.uploadUrl(accountId));
-      xhr.setRequestHeader(
-        "content-type",
-        opts.type || data.type || "application/octet-stream",
-      );
-      xhr.setRequestHeader("x-requested-with", HEADERS["x-requested-with"]);
-      xhr.responseType = "json";
-      const onAbort = () => xhr.abort();
-      // Every terminal handler detaches the listener, so a settled upload does
-      // not leave the caller's signal holding this request.
-      const detach = () => signal?.removeEventListener("abort", onAbort);
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);
-      };
-      xhr.onload = () => {
-        detach();
-        if (xhr.status === 401) {
-          this.handleUnauthenticated();
-          reject(new ApiError(401, "unauthenticated"));
-          return;
-        }
-        if (
-          xhr.status === 403 &&
-          (xhr.response as ApiErrorBody)?.error === PASSWORD_CHANGE_REQUIRED
-        ) {
-          this.handleForcedPasswordChange();
-        }
-        if (xhr.status >= 200 && xhr.status < 300 && xhr.response)
-          resolve(xhr.response as UploadResponse);
-        else
-          reject(
-            new ApiError(
-              xhr.status,
-              (xhr.response as ApiErrorBody)?.error ?? "upload_failed",
-              (xhr.response as ApiErrorBody)?.message ?? "Upload failed",
-            ),
+    return withDeadline(
+      BLOB_TIMEOUT_MS,
+      opts.signal,
+      (signal) =>
+        new Promise<UploadResponse>((resolve, reject) => {
+          // A caller that changed its mind before the upload started is answered,
+          // as `request` does, rather than sending the bytes anyway.
+          if (signal.aborted) {
+            reject(new ApiError(0, "aborted", "Upload aborted"));
+            return;
+          }
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", this.uploadUrl(accountId));
+          xhr.setRequestHeader(
+            "content-type",
+            opts.type || data.type || "application/octet-stream",
           );
-      };
-      xhr.onerror = () => {
-        detach();
-        reject(new ApiError(0, "network_error", "Network error during upload"));
-      };
-      xhr.onabort = () => {
-        detach();
-        reject(new ApiError(0, "aborted", "Upload aborted"));
-      };
-      signal?.addEventListener("abort", onAbort);
-      xhr.send(data);
-    });
+          xhr.setRequestHeader("x-requested-with", HEADERS["x-requested-with"]);
+          xhr.responseType = "json";
+          const onAbort = () => xhr.abort();
+          // Every terminal handler detaches the listener, so a settled upload does
+          // not leave the request's signal holding this request.
+          const detach = () => signal.removeEventListener("abort", onAbort);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);
+          };
+          xhr.onload = () => {
+            detach();
+            if (xhr.status === 401) {
+              this.handleUnauthenticated();
+              reject(new ApiError(401, "unauthenticated"));
+              return;
+            }
+            if (
+              xhr.status === 403 &&
+              (xhr.response as ApiErrorBody)?.error === PASSWORD_CHANGE_REQUIRED
+            ) {
+              this.handleForcedPasswordChange();
+            }
+            if (xhr.status >= 200 && xhr.status < 300 && xhr.response)
+              resolve(xhr.response as UploadResponse);
+            else
+              reject(
+                new ApiError(
+                  xhr.status,
+                  (xhr.response as ApiErrorBody)?.error ?? "upload_failed",
+                  (xhr.response as ApiErrorBody)?.message ?? "Upload failed",
+                ),
+              );
+          };
+          xhr.onerror = () => {
+            detach();
+            reject(new ApiError(0, "network_error", "Network error during upload"));
+          };
+          xhr.onabort = () => {
+            detach();
+            reject(new ApiError(0, "aborted", "Upload aborted"));
+          };
+          signal.addEventListener("abort", onAbort);
+          xhr.send(data);
+        }),
+    );
   }
 
   /** Fetch a blob's content as text (via the download proxy). */
   async fetchBlobText(accountId: Id, blobId: Id, type = "text/plain"): Promise<string> {
-    const res = await fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
-      credentials: "same-origin",
-      signal: AbortSignal.timeout(BLOB_TIMEOUT_MS),
-    });
+    const res = await withDeadline(BLOB_TIMEOUT_MS, undefined, (signal) =>
+      fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
+        credentials: "same-origin",
+        signal,
+      }),
+    );
     if (res.status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
@@ -562,13 +575,12 @@ export class JmapClient {
     type = "application/octet-stream",
     signal?: AbortSignal,
   ): Promise<Blob> {
-    const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), {
-      credentials: "same-origin",
-      signal: AbortSignal.any([
-        ...(signal ? [signal] : []),
-        AbortSignal.timeout(BLOB_TIMEOUT_MS),
-      ]),
-    });
+    const res = await withDeadline(BLOB_TIMEOUT_MS, signal, (deadline) =>
+      fetch(this.downloadUrl(accountId, blobId, "blob", type), {
+        credentials: "same-origin",
+        signal: deadline,
+      }),
+    );
     if (res.status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");

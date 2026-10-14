@@ -50,6 +50,7 @@ const blob = () => new Blob(["x"], { type: "text/plain" });
 
 describe("upload() and its abort signal", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     FakeXHR.last = null;
   });
@@ -94,5 +95,23 @@ describe("upload() and its abort signal", () => {
     expect(xhr.aborted).toBe(1);
     xhr.onabort?.();
     await expect(p).rejects.toMatchObject({ code: "aborted" });
+  });
+
+  it("gives an upload that goes silent the blob route's five minutes", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+
+    const p = client.upload("acc", blob());
+    const xhr = FakeXHR.last!;
+    const settled = expect(p).rejects.toMatchObject({ code: "aborted" });
+    expect(xhr.sent).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(4 * 60_000 + 59_000);
+    expect(xhr.aborted).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(xhr.aborted).toBe(1);
+    xhr.onabort?.();
+    await settled;
   });
 });

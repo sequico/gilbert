@@ -40,9 +40,9 @@ describe("sanitizeEmailHtml", () => {
    * image from: the app's CSP refuses a direct fetch (`img-src 'self' data:
    * blob:`, see APP_CSP in server/src/static.ts). The reader therefore asks
    * `remoteImagesLoadable` before it allows anything, and what it hands the
-   * sanitiser is the answer -- so the sender's URL never reaches `src`, the
-   * image keeps the placeholder, and the banner that offers to load it stays
-   * instead of a broken image with nothing left to click.
+   * sanitiser is the answer -- so the sender's URL never reaches the markup at
+   * all, the image keeps the placeholder, and the banner that offers to load it
+   * stays instead of a broken image with nothing left to click.
    *
    * The count is still raised: the message did carry remote content, and the
    * banner is how the reader is told.
@@ -55,6 +55,9 @@ describe("sanitizeEmailHtml", () => {
     expect(r.remoteCount).toBe(1);
     expect(r.html).toContain('data-ihm-blocked="1"');
     expect(r.html).not.toMatch(/src="https?:\/\//);
+    // The blocked placeholder carries nothing but the marker: the sender's URL
+    // is not left in the DOM for anything to read back.
+    expect(r.html).not.toContain("t.example");
   });
   it("forces links to open in new tabs", () => {
     const r = sanitizeEmailHtml('<a href="https://x.io">x</a>');

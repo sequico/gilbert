@@ -438,7 +438,6 @@ export function sanitizeEmailHtml(
         el.removeAttribute(attr);
         if (attr === "src" && el.tagName === "IMG") {
           el.setAttribute("data-ihm-blocked", "1");
-          if (REMOTE_URL_RE.test(v)) el.setAttribute("data-ihm-remote", v.trim());
         }
       }
     }
