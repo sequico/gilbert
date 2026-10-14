@@ -16,7 +16,9 @@
  * two-tier split the routes serve.
  *
  * The port takes the mock's `putBlob` and the account ids rather than importing
- * the mock's internals, so this file stays a leaf and the mock owns its ids.
+ * the mock's internals, so this file stays a leaf and the mock owns its ids --
+ * including the rule that a blob is held in the account whose node carries it,
+ * which is why every write here names that account.
  */
 import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "../shared/appFolder.js";
 import {
@@ -49,11 +51,11 @@ import {
 } from "../shared/workorder.js";
 import type { Obj } from "./types.js";
 
-type PutBlob = (data: string | Buffer, type: string) => string;
+type PutBlob = (accountId: string, data: string | Buffer, type: string) => string;
 
 /** Everything the demo seed needs from the mock: its blob store and its ids. */
 export interface DemoSeedInput {
-  /** The mock's own blob store. */
+  /** The mock's own blob store: bytes go into the account that will hold them. */
   putBlob: PutBlob;
   /** The instant every seeded document is stamped with. */
   at: string;
@@ -108,13 +110,19 @@ function nodeFactory(putBlob: PutBlob, at: string) {
         shareWith: {},
       };
     },
-    json(id: string, parentId: string, name: string, doc: unknown): Obj {
+    json(
+      id: string,
+      parentId: string,
+      name: string,
+      doc: unknown,
+      accountId: string,
+    ): Obj {
       const data = JSON.stringify(doc);
       return {
         id,
         parentId,
         nodeType: "file",
-        blobId: putBlob(data, APP_DOCUMENT_TYPE),
+        blobId: putBlob(accountId, data, APP_DOCUMENT_TYPE),
         size: Buffer.byteLength(data),
         name,
         type: APP_DOCUMENT_TYPE,
@@ -299,9 +307,11 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     // rule a create uses, so the tree reads the article where the app would put it.
     masterNodes.push(dir(id, "kb-know", knowledgeFolderName(opts.title)));
     masterNodes.push(dir(`${id}-revs`, id, REVISIONS_FOLDER));
-    masterNodes.push(json(`${id}-draft`, id, DRAFT_FILE, draft));
-    masterNodes.push(json(`${id}-r1`, `${id}-revs`, revisionFileName(revision), rev));
-    masterNodes.push(json(`${id}-state`, id, STATE_FILE, state));
+    masterNodes.push(json(`${id}-draft`, id, DRAFT_FILE, draft, master));
+    masterNodes.push(
+      json(`${id}-r1`, `${id}-revs`, revisionFileName(revision), rev, master),
+    );
+    masterNodes.push(json(`${id}-state`, id, STATE_FILE, state, master));
   };
 
   const shipping = shippingProcess(group);
@@ -557,7 +567,7 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
       at: opts.at,
     });
     masterNodes.push(
-      json(`kb-wo-${opts.uid}`, opts.parentId, workorderFileName(opts.uid), doc),
+      json(`kb-wo-${opts.uid}`, opts.parentId, workorderFileName(opts.uid), doc, master),
     );
   };
 
@@ -648,7 +658,13 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
   });
   groupNodes.push(dir("kb-g-wo", groupAppFolder, WORKORDER_FOLDER));
   groupNodes.push(
-    json("kb-g-wo-part", "kb-g-wo", workorderFileName("container-northwind"), partDoc),
+    json(
+      "kb-g-wo-part",
+      "kb-g-wo",
+      workorderFileName("container-northwind"),
+      partDoc,
+      group,
+    ),
   );
 
   return { master: masterNodes, group: groupNodes };
