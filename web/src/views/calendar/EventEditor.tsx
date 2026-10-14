@@ -14,6 +14,7 @@ import type {
 import { availabilityWindow } from "@/lib/availabilityWindow";
 import { newKey } from "@/lib/contacts";
 import {
+  addDays,
   browserTimeZone,
   DAY_MS,
   dateToZonedLocal,
@@ -315,12 +316,19 @@ function EventForm({
   const baseStart = ev
     ? zonedToDate(ev.start, ev.showWithoutTime ? null : evTz)
     : init.start;
+  /*
+   * An all-day event with no duration to read is one day long, and that day is
+   * a calendar day: 86 400 000 ms added across a fall-back lands at 23:00 the
+   * same date, which the form then saves as a 23-hour event.
+   */
   const baseEnd = ev
-    ? new Date(
-        baseStart.getTime() +
-          ((parseDuration(ev.duration) ?? 0) * 1000 ||
-            (ev.showWithoutTime ? DAY_MS : 3_600_000)),
-      )
+    ? (() => {
+        const stored = (parseDuration(ev.duration) ?? 0) * 1000;
+        if (stored) return new Date(baseStart.getTime() + stored);
+        return ev.showWithoutTime
+          ? addDays(baseStart, 1)
+          : new Date(baseStart.getTime() + 3_600_000);
+      })()
     : init.end;
 
   const [title, setTitle] = useState(ev?.title ?? init.seed?.title ?? "");
@@ -521,7 +529,17 @@ function EventForm({
     if (Number.isNaN(d.getTime())) return;
     const dur = end.getTime() - start.getTime();
     setStart(d);
-    setEnd(new Date(d.getTime() + Math.max(dur, allDay ? DAY_MS : 15 * 60_000)));
+    /*
+     * An all-day event's span is counted in days: a millisecond span carried
+     * across a fall-back lands the end at 23:00 the same date, which then
+     * saves as a 23-hour event. `round`, because the span read off two
+     * instants is 23 or 25 hours on the days a clock changes.
+     */
+    setEnd(
+      allDay
+        ? addDays(d, Math.max(1, Math.round(dur / DAY_MS)))
+        : new Date(d.getTime() + Math.max(dur, 15 * 60_000)),
+    );
   };
 
   const save = async () => {
@@ -540,7 +558,7 @@ function EventForm({
         ? new Date(start.getFullYear(), start.getMonth(), start.getDate())
         : start;
       let e = allDay ? new Date(end.getFullYear(), end.getMonth(), end.getDate()) : end;
-      if (allDay && e <= s) e = new Date(s.getTime() + DAY_MS);
+      if (allDay && e <= s) e = addDays(s, 1);
       const participants: Record<string, JSCalendarParticipant> = {};
       if (attendees.length && myAddress) {
         participants.me = makeParticipant(myPlainEmail, identity?.name, "owner");
@@ -775,9 +793,7 @@ function EventForm({
               <DateField
                 aria-label={translate("Ends")}
                 value={toLocalDateOnly(new Date(end.getTime() - 1))}
-                onChange={(v) =>
-                  v && setEnd(new Date(new Date(`${v}T00:00:00`).getTime() + DAY_MS))
-                }
+                onChange={(v) => v && setEnd(addDays(new Date(`${v}T00:00:00`), 1))}
               />
             </>
           ) : (
@@ -807,15 +823,10 @@ function EventForm({
                   const s = new Date(start);
                   s.setHours(0, 0, 0, 0);
                   setStart(s);
-                  setEnd(
-                    new Date(
-                      s.getTime() +
-                        Math.max(
-                          DAY_MS,
-                          Math.ceil((end.getTime() - s.getTime()) / DAY_MS) * DAY_MS,
-                        ),
-                    ),
-                  );
+                  // Whole calendar days, at least one: a millisecond day added
+                  // across a fall-back is 23:00 the same date.
+                  const days = Math.ceil((end.getTime() - s.getTime()) / DAY_MS);
+                  setEnd(addDays(s, Math.max(1, days)));
                 }
               }}
             />{" "}
@@ -961,7 +972,7 @@ function EventForm({
                     ...customRule,
                     until:
                       v === "until"
-                        ? `${toLocalDateOnly(new Date(start.getTime() + 30 * DAY_MS))}T23:59:59`
+                        ? `${toLocalDateOnly(addDays(start, 30))}T23:59:59`
                         : undefined,
                     count: v === "count" ? 10 : undefined,
                   });

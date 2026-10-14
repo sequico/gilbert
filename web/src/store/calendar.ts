@@ -27,6 +27,7 @@ import {
 } from "@/lib/birthdays";
 import { dueReminders, dueSubscriptionReminders } from "@/lib/calendarReminders";
 import {
+  addDays,
   browserTimeZone,
   DAY_MS,
   dateToZonedLocal,
@@ -2132,12 +2133,19 @@ export function toInstance(
     const tz = allDay ? null : e.timeZone;
     start = zonedToDate(e.start, tz);
     const dur = parseDuration(e.duration);
-    end = new Date(start.getTime() + (dur || (allDay ? 86400 : 0)) * 1000);
-    if (allDay && end.getTime() - start.getTime() < DAY_MS)
-      end = new Date(start.getTime() + DAY_MS);
+    /*
+     * An all-day event ends at the start of a later day, and a day is not
+     * 86 400 000 milliseconds: on the day a clock changes the span between the
+     * same two midnights differs by an hour, so a stored span is read as whole
+     * days here and placed by `addDays`. A timed event keeps its span exactly.
+     */
+    end = allDay
+      ? addDays(start, Math.max(1, Math.round((dur ?? 0) / 86400)))
+      : new Date(start.getTime() + (dur ?? 0) * 1000);
   }
   if (Number.isNaN(start.getTime())) return null;
-  if (end <= start) end = new Date(start.getTime() + (allDay ? DAY_MS : 30 * 60_000));
+  if (end <= start)
+    end = allDay ? addDays(start, 1) : new Date(start.getTime() + 30 * 60_000);
   const calId = Object.keys(e.calendarIds ?? {})[0];
   return {
     key: e.id,
