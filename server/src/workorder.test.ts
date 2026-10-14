@@ -1174,27 +1174,23 @@ test("a member's list composes only the workorders they may see", async () => {
    * stopwatch.
    */
   const memberGroupAccount = firstGroup[1];
-  const hidden = [...masterGroups.entries()].find(
-    ([, account]) => account !== memberGroupAccount,
-  );
-  assert.ok(hidden, "the installation has a group the member is not in");
-  const hiddenAccount = hidden[1];
 
   // The member's own group has a registry folder, so the walk the fix spares is
   // a real read rather than a missing folder's early answer.
   await ensureFolderPath(masterCtx, memberGroupAccount, WORKORDER_FOLDER);
 
+  /*
+   * A template that assigns no section to a group, so only the installation's
+   * own checklist holds it and a member is not one of its readers. (An assigned
+   * section would have to name a group the member is *not* in, and this fixture
+   * has none: the mock's member belongs to both of its groups, and a group the
+   * installation does not hold is refused at creation.)
+   */
   const hiddenTemplate = await templateRef(
     {
       variants: [],
       sections: [
         { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
-        {
-          key: "teamwork",
-          label: "Team work",
-          group: hiddenAccount,
-          steps: [{ key: "t", label: "Team step" }],
-        },
       ],
     },
     "Hidden checklist",

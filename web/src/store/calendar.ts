@@ -908,39 +908,46 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          */
         const page = client.maxObjectsInGet;
         for (let position = 0; ; position += page) {
-          const q = await client.call<QueryResponse>("CalendarEvent/query", {
-            accountId,
-            /* after/before are wall-clock times in `timeZone`, so the window's
-               own instants have to be written as that zone's clock -- the
-               browser frame would shift the comparison by the offset between
-               the two and drop the edge hours of every window. */
-            filter: {
-              after: dateToZonedLocal(start, tz),
-              before: dateToZonedLocal(end, tz),
-            },
-            timeZone: tz,
-            sort: [{ property: "start", isAscending: true }],
-            expandRecurrences: true,
-            position,
-            limit: page,
-          });
-          const pageIds = q.ids ?? [];
-          if (!pageIds.length) break;
-          for (const part of chunk(pageIds, page)) {
-            const got = await client.call<GetResponse<CalendarEvent>>(
+          const res = await client.chain([
+            [
+              "CalendarEvent/query",
+              {
+                accountId,
+                /* after/before are wall-clock times in `timeZone`, so the window's
+                   own instants have to be written as that zone's clock -- the
+                   browser frame would shift the comparison by the offset between
+                   the two and drop the edge hours of every window. */
+                filter: {
+                  after: dateToZonedLocal(start, tz),
+                  before: dateToZonedLocal(end, tz),
+                },
+                timeZone: tz,
+                sort: [{ property: "start", isAscending: true }],
+                expandRecurrences: true,
+                position,
+                limit: page,
+              },
+              "q",
+            ],
+            [
               "CalendarEvent/get",
               {
                 accountId,
-                ids: part,
+                "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
                 properties: EVENT_PROPS,
                 timeZone: tz,
               },
-            );
-            for (const e of got.list) {
-              const k = sharedKey(accountId, e.id);
-              events[k] = e;
-              ids.push(k);
-            }
+              "g",
+            ],
+          ]);
+          const q = res.get("q")?.[0] as unknown as { ids?: string[] };
+          const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+          const pageIds = q.ids ?? [];
+          if (!pageIds.length) break;
+          for (const e of g.list) {
+            const k = sharedKey(accountId, e.id);
+            events[k] = e;
+            ids.push(k);
           }
           if (pageIds.length < page) break;
         }
