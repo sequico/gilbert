@@ -32,8 +32,12 @@ import {
  * is moved by hand — down as translations land, up when a new source string is
  * added ahead of its translation — so the fallback stays a budget, not a
  * surprise. At zero the rule is the strict one: any missing key fails.
+ *
+ * 168 -> 169: the workorder surface's batch, plus the remote-image banner's
+ * sentence for an installation whose proxy is off (`MessageView.tsx`), which is
+ * a branch few deployments ever draw.
  */
-const MISSING_MAX = 168;
+const MISSING_MAX = 169;
 
 const wanted = new Set();
 for (const file of sourceFiles()) {
