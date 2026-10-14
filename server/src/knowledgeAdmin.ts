@@ -31,6 +31,7 @@ import {
   downloadBlobText,
   ensureFolderPath,
   FILENODE_CAP,
+  type FileNodeLike,
   fileChildren,
   findFolderPath,
   readAppJsonAt,
@@ -595,10 +596,11 @@ async function readRevisions(
   const files = await fileChildren(ctx, accountId, revisionsFolder, [
     ...FILE_PROPS,
     "created",
+    "modified",
   ]);
   const newest = files
     .filter((file) => file.nodeType === "file" && typeof file.blobId === "string")
-    .sort((a, b) => String(b.created ?? "").localeCompare(String(a.created ?? "")))
+    .sort((a, b) => String(nodeStamp(b)).localeCompare(String(nodeStamp(a))))
     .slice(0, REVISION_HISTORY_MAX);
   const out: KnowledgeRevision[] = [];
   for (const file of newest) {
@@ -625,12 +627,42 @@ async function readRevisions(
 }
 
 /**
+ * The stamp a revision is paged by: its last write, falling back to its creation.
+ *
+ * The history the reader sees is ordered by when a revision was approved, and a
+ * revision rescheduled in place keeps its creation stamp while its approval
+ * moves; paging on creation alone would drop it out of the page the reader is
+ * looking at (`nodeStamp` in `workorderAdmin.ts` chooses a page the same way).
+ */
+function nodeStamp(node: FileNodeLike): string {
+  const value = node.modified ?? node.created;
+  return typeof value === "string" ? value : "";
+}
+
+/** The document of one revision, by id, wherever the article's history is short. */
+async function readRevision(
+  ctx: Ctx,
+  accountId: string,
+  articlePath: string,
+  revisionId: string,
+): Promise<KnowledgeRevision | null> {
+  const raw = await readAppJsonAt(
+    ctx,
+    accountId,
+    `${articlePath}/${REVISIONS_FOLDER}/${revisionFileName(revisionId)}`,
+  );
+  return isKnowledgeRevision(raw) ? raw : null;
+}
+
+/**
  * Open one article, or null when the folder is not there.
  *
  * `folderId` is the tier root the path is resolved against; `folder` is the
  * tier-relative path (the shape `KnowledgeSummary.folder` carries), so a
  * sub-article is `"Parent/Child"`. The `effective` revision is the one the
- * lifecycle names at now, read from the immutable revision files.
+ * lifecycle names at now, **read by id**: the history beside it is a page, and
+ * the revision in force is not something a page may decide (an article past
+ * `REVISION_HISTORY_MAX` revisions would otherwise read as having none).
  */
 export async function readArticle(
   ctx: Ctx,
@@ -650,7 +682,7 @@ export async function readArticle(
   const revisions = await readRevisions(ctx, accountId, articlePath);
   const issued = state ? revisionInForceAt(state) : null;
   const effective = issued
-    ? (revisions.find((revision) => revision.revision === issued.revision) ?? null)
+    ? await readRevision(ctx, accountId, articlePath, issued.revision)
     : null;
   return {
     scope: scopeOfAccount(ctx, accountId),
