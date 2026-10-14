@@ -67,11 +67,14 @@ export interface AdminDirectoryUser {
   /**
    * Whether the account's password change is currently forced (ADR 0001).
    *
-   * Every entry carries it: the route answers with the flag for each account it
-   * listed, and `false` where it could not ask — so a surface reads the state
-   * rather than inferring it from a missing field.
+   * Three answers, not two: `true`, `false`, and `null` for "the server was not
+   * willing to say". The route can ask only while it may impersonate — an
+   * app-password session, or one whose `Impersonate` right was withdrawn, gets
+   * the roster without the flags — and `false` for that case would claim every
+   * account on the server is free of the change wall. A surface draws the third
+   * state rather than inferring it from a missing field.
    */
-  forced: boolean;
+  forced: boolean | null;
 }
 
 /** The account directory, and what the server was willing to say about itself. */

@@ -137,30 +137,41 @@ export function AdminUsers() {
                       <code>{u.name}</code>
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>
-                      {u.forced ? (
+                      {u.forced === true ? (
                         <span
                           className="forced-state"
                           title={t("Password change forced")}
                         >
                           {t("Password change forced")}
                         </span>
-                      ) : (
+                      ) : u.forced === false ? (
                         <span className="hint">{t("Not forced")}</span>
+                      ) : (
+                        /* The route could not ask, so this says nothing about
+                           the account rather than answering "not forced" —
+                           which is what an administrator would otherwise read
+                           as "nobody here is under the change wall". */
+                        <span
+                          className="hint"
+                          title={t("Could not be read on this session")}
+                        >
+                          {t("Unknown")}
+                        </span>
                       )}
                     </td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                       <button
                         className="btn btn-primary"
-                        disabled={!canAct || u.forced}
-                        style={!canAct || u.forced ? dim : undefined}
+                        disabled={!canAct || u.forced === true}
+                        style={!canAct || u.forced === true ? dim : undefined}
                         onClick={() => void forceRow(u)}
                       >
                         {t("Force")}
                       </button>{" "}
                       <button
                         className="btn"
-                        disabled={!canAct || !u.forced}
-                        style={!canAct || !u.forced ? dim : undefined}
+                        disabled={!canAct || u.forced !== true}
+                        style={!canAct || u.forced !== true ? dim : undefined}
                         onClick={() => void releaseRow(u)}
                       >
                         {t("Release")}

@@ -475,7 +475,17 @@ export function registerAdminRoutes(api: Hono<Env>): void {
       const flagged =
         impersonation === "ok" && users.length
           ? await forcedFlagsFor(users, session)
-          : users.map((u) => ({ ...u, forced: false }));
+          : /*
+             * Nobody was probed, so nothing is known — and `false` is not
+             * nothing. An app-password session, or one whose Stalwart
+             * `Impersonate` right was withdrawn, cannot ask whether a password
+             * change is forced on anybody, and stamping `false` on every row
+             * tells the administrator that no account is under the change wall
+             * while real users are walled out of the data path. `null` is the
+             * third state, and the surface draws it: the roster is shown, and
+             * which accounts are forced is not claimed.
+             */
+            users.map((u) => ({ ...u, forced: null }));
       return c.json({
         users: flagged,
         enumeration,
