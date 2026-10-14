@@ -1856,7 +1856,17 @@ const booksFor = (accountId: unknown): Obj[] =>
           ? []
           : addressBooks;
 
-/** The cards a ContactCard call reaches, by account: the one rule, once. */
+/**
+ * The cards a ContactCard call reaches, by account: the one rule, once.
+ *
+ * `TARGET_ACCOUNT` is named empty here for the reason every sibling accessor
+ * names it empty: an impersonated session's primary account is the target, and
+ * the target holds no address book in this mock. Without that branch it fell
+ * through to `cards`, so impersonating bob@example.com served the demo user's
+ * own six contacts to him — and a `ContactCard/set` with a destroy inside it
+ * removed a contact the demo user's own session then could not see. Every other
+ * accessor in this file already said so; this one did not.
+ */
 const cardsFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedCards
@@ -1864,7 +1874,7 @@ const cardsFor = (accountId: unknown): Obj[] =>
       ? groupCards
       : accountId === AGENT_ACCOUNT
         ? masterCards
-        : accountId === GROUP2_ACCOUNT
+        : accountId === GROUP2_ACCOUNT || accountId === TARGET_ACCOUNT
           ? []
           : cards;
 /** One per contact, by index; a gap means that card has no birthday. */

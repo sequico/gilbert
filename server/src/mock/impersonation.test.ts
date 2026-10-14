@@ -190,3 +190,57 @@ test("registry state is the authenticating principal's own", async () => {
     "the demo user's password was untouched",
   );
 });
+
+/**
+ * The impersonated session is the target's own — and the target owns nothing.
+ *
+ * Every account-scoped accessor in the mock names `TARGET_ACCOUNT` empty:
+ * impersonating bob@example.com has to reach bob's account and find no mailbox,
+ * no event, no address book. `cardsFor` did not, so it fell through to the demo
+ * account's own cards: `ContactCard/get` served the demo user's six contacts to
+ * bob, and a `ContactCard/set` carrying a destroy removed a contact the demo
+ * user's own session then could not see. A client bug that reads or destroys
+ * across accounts therefore passed in dev and failed on a real server, which is
+ * the whole reason this mock names the target at all.
+ */
+test("the impersonated session reaches no contacts of another account", async () => {
+  const auth = basic(`${BOB}%${DEMO}`, "demo-password");
+  const TARGET = "b1";
+
+  const listed = await jmap(auth, [["ContactCard/query", { accountId: TARGET }, "q"]]);
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    listed.body.methodResponses[0][1].ids,
+    [],
+    "the target's own account holds no contact",
+  );
+
+  const read = await jmap(auth, [
+    ["ContactCard/get", { accountId: TARGET, ids: ["any"] }, "g"],
+  ]);
+  assert.deepEqual(
+    read.body.methodResponses[0][1].list,
+    [],
+    "a card is not served from another account's book",
+  );
+
+  const destroyed = await jmap(auth, [
+    ["ContactCard/set", { accountId: TARGET, destroy: ["any"] }, "s"],
+  ]);
+  assert.equal(destroyed.status, 200);
+  assert.deepEqual(
+    destroyed.body.methodResponses[0][1].destroyed,
+    [],
+    "nothing is destroyed in another account's book",
+  );
+
+  // And the demo user's own session still sees its own contacts: the fix must
+  // empty the target, not the account the fall-through used to reach.
+  const own = await jmap(basic(DEMO, "demo-password"), [
+    ["ContactCard/query", { accountId: "a1", calculateTotal: true }, "q"],
+  ]);
+  assert.ok(
+    (own.body.methodResponses[0][1].total ?? 0) > 0,
+    "the demo account's own contacts are untouched",
+  );
+});
