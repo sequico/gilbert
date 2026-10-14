@@ -46,7 +46,14 @@ async function sessionDoc(
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
-async function jmap(authorization: string, methodCalls: unknown[]) {
+/** The answer's shape, so a test reads it rather than casting at every line. */
+type MethodResponse = [string, Record<string, unknown>, string];
+type JmapBody = { methodResponses: MethodResponse[]; sessionState?: string };
+
+async function jmap(
+  authorization: string,
+  methodCalls: unknown[],
+): Promise<{ status: number; body: JmapBody }> {
   const res = await fetch(`${BASE}/jmap/`, {
     method: "POST",
     headers: { authorization, "content-type": "application/json" },
@@ -55,7 +62,7 @@ async function jmap(authorization: string, methodCalls: unknown[]) {
       methodCalls,
     }),
   });
-  return { status: res.status, body: await res.json() };
+  return { status: res.status, body: (await res.json()) as JmapBody };
 }
 
 before(async () => {
@@ -210,7 +217,7 @@ test("the impersonated session reaches no contacts of another account", async ()
   const listed = await jmap(auth, [["ContactCard/query", { accountId: TARGET }, "q"]]);
   assert.equal(listed.status, 200);
   assert.deepEqual(
-    listed.body.methodResponses[0][1].ids,
+    listed.body.methodResponses[0]![1].ids,
     [],
     "the target's own account holds no contact",
   );
@@ -219,7 +226,7 @@ test("the impersonated session reaches no contacts of another account", async ()
     ["ContactCard/get", { accountId: TARGET, ids: ["any"] }, "g"],
   ]);
   assert.deepEqual(
-    read.body.methodResponses[0][1].list,
+    read.body.methodResponses[0]![1].list,
     [],
     "a card is not served from another account's book",
   );
@@ -229,7 +236,7 @@ test("the impersonated session reaches no contacts of another account", async ()
   ]);
   assert.equal(destroyed.status, 200);
   assert.deepEqual(
-    destroyed.body.methodResponses[0][1].destroyed,
+    destroyed.body.methodResponses[0]![1].destroyed,
     [],
     "nothing is destroyed in another account's book",
   );
@@ -240,7 +247,7 @@ test("the impersonated session reaches no contacts of another account", async ()
     ["ContactCard/query", { accountId: "a1", calculateTotal: true }, "q"],
   ]);
   assert.ok(
-    (own.body.methodResponses[0][1].total ?? 0) > 0,
+    Number(own.body.methodResponses[0]![1].total ?? 0) > 0,
     "the demo account's own contacts are untouched",
   );
 });
@@ -273,7 +280,7 @@ test("Identity/set refuses over-long signatures one by one", async () => {
     ],
   ]);
   assert.equal(res.status, 200);
-  const answer = res.body.methodResponses[0][1] as {
+  const answer = res.body.methodResponses[0]![1] as {
     created: Record<string, { id: string }>;
     notCreated: Record<string, { type: string; properties: string[] }>;
   };
