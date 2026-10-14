@@ -2520,17 +2520,30 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
   await store.writeJob(job);
 
   const before = await draftsInDrafts();
-  // The unit moves to a successor after the fence every run passes before it
-  // starts working: the first read is this agent's, everything read after it
-  // belongs to the agent that took over.
+  // The unit moves to a successor once the run has started working, which the
+  // job document says: before the plan is written the run is still deciding,
+  // and after it the work is under way. Keying on that rather than on a count
+  // of reads is what the case is — how many times the executor asks whether
+  // the unit is still its own is the implementation's business, and a test
+  // that counts them breaks the moment a fence is added rather than the day the
+  // fence stops working.
   const real = AgentStore.prototype.readClaim;
-  let reads = 0;
   AgentStore.prototype.readClaim = async function (
     this: InstanceType<typeof AgentStore>,
   ) {
-    reads += 1;
     const held = await real.call(this);
-    if (reads > 1 && held) return { ...held, doc: { ...held.doc, agent: "successor" } };
+    /*
+     * The takeover lands once the run has stopped for a person: the decision
+     * document is what the pause writes, and everything the pause does after it
+     * — preparing the draft, carrying the proposal to the group's chat — is
+     * work the successor will do too. Keying on that rather than on a count of
+     * reads is the case itself: how often the executor asks whether the unit is
+     * still its own is the implementation's business, and a test that counts
+     * reads breaks the day a fence is added rather than the day one stops
+     * working.
+     */
+    const stopped = (await store.readJob("draft-job"))?.doc.decisionId;
+    if (held && stopped) return { ...held, doc: { ...held.doc, agent: "successor" } };
     return held;
   };
   try {
@@ -2584,17 +2597,30 @@ test("a pause whose unit was taken over does not carry its proposal to the group
   });
   await store.writeJob(job);
 
-  // The unit moves to a successor after the fence every run passes before it
-  // starts working: the first read is this agent's, everything after belongs
-  // to the agent that took over.
+  // The unit moves to a successor once the run has started working, which the
+  // job document says: before the plan is written the run is still deciding,
+  // and after it the work is under way. Keying on that rather than on a count
+  // of reads is what the case is — how many times the executor asks whether
+  // the unit is still its own is the implementation's business, and a test
+  // that counts them breaks the moment a fence is added rather than the day the
+  // fence stops working.
   const real = AgentStore.prototype.readClaim;
-  let reads = 0;
   AgentStore.prototype.readClaim = async function (
     this: InstanceType<typeof AgentStore>,
   ) {
-    reads += 1;
     const held = await real.call(this);
-    if (reads > 1 && held) return { ...held, doc: { ...held.doc, agent: "successor" } };
+    /*
+     * The takeover lands once the run has stopped for a person: the decision
+     * document is what the pause writes, and everything the pause does after it
+     * — preparing the draft, carrying the proposal to the group's chat — is
+     * work the successor will do too. Keying on that rather than on a count of
+     * reads is the case itself: how often the executor asks whether the unit is
+     * still its own is the implementation's business, and a test that counts
+     * reads breaks the day a fence is added rather than the day one stops
+     * working.
+     */
+    const stopped = (await store.readJob("pause-no-post-job"))?.doc.decisionId;
+    if (held && stopped) return { ...held, doc: { ...held.doc, agent: "successor" } };
     return held;
   };
   try {
