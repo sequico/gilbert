@@ -80,7 +80,15 @@ describe("reading a window of shared events", () => {
     });
 
     vi.spyOn(client, "chain").mockImplementation((async (calls: unknown) => {
-      const query = (calls as Array<[{ accountId: string }, string]>)[0]![0]!.accountId;
+      /*
+       * A `chain` call is `[method, args, callId]`; the account is the args.
+       * Reading index 0 gave the method name, so `query` was `undefined`, the
+       * branch below never matched, and every account was answered with the
+       * readable events -- which is how these three tests came to assert
+       * nothing about the mechanism they were written for.
+       */
+      const query = (calls as Array<[string, { accountId: string }, string]>)[0]![1]!
+        .accountId;
       if (query === "acc-group") throw new Error("upstream 502");
       return answering([fresh])();
     }) as never);
@@ -93,7 +101,7 @@ describe("reading a window of shared events", () => {
     // ...and the readable account's is taken fresh beside it.
     expect(keys).toContain("acc-partner:p1");
     // The failure is on screen rather than swallowed into an empty window.
-    expect(useCalendar.getState().error).toContain("502");
+    expect(useCalendar.getState().sharedError).toContain("502");
   });
 
   it("still drops an event the account answered for and no longer holds", async () => {
@@ -108,7 +116,15 @@ describe("reading a window of shared events", () => {
     });
 
     vi.spyOn(client, "chain").mockImplementation((async (calls: unknown) => {
-      const query = (calls as Array<[{ accountId: string }, string]>)[0]![0]!.accountId;
+      /*
+       * A `chain` call is `[method, args, callId]`; the account is the args.
+       * Reading index 0 gave the method name, so `query` was `undefined`, the
+       * branch below never matched, and every account was answered with the
+       * readable events -- which is how these three tests came to assert
+       * nothing about the mechanism they were written for.
+       */
+      const query = (calls as Array<[string, { accountId: string }, string]>)[0]![1]!
+        .accountId;
       if (query === "acc-group") throw new Error("upstream 502");
       return answering([])(); // the partner cancelled its meeting
     }) as never);
@@ -127,12 +143,21 @@ describe("reading a window of shared events", () => {
     });
     const event = { id: "g1", title: "Sprint review" } as unknown as CalendarEvent;
 
-    vi.spyOn(client, "chain").mockImplementation(answering([event]) as never);
+    /*
+     * The account that recovers, and none other: answering every account with
+     * the same event would put a second key in the window and the assertion
+     * below would be about the mock rather than about the mechanism.
+     */
+    vi.spyOn(client, "chain").mockImplementation((async (calls: unknown) => {
+      const accountId = (calls as Array<[string, { accountId: string }, string]>)[0]![1]!
+        .accountId;
+      return answering(accountId === "acc-group" ? [event] : [])();
+    }) as never);
 
     await useCalendar.getState().loadSharedRange(WINDOW_FROM, WINDOW_TO);
 
     const keys = useCalendar.getState().sharedRanges[windowKey] ?? [];
     expect(keys).toEqual(["acc-group:g1"]);
-    expect(useCalendar.getState().error).toBeNull();
+    expect(useCalendar.getState().sharedError).toBeNull();
   });
 });
