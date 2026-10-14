@@ -122,7 +122,7 @@ describe("the request deadline", () => {
           ok: true,
           status: 200,
           statusText: "OK",
-          text: () => body,
+          json: () => body,
         } as unknown as Response);
       }),
     );

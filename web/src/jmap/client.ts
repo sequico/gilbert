@@ -129,6 +129,27 @@ const API_TIMEOUT_MS = 30_000;
 const BLOB_TIMEOUT_MS = 5 * 60_000;
 
 /**
+ * What a response body says, read where the caller's deadline is running.
+ *
+ * A body that is not JSON is "nothing to learn" rather than a failure of its
+ * own, so a refusal's sentence falls back the way it did when the read sat
+ * beside the call. The read is inside the deadline because a server that answers
+ * the request line and then goes silent leaves it pending, which is the promise
+ * the deadline exists for -- and the read's *other* failures, the abort above
+ * all, are left to the caller: swallowing them would turn a request that never
+ * answered into an empty success.
+ */
+const jsonBody = async (res: Response): Promise<unknown> => {
+  if (res.status === 204) return undefined;
+  try {
+    return await res.json();
+  } catch (err) {
+    if (err instanceof SyntaxError) return undefined;
+    throw err;
+  }
+};
+
+/**
  * Generic fetch against our same-origin API with CSRF header + auth handling.
  *
  * `path` is written root-absolute at every call site -- `/api/jmap` -- and the
@@ -141,12 +162,12 @@ export async function apiFetch<T = unknown>(
   init: RequestInit = {},
 ): Promise<T> {
   /*
-   * The whole exchange runs inside the deadline, the body included. A proxy that
-   * answers the request line and then goes silent leaves `res.text()` pending,
-   * and a deadline that bounds only the headers calls that bounded: what the
-   * deadline is for is the promise that never settles, so the read is part of it.
+   * The whole exchange runs inside the deadline, the body included: what the
+   * deadline is for is the promise that never settles, and a proxy that answers
+   * the request line and then goes silent leaves the body's read pending. A
+   * deadline that bounds only the headers calls that bounded.
    */
-  const { ok, status, statusText, text } = await withDeadline(
+  const { ok, status, statusText, body } = await withDeadline(
     API_TIMEOUT_MS,
     init.signal ?? undefined,
     async (signal) => {
@@ -162,7 +183,7 @@ export async function apiFetch<T = unknown>(
         ok: res.ok,
         status: res.status,
         statusText: res.statusText,
-        text: res.status === 204 ? "" : await res.text(),
+        body: await jsonBody(res),
       };
     },
   );
@@ -175,13 +196,8 @@ export async function apiFetch<T = unknown>(
     );
   }
   if (!ok) {
-    let body: ApiErrorBody = {};
-    try {
-      body = JSON.parse(text) as ApiErrorBody;
-    } catch {
-      /* ignore */
-    }
-    if (status === 403 && body.error === PASSWORD_CHANGE_REQUIRED) {
+    const err = (body ?? {}) as ApiErrorBody;
+    if (status === 403 && err.error === PASSWORD_CHANGE_REQUIRED) {
       client.handleForcedPasswordChange();
     }
     /*
@@ -192,16 +208,16 @@ export async function apiFetch<T = unknown>(
      * know falls through to it rather than being given a sentence of its own.
      */
     const composed =
-      body.need && body.error === GROUP_NOT_ACCESSIBLE
-        ? groupAccessSentence(body.need)
-        : body.need && body.error === GROUP_UNREADABLE
-          ? groupUnreadableSentence(body.need)
-          : agentErrorSentence(body as Record<string, unknown>);
-    const message = composed ?? body.message ?? body.detail ?? body.title ?? statusText;
-    throw new ApiError(status, body.error ?? body.type ?? "error", message);
+      err.need && err.error === GROUP_NOT_ACCESSIBLE
+        ? groupAccessSentence(err.need)
+        : err.need && err.error === GROUP_UNREADABLE
+          ? groupUnreadableSentence(err.need)
+          : agentErrorSentence(err as Record<string, unknown>);
+    const message = composed ?? err.message ?? err.detail ?? err.title ?? statusText;
+    throw new ApiError(status, err.error ?? err.type ?? "error", message);
   }
   if (status === 204) return undefined as T;
-  return JSON.parse(text) as T;
+  return body as T;
 }
 
 export class JmapClient {
@@ -571,7 +587,7 @@ export class JmapClient {
 
   /** Fetch a blob's content as text (via the download proxy). */
   async fetchBlobText(accountId: Id, blobId: Id, type = "text/plain"): Promise<string> {
-    const { status, text } = await withDeadline(
+    const { status, text, body } = await withDeadline(
       BLOB_TIMEOUT_MS,
       undefined,
       async (signal) => {
@@ -579,16 +595,25 @@ export class JmapClient {
           credentials: "same-origin",
           signal,
         });
-        return { status: res.status, text: res.status === 204 ? "" : await res.text() };
+        // Both the bytes and the refusal are read inside the deadline: a
+        // transfer that stalls after its headers would otherwise hold the
+        // promise for ever, which is the failure the deadline names.
+        return res.ok
+          ? {
+              status: res.status,
+              text: res.status === 204 ? "" : await res.text(),
+              body: undefined,
+            }
+          : { status: res.status, text: "", body: await jsonBody(res) };
       },
     );
     if (status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
-    await this.forcedIfNeeded(status, text);
+    this.forcedIfNeeded(status, body);
     if (status < 200 || status >= 300) throw new ApiError(status, "download_failed");
-    return text;
+    return text as string;
   }
 
   async fetchBlob(
@@ -597,7 +622,7 @@ export class JmapClient {
     type = "application/octet-stream",
     signal?: AbortSignal,
   ): Promise<Blob> {
-    const { status, blob, text } = await withDeadline(
+    const { status, blob, body } = await withDeadline(
       BLOB_TIMEOUT_MS,
       signal,
       async (deadline) => {
@@ -609,15 +634,19 @@ export class JmapClient {
         // after its headers would otherwise hold the promise for ever, which is
         // the failure the deadline names.
         return res.ok
-          ? { status: res.status, blob: (await res.blob()) as Blob | null, text: "" }
-          : { status: res.status, blob: null, text: await res.text().catch(() => "") };
+          ? {
+              status: res.status,
+              blob: (await res.blob()) as Blob | null,
+              body: undefined,
+            }
+          : { status: res.status, blob: null, body: await jsonBody(res) };
       },
     );
     if (status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
-    await this.forcedIfNeeded(status, text);
+    this.forcedIfNeeded(status, body);
     if (!blob) throw new ApiError(status, "download_failed");
     return blob;
   }
@@ -626,13 +655,10 @@ export class JmapClient {
    * A blob download that the forced-password-change door stopped (403) must
    * switch the app to the wall like any other data request.
    */
-  private async forcedIfNeeded(status: number, text: string): Promise<void> {
+  private forcedIfNeeded(status: number, body: unknown): void {
     if (status !== 403) return;
-    try {
-      const body = JSON.parse(text) as ApiErrorBody;
-      if (body.error === PASSWORD_CHANGE_REQUIRED) this.handleForcedPasswordChange();
-    } catch {
-      /* not a JSON body: nothing to learn */
+    if ((body as ApiErrorBody | undefined)?.error === PASSWORD_CHANGE_REQUIRED) {
+      this.handleForcedPasswordChange();
     }
   }
 }
