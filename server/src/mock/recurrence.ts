@@ -115,6 +115,30 @@ function advanceMonthly(cursor: Date, interval: number, day: number): boolean {
   return false;
 }
 
+/**
+ * Step a yearly rule's cursor onto the next year that carries `day`.
+ *
+ * The same rule as `advanceMonthly`, one unit up: RFC 5545 §3.3.10 skips an
+ * occurrence whose date the year does not have. A series starting 29 February
+ * therefore lands only on leap years, and one starting the 31st only on months
+ * of 31 days — where `setFullYear` alone rolled both into a day the rule never
+ * generates (29 Feb 2024 became 1 Mar 2025, and 31 Jan became 3 Mar the
+ * following year).
+ */
+function advanceYearly(cursor: Date, interval: number, day: number): boolean {
+  for (let attempt = 0; attempt < MAX_MONTH_SKIPS; attempt++) {
+    const year = cursor.getFullYear() + interval;
+    const month = cursor.getMonth();
+    if (day <= daysInMonth(year, month)) {
+      cursor.setFullYear(year, month, day);
+      return true;
+    }
+    // The year lacks the day: step from it anyway, without emitting.
+    cursor.setFullYear(year, month, 1);
+  }
+  return false;
+}
+
 export interface Occurrence {
   index: number;
   /** The slot in the series this instance fills, which keys any override. */
@@ -214,14 +238,25 @@ export function expandOccurrences(
     // skips a month without it (RFC 5545 §3.3.10), where stepping it with
     // `setMonth` rolled an end-of-month start into a day the rule never
     // generates.
-    if (byDay) cursor.setDate(cursor.getDate() + 1);
-    else if (rule.frequency === "daily") cursor.setDate(cursor.getDate() + interval);
-    else if (rule.frequency === "weekly") cursor.setDate(cursor.getDate() + 7 * interval);
+    if (byDay)
+      cursor.setFullYear(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    else if (rule.frequency === "daily")
+      cursor.setFullYear(
+        cursor.getFullYear(),
+        cursor.getMonth(),
+        cursor.getDate() + interval,
+      );
+    else if (rule.frequency === "weekly")
+      cursor.setFullYear(
+        cursor.getFullYear(),
+        cursor.getMonth(),
+        cursor.getDate() + 7 * interval,
+      );
     else if (rule.frequency === "monthly") {
       if (!advanceMonthly(cursor, interval, first.getDate())) break;
-    } else if (rule.frequency === "yearly")
-      cursor.setFullYear(cursor.getFullYear() + interval);
-    else break;
+    } else if (rule.frequency === "yearly") {
+      if (!advanceYearly(cursor, interval, first.getDate())) break;
+    } else break;
   }
   return out;
 }

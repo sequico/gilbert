@@ -154,6 +154,49 @@ describe("a monthly rule keeps the series' own day", () => {
   });
 });
 
+describe("a yearly rule keeps the series' own day too", () => {
+  const yearly = (start: string, extra: Record<string, unknown> = {}) =>
+    ({
+      id: "ev-y",
+      "@type": "Event",
+      uid: "u-y",
+      title: "Yearly",
+      start,
+      duration: "PT1H",
+      recurrenceRule: { "@type": "RecurrenceRule", frequency: "yearly", ...extra },
+    }) as Record<string, unknown>;
+
+  it("lands only on leap years for a rule on Feb 29", () => {
+    /*
+     * `setFullYear` alone kept month and day, so 29 Feb 2024 became 1 Mar 2025
+     * and then 1 Mar 2026 — occurrences on dates the rule never generates, which
+     * the client stores and renders, and the real server does not send. RFC 5545
+     * §3.3.10 skips the year instead.
+     */
+    const out = expandOccurrences(
+      yearly("2024-02-29T09:00:00"),
+      new Date("2024-01-01T00:00:00"),
+      new Date("2030-01-01T00:00:00"),
+    );
+    assert.deepEqual(
+      out.map((o) => o.start),
+      ["2024-02-29T09:00:00", "2028-02-29T09:00:00"],
+    );
+  });
+
+  it("does not roll 31 January into March", () => {
+    const out = expandOccurrences(
+      yearly("2026-01-31T09:00:00"),
+      new Date("2026-01-01T00:00:00"),
+      new Date("2029-01-01T00:00:00"),
+    );
+    assert.deepEqual(
+      out.map((o) => o.start),
+      ["2026-01-31T09:00:00", "2027-01-31T09:00:00", "2028-01-31T09:00:00"],
+    );
+  });
+});
+
 describe("occurrenceView", () => {
   it("strips the rule, sets recurrenceId, and points baseEventId at the master", () => {
     const base = series();
