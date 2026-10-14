@@ -890,7 +890,6 @@ export const useMail = create<MailState>((set, get) => ({
       return { ok: true };
     } catch (err) {
       toast.error(t("Move failed: {error}", { error: (err as Error).message }));
-      void get().getEmails(ids);
       void get().refreshList();
       /*
        * The server refused, so nothing moved and the optimistic patch above is
@@ -1112,7 +1111,6 @@ export const useMail = create<MailState>((set, get) => ({
       }
     } catch (err) {
       toast.error(t("Archive failed: {error}", { error: (err as Error).message }));
-      void get().getEmails(ids);
       void get().refreshList();
       return;
     }
