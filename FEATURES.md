@@ -965,7 +965,9 @@ unread-only, and composes the same query string.
   offers *Show images* or *Always from this sender*.
 - **Privacy image proxy** (on by default): approved remote images are fetched by
   Gilbert's server, so the sender learns no IP address, no user agent and no read
-  time. With the proxy off, images load directly and the sender learns all three.
+  time. **With the proxy off nothing is fetched at all** — the app's own CSP
+  (`img-src 'self' data: blob:`) refuses a direct load, so remote images stay
+  blocked, the banner says as much, and it offers no control that could not work.
 - **Inline images** (`cid:`) are resolved against the message's own parts.
 - **Attachments** listed with type and size: download, open in a new tab, inline
   preview for images and PDFs. **Download all** takes the lot; **Download all to

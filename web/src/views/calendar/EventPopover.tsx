@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { formatTimeRange, humanDuration, parseDuration } from "@/lib/dates";
 import { plural, t } from "@/lib/i18n";
+import { isLinkUrl } from "@/lib/linkUrl";
 import { describeRule } from "@/lib/recurrence";
 import {
   type EventInstance,
@@ -188,9 +189,13 @@ export function EventPopover({
       {vloc?.uri && (
         <div className="ev-line">
           <Link2 size={15} />
-          <a href={vloc.uri} target="_blank" rel="noreferrer" className="truncate">
-            {vloc.name || vloc.uri}
-          </a>
+          {isLinkUrl(vloc.uri) ? (
+            <a href={vloc.uri} target="_blank" rel="noreferrer" className="truncate">
+              {vloc.name || vloc.uri}
+            </a>
+          ) : (
+            <span className="truncate">{vloc.name || vloc.uri}</span>
+          )}
         </div>
       )}
       {ev.description && (

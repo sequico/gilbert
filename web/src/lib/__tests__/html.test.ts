@@ -8,6 +8,7 @@ import {
   sanitizeEditorHtml,
   sanitizeEmailHtml,
 } from "../html";
+import { remoteImagesLoadable } from "../remoteImages";
 import { readSource } from "./readSource";
 
 describe("sanitizeEmailHtml", () => {
@@ -32,6 +33,28 @@ describe("sanitizeEmailHtml", () => {
     expect(blocked.html).not.toContain("url(https://t.example");
     const allowed = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
     expect(allowed.html).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
+  });
+
+  /*
+   * With the installation's image proxy off there is nowhere to load a remote
+   * image from: the app's CSP refuses a direct fetch (`img-src 'self' data:
+   * blob:`, see APP_CSP in server/src/static.ts). The reader therefore asks
+   * `remoteImagesLoadable` before it allows anything, and what it hands the
+   * sanitiser is the answer -- so the sender's URL never reaches `src`, the
+   * image keeps the placeholder, and the banner that offers to load it stays
+   * instead of a broken image with nothing left to click.
+   *
+   * The count is still raised: the message did carry remote content, and the
+   * banner is how the reader is told.
+   */
+  it("keeps a remote URL out of src when no proxy can load it", () => {
+    const r = sanitizeEmailHtml('<img src="https://t.example/p.gif">', {
+      allowRemote: remoteImagesLoadable(true, false),
+      proxyRemote: false,
+    });
+    expect(r.remoteCount).toBe(1);
+    expect(r.html).toContain('data-ihm-blocked="1"');
+    expect(r.html).not.toMatch(/src="https?:\/\//);
   });
   it("forces links to open in new tabs", () => {
     const r = sanitizeEmailHtml('<a href="https://x.io">x</a>');

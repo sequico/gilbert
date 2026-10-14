@@ -54,6 +54,7 @@ import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
 import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { plural, t as translate } from "@/lib/i18n";
+import { isLinkUrl } from "@/lib/linkUrl";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMayMoveContact } from "@/lib/useMayMoveContact";
 import { useCompose } from "@/store/compose";
@@ -1429,9 +1430,13 @@ function ContactDetail({
                   <span className="k">{l.label ?? "Website"}</span>
                   <span className="v row gap-8">
                     <Globe size={14} className="muted" />
-                    <a href={l.uri} target="_blank" rel="noreferrer">
-                      {l.uri}
-                    </a>
+                    {isLinkUrl(l.uri) ? (
+                      <a href={l.uri} target="_blank" rel="noreferrer">
+                        {l.uri}
+                      </a>
+                    ) : (
+                      l.uri
+                    )}
                   </span>
                 </div>
               ))}

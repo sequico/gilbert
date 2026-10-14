@@ -55,7 +55,7 @@ import { tc, tNode, t as translate } from "@/lib/i18n";
 import { deleteEffect, finalFoldersOf, messageDeleteOffered } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { isInlineImage, openableInTab, previewKind } from "@/lib/preview";
-import { remoteImagesAllowed } from "@/lib/remoteImages";
+import { remoteImagesAllowed, remoteImagesLoadable } from "@/lib/remoteImages";
 import { formatScheduleTime } from "@/lib/schedule";
 import { canShare, canShareFiles, shareFile, shareText } from "@/lib/share";
 import { useSignature } from "@/lib/smime/useSignature";
@@ -224,15 +224,23 @@ export const MessageView = memo(function MessageView({
   const inContacts = useContacts((s) =>
     Boolean(from && s.loaded && s.lookupByEmail(from.email)),
   );
-  const remoteAllowed =
-    allowRemote ||
-    remoteImagesAllowed({
-      policy: settings.imagePolicy,
-      trustedSenders: settings.trustedImageSenders,
-      senderEmail: from?.email,
-      inContacts,
-    });
   const imageProxy = useSession((s) => s.session?.gilbert?.imageProxy ?? true);
+  /*
+   * The reader's answer and the installation's, in one value: a remote image
+   * loads only through the server's proxy, so with the proxy off there is
+   * nothing to allow. This is also what the banner reads, so a click that could
+   * load nothing does not hide the banner either.
+   */
+  const remoteAllowed = remoteImagesLoadable(
+    allowRemote ||
+      remoteImagesAllowed({
+        policy: settings.imagePolicy,
+        trustedSenders: settings.trustedImageSenders,
+        senderEmail: from?.email,
+        inContacts,
+      }),
+    imageProxy,
+  );
   const scheduled = useScheduled((s) => s.pending[e.id]);
   /*
    * The account's Sent folder, so a copy of a message we sent is never
@@ -941,10 +949,18 @@ export const MessageView = memo(function MessageView({
               <span className="grow">
                 {translate("Remote images are blocked to protect your privacy.")}
               </span>
-              <button onClick={() => setAllowRemote(true)}>
-                {translate("Show images")}
-              </button>
-              {from && (
+              {/*
+               * The controls only when the installation can load a remote image
+               * at all: with its proxy off the CSP refuses the direct fetch, so
+               * "Show images" would set an answer nothing could act on. The
+               * banner still says what is happening.
+               */}
+              {imageProxy && (
+                <button onClick={() => setAllowRemote(true)}>
+                  {translate("Show images")}
+                </button>
+              )}
+              {imageProxy && from && (
                 <button
                   onClick={() =>
                     updateSettings({

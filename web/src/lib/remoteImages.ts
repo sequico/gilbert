@@ -30,3 +30,25 @@ export function remoteImagesAllowed(opts: {
   if (policy === "contacts") return Boolean(inContacts);
   return false;
 }
+
+/**
+ * Whether a message's remote images can be shown at all, given the reader's
+ * decision and the installation.
+ *
+ * The decision above answers "may this sender's images load?"; this one answers
+ * "can they?", and both have to hold. The app's Content Security Policy refuses
+ * a direct fetch (`img-src 'self' data: blob:`, see APP_CSP in
+ * server/src/static.ts), so a remote image reaches the reader only through the
+ * server's proxy, and an installation that has turned the proxy off (`IMAGE_PROXY`)
+ * has nothing to show whatever the policy or the reader's click says. The
+ * reader must not ask the sanitiser for a URL this cannot load: written into
+ * `src`, it is a broken image, and the click that was meant to fix it hides the
+ * banner that says the images are blocked.
+ *
+ * The composer's quote asks only the first question. It keeps the sender's URL
+ * in the draft's markup, where the outgoing message still carries the image,
+ * even though this app will not load it.
+ */
+export function remoteImagesLoadable(allowed: boolean, proxy: boolean): boolean {
+  return allowed && proxy;
+}

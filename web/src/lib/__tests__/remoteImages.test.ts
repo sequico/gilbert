@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { remoteImagesAllowed } from "@/lib/remoteImages";
+import { remoteImagesAllowed, remoteImagesLoadable } from "@/lib/remoteImages";
+import { readSource } from "./readSource";
 
 /**
  * The one remote-image decision, shared by the message reader and the
@@ -81,5 +82,29 @@ describe("remoteImagesAllowed", () => {
     expect(remoteImagesAllowed({ ...base, senderEmail: null, inContacts: true })).toBe(
       false,
     );
+  });
+});
+
+/**
+ * The other half of the same decision: what the reader may have is not the same
+ * as what the installation can give.
+ *
+ * A remote image loads only through the server's proxy -- the app's CSP refuses
+ * a direct fetch (see APP_CSP in server/src/static.ts) -- so an installation with
+ * the proxy off has nothing to show, and the reader's click cannot conjure one.
+ * The message reader asks this rather than `remoteImagesAllowed` alone, and the
+ * value it gets is the one the banner reads.
+ */
+describe("remoteImagesLoadable", () => {
+  it("needs the reader's answer and the installation's proxy", () => {
+    expect(remoteImagesLoadable(true, true)).toBe(true);
+    expect(remoteImagesLoadable(true, false)).toBe(false);
+    expect(remoteImagesLoadable(false, true)).toBe(false);
+    expect(remoteImagesLoadable(false, false)).toBe(false);
+  });
+
+  it("is what the message reader asks", () => {
+    const source = readSource("src/views/mail/MessageView.tsx");
+    expect(source).toContain("remoteImagesLoadable(");
   });
 });

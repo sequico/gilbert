@@ -34,6 +34,7 @@ import {
 import Squire from "squire-rte";
 import { sanitizeEditorFragment } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
+import { isLinkUrl } from "@/lib/linkUrl";
 import { Popover, useMenu } from "@/ui/popover";
 
 export interface RichEditorHandle {
@@ -373,11 +374,11 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     const url = linkUrl.trim();
     linkMenu.close();
     if (!url) return;
-    /* A scheme this composer will not link, so the text typed into the box
-       becomes a URL rather than being taken at its word. The href itself is
-       set on the anchor by the engine, never built into markup, so nothing a
-       URL carries can leave the attribute. */
-    const typed = /^(https?:|mailto:|tel:)/i.test(url) ? url : `https://${url}`;
+    /* A scheme the app links (`isLinkUrl`) is taken at its word; anything else
+       is read as a hostname and becomes an https URL. The href itself is set on
+       the anchor by the engine, never built into markup, so nothing a URL
+       carries can leave the attribute. */
+    const typed = isLinkUrl(url) ? url : `https://${url}`;
     run((editor) => editor.makeLink(typed, { target: "_blank", rel: "noopener" }));
     setLinkUrl("");
   };
