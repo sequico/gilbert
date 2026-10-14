@@ -44,8 +44,10 @@ RUN apt-get update \
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 # config.ts reads the version through this at startup. With GILBERT_VERSION
-# set it never looks further; without it, it falls back to package.json rather
-# than failing, since there is no git in here to ask.
+# set it never looks further; without it, `resolveVersion()` finds neither a
+# `.git` nor a `git` binary in here and reports the unversioned `0.0.0` -- the
+# same answer as the ARG's own default above, and the reason a release build
+# passes it.
 COPY scripts/ ./scripts/
 # Only what the server loads at runtime: hono and its Node adapter, about 4 MB.
 # The build stage's tree is 132 MB of vite, TypeScript, esbuild and React that

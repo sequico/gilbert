@@ -204,8 +204,17 @@ export function sourceAst(
   return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
 }
 
-/** The one join `tc()` uses between a context and its source. */
-export function contextKey(context, source) {
+/**
+ * The join between a context and its source, as the scan below spells it.
+ *
+ * The runtime has its own: `tc()` in `web/src/lib/i18n.ts` builds the same
+ * separator at the call that renders a context-dependent string, and the
+ * catalogues store the keys it produces. This is the scanner's reader of that
+ * key, not a second definition of it -- the two must agree, and what holds them
+ * together is that a catalogue entry for a contextual string is written with
+ * the separator in it and found by this.
+ */
+function contextKey(context, source) {
   return `${context}\u0004${source}`;
 }
 

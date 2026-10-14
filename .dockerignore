@@ -1,6 +1,10 @@
-# The pair of ignore files: an entry added here belongs in `.gitignore`
-# too, and the two differ in spelling only because a path matches here and a
-# name matches at any depth there.
+# One half of a pair with `.gitignore`, which says the same about itself.
+#
+# What belongs in both is anything a *build* must not see: dependencies, build
+# output, git's own directory, and every `.env` (deploy.example.sh keeps its
+# settings in .env.production; any .env.* holds APP_SECRET). What each file also
+# carries on its own is fine — a name that matches at any depth belongs to
+# `.gitignore`, which is about the tree rather than about a build context.
 node_modules
 **/node_modules
 **/dist

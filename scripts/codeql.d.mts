@@ -2,6 +2,14 @@
 export const LANGUAGE: string;
 export const SUITE: string;
 export const BUNDLE_DIR: string;
+/**
+ * The hosted bundle a local run installs, pinned to the action's own release.
+ *
+ * Named rather than fetched from `latest`: a local run that used another
+ * bundle would report a different query set from the release pre-check. Bump it
+ * with the action.
+ */
+export const BUNDLE_VERSION: string;
 export function workDir(repo: string): string;
 export function treeFiles(
   repo: string,
