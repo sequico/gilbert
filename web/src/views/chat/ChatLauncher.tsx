@@ -14,9 +14,9 @@
 import { MessageCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { EVENTS } from "@/lib/events";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { OPEN_CHAT_EVENT } from "@/lib/storage";
 import { unreadOf, useChat } from "@/store/chat";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
@@ -79,8 +79,8 @@ export function ChatLauncher() {
       setOpen(true);
       openConversation(id);
     };
-    window.addEventListener(OPEN_CHAT_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_CHAT_EVENT, onOpen);
+    window.addEventListener(EVENTS.openChat, onOpen);
+    return () => window.removeEventListener(EVENTS.openChat, onOpen);
   }, [openConversation]);
 
   // The popover closes itself on any outside mousedown -- including this

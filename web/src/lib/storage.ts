@@ -33,15 +33,6 @@ export function deviceKey(name: string): string {
   return `${PREFIX}${name}`;
 }
 
-/**
- * The event a notification's click raises so the chat launcher opens.
- *
- * Two modules must name it identically — the store that raises it and the
- * component that listens — and a name written twice is a listener that never
- * fires: the click lands, nothing opens, and the notification is simply dead.
- */
-export const OPEN_CHAT_EVENT = "gilbert:open-chat";
-
 /** The keys a module holds, by the name the sign-out list and this module use. */
 export const DEVICE_KEYS = {
   lastUser: "lastUser",

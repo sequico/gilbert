@@ -1214,7 +1214,7 @@ function HtmlBody({
         a.setAttribute("target", "_blank");
         a.setAttribute("rel", "noopener noreferrer nofollow");
       }
-      const img = t.closest("img[data-ihm-blocked]");
+      const img = t.closest("img[data-gilbert-blocked]");
       if (img) onShowImages();
     },
     [openCompose, onShowImages, onFollowLink],
@@ -1225,9 +1225,9 @@ function HtmlBody({
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     host.classList.toggle("themed", themed);
-    root.innerHTML = `<style>${EMAIL_BASE_CSS}</style><div class="ihm-email-root${themed ? " themed" : ""}${forced ? " forced" : ""}" style="${bodyStyle.replace(/"/g, "'")}">${html}</div>`;
+    root.innerHTML = `<style>${EMAIL_BASE_CSS}</style><div class="gilbert-email-root${themed ? " themed" : ""}${forced ? " forced" : ""}" style="${bodyStyle.replace(/"/g, "'")}">${html}</div>`;
     // Collapse quoted content
-    const container = root.querySelector(".ihm-email-root") as HTMLElement | null;
+    const container = root.querySelector(".gilbert-email-root") as HTMLElement | null;
     // Tell the sender's painted surfaces apart from the sheets they sit on,
     // before anything below reshapes the tree.
     if (forced && container) markKeptSurfaces(container);
@@ -1360,7 +1360,7 @@ function TextBody({
     const host = hostRef.current;
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>${TEXT_EMAIL_CSS}</style><div class="ihm-text-root">${textToHtml(main)}${quoted ? `<div class="ihm-quoted" ${quoteOpen ? "" : "hidden"}>\n${textToHtml(quoted)}</div>` : ""}</div>`;
+    root.innerHTML = `<style>${TEXT_EMAIL_CSS}</style><div class="gilbert-text-root">${textToHtml(main)}${quoted ? `<div class="ihm-quoted" ${quoteOpen ? "" : "hidden"}>\n${textToHtml(quoted)}</div>` : ""}</div>`;
     const onClick = (ev: Event) => {
       const a = (ev.target as HTMLElement).closest(LINK_SELECTOR);
       const href = a?.getAttribute("href") ?? "";

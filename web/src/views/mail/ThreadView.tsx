@@ -27,6 +27,7 @@ import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
+import { EVENTS } from "@/lib/events";
 import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
@@ -343,11 +344,11 @@ export function ThreadView({
         target.scrollIntoView({ block: "start", behavior: "smooth" });
       }
     };
-    window.addEventListener("ihm:reply", onReply);
-    window.addEventListener("ihm:msg-nav", onNav);
+    window.addEventListener(EVENTS.reply, onReply);
+    window.addEventListener(EVENTS.messageNav, onNav);
     return () => {
-      window.removeEventListener("ihm:reply", onReply);
-      window.removeEventListener("ihm:msg-nav", onNav);
+      window.removeEventListener(EVENTS.reply, onReply);
+      window.removeEventListener(EVENTS.messageNav, onNav);
     };
   }, [messages, reply]);
 

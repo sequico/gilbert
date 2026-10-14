@@ -52,6 +52,7 @@ import {
 } from "@/lib/contacts";
 import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
+import { EVENTS } from "@/lib/events";
 import { GLOBAL_CONTACTS_ACCOUNT_ID } from "@/lib/globalContactsAdmin";
 import { plural, t as translate } from "@/lib/i18n";
 import { isLinkUrl } from "@/lib/linkUrl";
@@ -216,13 +217,13 @@ export function ContactsView({ id }: { id?: string }) {
       const d = (ev as CustomEvent<{ accountId: string | null; bookId: string }>).detail;
       exportBook(d?.accountId ?? null, d?.bookId ?? "all");
     };
-    window.addEventListener("ihm:new-contact", onNew);
-    window.addEventListener("ihm:contacts-import", onImport);
-    window.addEventListener("ihm:contacts-export", onExport);
+    window.addEventListener(EVENTS.newContact, onNew);
+    window.addEventListener(EVENTS.contactsImport, onImport);
+    window.addEventListener(EVENTS.contactsExport, onExport);
     return () => {
-      window.removeEventListener("ihm:new-contact", onNew);
-      window.removeEventListener("ihm:contacts-import", onImport);
-      window.removeEventListener("ihm:contacts-export", onExport);
+      window.removeEventListener(EVENTS.newContact, onNew);
+      window.removeEventListener(EVENTS.contactsImport, onImport);
+      window.removeEventListener(EVENTS.contactsExport, onExport);
     };
   });
 

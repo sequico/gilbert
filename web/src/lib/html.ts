@@ -437,7 +437,7 @@ export function sanitizeEmailHtml(
       else {
         el.removeAttribute(attr);
         if (attr === "src" && el.tagName === "IMG") {
-          el.setAttribute("data-ihm-blocked", "1");
+          el.setAttribute("data-gilbert-blocked", "1");
         }
       }
     }
@@ -562,24 +562,24 @@ export const EMAIL_BASE_CSS = `
 /* contain: content clips what overflows, so mail built wider than the pane --
    a min-width table, a nowrap cell -- was cut off with no way to reach the
    rest. It scrolls sideways instead (issue #24). */
-.ihm-email-root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color:#1f2937; background:#fff; padding:16px; border-radius:8px; overflow-wrap:anywhere; word-break:normal; contain: content; overflow-x:auto; overflow-y:hidden; }
-.ihm-email-root img { max-width:100%; height:auto; }
-.ihm-email-root img[data-ihm-blocked] { display:inline-block; min-width:16px; min-height:16px; background:#f1f5f9 repeating-linear-gradient(45deg,#e2e8f0 0 6px,#f1f5f9 6px 12px); border:1px dashed #cbd5e1; }
-.ihm-email-root table { max-width:100%; }
-.ihm-email-root pre { white-space:pre-wrap; }
-.ihm-email-root blockquote { margin:0 0 0 .8ex; border-left:2px solid #cbd5e1; padding-left:1ex; color:#475569; }
-.ihm-email-root a { color:#0f766e; }
-.ihm-email-root * { max-width:100%; box-sizing:border-box; }
-.ihm-email-root [style*="position:fixed"], .ihm-email-root [style*="position: fixed"] { position:static !important; }
+.gilbert-email-root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color:#1f2937; background:#fff; padding:16px; border-radius:8px; overflow-wrap:anywhere; word-break:normal; contain: content; overflow-x:auto; overflow-y:hidden; }
+.gilbert-email-root img { max-width:100%; height:auto; }
+.gilbert-email-root img[data-gilbert-blocked] { display:inline-block; min-width:16px; min-height:16px; background:#f1f5f9 repeating-linear-gradient(45deg,#e2e8f0 0 6px,#f1f5f9 6px 12px); border:1px dashed #cbd5e1; }
+.gilbert-email-root table { max-width:100%; }
+.gilbert-email-root pre { white-space:pre-wrap; }
+.gilbert-email-root blockquote { margin:0 0 0 .8ex; border-left:2px solid #cbd5e1; padding-left:1ex; color:#475569; }
+.gilbert-email-root a { color:#0f766e; }
+.gilbert-email-root * { max-width:100%; box-sizing:border-box; }
+.gilbert-email-root [style*="position:fixed"], .gilbert-email-root [style*="position: fixed"] { position:static !important; }
 
 /* "Follow the app theme" — only applied to mail that brings no colours of its
    own. The custom properties are inherited from the host document, so a theme
    switch repaints the message without re-rendering it. */
-.ihm-email-root.themed { color: var(--fg, #1f2937); background: var(--bg-elev, #fff); }
-.ihm-email-root.themed blockquote { border-left-color: var(--border-strong, #cbd5e1); color: var(--fg-muted, #475569); }
-.ihm-email-root.themed a { color: var(--link, #0f766e); }
-.ihm-email-root.themed hr { border-color: var(--border, #e3e7ec); }
-.ihm-email-root.themed img[data-ihm-blocked] { background: var(--bg-sunken, #f1f5f9) repeating-linear-gradient(45deg, var(--bg-hover, #e2e8f0) 0 6px, transparent 6px 12px); border-color: var(--border-strong, #cbd5e1); }
+.gilbert-email-root.themed { color: var(--fg, #1f2937); background: var(--bg-elev, #fff); }
+.gilbert-email-root.themed blockquote { border-left-color: var(--border-strong, #cbd5e1); color: var(--fg-muted, #475569); }
+.gilbert-email-root.themed a { color: var(--link, #0f766e); }
+.gilbert-email-root.themed hr { border-color: var(--border, #e3e7ec); }
+.gilbert-email-root.themed img[data-gilbert-blocked] { background: var(--bg-sunken, #f1f5f9) repeating-linear-gradient(45deg, var(--bg-hover, #e2e8f0) 0 6px, transparent 6px 12px); border-color: var(--border-strong, #cbd5e1); }
 
 /* "Even mail that styles itself" — the second, opt-in switch, applied on top of
    .themed. Everything the sender coloured is neutralised except the surfaces
@@ -588,9 +588,9 @@ export const EMAIL_BASE_CSS = `
    stops being a bright card while a blue button keeps its white label. The
    sender's markup is untouched; this is all cascade, so the switch is
    reversible and print still pins the tokens to ink on white. */
-.ihm-email-root.forced { color: var(--fg, #1f2937) !important; background: var(--bg-elev, #fff) !important; }
-.ihm-email-root.forced *:not([data-ihm-keep]):not([data-ihm-in-keep]) { color: inherit !important; background-color: transparent !important; }
-.ihm-email-root.forced a:not([data-ihm-keep]):not([data-ihm-in-keep]) { color: var(--link, #0f766e) !important; }
+.gilbert-email-root.forced { color: var(--fg, #1f2937) !important; background: var(--bg-elev, #fff) !important; }
+.gilbert-email-root.forced *:not([data-gilbert-keep]):not([data-gilbert-in-keep]) { color: inherit !important; background-color: transparent !important; }
+.gilbert-email-root.forced a:not([data-gilbert-keep]):not([data-gilbert-in-keep]) { color: var(--link, #0f766e) !important; }
 `;
 
 /**
@@ -884,8 +884,8 @@ function styledLuminance(el: HTMLElement, rules: BackgroundRule[]): number | nul
  * a **painted surface** — a button, a banner — which is kept whole so its
  * label stays legible on it.
  *
- * Two attributes come out of this. `data-ihm-keep` is a painted surface, which
- * keeps its own colours. `data-ihm-in-keep` is an element sitting on one with
+ * Two attributes come out of this. `data-gilbert-keep` is a painted surface, which
+ * keeps its own colours. `data-gilbert-in-keep` is an element sitting on one with
  * no background of its own, whose colour is left alone so a white label on a
  * blue button stays readable. One rule in EMAIL_BASE_CSS neutralises
  * everything else.
@@ -893,7 +893,7 @@ function styledLuminance(el: HTMLElement, rules: BackgroundRule[]): number | nul
  * The distinction that matters is that being *inside* a painted surface is not
  * inherited past a sheet. A light table nested in a dark 600px card is still a
  * sheet and is still neutralised — the exemption is structural rather than a
- * `[data-ihm-keep] *` CSS rule, which cannot see that difference and is what
+ * `[data-gilbert-keep] *` CSS rule, which cannot see that difference and is what
  * issue #310 turns on: a dark campaign with beige cards inside it. Paint
  * resumes below it: a dark button inside that nested table is kept as usual.
  *
@@ -924,7 +924,7 @@ export function markKeptSurfaces(root: ParentNode): number {
 
     if (lum !== null && lum < LIGHT_SURFACE_LUMINANCE) {
       // Painted: keep it whole, and anything on it inherits that protection.
-      el.setAttribute("data-ihm-keep", "");
+      el.setAttribute("data-gilbert-keep", "");
       kept++;
       childrenOnPaint = true;
     } else if (lum !== null) {
@@ -933,7 +933,7 @@ export function markKeptSurfaces(root: ParentNode): number {
       childrenOnPaint = false;
     } else if (onPaint) {
       // No background of its own, sitting on paint: leave its colour alone.
-      el.setAttribute("data-ihm-in-keep", "");
+      el.setAttribute("data-gilbert-in-keep", "");
     }
 
     push(el, childrenOnPaint);
@@ -953,7 +953,7 @@ export function markKeptSurfaces(root: ParentNode): number {
  *
  * So "is there a body value under htmlBody" is not the question; the part's own
  * type is. Answering the first one sent every plain-text message down the HTML
- * path, where the body is placed in `.ihm-email-root` under
+ * path, where the body is placed in `.gilbert-email-root` under
  * `white-space: normal` and every line break collapses -- hard-wrapped mail
  * arrived as a single paragraph with the signature and the quoted reply run
  * into the prose.
@@ -967,7 +967,7 @@ export function hasHtmlAlternative(
 
 export const TEXT_EMAIL_CSS = `
 :host { display:block; }
-.ihm-text-root { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 13.5px; line-height:1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: inherit; }
-.ihm-text-root a { color: var(--link, #0f766e); }
-.ihm-text-root .q1 { color: var(--q1,#2563eb); } .ihm-text-root .q2 { color: var(--q2,#16a34a); } .ihm-text-root .q3 { color: var(--q3,#9333ea); }
+.gilbert-text-root { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 13.5px; line-height:1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: inherit; }
+.gilbert-text-root a { color: var(--link, #0f766e); }
+.gilbert-text-root .q1 { color: var(--q1,#2563eb); } .gilbert-text-root .q2 { color: var(--q2,#16a34a); } .gilbert-text-root .q3 { color: var(--q3,#9333ea); }
 `;

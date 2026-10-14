@@ -25,6 +25,7 @@ import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
+import { EVENTS } from "@/lib/events";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 import { sortFiles, useFilesSort } from "@/lib/fileSort";
 import { formatListDate, formatSize } from "@/lib/format";
@@ -185,8 +186,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   // calendar for a new event.
   useEffect(() => {
     const open = () => inputRef.current?.click();
-    window.addEventListener("ihm:files-upload", open);
-    return () => window.removeEventListener("ihm:files-upload", open);
+    window.addEventListener(EVENTS.filesUpload, open);
+    return () => window.removeEventListener(EVENTS.filesUpload, open);
   }, []);
 
   // Ensure ancestors are loaded for breadcrumbs

@@ -157,7 +157,7 @@ describe("All contacts, and the group a card came from", () => {
     await render();
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent("ihm:contacts-export", {
+        new CustomEvent("gilbert:contacts-export", {
           detail: { accountId: null, bookId: "all" },
         }),
       );

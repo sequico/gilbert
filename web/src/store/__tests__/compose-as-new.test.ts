@@ -107,14 +107,14 @@ describe("quoting a message with remote images", () => {
   it("blocks them by default (ask policy), leaving the placeholder form", async () => {
     useSettings.setState({ settings: { ...DEFAULT_SETTINGS, imagePolicy: "ask" } });
     const d = await draftFor(withRemoteImage(RECEIVED));
-    expect(d.html).toContain("data-ihm-blocked");
+    expect(d.html).toContain("data-gilbert-blocked");
     expect(d.html).not.toContain(`src="${TRACKER}"`);
   });
 
   it("keeps them when the policy is to show them always", async () => {
     useSettings.setState({ settings: { ...DEFAULT_SETTINGS, imagePolicy: "always" } });
     const d = await draftFor(withRemoteImage(RECEIVED));
-    expect(d.html).not.toContain("data-ihm-blocked");
+    expect(d.html).not.toContain("data-gilbert-blocked");
     expect(d.html).toContain(`src="${TRACKER}"`);
   });
 
@@ -126,7 +126,7 @@ describe("quoting a message with remote images", () => {
       },
     });
     const d = await draftFor(withRemoteImage(RECEIVED));
-    expect(d.html).not.toContain("data-ihm-blocked");
+    expect(d.html).not.toContain("data-gilbert-blocked");
     expect(d.html).toContain(`src="${TRACKER}"`);
   });
 
@@ -135,7 +135,7 @@ describe("quoting a message with remote images", () => {
     mailState(withRemoteImage(RECEIVED));
     const key = await useCompose.getState().reply(withRemoteImage(RECEIVED), "reply");
     const d = useCompose.getState().drafts.find((x) => x.key === key)!;
-    expect(d.html).toContain("data-ihm-blocked");
+    expect(d.html).toContain("data-gilbert-blocked");
     expect(d.html).not.toContain(`src="${TRACKER}"`);
   });
 });

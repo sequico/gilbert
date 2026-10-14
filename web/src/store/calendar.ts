@@ -2045,11 +2045,11 @@ function synthesiseBirthdayEvent(b: Birthday): CalendarEvent {
 
 /** The virtual calendar id for a subscription; never a JMAP id. */
 export function subscriptionCalendarId(subId: string): string {
-  return `ihm-ics:${subId}`;
+  return `gilbert-ics:${subId}`;
 }
 
 export function isSubscriptionEvent(id: string | null | undefined): boolean {
-  return Boolean(id?.startsWith("ihm-ics:"));
+  return Boolean(id?.startsWith("gilbert-ics:"));
 }
 
 function subscriptionCalendar(sub: {

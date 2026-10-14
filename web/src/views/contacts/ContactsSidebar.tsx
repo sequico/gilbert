@@ -20,6 +20,7 @@ import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { isGlobalContactsBook } from "@/lib/contacts";
+import { EVENTS } from "@/lib/events";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { refreshSharesInto } from "@/lib/sharedCollections";
@@ -56,11 +57,11 @@ export function ContactsSidebar() {
      is selected". */
   const onImport = (file: File, bookId: string) =>
     window.dispatchEvent(
-      new CustomEvent("ihm:contacts-import", { detail: { file, bookId } }),
+      new CustomEvent(EVENTS.contactsImport, { detail: { file, bookId } }),
     );
   const onExport = (accountId: string | null, bookId: string) =>
     window.dispatchEvent(
-      new CustomEvent("ihm:contacts-export", { detail: { accountId, bookId } }),
+      new CustomEvent(EVENTS.contactsExport, { detail: { accountId, bookId } }),
     );
   const contacts = useContacts();
   const settings = useSettings((s) => s.settings);

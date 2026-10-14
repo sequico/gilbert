@@ -35,6 +35,7 @@ import {
   resizePatch,
   snap,
 } from "@/lib/eventDrag";
+import { EVENTS } from "@/lib/events";
 import { t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { useSwipeNav } from "@/lib/touch";
@@ -233,8 +234,8 @@ export function CalendarView({
 
   useEffect(() => {
     const onNew = () => openNew();
-    window.addEventListener("ihm:new-event", onNew);
-    return () => window.removeEventListener("ihm:new-event", onNew);
+    window.addEventListener(EVENTS.newEvent, onNew);
+    return () => window.removeEventListener(EVENTS.newEvent, onNew);
   }, [openNew]);
 
   useEffect(

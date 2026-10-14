@@ -257,6 +257,16 @@ export function signatureBlock(
 ): string {
   if (!identity) return "";
   if (format === "text") return textSignatureBlock(identity.textSignature);
+  /*
+   * `ihm-signature` and `data-ihm-sig` keep their upstream spelling, and every
+   * other marker in the browser says `gilbert`. These two are written into the
+   * body of a message this product **sent**, which Stalwart then stores and
+   * hands back forever; the reply path looks for them to recognise its own
+   * signature. Renaming them would make this version fail to recognise the
+   * signature on every message already sent from this installation — a name
+   * held by a document an installation has already written moves with every
+   * reader and writer of it, and there is no reader left to move.
+   */
   if (identity.htmlSignature)
     return `<div class="ihm-signature" data-ihm-sig="1"><br>${sanitizeEditorHtml(identity.htmlSignature)}</div>`;
   if (identity.textSignature) {
@@ -716,6 +726,13 @@ export const useCompose = create<ComposeState>((set, get) => ({
       : textToHtml(origText).replace(/\n/g, "<br>");
     const fromStr = escapeHtml((full.from ?? []).map(formatAddress).join(", "));
     const date = formatFullDate(full.receivedAt);
+    /*
+     * `ihm-quote` for the same reason as `ihm-signature` above: it is a class
+     * in a body this product sent and Stalwart kept. Reply-with-quote and
+     * reply-as-new both find it by that class, in the messages sent before
+     * this rename as well as after it, so the one name both eras agree on is
+     * the one to keep.
+     */
     let quoteHtml = "";
     let quoteTxt = "";
     if (mode === "forward") {

@@ -27,7 +27,7 @@ describe("sanitizeEmailHtml", () => {
       cidMap: { "logo@x": "/api/blob/a/b/logo.png" },
     });
     expect(blocked.remoteCount).toBe(2);
-    expect(blocked.html).toContain('data-ihm-blocked="1"');
+    expect(blocked.html).toContain('data-gilbert-blocked="1"');
     expect(blocked.html).toContain("/api/blob/a/b/logo.png");
     expect(blocked.html).not.toMatch(/src="https:\/\/t\.example/);
     expect(blocked.html).not.toContain("url(https://t.example");
@@ -53,7 +53,7 @@ describe("sanitizeEmailHtml", () => {
       proxyRemote: false,
     });
     expect(r.remoteCount).toBe(1);
-    expect(r.html).toContain('data-ihm-blocked="1"');
+    expect(r.html).toContain('data-gilbert-blocked="1"');
     expect(r.html).not.toMatch(/src="https?:\/\//);
     // The blocked placeholder carries nothing but the marker: the sender's URL
     // is not left in the DOM for anything to read back.
@@ -202,7 +202,7 @@ describe("markKeptSurfaces", () => {
    */
   const NEUTRALISER = (() => {
     const m = EMAIL_BASE_CSS.match(
-      /\.ihm-email-root\.forced\s+(\*:not\([^{]*?)\s*\{\s*color: inherit/,
+      /\.gilbert-email-root\.forced\s+(\*:not\([^{]*?)\s*\{\s*color: inherit/,
     );
     if (!m) throw new Error("could not find the neutraliser rule in EMAIL_BASE_CSS");
     return m[1]!.trim();
@@ -218,12 +218,12 @@ describe("markKeptSurfaces", () => {
       '<table bgcolor="#ffffff"><tr><td bgcolor="#1155CC"><a style="color:#FFFFFF">Buy</a></td></tr></table>',
     );
     expect(markKeptSurfaces(d)).toBe(1);
-    expect(d.querySelector("table")!.hasAttribute("data-ihm-keep")).toBe(false);
-    expect(d.querySelector("td")!.hasAttribute("data-ihm-keep")).toBe(true);
+    expect(d.querySelector("table")!.hasAttribute("data-gilbert-keep")).toBe(false);
+    expect(d.querySelector("td")!.hasAttribute("data-gilbert-keep")).toBe(true);
     // The label is not a painted surface itself. It is marked as sitting on
     // one, which is what stops white-on-blue turning unreadable.
-    expect(d.querySelector("a")!.hasAttribute("data-ihm-keep")).toBe(false);
-    expect(d.querySelector("a")!.hasAttribute("data-ihm-in-keep")).toBe(true);
+    expect(d.querySelector("a")!.hasAttribute("data-gilbert-keep")).toBe(false);
+    expect(d.querySelector("a")!.hasAttribute("data-gilbert-in-keep")).toBe(true);
   });
 
   it("neutralises a light panel nested inside a dark painted card", () => {
@@ -246,9 +246,9 @@ describe("markKeptSurfaces", () => {
     const nested = d.querySelector("table")!;
 
     // The page surround is a sheet and always was.
-    expect(surround.hasAttribute("data-ihm-keep")).toBe(false);
+    expect(surround.hasAttribute("data-gilbert-keep")).toBe(false);
     // The card is paint and stays paint.
-    expect(card.hasAttribute("data-ihm-keep")).toBe(true);
+    expect(card.hasAttribute("data-gilbert-keep")).toBe(true);
     // The fix, stated the way the reader experiences it: the nested sheet is
     // themed, and so is the copy inside it. Before #310 both were exempt for
     // being descendants of the card.
@@ -308,8 +308,10 @@ describe("markKeptSurfaces", () => {
       '<div style="background-color:#111827">dark</div><div style="background:#f8f8ff">sheet</div>',
     );
     expect(markKeptSurfaces(d)).toBe(1);
-    expect(d.querySelectorAll("[data-ihm-keep]").length).toBe(1);
-    expect((d.querySelector("[data-ihm-keep]") as HTMLElement).textContent).toBe("dark");
+    expect(d.querySelectorAll("[data-gilbert-keep]").length).toBe(1);
+    expect((d.querySelector("[data-gilbert-keep]") as HTMLElement).textContent).toBe(
+      "dark",
+    );
   });
 
   it("marks nothing in mail that paints no backgrounds", () => {
@@ -327,12 +329,12 @@ describe("markKeptSurfaces", () => {
         '<div class="card"><table class="sheet"><tr><td>copy</td></tr></table></div>',
     );
     expect(markKeptSurfaces(d)).toBe(1);
-    expect(d.querySelector(".card")!.hasAttribute("data-ihm-keep")).toBe(true);
+    expect(d.querySelector(".card")!.hasAttribute("data-gilbert-keep")).toBe(true);
     // The stylesheet light panel inside paint is a sheet like any other: it is
     // neutralised, not exempted for sitting on the card.
     const sheet = d.querySelector(".sheet")!;
-    expect(sheet.hasAttribute("data-ihm-keep")).toBe(false);
-    expect(sheet.hasAttribute("data-ihm-in-keep")).toBe(false);
+    expect(sheet.hasAttribute("data-gilbert-keep")).toBe(false);
+    expect(sheet.hasAttribute("data-gilbert-in-keep")).toBe(false);
     expect(neutralised(sheet)).toBe(true);
   });
 
@@ -344,7 +346,7 @@ describe("markKeptSurfaces", () => {
     expect(markKeptSurfaces(d)).toBe(1);
     expect(neutralised(d.querySelector(".sheet")!)).toBe(true);
     expect(neutralised(d.querySelector(".cta")!)).toBe(false);
-    expect(d.querySelector(".cta")!.hasAttribute("data-ihm-keep")).toBe(true);
+    expect(d.querySelector(".cta")!.hasAttribute("data-gilbert-keep")).toBe(true);
   });
 
   it("lets a later stylesheet rule beat an earlier one of equal specificity", () => {
@@ -566,7 +568,7 @@ describe("a url() is read the way a CSS parser reads it", () => {
       `<p style="background:foo-url(http://x.example/a.png)">x</p>`,
     );
     expect(r.remoteCount).toBe(0);
-    expect(r.html).not.toContain("data-ihm-blocked");
+    expect(r.html).not.toContain("data-gilbert-blocked");
   });
 
   it("refuses a URL it would have to decode an escape to judge", () => {
@@ -690,7 +692,7 @@ describe("mail wider than the reading pane", () => {
    * phone (issue #24). jsdom does no layout, so this pins the rule.
    */
   it("scrolls sideways instead of being cut off", () => {
-    const root = EMAIL_BASE_CSS.match(/\.ihm-email-root \{([^}]*)\}/)?.[1] ?? "";
+    const root = EMAIL_BASE_CSS.match(/\.gilbert-email-root \{([^}]*)\}/)?.[1] ?? "";
     expect(root).toMatch(/contain:\s*content/);
     expect(root).toMatch(/overflow-x:\s*auto/);
   });

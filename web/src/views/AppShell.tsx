@@ -32,6 +32,7 @@ import {
 import { Link, useLocation } from "wouter";
 import { mayAdminister } from "@/lib/administer";
 import { appNameFor } from "@/lib/brand";
+import { EVENTS } from "@/lib/events";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
@@ -145,21 +146,21 @@ const MODULES: Module[] = [
     href: "/calendar",
     label: "Calendar",
     icon: Calendar,
-    action: { label: "New event", icon: Plus, event: "ihm:new-event" },
+    action: { label: "New event", icon: Plus, event: EVENTS.newEvent },
   },
   {
     id: "contacts",
     href: "/contacts",
     label: "Contacts",
     icon: Users,
-    action: { label: "New contact", icon: Plus, event: "ihm:new-contact" },
+    action: { label: "New contact", icon: Plus, event: EVENTS.newContact },
   },
   {
     id: "files",
     href: "/files",
     label: "Files",
     icon: FolderOpen,
-    action: { label: "Upload", icon: Upload, event: "ihm:files-upload" },
+    action: { label: "Upload", icon: Upload, event: EVENTS.filesUpload },
   },
   {
     id: "kb",

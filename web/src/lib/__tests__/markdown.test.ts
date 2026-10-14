@@ -72,7 +72,7 @@ describe("renderMarkdown", () => {
   });
 
   it("sends links out of the app safely", () => {
-    const html = renderMarkdown("[docs](https://docs.ihasmail.org)");
+    const html = renderMarkdown("[docs](https://docs.example.org)");
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).toContain('target="_blank"');
   });

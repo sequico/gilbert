@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
 import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
+import { EVENTS } from "@/lib/events";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -667,28 +668,28 @@ export function MailView({
         description: k.description,
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: k.mode })),
+          window.dispatchEvent(new CustomEvent(EVENTS.reply, { detail: k.mode })),
       })),
       {
         keys: "f",
         description: "Forward",
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: "forward" })),
+          window.dispatchEvent(new CustomEvent(EVENTS.reply, { detail: "forward" })),
       },
       {
         keys: "n",
         description: "Next message in conversation",
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:msg-nav", { detail: 1 })),
+          window.dispatchEvent(new CustomEvent(EVENTS.messageNav, { detail: 1 })),
       },
       {
         keys: "p",
         description: "Previous message in conversation",
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:msg-nav", { detail: -1 })),
+          window.dispatchEvent(new CustomEvent(EVENTS.messageNav, { detail: -1 })),
       },
       {
         keys: "]",
