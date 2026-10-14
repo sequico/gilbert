@@ -90,6 +90,7 @@ import {
   postMessage,
   readApproval,
   readChat,
+  readChatMessage,
   widenRequested,
 } from "./chat.js";
 import {
@@ -2070,14 +2071,26 @@ export class Executor {
       return context;
     }
     if (trigger.on === "chat" && trigger.chatId) {
-      const messages = await this.readChatOf(accountId, pass.chats);
-      const anchor = messages.find((message) => message.id === trigger.chatId);
+      let messages = await this.readChatOf(accountId, pass.chats);
+      let anchor = messages.find((message) => message.id === trigger.chatId);
+      /*
+       * The read is the newest `CHAT_READ_MAX` messages, and a run can arrive
+       * long after the message that woke it: its own trigger is then read on its
+       * own rather than the run refused. The window is a bound on the read, not a
+       * statement that an older message no longer exists.
+       */
+      if (!anchor) {
+        anchor =
+          (await readChatMessage(this.deps.ctx, accountId, trigger.chatId)) ?? undefined;
+        if (anchor) messages = [...messages, anchor];
+      }
       // Only a person asking widens the window; the run never does it
       // itself.
       const asked = anchor ? anchor.text : "";
       const requested = widenRequested(asked) ? CHAT_CONTEXT_MAX : undefined;
       // The anchor is named, not inferred: the run answers *this* message, and
-      // `conversationContext` refuses a transcript that does not hold it.
+      // `conversationContext` refuses a transcript that does not hold it — which
+      // after the read above means the message is genuinely gone.
       const window = conversationContext(
         messages,
         anchor?.created ?? this.deps.now().toISOString(),

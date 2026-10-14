@@ -30,6 +30,7 @@ import {
   type Ctx,
   ensureFolderPath,
   FILENODE_CAP,
+  type FileNodeLike,
   fileChildren,
   findAppFileAt,
   findFolderPath,
@@ -309,22 +310,66 @@ async function writeRootUnderCas(
   throw new WorkorderAdminError(fail.code, fail.message, 502);
 }
 
-/** Every valid root under the active folder and under `closed/`. */
+/**
+ * The most roots one read of the registry lists.
+ *
+ * The registry is one document per workorder and nothing prunes it, so a list
+ * that read it whole would pay a download per workorder for as long as the
+ * installation lives. The surface has no "load more", so the bound is the honest
+ * answer for a bigger registry: the newest this many roots, which is what the
+ * list has always shown first.
+ */
+export const WORKORDER_LIST_MAX = 200;
+
+/**
+ * The node properties the registry listing needs.
+ *
+ * `FILE_PROPS` carries the blob to read; the two stamps are what the page is cut
+ * on, and they are the pair the Files view sorts a node by — `modified`, falling
+ * back to `created`.
+ */
+const ROOT_NODE_PROPS = [...FILE_PROPS, "created", "modified"];
+
+/** A node's own last-write stamp, the newest-first key the page is chosen by. */
+function nodeStamp(node: FileNodeLike): string {
+  if (typeof node.modified === "string") return node.modified;
+  if (typeof node.created === "string") return node.created;
+  return "";
+}
+
+/**
+ * The newest `WORKORDER_LIST_MAX` roots, and only their documents.
+ *
+ * The listing carries each node's own last-write stamp, so the page is chosen
+ * from it and the documents behind the nodes the page does not need are never
+ * read: the registry grows with the installation, and a read that paid a
+ * download per root would grow with it too.
+ */
 async function rootDocs(ctx: Ctx, accountId: string): Promise<WorkorderDoc[]> {
-  const out: WorkorderDoc[] = [];
+  const candidates: { path: string; node: FileNodeLike }[] = [];
   for (const path of [WORKORDER_FOLDER, workorderClosedPath()]) {
     const folderId = await findFolderPath(ctx, accountId, path);
     if (!folderId) continue;
-    const children = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
+    const children = await fileChildren(ctx, accountId, folderId, ROOT_NODE_PROPS);
     for (const child of children) {
       // The `closed` directory node sits among the active roots and is dropped
       // by node type; a file that is not a workorder is skipped here too.
       if (child.nodeType !== "file") continue;
       const name = typeof child.name === "string" ? child.name : "";
       if (!name.endsWith(".json")) continue;
-      const doc = await readAppJsonAt(ctx, accountId, `${path}/${name}`);
-      if (isWorkorderDoc(doc)) out.push(doc);
+      candidates.push({ path: `${path}/${name}`, node: child });
     }
+  }
+  const newest = candidates
+    .sort((a, b) => {
+      const stamp = nodeStamp(b.node).localeCompare(nodeStamp(a.node));
+      return stamp !== 0 ? stamp : String(b.node.id).localeCompare(String(a.node.id));
+    })
+    .slice(0, WORKORDER_LIST_MAX);
+  const out: WorkorderDoc[] = [];
+  for (const { path } of newest) {
+    const doc = await readAppJsonAt(ctx, accountId, path);
+    if (isWorkorderDoc(doc)) out.push(doc);
   }
   return out;
 }
@@ -738,8 +783,9 @@ async function summaryOf(
 /**
  * Whether a caller may see a workorder at all.
  *
- * An administrator sees the whole registry. A member reaches their groups, not
- * the Master's registry (ADR 0028) — and what makes a workorder theirs is
+ * Any workorder in the registry is an administrator's to see. A member reaches
+ * their groups, not the Master's registry (ADR 0028) — and what makes a
+ * workorder theirs is
  * **competence**: the template assigns a section to a group they are in
  * (ADR 0030), so that group is what the workorder is for. Membership therefore
  * decides this, not the accident of whether the group's part document can be
@@ -770,7 +816,7 @@ async function maySee(reach: WorkorderReach, root: WorkorderDoc): Promise<boolea
   return false;
 }
 
-/** Every workorder the caller may see, newest write first. */
+/** The newest page of what the caller may see, newest write first. */
 export async function listWorkorders(session: LiveSession): Promise<WorkorderSummary[]> {
   const reach = await workorderReach(session);
   const roots = await rootDocs(reach.ctx, reach.accountId);

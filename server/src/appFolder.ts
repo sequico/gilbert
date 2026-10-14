@@ -68,6 +68,7 @@ export interface FileNodeLike {
   type?: unknown;
   size?: unknown;
   created?: unknown;
+  modified?: unknown;
 }
 
 /** What every caller of this module needs to talk to Stalwart. */

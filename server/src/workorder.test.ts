@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import {
+  buildChecklist,
+  buildWorkorderDoc,
   isStepComplete,
   WORKORDER_FOLDER,
   workorderClosedPath,
@@ -44,7 +46,9 @@ const {
   findFolderPath,
   writeAppFileIn,
 } = await import("./appFolder.js");
-const { moveRoot, requireState } = await import("./workorderAdmin.js");
+const { moveRoot, requireState, WORKORDER_LIST_MAX } = await import(
+  "./workorderAdmin.js"
+);
 const { fetchUpstreamSession, upstreamFor } = await import("./upstream.js");
 
 await useDurableSessions(
@@ -150,6 +154,7 @@ interface Summary {
   uid: string;
   name: string;
   state: string;
+  updated: { by: string; at: string };
   parts: PartView[];
 }
 
@@ -1330,5 +1335,93 @@ test("a group check announces the group's part on the FileNode rail", async () =
   assert.ok(
     text.includes('"FileNode"'),
     "and carries the FileNode type the client watches",
+  );
+});
+
+/**
+ * Run one call with the blob downloads it makes recorded.
+ *
+ * The `/jmap/download/` requests are the documents the call actually paid for —
+ * the mock counts method calls, and a download is a request of its own — and each
+ * URL carries the document's own file name, so the roots a read downloaded are
+ * told apart from the parts and templates composed beside them.
+ */
+async function countDownloads<T>(
+  run: () => Promise<T>,
+): Promise<{ result: T; urls: string[] }> {
+  const real = globalThis.fetch;
+  const urls: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes("/jmap/download/")) urls.push(url);
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    return { result: await run(), urls };
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
+test("the registry list reads only the newest page of roots", async () => {
+  /*
+   * The registry is one document per workorder and nothing prunes it, so a list
+   * that downloaded the folder whole would cost a read per workorder for as long
+   * as the installation lives. The listing carries each node's own last-write
+   * stamp, so the newest `WORKORDER_LIST_MAX` roots are chosen from it and only
+   * their documents are read. Fails if the list goes back to reading every root,
+   * and fails if the page stops being the newest: the newest root is answered
+   * with and the oldest seeded root is not. It seeds the registry, so it is the
+   * last test in the file: the earlier ones list it as it was.
+   */
+  const accountId = filesAccountId(masterCtx);
+  assert.ok(accountId, "the Master has a Files account");
+  const folderId = await ensureFolderPath(masterCtx, accountId, WORKORDER_FOLDER);
+  const seeded: string[] = [];
+  for (let i = 0; i < WORKORDER_LIST_MAX + 5; i += 1) {
+    const uid = `page-${i}`;
+    await writeAppFileIn(
+      masterCtx,
+      accountId,
+      folderId,
+      workorderFileName(uid),
+      buildWorkorderDoc({
+        uid,
+        by: "test",
+        at: new Date(Date.UTC(2026, 5, 1, 0, i)).toISOString(),
+        name: `Page ${i}`,
+        checklist: buildChecklist({
+          template: { accountId, id: "page-fixture", revision: "1" },
+          variants: {},
+          items: {},
+          stepPaths: [],
+        }),
+      }),
+    );
+    seeded.push(uid);
+  }
+
+  const { result: listed, urls } = await countDownloads(() => call("/api/workorders"));
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+  const workorders = (listed.body?.workorders as Summary[] | undefined) ?? [];
+  const read = seeded.filter((uid) => urls.some((url) => url.includes(`/${uid}.json`)));
+  assert.equal(
+    read.length,
+    WORKORDER_LIST_MAX,
+    "one read per root in the page, and no more",
+  );
+  assert.ok(
+    workorders.some((workorder) => workorder.uid === seeded[seeded.length - 1]),
+    "the newest root is answered with",
+  );
+  assert.ok(
+    !workorders.some((workorder) => workorder.uid === seeded[0]),
+    "and the oldest seeded root is past the page",
+  );
+  const stamps = workorders.map((workorder) => workorder.updated.at);
+  assert.deepEqual(
+    stamps,
+    [...stamps].sort((a, b) => b.localeCompare(a)),
+    "the list is still newest write first",
   );
 });

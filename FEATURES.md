@@ -664,7 +664,8 @@ The list is on the left, opening on **All** and narrowable to **Running**,
 workorder is on the right: the checklist template and revision it instantiates
 named in its head, its checklists (the global one and each group's part side by
 side when there is room), and the folders, files and pages it gathers. Opening
-the panel re-reads the list and a **refresh** re-reads it besides; while the panel
+the panel re-reads the list — the newest roots of the registry, a page rather
+than all of them — and a **refresh** re-reads it besides; while the panel
 is open, a **FileNode change** for an account the reader's groups own re-reads it
 too, so a step one member checks appears to the others as it happens. The change
 carries no data — the read goes through the route, which is what decides what each

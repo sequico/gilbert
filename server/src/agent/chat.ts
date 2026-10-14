@@ -10,16 +10,21 @@
 
 import {
   type Ctx,
+  downloadBlobText,
+  type FileNodeLike,
+  fileChildren,
   findAppFileAt,
-  listAppDir,
+  findFolderPath,
   readAppJsonAt,
   writeAppFileAt,
 } from "../appFolder.js";
 import type { JmapClient } from "../jmap.js";
+import { FILE_PROPS } from "../shared/appFolder.js";
 import {
   CHAT_FOLDER,
   type ChatMention,
   type ChatMessage,
+  type ChatMessageDoc,
   compareMessages,
   isChatMessageDoc,
   mentionsName,
@@ -27,7 +32,11 @@ import {
   messageFileName,
   repliesToAuthor,
 } from "../shared/chat.js";
-import { type AgentChatRequest, clampChatContext } from "./documents.js";
+import {
+  type AgentChatRequest,
+  CHAT_CONTEXT_MAX,
+  clampChatContext,
+} from "./documents.js";
 
 /**
  * The transcript by id. A reply is only an address to the agent when its direct
@@ -41,30 +50,118 @@ export function indexChat(messages: ReadonlyArray<ChatMessage>): ChatIndex {
 }
 
 /**
+ * How many messages one read of the transcript downloads.
+ *
+ * A run's context is at most `CHAT_CONTEXT_MAX` messages plus the reply chain of
+ * the one it answers, and both are drawn from the newest of the transcript, so
+ * that many is the whole of what any reader has ever used. The transcript is one
+ * document per message and nothing prunes it: reading the folder whole makes
+ * every read cost grow with the group's age while the part that is used stays
+ * this size.
+ */
+export const CHAT_READ_MAX = CHAT_CONTEXT_MAX;
+
+/** A node's own creation stamp — the transcript's ordering key — or "". */
+function nodeCreated(node: FileNodeLike): string {
+  return typeof node.created === "string" ? node.created : "";
+}
+
+/**
+ * One message document, read from the node the listing already gave.
+ *
+ * `null` covers every way a document is not readable — the download refused,
+ * bytes that are not JSON — so the caller skips it exactly as it skipped
+ * `readAppJsonAt`'s null, without listing the folder once per message.
+ */
+async function readChatDoc(
+  ctx: Ctx,
+  accountId: string,
+  node: FileNodeLike,
+): Promise<unknown> {
+  try {
+    const type =
+      typeof node.type === "string" && node.type ? node.type : "application/json";
+    const text = await downloadBlobText(
+      ctx,
+      accountId,
+      String(node.blobId),
+      type,
+      String(node.name),
+    );
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The group's chat, oldest first.
  *
- * `_client` is the caller's own client for the account; the reads go through
- * the app-folder primitives, which build an equivalent one from the context, so
- * every tier reads the same documents the same way.
+ * The folder is listed once — the listing carries each node's own `created`,
+ * the transcript's ordering key — and only the newest `CHAT_READ_MAX` documents
+ * are downloaded, in transcript order. `_client` is the caller's own client for
+ * the account; the reads go through the app-folder primitives, which build an
+ * equivalent one from the context, so every tier reads the same documents the
+ * same way.
  */
 export async function readChat(
   ctx: Ctx,
   accountId: string,
   _client: JmapClient,
 ): Promise<ChatMessage[]> {
-  const nodes = await listAppDir(ctx, accountId, CHAT_FOLDER);
+  const folderId = await findFolderPath(ctx, accountId, CHAT_FOLDER);
+  if (!folderId) return [];
+  const nodes = await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, "created"]);
+  const files = nodes.filter(
+    (node) =>
+      node.nodeType === "file" &&
+      typeof node.name === "string" &&
+      typeof node.blobId === "string",
+  );
+  const newest = files
+    .map((node) => ({ node, created: nodeCreated(node), id: String(node.id) }))
+    .sort(compareMessages)
+    .slice(-CHAT_READ_MAX);
   const messages: ChatMessage[] = [];
-  for (const node of nodes) {
-    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
-    const doc = await readAppJsonAt(ctx, accountId, `${CHAT_FOLDER}/${node.name}`);
+  for (const { node } of newest) {
+    const doc = await readChatDoc(ctx, accountId, node);
     if (!isChatMessageDoc(doc)) continue;
-    messages.push({
-      ...doc,
-      id: String(node.id),
-      created: typeof node.created === "string" ? node.created : doc.at,
-    });
+    messages.push(toMessage(node, doc));
   }
   return messages.sort(compareMessages);
+}
+
+/** One node and its document, as the transcript's own message. */
+function toMessage(node: FileNodeLike, doc: ChatMessageDoc): ChatMessage {
+  return { ...doc, id: String(node.id), created: nodeCreated(node) || doc.at };
+}
+
+/**
+ * One message by node id, for the case the read window does not hold it.
+ *
+ * A run is woken by a message and answers *that* one, while a read covers the
+ * newest `CHAT_READ_MAX` messages: a run arriving after more than that many were
+ * written would otherwise find its own trigger missing and refuse to answer it.
+ * One listing finds the node and one download reads it — a page and a read,
+ * never a wider window.
+ */
+export async function readChatMessage(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<ChatMessage | null> {
+  const folderId = await findFolderPath(ctx, accountId, CHAT_FOLDER);
+  if (!folderId) return null;
+  const nodes = await fileChildren(ctx, accountId, folderId, [...FILE_PROPS, "created"]);
+  const node = nodes.find(
+    (candidate) =>
+      String(candidate.id) === id &&
+      candidate.nodeType === "file" &&
+      typeof candidate.blobId === "string",
+  );
+  if (!node) return null;
+  const doc = await readChatDoc(ctx, accountId, node);
+  return isChatMessageDoc(doc) ? toMessage(node, doc) : null;
 }
 
 /**
@@ -124,10 +221,22 @@ export async function postMessage(
 /**
  * What the agent says the first time it speaks in a group.
  *
- * A chat message like any other, so the transcript itself is the record that
- * the agent has spoken here: there is no flag to keep in step with it.
+ * A chat message like any other, and the marker below is written beside it: the
+ * message is what a member reads, the marker is what survives out of sight of a
+ * read window.
  */
 export const AGENT_GREETING = "Hi all! Gilbert here, at your service.";
+
+/**
+ * The document the greeting leaves in the chat folder.
+ *
+ * A transcript is read in its newest `CHAT_READ_MAX` messages and a group's chat
+ * only grows, so the greeting is eventually older than any read covers. The
+ * marker is what says "this address has greeted this group" once the message is
+ * out of the window; a missing or unreadable one reads as "not yet", which
+ * repeats a greeting at worst.
+ */
+export const GREETING_FILE = "greeting.json";
 
 /** Whether the agent has already spoken in a transcript. */
 export function hasSpoken(
@@ -137,12 +246,24 @@ export function hasSpoken(
   return messages.some((message) => message.from === address);
 }
 
+/** Whether the greeting marker names this address. */
+export async function hasGreeted(
+  ctx: Ctx,
+  accountId: string,
+  address: string,
+): Promise<boolean> {
+  const doc = await readAppJsonAt(ctx, accountId, `${CHAT_FOLDER}/${GREETING_FILE}`);
+  return !!doc && typeof doc === "object" && (doc as { from?: unknown }).from === address;
+}
+
 /**
  * Say hello in a group the agent has never spoken in.
  *
  * Returns the node id it posted, or null when the group has already heard from
- * the agent. The transcript is the record, so the greeting cannot be said
- * twice: the second call reads a chat that already holds the agent's message.
+ * the agent. Two records answer that and both are needed: the transcript, while
+ * the greeting is still inside the window a read covers, and the marker it left,
+ * once it is not — otherwise a group that has written more than a window's worth
+ * of messages since is greeted again on every claim.
  */
 export async function greetUnspoken(
   ctx: Ctx,
@@ -152,7 +273,14 @@ export async function greetUnspoken(
 ): Promise<string | null> {
   const messages = await readChat(ctx, accountId, client);
   if (hasSpoken(messages, address)) return null;
-  return postMessage(ctx, accountId, address, AGENT_GREETING);
+  if (await hasGreeted(ctx, accountId, address)) return null;
+  const node = await postMessage(ctx, accountId, address, AGENT_GREETING);
+  // Written after the message: a marker that outlived a failed post would
+  // silence a greeting the group never heard.
+  await writeAppFileAt(ctx, accountId, `${CHAT_FOLDER}/${GREETING_FILE}`, {
+    from: address,
+  });
+  return node;
 }
 
 /**

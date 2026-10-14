@@ -23,15 +23,20 @@ const { writeAppFileAt } = await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
 const {
   AGENT_GREETING,
+  CHAT_READ_MAX,
+  GREETING_FILE,
   conversationContext,
   greetUnspoken,
+  hasGreeted,
   hasSpoken,
   indexChat,
   pendingRequests,
   postMessage,
   readApproval,
   readChat,
+  readChatMessage,
 } = await import("./chat.js");
+const { CHAT_FOLDER } = await import("../shared/chat.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const GROUP = "a3";
@@ -39,11 +44,43 @@ const AGENT = "gilbert@example.com";
 const ADA = "ada@example.org";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 
+/**
+ * Run one read with the blob downloads counted.
+ *
+ * The count of `/jmap/download/` requests is the number of documents the read
+ * actually paid for: the mock counts method calls, and a download is a request
+ * of its own at the one place it leaves the process.
+ */
+async function countDownloads<T>(
+  run: () => Promise<T>,
+): Promise<{ result: T; reads: number }> {
+  const real = globalThis.fetch;
+  let reads = 0;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes("/jmap/download/")) reads += 1;
+    return real(input, init);
+  }) as typeof fetch;
+  try {
+    return { result: await run(), reads };
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
 const client = new JmapClient({ authorization: AUTH, session });
 
 let first = "";
+
+/**
+ * The ids the long-transcript test seeds, oldest first.
+ *
+ * Kept here because the two tests after it read that transcript: one reads its
+ * oldest message by id, and the greeting test needs a group whose transcript
+ * holds nothing from the agent because what it holds is past the window.
+ */
+const seededIds: string[] = [];
 let agentMessage = "";
 let reply = "";
 
@@ -66,7 +103,9 @@ after(() => {
 });
 
 test("the transcript is read oldest first and keeps only messages", async () => {
-  const messages = await readChat(ctx, GROUP, client);
+  const { result: messages, reads } = await countDownloads(() =>
+    readChat(ctx, GROUP, client),
+  );
   assert.ok(messages.length >= 5);
   assert.equal(messages[0]?.id, first);
   assert.ok(!messages.some((message) => message.text === undefined));
@@ -77,6 +116,9 @@ test("the transcript is read oldest first and keeps only messages", async () => 
     false,
     "a document that is not a message is not in the transcript",
   );
+  // A chat shorter than the window is read whole: one download per document in
+  // the folder, the one that is not a message included.
+  assert.equal(reads, messages.length + 1);
 });
 
 test("a mention, the loose form included, and a direct reply address the agent", async () => {
@@ -266,7 +308,7 @@ test("the agent greets a group it has never spoken in, and only once", async () 
   assert.equal(
     await greetUnspoken(ctx, "a5", AGENT, client),
     null,
-    "the transcript is the record, so the greeting is never said twice",
+    "the greeting is in the window, so it is never said twice",
   );
   assert.equal(
     (await readChat(ctx, "a5", client)).filter(
@@ -280,4 +322,89 @@ test("the agent greets a group it has never spoken in, and only once", async () 
 test("a group the agent already speaks in is never greeted", async () => {
   assert.ok(await hasSpoken(await readChat(ctx, GROUP, client), AGENT));
   assert.equal(await greetUnspoken(ctx, GROUP, AGENT, client), null);
+});
+
+test("a transcript longer than the window reads only the newest messages", async () => {
+  /*
+   * The transcript is one document per message and nothing prunes it, so a read
+   * that downloaded the folder whole would cost the group's age on every run.
+   * The listing carries each node's own `created`, so the read takes the newest
+   * `CHAT_READ_MAX` documents and stops there. Fails if the read goes back to
+   * downloading every message; the count is of the blob requests themselves,
+   * which is the one cost the window is about. It seeds the group's transcript,
+   * so the two tests below read it as it now is.
+   */
+  for (let i = 0; i < CHAT_READ_MAX + 5; i += 1) {
+    // The window is chosen on the node's own stamp, so the writes are a
+    // millisecond apart: the newest message is then a fact of the transcript
+    // rather than of how fast the loop ran.
+    await fetch(`${BASE}/mock/clock`, {
+      method: "POST",
+      body: JSON.stringify({ advanceMs: 1 }),
+    });
+    seededIds.push(await postMessage(ctx, GROUP, ADA, `seeded ${i}`));
+  }
+
+  const { result: messages, reads } = await countDownloads(() =>
+    readChat(ctx, GROUP, client),
+  );
+  assert.equal(
+    reads,
+    CHAT_READ_MAX,
+    "one download per message in the window, and no more",
+  );
+  assert.equal(messages.length, CHAT_READ_MAX, "and every one of them is a message");
+  assert.ok(
+    messages.some((message) => message.id === seededIds[seededIds.length - 1]),
+    "the newest message is in what the agent reads",
+  );
+  assert.ok(
+    !messages.some((message) => message.id === seededIds[0]),
+    "and the oldest is past the window",
+  );
+});
+
+test("a message the window does not hold is still read when a run answers it", async () => {
+  /*
+   * A run is woken by a message and answers *that* one, and the window is a
+   * bound on how much is read, never a statement that an older message is gone.
+   * Without this read the run would be refused for a trigger the group can see,
+   * which is the failure the window would otherwise introduce.
+   */
+  const oldest = seededIds[0]!;
+  assert.ok(
+    !(await readChat(ctx, GROUP, client)).some((message) => message.id === oldest),
+    "the message is outside the window a read covers",
+  );
+  const read = await readChatMessage(ctx, GROUP, oldest);
+  assert.equal(read?.id, oldest, "and is read on its own");
+  assert.equal(read?.text, "seeded 0");
+  assert.equal(
+    await readChatMessage(ctx, GROUP, "no-such-message"),
+    null,
+    "an id nothing answers to is null",
+  );
+});
+
+test("a greeting the window no longer holds is not said again", async () => {
+  /*
+   * A group's chat only grows, so the greeting is eventually older than any read
+   * covers it. Asking the transcript alone would greet such a group again on
+   * every claim; the marker the greeting leaves is what answers for it, and this
+   * is that case: the group is past the window holding no message from the agent.
+   */
+  assert.equal(
+    await hasSpoken(await readChat(ctx, GROUP, client), AGENT),
+    false,
+    "the window holds nothing from the agent",
+  );
+  await writeAppFileAt(ctx, GROUP, `${CHAT_FOLDER}/${GREETING_FILE}`, {
+    from: AGENT,
+  });
+  assert.equal(await hasGreeted(ctx, GROUP, AGENT), true);
+  assert.equal(
+    await greetUnspoken(ctx, GROUP, AGENT, client),
+    null,
+    "the marker alone keeps the greeting quiet",
+  );
 });

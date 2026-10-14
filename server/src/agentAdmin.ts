@@ -34,7 +34,7 @@ import {
 // that answers for it (ADR 0003: the server starts the fleet and its shutdown
 // stops it).
 import { liveAgents } from "./agent/agent.js";
-import { hasSpoken, readChat } from "./agent/chat.js";
+import { hasGreeted, hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_CHAIN_HOPS_CEILING,
   AGENT_INSTRUCTION_FILE,
@@ -1734,7 +1734,7 @@ export async function memberAgentView(
   });
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
-  const [rules, jobs, audit, instruction, policy, chat] = await Promise.all([
+  const [rules, jobs, audit, instruction, policy, chat, greeted] = await Promise.all([
     store.readRules(),
     store.listJobs(),
     readRecentAudit(store),
@@ -1745,10 +1745,13 @@ export async function memberAgentView(
     // fact about the group that a member judges the agent by.
     readAgentProse(store, AGENT_INSTRUCTION_FILE),
     readGroupPolicy(access),
-    // The transcript is the group's own proof that the agent works here: the
-    // greeting the agent posts when it takes the group's claim is readable by
-    // the member's own session, where the grant list is not.
+    // The greeting the agent posts when it takes the group's claim is the
+    // group's own proof that the agent works here, readable by the member's own
+    // session where the grant list is not. Both records are asked: the transcript
+    // while the greeting is inside the window a read covers, and the marker it
+    // leaves once the group has written past it.
     readChat(access.ctx, access.accountId, new JmapClient(access.ctx)),
+    hasGreeted(access.ctx, access.accountId, agentAddress()),
   ]);
   const rulesDoc = rules?.doc ?? [];
   const open = jobs
@@ -1762,6 +1765,7 @@ export async function memberAgentView(
     group: name.trim().toLowerCase(),
     granted:
       hasSpoken(chat, agentAddress()) ||
+      greeted ||
       rulesDoc.length > 0 ||
       open.length > 0 ||
       audit.length > 0 ||
