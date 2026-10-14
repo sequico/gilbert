@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort } from "./testkit.js";
+import { freePort, loginWith } from "./testkit.js";
 
 /**
  * The forced-password-change door (ADR 0001), end to end against the mock.
@@ -61,15 +61,7 @@ async function call(
   };
 }
 
-async function login(
-  username: string,
-  password: string,
-): Promise<{ status: number; body: ReturnType<typeof JSON.parse>; cookie: string }> {
-  return call("/api/auth/login", "", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
+const login = loginWith(call);
 
 async function jmap(cookie: string): Promise<{
   status: number;

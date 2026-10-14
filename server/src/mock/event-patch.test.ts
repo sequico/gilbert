@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { freePort, type MethodCall, responseOf } from "../testkit.js";
+import { freePort, jmapCall, responseOf } from "../testkit.js";
 
 /**
  * A `CalendarEvent/set` update carries a JMAP patch whose keys are paths
@@ -25,25 +25,9 @@ const mock = await import("./index.js");
 const BASE = `http://127.0.0.1:${PORT}`;
 const ACCOUNT = "a1";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
-const HEADERS = {
-  authorization: AUTH,
-  "content-type": "application/json",
-  "x-requested-with": "gilbert",
-};
+const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:calendars"];
 
-async function jmap(methodCalls: unknown[]): Promise<MethodCall[]> {
-  const res = await fetch(`${BASE}/jmap/`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:calendars"],
-      methodCalls,
-    }),
-  });
-  assert.equal(res.status, 200);
-  const body = (await res.json()) as { methodResponses: MethodCall[] };
-  return body.methodResponses;
-}
+const jmap = (methodCalls: unknown[]) => jmapCall(BASE, AUTH, USING, methodCalls);
 
 /** Create one event whose `me` participant carries a status. */
 async function createEvent(): Promise<string> {

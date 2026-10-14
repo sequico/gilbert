@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { after, before, test } from "node:test";
-import { freePort } from "./testkit.js";
+import { freePort, jsonCall } from "./testkit.js";
 
 /**
  * The agent fleet's admin and member surfaces (ADR 0003), end to end against
@@ -82,26 +82,9 @@ const readingStub = createServer((req, res) => {
 const { EMPTY_METER } = await import("./agent/documents.js");
 
 const app = createApp();
-let cookie = "";
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-async function call(path: string, init: RequestInit = {}) {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
-  };
-}
+const call = jsonCall(app, HEADERS);
 
 /**
  * Stage the deployment's agent for one test (ADR 0003).
@@ -1073,9 +1056,8 @@ test("a member reads the group's standing instruction, and nobody else reads it"
   assert.equal(typeof instruction.updatedAt, "string");
 
   // A member's route answers GET and has no write path: the pen is elsewhere.
-  const attempted = await app.request(`/api/agent/group/${TEAM}`, {
+  const attempted = await call(`/api/agent/group/${TEAM}`, {
     method: "POST",
-    headers: { ...HEADERS, ...(cookie ? { cookie } : {}) },
     body: JSON.stringify({ text: "Rewrite me" }),
   });
   assert.ok(attempted.status >= 400, "the member route refuses anything but a read");

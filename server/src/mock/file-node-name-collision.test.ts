@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { freePort } from "../testkit.js";
+import { freePort, jmapCall, responseOf } from "../testkit.js";
 
 /**
  * A sibling's name, refused on both write paths.
@@ -27,29 +27,9 @@ const mock = await import("./index.js");
 const BASE = `http://127.0.0.1:${PORT}`;
 const ACCOUNT = "a1";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
-const HEADERS = { authorization: AUTH, "content-type": "application/json" };
+const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
 
-type MethodCall = [string, Record<string, unknown>, string];
-
-async function jmap(methodCalls: unknown[]): Promise<MethodCall[]> {
-  const res = await fetch(`${BASE}/jmap/`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-      methodCalls,
-    }),
-  });
-  assert.equal(res.status, 200);
-  const body = (await res.json()) as { methodResponses: MethodCall[] };
-  return body.methodResponses;
-}
-
-const responseOf = (responses: MethodCall[], id: string): MethodCall => {
-  const found = responses.find((r) => r[2] === id);
-  assert.ok(found, `${id} should answer`);
-  return found;
-};
+const jmap = (methodCalls: unknown[]) => jmapCall(BASE, AUTH, USING, methodCalls);
 
 /** Make a folder, and hand back its id. */
 async function mkdir(name: string): Promise<string> {

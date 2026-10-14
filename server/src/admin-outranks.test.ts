@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort } from "./testkit.js";
+import { freePort, jsonCallAs } from "./testkit.js";
 
 /**
  * An account that outranks the administrator acting on it (ADR 0001).
@@ -38,27 +38,7 @@ const { createApp } = await import("./app.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-async function call(
-  path: string,
-  cookie: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: Record<string, unknown> | null; cookie: string }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
-    cookie: setCookie ? setCookie.split(";")[0]! : cookie,
-  };
-}
+const call = jsonCallAs(app, HEADERS);
 
 let adminCookie = "";
 

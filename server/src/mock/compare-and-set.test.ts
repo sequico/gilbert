@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { freePort, type MethodCall, responseOf } from "../testkit.js";
+import { freePort, jmapCall, type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The mock's compare-and-set, its FileNode change log and its clock.
@@ -32,19 +32,9 @@ const GROUP_ACCOUNT = "a3";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
 const HEADERS = { authorization: AUTH, "content-type": "application/json" };
 
-async function jmap(methodCalls: unknown[], using?: string[]): Promise<MethodCall[]> {
-  const res = await fetch(`${BASE}/jmap/`, {
-    method: "POST",
-    headers: HEADERS,
-    body: JSON.stringify({
-      using: using ?? ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
-      methodCalls,
-    }),
-  });
-  assert.equal(res.status, 200);
-  const body = (await res.json()) as { methodResponses: MethodCall[] };
-  return body.methodResponses;
-}
+const MAIL = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+const jmap = (methodCalls: unknown[], using: string[] = MAIL) =>
+  jmapCall(BASE, AUTH, using, methodCalls);
 
 /** Every node of an account, so a refused write can be shown to have left none. */
 async function nodeNames(accountId: string): Promise<string[]> {

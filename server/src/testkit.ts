@@ -11,9 +11,9 @@ import { PDFDocument } from "pdf-lib";
  * them, so they live here once, and a suite imports the one it uses.
  *
  * What stays in a suite is what differs: the fake server it stands up (`fetch`
- * stubs, the mock's own answers) and its own `call` helper, whose signature its
- * routes decided. `postWith` and `loginWith` build their request on top of that
- * helper rather than replacing it.
+ * stubs, the mock's own answers) and, where its routes want a signature of their
+ * own, its `call` helper. Everything else — the `call` most suites share, a JMAP
+ * poster, `postWith` and `loginWith` built on top of `call` — is here.
  */
 
 /** A PDF of `pages` pages, none of which carries a text layer of its own. */
@@ -31,6 +31,27 @@ export function responseOf(responses: MethodCall[], callId: string): MethodCall 
   const found = responses.find((r) => r[2] === callId);
   assert.ok(found, `${callId} should answer`);
   return found;
+}
+
+/**
+ * One JMAP method call, posted at a mock's `/jmap/` with a Basic credential and
+ * the capabilities a suite speaks. A suite differs from another in those three
+ * alone, so it builds its own `jmap` out of this one.
+ */
+export async function jmapCall(
+  base: string,
+  authorization: string,
+  using: string[],
+  methodCalls: unknown[],
+): Promise<MethodCall[]> {
+  const res = await fetch(`${base}/jmap/`, {
+    method: "POST",
+    headers: { authorization, "content-type": "application/json" },
+    body: JSON.stringify({ using, methodCalls }),
+  });
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as { methodResponses: MethodCall[] };
+  return body.methodResponses;
 }
 
 /**
@@ -72,6 +93,72 @@ export async function waitForPort(base: string, authorization: string): Promise<
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error("the mock never came up");
+}
+
+/** The slice of a Hono app a suite's `call` drives. */
+type RequestApp = {
+  request(path: string, init?: RequestInit): Response | Promise<Response>;
+};
+
+/** A JSON route's answer: its status, and the body it parsed. */
+type JsonAnswer = { status: number; body: Record<string, unknown> | null };
+
+/** The one request every `call` helper below makes. */
+async function requestJson(
+  app: RequestApp,
+  headers: Record<string, string>,
+  path: string,
+  cookie: string,
+  init: RequestInit,
+): Promise<JsonAnswer & { cookie: string }> {
+  const res = await app.request(path, {
+    ...init,
+    headers: {
+      ...headers,
+      ...(init.headers as Record<string, string>),
+      ...(cookie ? { cookie } : {}),
+    },
+  });
+  const setCookie = res.headers.get("set-cookie");
+  const text = await res.text();
+  return {
+    status: res.status,
+    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
+    cookie: setCookie ? setCookie.split(";")[0]! : cookie,
+  };
+}
+
+/**
+ * A suite's JSON `call` against the app it built: it merges the suite's default
+ * headers, carries the session cookie a sign-in answered into every request
+ * after it, and hands back the parsed body.
+ */
+export function jsonCall(
+  app: RequestApp,
+  headers: Record<string, string>,
+): (path: string, init?: RequestInit) => Promise<JsonAnswer> {
+  let cookie = "";
+  return async (path, init = {}) => {
+    const answer = await requestJson(app, headers, path, cookie, init);
+    cookie = answer.cookie;
+    return { status: answer.status, body: answer.body };
+  };
+}
+
+/**
+ * A suite's JSON `call` when the session is the caller's to pass — the same
+ * request as `jsonCall`, but the cookie comes in as an argument, for a suite
+ * that drives more than one identity.
+ */
+export function jsonCallAs(
+  app: RequestApp,
+  headers: Record<string, string>,
+): (
+  path: string,
+  cookie: string,
+  init?: RequestInit,
+) => Promise<JsonAnswer & { cookie: string }> {
+  return (path, cookie, init = {}) => requestJson(app, headers, path, cookie, init);
 }
 
 /** A POST of one JSON body through a suite's own `call` helper. */

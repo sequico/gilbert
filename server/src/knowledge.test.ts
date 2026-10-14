@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Ctx } from "./appFolder.js";
-import { freePort, postWith } from "./testkit.js";
+import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
  * The knowledge base's Master-owned door (ADR 0024), end to end.
@@ -57,26 +57,9 @@ const ctx: Ctx = {
 };
 
 const app = createApp();
-let cookie = "";
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-async function call(path: string, init: RequestInit = {}) {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
-  };
-}
+const call = jsonCall(app, HEADERS);
 
 const post = postWith(call);
 

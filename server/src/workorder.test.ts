@@ -6,7 +6,7 @@ import {
   workorderClosedPath,
   workorderFileName,
 } from "./shared/workorder.js";
-import { freePort, postWith } from "./testkit.js";
+import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
  * Workorders (ADR 0028), end to end against the mock.
@@ -71,7 +71,6 @@ const masterGroups = (await groupAccountsDetailed(masterCtx)).groups;
 /** One group the Master holds: its name and account id, for a section's assignment. */
 const firstGroup = [...masterGroups.entries()][0];
 
-let cookie = "";
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
 /** The process a template carries: a variant, a plain, a repeated, a final section. */
@@ -195,23 +194,7 @@ async function resolveAllSteps(uid: string): Promise<void> {
   }
 }
 
-async function call(path: string, init: RequestInit = {}) {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
-  };
-}
+const call = jsonCall(app, HEADERS);
 
 const post = postWith(call);
 

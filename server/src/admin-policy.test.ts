@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { PublishJob, PublishOutcome } from "./app.js";
-import { freePort } from "./testkit.js";
+import { freePort, loginWith } from "./testkit.js";
 
 /**
  * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
@@ -103,15 +103,7 @@ async function call(
   };
 }
 
-async function login(
-  username: string,
-  password: string,
-): Promise<{ status: number; body: Body | null; cookie: string }> {
-  return call("/api/auth/login", "", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
+const login = loginWith(call);
 
 let adminCookie = "";
 
