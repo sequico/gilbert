@@ -273,6 +273,10 @@ async function findRoot(
  * a refusal it throws — a missing step, a reference that is not one — leaves
  * the function uncaught and reaches the caller unchanged. When the race is lost
  * twice the surface's own code is thrown, never the raw JMAP `stateMismatch`.
+ *
+ * What it answers is the root the write left behind: the caller that has to act
+ * on the result — the gates pass a check runs next — would otherwise read one
+ * document twice more in the same request.
  */
 async function writeRootUnderCas(
   ctx: Ctx,
@@ -297,7 +301,7 @@ async function writeRootUnderCas(
       await writeAppFileIn(ctx, accountId, found.folderId, workorderFileName(uid), next, {
         ifInState: token,
       });
-      return found;
+      return { ...found, doc: next };
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
     }
@@ -622,6 +626,7 @@ function checklistChoices(
 async function summaryOf(
   reach: WorkorderReach,
   root: WorkorderDoc,
+  readParts?: Map<string, WorkorderFound | null>,
 ): Promise<WorkorderSummary> {
   // An administrator sees every part the Master holds; a member sees only the
   // parts of their own groups. Either way the account is the Master's to read.
@@ -661,7 +666,12 @@ async function summaryOf(
   for (const name of visible) {
     const groupAccount = reach.masterGroups.get(name);
     if (!groupAccount) continue;
-    const part = await findActive(reach.ctx, groupAccount, root.uid);
+    // A part this request has already read -- the gates pass a check runs reads
+    // them all -- is not read a second time. A group the map never looked at is
+    // read here, which is the whole of the common case.
+    const part = readParts?.has(groupAccount)
+      ? (readParts.get(groupAccount) ?? null)
+      : await findActive(reach.ctx, groupAccount, root.uid);
     if (!part) continue;
     const info = await templateDef(reach, part.doc.checklist.template);
     entries.push({
@@ -787,11 +797,13 @@ export async function readWorkorder(
  *
  * The write path resolves the reach once and reads the summary back through
  * this, so a check does not open a second Master session and a second probe
- * pass over the caller's groups just to answer with what it already holds.
+ * pass over the caller's groups just to answer with what it already holds. The
+ * parts that same request already read travel in with it for the same reason.
  */
 async function readWorkorderWithReach(
   reach: WorkorderReach,
   uid: string,
+  readParts?: Map<string, WorkorderFound | null>,
 ): Promise<WorkorderSummary | null> {
   const id = (uid ?? "").trim();
   if (!id) return null;
@@ -800,7 +812,7 @@ async function readWorkorderWithReach(
   // Visibility first, the same as the list: a workorder the caller may not see
   // is not composed at all.
   if (!(await maySee(reach, root.doc))) return null;
-  return summaryOf(reach, root.doc);
+  return summaryOf(reach, root.doc, readParts);
 }
 
 /* ------------------------------------------------------------------ */
@@ -980,10 +992,10 @@ async function applyStep(input: {
   state: WorkorderStepState;
   note: string;
   by: string;
-}): Promise<void> {
+}): Promise<WorkorderDoc> {
   const { ctx, accountId, uid, path, state, note, by } = input;
   const at = new Date().toISOString();
-  await writeRootUnderCas(
+  const written = await writeRootUnderCas(
     ctx,
     accountId,
     uid,
@@ -993,6 +1005,7 @@ async function applyStep(input: {
         "The check could not be saved because another write kept winning the race.",
     },
     (found) => {
+      refuseIfTerminal(found.doc);
       if (!stepOf(found.doc.checklist, path))
         throw new WorkorderAdminError(
           "step_not_found",
@@ -1011,19 +1024,42 @@ async function applyStep(input: {
       };
     },
   );
+  return written.doc;
 }
 
 /**
- * Refuse checking a step once the workorder is terminal.
+ * Refuse checking a step once the workorder is terminal, and answer the root it
+ * read.
  *
  * A closed workorder is kept for ever and its checklist is the record of the
  * work, not a document that keeps moving. The state lives on the Master's
  * root — a group's part does not carry one — so the check reads the root in
  * both cases, from the account the caller's write will reach it through.
+ *
+ * The document travels back because the gates pass that follows needs it: a
+ * group's check writes one of its parts and leaves the root where it was, so
+ * the same read answers both.
  */
-async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise<void> {
+async function refuseTerminal(
+  ctx: Ctx,
+  accountId: string,
+  uid: string,
+): Promise<WorkorderDoc | null> {
   const root = await findRoot(ctx, accountId, uid);
-  if (root && isTerminalState(root.doc.state ?? "running"))
+  if (root) refuseIfTerminal(root.doc);
+  return root?.doc ?? null;
+}
+
+/**
+ * The rule itself, on a document the caller already holds.
+ *
+ * A root carries the state and a group's part does not, so the write that
+ * targets the root has the answer in the compare-and-set it is already running
+ * and needs no read of its own — while a part's write cannot see it at all and
+ * is refused from the root `refuseTerminal` read for it.
+ */
+function refuseIfTerminal(doc: WorkorderDoc): void {
+  if (isTerminalState(doc.state ?? "running"))
     throw new WorkorderAdminError(
       "workorder_closed",
       "That workorder is closed, so its checklist no longer changes.",
@@ -1044,11 +1080,17 @@ async function refuseTerminal(ctx: Ctx, accountId: string, uid: string): Promise
  * and the resolved template — so the reconcile a write runs does not open a
  * second Master session or resolve the template a second time.
  */
-async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void> {
-  const root = await findRoot(reach.ctx, reach.accountId, uid);
-  if (!root || isTerminalState(root.doc.state ?? "running")) return;
-  const def = (await templateDef(reach, root.doc.checklist.template)).checklist;
-  if (!def) return;
+async function reconcileGates(
+  reach: WorkorderReach,
+  uid: string,
+  root: WorkorderDoc | null,
+): Promise<Map<string, WorkorderFound | null>> {
+  // The parts this pass read, so the summary composed for the same request does
+  // not read one per group again: the caller gets them back either way.
+  const parts = new Map<string, WorkorderFound | null>();
+  if (!root || isTerminalState(root.state ?? "running")) return parts;
+  const def = (await templateDef(reach, root.checklist.template)).checklist;
+  if (!def) return parts;
   /*
    * The same gate the reader sees, decided through `gateOpen` so the latch
    * records exactly what `groupsFor` will serve: a prerequisite the resolver
@@ -1057,18 +1099,19 @@ async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void>
    */
   const gates: WorkorderGates = {
     completion: new Map<string, boolean>(),
-    latched: new Set(root.doc.gates ?? []),
+    latched: new Set(root.gates ?? []),
     labels: new Map<string, string>(),
     known: new Set(def.sections.map((section) => section.key)),
   };
   const gated = def.sections.filter((section) => (section.requires?.length ?? 0) > 0);
   const pending = gated.filter((section) => !gates.latched.has(section.key));
-  if (!pending.length) return;
+  if (!pending.length) return parts;
 
-  for (const [key, value] of sectionCompletion(def, root.doc.checklist, null))
+  for (const [key, value] of sectionCompletion(def, root.checklist, null))
     gates.completion.set(key, value);
   for (const groupAccount of reach.masterGroups.values()) {
     const part = await findActive(reach.ctx, groupAccount, uid);
+    parts.set(groupAccount, part);
     if (!part) continue;
     for (const [key, value] of sectionCompletion(def, part.doc.checklist, groupAccount))
       gates.completion.set(key, value);
@@ -1077,7 +1120,7 @@ async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void>
   const opened = pending
     .filter((section) => gateOpen(section, gates))
     .map((section) => section.key);
-  if (!opened.length) return;
+  if (!opened.length) return parts;
 
   await writeRootUnderCas(
     reach.ctx,
@@ -1094,6 +1137,7 @@ async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void>
       return { ...found.doc, gates: [...(found.doc.gates ?? []), ...add] };
     },
   );
+  return parts;
 }
 
 /**
@@ -1104,15 +1148,23 @@ async function reconcileGates(reach: WorkorderReach, uid: string): Promise<void>
  * read, so the section is not hidden while they stay complete. A failed record
  * is warned about rather than thrown: it only matters if a prerequisite is
  * reopened before the next write reconciles it.
+ *
+ * It answers the parts it read, for the summary the same request composes: an
+ * empty map when there was nothing to reconcile, which leaves that read whole.
  */
-async function recordOpenedGates(reach: WorkorderReach, uid: string): Promise<void> {
+async function recordOpenedGates(
+  reach: WorkorderReach,
+  uid: string,
+  root: WorkorderDoc | null,
+): Promise<Map<string, WorkorderFound | null>> {
   try {
-    await reconcileGates(reach, uid);
+    return await reconcileGates(reach, uid, root);
   } catch (err) {
     console.warn(
       `[gilbert] workorder ${uid}: opened gates were not recorded:`,
       (err as Error).message,
     );
+    return new Map();
   }
 }
 
@@ -1143,6 +1195,10 @@ export async function checkStep(
   // reconcile and the read-back all answer from it, so a check opens the
   // Master's session, probes the groups and resolves the template once.
   const reach = await workorderReach(session);
+  // The parts a gates pass read, so the summary the same request composes does
+  // not read one per group a second time (empty when nothing was reconciled,
+  // which leaves that read whole).
+  let readParts = new Map<string, WorkorderFound | null>();
   if (input?.scope === "global") {
     if (!reach.admin)
       throw new WorkorderAdminError(
@@ -1150,8 +1206,10 @@ export async function checkStep(
         "Only an installation administrator checks the global checklist.",
         403,
       );
-    await refuseTerminal(reach.ctx, reach.accountId, uid);
-    await applyStep({
+    // The document the gates pass reads is the one this write leaves behind:
+    // the step is on the root, so its read is already in hand under the
+    // compare-and-set's own.
+    const written = await applyStep({
       ctx: reach.ctx,
       accountId: reach.accountId,
       uid,
@@ -1160,7 +1218,7 @@ export async function checkStep(
       note,
       by: session.username,
     });
-    await recordOpenedGates(reach, uid);
+    readParts = await recordOpenedGates(reach, uid, written);
   } else if (input?.scope === "group") {
     const group = (input.group ?? "").trim();
     if (!group)
@@ -1176,10 +1234,11 @@ export async function checkStep(
         `You are not a member of ${group}, so its checklist is not yours to check.`,
         403,
       );
-    // The caller is a member; the Master must hold the group too, or there is
-    // no part to write and the surface names the grant that is missing. The
-    // root's state is read from the Master's own account before that.
-    await refuseTerminal(reach.ctx, reach.accountId, uid);
+    // The root's state is read from the Master's own account before that: a
+    // part carries no state of its own, so the rule -- and the document the
+    // gates pass reads, which the part write leaves where it was -- both come
+    // from this one read.
+    const root = await refuseTerminal(reach.ctx, reach.accountId, uid);
     const groupAccount = reach.masterGroups.get(group.toLowerCase());
     if (!groupAccount)
       throw new WorkorderAdminError(
@@ -1196,14 +1255,14 @@ export async function checkStep(
       note,
       by: session.username,
     });
-    await recordOpenedGates(reach, uid);
+    readParts = await recordOpenedGates(reach, uid, root);
   } else
     throw new WorkorderAdminError(
       "bad_request",
       'The scope must be "global" or "group".',
     );
 
-  const summary = await readWorkorderWithReach(reach, uid);
+  const summary = await readWorkorderWithReach(reach, uid, readParts);
   if (!summary)
     throw new WorkorderAdminError(
       "workorder_not_found",
