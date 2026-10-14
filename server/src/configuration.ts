@@ -16,6 +16,8 @@
  */
 
 /** The environment a boot reads: the process's, unless a caller hands over its own. */
+import { GILBERT_SOURCE_URL } from "./shared/source.js";
+
 export type InstallationEnvironment = Record<string, string | undefined>;
 
 /**
@@ -386,7 +388,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * source, not the one it was forked from -- so anyone deploying a patched
      * Gilbert should point this at their own tree.
      */
-    sourceUrl: readEnv(environment, "SOURCE_URL", "https://github.com/sequico/gilbert"),
+    sourceUrl: readEnv(environment, "SOURCE_URL", GILBERT_SOURCE_URL),
     host: readEnv(environment, "HOST", defaults.server.host),
     port: readInt(environment, "PORT", defaults.server.port),
     /**

@@ -1,8 +1,10 @@
 /**
  * Where to point someone who wants this instance's source.
  *
- * The AGPL asks whoever runs a modified version to offer *that* version's
- * source. The server says where its own lives, via SOURCE_URL; this is only the
- * fallback for when it has not been asked yet, or has nothing to say.
+ * The server says where its own lives, via the session's `gilbert.sourceUrl`;
+ * this is only the fallback for the moment before it has been asked — the
+ * sign-in page, which has no session. The address itself is the server's to
+ * answer, so it lives in `@gilbert/shared/source` and not here: a deployment
+ * running modified code must not be contradicted by a copy the browser carries.
  */
-export const DEFAULT_SOURCE_URL = "https://github.com/sequico/gilbert";
+export { GILBERT_SOURCE_URL as DEFAULT_SOURCE_URL } from "@gilbert/shared/source";
