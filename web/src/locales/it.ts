@@ -3372,6 +3372,10 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "«{path}» rientra in una cartella in cui l'unione è già entrata, quindi non ha una fine da percorrere.",
     Unstar: "Togli la stella",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Non è stato possibile leggere quali workorder usano questa: {error}. Qui non è scritto quali, e nessuno dovrebbe usarla.",
+    "Looking for workorders that use this…": "Ricerca dei workorder che usano questa…",
+    "Not used by any workorder yet.": "Non è ancora usata da nessun workorder.",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

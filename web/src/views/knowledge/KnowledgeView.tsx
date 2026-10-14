@@ -67,8 +67,16 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
    * checklist template. Each names the page it came from (ADR 0028), and the
    * reverse — "what uses this template" — is the reference made visible from the
    * KB side.
+   *
+   * `null` until the read answers, and `null` again when it fails: the list of
+   * workorders using a template is a fact about the installation, so a failure
+   * to read it is not the same answer as reading it and finding none. An empty
+   * list says "no workorder uses this yet"; `null` with a message says "this
+   * could not be read", which is the one a reader editing a template needs to
+   * know before retiring a page somebody is still instantiating.
    */
-  const [usedBy, setUsedBy] = useState<Array<{ uid: string; name: string }>>([]);
+  const [usedBy, setUsedBy] = useState<Array<{ uid: string; name: string }> | null>(null);
+  const [usedError, setUsedError] = useState<string | null>(null);
   const isTemplate = article?.summary.template === "checklist";
   const templateId = isTemplate ? article.summary.id : null;
   const templateAccount = isTemplate ? article.accountId : null;
@@ -79,6 +87,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     }
     let alive = true;
     void (async () => {
+      setUsedError(null);
       try {
         const { useWorkorders } = await import("@/store/workorder");
         await useWorkorders.getState().load();
@@ -95,8 +104,8 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             )
             .map((w) => ({ uid: w.uid, name: w.name })),
         );
-      } catch {
-        if (alive) setUsedBy([]);
+      } catch (err) {
+        if (alive) setUsedError((err as Error).message);
       }
     })();
     return () => {
@@ -369,9 +378,18 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
       {isTemplate && (
         <div className="row" style={{ gap: 6, flexWrap: "wrap", padding: "8px 16px 0" }}>
           <span className="hint">
-            {usedBy.length ? t("Used by") : t("Not used by any workorder yet.")}
+            {usedError
+              ? t(
+                  "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.",
+                  { error: usedError },
+                )
+              : usedBy === null
+                ? t("Looking for workorders that use this…")
+                : usedBy.length
+                  ? t("Used by")
+                  : t("Not used by any workorder yet.")}
           </span>
-          {usedBy.map((u) => (
+          {usedBy?.map((u) => (
             <button
               key={u.uid}
               type="button"

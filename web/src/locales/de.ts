@@ -2472,6 +2472,11 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "„{path}“ führt in einen Ordner zurück, den die Zusammenführung bereits betreten hat, also gibt es kein Ende zum Durchlaufen.",
     Unstar: "Markierung aufheben",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Welche Workorders diese Vorlage verwenden, konnte nicht gelesen werden: {error}. Hier steht nicht, welche – und keine dürfen es.",
+    "Looking for workorders that use this…":
+      "Suche nach Workorders, die diese verwenden …",
+    "Not used by any workorder yet.": "Noch von keinem Workorder verwendet.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

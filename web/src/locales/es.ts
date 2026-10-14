@@ -2437,6 +2437,10 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "«{path}» vuelve a una carpeta en la que la fusión ya ha entrado, así que no tiene un final que recorrer.",
     Unstar: "Dejar de destacar",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "No se ha podido leer qué workorders usan esta: {error}. Aquí no se dice cuáles, y ninguna debe usarla.",
+    "Looking for workorders that use this…": "Buscando workorders que usan esta…",
+    "Not used by any workorder yet.": "Todavía no la usa ningún workorder.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -2411,6 +2411,10 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "«{path}» возвращается в папку, в которую объединение уже вошло, поэтому у него нет конца, до которого можно дойти.",
     Unstar: "Снять отметку",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Не удалось прочитать, какие workorder используют эту страницу: {error}. Здесь не сказано какие, и ни одна из них не должна её использовать.",
+    "Looking for workorders that use this…": "Ищем workorder, использующие эту страницу…",
+    "Not used by any workorder yet.": "Пока не используется ни одним workorder.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -2332,6 +2332,10 @@ export const catalog: Catalog = {
       "“{path}” sizin değiştirebileceğiniz bir şey değil.",
     "•••": "•••",
     "＋ New folder…": "＋ Yeni klasör…",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Bu sayfayı hangi iş emirlerinin kullandığı okunamadı: {error}. Burada hangileri olduğu yazmıyor ve hiçbiri kullanmamalı.",
+    "Looking for workorders that use this…": "Bu sayfayı kullanan iş emirleri aranıyor…",
+    "Not used by any workorder yet.": "Henüz hiçbir iş emri tarafından kullanılmıyor.",
   },
   plurals: {
     "({n} deleted first)": {

@@ -2412,6 +2412,11 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "「{path}」は統合がすでに入ったフォルダーへ折り返すため、たどり着く終わりがありません。",
     Unstar: "スターを外す",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "このテンプレートを使うワークオーダーの一覧は読み取れませんでした: {error}。どのワークオーダーかは表示されておらず、どれも使うべきではありません。",
+    "Looking for workorders that use this…":
+      "このテンプレートを使うワークオーダーを探しています…",
+    "Not used by any workorder yet.": "まだどのワークオーダーも使っていません。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

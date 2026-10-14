@@ -2406,6 +2406,11 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "«{path}» повертається в теку, до якої об'єднання вже увійшло, тому в нього немає кінця, до якого можна дійти.",
     Unstar: "Зняти позначку",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Не вдалося прочитати, які workorder використовують цю сторінку: {error}. Тут не зазначено які, і жоден не повинен її використовувати.",
+    "Looking for workorders that use this…":
+      "Шукаємо workorder, які використовують цю сторінку…",
+    "Not used by any workorder yet.": "Поки що не використовується жодним workorder.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

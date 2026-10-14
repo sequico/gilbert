@@ -2414,6 +2414,10 @@ export const catalog: Catalog = {
     "“{path}” folds back into a folder the merge has already entered, so it has no end to walk to.":
       "‘{path}’ valt terug in een map waar de samenvoeging al in is gegaan, dus er is geen einde om te doorlopen.",
     Unstar: "Ster verwijderen",
+    "Which workorders use this could not be read: {error}. Nothing here says which, and none of them may.":
+      "Kan niet lezen welke werkorders dit gebruiken: {error}. Er staat hier niet welke, en geen ervan zou dit moeten gebruiken.",
+    "Looking for workorders that use this…": "Zoeken naar werkorders die dit gebruiken…",
+    "Not used by any workorder yet.": "Nog door geen enkel werkorder gebruikt.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
