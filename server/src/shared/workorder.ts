@@ -21,7 +21,7 @@
  * client and the server cannot drift.
  */
 
-import { isRecord } from "./json.js";
+import { isRecord, isStringMap } from "./json.js";
 import { type KnowledgeChecklist, resolveChecklist } from "./knowledge.js";
 
 export const WORKORDER_FOLDER = "workorders";
@@ -220,10 +220,6 @@ function isWorkorderItemMap(x: unknown): x is Record<string, WorkorderItem[]> {
     isRecord(x) &&
     Object.values(x).every((list) => Array.isArray(list) && list.every(isWorkorderItem))
   );
-}
-
-function isStringMap(x: unknown): x is Record<string, string> {
-  return isRecord(x) && Object.values(x).every((v) => typeof v === "string");
 }
 
 export function isWorkorderChecklist(x: unknown): x is WorkorderChecklist {

@@ -112,6 +112,26 @@ export function filesAccountId(ctx: Ctx): string {
 }
 
 /**
+ * A node's own last-write stamp: `modified`, falling back to `created`.
+ *
+ * The pair the Files view sorts a node by, and the pair every registry here
+ * cuts its newest-first page on — the workorder roots, the knowledge articles
+ * and their revisions. Each had its own copy of the same two lines, in the
+ * knowledge admin written as `node.modified ?? node.created` and in the
+ * workorder admin as two `typeof` checks, which agree today and would not have
+ * to: a node whose `modified` is present but not a string is a page this build
+ * has to place anyway, and the two readers placed it differently.
+ *
+ * A node carrying neither stamp is a node the server has not stamped; it sorts
+ * as the empty string, last, rather than throwing the page away.
+ */
+export function nodeStamp(node: FileNodeLike): string {
+  if (typeof node.modified === "string") return node.modified;
+  if (typeof node.created === "string") return node.created;
+  return "";
+}
+
+/**
  * One level of the Files tree: the top level, or the children of a folder.
  *
  * Read whole: the level is paged (`position`/`limit`) until a page comes back

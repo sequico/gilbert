@@ -828,7 +828,7 @@ async function runOne(
         ok: true,
         result: await writeKnowledgeDraft(
           ctx,
-          scope === "company" ? companyKnowledgeAccount(ctx) : accountId,
+          scope === "company" ? companyAccountOf(ctx) : accountId,
           action,
           opts,
         ),
@@ -845,7 +845,7 @@ async function runOne(
         ok: true,
         result: await writeKnowledgeDraft(
           ctx,
-          companyKnowledgeAccount(ctx),
+          companyAccountOf(ctx),
           action,
           opts,
         ),
@@ -1069,13 +1069,21 @@ async function runOne(
 const PDF_TYPE = "application/pdf";
 
 /**
- * The installation's own account: the Master's, which the agent's session holds
- * as its personal one.
+ * The account a company page is written into, read off the run's own session.
  *
- * A run whose session cannot name it must not write a company page into its
- * group instead, so this refuses rather than falling back (ADR 0024 Q15).
+ * The agent's session is already the Master's — it acts as the installation, not
+ * as a group — so this asks the account-routing rule the admin door asks
+ * (`filesAccountId` then the session's own identity account, in that order: the
+ * knowledge base lives in Files) and refuses when neither answers. It is not
+ * `companyKnowledgeAccount` in `knowledgeAdmin.ts`, which is a different
+ * question: that one takes an administrator's session and *opens* the Master's,
+ * where this one is already inside it.
+ *
+ * A run whose session cannot name the account must not write a company page
+ * into its group instead, so this refuses rather than falling back (ADR 0024
+ * Q15).
  */
-function companyKnowledgeAccount(ctx: Ctx): string {
+function companyAccountOf(ctx: Ctx): string {
   const account = filesAccountId(ctx) || ownIdentityAccount(ctx);
   if (!account)
     throw new Error(

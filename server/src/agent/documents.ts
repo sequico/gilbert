@@ -28,7 +28,7 @@ import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
 import { countOrNull } from "../shared/counts.js";
 import { AGENT_PAGES_DEFAULT } from "../shared/installation.js";
-import { isRecord } from "../shared/json.js";
+import { isRecord, isStringMap } from "../shared/json.js";
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                              */
@@ -1680,14 +1680,6 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
     return false;
   if (!isStringMap(c.states)) return false;
   return c.statesAt === undefined || isStringMap(c.statesAt);
-}
-
-/** Whether a value is a map of keys to strings: the claim's states and instants. */
-function isStringMap(x: unknown): x is Record<string, string> {
-  if (!isRecord(x)) return false;
-  return Object.values(x as Record<string, unknown>).every(
-    (value) => typeof value === "string",
-  );
 }
 
 /** The stream claim: exactly one agent holds the agent's EventSource (ADR 0003). */

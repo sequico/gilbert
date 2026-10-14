@@ -34,6 +34,7 @@ import {
   type FileNodeLike,
   fileChildren,
   findFolderPath,
+  nodeStamp,
   pathSegments,
   readAppJsonAt,
   readAppJsonForWrite,
@@ -152,7 +153,9 @@ export async function ensureKnowledge(ctx: Ctx, accountId: string): Promise<void
  * The company tier: the Master's own account and its KB folder.
  *
  * The Master's session comes from the shared admin-session door, with the KB's
- * own sentence and error (`adminSession.ts`).
+ * own sentence and error (`adminSession.ts`). The agent reaches the same account
+ * from the other side — already inside the Master's session — in
+ * `companyAccountOf` (`agent/actions.ts`).
  */
 export async function companyKnowledgeAccount(
   admin: LiveSession,
@@ -620,19 +623,6 @@ async function readRevisions(
   }
   out.sort(compareRevisionsNewestFirst);
   return out;
-}
-
-/**
- * The stamp a revision is paged by: its last write, falling back to its creation.
- *
- * The history the reader sees is ordered by when a revision was approved, and a
- * revision rescheduled in place keeps its creation stamp while its approval
- * moves; paging on creation alone would drop it out of the page the reader is
- * looking at (`nodeStamp` in `workorderAdmin.ts` chooses a page the same way).
- */
-function nodeStamp(node: FileNodeLike): string {
-  const value = node.modified ?? node.created;
-  return typeof value === "string" ? value : "";
 }
 
 /** The document of one revision, by id, wherever the article's history is short. */

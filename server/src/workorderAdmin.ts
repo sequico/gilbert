@@ -33,6 +33,7 @@ import {
   fileChildren,
   findAppFileAt,
   findFolderPath,
+  nodeStamp,
   readAppJsonAt,
   updateAppNode,
   writeAppFileIn,
@@ -329,13 +330,6 @@ export const WORKORDER_LIST_MAX = 200;
  * back to `created`.
  */
 const ROOT_NODE_PROPS = [...FILE_PROPS, "created", "modified"];
-
-/** A node's own last-write stamp, the newest-first key the page is chosen by. */
-function nodeStamp(node: FileNodeLike): string {
-  if (typeof node.modified === "string") return node.modified;
-  if (typeof node.created === "string") return node.created;
-  return "";
-}
 
 /**
  * The newest `WORKORDER_LIST_MAX` roots, and only their documents.

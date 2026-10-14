@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isRecord } from "./json.js";
+import { isRecord, isStringArray, isStringMap } from "./json.js";
 
 test("an object is a record", () => {
   assert.equal(isRecord({}), true);
@@ -23,4 +23,28 @@ test("a scalar, null or undefined is not", () => {
   assert.equal(isRecord(""), false);
   assert.equal(isRecord("{}"), false);
   assert.equal(isRecord(true), false);
+});
+
+test("a string map is a record whose values are all strings", () => {
+  // The shape behind the `{ by, at }` stamps, the agent claim's `states`, and a
+  // workorder checklist's `variants` — three documents that two readers used to
+  // accept differently.
+  assert.equal(isStringMap({}), true, "a document with nothing stamped yet");
+  assert.equal(isStringMap({ a: "", b: "x" }), true);
+  assert.equal(isStringMap({ a: 1 }), false);
+  assert.equal(isStringMap({ a: null }), false);
+  assert.equal(isStringMap({ a: ["x"] }), false);
+  assert.equal(isStringMap({ a: { b: "x" } }), false, "a nested object is not a string");
+  assert.equal(isStringMap([]), false, "an array is not a map");
+  assert.equal(isStringMap(null), false);
+  assert.equal(isStringMap("x"), false);
+});
+
+test("a string array is a list whose entries are all strings", () => {
+  assert.equal(isStringArray([]), true);
+  assert.equal(isStringArray(["a", "b"]), true);
+  assert.equal(isStringArray(["a", 1]), false);
+  assert.equal(isStringArray([["a"]]), false);
+  assert.equal(isStringArray({ 0: "a" }), false, "a record is not a list");
+  assert.equal(isStringArray(null), false);
 });

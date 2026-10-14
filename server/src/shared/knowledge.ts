@@ -23,7 +23,7 @@
  * `undefined` on one.
  */
 
-import { isRecord } from "./json.js";
+import { isRecord, isStringArray } from "./json.js";
 
 /** The folder under the app folder that holds a tier's articles. */
 export const KNOWLEDGE_FOLDER = "knowledge";
@@ -339,7 +339,7 @@ function isTimes(x: unknown): x is KnowledgeTimes {
 }
 
 function isTags(x: unknown): x is string[] {
-  return Array.isArray(x) && x.every((t) => typeof t === "string");
+  return isStringArray(x);
 }
 
 export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
