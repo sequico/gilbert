@@ -104,7 +104,11 @@ export function SaveToFilesDialog({
             accountId: destination,
             filter: folder ? { parentId: folder } : { isTopLevel: true },
             sort: [{ property: "name", isAscending: true }],
-            limit: 1000,
+            // One page of what the server will resolve in one `/get`: asking
+            // for more is refused whole, and the picker would offer nowhere at
+            // all. A folder past this page is not offered here -- the Files
+            // view is where the whole level is read.
+            limit: client.maxObjectsInGet,
             properties: fileNodeProps(),
           }),
         );

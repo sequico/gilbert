@@ -70,7 +70,7 @@ export interface FilesSort {
   desc: boolean;
 }
 
-/** How a folder nobody has ordered yet is drawn: the order the server answers in. */
+/** How a folder nobody has ordered yet is drawn: folders first, then by name. */
 export const DEFAULT_FILES_SORT: FilesSort = { key: "name", desc: false };
 
 const SORT_KEYS: FilesSortKey[] = ["name", "size", "modified"];

@@ -20,7 +20,8 @@ import {
   planMerge,
 } from "@/lib/folderMerge";
 import { t as translate } from "@/lib/i18n";
-import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
+import { DEFAULT_FILES_SORT, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
+import { sortFiles } from "@/lib/fileSort";
 import { useSession } from "./session";
 
 interface SharedAccount {
@@ -458,14 +459,26 @@ const levelKey = (parentId: Id | null): string => parentId ?? "root";
 /**
  * How many nodes one read of a level or of the account will ask for.
  *
- * The ceiling the module uses everywhere else (`loadChildren`, `loadTree`), and
- * it is a *ceiling*, not a promise: a read that comes back holding exactly this
- * many may have been cut short. What that costs a walk is a folder it cannot
- * see, and a folder is recovered by the create the server refuses -- so the
- * ceiling never turns into a wrong answer, only into a request that was not
- * needed (see `uploadPlan`).
+ * It is the page size of the reads that page (`readChildren`) and the ceiling
+ * of the ones that do not (`readLevels`, `loadTree`). As a ceiling it is not a
+ * promise: a read that comes back holding exactly this many may have been cut
+ * short. What that costs a walk is a folder it cannot see, and a folder is
+ * recovered by the create the server refuses -- so the ceiling never turns into
+ * a wrong answer, only into a request that was not needed (see `uploadPlan`).
  */
 export const LEVEL_LIMIT = 1000;
+
+/**
+ * The page this session may actually ask for.
+ *
+ * A listing asks for ids and then asks for those objects in the same request,
+ * and a page the server cannot resolve is refused whole rather than cut short
+ * (`maxObjectsInGet`, 500 by default). So the module's own ceiling is narrowed
+ * to the server's, and the readers that page compare their pages against this
+ * rather than against `LEVEL_LIMIT` -- a pager measuring short pages against a
+ * size it never sent would stop after the first one.
+ */
+const pageSize = (): number => Math.min(LEVEL_LIMIT, client.maxObjectsInGet);
 
 /**
  * Which nodes a level read looks at.
@@ -501,7 +514,7 @@ async function readLevels(
     accountId,
     scope.kind === "level" ? scope.parentId : null,
     ["id", "name", "nodeType", "parentId"],
-    { limit: LEVEL_LIMIT, scope: scope.kind === "account" ? "account" : "level" },
+    { limit: pageSize(), scope: scope.kind === "account" ? "account" : "level" },
   );
   const levels = new Map<string, Map<string, SiblingNode>>();
   const key = scope.kind === "level" ? levelKey(scope.parentId) : null;
@@ -646,9 +659,10 @@ async function uploadOne(
  *
  * `readLevels` above answers what a walk over names needs and stops at one
  * page; this answers the nodes themselves and pages until the level is in hand,
- * which is what a merge decides from: it has to know *every* name of a level
- * before it may move anything into it, and a page of a larger level would
- * silently plan half a merge.
+ * for both callers that need all of it: a merge, which has to know *every* name
+ * of a level before it may move anything into it and would otherwise plan half
+ * of one, and the listing, which would otherwise draw a page and leave the tail
+ * of the alphabet unreachable.
  *
  * Three ways out besides a stopped run, and the third is the point: a page
  * shorter than the ceiling is the last one, a page count that has reached
@@ -668,6 +682,7 @@ async function readChildren(
   signal?: AbortSignal,
 ): Promise<FileNode[]> {
   const out: FileNode[] = [];
+  const limit = pageSize();
   let seenFirst: Id | undefined;
   for (let position = 0; ; ) {
     signal?.throwIfAborted();
@@ -675,7 +690,7 @@ async function readChildren(
       accountId,
       parentId,
       fileNodeProps(),
-      { position, limit: LEVEL_LIMIT },
+      { position, limit },
     );
     signal?.throwIfAborted();
     if (!list.length) break;
@@ -688,7 +703,7 @@ async function readChildren(
     seenFirst = list[0]!.id;
     out.push(...list);
     position += list.length;
-    if (list.length < LEVEL_LIMIT) break;
+    if (list.length < limit) break;
     if (total !== undefined && position >= total) break;
   }
   return out;
@@ -1033,7 +1048,7 @@ export const useFiles = create<FilesState>((set, get) => ({
           accountId,
           filter: { nodeType: "directory" },
           sort: [{ property: "name", isAscending: true }],
-          limit: LEVEL_LIMIT,
+          limit: pageSize(),
           properties: fileNodeProps(),
         }),
       );
@@ -1059,25 +1074,18 @@ export const useFiles = create<FilesState>((set, get) => ({
     childrenLoads += 1;
     set({ loading: true });
     try {
-      const filter = parentId ? { parentId } : { isTopLevel: true };
-      const res = await client.chain(
-        queryThenGet({
-          query: "FileNode/query",
-          get: "FileNode/get",
-          accountId,
-          filter,
-          sort: [
-            { property: "nodeType", isAscending: false },
-            { property: "name", isAscending: true },
-          ],
-          limit: LEVEL_LIMIT,
-          properties: fileNodeProps(),
-        }),
+      /*
+       * A level larger than one page is read whole: a single page would show
+       * the first rows and silently drop the rest, leaving the tail of the
+       * folder unreachable (`readChildren` pages it, and stops when a page
+       * comes back short). The read carries no sort any more, so the stored
+       * order -- which the file picker and the move dialog draw directly -- is
+       * the one the Files view itself uses.
+       */
+      const listed = sortFiles(
+        withoutAppFolder(await readChildren(accountId, parentId)),
+        DEFAULT_FILES_SORT,
       );
-      const q = res.get("q")?.[0] as unknown as QueryResponse;
-      const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
-      const listed = withoutAppFolder(g.list);
-      const keep = new Set(listed.map((n) => n.id));
       childrenLoads -= 1;
       set((s) => {
         const nodes = { ...s.nodes };
@@ -1086,7 +1094,7 @@ export const useFiles = create<FilesState>((set, get) => ({
           nodes,
           children: {
             ...s.children,
-            [parentId ?? "root"]: q.ids.filter((id) => keep.has(id)),
+            [parentId ?? "root"]: listed.map((n) => n.id),
           },
           loading: childrenLoads > 0,
           error: null,

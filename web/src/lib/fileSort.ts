@@ -16,16 +16,14 @@ import { useSession } from "@/store/session";
  * **Sorted here rather than by the server, and the bound that costs is worth
  * stating.** The message list asks Stalwart to sort, because a mailbox is read
  * a page at a time and sorting fifty of ten thousand would be a lie about the
- * rest. A Files listing is read in one request of up to `LEVEL_LIMIT` nodes
- * (`loadChildren`), so this orders everything the browser holds of this folder
- * -- a folder larger than that ceiling is already a listing only part of which
- * is on screen. Asking the server instead is not the safer half of that trade:
- * of the three columns, `name` is a sort the listing already sends and the
- * server answers, `size` and `modified` on a FileNode are verified nowhere in
- * this repo, the mock ignores `FileNode/query`'s `sort` altogether (so a
- * server-side order would be untestable in `dev:mock`), and a sort the server
- * does not know **fails the whole query** rather than the order -- which would
- * blank a folder instead of ordering it.
+ * rest. A Files level is read whole (`loadChildren` pages it at the size the
+ * server resolves), so this orders every node the folder holds. Asking the
+ * server instead is not the safer half of that trade: `size` and `modified` on
+ * a FileNode are verified nowhere in this repo, the mock ignores
+ * `FileNode/query`'s `sort` altogether (so a server-side order would be
+ * untestable in `dev:mock`), and a sort the server does not know **fails the
+ * whole query** rather than the order -- which would blank a folder instead of
+ * ordering it.
  *
  * **Folders come first, whatever the column.** A directory has no size, and
  * the tree above the list is already the one place folders are ordered by name;
