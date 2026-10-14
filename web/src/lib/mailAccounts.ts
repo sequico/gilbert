@@ -17,7 +17,7 @@
  */
 
 import { ownAccountForCapability } from "@gilbert/shared/accountRouting";
-import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
+import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { CAP } from "@/jmap/client";
 
 export interface MailAccountInfo {
@@ -63,7 +63,7 @@ export function mailAccountCandidates(
     out.push({ accountId: own, name: account?.name ?? "", kind: "own" });
   }
   for (const [accountId, account] of Object.entries(session.accounts)) {
-    if (accountId === own || !isGroupAccountRecord(account)) continue;
+    if (accountId === own || !isSharedAccountRecord(account)) continue;
     out.push({ accountId, name: account.name, kind: "group" });
   }
   return out;

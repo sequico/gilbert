@@ -3,7 +3,7 @@ import {
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
-import { isGroupAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
+import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -765,7 +765,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const own = session.ownAccountFor(CAP.contacts);
       const s = session.session;
       const accounts = Object.entries(s?.accounts ?? {}).filter(
-        ([id, a]) => isGroupAccountRecord(a) && id !== own,
+        ([id, a]) => isSharedAccountRecord(a) && id !== own,
       );
       /*
        * The installation's directory first (ADR 0023). It is not a share and it
@@ -2021,7 +2021,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
      */
     if (accountId && accountId !== get().accountId) {
       const s = useSession.getState().session;
-      const shared = isGroupAccountRecord(s?.accounts?.[accountId]);
+      const shared = isSharedAccountRecord(s?.accounts?.[accountId]);
       if (shared && (types.has("AddressBook") || types.has("ContactCard")))
         void get().reloadShared();
       return;

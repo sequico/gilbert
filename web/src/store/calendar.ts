@@ -2,7 +2,7 @@ import {
   OCCURRENCE_INHERITED,
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
-import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
+import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { API_TIMEOUT_MS, CAP, chunk, client, setErrorMessage } from "@/jmap/client";
 import type {
@@ -793,7 +793,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const session = useSession.getState();
     const own = session.ownAccountFor(CAP.calendars);
     const accounts = Object.entries(session.session?.accounts ?? {}).filter(
-      ([id, a]) => isGroupAccountRecord(a) && id !== own,
+      ([id, a]) => isSharedAccountRecord(a) && id !== own,
     );
     const unread = new Set<string>();
     /*
@@ -2332,7 +2332,7 @@ function sharedAccountsSignature(
 ): string {
   const own = useSession.getState().ownAccountFor(CAP.calendars);
   return Object.keys(s?.accounts ?? {})
-    .filter((id) => isGroupAccountRecord(s?.accounts?.[id]) && id !== own)
+    .filter((id) => isSharedAccountRecord(s?.accounts?.[id]) && id !== own)
     .sort()
     .join("|");
 }

@@ -23,6 +23,28 @@ export function isGroupAccountRecord(
 }
 
 /**
+ * Whether an account is one the reader reaches **other than as their own**: a
+ * share somebody made, or a group they are a member of.
+ *
+ * A different question from `isGroupAccountRecord` above, and a wider one — so
+ * much so that asking the group question where this one belongs loses answers.
+ * A share is whichever account the other person has, named what they named it;
+ * a group is named by an address precisely because *two accounts are one group
+ * by address*. A reader who substitutes one for the other therefore drops every
+ * share whose account is not address-named: the shared calendars, the shared
+ * books and the shared files all disappear, and nothing says why, because the
+ * filter simply found no accounts.
+ *
+ * Where the question is "is this a group mailbox", ask `isGroupAccountRecord`.
+ * Where it is "may this account be entered, whatever it is", ask this one.
+ */
+export function isSharedAccountRecord(
+  account: { isPersonal?: unknown } | undefined,
+): boolean {
+  return account?.isPersonal === false;
+}
+
+/**
  * Whether the session says its account administers the installation.
  *
  * The flag is the session's own **view** of the marker, not the door: whether a
