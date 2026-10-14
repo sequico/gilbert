@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { useWorkorders, WORKORDER_CHANGE_WINDOW_MS } from "@/store/workorder";
 
 /*
@@ -31,6 +32,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
   useMail.setState({ mailAccounts: [] });
+  useSession.setState({ session: null });
 });
 
 describe("a workorder read that races a mutation", () => {
@@ -358,6 +360,58 @@ describe("a FileNode change on the rail", () => {
     await change("a9");
 
     await vi.waitFor(() => expect(reads()).toBe(1));
+  });
+
+  it("re-reads when the change names the installation's own account", async () => {
+    /*
+     * The global checklist and the registry live in the installation's account
+     * — the Master's own, which a member's session holds as none of its
+     * accounts — so no group's account and no held part names it. It is the
+     * fact the server puts on the session, and a change there is exactly the
+     * check an administrator made that the member must see: dropped, it waits
+     * for the member's next read. Fails if the follow set is only the groups.
+     */
+    const reads = listOnce();
+    useMail.setState({ mailAccounts: [group("a3")] });
+    useSession.setState({
+      session: { gilbert: { installationAccount: "inst" } } as never,
+    });
+    useWorkorders.setState({
+      workorders: [],
+      loaded: true,
+      loading: false,
+      error: null,
+      panelOpen: true,
+    });
+
+    await change("inst");
+
+    await vi.waitFor(() => expect(reads()).toBe(1));
+  });
+
+  it("ignores a stranger even when the installation's account is known", async () => {
+    /*
+     * Knowing the installation's account must not widen the follow set to
+     * everything else that rides the rail: the reader's own personal account,
+     * a share, or any account with no workorder in it still reads nothing.
+     * Fails if the guard accepts anything but the three names it follows.
+     */
+    const reads = listOnce();
+    useMail.setState({ mailAccounts: [group("a3")] });
+    useSession.setState({
+      session: { gilbert: { installationAccount: "inst" } } as never,
+    });
+    useWorkorders.setState({
+      workorders: [],
+      loaded: true,
+      loading: false,
+      error: null,
+      panelOpen: true,
+    });
+
+    await change("stranger");
+
+    expect(reads()).toBe(0);
   });
 });
 

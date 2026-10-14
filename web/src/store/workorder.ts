@@ -8,8 +8,10 @@
  * is a read through the route — which is also what keeps visibility the route's
  * decision, since the store never composes a document itself. `load()` is that
  * read: an open performs it at once, a FileNode change on an account this
- * surface follows opens a short window that collapses a burst into one read when
- * it closes, and the launcher exposes it for a manual refresh besides. The
+ * surface follows — a group whose part it holds, or the installation's own
+ * account, where the global checklist and the registry live — opens a short
+ * window that collapses a burst into one read when it closes, and the launcher
+ * exposes it for a manual refresh besides. The
  * Master is the only writer, so a failed mutation leaves the last state served
  * in place — it degrades to read-only rather than writing locally, and the panel
  * shows the error until the next attempt.
@@ -43,6 +45,21 @@ import { useSession } from "@/store/session";
  * enough that a person watching the panel does not see a check sit stale.
  */
 export const WORKORDER_CHANGE_WINDOW_MS = 1500;
+
+/**
+ * The installation's own account, as the session states it.
+ *
+ * The global checklist and the registry live there — the Master's own account,
+ * which a member's session holds as none of its accounts — so the id is a fact
+ * the server puts on the session for exactly this: a change on the FileNode
+ * rail names only the account, and recognising the installation's own is what
+ * turns the frame into the read. Read structurally, and `null` when the session
+ * does not carry it: a session that predates the fact follows no installation
+ * account rather than guessing one.
+ */
+export function installationAccountId(): string | null {
+  return useSession.getState().session?.gilbert?.installationAccount ?? null;
+}
 
 export interface WorkorderStore {
   workorders: WorkorderSummary[];
@@ -210,9 +227,11 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
      *
      * It answers only while the panel is open — nobody is looking otherwise,
      * and a group's chat and knowledge base ride the same rail — and only for
-     * an account this surface follows: the reader's own group mailboxes, and
-     * the accounts of the parts already held (which covers the window before the
-     * mail probe has listed the groups).
+     * an account this surface follows: the reader's own group mailboxes, the
+     * accounts of the parts already held (which covers the window before the
+     * mail probe has listed the groups), and the installation's own account,
+     * where the global checklist and the registry live and no member's session
+     * reaches as an account.
      *
      * What it follows, it does not read on the spot: the first change of a burst
      * opens `WORKORDER_CHANGE_WINDOW_MS`, later ones ride it, and its close is
@@ -228,7 +247,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
       const mine = groupMailboxAccounts(useMail.getState().mailAccounts).some(
         (group) => group.accountId === accountId,
       );
-      if (!held && !mine) return;
+      if (!held && !mine && accountId !== installationAccountId()) return;
       if (changeWindow !== undefined) return;
       changeWindow = setTimeout(() => {
         changeWindow = undefined;
