@@ -15,7 +15,7 @@
  */
 
 import { create } from "zustand";
-import { client } from "@/jmap/client";
+import { client, JmapMethodError } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
 import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
@@ -671,8 +671,18 @@ export const useChat = create<ChatState>((set, get) => {
         // What names a destroyed node is not patched but re-read from the
         // server, which re-derives the marker from what is left.
         if (stale) void get().reload(accountId);
-      } catch {
-        /* the next event or the next open retries; a failed sync loses nothing */
+      } catch (err) {
+        /*
+         * A token older than the server's change window is not a failure that
+         * heals: every later pass would be refused for the same reason, so the
+         * transcript would stop syncing until a reload. The wholesale read the
+         * overflow path above takes is the answer -- it re-reads the folder and
+         * starts a fresh token.
+         */
+        if (err instanceof JmapMethodError && err.type === "cannotCalculateChanges")
+          void get().reload(accountId);
+        /* Any other failure is the next event's or the next open's to retry,
+           and a failed sync loses nothing. */
       } finally {
         chatSyncs.delete(accountId);
       }
