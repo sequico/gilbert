@@ -133,7 +133,7 @@ import { isRecord, stableJson } from "./shared/json.js";
 import { AGENT_LABELS, DRAFT_KEYWORD } from "./shared/labels.js";
 import {
   fetchUpstreamSession,
-  getUpstreamSession,
+  sessionUpstream,
   UpstreamError,
   upstreamFor,
 } from "./upstream.js";
@@ -309,12 +309,7 @@ export interface MemberReach {
  * answer that cannot differ.
  */
 export async function memberReach(session: LiveSession): Promise<MemberReach> {
-  const upstream = await getUpstreamSession(
-    session.id,
-    session.authorization,
-    upstreamFor(session.username),
-    true,
-  );
+  const upstream = await sessionUpstream(session, true);
   const ctx: Ctx = {
     authorization: session.authorization,
     session: upstream,

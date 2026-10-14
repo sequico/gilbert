@@ -31,9 +31,9 @@ import {
   fetchUpstreamSession,
   forgetUpstreamSession,
   getAccountInfo,
-  getUpstreamSession,
   hasStalwartRegistry,
   localizeSession,
+  sessionUpstream,
   UpstreamError,
   upstreamFor,
 } from "../upstream.js";
@@ -106,11 +106,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
   api.get("/account/policy", requireSession, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const ctx = {
         authorization: session.authorization,
         session: upstream,
@@ -288,12 +284,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
   api.get("/auth/session", requireSession, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-        c.req.query("refresh") === "1",
-      );
+      const upstream = await sessionUpstream(session, c.req.query("refresh") === "1");
       const info = await getAccountInfo(session.id, session.authorization, upstream);
       return c.json(
         localizeSession(
@@ -413,11 +404,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
         // folder. The user's own (freshly resealed) session is enough — no
         // impersonation needed for the clear.
         try {
-          const upstream = await getUpstreamSession(
-            fresh.id,
-            fresh.authorization,
-            upstreamFor(fresh.username),
-          );
+          const upstream = await sessionUpstream(fresh);
           await clearPasswordChangeDirective({
             authorization: fresh.authorization,
             session: upstream,

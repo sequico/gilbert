@@ -114,6 +114,15 @@ export async function fetchUpstreamSession(
   return { ...session, baseUrl: base };
 }
 
+/**
+ * The cached upstream session for a session id and credential, at a named base.
+ *
+ * Callers holding one of this process's own sessions go through `sessionUpstream`
+ * instead, which resolves the base from the username. The raw form stays
+ * exported for the one caller that is not ours: a push entry carries the base it
+ * was subscribed with, because the subscription outlived the process that made
+ * it (`push.ts`).
+ */
 export async function getUpstreamSession(
   sessionId: string,
   authorization: string,
@@ -138,6 +147,33 @@ export async function getUpstreamSession(
 export function forgetUpstreamSession(sessionId: string): void {
   sessionCache.delete(sessionId);
   infoCache.delete(sessionId);
+}
+
+/**
+ * The Stalwart session behind one of this process's own sessions.
+ *
+ * Which server that is, is `upstreamFor(session.username)` — the account's
+ * domain decides, and a mapped domain never falls back. Fourteen call sites
+ * wrote `getUpstreamSession(session.id, session.authorization,
+ * upstreamFor(session.username))` out by hand, and one — `accountCtx`, which
+ * eighteen endpoints behind it read — left the base argument off altogether, so
+ * on an installation with more than one Stalwart those endpoints asked the
+ * default server for an account that lives on another one: a 401, reported as
+ * "your session expired" for a person whose session had not expired.
+ *
+ * This is the one place that resolves it, so a username that stops being
+ * mapped and a call site that forgets cannot disagree.
+ */
+export async function sessionUpstream(
+  session: { id: string; authorization: string; username: string },
+  force = false,
+): Promise<UpstreamSession> {
+  return getUpstreamSession(
+    session.id,
+    session.authorization,
+    upstreamFor(session.username),
+    force,
+  );
 }
 
 /**

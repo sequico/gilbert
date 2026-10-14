@@ -22,7 +22,7 @@ import {
   absoluteUpstream,
   expandTemplate,
   forgetUpstreamSession,
-  getUpstreamSession,
+  sessionUpstream,
   upstreamFor,
 } from "../upstream.js";
 import type { Env } from "./shared.js";
@@ -116,11 +116,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
       body = gate.body;
     }
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
         method: "POST",
         headers: {
@@ -156,11 +152,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
       ? c.req.raw.body.pipeThrough(byteCap(config.maxUploadBytes))
       : null;
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const url = absoluteUpstream(
         expandTemplate(upstream.uploadUrl, { accountId }),
         upstream.baseUrl,
@@ -194,11 +186,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
     const inline = c.req.query("inline") === "1";
     const range = c.req.header("range");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const url = absoluteUpstream(
         expandTemplate(upstream.downloadUrl, { accountId, blobId, name, type: accept }),
         upstream.baseUrl,
@@ -301,11 +289,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
     const closeafter = c.req.query("closeafter") ?? "no";
     const ping = c.req.query("ping") ?? "30";
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const url = absoluteUpstream(
         expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }),
         upstream.baseUrl,

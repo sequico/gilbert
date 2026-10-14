@@ -53,8 +53,8 @@ import {
   fetchAccountIntrospection,
   fetchUpstreamSession,
   forgetUpstreamSession,
-  getUpstreamSession,
   isStalwartAdmin,
+  sessionUpstream,
   UpstreamError,
   type UpstreamSession,
   upstreamFor,
@@ -353,11 +353,7 @@ export const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
  */
 /** The upstream session for a live one, asked the same way by both verdicts. */
 function upstreamForSession(session: LiveSession): Promise<UpstreamSession> {
-  return getUpstreamSession(
-    session.id,
-    session.authorization,
-    upstreamFor(session.username),
-  );
+  return sessionUpstream(session);
 }
 
 export interface SessionVerdict<T> {
@@ -885,7 +881,7 @@ export const forcedPasswordDoor =
 
 export const accountCtx = async (c: Context<Env>) => {
   const session = c.get("session");
-  const upstream = await getUpstreamSession(session.id, session.authorization);
+  const upstream = await sessionUpstream(session);
   return {
     authorization: session.authorization,
     session: upstream,

@@ -44,9 +44,9 @@ import {
   fetchDirectoryGroups,
   fetchDirectoryUsers,
   fetchUpstreamSession,
-  getUpstreamSession,
   isStalwartAdmin,
   outranks,
+  sessionUpstream,
   UpstreamError,
   upstreamFor,
 } from "../upstream.js";
@@ -215,11 +215,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
   api.get("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
+      const upstream = await sessionUpstream(session);
       const ctx = {
         authorization: session.authorization,
         session: upstream,
@@ -276,11 +272,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
     const copy: PolicyDocument = { ...doc, published: { id, at: startedAt } };
     const reached: string[] = [];
     const unreached: PublishUnreached[] = [];
-    const upstream = await getUpstreamSession(
-      admin.id,
-      admin.authorization,
-      upstreamFor(admin.username),
-    );
+    const upstream = await sessionUpstream(admin);
     const own = {
       authorization: admin.authorization,
       session: upstream,
@@ -459,12 +451,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
   api.get("/admin/users", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-        true,
-      );
+      const upstream = await sessionUpstream(session, true);
       const directory = await fetchDirectoryUsers(session.authorization, upstream);
       const enumeration = !("denied" in directory);
       const users = enumeration ? directory.users : [];
@@ -519,12 +506,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
   api.get("/admin/groups", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-        true,
-      );
+      const upstream = await sessionUpstream(session, true);
       const directory = await fetchDirectoryGroups(session.authorization, upstream);
       if ("denied" in directory)
         return c.json({
