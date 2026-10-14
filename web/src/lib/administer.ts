@@ -1,3 +1,4 @@
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import type { JmapSession } from "@/jmap/types";
 
 /**
@@ -17,5 +18,5 @@ import type { JmapSession } from "@/jmap/types";
  * change what a workorder looks like to the person reading it.
  */
 export function mayAdminister(gilbert: JmapSession["gilbert"] | undefined): boolean {
-  return gilbert?.isAdmin === true && gilbert.administration !== false;
+  return sessionIsAdmin({ gilbert }) && gilbert?.administration !== false;
 }

@@ -1,3 +1,4 @@
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   AlertTriangle,
   ChevronLeft,
@@ -145,7 +146,7 @@ export function CalendarSidebar() {
   const mailAccounts = useMail((s) => s.mailAccounts);
   const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
-  const isAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
+  const isAdmin = useSession((s) => sessionIsAdmin(s.session));
   /*
    * The color a new calendar in a group starts on: the first of the palette the
    * group is not already using, so its calendars are told apart at a glance.

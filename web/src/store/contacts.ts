@@ -353,6 +353,7 @@ function contactMoveSentence(code: ContactMoveRefusal): string {
  * it.
  */
 import { accountOfSharedKey, sharedKey, sharedKeyForId } from "@/lib/sharedKey";
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 
 export { sharedKey };
 
@@ -1295,7 +1296,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const refusal = contactMoveRefusal({
       fromAccountId,
       toAccountId,
-      isAdmin: useSession.getState().session?.gilbert?.isAdmin === true,
+      isAdmin: sessionIsAdmin(useSession.getState().session),
     });
     if (refusal) throw new Error(contactMoveSentence(refusal));
     if (fromAccountId === toAccountId) {

@@ -14,11 +14,13 @@
  * for the date format. It is one hook rather than five copies of the same trick,
  * because a surface that forgets it is a surface that lies about what it may do.
  */
+
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 
 export function useMayDestroy(): boolean {
   // Subscribed so a grant or a removal re-renders whatever drew an entry.
-  useSession((s) => s.session?.gilbert?.isAdmin);
+  useSession((s) => sessionIsAdmin(s.session));
   return useMail((s) => s.mayDestroyHere());
 }

@@ -1,3 +1,4 @@
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   Book,
   BookOpen,
@@ -64,7 +65,7 @@ export function ContactsSidebar() {
   const contacts = useContacts();
   const settings = useSettings((s) => s.settings);
   const mailAccounts = useMail((s) => s.mailAccounts);
-  const isAdmin = useSession((s) => s.session?.gilbert?.isAdmin === true);
+  const isAdmin = useSession((s) => sessionIsAdmin(s.session));
   /** The directory the administrator is editing, when the editor is open. */
   const [editingGlobal, setEditingGlobal] = useState<{
     accountId: string;

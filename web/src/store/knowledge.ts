@@ -17,6 +17,7 @@
  * and without a cached index to go stale.
  */
 
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   create as createIndex,
   insertMultiple,
@@ -298,7 +299,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       }
       set({ loading: true, error: null });
       const epoch = loadEpoch;
-      const canApprove = useSession.getState().session?.gilbert?.isAdmin === true;
+      const canApprove = sessionIsAdmin(useSession.getState().session);
       const tiers: KnowledgeTierState[] = [];
 
       /*

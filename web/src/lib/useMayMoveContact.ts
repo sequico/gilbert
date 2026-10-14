@@ -11,9 +11,10 @@
  * it. `useMayDestroy` is the same shape for the mail rule.
  */
 
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { useSession } from "@/store/session";
 import { mayMoveBetweenAccounts } from "./contactMove";
 
 export function useMayMoveContact(): boolean {
-  return mayMoveBetweenAccounts(useSession((s) => s.session?.gilbert?.isAdmin) === true);
+  return mayMoveBetweenAccounts(useSession((s) => sessionIsAdmin(s.session)));
 }

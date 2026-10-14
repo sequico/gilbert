@@ -87,6 +87,7 @@ import {
   MAILBOX_PROPS,
   type MailState,
 } from "./types";
+import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 
 /**
  * Nothing carries the Archive role, so offer to fix it rather than explain it.
@@ -2324,7 +2325,7 @@ function deleteContext(): DeleteContext {
   return {
     accountId: useMail.getState().accountId,
     session,
-    isAdmin: session?.gilbert?.isAdmin === true,
+    isAdmin: sessionIsAdmin(session),
   };
 }
 
