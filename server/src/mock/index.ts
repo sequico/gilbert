@@ -2739,7 +2739,7 @@ function calendarEventParse(a: Obj) {
   const parsed: Obj = {};
   const notParsable: string[] = [];
   for (const b of a.blobIds as string[]) {
-    const blob = blobOf(a.accountId, b);
+    const blob = blobOf(accountOf(a), b);
     if (!blob) {
       notParsable.push(b);
       continue;
@@ -3219,12 +3219,11 @@ const handlers: Record<string, Handler> = {
    * answer from.
    */
   "Email/changes": (a) => {
-    const since = Number(a.sinceState ?? 0);
     /* One account's changes, not the mock's whole log: a real server answers
        per account, and the agent reconciling a group's mail must not be handed
        the demo user's. */
     const accountId = String(a.accountId ?? ACCOUNT);
-    const relevant = emailChanges.since(accountId, since);
+    const relevant = emailChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("Email");
     const pick = (k: "created" | "updated" | "destroyed") => [
       ...new Set(relevant.flatMap((c) => c[k])),
@@ -3346,7 +3345,7 @@ const handlers: Record<string, Handler> = {
     for (const [cid, spec] of Object.entries((a.emails as Obj) ?? {})) {
       const s = spec as Obj;
       const id = `e${counter++}`;
-      const raw = blobOf(a.accountId, s.blobId)?.data.toString() ?? "";
+      const raw = blobOf(accountOf(a), s.blobId)?.data.toString() ?? "";
       const parsed = parseRawMessage(raw);
       const textBlob = putBlob(accountOf(a), parsed.text, "text/plain");
       list.push({
@@ -4423,9 +4422,8 @@ const handlers: Record<string, Handler> = {
      * whole window in one go, and a caller behind that window is refused (see
      * `changeLog`).
      */
-    const since = Number(a.sinceState ?? 0);
     const accountId = String(a.accountId ?? ACCOUNT);
-    const relevant = contactCardChanges.since(accountId, since);
+    const relevant = contactCardChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("ContactCard");
     const pick = (k: "created" | "updated" | "destroyed") => [
       ...new Set(relevant.flatMap((c) => c[k])),
@@ -4443,7 +4441,7 @@ const handlers: Record<string, Handler> = {
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};
     for (const b of a.blobIds as string[]) {
-      const t = blobOf(a.accountId, b)?.data.toString() ?? "";
+      const t = blobOf(accountOf(a), b)?.data.toString() ?? "";
       const fn = /^FN:(.*)$/m.exec(t)?.[1]?.trim() ?? "Imported";
       const em = /^EMAIL[^:]*:(.*)$/m.exec(t)?.[1]?.trim();
       parsed[b] = [
@@ -4507,9 +4505,8 @@ const handlers: Record<string, Handler> = {
     // stored it can ask again from there; `hasMoreChanges` is false because
     // the log answers its whole window in one go, and a caller behind that
     // window is refused (see `changeLog`).
-    const since = Number(a.sinceState ?? 0);
     const accountId = String(a.accountId ?? ACCOUNT);
-    const relevant = fileNodeChanges.since(accountId, since);
+    const relevant = fileNodeChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("FileNode");
     const pick = (k: "created" | "updated" | "destroyed") => [
       ...new Set(relevant.flatMap((c) => c[k])),
@@ -5101,9 +5098,17 @@ function changeLog() {
      * starts after it: the changes in between are gone, so the caller cannot be
      * answered from what the log still holds.
      */
-    since(accountId: string, sinceState: number): ChangeLogEntry[] | null {
-      if (sinceState < (droppedThrough.get(accountId) ?? 0)) return null;
-      return entries.filter((c) => c.accountId === accountId && c.state > sinceState);
+    since(accountId: string, sinceState: unknown): ChangeLogEntry[] | null {
+      /*
+       * A state the log cannot compare is refused, not answered: `NaN` compares
+       * false against everything, so filtering with it returned an empty change
+       * set — "nothing changed" for a client that may have missed everything,
+       * which is the answer this log exists to refuse.
+       */
+      const since = Number(sinceState ?? 0);
+      if (!Number.isFinite(since)) return null;
+      if (since < (droppedThrough.get(accountId) ?? 0)) return null;
+      return entries.filter((c) => c.accountId === accountId && c.state > since);
     },
   };
 }

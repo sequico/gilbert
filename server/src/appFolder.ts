@@ -151,7 +151,7 @@ export async function fileChildren(
     );
     const page = res.list<FileNodeLike>("g");
     if (!page.length) break;
-    if (page[0]?.id === seenFirst)
+    if (page[0]?.id === seenFirst && typeof page[0]?.id === "string")
       throw new AppFolderError(
         "The mail server answered the same page twice while listing a folder.",
       );
