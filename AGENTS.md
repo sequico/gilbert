@@ -344,17 +344,22 @@ The identifiers Gitleaks is told are not secrets live in `.gitleaks.toml`, each
 a positive proof rather than a silence, and `.semgrepignore` points the SAST
 scan at the code that ships — test files reach the local mock over http and
 carry fixtures, so the packs' HTTP patterns fire on them by construction.
-**Coding first, light gates at the end of the turn (owner decision 2026-09-24):**
-a task that carries a plan of several units does **all** of its work first —
-coding, docs and the claim fixes that go with them — landing one commit per
-finished unit, and runs **no check between units**. At the end of the turn, on a
-tree whose work has stopped moving, exactly two things run automatically:
-**`npm run typecheck` (tsc) and `npm run lint` (Biome)**, and what they report is
-fixed in that same turn. Everything else — the check scripts (`adr:owed`,
-`adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`), `npm test`, `npm run prepush` and
-`npm run prepush:full`/`codeql` — is **not** run automatically: the turn names
-which of them it did not run, and the owner decides when to run them. A
-dispatched child runs no gate at all.
+**Coding first, the review beside it, the gate at the push (owner decision
+2026-10-14):** a task that carries a plan of several units does **all** of its
+work — coding, docs and the claim fixes that go with them — landing one commit
+per finished unit, and runs **no check at all**: no typecheck, no Biome, no
+check script, no test, no build, neither between units nor at the end of the
+turn. With several changes in flight those runs cost more time and machine than
+the work they judge, and a run started before the next unit lands is already
+stale when it finishes. What passes over the work is the **review** — small,
+bounded, read-only readers by area, their findings fixed in the change — and a
+dispatched child runs no gate either. The gate runs **once, before a push**,
+which is where it belongs: `npm run check:ci` through the `.githooks/pre-push`
+hook, and a push that has not passed it does not happen. `check:ci` is a series of
+scripts; `npm run prepush` is that series under the name the hook calls, and
+`npm run prepush:full`/`check:release` and `npm run codeql` append the analysis
+the release pre-check runs. The owner decides when a push is made; **0/0/0** is
+the standard of that one gate, not of every step along the way.
 **Commit is automatic; push is not (owner decision 2026-09-24).** Every finished
 unit is committed on its own, with no per-turn request (the rule above). A push
 still needs the owner to say push in the current turn.
