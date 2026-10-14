@@ -658,6 +658,40 @@ let sharedLoadRun: Promise<void> | null = null;
  */
 let sessionEpoch = 0;
 
+/*
+ * The text a card answers a search with, built once per card object.
+ *
+ * A card is an immutable value: every write replaces the object rather than
+ * editing it (`loadAll`, `syncCards` and `getCard` all set a fresh one), so the
+ * same object always yields the same string and the build is worth reusing for
+ * every query -- a directory of a few thousand cards otherwise rebuilds
+ * thousands of strings per keystroke. Keyed on the object, which is what makes
+ * that safe with no invalidation list: a changed card arrives as a new object
+ * and therefore a different key, and a sign-out or account switch drops the
+ * objects the keys were, leaving them to the collector.
+ *
+ * The fields, their order and the space that joins them are the filter's own:
+ * this holds the match string, it does not decide what matches.
+ */
+const cardHaystacks = new WeakMap<ContactCard, string>();
+
+function cardHaystack(c: ContactCard): string {
+  let hay = cardHaystacks.get(c);
+  if (hay === undefined) {
+    hay = [
+      contactDisplayName(c),
+      ...Object.values(c.emails ?? {}).map((e) => e.address),
+      ...Object.values(c.phones ?? {}).map((p) => p.number),
+      ...Object.values(c.organizations ?? {}).map((o) => o.name ?? ""),
+      ...Object.values(c.nicknames ?? {}).map((n) => n.name),
+    ]
+      .join(" ")
+      .toLowerCase();
+    cardHaystacks.set(c, hay);
+  }
+  return hay;
+}
+
 export const useContacts = create<ContactsState>((set, get) => ({
   accountId: null,
   available: false,
@@ -814,6 +848,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
                   accountId,
                   position,
                   limit: page,
+                  maxObjectsInGet: page,
                 }),
               );
               const q = cardsRes.get("q")?.[0] as unknown as QueryResponse;
@@ -1171,20 +1206,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   filterCards(cards, text) {
     const q = text.trim().toLowerCase();
-    const filtered = q
-      ? cards.filter((c) => {
-          const hay = [
-            contactDisplayName(c),
-            ...Object.values(c.emails ?? {}).map((e) => e.address),
-            ...Object.values(c.phones ?? {}).map((p) => p.number),
-            ...Object.values(c.organizations ?? {}).map((o) => o.name ?? ""),
-            ...Object.values(c.nicknames ?? {}).map((n) => n.name),
-          ]
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(q);
-        })
-      : cards;
+    const filtered = q ? cards.filter((c) => cardHaystack(c).includes(q)) : cards;
     return filtered.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   },
 
