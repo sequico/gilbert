@@ -204,7 +204,8 @@ export async function groupKnowledgeAccount(
     (code, message, status) => new KnowledgeAdminError(code, message, status),
   );
   const accountId = groupAccountId(ctx, group);
-  if (!accountId) throw groupNotGranted(group, "its knowledge base cannot be written");
+  if (!accountId)
+    throw groupNotGranted(group.trim() || group, "its knowledge base cannot be written");
   // The group's KB is reached by membership, never a share (`gilbert-groups`);
   // only the folder is made, on first use.
   const folderId = await knowledgeFolder(ctx, accountId);
