@@ -2419,6 +2419,8 @@ export const catalog: Catalog = {
       "Часть перенумерованных соседей была отклонена, начиная с {folder}: {error}",
     "Some of the renumbered siblings were refused.":
       "Часть перенумерованных соседей была отклонена.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Сохранено, но представление не удалось обновить: {error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

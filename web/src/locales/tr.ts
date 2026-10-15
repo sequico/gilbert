@@ -2340,6 +2340,8 @@ export const catalog: Catalog = {
       "Yeniden numaralandırılan kardeşlerin bazıları reddedildi, {folder} ile başlayarak: {error}",
     "Some of the renumbered siblings were refused.":
       "Yeniden numaralandırılan kardeşlerin bazıları reddedildi.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Kaydedildi, ancak görünüm yenilenemedi: {error}",
   },
   plurals: {
     "({n} deleted first)": {

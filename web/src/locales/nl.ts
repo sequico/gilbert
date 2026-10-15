@@ -2422,6 +2422,8 @@ export const catalog: Catalog = {
       "Sommige van de hernummerde items zijn geweigerd, te beginnen met {folder}: {error}",
     "Some of the renumbered siblings were refused.":
       "Sommige van de hernummerde items zijn geweigerd.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Opgeslagen, maar de weergave kon niet worden vernieuwd: {error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

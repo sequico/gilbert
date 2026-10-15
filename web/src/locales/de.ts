@@ -2481,6 +2481,8 @@ export const catalog: Catalog = {
       "Einige der neu nummerierten Geschwister wurden abgelehnt, beginnend mit {folder}: {error}",
     "Some of the renumbered siblings were refused.":
       "Einige der neu nummerierten Geschwister wurden abgelehnt.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Gespeichert, aber die Ansicht konnte nicht aktualisiert werden: {error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

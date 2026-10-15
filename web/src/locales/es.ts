@@ -2445,6 +2445,8 @@ export const catalog: Catalog = {
       "Se rechazaron algunos de los elementos renumerados, empezando por {folder}: {error}",
     "Some of the renumbered siblings were refused.":
       "Se rechazaron algunos de los elementos renumerados.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Guardado, pero la vista no se pudo actualizar: {error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -3380,6 +3380,8 @@ export const catalog: Catalog = {
       "Alcuni degli elementi rinumerati sono stati rifiutati, a partire da {folder}: {error}",
     "Some of the renumbered siblings were refused.":
       "Alcuni degli elementi rinumerati sono stati rifiutati.",
+    "Saved, but the view could not be refreshed: {error}":
+      "Salvato, ma la vista non è stata aggiornata: {error}",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

@@ -2421,6 +2421,8 @@ export const catalog: Catalog = {
       "番号を振り直した兄弟の一部が拒否されました（{folder} 以降）: {error}",
     "Some of the renumbered siblings were refused.":
       "番号を振り直した兄弟の一部が拒否されました。",
+    "Saved, but the view could not be refreshed: {error}":
+      "保存しましたが、表示を更新できませんでした: {error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

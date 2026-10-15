@@ -2338,6 +2338,8 @@ export const catalog: Catalog = {
     "Some of the renumbered siblings were refused, starting with {folder}: {error}":
       "部分重新编号的相邻项被拒绝，从 {folder} 开始：{error}",
     "Some of the renumbered siblings were refused.": "部分重新编号的相邻项被拒绝。",
+    "Saved, but the view could not be refreshed: {error}":
+      "已保存，但无法刷新视图：{error}",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

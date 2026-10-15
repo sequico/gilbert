@@ -25,6 +25,7 @@ import {
 } from "@orama/orama";
 import { create } from "zustand";
 import type { Id } from "@/jmap/types";
+import { t } from "@/lib/i18n";
 import {
   approveArticle,
   articleKey,
@@ -212,6 +213,42 @@ let openToken = 0;
 const searchText = new Map<string, string>();
 
 export const useKnowledge = create<KnowledgeStore>((set, get) => {
+  /**
+   * A write, and the re-read that follows it — the two told apart.
+   *
+   * Every mutation here writes a document and then re-reads what it changed: the
+   * article, the tree that mirrors its title, the folder a rename moved. Both sat
+   * in one `try`, so a `reload()` that failed — a **read** — was reported as the
+   * write having failed: the reader was told their text was not saved when it
+   * was, so they typed it again or pressed save again, and the retry was a second
+   * write. `false` now means exactly one thing, that the document was not
+   * written; a refresh that fails says so without claiming the write went with
+   * it.
+   */
+  const writeThenRefresh = async <T>(
+    write: () => Promise<T>,
+    refresh: (written: T) => Promise<void>,
+  ): Promise<boolean> => {
+    let written: T;
+    try {
+      set({ error: null });
+      written = await write();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+    try {
+      await refresh(written);
+    } catch (err) {
+      set({
+        error: t("Saved, but the view could not be refreshed: {error}", {
+          error: (err as Error).message,
+        }),
+      });
+    }
+    return true;
+  };
+
   /** The open article's write target: its scope, its group and its folder. */
   function targetOf(view: KnowledgeArticleView): KnowledgeTarget | null {
     const tier = get().tiers.find(
@@ -448,15 +485,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         scope: tier.scope,
         ...(tier.group ? { group: tier.group } : {}),
       };
-      try {
-        set({ error: null });
-        await createArticle(target, title, parentFolder, blocks, checklist);
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => createArticle(target, title, parentFolder, blocks, checklist),
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     async createFolder(tier, name, parentFolder) {
@@ -464,15 +498,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         scope: tier.scope,
         ...(tier.group ? { group: tier.group } : {}),
       };
-      try {
-        set({ error: null });
-        await createKnowledgeFolder(target, name, parentFolder);
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => createKnowledgeFolder(target, name, parentFolder),
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     async reorder(tier, folder, order) {
@@ -483,17 +514,14 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
         folder,
       };
-      try {
-        set({ error: null });
-        await reorderKnowledgeArticle(target, folder, order);
-        // Ordering is the tier's fact, not the open article's, so a re-list
-        // refreshes the tree without losing what is open.
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => reorderKnowledgeArticle(target, folder, order),
+        async () => {
+          // Ordering is the tier's fact, not the open article's, so a re-list
+          // refreshes the tree without losing what is open.
+          await get().reload();
+        },
+      );
     },
 
     async renumber(tier, orders) {
@@ -504,15 +532,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         scope: tier.scope,
         ...(tier.group ? { group: tier.group } : {}),
       };
-      try {
-        set({ error: null });
-        await reorderKnowledgeArticles(target, orders);
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => reorderKnowledgeArticles(target, orders),
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     async move(tier, folder, parentFolder) {
@@ -521,15 +546,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
         folder,
       };
-      try {
-        set({ error: null });
-        await moveKnowledgeArticle(target, folder, parentFolder);
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => moveKnowledgeArticle(target, folder, parentFolder),
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     async save() {
@@ -544,20 +566,17 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         text: edit.text,
         checklist: edit.checklist,
       };
-      try {
-        set({ error: null });
+      return writeThenRefresh(
         // A save rewrites the document; only a rename moves the folder, so the
         // re-open follows the folder the article already has.
-        const summary = await saveDraft(target, input);
-        await reopen(article.accountId, summary);
-        // A save rewrites the title a listing mirrors, so the tree is re-listed
-        // rather than left reading its old one.
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+        () => saveDraft(target, input),
+        async (summary) => {
+          await reopen(article.accountId, summary);
+          // A save rewrites the title a listing mirrors, so the tree is
+          // re-listed rather than left reading its old one.
+          await get().reload();
+        },
+      );
     },
 
     async approve(effectiveAt) {
@@ -565,18 +584,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       if (!article) return false;
       const target = targetOf(article);
       if (!target) return false;
-      try {
-        set({ error: null });
-        const summary = await approveArticle(target, effectiveAt);
-        await reopen(article.accountId, summary);
-        // The approval moves `rev` and the pending marker the sidebar badges,
-        // which the tree — not the open article — carries.
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => approveArticle(target, effectiveAt),
+        async (summary) => {
+          await reopen(article.accountId, summary);
+          // The approval moves `rev` and the pending marker the sidebar badges,
+          // which the tree — not the open article — carries.
+          await get().reload();
+        },
+      );
     },
 
     async restore(revision) {
@@ -584,18 +600,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       if (!article) return false;
       const target = targetOf(article);
       if (!target) return false;
-      try {
-        set({ error: null });
-        const summary = await restoreArticle(target, revision);
-        await reopen(article.accountId, summary);
-        // Restoring an older revision moves `rev` and the pending marker, so
-        // the tree is re-listed with the open article kept.
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => restoreArticle(target, revision),
+        async (summary) => {
+          await reopen(article.accountId, summary);
+          // Restoring an older revision moves `rev` and the pending marker, so
+          // the tree is re-listed with the open article kept.
+          await get().reload();
+        },
+      );
     },
 
     async rename(title) {
@@ -603,18 +616,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       if (!article) return false;
       const target = targetOf(article);
       if (!target) return false;
-      try {
-        set({ error: null });
-        const summary = await renameArticle(target, title);
-        await reopen(article.accountId, summary);
-        // The folder moved, and the sidebar still carries the old path; the
-        // tiers are re-listed so a click sends the path the door resolves.
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => renameArticle(target, title),
+        async (summary) => {
+          await reopen(article.accountId, summary);
+          // The folder moved, and the sidebar still carries the old path; the
+          // tiers are re-listed so a click sends the path the door resolves.
+          await get().reload();
+        },
+      );
     },
 
     async remove() {
@@ -622,16 +632,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       if (!article) return false;
       const target = targetOf(article);
       if (!target) return false;
-      try {
-        set({ error: null });
-        await deleteArticle(target);
-        set({ article: null, edit: null, articleLoading: false });
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        async () => {
+          await deleteArticle(target);
+          set({ article: null, edit: null, articleLoading: false });
+        },
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     async renameNode(tier, summary, title) {
@@ -640,19 +649,16 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
         folder: summary.folder,
       };
-      try {
-        set({ error: null });
-        const renamed = await renameArticle(target, title);
-        // The open page, if it is this node, follows the folder the door moved.
-        const open = get().article;
-        if (open && open.summary.nodeId === summary.nodeId)
-          await reopen(tier.accountId, renamed);
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        () => renameArticle(target, title),
+        async (renamed) => {
+          // The open page, if it is this node, follows the folder the door moved.
+          const open = get().article;
+          if (open && open.summary.nodeId === summary.nodeId)
+            await reopen(tier.accountId, renamed);
+          await get().reload();
+        },
+      );
     },
 
     async removeNode(tier, summary) {
@@ -661,25 +667,24 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         ...(tier.group ? { group: tier.group } : {}),
         folder: summary.folder,
       };
-      try {
-        set({ error: null });
-        await deleteArticle(target);
-        // A folder takes its descendants with it: close the open page if it is
-        // the node itself or anything under it.
-        const open = get().article;
-        if (
-          open &&
-          (open.summary.nodeId === summary.nodeId ||
-            open.summary.folder === summary.folder ||
-            open.summary.folder.startsWith(`${summary.folder}/`))
-        )
-          set({ article: null, edit: null, articleLoading: false });
-        await get().reload();
-        return true;
-      } catch (err) {
-        set({ error: (err as Error).message });
-        return false;
-      }
+      return writeThenRefresh(
+        async () => {
+          await deleteArticle(target);
+          // A folder takes its descendants with it: close the open page if it is
+          // the node itself or anything under it.
+          const open = get().article;
+          if (
+            open &&
+            (open.summary.nodeId === summary.nodeId ||
+              open.summary.folder === summary.folder ||
+              open.summary.folder.startsWith(`${summary.folder}/`))
+          )
+            set({ article: null, edit: null, articleLoading: false });
+        },
+        async () => {
+          await get().reload();
+        },
+      );
     },
 
     setSearch(term) {
