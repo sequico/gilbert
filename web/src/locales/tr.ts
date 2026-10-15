@@ -1141,6 +1141,10 @@ export const catalog: Catalog = {
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Dizinde başka kullanıcı bulunamadı, bu nedenle yeni kimse eklenemez. Mevcut paylaşımlar aşağıda listelenmiştir ve yine de kaldırılabilir.",
     "No recipients": "Alıcı yok",
+    "me": "ben",
+    "(no recipients)": "(alıcı yok)",
+    "(unknown)": "(bilinmiyor)",
+    "(undisclosed recipients)": "(gizli alıcılar)",
     "No results": "Sonuç yok",
     "No sending identity available": "Kullanılabilir gönderici kimliği yok",
     "No standing instruction has been written for this group.":

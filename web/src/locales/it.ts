@@ -2355,6 +2355,10 @@ export const catalog: Catalog = {
     "Delete?": "Eliminare?",
 
     "No recipients": "Nessun destinatario",
+    "me": "io",
+    "(no recipients)": "(nessun destinatario)",
+    "(unknown)": "(sconosciuto)",
+    "(undisclosed recipients)": "(destinatari nascosti)",
 
     "No sending identity available": "Nessuna identità di invio disponibile",
 

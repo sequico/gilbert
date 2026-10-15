@@ -1456,6 +1456,10 @@ export const catalog: Catalog = {
     "Delete forever?": "Supprimer définitivement ?",
     "Delete?": "Supprimer ?",
     "No recipients": "Aucun destinataire",
+    "me": "moi",
+    "(no recipients)": "(aucun destinataire)",
+    "(unknown)": "(inconnu)",
+    "(undisclosed recipients)": "(destinataires non divulgués)",
     "No sending identity available": "Aucune identité d'envoi disponible",
     "Pick a date and time.": "Choisissez une date et une heure.",
     "Pick a time at least a minute from now.":

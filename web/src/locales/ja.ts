@@ -1444,6 +1444,10 @@ export const catalog: Catalog = {
     "Delete forever?": "完全に削除しますか？",
     "Delete?": "削除しますか？",
     "No recipients": "宛先がありません",
+    "me": "自分",
+    "(no recipients)": "(宛先なし)",
+    "(unknown)": "(不明)",
+    "(undisclosed recipients)": "(非表示の宛先)",
     "No sending identity available": "利用できる差出人がありません",
     "Pick a date and time.": "日付と時刻を選んでください。",
     "Pick a time at least a minute from now.":
