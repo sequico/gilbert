@@ -40,6 +40,7 @@
  * installation is.
  */
 
+import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
 
 /** The document's name inside the Master account's `gilbert` app folder. */
@@ -346,7 +347,7 @@ export function parseInstallationDocumentDetailed(
   try {
     whole = JSON.parse(raw);
   } catch (err) {
-    const where = err instanceof Error ? ` (${err.message})` : "";
+    const where = errorDetail(err);
     return { problem: `Not valid JSON${where}.` };
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };

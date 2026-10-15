@@ -1,5 +1,6 @@
 import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 import { isStateMismatch } from "./jmap.js";
+import { errorDetail } from "./shared/errors.js";
 import { isRecord } from "./shared/json.js";
 import {
   PUBLISH_JOB_FILE,
@@ -154,7 +155,7 @@ export function parsePolicyDocumentDetailed(
   try {
     whole = JSON.parse(raw);
   } catch (err) {
-    const where = err instanceof Error ? ` (${err.message})` : "";
+    const where = errorDetail(err);
     return { problem: `Not valid JSON${where}.` };
   }
   if (!isRecord(whole))

@@ -18,6 +18,21 @@ export function errorMessage(err: unknown): string {
 }
 
 /**
+ * The detail of a thrown value, for a sentence that shows one only when it has
+ * one.
+ *
+ * `errorMessage` answers what the value said; this answers whether there is
+ * anything to add, in the parenthesis the sentences that use it already write.
+ * They differ where a failure is composed of the reason and the value's own
+ * words: a message a browser throws for a malformed document is not always an
+ * `Error`, and "Not valid JSON (…)" reads worse with an empty parenthesis than
+ * with none.
+ */
+export function errorDetail(err: unknown): string {
+  return err instanceof Error ? ` (${err.message})` : "";
+}
+
+/**
  * Whether a thrown value is JMAP's lost-compare-and-set refusal.
  *
  * A conditional write carrying a stale `ifInState` is refused with
