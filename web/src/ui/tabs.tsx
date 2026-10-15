@@ -1,15 +1,15 @@
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { t } from "@/lib/i18n";
 
 /**
  * A strip of tabs over one shared panel, and the keyboard rule that goes with it.
  *
- * Two administration surfaces are tabs — the installation's own agent, and one
- * group's — and each wrote the strip, the arrow-key handler and the four ARIA
- * attributes by hand. The attributes are the reason this is one component: only
- * the selected tab may carry `aria-controls`, or a screen reader reading an
- * inactive tab is sent to a panel that is not its own, and that mistake is
- * invisible in a screenshot.
+ * Three administration surfaces are tabs — the installation's own agent, one
+ * group's, and the pair the approvals workspace shows — and each wrote the
+ * strip, the arrow-key handler and the four ARIA attributes by hand. The
+ * attributes are the reason this is one component: only the selected tab may
+ * carry `aria-controls`, or a screen reader reading an inactive tab is sent to a
+ * panel that is not its own, and that mistake is invisible in a screenshot.
  *
  * `idPrefix` is what keeps two strips on one page apart, since both render a
  * panel and both name their tabs in the document.
@@ -18,6 +18,12 @@ export interface TabPart<Id extends string = string> {
   id: Id;
   /** English source; `TabStrip` renders it through `t()`. */
   label: string;
+  /**
+   * What the tab carries besides its name — a count, today. Drawn inside the
+   * tab, and never instead of the name: a tab whose label is only a number is
+   * one nobody can read out.
+   */
+  badge?: ReactNode;
 }
 
 export function TabStrip<Id extends string>({
@@ -74,6 +80,11 @@ export function TabStrip<Id extends string>({
           onClick={() => onSelect(entry.id)}
         >
           {t(entry.label)}
+          {entry.badge != null && (
+            <span className="badge" style={{ marginLeft: 6 }}>
+              {entry.badge}
+            </span>
+          )}
         </button>
       ))}
     </div>

@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { agentGroupNames, agentViewKey, groupOperation, useAgents } from "@/store/agents";
+import { TabPanel, TabStrip } from "@/ui/tabs";
 import {
   AGENT_OUTCOME_LABELS,
   automationText,
@@ -55,30 +56,21 @@ export function AdminApprovals() {
           "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.",
         )}
       </p>
-      <div
-        className="segmented"
-        role="group"
-        aria-label={t("Approvals sections")}
-        style={{ marginBottom: 16 }}
-      >
-        {PARTS.map((entry) => (
-          <button
-            key={entry.id}
-            className={part === entry.id ? "active" : ""}
-            aria-pressed={part === entry.id}
-            onClick={() => setPart(entry.id)}
-          >
-            {t(entry.label)}
-            {entry.id === "pending" && approvals.length > 0 && (
-              <span className="badge" style={{ marginLeft: 6 }}>
-                {approvals.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      {part === "pending" && <AgentApprovals />}
-      {part === "audit" && <CrossGroupAudit />}
+      <TabStrip
+        parts={PARTS.map((entry) => ({
+          ...entry,
+          badge:
+            entry.id === "pending" && approvals.length > 0 ? approvals.length : undefined,
+        }))}
+        selected={part}
+        onSelect={setPart}
+        idPrefix="approvals-tab-"
+        label="Approvals sections"
+      />
+      <TabPanel idPrefix="approvals-tab-" selected={part} style={{ marginTop: 16 }}>
+        {part === "pending" && <AgentApprovals />}
+        {part === "audit" && <CrossGroupAudit />}
+      </TabPanel>
     </div>
   );
 }
