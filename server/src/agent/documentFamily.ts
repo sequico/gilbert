@@ -30,7 +30,7 @@ import { PDFiumLibrary, type PDFiumPage as PdfPage } from "@hyzyla/pdfium";
 import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { mediaType } from "../shared/media.js";
+import { mediaType, PDF_TYPE } from "../shared/media.js";
 import { errorMessage } from "./audit.js";
 
 /**
@@ -176,7 +176,7 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   if (IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "image";
   if (TEXT_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "text";
   const media = mediaType(type);
-  if (media === "application/pdf") return "pdf";
+  if (media === PDF_TYPE) return "pdf";
   if (media === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     return "docx";
   if (media === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

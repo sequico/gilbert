@@ -62,6 +62,7 @@ import {
   type LabelCatalogEntry,
   missingAgentLabels,
 } from "../shared/labels.js";
+import { PDF_TYPE } from "../shared/media.js";
 import { isGroupAccountRecord } from "../shared/sessionAccount.js";
 import { textSignatureBlock } from "../shared/signature.js";
 import { postMessage } from "./chat.js";
@@ -1058,9 +1059,6 @@ async function runOne(
       );
   }
 }
-
-/** The media type everything the page work writes carries. */
-const PDF_TYPE = "application/pdf";
 
 /**
  * The account a company page is written into, read off the run's own session.

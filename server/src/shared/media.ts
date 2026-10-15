@@ -26,6 +26,16 @@ export function mediaType(type: string | null | undefined): string {
 }
 
 /**
+ * The media type a PDF carries.
+ *
+ * The one type `isInlineSafe` serves inline that is a document rather than a
+ * picture, a recording or text, and the type the document family classifies as
+ * `pdf` — named once so the server's rule and the agent's reading ask the same
+ * answer.
+ */
+export const PDF_TYPE = "application/pdf";
+
+/**
  * May this be served inline at all?
  *
  * A picture that is not an SVG, a recording, a PDF, and the three text types
@@ -39,7 +49,7 @@ export function isInlineSafe(type: string | null | undefined): boolean {
     isInlineImage(t) ||
     t.startsWith("video/") ||
     t.startsWith("audio/") ||
-    t === "application/pdf" ||
+    t === PDF_TYPE ||
     t === "text/plain" ||
     t === "text/calendar" ||
     t === "text/vcard"
