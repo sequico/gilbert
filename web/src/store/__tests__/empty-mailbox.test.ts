@@ -75,13 +75,15 @@ function server(count: number, opts: { refuseDestroy?: boolean; mailbox?: string
     })
     .onError("Email/set", (call) => {
       const destroy = call.args.destroy as string[] | undefined;
-      return Array.isArray(destroy) && destroy.length > MAX
-        ? {
-            type: "requestTooLarge",
-            description:
-              "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
-          }
-        : undefined;
+      if (!Array.isArray(destroy) || destroy.length <= MAX) return undefined;
+      /* Recorded here too, because a refused call never reaches the handler
+         above: the batches are what this suite counts, refused ones included. */
+      destroyBatches.push(destroy.length);
+      return {
+        type: "requestTooLarge",
+        description:
+          "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
+      };
     });
   return { live, destroyBatches, fake };
 }

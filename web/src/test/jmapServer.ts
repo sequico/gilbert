@@ -17,9 +17,9 @@ import { vi } from "vitest";
  * and the record of what was asked.
  *
  * A method nobody registered is answered with the empty result of every shape
- * (`list`, `ids`, `created`, `notFound`, …), which is what the hand-written
- * defaults answered with too. A suite that needs a different answer registers
- * the method.
+ * (`list`, `ids`, `created`, `notFound`, …), a superset of what a hand-written
+ * default answered with. A suite that needs a different answer registers the
+ * method.
  *
  * A suite can also make the server REFUSE a call, which is not an answer at all:
  * JMAP refuses in an entry whose method name is the literal `"error"` and whose
