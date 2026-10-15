@@ -1,11 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   accountKey,
   clearAllData,
   clearSignedInData,
+  hasCachedJson,
   isDeviceTrusted,
   loadJson,
   loadRaw,
+  removeKey,
   saveJson,
   setDeviceTrusted,
 } from "@/lib/storage";
@@ -113,5 +115,66 @@ describe("device-trusted storage", () => {
     store.set("someone-elses-key", "keep me");
     clearAllData();
     expect(store.get("someone-elses-key")).toBe("keep me");
+  });
+});
+
+/**
+ * The same module where `localStorage` itself throws.
+ *
+ * That is not an exotic case: it is every private window in the browsers this
+ * app runs in, and `localStorage` throws on **access** there rather than being
+ * absent. The module reads it at import (`trusted`), on every read, on every
+ * write and on the sign-out sweep, so a `catch` missing from any one of those is
+ * a blank page at boot or a sign-out that throws halfway — with the trusted
+ * device's residue still in the browser it was told to clear. Each answer the
+ * module gives there is "nothing", which is the honest one for storage nobody
+ * can reach, and this pins all of them.
+ */
+describe("storage where localStorage throws", () => {
+  const boom = () => {
+    throw new DOMException("The operation is insecure.", "SecurityError");
+  };
+
+  beforeEach(() => {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        get length(): number {
+          return boom();
+        },
+        key: boom,
+        getItem: boom,
+        setItem: boom,
+        removeItem: boom,
+      },
+    });
+    setDeviceTrusted(true);
+  });
+
+  afterEach(() => {
+    setDeviceTrusted(false);
+    Reflect.deleteProperty(globalThis, "localStorage");
+  });
+
+  it("answers the fallback rather than throwing on a read", () => {
+    expect(loadJson("settings", { theme: "dark" })).toEqual({ theme: "dark" });
+    expect(loadRaw("recent", ["nothing"])).toEqual(["nothing"]);
+  });
+
+  it("does not throw on a write, and reports nothing cached", () => {
+    expect(() => saveJson("settings", { theme: "dark" })).not.toThrow();
+    expect(() => removeKey("settings")).not.toThrow();
+    expect(hasCachedJson("settings")).toBe(false);
+  });
+
+  it("still completes a sign-out, because the sweep is what clears the device", () => {
+    expect(() => clearSignedInData()).not.toThrow();
+    expect(() => clearAllData()).not.toThrow();
+  });
+
+  it("boots with the device untrusted, so the module load itself survives it", async () => {
+    vi.resetModules();
+    const fresh = await import("@/lib/storage");
+    expect(fresh.isDeviceTrusted()).toBe(false);
   });
 });
