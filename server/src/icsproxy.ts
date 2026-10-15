@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { safeFetch, safeFetchStatus } from "./imageproxy.js";
 import { mediaType } from "./shared/media.js";
 
@@ -57,7 +58,8 @@ export function looksLikeCalendar(text: string): boolean {
 
 export async function icsProxyHandler(c: Context) {
   const got = await safeFetch(c.req.query("url") ?? "", 20_000);
-  if (typeof got === "string") return c.json({ error: got }, safeFetchStatus(got) as 400);
+  if (typeof got === "string")
+    return c.json({ error: got }, safeFetchStatus(got) as ContentfulStatusCode);
   const { res, done } = got;
 
   if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {

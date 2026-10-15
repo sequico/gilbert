@@ -4,6 +4,7 @@ import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { config } from "./config.js";
 import { isInlineImage, mediaType } from "./shared/media.js";
 
@@ -341,7 +342,8 @@ export function discardUpstream(res: IncomingMessage, done: () => void): void {
 export async function imageProxyHandler(c: Context) {
   if (!config.imageProxy) return c.json({ error: "disabled" }, 404);
   const got = await safeFetch(c.req.query("url") ?? "");
-  if (typeof got === "string") return c.json({ error: got }, safeFetchStatus(got) as 400);
+  if (typeof got === "string")
+    return c.json({ error: got }, safeFetchStatus(got) as ContentfulStatusCode);
   const { res, done } = got;
   if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
     discardUpstream(res, done);

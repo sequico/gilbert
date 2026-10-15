@@ -21,6 +21,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 import { getCookie, setCookie } from "hono/cookie";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { AccountError, isPasswordChangeForced } from "../account.js";
 import { administrationAllowed } from "../adminGate.js";
 import {
@@ -911,9 +912,17 @@ export const groupDenial = (c: Context, denied: { error: string; need: string })
  * refusal shape is a copy that can drift, and the four that differ only in the
  * class they test are exactly the ones that would: what the classes share is
  * `code`, `message` and `status`, and that is all this reads.
+ *
+ * Hono types a status as a union of literals; a class carries the number its
+ * own code chose (400 for a refusal, 401/403 for a boundary, 409 for a
+ * conflict, 413 for a document too large, 502 for an upstream one), so it is
+ * narrowed to that type rather than asserted as one particular value. Every
+ * surface that answers with a status it did not type narrows it this way.
  */
-export const refusal = (err: { code: string; message: string; status: number }) =>
-  [{ error: err.code, message: err.message }, err.status as 400] as const;
+export const refusal = (err: { code: string; message: string; status: number }) => [
+  { error: err.code, message: err.message },
+  err.status as ContentfulStatusCode,
+] as const;
 
 export const accountFailure = (c: Context, err: unknown) => {
   if (err instanceof AccountError) return c.json(...refusal(err));

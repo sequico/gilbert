@@ -96,10 +96,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * deployment with no agent answers plainly instead of failing.
    */
   const agentFailure = (c: Context, err: unknown) => {
-    // Hono types a status as a union of literals; the class carries the number
-    // its own code chose (400 for a refusal, 401/403 for a boundary, 502 for an
-    // upstream one), so it is narrowed to that type rather than asserted as one
-    // particular value.
+    // Narrowed the way `refusal` narrows a status, for the same reason.
     if (err instanceof AgentDocumentError) {
       // A document this build cannot use and could not bring to the current
       // shape is a fault of the stored documents, not of the mail server: it
