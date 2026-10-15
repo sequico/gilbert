@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { downloadFile } from "../download";
+import { downloadFile, triggerDownload } from "../download";
 
 /**
  * A file the app made, handed to the browser to save.
@@ -58,5 +58,33 @@ describe("downloadFile", () => {
     downloadFile("x", "text/plain", "x.txt");
     expect(document.querySelector("a")).toBeNull();
     expect(revoke).toHaveBeenCalled();
+  });
+});
+
+describe("triggerDownload", () => {
+  it("hands the browser a link with the URL and the filename, and clicks it", () => {
+    const clicks: HTMLAnchorElement[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clicks.push(this);
+      });
+
+    triggerDownload("https://mail.example/attachment/7/message.eml", "message.eml");
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(clicks[0]!.download).toBe("message.eml");
+    expect(clicks[0]!.getAttribute("href")).toBe(
+      "https://mail.example/attachment/7/message.eml",
+    );
+  });
+
+  it("releases nothing, because a server URL is not an object URL", () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    triggerDownload("https://mail.example/attachment/7/message.eml", "message.eml");
+
+    expect(revoke).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   formatAddress,
   initials,
   isValidEmail,
   parseAddressList,
   parseMailto,
+  summarizeAddresses,
 } from "../address";
+import { setCatalog } from "../i18n";
 
 describe("address parsing", () => {
   it("parses mixed lists", () => {
@@ -115,5 +117,54 @@ describe("mailto URLs", () => {
     const m = parseMailto("mailto:ann@example.com?x-random=1&subject=Hi");
     expect(m.subject).toBe("Hi");
     expect(m.to).toHaveLength(1);
+  });
+});
+
+/*
+ * The one summariser a row and a header both read, so the two cannot name the
+ * people on the same message differently: each person once, the reader's own
+ * identity as `me`, and past `max` the rest as a count.
+ */
+describe("summarizeAddresses", () => {
+  const ann = { name: "Ann", email: "ann@x.com" };
+  const bob = { name: "Bob", email: "bob@y.com" };
+  const carl = { name: "Carl", email: "carl@z.com" };
+
+  afterEach(() => {
+    setCatalog("en", { strings: {}, plurals: {} });
+  });
+
+  it("names one person once, however many times the message wrote them", () => {
+    expect(summarizeAddresses([ann, bob], { fallback: "(unknown)" })).toBe("Ann, Bob");
+    // The same person in To and in Cc is one name: the key is the address, so
+    // a copy written with different case does not become a second person.
+    expect(
+      summarizeAddresses([ann, { name: "Ann again", email: "ANN@x.com" }], {
+        fallback: "(unknown)",
+      }),
+    ).toBe("Ann");
+  });
+
+  it("names the rest as a count once `max` is passed", () => {
+    expect(summarizeAddresses([ann, bob, carl], { max: 2, fallback: "(unknown)" })).toBe(
+      "Ann, Bob +1",
+    );
+    expect(summarizeAddresses([ann, bob, carl], { max: 3, fallback: "(unknown)" })).toBe(
+      "Ann, Bob, Carl",
+    );
+  });
+
+  it("names the reader's own identity as `me`", () => {
+    setCatalog("it", { strings: { me: "io" }, plurals: {} });
+    expect(
+      summarizeAddresses([ann, bob], { own: ["ann@x.com"], fallback: "(unknown)" }),
+    ).toBe("io, Bob");
+  });
+
+  it("says the fallback when there is nobody to name", () => {
+    expect(summarizeAddresses([null, undefined], { fallback: "(unknown)" })).toBe(
+      "(unknown)",
+    );
+    expect(summarizeAddresses([], { fallback: "(unknown)" })).toBe("(unknown)");
   });
 });
