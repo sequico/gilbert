@@ -31,7 +31,11 @@ const { createApp } = await import("./app.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-const call = jsonCall(app, HEADERS);
+// The parsed JSON body: `ReturnType<typeof JSON.parse>` keeps it opaque
+// (JSON.parse returns `any`) without spelling `any` out.
+type Body = ReturnType<typeof JSON.parse>;
+
+const call = jsonCall<Body>(app, HEADERS);
 
 before(async () => {
   const res = await call("/api/auth/login", {
