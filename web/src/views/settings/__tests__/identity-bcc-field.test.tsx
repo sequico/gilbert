@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Identity } from "@/jmap/types";
+import { identity } from "@/test/testkit";
 import { IdentityDialog } from "../IdentityDialog";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -21,18 +22,8 @@ import { IdentityDialog } from "../IdentityDialog";
 
 const ARCHIVE = { name: null, email: "archive@example.org" };
 
-const identity = (over: Partial<Identity> = {}): Identity =>
-  ({
-    id: "i1",
-    name: "John",
-    email: "john@example.org",
-    replyTo: null,
-    bcc: [ARCHIVE],
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-    ...over,
-  }) as Identity;
+/** The identity the form opens on: one that already carries a Bcc address. */
+const ON_BCC = identity("i1", "John", "john@example.org", { bcc: [ARCHIVE] });
 
 /** The input under the label with this text, as the form draws the pair. */
 function field(label: string): HTMLInputElement {
@@ -92,12 +83,12 @@ describe("the identity form's Bcc field", () => {
   };
 
   it("opens at the identity's own address", async () => {
-    await render(identity(), async () => undefined);
+    await render(ON_BCC, async () => undefined);
     expect(field("Bcc (optional)").value).toBe(ARCHIVE.email);
   });
 
   it("is empty when the identity carries none", async () => {
-    await render(identity({ bcc: null }), async () => undefined);
+    await render({ ...ON_BCC, bcc: null }, async () => undefined);
     expect(field("Bcc (optional)").value).toBe("");
   });
 
@@ -108,7 +99,7 @@ describe("the identity form's Bcc field", () => {
    */
   it("keeps the address through a save that did not touch it", async () => {
     let written: Partial<Identity> | null = null;
-    await render(identity(), async (patch) => {
+    await render(ON_BCC, async (patch) => {
       written = patch;
     });
     type(field("Display name"), "Johnny");
@@ -120,7 +111,7 @@ describe("the identity form's Bcc field", () => {
 
   it("saves a list typed into it", async () => {
     let written: Partial<Identity> | null = null;
-    await render(identity({ bcc: null }), async (patch) => {
+    await render({ ...ON_BCC, bcc: null }, async (patch) => {
       written = patch;
     });
     type(field("Bcc (optional)"), "a@example.org, B <b@example.org>");
@@ -135,7 +126,7 @@ describe("the identity form's Bcc field", () => {
 
   it("saves no address when it is cleared", async () => {
     let written: Partial<Identity> | null = null;
-    await render(identity(), async (patch) => {
+    await render(ON_BCC, async (patch) => {
       written = patch;
     });
     type(field("Bcc (optional)"), "");
@@ -150,7 +141,7 @@ describe("the identity form's Bcc field", () => {
    * field counts as part of that: typing in Bcc alone is a change.
    */
   it("counts a typed address as a change worth saving", async () => {
-    await render(identity({ bcc: null }), async () => undefined);
+    await render({ ...ON_BCC, bcc: null }, async () => undefined);
     expect(saveButton().disabled).toBe(true);
     type(field("Bcc (optional)"), "archive@example.org");
     expect(saveButton().disabled).toBe(false);

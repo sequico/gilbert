@@ -12,17 +12,22 @@ import { resetShareSupport } from "@/lib/share";
  */
 
 /** One identity as the routes answer it, with the fields a surface reads. */
-export const identity = (id: string, name: string, email: string): Identity =>
-  ({
-    id,
-    name,
-    email,
-    replyTo: null,
-    bcc: null,
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-  }) as Identity;
+export const identity = (
+  id: string,
+  name: string,
+  email: string,
+  overrides: Partial<Identity> = {},
+): Identity => ({
+  id,
+  name,
+  email,
+  replyTo: null,
+  bcc: null,
+  textSignature: "",
+  htmlSignature: "",
+  mayDelete: true,
+  ...overrides,
+});
 
 /** A zero-delay timer: the queued microtasks and the odd macrotask run. */
 export const flushMicrotasks = () => new Promise<void>((res) => setTimeout(res, 0));

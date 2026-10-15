@@ -5,7 +5,7 @@ import { CAP, client } from "@/jmap/client";
 import type { Identity, JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
-import { flushTwice as flush } from "@/test/testkit";
+import { flushTwice as flush, identity } from "@/test/testkit";
 import { IdentitiesSettings } from "../IdentitiesSettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,18 +29,6 @@ import { IdentitiesSettings } from "../IdentitiesSettings";
 
 const OWN = "own";
 const ME = "me@example.org";
-
-const identity = (id: string, name: string): Identity =>
-  ({
-    id,
-    name,
-    email: ME,
-    replyTo: null,
-    bcc: null,
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-  }) as Identity;
 
 const SESSION = {
   accounts: {
@@ -68,7 +56,7 @@ describe("the person's own identities section", () => {
       return {
         accountId: args.accountId,
         state: "1",
-        list: [identity("o1", "Me")],
+        list: [identity("o1", "Me", ME)],
         notFound: [],
       } as never;
     });
@@ -78,9 +66,9 @@ describe("the person's own identities section", () => {
       accountId: OWN,
       ownAccountId: OWN,
       mailAccounts: [{ accountId: OWN, name: ME, kind: "own" }],
-      identities: [identity("o1", "Me")],
+      identities: [identity("o1", "Me", ME)],
       // The session's copy, read at sign-in: it still carries `gone`.
-      identitiesByAccount: { [OWN]: [identity("o1", "Me"), identity("gone", "Old")] },
+      identitiesByAccount: { [OWN]: [identity("o1", "Me", ME), identity("gone", "Old")] },
     });
   });
 
@@ -127,8 +115,7 @@ describe("a group's identities in the member's own settings", () => {
 
   const GROUP = "team@example.org";
   const GROUP_ACCOUNT = "gg";
-  const groupIdentity = (id: string, name: string): Identity =>
-    ({ ...identity(id, name), email: GROUP }) as Identity;
+  const groupIdentity = (id: string, name: string): Identity => identity(id, name, GROUP);
 
   /** What the member-group route answers, as the section reads it. */
   let assignment: { assignedId: string | null };
@@ -146,7 +133,7 @@ describe("a group's identities in the member's own settings", () => {
         list:
           String(args.accountId) === GROUP_ACCOUNT
             ? [groupIdentity("g1", "Team"), groupIdentity("g2", "Me")]
-            : [identity("o1", "Me")],
+            : [identity("o1", "Me", ME)],
         notFound: [],
       } as never;
     });
@@ -193,8 +180,8 @@ describe("a group's identities in the member's own settings", () => {
         { accountId: OWN, name: ME, kind: "own" },
         { accountId: GROUP_ACCOUNT, name: GROUP, kind: "group" },
       ],
-      identities: [identity("o1", "Me")],
-      identitiesByAccount: { [OWN]: [identity("o1", "Me")] },
+      identities: [identity("o1", "Me", ME)],
+      identitiesByAccount: { [OWN]: [identity("o1", "Me", ME)] },
       assignmentByAccount: {},
     });
   });

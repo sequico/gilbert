@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { flushTwice as flush } from "@/test/testkit";
+import { flushTwice as flush, identity } from "@/test/testkit";
 import { GroupLabels } from "../GroupLabels";
 import { UserIdentities } from "../UserIdentities";
 
@@ -175,16 +175,6 @@ describe("a directory read that lost its target", () => {
 
   it("keeps the account the administrator is on, not the one whose read was slower", async () => {
     const people = new Map<string, ReturnType<typeof deferred>>();
-    const identity = (id: string, email: string) => ({
-      id,
-      name: email,
-      email,
-      replyTo: null,
-      bcc: null,
-      textSignature: "",
-      htmlSignature: "",
-      mayDelete: true,
-    });
     vi.stubGlobal(
       "fetch",
       vi.fn((input: unknown) => {
