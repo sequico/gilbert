@@ -232,7 +232,7 @@ describe("a directory read that lost its target", () => {
           locked: false,
           lockUnknownReason: null,
           impersonation: "ok",
-          identities: [identity("ib", "bee@x")],
+          identities: [identity("ib", "bee@x", "bee@x")],
           defaultIdentityId: null,
         }),
       );
@@ -247,7 +247,7 @@ describe("a directory read that lost its target", () => {
           locked: false,
           lockUnknownReason: null,
           impersonation: "ok",
-          identities: [identity("ia", "ay@x")],
+          identities: [identity("ia", "ay@x", "ay@x")],
           defaultIdentityId: null,
         }),
       );

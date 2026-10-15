@@ -68,7 +68,9 @@ describe("the person's own identities section", () => {
       mailAccounts: [{ accountId: OWN, name: ME, kind: "own" }],
       identities: [identity("o1", "Me", ME)],
       // The session's copy, read at sign-in: it still carries `gone`.
-      identitiesByAccount: { [OWN]: [identity("o1", "Me", ME), identity("gone", "Old")] },
+      identitiesByAccount: {
+        [OWN]: [identity("o1", "Me", ME), identity("gone", "Old", ME)],
+      },
     });
   });
 
