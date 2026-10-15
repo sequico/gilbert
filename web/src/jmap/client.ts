@@ -810,10 +810,9 @@ export interface BatchedSetResult {
  * updates and destroys together -- and refuses the call whole past it, taking
  * none of it: an import, a selection or a folder emptying that crosses the
  * ceiling writes nothing at all. One budget for all three kinds is the whole
- * point, because batching them apart would send 300 creates and 300 updates as
- * two calls that each stay under a limit of 500 and be refused for one both of
- * them are under. The ceiling is the session's own, so a deployment that has
- * tuned it is followed.
+ * point, because a call is refused for the objects it carries together: batching
+ * the kinds apart would only hide how much one write really sends. The ceiling
+ * is the session's own, so a deployment that has tuned it is followed.
  *
  * A batch that fails after earlier ones landed is reported with the `noun` it
  * was given, so a half-finished write says how much of it is already on the

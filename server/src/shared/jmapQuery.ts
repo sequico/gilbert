@@ -5,12 +5,12 @@ import type { Invocation } from "./jmap.js";
  *
  * JMAP answers a query with ids and a get with the objects, and the second call
  * names the first one's result by reference — `#ids` → `resultOf` — rather than
- * a client fetching the ids and sending them back in a second request. Five
+ * a client fetching the ids and sending them back in a second request. Six
  * places in this tree make that pair: the app folder on both tiers, the Files
- * store's tree walk, the shared-contact scan and the group roster. Written by
- * hand, the back-reference has to name the query it points at, and nothing
- * checks that it does — so the pair is here, once, with the reference built
- * from the query name rather than spelled beside it.
+ * store's tree walk, the calendar's event listing, the shared-contact scan and
+ * the group roster. Written by hand, the back-reference has to name the query it
+ * points at, and nothing checks that it does — so the pair is here, once, with
+ * the reference built from the query name rather than spelled beside it.
  *
  * What this builds is **one page**, and one the server will resolve: the query's
  * `limit` is clamped to the server's own `/get` ceiling (`maxObjectsInGet`),
