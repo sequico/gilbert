@@ -7,8 +7,11 @@
  * import a surface needs, and adds the route calls the panel makes.
  *
  * The whole surface is **route-only** (ADR 0028): the Master does every read
- * and every write, and the server route decides what the caller may see and
- * act on by their own group membership alone. So these are `apiFetch` calls
+ * and every write, and the server route decides what the caller may see and act
+ * on — from the template's assignment of its sections against the caller's own
+ * group membership, so a workorder carrying a global section is every signed-in
+ * user's and one whose sections are all assigned is its groups' alone. So these
+ * are `apiFetch` calls
  * rather than FileNode reads, and `listWorkorders` is the one read: a FileNode
  * change on the rail names an account and nothing else, and the store turns
  * that into this read.

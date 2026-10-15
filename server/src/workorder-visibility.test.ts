@@ -74,24 +74,89 @@ const read = async (cookie: string, uid: string) => {
   return res.status;
 };
 
-test("a member sees its groups' workorders with or without the device box", async () => {
-  for (const remember of [false, true]) {
-    const cookie = await signIn("gilbert@example.com", "gilbert-password", remember);
-    const { workorders } = await list(cookie);
-    assert.deepEqual(
-      workorders.map((w) => w.uid),
-      ["container-northwind"],
-      `the group it is a member of (remember=${remember})`,
-    );
-    assert.equal(
-      workorders.every((w) => w.canAdminister === false),
-      true,
-      "and it administers none of them",
-    );
-    assert.equal(await read(cookie, "container-northwind"), 200, "its part is readable");
-    assert.equal(await read(cookie, "maintenance-line1"), 404, "another group's is not");
-    assert.equal(await read(cookie, "maintenance-line2"), 404);
-  }
+test("a workorder carrying a global section is every user's to see", async () => {
+  /*
+   * The rule the owner set: a workorder with a section assigned to **no** group
+   * carries the part of the process the whole installation shares, so the
+   * workorder itself is visible to every user of the system — administrator or
+   * not — and its global section with it. Group sections stay with their own
+   * group's members. An administrator sees everything, always.
+   *
+   * `bob@example.com` is in **no** group at all, which is the session that shows
+   * the difference: before this rule a caller with no group saw no workorder
+   * whatever, including the ones whose sections nobody was assigned.
+   */
+  const cookie = await signIn("bob@example.com", "bob-password", false);
+  const { workorders } = await list(cookie);
+  assert.deepEqual(
+    workorders.map((w) => w.uid).sort(),
+    ["container-northwind", "maintenance-line1", "maintenance-line2"],
+    "every workorder holding a global section, and only those",
+  );
+  assert.equal(
+    workorders.some((w) => w.uid === "design-brief"),
+    false,
+    "and none whose sections are all a group's",
+  );
+});
+
+test("a group's section is its own members', and absent for everyone else", async () => {
+  /*
+   * The other half of the rule, and the direction it must not widen. The
+   * container workorder holds a global section **and** one assigned to a3;
+   * `customs` is the assigned one. The demo user is in a3 and reads both; bob is
+   * in nothing and reads the global one alone — never an empty part and never a
+   * refusal, which is how a part a reader cannot reach has always been served
+   * (ADR 0028).
+   */
+  const member = await signIn("demo@example.com", "demo-password", false);
+  const outsider = await signIn("bob@example.com", "bob-password", false);
+
+  const parts = async (cookie: string) => {
+    const res = await app.request("/api/workorders/container-northwind", {
+      headers: { ...HEADERS, cookie },
+    });
+    assert.equal(res.status, 200);
+    const { workorder } = (await res.json()) as {
+      workorder: { parts: Array<{ scope: string; group: string | null }> };
+    };
+    return workorder.parts;
+  };
+
+  const mine = await parts(member);
+  assert.deepEqual(
+    mine.map((p) => p.scope).sort(),
+    ["global", "group"],
+    "a member of the assigned group reads both parts",
+  );
+  const theirs = await parts(outsider);
+  assert.deepEqual(
+    theirs.map((p) => p.scope),
+    ["global"],
+    "and a reader outside it reads the global one alone",
+  );
+});
+
+test("a workorder of group sections only is reached by its group, not by everyone", async () => {
+  /*
+   * `design-brief`'s template assigns **every** section to a5, the agent's own
+   * group, which the demo user is not in. So there is no global section to make
+   * it public and no wider reading to make: the agent reads it, the demo user
+   * does not, and neither of them administers the installation here.
+   */
+  const agent = await signIn("gilbert@example.com", "gilbert-password", false);
+  const outsider = await signIn("bob@example.com", "bob-password", false);
+  assert.equal(await read(agent, "design-brief"), 200, "a member of its group reads it");
+  assert.equal(
+    await read(outsider, "design-brief"),
+    404,
+    "and a reader in no group, and no administrator, does not",
+  );
+  assert.equal(
+    (await list(outsider)).workorders.some((w) => w.uid === "design-brief"),
+    false,
+    "it is not in the list either",
+  );
 });
 
 test("a member checks its own group's steps, and not the installation's", async () => {
@@ -160,8 +225,8 @@ test("an administrator reads the whole registry with or without the device box",
     const { workorders } = await list(cookie);
     assert.deepEqual(
       workorders.map((w) => w.uid).sort(),
-      ["container-northwind", "maintenance-line1", "maintenance-line2"],
-      `every workorder the installation holds (remember=${remember})`,
+      ["container-northwind", "design-brief", "maintenance-line1", "maintenance-line2"],
+      `every workorder the installation holds, a group's parts included (remember=${remember})`,
     );
     assert.equal(
       workorders.every((w) => w.canAdminister === true),

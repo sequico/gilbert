@@ -2083,6 +2083,8 @@ const sharedFileNodes: Obj[] = [
 ];
 /** The group's own `gilbert` app folder, named once for the fixture and the seed. */
 const GROUP_APP_FOLDER = "gf3";
+/** The second group's own app folder, for the workorder it wholly owns. */
+const GROUP2_APP_FOLDER = "gf5";
 /** The node list an account owns. */
 const groupFileNodes: Obj[] = [
   {
@@ -2192,9 +2194,12 @@ const demoSeed = demoSeedNodes({
   signedBy: USER,
   group: GROUP_ACCOUNT,
   groupAppFolder: GROUP_APP_FOLDER,
+  group2: GROUP2_ACCOUNT,
+  group2AppFolder: GROUP2_APP_FOLDER,
 });
 agentFileNodes.push(...demoSeed.master);
 groupFileNodes.push(...demoSeed.group);
+group2FileNodes.push(...demoSeed.group2);
 function fr() {
   return {
     mayRead: true,

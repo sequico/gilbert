@@ -731,10 +731,26 @@ A workorder is **running** until it is closed: **completed**, **cancelled**, or
 An administrator creates a workorder, closes it and edits its references; an agent
 is designed to be asked for one in a group's chat, though the agent part is not
 functional yet (see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)). Every member checks
-their own groups' steps. A member sees the global checklist and their own groups' parts, an
-administrator sees every part, and an unreachable part is simply not there. A workorder is a
-member's when the template assigns a section to a group they are in, so a part whose document is
-missing is a finding the fleet reconciles and never a workorder that vanishes for its group.
+their own groups' steps.
+
+**Who sees which workorder** is decided by the template's assignment of its
+sections, and a section carries a group when that group owns it and nothing when
+it is the workorder's own:
+
+- **A section assigned to no group is global**, and a workorder carrying one is
+  visible to **every user of the installation**, administrator or not — the part
+  of the process the whole installation shares is not a group's to own. Its group
+  sections stay with their own groups: a reader outside them sees the workorder
+  and the global checklist alone, the rest simply not there rather than refused.
+- **A workorder whose sections are all assigned is its groups' alone**: the
+  members of those groups read it, and nobody else finds it or sees it.
+- **An administrator reads everything**, every part of every workorder.
+
+An unreachable part is never an empty one, and a part whose document is missing is
+a finding the fleet reconciles rather than a workorder that vanishes for its
+group. The answer comes from the template and not from whether a document happens
+to be readable, so an unreadable part never takes a workorder off somebody's
+screen while the workorder itself, or its global checklist, is theirs to read.
 
 ## What a workorder is not
 

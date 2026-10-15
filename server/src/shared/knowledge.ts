@@ -701,6 +701,25 @@ export function checklistGroups(checklist: KnowledgeChecklist): string[] {
   return out;
 }
 
+/**
+ * Whether any section is assigned to no group.
+ *
+ * The other half of `checklistGroups`, read from the same field: a section
+ * carries a group's account when that group owns it and carries nothing when it
+ * is the workorder's own. Such a section is what makes a workorder **global**
+ * (ADR 0028), and it is what makes the workorder itself every user's to see
+ * rather than the members' of the groups its other sections name — so a caller
+ * asking "may I see this workorder at all" asks this first and the groups only
+ * when it answers no.
+ *
+ * It reads the **template's** assignment and not the instance's steps: a section
+ * whose steps were all excluded by a condition still assigns nobody, and a
+ * workorder does not stop being global because one variant closed it.
+ */
+export function checklistHasGlobalSection(checklist: KnowledgeChecklist): boolean {
+  return checklist.sections.some((section) => !section.group);
+}
+
 /** One step of a resolved section, with the path a workorder stores. */
 export interface ResolvedStep {
   path: string;

@@ -45,6 +45,7 @@ import { FILE_PROPS } from "./shared/appFolder.js";
 import { refusalOf } from "./shared/jmap.js";
 import {
   checklistGroups,
+  checklistHasGlobalSection,
   isKnowledgeRevision,
   isKnowledgeState,
   KNOWLEDGE_FOLDER,
@@ -777,17 +778,21 @@ async function summaryOf(
 /**
  * Whether a caller may see a workorder at all.
  *
- * Any workorder in the registry is an administrator's to see. A member reaches
- * their groups, not the Master's registry (ADR 0028) — and what makes a
- * workorder theirs is
- * **competence**: the template assigns a section to a group they are in
- * (ADR 0030), so that group is what the workorder is for. Membership therefore
- * decides this, not the accident of whether the group's part document can be
- * read right now: a part whose document is gone is a finding the fleet
- * reconciles and is simply not there in the view (ADR 0028), never a reason the
- * workorder — and with it the global checklist the member is entitled to read —
- * disappears. A template whose rules cannot be read falls back to the part
- * itself, which is the one thing that is known to be there.
+ * Any workorder in the registry is an administrator's to see. For everybody
+ * else the template's assignment of its sections decides it (ADR 0030), and the
+ * two halves of that answer are two different questions: a section assigned to
+ * **no** group is global and makes the workorder **every user's**, while a
+ * workorder whose sections are all assigned is its groups' alone, reached by
+ * their members. A member does not reach the Master's registry (ADR 0028).
+ *
+ * Either answer is read from the template, not from the accident of whether a
+ * group's part document can be read right now: a part whose document is gone is
+ * a finding the fleet reconciles and is simply not there in the view, never a
+ * reason the workorder — and with it the global checklist its readers are
+ * entitled to — disappears. A template whose rules cannot be read falls back to
+ * what the documents themselves say: the root **is** the global checklist, so a
+ * root carrying steps answers for a workorder with a global section, and one
+ * carrying none leaves it to the part a group already holds.
  *
  * The reference the root carries names the revision whose assignments decide
  * this, so the answer is read from the root and its template alone — a hidden
@@ -810,10 +815,28 @@ async function maySee(reach: WorkorderReach, root: WorkorderDoc): Promise<boolea
    * fallback below is the part-probe for the case the template cannot be read;
    * it is not a substitute for that invariant.
    */
-  if (def)
+  if (def) {
+    /*
+     * A section assigned to no group is the workorder's own, and a workorder
+     * carrying one is **everybody's to see** (ADR 0028): the global section is
+     * the part of the process the whole installation shares, so seeing which
+     * workorders are running is not a fact a group can own. Competence answers
+     * only for a workorder that is entirely groups'.
+     */
+    if (checklistHasGlobalSection(def)) return true;
     return checklistGroups(def).some((accountId) => reach.ownAccounts.has(accountId));
-  // A template whose rules cannot be read falls back to the part a group
-  // already holds (ADR 0028).
+  }
+  /*
+   * A template whose rules cannot be read falls back to what the documents
+   * themselves say (ADR 0028). The root **is** the global checklist — creation
+   * instantiates the unassigned sections' steps there and each assigned group's
+   * in its part — so a root carrying steps is a workorder with a global section,
+   * and answers as one. A root carrying none leaves the question to the part a
+   * group already holds. The steps are the narrower reading of the two, which is
+   * the right way to be wrong: a section whose steps a variant closed is not
+   * read as global, so this can only fail to widen, never widen wrongly.
+   */
+  if (root.checklist.steps.length) return true;
   for (const accountId of reach.ownAccounts) {
     if (await findActive(reach.ctx, accountId, root.uid)) return true;
   }

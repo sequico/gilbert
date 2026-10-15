@@ -207,9 +207,10 @@ const post = postWith(call);
 
 /**
  * A **member's** own session: the mock's agent principal is a member of the
- * first group and is not an installation administrator, which is what a plain
- * group member is on this surface (ADR 0028 — a member sees the global
- * checklist and their own groups' parts, and checks only their own).
+ * groups the mock grants it and is not an installation administrator, which is
+ * what a plain group member is on this surface (ADR 0028 — a member reads the
+ * workorders their groups are assigned to and the ones carrying a global
+ * section, and checks only their own parts).
  *
  * Its cookie is kept apart from the administrator's (`call` keeps that one), so
  * a test reads the same workorder as both without their sessions colliding.
@@ -1130,100 +1131,73 @@ test("a member reaches a workorder whose group part document has gone missing", 
   assert.equal(refused.body?.error, "forbidden");
 });
 
-test("a member does not see a workorder no section of theirs is in", async () => {
+test("a workorder with no global section is its groups' alone", async () => {
   /*
-   * The other half of the rule: competence must be *required*, not assumed.
-   * A template that assigns no section to any group gives the member nothing on
-   * this workorder — no part to check, no competence — so it is not theirs to
-   * see, exactly as the Master's own registry is not (ADR 0028). Fails if the
-   * visibility rule is loosened to "any member sees any workorder".
+   * One half of the rule, and the half that must not widen. A section carries a
+   * group's account when that group owns it and carries nothing when it is the
+   * workorder's own; a workorder whose sections are **all** assigned has nothing
+   * the installation shares, so its groups' members reach it and nobody else
+   * does. An administrator reads it anyway, which is the other half.
+   *
+   * The caller outside is `bob@example.com` — in no group and no administrator —
+   * because this fixture cannot build a *member* who is outside: the mock's
+   * agent belongs to every group the Master holds, so a template assigned to any
+   * of them is one it may see. A template assigning **no** section to any group
+   * would not serve either, and that is the rule's own point: unassigned is
+   * global, and a global workorder is every user's.
    */
-  const template = await templateRef(PROCESS, "Ungrouped checklist");
-  const workorder = await createWorkorder("Ungrouped run", template);
+  const [, groupAccount] = firstGroup ?? [];
+  assert.ok(groupAccount, "the mock has a group the Master holds");
+  const assigned = {
+    variants: [],
+    sections: [
+      {
+        key: "draft",
+        label: "Draft",
+        group: groupAccount,
+        steps: [{ key: "issue", label: "Issue the first draft" }],
+      },
+      {
+        key: "review",
+        label: "Review",
+        group: groupAccount,
+        steps: [{ key: "approve", label: "Approve the draft" }],
+      },
+    ],
+  };
+  const template = await templateRef(assigned, "Assigned only");
+  const workorder = await createWorkorder("Assigned run", template);
 
   const member = await loginAs(MEMBER, MEMBER_PASSWORD);
-  const read = await callAs(member, `/api/workorders/${workorder.uid}`);
-  assert.equal(read.status, 404, "an administrator reads it; a member does not");
-  const listed = await callAs(member, "/api/workorders");
+  const outside = await loginAs("bob@example.com", "bob-password");
+  assert.equal(
+    (await callAs(member, `/api/workorders/${workorder.uid}`)).status,
+    200,
+    "a member of the group it assigns reads it",
+  );
+  assert.equal(
+    (await callAs(outside, `/api/workorders/${workorder.uid}`)).status,
+    404,
+    "and a caller in no group, and no administrator, does not",
+  );
+  assert.equal(
+    (await call(`/api/workorders/${workorder.uid}`)).status,
+    200,
+    "the administrator reads it whatever it assigns",
+  );
+  const listed = await callAs(outside, "/api/workorders");
   assert.ok(
     !((listed.body?.workorders as Summary[] | undefined) ?? []).some(
       (w) => w.uid === workorder.uid,
     ),
-    "and it is not in the member's list either",
+    "and it is not in the outsider's list either",
   );
-});
-
-test("a member's list composes only the workorders they may see", async () => {
-  /*
-   * Visibility is decided from the root and the template revision it names, so
-   * a workorder the member cannot see costs them no group read: no part is
-   * probed and no summary is composed for it. Fails if the list composes first
-   * and asks afterwards — a member who can see nothing then pays a part walked
-   * in each of their groups for every root in the registry. The mock counts the
-   * method calls, so the extra walk is visible rather than a matter of a
-   * stopwatch.
-   */
-  const memberGroupAccount = firstGroup?.[1];
-  assert.ok(memberGroupAccount, "the mock has a group the Master holds");
-
-  // The member's own group has a registry folder, so the walk the fix spares is
-  // a real read rather than a missing folder's early answer.
-  await ensureFolderPath(masterCtx, memberGroupAccount, WORKORDER_FOLDER);
-
-  /*
-   * A template that assigns no section to a group, so only the installation's
-   * own checklist holds it and a member is not one of its readers. (An assigned
-   * section would have to name a group the member is *not* in, and this fixture
-   * has none: the mock's member belongs to both of its groups, and a group the
-   * installation does not hold is refused at creation.)
-   */
-  const hiddenTemplate = await templateRef(
-    {
-      variants: [],
-      sections: [
-        { key: "global", label: "Global", steps: [{ key: "g", label: "General" }] },
-      ],
-    },
-    "Hidden checklist",
-  );
-  const createHidden = async (name: string): Promise<string> => {
-    const created = await post("/api/workorders/create", {
-      name,
-      template: hiddenTemplate,
-      groups: [],
-      variants: {},
-      items: {},
-    });
-    assert.equal(created.status, 200, JSON.stringify(created.body));
-    return workorderOf(created.body).uid;
-  };
-
-  const member = await loginAs(MEMBER, MEMBER_PASSWORD);
-  const firstUid = await createHidden("Hidden one");
-  mock.resetCalls();
-  const one = await callAs(member, "/api/workorders");
-  assert.equal(one.status, 200);
+  const mine = await callAs(member, "/api/workorders");
   assert.ok(
-    !((one.body?.workorders as Summary[] | undefined) ?? []).some(
-      (w) => w.uid === firstUid,
+    ((mine.body?.workorders as Summary[] | undefined) ?? []).some(
+      (w) => w.uid === workorder.uid,
     ),
-    "and the hidden workorder is not in the member's list",
-  );
-  const atOne = mock.methodCalls["FileNode/query"] ?? 0;
-
-  const more = 6;
-  for (let i = 0; i < more; i += 1) await createHidden(`Hidden ${i + 2}`);
-  mock.resetCalls();
-  const listed = await callAs(member, "/api/workorders");
-  assert.equal(listed.status, 200);
-  const atMany = mock.methodCalls["FileNode/query"] ?? 0;
-
-  // Six more roots add only their own documents: no part of the member's group
-  // is walked for a workorder they may not see. Composing first would add a
-  // probe of every group they are in, for every root.
-  assert.ok(
-    atMany - atOne <= 5 * more,
-    `a hidden workorder adds no group probe (one root: ${atOne}, seven: ${atMany})`,
+    "while the member's list holds it",
   );
 });
 

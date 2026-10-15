@@ -69,12 +69,25 @@ export interface DemoSeedInput {
   group: string;
   /** That group's own `gilbert` app folder, which the seeded part files under. */
   groupAppFolder: string;
+  /**
+   * A **second** group, for the workorder whose every section is assigned.
+   *
+   * One template's sections assigned to one group and one assigned to another
+   * give the demo both shapes the visibility rule turns on: a workorder carrying
+   * a global section, which is every user's to see, and one carrying none, which
+   * its own group's members reach and nobody else. `AGENT_ADDRESS` is in this
+   * group and the demo user is not, so a single installation shows both answers.
+   */
+  group2: string;
+  /** The second group's own `gilbert` app folder. */
+  group2AppFolder: string;
 }
 
-/** The nodes to append to each account: the Master's, and the group's part. */
+/** The nodes to append to each account: the Master's, and the two groups' parts. */
 export interface DemoSeed {
   master: Obj[];
   group: Obj[];
+  group2: Obj[];
 }
 
 /** The article folder name and id of one seeded article: `kb-<key>`. */
@@ -233,15 +246,53 @@ function maintenanceProcess(): KnowledgeChecklist {
   };
 }
 
+/**
+ * A process every section of which a group owns.
+ *
+ * Its workorder carries no global section, so nothing about it belongs to the
+ * whole installation: the members of that group reach it, an administrator reads
+ * it because an administrator reads everything, and nobody else sees it exists.
+ */
+function designProcess(group: string): KnowledgeChecklist {
+  return {
+    variants: [],
+    sections: [
+      {
+        key: "draft",
+        label: "Draft",
+        group,
+        steps: [{ key: "issue", label: "Issue the first draft" }],
+      },
+      {
+        key: "review",
+        label: "Review",
+        group,
+        steps: [{ key: "approve", label: "Approve the draft" }],
+      },
+    ],
+  };
+}
+
 /** Build the demo's FileNodes, one list per account. */
 export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
-  const { putBlob, at, master, author, signedBy, group, groupAppFolder } = input;
+  const {
+    putBlob,
+    at,
+    master,
+    author,
+    signedBy,
+    group,
+    groupAppFolder,
+    group2,
+    group2AppFolder,
+  } = input;
   const { dir, json } = nodeFactory(putBlob, at);
   const masterNodes: Obj[] = [
     dir("kb-app", null, APP_FOLDER_NAME),
     dir("kb-know", "kb-app", KNOWLEDGE_FOLDER),
   ];
   const groupNodes: Obj[] = [];
+  const group2Nodes: Obj[] = [];
 
   // Articles are spaced by 10 so a demo drag can land between two of them.
   let order = 10;
@@ -316,6 +367,7 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
 
   const shipping = shippingProcess(group);
   const maintenance = maintenanceProcess();
+  const design = designProcess(group2);
 
   article({
     key: "production-plan",
@@ -498,6 +550,12 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     tags: ["maintenance", "template"],
     checklist: maintenance,
   });
+  article({
+    key: "design-brief",
+    title: "Design brief checklist",
+    tags: ["design", "template"],
+    checklist: design,
+  });
 
   // The workorder registry: active roots under `workorders/`, closed ones under
   // `workorders/closed/` (ADR 0028).
@@ -667,5 +725,62 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     ),
   );
 
-  return { master: masterNodes, group: groupNodes };
+  /*
+   * The other shape: a workorder whose **every** section is assigned to a group.
+   *
+   * It carries no global section, so it is nobody's to see outside that group's
+   * membership — the case the global rule must not widen. It is assigned to the
+   * second group on purpose, which the **agent** is in and the demo user is not,
+   * so one installation answers both directions: the agent reads it as a member,
+   * bob@example.com — in no group and no administrator — is refused, and the
+   * demo user reads it too, as the installation's administrator rather than as a
+   * member.
+   */
+  const designTemplate: WorkorderTemplateRef = {
+    accountId: master,
+    id: idOf("design-brief"),
+    revision: "r1",
+  };
+  const designItems: Record<string, WorkorderItem[]> = {};
+  workorder({
+    uid: "design-brief",
+    name: "Design brief — packaging",
+    state: "running",
+    template: designTemplate,
+    def: design,
+    variants: {},
+    items: designItems,
+    marks: { "draft.issue": { state: "done" } },
+    parentId: "kb-wo",
+    at: atHour(3),
+  });
+  const designPartPaths = applicableStepPaths(design, {}, designItems, group2);
+  const designPart = buildWorkorderDoc({
+    uid: "design-brief",
+    checklist: stamped(
+      buildChecklist({
+        template: designTemplate,
+        variants: {},
+        items: designItems,
+        stepPaths: designPartPaths,
+      }),
+      { "draft.issue": { state: "done" } },
+      atHour(3),
+    ),
+    by: author,
+    at: atHour(3),
+  });
+  group2Nodes.push(dir("g2-app", null, APP_FOLDER_NAME));
+  group2Nodes.push(dir("kb-g2-wo", group2AppFolder, WORKORDER_FOLDER));
+  group2Nodes.push(
+    json(
+      "kb-g2-wo-part",
+      "kb-g2-wo",
+      workorderFileName("design-brief"),
+      designPart,
+      group2,
+    ),
+  );
+
+  return { master: masterNodes, group: groupNodes, group2: group2Nodes };
 }
