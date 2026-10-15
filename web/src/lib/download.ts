@@ -1,20 +1,27 @@
 /**
- * Hand the browser a file the app made, to save.
+ * Hand the browser a file to save.
  *
- * The object URL is released as soon as the download has been started. A click
- * on the link starts it synchronously, and an unreleased URL keeps the whole
- * file in memory for as long as the tab is open — an address book's worth of
- * vCards per export, a calendar, a copy of an audit log.
+ * Two shapes, one click. `triggerDownload` takes a URL the server serves — an
+ * attachment, a message as `.eml`, a file in the account — and is the only place
+ * the anchor is written: three lines that get copied, and a copy is where a
+ * filename stops matching the URL it names. `downloadFile` takes the content the
+ * app made and releases the object URL as soon as the download has been started,
+ * because a click on the link starts it synchronously and an unreleased URL
+ * keeps the whole file in memory for as long as the tab is open — an address
+ * book's worth of vCards per export, a calendar, a copy of an audit log.
  *
- * One place, because five of these had been written by hand and three of them
- * never released anything: the leak is invisible, costs memory in proportion to
- * what was exported, and is exactly the kind of line that gets copied.
+ * A server URL is not an object URL and is not released by anyone: the browser
+ * ends the read when the response does.
  */
-export function downloadFile(content: BlobPart, type: string, filename: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+export function triggerDownload(url: string, filename: string): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
+}
+
+export function downloadFile(content: BlobPart, type: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  triggerDownload(url, filename);
   URL.revokeObjectURL(url);
 }

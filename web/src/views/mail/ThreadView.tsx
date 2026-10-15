@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
+import { triggerDownload } from "@/lib/download";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { EVENTS } from "@/lib/events";
@@ -484,15 +485,15 @@ export function ThreadView({
               icon={<Download size={16} />}
               label={t("Download latest as .eml")}
               onClick={() => {
-                const a = document.createElement("a");
-                a.href = client.downloadUrl(
-                  accountId,
-                  last.blobId,
-                  emlFilename(last.subject),
-                  "message/rfc822",
+                triggerDownload(
+                  client.downloadUrl(
+                    accountId,
+                    last.blobId,
+                    emlFilename(last.subject),
+                    "message/rfc822",
+                  ),
+                  "",
                 );
-                a.download = "";
-                a.click();
               }}
             />
           )}

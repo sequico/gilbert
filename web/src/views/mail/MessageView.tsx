@@ -40,6 +40,7 @@ import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
 import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
+import { triggerDownload } from "@/lib/download";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
@@ -398,15 +399,10 @@ export const MessageView = memo(function MessageView({
   };
 
   const downloadEml = () => {
-    const a = document.createElement("a");
-    a.href = client.downloadUrl(
-      accountId,
-      e.blobId,
-      emlFilename(e.subject),
-      "message/rfc822",
+    triggerDownload(
+      client.downloadUrl(accountId, e.blobId, emlFilename(e.subject), "message/rfc822"),
+      "",
     );
-    a.download = "";
-    a.click();
   };
 
   /*
@@ -1593,10 +1589,7 @@ function AttachmentList({
     if (!a.blobId) return;
     const name = (a.name ? withoutBidiControls(a.name) : "") || "attachment";
     const download = () => {
-      const l = document.createElement("a");
-      l.href = client.downloadUrl(accountId, a.blobId!, name, a.type);
-      l.download = name;
-      l.click();
+      triggerDownload(client.downloadUrl(accountId, a.blobId!, name, a.type), name);
     };
     try {
       const blob = await client.fetchBlob(accountId, a.blobId, a.type);
@@ -1662,10 +1655,7 @@ function AttachmentList({
                     onClick={(ev) => {
                       ev.preventDefault();
                       ev.stopPropagation();
-                      const l = document.createElement("a");
-                      l.href = url;
-                      l.download = name ?? "";
-                      l.click();
+                      triggerDownload(url, name ?? "");
                     }}
                   >
                     <Download size={14} />
@@ -1713,10 +1703,10 @@ function AttachmentList({
                 // Named once per attachment: the URL and the saved filename
                 // have to agree, and stripping twice is how they stop doing so.
                 const name = a.name ? withoutBidiControls(a.name) : "attachment";
-                const l = document.createElement("a");
-                l.href = client.downloadUrl(accountId, a.blobId, name, a.type);
-                l.download = name;
-                l.click();
+                triggerDownload(
+                  client.downloadUrl(accountId, a.blobId, name, a.type),
+                  name,
+                );
               }
             }}
           >

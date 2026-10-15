@@ -1,5 +1,6 @@
 import { Code2, Download, Eye, Pencil, Printer, Save, Share2, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { triggerDownload } from "@/lib/download";
 import { formatSize } from "@/lib/format";
 import { t, tc } from "@/lib/i18n";
 import { isMarkdown, renderMarkdown } from "@/lib/markdown";
@@ -190,10 +191,7 @@ export function FilePreviewDialog({
   const shareIt = useCallback(async () => {
     if (!file) return;
     const download = () => {
-      const l = document.createElement("a");
-      l.href = file.url;
-      l.download = shownName;
-      l.click();
+      triggerDownload(file.url, shownName);
     };
     try {
       const res = await fetch(file.url, { credentials: "same-origin" });

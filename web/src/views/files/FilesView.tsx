@@ -25,6 +25,7 @@ import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
+import { triggerDownload } from "@/lib/download";
 import { EVENTS } from "@/lib/events";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 import { sortFiles, useFilesSort } from "@/lib/fileSort";
@@ -316,10 +317,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
 
   const download = (n: FileNode) => {
     if (!n.blobId) return;
-    const a = document.createElement("a");
-    a.href = blobUrl(n, false);
-    a.download = n.name;
-    a.click();
+    triggerDownload(blobUrl(n, false), n.name);
   };
 
   /*
