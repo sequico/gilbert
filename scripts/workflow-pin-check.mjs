@@ -196,6 +196,11 @@ export function checkImageTarget(files = []) {
     }
     // An owner without a package beside it names no package at all, so it is a
     // finding of its own rather than a pair that quietly compares unequal.
+    /*
+     * shortcut: an owner pairs with the package beside it by position within a
+     * file, so a workflow naming two pruners with the keys out of order would
+     * mispair them; revisit when a second pruner appears.
+     */
     for (const [index, owner] of owners.entries()) {
       const pkg = packages[index];
       if (!pkg) {

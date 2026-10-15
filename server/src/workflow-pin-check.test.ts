@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   checkImageTarget,
@@ -64,6 +65,19 @@ test("this repository passes, and it was actually read", () => {
   const result = checkWorkflowPins(files);
   assert.equal(result.ok, true, formatReport(result.findings).join("\n"));
   assert.ok(result.checked >= 10, "and every action reference in it was read");
+  /*
+   * The two drift assertions run against this repository's own workflows, so a
+   * Node move or an image rename that missed one file fails here as well as at
+   * the gate. The declared line is read here rather than through the command's
+   * own helper, which is private to it.
+   */
+  const { engines } = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  ) as { engines: { node: string } };
+  const node = checkWorkflowNodeLine(files, engines.node);
+  assert.equal(node.ok, true, JSON.stringify(node.findings));
+  const image = checkImageTarget(files);
+  assert.equal(image.ok, true, JSON.stringify(image.findings));
 });
 
 /**
