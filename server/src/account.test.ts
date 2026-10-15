@@ -6,7 +6,7 @@ import type {
   SessionList,
   SessionSummary,
 } from "./shared/accountSecurity.js";
-import { freePort, jsonCall, postWith } from "./testkit.js";
+import { freePort, jsonCall, jsonCallAs, postWith } from "./testkit.js";
 
 /**
  * End-to-end self-service credential flows against the mock, which enforces
@@ -37,6 +37,16 @@ type Body = ReturnType<typeof JSON.parse>;
 const call = jsonCall<Body>(app, HEADERS);
 
 const post = postWith(call);
+
+/*
+ * The same call with no session at all: the kit's `call` carries the cookie a
+ * sign-in answered privately, so a request a signed-out caller makes is asked
+ * through the variant that takes the cookie per call, with none.
+ */
+const anonymous = (path: string, init: RequestInit = {}) =>
+  jsonCallAs<Body>(app, HEADERS)(path, "", init);
+
+const postAnonymous = postWith(anonymous);
 
 before(async () => {
   const res = await post("/api/auth/login", {
@@ -254,15 +264,12 @@ test("2FA is switched off with the password and a current code", async () => {
 });
 
 test("credential endpoints reject unauthenticated callers", async () => {
-  const saved = cookie;
-  cookie = "";
-  assert.equal((await call("/api/account/security")).status, 401);
+  assert.equal((await anonymous("/api/account/security")).status, 401);
   assert.equal(
-    (await post("/api/account/password", { current: "a", next: "b" })).status,
+    (await postAnonymous("/api/account/password", { current: "a", next: "b" })).status,
     401,
   );
-  assert.equal((await post("/api/account/2fa/begin", {})).status, 401);
-  cookie = saved;
+  assert.equal((await postAnonymous("/api/account/2fa/begin", {})).status, 401);
 });
 
 /**
@@ -275,14 +282,11 @@ test("credential endpoints reject unauthenticated callers", async () => {
  * worked, which is Stalwart's documented route and gave no hint of itself.
  */
 test("a rejected sign-in carrying a TOTP code explains itself", async () => {
-  const saved = cookie;
-  cookie = "";
-  const res = await post("/api/auth/login", {
+  const res = await postAnonymous("/api/auth/login", {
     username: "demo@example.com",
     password: "demo-password",
     totp: "123456",
   });
-  cookie = saved;
   assert.equal(res.status, 401);
   assert.equal(res.body.error, "totp_unsupported", "not the generic invalid_credentials");
   assert.match(res.body.message, /app password/i, "points at the route that does work");
@@ -291,13 +295,10 @@ test("a rejected sign-in carrying a TOTP code explains itself", async () => {
 
 test("a rejected sign-in without a code is still a plain credential failure", async () => {
   // The explanation must not leak onto ordinary typos.
-  const saved = cookie;
-  cookie = "";
-  const res = await post("/api/auth/login", {
+  const res = await postAnonymous("/api/auth/login", {
     username: "demo@example.com",
     password: "wrong",
   });
-  cookie = saved;
   assert.equal(res.status, 401);
   assert.equal(res.body.error, "invalid_credentials");
 });

@@ -500,7 +500,7 @@ test("an account with no Files account to hold the document is refused, not thro
   const read = await readInstallationForAdmin(ctx);
   assert.ok("refused" in read, "the read refuses rather than throwing");
   assert.equal(read.refused.status, 409);
-  assert.equal(read.refused.error, "no_files_account");
+  assert.equal(read.refused.code, "no_files_account");
 
   const write = await publishInstallation(ctx, VALID);
   assert.ok("refused" in write, "the publish refuses rather than throwing");
