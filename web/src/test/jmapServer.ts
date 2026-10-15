@@ -11,10 +11,11 @@ import { vi } from "vitest";
  *
  * This is the envelope, not a server. It does not model a mailbox, a folder
  * tree, a calendar or a quota: a suite registers the methods its assertions are
- * about, closes over whatever state it keeps, and gets every call recorded. The
- * simulation of Stalwart is `server/src/mock`, which is the one that has to
- * agree with a real server; this is a stub whose only promises are the envelope
- * and the record of what was asked.
+ * about, closes over whatever state it keeps, and gets every call -- and the
+ * request that carried it -- recorded. The simulation of Stalwart is
+ * `server/src/mock`, which is the one that has to agree with a real server;
+ * this is a stub whose only promises are the envelope and the record of what was
+ * asked.
  *
  * A method nobody registered is answered with the empty result of every shape
  * (`list`, `ids`, `created`, `notFound`, …), a superset of what a hand-written
@@ -44,6 +45,18 @@ export interface JmapCall {
   id: string;
 }
 
+/**
+ * One request, as the fake saw it: the `using` array it carried and the calls
+ * inside it.
+ *
+ * A batch is one HTTP request, so the capabilities a suite asserts on are asked
+ * for once, over every call the batch holds — not per call.
+ */
+export interface JmapRequest {
+  using: string[];
+  calls: JmapCall[];
+}
+
 /** What a handler answers for one call: that method's response object. */
 export type JmapAnswer = (call: JmapCall) => unknown;
 
@@ -62,6 +75,8 @@ export interface JmapFake {
   onError(method: string, refuse: JmapRefusal): JmapFake;
   /** Every call the client made, in order. The array is live: it grows. */
   calls: JmapCall[];
+  /** Every request the client made, in order. The array is live: it grows. */
+  requests: JmapRequest[];
   /** The calls of one method, in order, as they stood when this was called. */
   callsTo(method: string): JmapCall[];
 }
@@ -105,6 +120,7 @@ export function fakeJmapServer(): JmapFake {
   const handlers = new Map<string, JmapAnswer>();
   const refusals = new Map<string, JmapRefusal>();
   const calls: JmapCall[] = [];
+  const requests: JmapRequest[] = [];
 
   const fake: JmapFake = {
     on(method, answer) {
@@ -116,6 +132,7 @@ export function fakeJmapServer(): JmapFake {
       return fake;
     },
     calls,
+    requests,
     callsTo: (method) => calls.filter((call) => call.method === method),
   };
 
@@ -123,17 +140,21 @@ export function fakeJmapServer(): JmapFake {
     "fetch",
     vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as {
+        using?: string[];
         methodCalls: Array<[string, Record<string, unknown>, string]>;
       };
+      const batch: JmapCall[] = [];
       const methodResponses = body.methodCalls.map(([method, args, id]) => {
         const call: JmapCall = { method, args, id };
         calls.push(call);
+        batch.push(call);
         const refuse = refusals.get(method);
         const error = refuse?.(call);
         if (error) return ["error", error, id];
         const answer = handlers.get(method);
         return [method, answer ? answer(call) : emptyResult(call), id];
       });
+      requests.push({ using: body.using ?? [], calls: batch });
       return {
         ok: true,
         status: 200,

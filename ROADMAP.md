@@ -104,15 +104,3 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   diagram pages. The company KB is read through the server route ADR 0023's probe
   settled on: a `shareWith` naming every account cannot work (Stalwart caps a
   share at 10 principals per item), so no share probe is owed.
-
-- **The web's test suites still fake the JMAP envelope.** Thirty wrote the same
-  loop (parse `methodCalls`, one `methodResponses` per call in its id, own method
-  map and grab-bag default). `web/src/test/jmapServer.ts` is that loop once —
-  register methods (`srv.on("Mailbox/set", ({ args }) => …)`), close over state,
-  read `srv.calls`/`srv.callsTo`/`srv.count`. Thirteen suites use it, from the
-  first (`files-push-tree`) to the most recent (`save-to-files-folders`); the
-  other seventeen migrate as touched. The shared fake deliberately does not model
-  Stalwart (unregistered methods return an empty result of every shape); the
-  simulation is `server/src/mock`, and pointing the suites at it would make "one
-  Stalwart" literal — a bigger change, since the mock is a Node server and the
-  suites stub `fetch`.

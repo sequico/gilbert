@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { Calendar, CalendarEvent, JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * A write (or a push) must never flash an empty grid over content that is
@@ -280,39 +281,19 @@ describe("calendar writes apply the optimistic copy synchronously", () => {
   });
 
   it("restores the old copy when the server refuses the write", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        const methodResponses: unknown[] = [];
-        for (const [name, args, id] of body.methodCalls) {
-          if (name === "CalendarEvent/set")
-            methodResponses.push([
-              name,
-              {
-                accountId: args.accountId,
-                notUpdated: { e1: { type: "invalidProperties" } },
-              },
-              id,
-            ]);
-          else if (name === "CalendarEvent/query")
-            methodResponses.push([name, { accountId: args.accountId, ids: ["e1"] }, id]);
-          else
-            methodResponses.push([
-              name,
-              { accountId: args.accountId, list: [EVENT] },
-              id,
-            ]);
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses }),
-        } as Response;
-      }),
-    );
+    fakeJmapServer()
+      .on("CalendarEvent/set", ({ args }) => ({
+        accountId: args.accountId,
+        notUpdated: { e1: { type: "invalidProperties" } },
+      }))
+      .on("CalendarEvent/query", ({ args }) => ({
+        accountId: args.accountId,
+        ids: ["e1"],
+      }))
+      .on("CalendarEvent/get", ({ args }) => ({
+        accountId: args.accountId,
+        list: [EVENT],
+      }));
     await expect(
       useCalendar
         .getState()
@@ -356,31 +337,14 @@ describe("calendar moves shift every cached occurrence of a series", () => {
       subscriptionErrors: {},
       subscriptionsLoading: false,
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        const methodResponses: unknown[] = [];
-        for (const [name, args, id] of body.methodCalls) {
-          if (name === "CalendarEvent/set")
-            methodResponses.push([
-              name,
-              { accountId: args.accountId, updated: { s1: null }, notUpdated: {} },
-              id,
-            ]);
-          else if (name === "CalendarEvent/query")
-            methodResponses.push([name, { accountId: args.accountId, ids: [] }, id]);
-          else methodResponses.push([name, { accountId: args.accountId, list: [] }, id]);
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses }),
-        } as Response;
-      }),
-    );
+    fakeJmapServer()
+      .on("CalendarEvent/set", ({ args }) => ({
+        accountId: args.accountId,
+        updated: { s1: null },
+        notUpdated: {},
+      }))
+      .on("CalendarEvent/query", ({ args }) => ({ accountId: args.accountId, ids: [] }))
+      .on("CalendarEvent/get", ({ args }) => ({ accountId: args.accountId, list: [] }));
   });
 
   afterEach(() => {

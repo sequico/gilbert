@@ -9,6 +9,7 @@ import {
   setPushEnabledHere,
 } from "@/lib/webpush";
 import { renewWebPush, reregisterWebPush } from "@/lib/webpushEnable";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * What a registration does to the account's subscription pool.
@@ -84,60 +85,46 @@ function install(running: ReturnType<typeof browserSub> | null) {
       addEventListener: () => {},
     },
   });
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const { methodCalls } = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses = methodCalls.map(([name, args, id]) => {
-        if (name === "PushSubscription/get") {
-          // `keys` is write-only and `url` is never handed back, which is
-          // exactly what the rows above do not carry.
-          return [name, { list: server.map((s) => ({ ...s })), notFound: [] }, id];
-        }
-        if (name === "PushSubscription/set") {
-          writes.push([name, args]);
-          const created = (args.create ?? {}) as Record<string, Record<string, unknown>>;
-          for (const [cid, obj] of Object.entries(created)) {
-            if (server.length >= 15)
-              return [
-                name,
-                {
-                  notCreated: {
-                    [cid]: {
-                      type: "overQuota",
-                      description:
-                        "There are too many subscriptions, please delete some before adding a new one.",
-                    },
-                  },
-                },
-                id,
-              ];
-            seq += 1;
-            server.push({
-              id: `ps${seq}`,
-              deviceClientId: String(obj.deviceClientId ?? ""),
-              expires: new Date(Date.now() + 7 * DAY).toISOString(),
-              types: (obj.types as string[] | null) ?? null,
-            });
-            return [name, { created: { [cid]: { id: `ps${seq}` } } }, id];
-          }
-          const update = (args.update ?? {}) as Record<string, Record<string, unknown>>;
-          for (const [id2, patch] of Object.entries(update)) {
-            const row = server.find((s) => s.id === id2);
-            if (!row) return [name, { notUpdated: { [id2]: { type: "notFound" } } }, id];
-            if (patch.expires) row.expires = String(patch.expires);
-          }
-          const destroy = (args.destroy ?? []) as string[];
-          server = server.filter((s) => !destroy.includes(s.id));
-          return [name, { updated: {}, destroyed: destroy }, id];
-        }
-        return [name, {}, id];
-      });
-      return new Response(JSON.stringify({ methodResponses }), { status: 200 });
-    }),
-  );
+  fakeJmapServer()
+    .on("PushSubscription/get", () => ({
+      // `keys` is write-only and `url` is never handed back, which is
+      // exactly what the rows above do not carry.
+      list: server.map((s) => ({ ...s })),
+      notFound: [],
+    }))
+    .on("PushSubscription/set", ({ method, args }) => {
+      writes.push([method, args]);
+      const created = (args.create ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [cid, obj] of Object.entries(created)) {
+        if (server.length >= 15)
+          return {
+            notCreated: {
+              [cid]: {
+                type: "overQuota",
+                description:
+                  "There are too many subscriptions, please delete some before adding a new one.",
+              },
+            },
+          };
+        seq += 1;
+        server.push({
+          id: `ps${seq}`,
+          deviceClientId: String(obj.deviceClientId ?? ""),
+          expires: new Date(Date.now() + 7 * DAY).toISOString(),
+          types: (obj.types as string[] | null) ?? null,
+        });
+        return { created: { [cid]: { id: `ps${seq}` } } };
+      }
+      const update = (args.update ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [id2, patch] of Object.entries(update)) {
+        const row = server.find((s) => s.id === id2);
+        if (!row) return { notUpdated: { [id2]: { type: "notFound" } } };
+        if (patch.expires) row.expires = String(patch.expires);
+      }
+      const destroy = (args.destroy ?? []) as string[];
+      server = server.filter((s) => !destroy.includes(s.id));
+      return { updated: {}, destroyed: destroy };
+    });
 }
 
 /** The one call that reached `PushSubscription/set`, if any. */
