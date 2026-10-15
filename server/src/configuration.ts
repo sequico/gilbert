@@ -162,6 +162,27 @@ function resolveAppSecret(
 }
 
 /**
+ * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
+ *
+ * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears
+ * in a principal's resolved permission list exactly when the operator
+ * grants the admin role, and `sysBootstrap*` never appears (the endpoint
+ * always strips it), so it is the non-forgeable marker to test for.
+ *
+ * Exported as its own reader rather than only as a field of the configuration
+ * because a second tier has to grant the marker this process is configured on:
+ * the mock Stalwart puts it in the permission list it reports, and the server
+ * compares against `config.adminPermissionMarker` (`isStalwartAdmin`,
+ * `upstream.ts`). One name, one default, one reading of a stated-but-empty
+ * value, so a mock and a server given the same environment agree.
+ */
+export function adminPermissionMarkerOf(
+  environment: InstallationEnvironment = process.env,
+): string {
+  return readEnv(environment, "GILBERT_ADMIN_PERMISSION", "sysAccountCreate");
+}
+
+/**
  * The runtime configuration, resolved from the environment alone.
  *
  * The environment is read over the installation's own defaults, and those
@@ -506,19 +527,8 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
       "ADMINISTRATION_NEEDS_OWN_DEVICE",
       false,
     ),
-    /**
-     * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
-     *
-     * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears
-     * in a principal's resolved permission list exactly when the operator
-     * grants the admin role, and `sysBootstrap*` never appears (the endpoint
-     * always strips it), so it is the non-forgeable marker to test for.
-     */
-    adminPermissionMarker: readEnv(
-      environment,
-      "GILBERT_ADMIN_PERMISSION",
-      "sysAccountCreate",
-    ),
+    /** The marker a permission list is read for; see `adminPermissionMarkerOf`. */
+    adminPermissionMarker: adminPermissionMarkerOf(environment),
     /*
      * How push reaches the browser. "relay" holds one upstream stream per tab.
      * "subscribe" registers one JMAP PushSubscription per account and fans

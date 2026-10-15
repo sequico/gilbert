@@ -6,6 +6,7 @@
 
 import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { adminPermissionMarkerOf } from "../configuration.js";
 import { MASKED } from "../shared/accountSecurity.js";
 import {
   FILENODE_CHANGES,
@@ -137,11 +138,12 @@ const USER = process.env.MOCK_USER ?? "demo@example.com";
  * administration surface are exercisable in dev:mock out of the box. Set
  * MOCK_ADMIN=0 for the non-admin case.
  *
- * The marker and the impersonation right below are fixture literals matching
- * the server's defaults (`GILBERT_ADMIN_PERMISSION`, live-verified
- * 2026-09-09). A mock run emulates the default configuration; an operator
- * who overrides the marker env while pointing Gilbert at the mock accepts
- * the drift.
+ * The marker is the configured one — `adminPermissionMarkerOf`, the same
+ * resolver the server compares a permission list against
+ * (`isStalwartAdmin`, `upstream.ts`) — so a mock and a server given the same
+ * `GILBERT_ADMIN_PERMISSION` agree on who is an administrator. The
+ * impersonation right below is the fixture that rides along with it: a real
+ * admin role bundles both (live-verified 2026-09-09).
  */
 const MOCK_ADMIN = process.env.MOCK_ADMIN !== "0";
 /** Exercise the guard that refuses to force another Gilbert admin (the
@@ -208,18 +210,20 @@ export const accountRegistryGate = {
 };
 /** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
+/** The admin permission this process is configured on, read as the server reads it. */
+const ADMIN_PERMISSION_MARKER = adminPermissionMarkerOf();
 /**
  * What `/api/account` reports for a principal: the user-role list, plus the
  * admin marker and the rights the admin role bundles (live-verified
- * 2026-09-09: `impersonate` and `scimAccess` ride along with
- * `sysAccountCreate`). Groups are never admins; the target principal holds
+ * 2026-09-09: `impersonate` and `scimAccess` ride along with the marker).
+ * Groups are never admins; the target principal holds
  * the marker only under MOCK_TARGET_IS_ADMIN=1.
  */
 const permissionsOf = (username: string): string[] => {
   const admin =
     username === USER ? MOCK_ADMIN : username === TARGET_USER ? TARGET_IS_ADMIN : false;
   const base = admin
-    ? [...USER_PERMISSIONS, "sysAccountCreate", "impersonate", "scimAccess"]
+    ? [...USER_PERMISSIONS, ADMIN_PERMISSION_MARKER, "impersonate", "scimAccess"]
     : [...USER_PERMISSIONS];
   /*
    * A permission a plain administrator does not hold, for the case the admin
