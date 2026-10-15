@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Camera, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { client } from "@/jmap/client";
@@ -450,7 +451,7 @@ export function ContactEditor({
         }
       }
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

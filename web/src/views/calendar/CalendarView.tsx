@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -217,7 +218,7 @@ export function CalendarView({
         const message = droppedMessage(dropped);
         if (message) toast.success(message);
       } catch (err) {
-        toast.error((err as Error).message);
+        toast.error(errorMessage(err));
       }
     },
     [cal],

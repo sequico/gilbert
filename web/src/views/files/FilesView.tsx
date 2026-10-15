@@ -87,7 +87,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     try {
       await files.mkdir(parentId, n.trim());
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
   /* Which column this folder is ordered by, remembered per folder on this
@@ -210,7 +210,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             return { nodes };
           });
         })
-        .catch((err) => toast.error((err as Error).message));
+        .catch((err) => toast.error(errorMessage(err)));
     }
   }, [parentId, files.available]);
 
@@ -274,9 +274,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       setDragging([]);
       if (canDropFileNodes(files.nodes, ids, into)) {
         setSelection(new Set());
-        void files
-          .moveMany(ids, into)
-          .catch((err) => toast.error((err as Error).message));
+        void files.moveMany(ids, into).catch((err) => toast.error(errorMessage(err)));
       }
       return;
     }
@@ -300,7 +298,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
         }
         if (flat.length) await files.upload(into, flat);
       } catch (err) {
-        toast.error((err as Error).message);
+        toast.error(errorMessage(err));
       }
     })();
   };
@@ -510,7 +508,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       setSelection(new Set());
       toast.success(t("Deleted"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -913,7 +911,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   try {
                     await files.mkdir(parentId, n.trim());
                   } catch (err) {
-                    toast.error((err as Error).message);
+                    toast.error(errorMessage(err));
                   }
                 }
               }}
@@ -965,7 +963,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   try {
                     await files.rename(menuNode.id, n.trim());
                   } catch (err) {
-                    toast.error((err as Error).message);
+                    toast.error(errorMessage(err));
                   }
                 }
               }}
@@ -1104,7 +1102,7 @@ export function MoveDialog({
                 onMoved();
                 onClose();
               } catch (err) {
-                toast.error((err as Error).message);
+                toast.error(errorMessage(err));
               }
             }}
           >
@@ -1203,7 +1201,7 @@ function MergeFoldersDialog({
                 // listing moved under the reader. Nothing was written either
                 // way and the dialog is gone, so the toast is what says why the
                 // merge did not start.
-                toast.error((err as Error).message);
+                toast.error(errorMessage(err));
               });
             }}
           >

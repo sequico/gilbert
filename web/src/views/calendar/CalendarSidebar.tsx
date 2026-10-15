@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   AlertTriangle,
@@ -109,7 +110,7 @@ export function CalendarSidebar() {
       );
     } catch (err) {
       toast.error(
-        t("Could not export this calendar: {error}", { error: (err as Error).message }),
+        t("Could not export this calendar: {error}", { error: errorMessage(err) }),
       );
     }
   };
@@ -144,9 +145,7 @@ export function CalendarSidebar() {
       else if (updated) toast.success(`${imported} · ${refreshed}`);
       else toast.success(imported);
     } catch (err) {
-      toast.error(
-        t("Could not import this file: {error}", { error: (err as Error).message }),
-      );
+      toast.error(t("Could not import this file: {error}", { error: errorMessage(err) }));
     }
   };
   /* Added if the server says so or the reader's settings do; Stalwart will not
@@ -612,7 +611,7 @@ export function CalendarSidebar() {
                         await cal.updateCalendar(menuCal.id, { shareWith: null });
                         toast.success(t("No longer shared"));
                       } catch (err) {
-                        toast.error((err as Error).message);
+                        toast.error(errorMessage(err));
                       }
                     }}
                   />
@@ -626,7 +625,7 @@ export function CalendarSidebar() {
                       .updateCalendar(menuCal.id, {
                         isDefault: true,
                       } as Partial<Calendar>)
-                      .catch((err) => toast.error((err as Error).message))
+                      .catch((err) => toast.error(errorMessage(err)))
                   }
                 />
                 <MenuSep />
@@ -646,7 +645,7 @@ export function CalendarSidebar() {
                     )
                       void cal
                         .destroyCalendar(menuCal.id)
-                        .catch((err) => toast.error((err as Error).message));
+                        .catch((err) => toast.error(errorMessage(err)));
                   }}
                 />
               </>

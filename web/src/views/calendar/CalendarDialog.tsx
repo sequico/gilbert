@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useState } from "react";
 import type { Calendar, Id } from "@/jmap/types";
 import { browserTimeZone, listTimeZones } from "@/lib/dates";
@@ -45,7 +46,7 @@ export function CalendarDialog({
       toast.success(translate("Calendar saved"));
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

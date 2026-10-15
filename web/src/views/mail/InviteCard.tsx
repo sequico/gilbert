@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Calendar, Check, HelpCircle, MapPin, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -32,7 +33,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
         const first = evs[0];
         if (first?.uid) setExisting(await cal.findByUid(first.uid));
       })
-      .catch((err) => !cancelled && setError((err as Error).message));
+      .catch((err) => !cancelled && setError(errorMessage(err)));
     return () => {
       cancelled = true;
     };
@@ -90,7 +91,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
             : t("Marked as tentative"),
       );
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(null);
     }
@@ -105,7 +106,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
       setExisting(await cal.getEvent(id));
       toast.success(t("Added to your calendar"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(null);
     }
@@ -227,7 +228,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
                 setExisting(null);
                 toast.success(t("Removed from calendar"));
               } catch (err) {
-                toast.error((err as Error).message);
+                toast.error(errorMessage(err));
               }
             }}
           >

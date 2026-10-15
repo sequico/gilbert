@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   ArrowLeft,
   Building2,
@@ -596,9 +597,7 @@ export function ContactsView({ id }: { id?: string }) {
       }
     } catch (err) {
       toast.error(
-        translate("Could not import this file: {error}", {
-          error: (err as Error).message,
-        }),
+        translate("Could not import this file: {error}", { error: errorMessage(err) }),
       );
     }
   };
@@ -695,7 +694,7 @@ export function ContactsView({ id }: { id?: string }) {
         );
       if (destroyed && cardWasDeleted) navigate("/contacts");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -1132,7 +1131,7 @@ function MoveContactDialog({
         accountId: accountId === contacts.accountId ? null : accountId,
       });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -1293,7 +1292,7 @@ function ContactDetail({
                   toast.success(translate("Contact deleted"));
                   navigate("/contacts");
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }
             }}

@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   ChevronDown,
   ChevronRight,
@@ -138,7 +139,7 @@ export function FilesTree() {
       await useFiles.getState().moveMany(ids, parentId);
       if (parentId) openKeys([folderKey(accountId, parentId)]);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -348,7 +349,7 @@ export function FilesTree() {
               await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
               if (menuNode) openKeys([folderKey(accountId, menuNode.id)]);
             } catch (err) {
-              toast.error((err as Error).message);
+              toast.error(errorMessage(err));
             }
           }}
         />
@@ -367,7 +368,7 @@ export function FilesTree() {
                 try {
                   await useFiles.getState().rename(menuNode.id, name.trim());
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }}
             />
@@ -398,7 +399,7 @@ export function FilesTree() {
                   if (currentId === menuNode.id) navigate("/files");
                   toast.success(t("Deleted"));
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }}
             />

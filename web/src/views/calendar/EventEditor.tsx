@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CAP } from "@/jmap/client";
@@ -682,7 +683,7 @@ function EventForm({
       }
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

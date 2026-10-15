@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { BookOpen, Eye } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { formatDateTime } from "@/lib/datetime";
@@ -105,7 +106,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
             .map((w) => ({ uid: w.uid, name: w.name })),
         );
       } catch (err) {
-        if (alive) setUsedError((err as Error).message);
+        if (alive) setUsedError(errorMessage(err));
       }
     })();
     return () => {
@@ -599,7 +600,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
                     await restore(rev.revision);
                     setHistoryOpen(false);
                   } catch (err) {
-                    toast.error((err as Error).message);
+                    toast.error(errorMessage(err));
                   }
                 }}
               >

@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   AlignLeft,
   Bell,
@@ -112,7 +113,7 @@ export function EventPopover({
       );
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -125,7 +126,7 @@ export function EventPopover({
       toast.success(t("Response sent"));
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

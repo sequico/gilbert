@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   Book,
@@ -214,7 +215,7 @@ export function ContactsSidebar() {
         try {
           await contacts.updateBook(book.id, { name: name.trim() }, accountId);
         } catch (err) {
-          toast.error((err as Error).message);
+          toast.error(errorMessage(err));
         }
       }}
     />
@@ -264,7 +265,7 @@ export function ContactsSidebar() {
     try {
       await contacts.createBook(name.trim(), accountId);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -332,7 +333,7 @@ export function ContactsSidebar() {
             try {
               await contacts.createBook(name.trim());
             } catch (err) {
-              toast.error((err as Error).message);
+              toast.error(errorMessage(err));
             }
           }}
         >
@@ -545,7 +546,7 @@ export function ContactsSidebar() {
                     await contacts.updateBook(menuBook.id, { shareWith: null });
                     toast.success(t("No longer shared"));
                   } catch (err) {
-                    toast.error((err as Error).message);
+                    toast.error(errorMessage(err));
                   }
                 }}
               />
@@ -617,7 +618,7 @@ export function ContactsSidebar() {
                     );
                   else if (!destroyed && !unfiled) toast.error(t("Nothing was deleted"));
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }}
             />
@@ -641,7 +642,7 @@ export function ContactsSidebar() {
                   if (sel.bookId === menuBook.id)
                     contacts.select({ accountId: null, bookId: "all" });
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }}
             />

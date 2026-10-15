@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { isAgentLabel } from "@gilbert/shared/labels";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -615,7 +616,7 @@ export function MessageList({
                         const e = emails[Object.keys(selected)[0] as Id];
                         if (e)
                           void startAppointment(e, navigate).catch((err: unknown) =>
-                            toast.error((err as Error).message),
+                            toast.error(errorMessage(err)),
                           );
                       }}
                     />
@@ -1087,7 +1088,7 @@ export function MessageList({
               const e = ctxRow ? emails[ctxRow] : undefined;
               if (e)
                 void startAppointment(e, navigate).catch((err: unknown) =>
-                  toast.error((err as Error).message),
+                  toast.error(errorMessage(err)),
                 );
             }}
           />

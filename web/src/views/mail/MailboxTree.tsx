@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   AlertOctagon,
   Archive,
@@ -297,7 +298,7 @@ export function MailboxTree() {
       toast.error(
         t("Could not move “{name}”: {reason}", {
           name: mailboxDisplayName(m),
-          reason: (err as Error).message,
+          reason: errorMessage(err),
         }),
       );
     }
@@ -452,7 +453,7 @@ export function MailboxTree() {
       if (parentId) openKeys([folderKey(accountId, parentId)]);
       toast.success(t("Folder “{name}” created", { name: name.trim() }));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -1026,7 +1027,7 @@ function MailboxMenu({
     try {
       await useMail.getState().updateMailbox(m.id, { name: name.trim() });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
   const remove = async () => {
@@ -1046,7 +1047,7 @@ function MailboxMenu({
       toast.success(t("Folder deleted"));
       navigate(`/mail/${useMail.getState().roleId("inbox") ?? ""}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
   const empty = () =>

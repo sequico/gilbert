@@ -1,4 +1,5 @@
 import { FILENODE_SET } from "@gilbert/shared/appFolder";
+import { errorMessage } from "@gilbert/shared/errors";
 import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
@@ -112,7 +113,7 @@ export function SaveToFilesDialog({
       } catch (err) {
         if (!live) return;
         setFolders([]);
-        toast.error((err as Error).message);
+        toast.error(errorMessage(err));
       }
     })();
     return () => {
@@ -156,7 +157,7 @@ export function SaveToFilesDialog({
       setFolders((list) => sortFiles([...(list ?? []), node], DEFAULT_FILES_SORT));
       enter(node);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

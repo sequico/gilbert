@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   CalendarDays,
   Calendar as CalIcon,
@@ -154,7 +155,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
           (scope === "occurrence" ? t("{message} for this date", { message: msg }) : msg),
       );
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
   const setColor = (color: string | null) =>
@@ -211,7 +212,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
       );
       toast.success(t("Event duplicated"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
   const del = async () => {
@@ -246,7 +247,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
         scope === "occurrence" ? t("Occurrence deleted") : t("Event deleted"),
       );
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 

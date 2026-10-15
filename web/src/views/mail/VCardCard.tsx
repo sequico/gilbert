@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { client } from "@/jmap/client";
@@ -39,7 +40,7 @@ export function VCardCard({ part, accountId }: { part: EmailBodyPart; accountId:
           plural(created, { one: "Added {n} contact", other: "Added {n} contacts" }),
         );
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

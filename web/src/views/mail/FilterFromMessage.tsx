@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import type { Email, Id } from "@/jmap/types";
 import { plural, t, tNode } from "@/lib/i18n";
@@ -133,7 +134,7 @@ export async function saveAndApply(
   try {
     await sieve.saveRules(upsertRule(existing, r));
   } catch (err) {
-    toast.error(t("Could not save filter: {error}", { error: (err as Error).message }));
+    toast.error(t("Could not save filter: {error}", { error: errorMessage(err) }));
     return;
   }
   if (!applyMailboxId) {
@@ -167,9 +168,7 @@ export async function saveAndApply(
   } catch (err) {
     toast.dismiss(tid);
     toast.error(
-      t("Filter saved, but applying it failed: {error}", {
-        error: (err as Error).message,
-      }),
+      t("Filter saved, but applying it failed: {error}", { error: errorMessage(err) }),
     );
   }
 }

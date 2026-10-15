@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   AlertOctagon,
@@ -140,7 +141,7 @@ export function ThreadView({
     if (!ready) return;
     setError(null);
     useMail.getState().setOpenThread(threadId);
-    loadThread(threadId).catch((err) => setError((err as Error).message));
+    loadThread(threadId).catch((err) => setError(errorMessage(err)));
     return () => {
       if (useMail.getState().openThreadId === threadId)
         useMail.getState().setOpenThread(null);

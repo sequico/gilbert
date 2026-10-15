@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
@@ -90,7 +91,7 @@ export function MergeContactsDialog({
         );
       else toast.error(t("The contacts were merged, but the other one is still there."));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

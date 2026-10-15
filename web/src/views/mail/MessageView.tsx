@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   Ban,
@@ -392,7 +393,7 @@ export const MessageView = memo(function MessageView({
         setSource(await client.fetchBlobText(accountId, e.blobId, "message/rfc822"));
       } catch (err) {
         setSource(
-          translate("Could not load source: {error}", { error: (err as Error).message }),
+          translate("Could not load source: {error}", { error: errorMessage(err) }),
         );
       }
     }
@@ -420,9 +421,7 @@ export const MessageView = memo(function MessageView({
     try {
       await shareText({ title: e.subject || translate("(no subject)"), text: body });
     } catch (err) {
-      toast.error(
-        translate("Could not share: {error}", { error: (err as Error).message }),
-      );
+      toast.error(translate("Could not share: {error}", { error: errorMessage(err) }));
     }
   };
 
@@ -728,7 +727,7 @@ export const MessageView = memo(function MessageView({
             label={translate("Create event…")}
             onClick={() =>
               void startAppointment(e, navigate).catch((err: unknown) =>
-                toast.error((err as Error).message),
+                toast.error(errorMessage(err)),
               )
             }
           />
@@ -875,7 +874,7 @@ export const MessageView = memo(function MessageView({
                       setReceiptDone(null);
                       toast.error(
                         translate("Could not send the receipt: {error}", {
-                          error: (err as Error).message,
+                          error: errorMessage(err),
                         }),
                       );
                     }
@@ -908,7 +907,7 @@ export const MessageView = memo(function MessageView({
                   } catch (err) {
                     toast.error(
                       translate("Could not cancel: {error}", {
-                        error: (err as Error).message,
+                        error: errorMessage(err),
                       }),
                     );
                   }
