@@ -111,8 +111,8 @@ export class AgentDocumentError extends Error {
 }
 
 /**
- * How many times the audit's append retries, with a pause and jitter between
- * tries.
+ * How many times a compare-and-set pass over a month's document retries, with
+ * a pause and jitter between tries.
  *
  * More than the ordinary `CLAIM_CAS_ATTEMPTS`, because the state it compares
  * against is the whole account's (`appFolderState`), so a write that has
@@ -676,29 +676,33 @@ export class AgentStore {
   }
 
   /**
-   * One compare-and-set pass over a month's authoring document.
+   * One compare-and-set pass over a month's document, with the retries the
+   * shared state needs.
    *
-   * `appendAuthoring`, `reserveAuthoring` and `updateAuthoringEntry` each
-   * re-read the document, default one that is missing or in an older shape to
-   * an empty month, and retry when the write loses the CAS.
-   * `mutate` is handed the document as it now reads and returns the next one,
-   * or null to abandon the pass (a cap reached, an entry no longer present).
-   * `conflict` completes the sentence thrown past the last attempt.
+   * The state a pass compares against is the whole account's, so a write that
+   * has nothing to do with the document invalidates it just as well: read the
+   * state, read the document, mutate it, write it back under the state it was
+   * read at, and on a loss re-read both and try again (`AUDIT_CAS_ATTEMPTS`,
+   * with a pause and jitter).
+   *
+   * `read` turns whatever is at `path` into the document to write, and is where
+   * the two callers differ on a document in another shape: the authoring month
+   * is replaced with an empty one, the audit trail is refused
+   * (`AgentDocumentError`) so the record is not erased. `mutate` is handed the
+   * document as it now reads and returns the next one, or `null` to abandon the
+   * pass (a cap reached, an entry no longer present). A loss that survives
+   * every attempt is `refuse`, each caller's own answer.
    */
-  private async authoringCas(
-    month: string,
-    mutate: (doc: AgentAuthoringDoc) => AgentAuthoringDoc | null,
-    conflict: string,
+  private async casWrite<T>(
+    path: string,
+    read: (raw: unknown) => T,
+    mutate: (doc: T) => T | null,
+    refuse: () => boolean,
   ): Promise<boolean> {
-    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
     for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
       if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
-      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
-        ? raw
-        : { v: 1, month, entries: [] };
-      const next = mutate(doc);
+      const next = mutate(read(await readAppJsonAt(this.ctx, this.accountId, path)));
       if (next === null) return false;
       try {
         await writeAppFileAt(this.ctx, this.accountId, path, next, { ifInState: state });
@@ -707,8 +711,33 @@ export class AgentStore {
         if (!isStateMismatch(err)) throw err;
       }
     }
-    throw new Error(
-      `the authoring document ${path} kept changing under the writer; ${conflict}`,
+    return refuse();
+  }
+
+  /**
+   * One compare-and-set pass over a month's authoring document.
+   *
+   * `appendAuthoring`, `reserveAuthoring` and `updateAuthoringEntry` each
+   * re-read the document, default one that is missing or in an older shape to
+   * an empty month, and retry when the write loses the CAS. None of them can
+   * queue what a loss means the way the trail's append does, so a pass that
+   * keeps changing under the writer fails in the open with `conflict`.
+   */
+  private async authoringCas(
+    month: string,
+    mutate: (doc: AgentAuthoringDoc) => AgentAuthoringDoc | null,
+    conflict: string,
+  ): Promise<boolean> {
+    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
+    return this.casWrite<AgentAuthoringDoc>(
+      path,
+      (raw) => (isAgentAuthoringDoc(raw) ? raw : { v: 1, month, entries: [] }),
+      mutate,
+      () => {
+        throw new Error(
+          `the authoring document ${path} kept changing under the writer; ${conflict}`,
+        );
+      },
     );
   }
 
@@ -859,31 +888,23 @@ export class AgentStore {
     path: string,
     month: string,
   ): Promise<boolean> {
-    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
-      if (attempt) await sleep(backoffMs(attempt));
-      const state = await this.state();
-      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
-      // A document that is there in any other shape is refused, never replaced
-      // with an empty month: the trail is kept for twelve months, and a shape
-      // this build does not read is still the record it stands for.
-      if (raw !== null && !isAgentAuditDoc(raw))
-        throw new AgentDocumentError(
-          path,
-          `the ${month} audit`,
-          "it is not the shape this build writes, and it is not replaced",
-        );
-      const doc: AgentAuditDoc = isAgentAuditDoc(raw)
-        ? raw
-        : { v: 1, month, entries: [] };
-      doc.entries = [...doc.entries, entry];
-      try {
-        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
-        return true;
-      } catch (err) {
-        if (!isStateMismatch(err)) throw err;
-      }
-    }
-    return false;
+    return this.casWrite<AgentAuditDoc>(
+      path,
+      (raw) => {
+        // A document that is there in any other shape is refused, never replaced
+        // with an empty month: the trail is kept for twelve months, and a shape
+        // this build does not read is still the record it stands for.
+        if (raw !== null && !isAgentAuditDoc(raw))
+          throw new AgentDocumentError(
+            path,
+            `the ${month} audit`,
+            "it is not the shape this build writes, and it is not replaced",
+          );
+        return isAgentAuditDoc(raw) ? raw : { v: 1, month, entries: [] };
+      },
+      (doc) => ({ ...doc, entries: [...doc.entries, entry] }),
+      () => false,
+    );
   }
 
   /**
