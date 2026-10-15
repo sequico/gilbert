@@ -19,12 +19,13 @@ export function errorMessage(err: unknown): string {
 
 /**
  * The detail of a thrown value, in the parenthesis the sentences that use it
- * already write, and empty when the value has no words of its own.
+ * already write, and empty unless the value is an `Error` carrying a message.
  *
  * `errorMessage` answers what the value said; this answers whether there is
  * anything to add. They differ where a failure is composed of the reason and
  * the value's own words: "Not valid JSON (…)" reads worse with an empty
- * parenthesis than with none, and a value thrown without a message leaves one.
+ * parenthesis than with none, and a value thrown without a message would leave
+ * one.
  */
 export function errorDetail(err: unknown): string {
   return err instanceof Error && err.message ? ` (${err.message})` : "";
