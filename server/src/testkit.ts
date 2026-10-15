@@ -126,7 +126,7 @@ async function requestJson<B>(
   const text = await res.text();
   return {
     status: res.status,
-    body: text ? (JSON.parse(text) as Record<string, unknown>) : null,
+    body: text ? (JSON.parse(text) as B) : null,
     cookie: setCookie ? setCookie.split(";")[0]! : cookie,
   };
 }
