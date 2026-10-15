@@ -83,9 +83,9 @@ part are the same shape; the root carries what a part does not.
 - `name` — the friendly name, on the root; a part does not carry it.
 - `state` — on the root: `running`, `completed`, `cancelled` or `replaced`. A
   root also carries `replacedBy`, the successor's uid when the state is
-  `replaced`: it is read as part of the shape — a document carrying one is
-  accepted, and a writer preserves it — while no surface names a successor, so
-  no summary publishes it.
+  `replaced`. It is read as part of the shape, a writer preserves it, and the
+  summary publishes it: the state is a relation, and the reader of a replaced
+  workorder wants the one that took over, drawn beside it.
 - `checklist` — `{ template, variants, items, steps }`. `template` names the KB
   article and the revision it binds to (ADR 0024). `variants` is the **chosen
   value per variant** and `items` the **chosen items per repeated section**, both
@@ -115,14 +115,27 @@ drops none.
 
 ### Closing a workorder moves its root
 
-When a workorder reaches a terminal state — `completed`, `cancelled` or
-`replaced` — the Master moves the **root** into `workorders/closed/`, so listing
-`workorders/` is the active set and listing `closed/` is what is done. The
-`closed/` folder is not a bin: a terminal workorder is **kept for ever**, and
-nothing destroys one. A terminal state **freezes the checklist** — a check
-after the fact is refused — so the record is what was checked while the work
-ran. `replaced` means another workorder succeeds it; nothing is copied from the
-one it replaces, and `replacedBy` stays empty until a surface names a successor.
+A workorder is **running** until it is closed, and there are three ways out: it
+is **completed**, it is **cancelled**, or it is **replaced** by the workorder
+that succeeds it. When it reaches one of those states the Master moves the
+**root** into `workorders/closed/`, so listing `workorders/` is the active set
+and listing `closed/` is what is done. The `closed/` folder is not a bin: a
+terminal workorder is **kept for ever**, and nothing destroys one. A terminal
+state **freezes the checklist** — a check after the fact is refused — so the
+record is what was checked while the work ran.
+
+**`replaced` is set by the act that succeeds one, and never on its own.** The
+surface offers **Replace** beside the two ways of finishing, and it opens the
+form a workorder is born from: the successor is created from that input — a name,
+a template, its choices — and the predecessor is marked `replaced` with
+`replacedBy` naming it, in one request. Nothing is copied from the one it
+replaces: the successor is a new workorder a person chose. The two writes live in
+two accounts and Stalwart has no transaction across them, so the pair is
+**all-or-nothing by compensation**: the successor is created first, and a marking
+that fails takes it back, so either both facts are there to be seen or neither is.
+Marking first would leave a `replaced` root naming a uid nobody wrote, and no
+retry invents it. A close request naming `replaced` without a successor is
+therefore refused: the state is a relation, and a relation to nobody is not one.
 The `closed/` **directory node** sits among the active
 roots in a listing of `workorders/` and is dropped by node type, so the active
 set is the files that remain. The folder is a **projection of the state, not the
@@ -234,11 +247,23 @@ is what carries a change there to a reader as it happens.
 ### The checklist, and its signature
 
 A workorder's checklist is **one per (workorder, group)**: a group's part holds
-that group's steps, and the group's members are who check them; the Master's root
-holds the **global** checklist — the workorder's own steps, which are the
-Master's to keep, checked and edited by the Master, the agent or a human
-administrator. The global is only global: each group has its own checklist beside
-it, and the global is nobody else's detail. State is operational and lives only
+that group's steps, and the Master's root holds the **global** checklist — the
+workorder's own steps, the template's unassigned sections.
+
+**Whoever may see a part may check it, and the check is an act of signing.** No
+role is asked for on this surface: the global checklist's readers are the
+workorder's readers and they check its steps, a group's part is checked by that
+group's members, and an administrator checks whatever they can read. What makes
+the act accountable is the **record** rather than the permission — a checked step
+carries its **last signature**, `by` taken from the authenticated session and
+drawn under the check — so a reader sees who asserted it and judges whether that
+is who they expected. The **agent** is a session like any other here: it checks
+through the same door, with its own address in `by`.
+
+Administration is a rule about **templates** and about nothing on this surface:
+only an administrator approves a checklist template (ADR 0024 — it is what
+versions the rules a workorder binds to), while a workorder's own steps are the
+work's, and belong to whoever is doing it. State is operational and lives only
 in the document — the root holds the global checklist, and the combined picture
 is **read** from the parts, never stored beside them.
 

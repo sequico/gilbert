@@ -722,16 +722,35 @@ target gone or out of reach resolves as **not available**.
 
 ## States, and closing
 
-A workorder is **running** until it is closed: **completed**, **cancelled**, or
-**replaced** by another workorder, named on it. Closing keeps it for ever and
+A workorder is **running** until it is closed, and there are three ways out:
+**Mark completed**, **Cancel**, or **Replace**. Closing keeps it for ever and
 **freezes the checklist**, so a check after the fact is refused.
+
+**Replace hands the work over.** It opens the form a workorder is born from —
+name, template, the template's choices — and the successor it builds is what
+takes over; the workorder being replaced is marked **replaced** naming it, and the
+panel lists it as *succeeded by* a chip that opens the successor. Nothing is copied
+from the one it replaces. The two facts are written together: if the second write
+cannot be made, the successor the first one created is taken back, so the pair is
+all-or-nothing rather than a half-done handover. A **replaced** workorder is not
+found by pressing a button for it: the state is a relation, and it is set by the
+act that names somebody.
 
 ## Who can do what
 
-An administrator creates a workorder, closes it and edits its references; an agent
-is designed to be asked for one in a group's chat, though the agent part is not
-functional yet (see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)). Every member checks
-their own groups' steps.
+An administrator creates a workorder, closes it, replaces it and edits its
+references; an agent is designed to be asked for one in a group's chat, though the
+agent part is not functional yet (see [KNOWN-ISSUES.md](KNOWN-ISSUES.md)).
+
+**Whoever may see a part checks it, and the check carries their name.** No role is
+asked for on this surface: the global checklist's readers check its steps, a
+group's part is checked by that group's members, and an administrator checks
+whatever they can read. What makes the act accountable is the record — each
+checked step is stamped *set by* — so a reader sees who asserted it. The agent is
+a session like any other here and checks through the same door, with its own
+address on the step. Administration is a matter of **templates** — only an
+administrator approves a checklist template — and of nothing on a workorder.
+The list opens on the **Running** tab, with the other states one click away.
 
 **Who sees which workorder** is decided by the template's assignment of its
 sections, and a section carries a group when that group owns it and nothing when

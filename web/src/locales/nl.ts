@@ -2428,6 +2428,12 @@ export const catalog: Catalog = {
       "Wanneer deze berichten de deur uit gaan kon niet worden gelezen, dus deze lijst zegt het niet. Er is hier niets verzonden.",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "Of dit account met een afwezigheidsbericht antwoordt kon niet worden gelezen: {error}. Er is hier niets gewijzigd, en opslaan wordt niet aangeboden tot het wel kan.",
+    Replace: "Vervangen",
+    "Replace with": "Vervangen door",
+    "Mark completed": "Markeer als voltooid",
+    Cancel: "Annuleren",
+    "Succeeded by {uid}": "Opgevolgd door {uid}",
+    "The workorder that succeeded this one": "De werkorder die deze heeft opgevolgd",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

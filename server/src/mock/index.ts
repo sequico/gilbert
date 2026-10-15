@@ -2450,6 +2450,10 @@ function enforceLimits(name: string, args: Obj): void {
  * address the test named, and moves the state of the account the request's own
  * conditional write is against (`accountOf` above) — the account a real folder
  * that moved would have moved.
+ *
+ * A **create** carries no `ifInState`, so it never loses here: what a test
+ * arranges to lose is the first conditional write of the act it is asking about,
+ * which for a replacement is the marking that closes the predecessor.
  */
 export const casLoses = {
   /** The address whose conditional writes lose; empty for none. */

@@ -2421,6 +2421,12 @@ export const catalog: Catalog = {
       "Не вдалося прочитати, коли підуть ці листи, тож список про це не каже. Нічого звідси не надіслано.",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "Не вдалося прочитати, чи відповідає цей акаунт повідомленням про відсутність: {error}. Тут нічого не змінено, і збереження не пропонується, доки це не стане читабельним.",
+    Replace: "Замінити",
+    "Replace with": "Замінити на",
+    "Mark completed": "Позначити як виконаний",
+    Cancel: "Скасувати",
+    "Succeeded by {uid}": "Наступник: {uid}",
+    "The workorder that succeeded this one": "Workorder, що став наступником",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

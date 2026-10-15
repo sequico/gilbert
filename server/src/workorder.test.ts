@@ -156,6 +156,8 @@ interface Summary {
   uid: string;
   name: string;
   state: string;
+  /** The successor's uid, on a replaced workorder. */
+  replacedBy?: string | null;
   updated: { by: string; at: string };
   parts: PartView[];
 }
@@ -588,6 +590,127 @@ test("closing a workorder moves its root to closed/ and keeps it", async () => {
   const read = await call(`/api/workorders/${workorder.uid}`);
   assert.equal(read.status, 200, "a closed workorder is kept, not destroyed");
   assert.equal((read.body?.workorder as Summary | undefined)?.state, "completed");
+});
+
+test("replacing hands the work over: the successor exists and the old one names it", async () => {
+  /*
+   * One act: the successor is created from the same body a creation takes, and
+   * the predecessor is marked `replaced` naming it in the same request. Nothing
+   * is copied from the one it replaces (ADR 0028), so the successor is a new
+   * workorder with its own uid.
+   */
+  const template = await templateRef();
+  const predecessor = await createWorkorder("Handover from", template);
+  const replaced = await post("/api/workorders/replace", {
+    uid: predecessor.uid,
+    name: "Handover to",
+    template,
+    variants: { company: "north" },
+    items: { loading: [{ key: "CONT-1", data: { seal: "S-1" } }] },
+  });
+  assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
+  const successor = workorderOf(replaced.body);
+  assert.notEqual(successor.uid, predecessor.uid, "the successor is its own workorder");
+  assert.equal(successor.name, "Handover to");
+  assert.equal(successor.state, "running", "and it is the live one");
+
+  const before = await call(`/api/workorders/${predecessor.uid}`);
+  const settled = (before.body?.workorder as Summary | undefined) ?? undefined;
+  assert.equal(settled?.state, "replaced", "the predecessor is replaced");
+  assert.equal(
+    settled?.replacedBy,
+    successor.uid,
+    "and it names what took over, which is the whole of what the state means",
+  );
+  const listed = await call("/api/workorders");
+  assert.equal(
+    ((listed.body?.workorders as Summary[] | undefined) ?? []).some(
+      (w) => w.uid === successor.uid,
+    ),
+    true,
+    "and the successor is in the registry",
+  );
+});
+
+test("a replacement that cannot be recorded is taken back, and nothing has changed", async () => {
+  /*
+   * The act is two writes in two accounts and Stalwart has no transaction across
+   * them, so the second failing must undo the first rather than leave a
+   * workorder nobody asked for. `casLoses.skip` lets the creation's own writes
+   * pass and makes the *marking* lose every attempt — which is the case a second
+   * write's refusal is, and the one this compensation exists for.
+   *
+   * The pair is all-or-nothing from the outside: either the successor exists and
+   * the predecessor names it, or neither fact is there to be seen. Fails if the
+   * compensation is removed — the successor would then still be in the registry,
+   * running, named by nobody.
+   */
+  const template = await templateRef();
+  const predecessor = await createWorkorder("Never handed over", template);
+  const before = ((await call("/api/workorders")).body?.workorders as Summary[]).map(
+    (w) => w.uid,
+  );
+
+  /*
+   * The creation writes nothing conditionally — a create has no `ifInState` to
+   * lose — so the act's **first** conditional write is the marking itself, the
+   * one under test. The move that follows it is the case this compensation must
+   * not be confused with: a move that loses is reported and left recoverable on
+   * purpose (`setRootState`), the state being the truth by then, so the act
+   * succeeds there.
+   */
+  mock.casLoses.forAddress = mock.AGENT_ADDRESS;
+  mock.casLoses.count = 50;
+  let refused: Awaited<ReturnType<typeof post>>;
+  try {
+    refused = await post("/api/workorders/replace", {
+      uid: predecessor.uid,
+      name: "Successor that never was",
+      template,
+      variants: { company: "north" },
+      items: { loading: [{ key: "CONT-1", data: { seal: "S-1" } }] },
+    });
+  } finally {
+    mock.casLoses.forAddress = "";
+    mock.casLoses.count = 0;
+  }
+  assert.equal(refused.status, 502, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "workorder_replace_failed");
+  assert.match(String((refused.body as { message?: string }).message), /taken back/);
+
+  const after = ((await call("/api/workorders")).body?.workorders as Summary[]).map(
+    (w) => w.uid,
+  );
+  assert.deepEqual(after.sort(), before.sort(), "the registry is exactly as it was");
+  const still = await call(`/api/workorders/${predecessor.uid}`);
+  const settled = still.body?.workorder as Summary | undefined;
+  assert.equal(settled?.state, "running", "the predecessor is still running");
+  assert.equal(settled?.replacedBy ?? null, null, "and names nobody");
+});
+
+test("a workorder is not marked replaced by hand", async () => {
+  /*
+   * `replaced` is a state and not a choice: it is what another workorder says
+   * about the one it succeeds, so a door that set it on request would write a
+   * relation nothing stands behind — no successor named, nothing replaced — and
+   * the badge would read a state no act produced. The state stays (a workorder
+   * may **be** replaced, and the list still filters to it); what sets it is the
+   * successor's own act, which is not built yet.
+   */
+  const template = await templateRef();
+  const workorder = await createWorkorder("Never replaced by hand", template);
+  const refused = await post("/api/workorders/close", {
+    uid: workorder.uid,
+    state: "replaced",
+  });
+  assert.equal(refused.status, 409, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "replaced_is_not_a_choice");
+  const after = await call(`/api/workorders/${workorder.uid}`);
+  assert.equal(
+    (after.body?.workorder as Summary | undefined)?.state,
+    "running",
+    "and the workorder is where it was",
+  );
 });
 
 test("a workorder is not completed over an open step", async () => {
@@ -1121,14 +1244,25 @@ test("a member reaches a workorder whose group part document has gone missing", 
     "and the member's list holds it",
   );
 
-  // Reading it is still not checking it: the global checklist is an
-  // administrator's, so the member's write there is refused.
-  const refused = await callAs(member, "/api/workorders/check", {
+  /*
+   * And reading it is checking it: whoever may see a part may check it, and the
+   * step records **who** did, from the session. No role is asked for on this
+   * surface — administration is a rule about templates, whose approval is the
+   * administrator's (ADR 0024, `/api/knowledge/approve`) and nothing here.
+   */
+  const checked = await callAs(member, "/api/workorders/check", {
     method: "POST",
     body: JSON.stringify({ uid, scope: "global", path: "global.g", state: "done" }),
   });
-  assert.equal(refused.status, 403, JSON.stringify(refused.body));
-  assert.equal(refused.body?.error, "forbidden");
+  assert.equal(checked.status, 200, JSON.stringify(checked.body));
+  const global = ((checked.body?.workorder as Summary).parts ?? []).find(
+    (part) => part.scope === "global",
+  );
+  assert.equal(
+    global?.checklist.steps.find((step) => step.path === "global.g")?.by,
+    MEMBER,
+    "and the step names the person whose session checked it",
+  );
 });
 
 test("a workorder with no global section is its groups' alone", async () => {

@@ -2346,6 +2346,12 @@ export const catalog: Catalog = {
       "Bu mesajların ne zaman gideceği okunamadı, bu yüzden bu liste bunu söylemiyor. Buradan hiçbir şey gönderilmedi.",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "Bu hesabın yokluk mesajıyla yanıt verip vermediği okunamadı: {error}. Burada hiçbir şey değiştirilmedi ve okunana kadar kaydetme sunulmuyor.",
+    Replace: "Değiştir",
+    "Replace with": "Şununla değiştir",
+    "Mark completed": "Tamamlandı olarak işaretle",
+    Cancel: "İptal et",
+    "Succeeded by {uid}": "Yerine geçen: {uid}",
+    "The workorder that succeeded this one": "Bunun yerine geçen iş emri",
   },
   plurals: {
     "({n} deleted first)": {

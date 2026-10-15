@@ -2487,6 +2487,12 @@ export const catalog: Catalog = {
       "Wann diese Nachrichten rausgehen, konnte nicht gelesen werden – diese Liste sagt es deshalb nicht. Nichts hier wurde gesendet.",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "Ob dieses Konto mit einer Abwesenheitsnachricht antwortet, konnte nicht gelesen werden: {error}. Hier wurde nichts geändert, und Speichern wird erst angeboten, wenn es gelesen werden kann.",
+    Replace: "Ersetzen",
+    "Replace with": "Ersetzen durch",
+    "Mark completed": "Als abgeschlossen markieren",
+    Cancel: "Abbrechen",
+    "Succeeded by {uid}": "Abgelöst durch {uid}",
+    "The workorder that succeeded this one": "Der Auftrag, der diesen abgelöst hat",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

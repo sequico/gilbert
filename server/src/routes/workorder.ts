@@ -21,6 +21,7 @@ import {
   editRefs,
   listWorkorders,
   readWorkorder,
+  replaceWorkorder,
   WorkorderAdminError,
 } from "../workorderAdmin.js";
 import type { Env } from "./shared.js";
@@ -123,6 +124,26 @@ export function registerWorkorderRoutes(api: Hono<Env>): void {
     const body = await readJson<unknown>(c);
     try {
       const workorder = await createWorkorder(c.get("session"), workorderCreate(body));
+      return c.json({ ok: true, workorder });
+    } catch (err) {
+      return workorderFailure(c, err);
+    }
+  });
+
+  /*
+   * Replace: the successor from the same body a creation takes, and the
+   * predecessor marked in the same act. `requireAdmin` beside creation's, which
+   * is the same grant — this writes a workorder.
+   */
+  api.post("/workorders/replace", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ uid?: unknown } & Record<string, unknown>>(c);
+    try {
+      const uid = typeof body?.uid === "string" ? body.uid : "";
+      const workorder = await replaceWorkorder(
+        c.get("session"),
+        uid,
+        workorderCreate(body),
+      );
       return c.json({ ok: true, workorder });
     } catch (err) {
       return workorderFailure(c, err);

@@ -2427,6 +2427,12 @@ export const catalog: Catalog = {
       "これらのメッセージがいつ送信されるかを読み取れなかったため、この一覧では表示していません。ここにあるものはまだ送信されていません。",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "このアカウントが不在メッセージで応答しているかどうかを読み取れませんでした: {error}。ここでは何も変更されておらず、読み取れるまで保存はできません。",
+    Replace: "置き換える",
+    "Replace with": "置き換え先",
+    "Mark completed": "完了としてマーク",
+    Cancel: "キャンセル",
+    "Succeeded by {uid}": "{uid} が後継",
+    "The workorder that succeeded this one": "これを引き継いだワークオーダー",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

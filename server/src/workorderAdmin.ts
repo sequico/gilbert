@@ -28,6 +28,7 @@ import { memberReach } from "./agentAdmin.js";
 import {
   appFolderState,
   type Ctx,
+  destroyAppNode,
   ensureFolderPath,
   type FileNodeLike,
   fileChildren,
@@ -700,7 +701,17 @@ async function summaryOf(
       title: global.title,
       rev: global.rev,
       checklist: root.checklist,
-      canCheck: reach.admin,
+      /*
+       * Whoever may see a part may check it, and the global part is the one
+       * every reader of the workorder sees — so this is `true` and not a role.
+       * What a step carries is **who signed it** (`by`, taken from the
+       * session), which is what makes the check an accountable act rather than
+       * a privileged one: the signature says who asserted it, and a
+       * checklist's reader can see whether that is the person they expected.
+       * Administration is a rule about **templates** (only an administrator
+       * approves one, ADR 0024) and has nothing to say about a workorder.
+       */
+      canCheck: true,
     },
   ];
   for (const name of visible) {
@@ -771,6 +782,7 @@ async function summaryOf(
     refs: root.refs,
     created: root.created,
     updated: root.updated,
+    replacedBy: root.replacedBy ?? null,
     canAdminister: reach.admin,
   };
 }
@@ -1273,11 +1285,19 @@ export async function checkStep(
   // which leaves that read whole).
   let readParts = new Map<string, WorkorderFound | null>();
   if (input?.scope === "global") {
-    if (!reach.admin)
+    /*
+     * The same rule the read uses, asked before the write rather than after it:
+     * a caller who may see the workorder may check its global checklist, and one
+     * who may not is told the workorder is not there — the answer a hidden
+     * workorder gets everywhere else on this surface, so a refusal cannot be
+     * used to discover that one exists.
+     */
+    const found = await findRoot(reach.ctx, reach.accountId, uid);
+    if (!found || !(await maySee(reach, found.doc)))
       throw new WorkorderAdminError(
-        "forbidden",
-        "Only an installation administrator checks the global checklist.",
-        403,
+        "workorder_not_found",
+        `No workorder "${uid}" is there to check.`,
+        404,
       );
     // The document the gates pass reads is the one this write leaves behind:
     // the step is on the root, so its read is already in hand under the
@@ -1405,9 +1425,31 @@ export async function closeWorkorder(
   if (!isWorkorderState(state))
     throw new WorkorderAdminError(
       "bad_state",
-      "A workorder state must be running, completed, cancelled or replaced.",
+      "A workorder state must be running, completed or cancelled.",
     );
-  const { ctx, accountId } = await masterAccount(session);
+  /*
+   * `replaced` is a state and **not** a choice. It is what another workorder
+   * says about the one it succeeds, so a door that let a person set it would
+   * write a relation nothing stands behind — no successor named, nothing that
+   * had replaced anything — and the badge would then read a state no act
+   * produced. The successor's own act is what sets it, and that is not built
+   * yet (`ROADMAP.md`), so the door refuses rather than accepts a state the
+   * surface no longer offers: a menu and a door that disagree is how a control
+   * nobody can press becomes a write nobody can explain.
+   */
+  /*
+   * `replaced` names a successor, and this door has no way to name one — so a
+   * request that asks for it here is refused rather than honoured. The state is
+   * written by `replaceWorkorder`, which creates the successor and sets both
+   * facts in the same act; a root marked `replaced` with nobody named would be a
+   * relation nothing stands behind.
+   */
+  if (state === "replaced")
+    throw new WorkorderAdminError(
+      "replaced_is_not_a_choice",
+      "A workorder is replaced by the one that succeeds it, which names that workorder: replace it rather than closing it into that state.",
+      409,
+    );
   // A workorder is not completed over an unfinished checklist: an open step is
   // done, or explicitly skipped with a reason, first. The guard is here, on the
   // effect, so no surface can complete around it.
@@ -1424,6 +1466,25 @@ export async function closeWorkorder(
         409,
       );
   }
+  return setRootState(session, id, state, null);
+}
+
+/**
+ * Write a terminal state onto a root and move it where that state belongs.
+ *
+ * One place, because two acts reach it: closing by hand, and being replaced by
+ * the workorder that succeeds one. `replacedBy` is written only when the state
+ * being written is `replaced`; every other write **preserves** it, which is what
+ * the shape asks of a writer (ADR 0028) and what keeps a reopened workorder
+ * naming what had succeeded it.
+ */
+async function setRootState(
+  session: LiveSession,
+  id: string,
+  state: WorkorderState,
+  replacedBy: string | null,
+): Promise<WorkorderSummary> {
+  const { ctx, accountId } = await masterAccount(session);
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
   const closedId = await ensureFolderPath(ctx, accountId, workorderClosedPath());
   const target = isTerminalState(state) ? closedId : activeId;
@@ -1438,7 +1499,12 @@ export async function closeWorkorder(
       message:
         "The workorder could not be closed because another write kept winning the race.",
     },
-    (root) => ({ ...root.doc, state, updated: { by, at } }),
+    (root) => ({
+      ...root.doc,
+      state,
+      ...(state === "replaced" ? { replacedBy } : {}),
+      updated: { by, at },
+    }),
   );
   /*
    * The folder is a projection of the state, not the state itself, and the move
@@ -1461,6 +1527,114 @@ export async function closeWorkorder(
   if (!summary)
     throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
   return summary;
+}
+
+/**
+ * Take back a successor this call created and then could not hand over.
+ *
+ * The root is destroyed **first**, so the workorder leaves the registry at once
+ * and whatever remains is unreachable by any surface: what a failure here can
+ * leave is a part document in a group's account that nothing lists. The reverse
+ * order would leave a visible workorder whose checklist is half gone — something
+ * a reader can open and act on, and should not have to.
+ *
+ * `true` means the installation is where it was before the act. `false` is the
+ * orphan, and the caller says so by name rather than reporting a success: a
+ * successor that exists and that nothing names is a fact somebody has to
+ * reconcile, and inventing an outcome for it is worse than the orphan.
+ */
+async function undoSuccessor(
+  session: LiveSession,
+  successor: WorkorderSummary,
+): Promise<boolean> {
+  const { ctx, accountId } = await masterAccount(session);
+  const root = await findActive(ctx, accountId, successor.uid);
+  if (root) {
+    try {
+      await destroyAppNode(ctx, accountId, root.nodeId);
+    } catch (err) {
+      console.warn(
+        `[gilbert] workorder ${successor.uid} could not be taken back, so it is there:`,
+        err instanceof Error ? err.message : String(err),
+      );
+      return false;
+    }
+  }
+  let undone = true;
+  for (const part of successor.parts) {
+    if (part.scope !== "group" || !part.accountId) continue;
+    const found = await findActive(ctx, part.accountId, successor.uid);
+    if (!found) continue;
+    try {
+      await destroyAppNode(ctx, part.accountId, found.nodeId);
+    } catch (err) {
+      undone = false;
+      console.warn(
+        `[gilbert] workorder ${successor.uid} left a part in ${part.accountId}:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+  return undone;
+}
+
+/**
+ * Replace a workorder with the one that succeeds it.
+ *
+ * **One act and not two requests.** The successor is created from the input the
+ * caller gave — a template, its variants and items, a name: what creation asks
+ * for, because this *is* a creation — and the predecessor is then marked
+ * `replaced` with `replacedBy` naming it. Nothing is copied from the one it
+ * replaces (ADR 0028): the successor is a new workorder that a person chose.
+ *
+ * **Two writes in two accounts, and Stalwart offers no transaction across
+ * them.** So the second failing does not leave a half-done act: the successor
+ * this call created — exposed to nobody, named by nobody — is **taken back**, and
+ * the request fails with the predecessor untouched. That is what makes the pair
+ * all-or-nothing from the outside: either the successor exists and the
+ * predecessor names it, or neither fact is there to be seen.
+ *
+ * The order is the one that can be compensated. Marking first would leave a
+ * `replaced` root naming a uid nobody wrote, and no retry can invent it; the
+ * other way round, the thing to undo is the thing this call just made.
+ *
+ * `createWorkorder` is not atomic either — it writes the root and each part in
+ * turn — so a failure inside it leaves a successor the caller never got a
+ * summary for. That is its own documented behaviour and not this act's to
+ * repair; what this act repairs is its own second write.
+ */
+export async function replaceWorkorder(
+  session: LiveSession,
+  uid: string,
+  input: WorkorderCreateInput,
+): Promise<WorkorderSummary> {
+  const id = (uid ?? "").trim();
+  if (!id) throw new WorkorderAdminError("bad_request", "A workorder uid is required.");
+  const predecessor = await readWorkorder(session, id);
+  if (!predecessor)
+    throw new WorkorderAdminError("workorder_not_found", `No workorder "${id}".`, 404);
+  if (isTerminalState(predecessor.state))
+    throw new WorkorderAdminError(
+      "workorder_already_closed",
+      "That workorder is already closed, so nothing succeeds it.",
+      409,
+    );
+
+  const successor = await createWorkorder(session, input);
+  try {
+    await setRootState(session, id, "replaced", successor.uid);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    const undone = await undoSuccessor(session, successor);
+    throw new WorkorderAdminError(
+      "workorder_replace_failed",
+      undone
+        ? `The replacement could not be recorded, so it was taken back and nothing has changed: ${why}`
+        : `The replacement could not be recorded, and the workorder it created could not be taken back: "${successor.uid}" is there and nothing names it, so it needs a person: ${why}`,
+      502,
+    );
+  }
+  return successor;
 }
 
 /** Whether two references name the same object. */

@@ -430,6 +430,14 @@ export interface WorkorderSummary {
   refs: WorkorderRef[];
   created: WorkorderTimes;
   updated: WorkorderTimes;
+  /**
+   * The uid of the workorder that succeeded this one, on a `replaced` root.
+   *
+   * It is drawn where the state is, because "replaced" without a successor is a
+   * relation nobody can follow: the reader wants the one that took over, and
+   * that is the uid the state was set with.
+   */
+  replacedBy?: string | null;
   /** Whether the caller is an installation administrator. */
   canAdminister: boolean;
 }

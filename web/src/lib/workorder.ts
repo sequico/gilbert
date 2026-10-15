@@ -64,6 +64,24 @@ export async function createWorkorder(
   return res.workorder;
 }
 
+/**
+ * Replace a workorder with the one that succeeds it.
+ *
+ * The body is a creation's — a name, the template and its choices — because the
+ * successor **is** a new workorder; the route creates it and marks the
+ * predecessor `replaced` naming it, in one act.
+ */
+export async function replaceWorkorder(
+  uid: string,
+  input: WorkorderCreateInput,
+): Promise<WorkorderSummary> {
+  const res = await apiFetch<{ ok: true; workorder: WorkorderSummary }>(
+    "/api/workorders/replace",
+    { method: "POST", body: JSON.stringify({ ...input, uid }) },
+  );
+  return res.workorder;
+}
+
 /** Check or uncheck one step; the route signs it from the session it read. */
 export async function checkWorkorderStep(
   input: WorkorderCheckInput,

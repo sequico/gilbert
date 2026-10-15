@@ -3386,6 +3386,12 @@ export const catalog: Catalog = {
       "Non è stato possibile leggere quando partiranno questi messaggi, quindi questa lista non lo dice. Qui non è stato inviato nulla.",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "Non è stato possibile leggere se questo account risponde con un messaggio di assenza: {error}. Qui non è stato cambiato nulla, e salvare non è offerto finché non si può leggere.",
+    Replace: "Sostituisci",
+    "Replace with": "Sostituisci con",
+    "Mark completed": "Segna come completato",
+    Cancel: "Annulla",
+    "Succeeded by {uid}": "Sostituita da {uid}",
+    "The workorder that succeeded this one": "Il workorder che ha sostituito questo",
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────

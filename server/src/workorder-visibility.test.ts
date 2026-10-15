@@ -159,12 +159,21 @@ test("a workorder of group sections only is reached by its group, not by everyon
   );
 });
 
-test("a member checks its own group's steps, and not the installation's", async () => {
+test("whoever may see a part may check it, and the check carries their name", async () => {
   /*
-   * Checking is a member's act, not an administration's: the check route needs a
-   * session and membership, and the summary says per part whether it is theirs
-   * (`canCheck`). The global checklist is the exception, and it is the other way
-   * round — a member reads it, an administrator or the agent signs it.
+   * The owner's rule: a part's readers are its checkers. No role is asked for,
+   * because administration is a rule about **templates** — only an
+   * administrator approves a checklist template (ADR 0024) — and about nothing
+   * on this surface. What a checked step carries is the signature: `by`, taken
+   * from the authenticated session, so the act is accountable in the record
+   * rather than gated by a role.
+   *
+   * The session below is `gilbert@example.com`, which this file's environment
+   * names as the installation's **agent** (`GILBERT_AGENT_ADDRESS`) and which is
+   * not an administrator. So the two requirements are one case, and the test
+   * covers both: the agent checks the global checklist and its group's part
+   * through the same door a person uses — it has no door of its own — and each
+   * step comes back stamped with its session's address.
    */
   const cookie = await signIn("gilbert@example.com", "gilbert-password", false);
   const view = await app.request("/api/workorders/container-northwind", {
@@ -176,7 +185,7 @@ test("a member checks its own group's steps, and not the installation's", async 
         scope: string;
         group?: string;
         canCheck?: boolean;
-        checklist: { steps: Array<{ path: string; state: string }> };
+        checklist: { steps: Array<{ path: string; state: string; by?: string }> };
       }>;
     };
   };
@@ -184,7 +193,7 @@ test("a member checks its own group's steps, and not the installation's", async 
   const global = workorder.parts.find((part) => part.scope === "global");
   assert.ok(own && global, "the member reads the global checklist and its own part");
   assert.equal(own.canCheck, true, "its own part is theirs to check");
-  assert.equal(global.canCheck, false, "the installation's own checklist is not");
+  assert.equal(global.canCheck, true, "and so is the global one, which it also reads");
 
   const check = async (body: Record<string, unknown>) => {
     const res = await app.request("/api/workorders/check", {
@@ -207,15 +216,32 @@ test("a member checks its own group's steps, and not the installation's", async 
     200,
     "a non-administrator checks their own group's step",
   );
+  /*
+   * `final.handover` and not a step of the group's part: the two are different
+   * documents, and a path that belongs to a part the caller is in is still not a
+   * step of the root. It is chosen because the fixture left it **open** and
+   * unsigned, so what it carries afterwards is this check's own act rather than
+   * the seed's stamp.
+   */
+  const path = "final.handover";
   assert.equal(
-    await check({
-      uid: "container-northwind",
-      scope: "global",
-      path: global.checklist.steps[0]?.path,
-      state: "done",
-    }),
-    403,
-    "and the installation's own checklist stays the administration's",
+    await check({ uid: "container-northwind", scope: "global", path, state: "done" }),
+    200,
+    "and the installation's own checklist is not the administration's",
+  );
+
+  const after = await app.request("/api/workorders/container-northwind", {
+    headers: { ...HEADERS, cookie },
+  });
+  const settled = ((await after.json()) as { workorder: typeof workorder }).workorder;
+  const signed = settled.parts
+    .find((part) => part.scope === "global")
+    ?.checklist.steps.find((step) => step.path === path);
+  assert.equal(signed?.state, "done", "the step is the one that was checked");
+  assert.equal(
+    signed?.by,
+    "gilbert@example.com",
+    "and it records who signed it, taken from the session rather than the seed",
   );
 });
 

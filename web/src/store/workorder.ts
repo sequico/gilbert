@@ -27,6 +27,7 @@ import {
   checkWorkorderStep,
   closeWorkorder,
   createWorkorder,
+  replaceWorkorder,
   editWorkorderRefs,
   listWorkorders,
   type WorkorderCreateInput,
@@ -97,6 +98,14 @@ export interface WorkorderStore {
     note?: string,
   ): Promise<boolean>;
   close(uid: string, state: WorkorderState): Promise<boolean>;
+  /**
+   * Replace a workorder with the successor the input describes, and open it.
+   *
+   * The successor is what the surface shows afterwards: the reader asked for the
+   * work to continue as a new workorder, and landing back on the one that was
+   * just retired would read as nothing having happened.
+   */
+  replace(uid: string, input: WorkorderCreateInput): Promise<boolean>;
   addRef(uid: string, ref: WorkorderRef): Promise<boolean>;
   removeRef(uid: string, ref: WorkorderRef): Promise<boolean>;
   reset(): void;
@@ -301,6 +310,25 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
     async close(uid, state) {
       try {
         put(await closeWorkorder(uid, state));
+        return true;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return false;
+      }
+    },
+
+    async replace(uid, input) {
+      try {
+        const successor = await replaceWorkorder(uid, input);
+        /*
+         * Both documents moved, so the whole list is re-read rather than the one
+         * summary put back: the predecessor is now `replaced` and carries who
+         * succeeded it, and a list that still showed it running would be a
+         * surface disagreeing with the record.
+         */
+        put(successor);
+        await get().load();
+        set({ openUid: successor.uid });
         return true;
       } catch (err) {
         set({ error: (err as Error).message });

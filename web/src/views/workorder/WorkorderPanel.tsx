@@ -103,12 +103,45 @@ function partProgress(part: WorkorderPartView): { complete: number; total: numbe
   };
 }
 
-function StateBadge({ state }: { state: WorkorderState }) {
+function StateBadge({
+  state,
+  replacedBy,
+  onOpen,
+}: {
+  state: WorkorderState;
+  /** The successor's uid, on a replaced workorder; null otherwise. */
+  replacedBy?: string | null;
+  onOpen?: (uid: string) => void;
+}) {
   // Running is the live, accent-worthy one; the terminal states recede.
-  return (
+  const badge = (
     <span className={`badge ${state === "running" ? "" : "muted"}`}>
       {t(STATE_LABELS[state])}
     </span>
+  );
+  /*
+   * "Replaced" without a successor is a relation nobody can follow, so the one
+   * that took over is drawn beside it and opens. A replaced workorder with no
+   * successor named is a document from before the act existed, or one a writer
+   * damaged: the badge stands alone and nothing is invented for it.
+   */
+  if (state !== "replaced" || !replacedBy) return badge;
+  return (
+    <>
+      {badge}
+      {onOpen ? (
+        <button
+          type="button"
+          className="chip"
+          title={t("The workorder that succeeded this one")}
+          onClick={() => onOpen(replacedBy)}
+        >
+          {t("Succeeded by {uid}", { uid: replacedBy })}
+        </button>
+      ) : (
+        <span className="chip">{t("Succeeded by {uid}", { uid: replacedBy })}</span>
+      )}
+    </>
   );
 }
 
@@ -363,17 +396,26 @@ function PartSection({
 
 /**
  * The administrator's control to turn a workorder terminal. The store writes
- * the state and moves the Master's root; nothing here picks a successor's uid,
- * because `replaced` is a state a later concern completes.
+ * the state and moves the Master's root.
+ *
+ * **Three ways out, and the third one is a handover.** A work is done, or it is
+ * off, or it passes to a successor: **Replace** opens the form a workorder is
+ * born from, and the successor it builds is what takes over — the predecessor is
+ * marked `replaced` naming it, in the same act, and the status reads the
+ * relation. So `replaced` is never a state a person sets on its own: it is the
+ * answer to "who carries this on", which only the act of naming somebody can
+ * give.
  */
 function CloseControl({
   state,
   openSteps,
   onClose,
+  onReplace,
 }: {
   state: WorkorderState;
   openSteps: number;
   onClose: (state: WorkorderState) => void;
+  onReplace: () => void;
 }) {
   // A completed workorder is not made over an unfinished checklist: the server
   // refuses it on the effect as well, so this disable is the surface of the one
@@ -389,7 +431,7 @@ function CloseControl({
       {state === "running" ? (
         <>
           <div className="row">
-            {(["completed", "cancelled", "replaced"] as const).map((next) => {
+            {(["completed", "cancelled"] as const).map((next) => {
               const disallowed = next === "completed" && openSteps > 0;
               return (
                 <button
@@ -400,10 +442,15 @@ function CloseControl({
                   title={disallowed ? blocked : undefined}
                   onClick={() => onClose(next)}
                 >
-                  {t(STATE_LABELS[next])}
+                  {next === "completed" ? t("Mark completed") : t("Cancel")}
                 </button>
               );
             })}
+            {onReplace && (
+              <button type="button" className="btn btn-sm" onClick={onReplace}>
+                {t("Replace")}
+              </button>
+            )}
           </div>
           {openSteps > 0 && <p className="hint">{blocked}</p>}
         </>
@@ -444,8 +491,24 @@ interface ItemDraft {
  * the template binds to, so the revision is read when a template is chosen and
  * the choices are drawn from it.
  */
-function NewWorkorderForm({ onClose }: { onClose: () => void }) {
+/**
+ * The form a workorder is born from, in either of the two ways it is born.
+ *
+ * `replacing` names the workorder this one succeeds: the body the form builds is
+ * a creation's either way — a name, a template, its choices — because a
+ * successor **is** a new workorder, and nothing is copied from the one it
+ * replaces (ADR 0028). The mode changes the heading and the verb, and calls the
+ * door that writes both documents in one act.
+ */
+function NewWorkorderForm({
+  onClose,
+  replacing,
+}: {
+  onClose: () => void;
+  replacing?: { uid: string; name: string } | null;
+}) {
   const create = useWorkorders((s) => s.create);
+  const replace = useWorkorders((s) => s.replace);
   const [name, setName] = useState("");
   const [templateIdx, setTemplateIdx] = useState("");
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
@@ -595,7 +658,8 @@ function NewWorkorderForm({ onClose }: { onClose: () => void }) {
       variants: chosenVariants,
       items: chosenItems,
     };
-    void create(input);
+    if (replacing) void replace(replacing.uid, input);
+    else void create(input);
     setName("");
     setTemplateIdx("");
     onClose();
@@ -606,11 +670,13 @@ function NewWorkorderForm({ onClose }: { onClose: () => void }) {
       className="workorder-panel"
       role="dialog"
       aria-modal="true"
-      aria-label={t("New workorder")}
+      aria-label={replacing ? t("Replace with") : t("New workorder")}
       onSubmit={submit}
     >
       <div className="workorder-head">
-        <h2 className="grow truncate">{t("New workorder")}</h2>
+        <h2 className="grow truncate">
+          {replacing ? t("Replace with") : t("New workorder")}
+        </h2>
         <button
           type="button"
           className="icon-btn sm"
@@ -765,7 +831,7 @@ function NewWorkorderForm({ onClose }: { onClose: () => void }) {
           </p>
         )}
         <button type="submit" className="btn btn-sm btn-primary" disabled={!ready}>
-          {t("Create")}
+          {replacing ? t("Replace") : t("Create")}
         </button>
       </div>
     </form>
@@ -798,6 +864,12 @@ export function WorkorderPanel() {
   // The creation dialog rides over the panel; declared before the effects so
   // the Escape handler below can read it.
   const [creating, setCreating] = useState(false);
+  /*
+   * The workorder a **Replace** is handing over from, while its form is open. It
+   * is the same form as a creation's, in the mode that also marks the
+   * predecessor, so the two cannot drift into asking different questions.
+   */
+  const [replacing, setReplacing] = useState<{ uid: string; name: string } | null>(null);
 
   // A store error is shown once, where the reader already is; the panel keeps
   // the last state it had rather than blanking on a failed refresh.
@@ -816,11 +888,16 @@ export function WorkorderPanel() {
   }, [closePanel, creating]);
 
   /*
-   * It opens on **All**: the filters narrow from here, and a list that hides a
-   * workorder until the reader guesses the right one reads as "the workorder is
-   * not there", which is the one thing this surface must never say.
+   * It opens on **Running**, which is what a workorder surface is opened for:
+   * what is being worked on now. The other states are one click away and their
+   * chips are always drawn.
+   *
+   * The cost, named because it is the thing to weigh: the chips carry no count,
+   * so a reader looking for a **closed** workorder has to know to switch to
+   * Completed rather than see that something is there. Counts on the chips would
+   * remove the cost without moving the default.
    */
-  const [filter, setFilter] = useState<WorkorderState | "all">("all");
+  const [filter, setFilter] = useState<WorkorderState | "all">("running");
   const narrow = useIsNarrow();
   const filtered =
     filter === "all" ? workorders : workorders.filter((w) => w.state === filter);
@@ -863,7 +940,13 @@ export function WorkorderPanel() {
               t("Workorders")
             )}
           </h2>
-          {open && <StateBadge state={open.state} />}
+          {open && (
+            <StateBadge
+              state={open.state}
+              replacedBy={open.replacedBy}
+              onOpen={(uid) => show(uid)}
+            />
+          )}
           {open?.parts[0] && <TemplateChip part={open.parts[0]} />}
           {canAdminister && (
             <button
@@ -1018,6 +1101,7 @@ export function WorkorderPanel() {
                             .filter((step) => step.state === "open").length
                         }
                         onClose={(state) => void close(open.uid, state)}
+                        onReplace={() => setReplacing({ uid: open.uid, name: open.name })}
                       />
                     )}
                   </>
@@ -1030,16 +1114,25 @@ export function WorkorderPanel() {
         </div>
       </div>
 
-      {creating && (
+      {(creating || replacing) && (
         <div
           className="workorder-overlay"
           onMouseDown={(e) => {
-            // A press on the creation dialog's backdrop puts it away, leaving
-            // the panel underneath where it was.
-            if (e.target === e.currentTarget) setCreating(false);
+            // A press on the dialog's backdrop puts it away, leaving the panel
+            // underneath where it was.
+            if (e.target === e.currentTarget) {
+              setCreating(false);
+              setReplacing(null);
+            }
           }}
         >
-          <NewWorkorderForm onClose={() => setCreating(false)} />
+          <NewWorkorderForm
+            replacing={replacing}
+            onClose={() => {
+              setCreating(false);
+              setReplacing(null);
+            }}
+          />
         </div>
       )}
     </div>,

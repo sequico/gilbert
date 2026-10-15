@@ -2344,6 +2344,12 @@ export const catalog: Catalog = {
       "无法读取这些邮件的发送时间，因此此列表不作说明。此处没有任何邮件已发送。",
     "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
       "无法读取此账户是否正在用不在办公室消息自动回复：{error}。此处未更改任何内容，在能够读取之前不提供保存。",
+    Replace: "替换",
+    "Replace with": "替换为",
+    "Mark completed": "标记为已完成",
+    Cancel: "取消",
+    "Succeeded by {uid}": "由 {uid} 接替",
+    "The workorder that succeeded this one": "接替此工单的工单",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
