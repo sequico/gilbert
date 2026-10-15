@@ -11,7 +11,7 @@
  * side.
  */
 
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import {
   deleteSystemSieveScript,
   getSystemSieveScript,
@@ -33,6 +33,7 @@ import type { SystemSieveScriptWrite } from "../shared/sieveViews.js";
 import type { Env } from "./shared.js";
 import {
   accountCtx,
+  failureFor,
   readJson,
   refusal,
   requireAdmin,
@@ -142,10 +143,7 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
   // ---------- System Sieve scripts (ADR 0008) ----------
 
   /** A refusal from this surface: the code and the sentence, or upstream's. */
-  function systemSieveFailure(c: Context, err: unknown) {
-    if (err instanceof SystemSieveError) return c.json(...refusal(err));
-    return upstreamFailure(c, err);
-  }
+  const systemSieveFailure = failureFor(SystemSieveError);
 
   /**
    * The body of a System Sieve write, validated into the shape both tiers name
