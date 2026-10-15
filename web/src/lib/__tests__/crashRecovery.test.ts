@@ -112,6 +112,42 @@ describe("shouldAutoReload", () => {
     now = t0 + 120_000;
     expect(shouldAutoReload()).toBe(true);
   });
+
+  /*
+   * A private window throws on access to sessionStorage, so there is no store
+   * to remember the attempts in — but the in-memory mirror still bounds the
+   * reloads, which is the difference between a repair and a loop.
+   */
+  describe("where session storage cannot be had", () => {
+    let original: PropertyDescriptor | undefined;
+
+    beforeEach(() => {
+      original = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+      Object.defineProperty(globalThis, "sessionStorage", {
+        configurable: true,
+        get() {
+          throw new DOMException("The operation is insecure.", "SecurityError");
+        },
+      });
+    });
+
+    afterEach(() => {
+      if (original) Object.defineProperty(globalThis, "sessionStorage", original);
+      else Reflect.deleteProperty(globalThis, "sessionStorage");
+    });
+
+    it("still refuses a third attempt within ten minutes", () => {
+      now = t0 + 120_000;
+      recoverFromCrash(new Error("first"));
+      expect(reload).toHaveBeenCalledTimes(1);
+      now = t0 + 120_000 + 121_000;
+      recoverFromCrash(new Error("second"));
+      expect(reload).toHaveBeenCalledTimes(2);
+      // A third crash five minutes later has survived two reloads: real bug.
+      now = t0 + 120_000 + 121_000 + 300_000;
+      expect(shouldAutoReload()).toBe(false);
+    });
+  });
 });
 
 describe("recoverFromCrash", () => {
