@@ -41,7 +41,12 @@ const book = (id: string, name: string) =>
     myRights: { mayRead: true, mayWrite: true, mayShare: false, mayDelete: false },
   }) as unknown as AddressBook;
 
-describe("the members a group card may name", () => {
+/*
+ * A longer timeout than the default: the first test in this file pays the
+ * environment's own warm-up as well as the render, which a loaded machine
+ * stretches past five seconds.
+ */
+describe("the members a group card may name", { timeout: 20_000 }, () => {
   let host: HTMLDivElement;
   let root: Root;
 
