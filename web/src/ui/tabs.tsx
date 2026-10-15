@@ -4,12 +4,18 @@ import { t } from "@/lib/i18n";
 /**
  * A strip of tabs over one shared panel, and the keyboard rule that goes with it.
  *
- * Three administration surfaces are tabs — the installation's own agent, one
- * group's, and the pair the approvals workspace shows — and each wrote the
- * strip, the arrow-key handler and the four ARIA attributes by hand. The
- * attributes are the reason this is one component: only the selected tab may
- * carry `aria-controls`, or a screen reader reading an inactive tab is sent to a
- * panel that is not its own, and that mistake is invisible in a screenshot.
+ * Three administration surfaces are this component — the installation's own
+ * agent, one group's, and the pair the approvals workspace shows — and each wrote
+ * the strip, the arrow-key handler and the four ARIA attributes by hand before it
+ * existed. The attributes are the reason it is one component: only the selected
+ * tab may carry `aria-controls`, or a screen reader reading an inactive tab is
+ * sent to a panel that is not its own, and that mistake is invisible in a
+ * screenshot.
+ *
+ * The identities surface is a fourth `role="tablist"` and deliberately not this
+ * one: both of its panels stay mounted, the one not shown carrying `hidden`, so a
+ * tab keeps what it was in the middle of (its own docstring, ADR 0007). A strip
+ * that renders one panel at a time cannot keep the other.
  *
  * `idPrefix` is what keeps two strips on one page apart, since both render a
  * panel and both name their tabs in the document.
