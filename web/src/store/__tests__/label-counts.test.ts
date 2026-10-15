@@ -155,22 +155,20 @@ describe("more labels than one request carries", () => {
     }));
     useSettings.setState({ settings: { ...DEFAULT_SETTINGS, labels } });
 
-    const sizes: number[] = [];
     fakeJmapServer().on("Email/query", (call) => {
       const filter = call.args.filter as { operator?: string } | undefined;
       return { accountId: call.args.accountId, total: filter?.operator ? 2 : 7 };
     });
 
     await useMail.getState().loadLabelCounts();
+
     // One request per fetch call; the store must chunk the eighteen queries.
-    for (const [, init] of vi.mocked(fetch).mock.calls)
-      sizes.push(
-        (
-          JSON.parse(String((init as RequestInit).body)) as {
-            methodCalls: unknown[];
-          }
-        ).methodCalls.length,
-      );
+    const sizes = vi.mocked(fetch).mock.calls.map(([, init]) => {
+      const body = JSON.parse(String((init as RequestInit).body)) as {
+        methodCalls: unknown[];
+      };
+      return body.methodCalls.length;
+    });
 
     expect(sizes.length).toBeGreaterThan(1);
     expect(sizes.every((n) => n <= client.maxCallsInRequest)).toBe(true);
