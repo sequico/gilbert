@@ -891,6 +891,18 @@ export const accountCtx = async (c: Context<Env>) => {
 };
 
 /**
+ * The answer to a group the caller does not hold, and the 403 that carries it.
+ *
+ * Eighteen guards ask this question — the group access the agent surfaces
+ * resolve, the member views beside them and the identity assignment — and each
+ * wrote the two fields out beside its own narrowing. What they carry is one
+ * shape: a code the surface composes its sentence from, and the need it was
+ * refused for.
+ */
+export const groupDenial = (c: Context, denied: { error: string; need: string }) =>
+  c.json({ error: denied.error, need: denied.need }, 403);
+
+/**
  * The body and status of a refusal from one of this product's own error classes.
  *
  * Six surfaces answer with it — identities, the system Sieve registry, the

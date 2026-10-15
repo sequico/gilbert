@@ -45,7 +45,13 @@ import {
 } from "../agentAdmin.js";
 import { agentAddress } from "../config.js";
 import type { Env } from "./shared.js";
-import { readJson, requireAdmin, requireSession, upstreamFailure } from "./shared.js";
+import {
+  groupDenial,
+  readJson,
+  requireAdmin,
+  requireSession,
+  upstreamFailure,
+} from "./shared.js";
 
 export function registerAgentRoutes(api: Hono<Env>): void {
   api.get("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
@@ -53,9 +59,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const name = c.req.param("name") ?? "";
     try {
       const access = await resolveGroupAccess(session, name, { need: "labels" });
-      if (!access.ok) {
-        return c.json({ error: access.error, need: access.need }, 403);
-      }
+      if (!access.ok) return groupDenial(c, access);
       const labels = await readGroupLabels(access.ctx, access.accountId);
       /* A catalog the validator refuses reads as no catalog: the surface shows
          what it can render, and a write over one is refused where it is made. */
@@ -73,9 +77,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
     try {
       const access = await resolveGroupAccess(session, name, { need: "labels" });
-      if (!access.ok) {
-        return c.json({ error: access.error, need: access.need }, 403);
-      }
+      if (!access.ok) return groupDenial(c, access);
       await writeGroupLabels(access.ctx, access.accountId, body.labels);
       return c.json({ ok: true });
     } catch (err) {
@@ -186,7 +188,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const access = await resolveGroupAccess(session, name, {
         need: "agent documents",
       });
-      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      if (!access.ok) return groupDenial(c, access);
       return c.json(await groupAuditExport(access, access.accountId, name));
     } catch (err) {
       return agentFailure(c, err);
@@ -198,7 +200,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const name = c.req.param("name") ?? "";
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
-      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      if (!access.ok) return groupDenial(c, access);
       return c.json(await readRules(access, access.accountId));
     } catch (err) {
       return agentFailure(c, err);
@@ -213,7 +215,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return c.json({ error: "bad_request", message: "rules must be an array" }, 400);
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
-      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      if (!access.ok) return groupDenial(c, access);
       const rules = await saveRules(
         access,
         access.accountId,
@@ -239,7 +241,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return c.json({ error: "bad_request", message: "ruleId must be a string" }, 400);
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
-      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      if (!access.ok) return groupDenial(c, access);
       return c.json({
         ok: true,
         job: await runRuleNow(
@@ -321,7 +323,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const name = c.req.param("name") ?? "";
       try {
         const access = await resolveGroupAccess(session, name, { need: "labels" });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         const { added } = await addAgentLabels(access, access.accountId);
         return c.json({ ok: true, added });
       } catch (err) {
@@ -345,7 +347,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const name = c.req.param("name") ?? "";
       try {
         const access = await resolveGroupAccess(session, name, { need: "notebook" });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(await readGroupNotebook(access));
       } catch (err) {
         return agentFailure(c, err);
@@ -363,7 +365,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       try {
         const body = await readJson<{ facts?: unknown }>(c);
         const access = await resolveGroupAccess(session, name, { need: "notebook" });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(await saveGroupNotebook(access, body, session.username));
       } catch (err) {
         return agentFailure(c, err);
@@ -388,7 +390,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(
           await readAgentProse(
             new AgentStore(access.ctx, access.accountId),
@@ -414,7 +416,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(
           await saveAgentProse(
             new AgentStore(access.ctx, access.accountId),
@@ -443,7 +445,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const name = c.req.param("name") ?? "";
     try {
       const access = await resolveGroupAccess(session, name, { need: "policy" });
-      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      if (!access.ok) return groupDenial(c, access);
       return c.json(await readGroupPolicy(access));
     } catch (err) {
       return agentFailure(c, err);
@@ -460,7 +462,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       try {
         const body = await readJson<{ review?: unknown; allowExternal?: unknown }>(c);
         const access = await resolveGroupAccess(session, name, { need: "policy" });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(
           await saveGroupPolicy(
             access,
@@ -503,7 +505,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
-        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        if (!access.ok) return groupDenial(c, access);
         return c.json(
           await readDraft(session, {
             access,
@@ -540,7 +542,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const name = c.req.param("name") ?? "";
     try {
       const view = await memberAgentView(session, name);
-      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      if ("ok" in view) return groupDenial(c, view);
       return c.json(view);
     } catch (err) {
       return agentFailure(c, err);
@@ -563,7 +565,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     const name = c.req.param("name") ?? "";
     try {
       const view = await memberGroupMembers(session, name);
-      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      if ("ok" in view) return groupDenial(c, view);
       return c.json(view);
     } catch (err) {
       return agentFailure(c, err);

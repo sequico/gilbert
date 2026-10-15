@@ -26,6 +26,7 @@ import {
 import { normalizeUsername } from "../sessions.js";
 import type { Env } from "./shared.js";
 import {
+  groupDenial,
   identityLockCache,
   readJson,
   refusal,
@@ -236,7 +237,7 @@ export function registerIdentityRoutes(api: Hono<Env>): void {
         c.get("session"),
         c.req.query("group") ?? "",
       );
-      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      if ("ok" in view) return groupDenial(c, view);
       return c.json(view);
     } catch (err) {
       return identityFailure(c, err);
