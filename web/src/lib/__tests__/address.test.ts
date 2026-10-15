@@ -143,6 +143,13 @@ describe("summarizeAddresses", () => {
         fallback: "(unknown)",
       }),
     ).toBe("Ann");
+    // Surrounding space is the same question `uniqueAddresses` answers in this
+    // file: a trimmed, lowercased key, so the two agree on "the same address".
+    expect(
+      summarizeAddresses([ann, { name: "Ann again", email: " ann@x.com " }], {
+        fallback: "(unknown)",
+      }),
+    ).toBe("Ann");
   });
 
   it("names the rest as a count once `max` is passed", () => {

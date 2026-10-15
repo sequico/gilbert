@@ -244,7 +244,7 @@ export function summarizeAddresses(
   const names: string[] = [];
   for (const a of addresses) {
     if (!a) continue;
-    const k = a.email.toLowerCase();
+    const k = a.email.trim().toLowerCase();
     if (seen.has(k)) continue;
     seen.add(k);
     names.push(opts.own?.includes(k) ? t("me") : (opts.name ?? displayName)(a));
