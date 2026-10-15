@@ -125,31 +125,39 @@ export function readCrashRecord(): CrashRecord | null {
 /*
  * The reload marks live in sessionStorage: they must survive a reload in the
  * same tab (that is the whole point) and they must not leak across tabs (one
- * tab's repair attempt is not another's). The memory mirror is only a
- * fallback for environments where there is no session storage to be had — a
- * privacy mode that throws on access cannot remember across reloads, but can
- * still stop the same page from reloading in a loop. Where storage answers,
- * it is authoritative and the mirror follows it.
+ * tab's repair attempt is not another's). The memory mirror is what a tab with
+ * no session storage to be had still has — a privacy mode that throws on access
+ * cannot remember across reloads, but can still stop the same page from
+ * reloading in a loop. A store that answers, on the other hand, is
+ * authoritative: an empty one means this tab has made no attempt, not that the
+ * mirror should be consulted.
  */
 let memoryMarks: number[] = [];
 
 function readMarks(): number[] {
-  const raw = readRaw("session", RELOAD_MARKS_KEY);
-  if (raw !== null) {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (Array.isArray(parsed)) {
-        const marks = parsed.filter((x): x is number => typeof x === "number");
-        memoryMarks = marks;
-        return marks;
-      }
-    } catch {
-      // Marks that cannot be read back; fall back to the mirror.
-    }
-  } else {
+  const store = storageOf("session");
+  if (!store) return memoryMarks;
+  let raw: string | null;
+  try {
+    raw = store.getItem(RELOAD_MARKS_KEY);
+  } catch {
+    // A store that throws on use is no store to be had either.
+    return memoryMarks;
+  }
+  if (raw === null) {
     // A readable empty store is authoritative: this tab has no attempts.
     memoryMarks = [];
     return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      const marks = parsed.filter((x): x is number => typeof x === "number");
+      memoryMarks = marks;
+      return marks;
+    }
+  } catch {
+    // Marks that cannot be read back; fall back to the mirror.
   }
   return memoryMarks;
 }
