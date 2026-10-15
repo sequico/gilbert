@@ -23,7 +23,6 @@ const { writeAppFileAt } = await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
 const {
   AGENT_GREETING,
-  CHAT_READ_MAX,
   GREETING_FILE,
   conversationContext,
   greetUnspoken,
@@ -37,6 +36,7 @@ const {
   readChatMessage,
   readChatThread,
 } = await import("./chat.js");
+const { CHAT_CONTEXT_MAX } = await import("./documents.js");
 const { CHAT_FOLDER } = await import("../shared/chat.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -340,12 +340,12 @@ test("a transcript longer than the window reads only the newest messages", async
    * The transcript is one document per message and nothing prunes it, so a read
    * that downloaded the folder whole would cost the group's age on every run.
    * The listing carries each node's own `created`, so the read takes the newest
-   * `CHAT_READ_MAX` documents and stops there. Fails if the read goes back to
+   * `CHAT_CONTEXT_MAX` documents and stops there. Fails if the read goes back to
    * downloading every message; the count is of the blob requests themselves,
    * which is the one cost the window is about. It seeds the group's transcript,
    * so the two tests below read it as it now is.
    */
-  for (let i = 0; i < CHAT_READ_MAX + 5; i += 1) {
+  for (let i = 0; i < CHAT_CONTEXT_MAX + 5; i += 1) {
     // The window is chosen on the node's own stamp, so the writes are a
     // millisecond apart: the newest message is then a fact of the transcript
     // rather than of how fast the loop ran.
@@ -361,10 +361,10 @@ test("a transcript longer than the window reads only the newest messages", async
   );
   assert.equal(
     reads,
-    CHAT_READ_MAX,
+    CHAT_CONTEXT_MAX,
     "one download per message in the window, and no more",
   );
-  assert.equal(messages.length, CHAT_READ_MAX, "and every one of them is a message");
+  assert.equal(messages.length, CHAT_CONTEXT_MAX, "and every one of them is a message");
   assert.ok(
     messages.some((message) => message.id === seededIds[seededIds.length - 1]),
     "the newest message is in what the agent reads",

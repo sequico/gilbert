@@ -49,18 +49,6 @@ export function indexChat(messages: ReadonlyArray<ChatMessage>): ChatIndex {
   return new Map(messages.map((message) => [message.id, message]));
 }
 
-/**
- * How many messages one read of the transcript downloads.
- *
- * A run's context is at most `CHAT_CONTEXT_MAX` messages plus the reply chain of
- * the one it answers, and both are drawn from the newest of the transcript, so
- * that many is the whole of what any reader has ever used. The transcript is one
- * document per message and nothing prunes it: reading the folder whole makes
- * every read cost grow with the group's age while the part that is used stays
- * this size.
- */
-export const CHAT_READ_MAX = CHAT_CONTEXT_MAX;
-
 /** A node's own creation stamp — the transcript's ordering key — or "". */
 function nodeCreated(node: FileNodeLike): string {
   return typeof node.created === "string" ? node.created : "";
@@ -98,11 +86,15 @@ async function readChatDoc(
  * The group's chat, oldest first.
  *
  * The folder is listed once — the listing carries each node's own `created`,
- * the transcript's ordering key — and only the newest `CHAT_READ_MAX` documents
- * are downloaded, in transcript order. `_client` is the caller's own client for
- * the account; the reads go through the app-folder primitives, which build an
- * equivalent one from the context, so every tier reads the same documents the
- * same way.
+ * the transcript's ordering key — and only the newest `CHAT_CONTEXT_MAX`
+ * documents are downloaded, in transcript order: a run's context is at most that
+ * many messages plus the reply chain of the one it answers, so it is the whole
+ * of what any reader has ever used, and the transcript is one document per
+ * message that nothing prunes, so reading the folder whole would make every read
+ * cost grow with the group's age while the part that is used stays this size.
+ * `_client` is the caller's own client for the account; the reads go through the
+ * app-folder primitives, which build an equivalent one from the context, so
+ * every tier reads the same documents the same way.
  */
 export async function readChat(
   ctx: Ctx,
@@ -115,7 +107,7 @@ export async function readChat(
   /*
    * The greeting marker is a document in this folder that is not a message, and
    * it must not take a slot of the window: a read covers the newest
-   * `CHAT_READ_MAX` *messages*, and a window that counts its own bookkeeping
+   * `CHAT_CONTEXT_MAX` *messages*, and a window that counts its own bookkeeping
    * covers fewer than the number says.
    */
   const files = nodes.filter(
@@ -128,7 +120,7 @@ export async function readChat(
   const newest = files
     .map((node) => ({ node, created: nodeCreated(node), id: String(node.id) }))
     .sort(compareMessages)
-    .slice(-CHAT_READ_MAX);
+    .slice(-CHAT_CONTEXT_MAX);
   const messages: ChatMessage[] = [];
   for (const { node } of newest) {
     const doc = await readChatDoc(ctx, accountId, node);
@@ -147,7 +139,7 @@ function toMessage(node: FileNodeLike, doc: ChatMessageDoc): ChatMessage {
  * The message a run answers, with the chain of replies that led to it.
  *
  * A run is woken by a message and answers *that* one, while a read covers the
- * newest `CHAT_READ_MAX` messages: a run arriving after more than that many were
+ * newest `CHAT_CONTEXT_MAX` messages: a run arriving after more than that many were
  * written would otherwise find its own trigger missing and refuse to answer it.
  * The chain comes with it — `conversationContext` walks `replyTo` inside what it
  * is handed, and a chain is context a member wrote on purpose — so this answers
@@ -257,7 +249,7 @@ export const AGENT_GREETING = "Hi all! Gilbert here, at your service.";
 /**
  * The document the greeting leaves in the chat folder.
  *
- * A transcript is read in its newest `CHAT_READ_MAX` messages and a group's chat
+ * A transcript is read in its newest `CHAT_CONTEXT_MAX` messages and a group's chat
  * only grows, so the greeting is eventually older than any read covers. The
  * marker is what says "this address has greeted this group" once the message is
  * out of the window; a missing or unreadable one reads as "not yet", which
