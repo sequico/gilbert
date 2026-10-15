@@ -43,9 +43,9 @@ after(() => {
 });
 
 test("isStalwartAdmin reads the admin marker from the permission list", () => {
-  // The marker is the one the installation is configured with
-  // (`config.adminPermissionMarker`, `sysAccountCreate` by default,
-  // live-verified 2026-09-09); the recovery admin token reports every
+  // The marker is the one the installation is configured with — the same value
+  // `config.adminPermissionMarker` holds, `sysAccountCreate` by default,
+  // live-verified 2026-09-09 — and the recovery admin token reports every
   // permission, marker included.
   assert.equal(
     isStalwartAdmin(["jmapEmailGet", adminPermissionMarkerOf(), "impersonate"]),
