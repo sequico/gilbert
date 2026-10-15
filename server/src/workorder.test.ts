@@ -4,10 +4,10 @@ import {
   buildChecklist,
   buildWorkorderDoc,
   isStepComplete,
+  WORKORDER_FOLDER,
   type WorkorderPartView,
   type WorkorderStepView,
   type WorkorderSummary,
-  WORKORDER_FOLDER,
   workorderClosedPath,
   workorderFileName,
 } from "./shared/workorder.js";
@@ -122,9 +122,6 @@ const PROCESS = {
   ],
 };
 
-
-
-
 const workorderOf = (body: Record<string, unknown> | null): WorkorderSummary => {
   const w = body?.workorder as WorkorderSummary | undefined;
   assert.ok(w, "the route answers with a workorder");
@@ -137,7 +134,11 @@ const partOf = (workorder: WorkorderSummary, scope: string): WorkorderPartView =
   return part;
 };
 
-const stepAt = (workorder: WorkorderSummary, scope: string, path: string): WorkorderStepView => {
+const stepAt = (
+  workorder: WorkorderSummary,
+  scope: string,
+  path: string,
+): WorkorderStepView => {
   const step = partOf(workorder, scope).checklist.steps.find((s) => s.path === path);
   assert.ok(step, `the ${scope} checklist has a step "${path}"`);
   return step as WorkorderStepView;
@@ -552,7 +553,10 @@ test("closing a workorder moves its root to closed/ and keeps it", async () => {
 
   const read = await call(`/api/workorders/${workorder.uid}`);
   assert.equal(read.status, 200, "a closed workorder is kept, not destroyed");
-  assert.equal((read.body?.workorder as WorkorderSummary | undefined)?.state, "completed");
+  assert.equal(
+    (read.body?.workorder as WorkorderSummary | undefined)?.state,
+    "completed",
+  );
 });
 
 test("replacing hands the work over: the successor exists and the old one names it", async () => {
@@ -611,9 +615,11 @@ test("a replacement that cannot be recorded is taken back, and nothing has chang
    */
   const template = await templateRef();
   const predecessor = await createWorkorder("Never handed over", template);
-  const before = ((await call("/api/workorders")).body?.workorders as WorkorderSummary[]).map(
-    (w) => w.uid,
-  );
+  const before = (
+    ((await call("/api/workorders")).body?.workorders as
+      | WorkorderSummary[]
+      | undefined) ?? []
+  ).map((w) => w.uid);
 
   /*
    * The creation writes nothing conditionally — a create has no `ifInState` to
@@ -642,9 +648,11 @@ test("a replacement that cannot be recorded is taken back, and nothing has chang
   assert.equal(refused.body?.error, "workorder_replace_failed");
   assert.match(String((refused.body as { message?: string }).message), /taken back/);
 
-  const after = ((await call("/api/workorders")).body?.workorders as WorkorderSummary[]).map(
-    (w) => w.uid,
-  );
+  const after = (
+    ((await call("/api/workorders")).body?.workorders as
+      | WorkorderSummary[]
+      | undefined) ?? []
+  ).map((w) => w.uid);
   assert.deepEqual(after.sort(), before.sort(), "the registry is exactly as it was");
   const still = await call(`/api/workorders/${predecessor.uid}`);
   const settled = still.body?.workorder as WorkorderSummary | undefined;
@@ -1204,7 +1212,9 @@ test("a member reaches a workorder whose group part document has gone missing", 
   );
   const listed = await callAs(member, "/api/workorders");
   assert.ok(
-    ((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some((w) => w.uid === uid),
+    ((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some(
+      (w) => w.uid === uid,
+    ),
     "and the member's list holds it",
   );
 
@@ -1219,9 +1229,9 @@ test("a member reaches a workorder whose group part document has gone missing", 
     body: JSON.stringify({ uid, scope: "global", path: "global.g", state: "done" }),
   });
   assert.equal(checked.status, 200, JSON.stringify(checked.body));
-  const global = ((checked.body?.workorder as WorkorderSummary).parts ?? []).find(
-    (part) => part.scope === "global",
-  );
+  const global = (
+    (checked.body?.workorder as WorkorderSummary | undefined)?.parts ?? []
+  ).find((part) => part.scope === "global");
   assert.equal(
     global?.checklist.steps.find((step) => step.path === "global.g")?.by,
     MEMBER,
