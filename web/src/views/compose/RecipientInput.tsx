@@ -7,7 +7,12 @@ import {
   useState,
 } from "react";
 import type { EmailAddress } from "@/jmap/types";
-import { displayName, isValidEmail, parseAddressList } from "@/lib/address";
+import {
+  displayName,
+  isValidEmail,
+  parseAddressList,
+  uniqueAddresses,
+} from "@/lib/address";
 import { plural, t } from "@/lib/i18n";
 import { type Suggestion, useContacts } from "@/store/contacts";
 import { Avatar } from "@/ui/misc";
@@ -74,12 +79,9 @@ export function RecipientInput({
     if (!s) return;
     const parsed = parseAddressList(s);
     if (!parsed.length) return;
-    onChange([
-      ...value,
-      ...parsed.filter(
-        (p) => !value.some((v) => v.email.toLowerCase() === p.email.toLowerCase()),
-      ),
-    ]);
+    // What the reader already has, plus what was just typed, minus either twice:
+    // the one helper the rest of the composer asks.
+    onChange(uniqueAddresses([...value, ...parsed]));
     setText("");
     setOpen(false);
   };
