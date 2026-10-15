@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { ContactCard, Id, JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Emptying an address book, and deleting a selection of contacts.
@@ -26,62 +27,32 @@ interface SetArgs {
 
 function server(opts: { max?: number; notDestroyed?: Record<string, unknown> } = {}) {
   const sets: SetArgs[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "ContactCard/set") {
-        const update = args.update as Record<string, Record<string, unknown>> | undefined;
-        const destroy = args.destroy as Id[] | undefined;
-        sets.push({ update, destroy });
-        const n = Object.keys(update ?? {}).length + (destroy?.length ?? 0);
-        if (opts.max != null && n > opts.max) {
-          return [
-            "error",
-            { type: "requestTooLarge", description: "too many objects" },
-            id,
-          ];
-        }
-        const notDestroyed = opts.notDestroyed ?? {};
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            updated: Object.fromEntries(Object.keys(update ?? {}).map((k) => [k, null])),
-            destroyed: (destroy ?? []).filter((d) => !(d in notDestroyed)),
-            notDestroyed,
-            notUpdated: {},
-          },
-          id,
-        ];
-      }
-      // Everything else, `loadAll`'s query and get included, answers empty.
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+  fakeJmapServer()
+    .on("ContactCard/set", (call) => {
+      const update = call.args.update as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const destroy = call.args.destroy as Id[] | undefined;
+      sets.push({ update, destroy });
+      const notDestroyed = opts.notDestroyed ?? {};
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        updated: Object.fromEntries(Object.keys(update ?? {}).map((k) => [k, null])),
+        destroyed: (destroy ?? []).filter((d) => !(d in notDestroyed)),
+        notDestroyed,
+        notUpdated: {},
+      };
+    })
+    .onError("ContactCard/set", (call) => {
+      const n =
+        Object.keys((call.args.update ?? {}) as object).length +
+        ((call.args.destroy as Id[] | undefined)?.length ?? 0);
+      return opts.max != null && n > opts.max
+        ? { type: "requestTooLarge", description: "too many objects" }
+        : undefined;
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return sets;
 }
 

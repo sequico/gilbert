@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useScheduled } from "@/store/scheduled";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -28,85 +29,60 @@ interface Sub {
 function server(inFolder: string[], subs: Sub[], opts: { failSets?: boolean } = {}) {
   const updates: Record<string, Record<string, unknown>>[] = [];
   const submissionUpdates: Record<string, Record<string, unknown>>[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    let queried: string[] = [];
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "Email/query") {
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "q",
-            canCalculateChanges: false,
-            position: 0,
-            ids: inFolder,
-            total: inFolder.length,
-          },
-          id,
-        ];
-      }
-      if (name === "EmailSubmission/query") {
-        const f = (args.filter ?? {}) as { undoStatus?: string; emailIds?: string[] };
-        queried = subs
-          .filter(
-            (s) =>
-              (!f.undoStatus || s.undoStatus === f.undoStatus) &&
-              (!f.emailIds || f.emailIds.includes(s.emailId)),
-          )
-          .map((s) => s.id);
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "q",
-            canCalculateChanges: false,
-            position: 0,
-            ids: queried,
-            total: queried.length,
-          },
-          id,
-        ];
-      }
-      if (name === "EmailSubmission/get") {
-        const ids = (args.ids as string[] | null) ?? queried;
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "1",
-            list: subs.filter((s) => ids.includes(s.id)),
-            notFound: [],
-          },
-          id,
-        ];
-      }
-      if (name === "EmailSubmission/set") {
-        submissionUpdates.push(args.update as Record<string, Record<string, unknown>>);
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            updated: Object.fromEntries(
-              Object.keys((args.update ?? {}) as object).map((k) => [k, null]),
-            ),
-          },
-          id,
-        ];
-      }
-      if (name === "Email/set" && args.update) {
-        if (opts.failSets)
-          return ["error", { type: "serverFail", description: "down" }, id];
-        updates.push(args.update as Record<string, Record<string, unknown>>);
-        return [name, { accountId: "a1", oldState: "1", newState: "2", updated: {} }, id];
-      }
-      return [
-        name,
-        {
+  let queried: string[] = [];
+  fakeJmapServer()
+    .on("Email/query", () => ({
+      accountId: "a1",
+      queryState: "q",
+      canCalculateChanges: false,
+      position: 0,
+      ids: inFolder,
+      total: inFolder.length,
+    }))
+    .on("EmailSubmission/query", (call) => {
+      const f = (call.args.filter ?? {}) as { undoStatus?: string; emailIds?: string[] };
+      queried = subs
+        .filter(
+          (s) =>
+            (!f.undoStatus || s.undoStatus === f.undoStatus) &&
+            (!f.emailIds || f.emailIds.includes(s.emailId)),
+        )
+        .map((s) => s.id);
+      return {
+        accountId: "a1",
+        queryState: "q",
+        canCalculateChanges: false,
+        position: 0,
+        ids: queried,
+        total: queried.length,
+      };
+    })
+    .on("EmailSubmission/get", (call) => {
+      const ids = (call.args.ids as string[] | null) ?? queried;
+      return {
+        accountId: "a1",
+        state: "1",
+        list: subs.filter((s) => ids.includes(s.id)),
+        notFound: [],
+      };
+    })
+    .on("EmailSubmission/set", (call) => {
+      submissionUpdates.push(call.args.update as Record<string, Record<string, unknown>>);
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        updated: Object.fromEntries(
+          Object.keys((call.args.update ?? {}) as object).map((k) => [k, null]),
+        ),
+      };
+    })
+    .on("Email/set", (call) => {
+      const update = call.args.update as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      if (!update)
+        return {
           accountId: "a1",
           state: "1",
           list: [],
@@ -116,17 +92,15 @@ function server(inFolder: string[], subs: Sub[], opts: { failSets?: boolean } = 
           queryState: "q",
           position: 0,
           canCalculateChanges: false,
-        },
-        id,
-      ];
-    });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
+        };
+      updates.push(update);
+      return { accountId: "a1", oldState: "1", newState: "2", updated: {} };
+    })
+    .onError("Email/set", (call) =>
+      opts.failSets && call.args.update
+        ? { type: "serverFail", description: "down" }
+        : undefined,
+    );
   return { updates, submissionUpdates };
 }
 

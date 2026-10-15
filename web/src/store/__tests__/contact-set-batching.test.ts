@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { ContactCard, Id, JmapSession, UploadResponse } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * `ContactCard/set` over the server's ceiling.
@@ -40,87 +41,57 @@ function server(
   } = {},
 ) {
   const sets: SetArgs[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "ContactCard/parse") {
-        const blobId = (args.blobIds as string[])[0]!;
-        return [
-          name,
-          { accountId: "a1", parsed: { [blobId]: opts.parsed ?? [] }, notParsable: [] },
-          id,
-        ];
-      }
-      if (name === "ContactCard/set") {
-        const nth = sets.length;
-        const create = args.create as Record<string, Record<string, unknown>> | undefined;
-        const update = args.update as Record<string, Record<string, unknown>> | undefined;
-        const destroy = args.destroy as Id[] | undefined;
-        sets.push({ create, update, destroy });
-        /* Everything in the call counts against the ceiling, the way Stalwart
-           counts it -- creates and updates share one budget. */
-        const n =
-          Object.keys(create ?? {}).length +
-          Object.keys(update ?? {}).length +
-          (destroy?.length ?? 0);
-        if (opts.max != null && n > opts.max) {
-          return [
-            "error",
-            {
-              type: "requestTooLarge",
-              description:
-                "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
-            },
-            id,
-          ];
-        }
-        if (opts.failOn === nth)
-          return ["error", { type: "serverFail", description: "the roof fell in" }, id];
-        const notCreated = opts.notCreated ?? {};
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created: Object.fromEntries(
-              Object.keys(create ?? {})
-                .filter((k) => !(k in notCreated))
-                .map((k) => [k, { id: `new-${k}` }]),
-            ),
-            updated: Object.fromEntries(Object.keys(update ?? {}).map((k) => [k, null])),
-            notCreated,
-            notUpdated: {},
-            destroyed: destroy ?? [],
-          },
-          id,
-        ];
-      }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+  fakeJmapServer()
+    .on("ContactCard/parse", (call) => {
+      const blobId = (call.args.blobIds as string[])[0]!;
+      return {
+        accountId: "a1",
+        parsed: { [blobId]: opts.parsed ?? [] },
+        notParsable: [],
+      };
+    })
+    .on("ContactCard/set", (call) => {
+      const create = call.args.create as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const update = call.args.update as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const destroy = call.args.destroy as Id[] | undefined;
+      sets.push({ create, update, destroy });
+      const notCreated = opts.notCreated ?? {};
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        created: Object.fromEntries(
+          Object.keys(create ?? {})
+            .filter((k) => !(k in notCreated))
+            .map((k) => [k, { id: `new-${k}` }]),
+        ),
+        updated: Object.fromEntries(Object.keys(update ?? {}).map((k) => [k, null])),
+        notCreated,
+        notUpdated: {},
+        destroyed: destroy ?? [],
+      };
+    })
+    /* Everything in the call counts against the ceiling, the way Stalwart
+       counts it -- creates and updates share one budget. */
+    .onError("ContactCard/set", (call) => {
+      const n =
+        Object.keys((call.args.create ?? {}) as object).length +
+        Object.keys((call.args.update ?? {}) as object).length +
+        ((call.args.destroy as Id[] | undefined)?.length ?? 0);
+      if (opts.max != null && n > opts.max)
+        return {
+          type: "requestTooLarge",
+          description:
+            "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
+        };
+      if (opts.failOn === sets.length)
+        return { type: "serverFail", description: "the roof fell in" };
+      return undefined;
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return sets;
 }
 
