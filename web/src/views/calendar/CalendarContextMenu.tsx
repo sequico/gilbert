@@ -35,15 +35,6 @@ export type CalendarContext =
   | { kind: "slot"; start: Date; end: Date; allDay: boolean; anchor: Anchor };
 
 /**
- * Whether this event can be edited, by one rule every entry point shares: the
- * reader holds write-all rights on its calendar, or write-own rights and
- * organised it, or the event has no calendar to ask.
- *
- * It lives here rather than in the popover so the grid's double-click, the
- * popover's Edit button and this context menu cannot disagree. The popover
- * re-exports it for its existing callers.
- */
-/**
  * Whether the reader organised this event.
  *
  * Two surfaces ask it — whether the event may be edited, and what the popover
@@ -61,6 +52,15 @@ export function isEventOrganizer(ev: CalendarEvent, myKeys: readonly string[]): 
   );
 }
 
+/**
+ * Whether this event can be edited, by one rule every entry point shares: the
+ * reader holds write-all rights on its calendar, or write-own rights and
+ * organised it, or the event has no calendar to ask.
+ *
+ * It lives here rather than in the popover so the grid's double-click, the
+ * popover's Edit button and this context menu cannot disagree. The popover
+ * re-exports it for its existing callers.
+ */
 export function canEditInstance(inst: EventInstance): boolean {
   const ev = inst.event;
   const cal = useCalendar.getState();
