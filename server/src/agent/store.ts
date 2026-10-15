@@ -114,10 +114,11 @@ export class AgentDocumentError extends Error {
  * How many times the audit's append retries, with a pause and jitter between
  * tries.
  *
- * More than the ordinary four attempts, because the state it compares against is the whole
- * account's (`appFolderState`), so a write that has nothing to do with the
- * audit invalidates it just as well; and a pause, because four attempts
- * back-to-back all land inside the same collision they just lost to.
+ * More than the ordinary `CLAIM_CAS_ATTEMPTS`, because the state it compares
+ * against is the whole account's (`appFolderState`), so a write that has
+ * nothing to do with the audit invalidates it just as well; and a pause, because
+ * attempts taken back-to-back all land inside the same collision they just lost
+ * to.
  */
 const AUDIT_CAS_ATTEMPTS = 6;
 
@@ -825,8 +826,9 @@ export class AgentStore {
    * the record an agent's work is answered from, so losing one is the failure
    * it must not have, and that costs three things here:
    *
-   * - more than the ordinary four attempts, with a pause and jitter between
-   *   them: four back-to-back retries all land inside the same collision;
+   * - more than the ordinary `CLAIM_CAS_ATTEMPTS`, with a pause and jitter
+   *   between them: attempts taken back-to-back all land inside the same
+   *   collision;
    * - on a loss that survives them, the entry is **queued** (see
    *   `pendingAudits`) and the next write for this account tries it again;
    * - the queue is drained by the agent each pass, which also means an entry

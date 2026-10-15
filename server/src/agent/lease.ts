@@ -20,7 +20,7 @@
  */
 
 import { hostname } from "node:os";
-import { isStateMismatch } from "../jmap.js";
+import { CLAIM_CAS_ATTEMPTS, isStateMismatch } from "../jmap.js";
 import { type AgentClaim, type AgentStreamClaim, claimEpoch } from "./documents.js";
 import type { AgentStore } from "./store.js";
 
@@ -54,14 +54,6 @@ export type ClaimRefusal =
   | "held"
   /** Nobody's, but the write lost every compare-and-set: contention, not ownership. */
   | "contended";
-
-/**
- * How many times a read-modify-write retries after losing a compare-and-set.
- * Four attempts cover the ordinary race (another agent taking the same free
- * unit between the read and the write); a longer fight means somebody else owns
- * the unit now, and giving up is the correct answer.
- */
-const CAS_ATTEMPTS = 4;
 
 /**
  * Whether a claim this process just read is ours to take.
@@ -138,7 +130,7 @@ export async function claimAccount(
     return null;
   }
   const takenAt = opts.now.toISOString();
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < CLAIM_CAS_ATTEMPTS; attempt++) {
     // The token is read **before** the document, and that order is the whole
     // guard: read the other way round, a claim written by another agent in
     // between is invisible to the comparison — the token already reflects it,
@@ -247,7 +239,7 @@ export async function saveClaimStates(
   states: Record<string, string>,
   statesAt: Record<string, string> = {},
 ): Promise<AgentClaim | null> {
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < CLAIM_CAS_ATTEMPTS; attempt++) {
     const token = await store.state();
     const found = await store.readClaim();
     // A claim that is not there is not mine to write into: it was released, and
@@ -301,7 +293,7 @@ export async function claimStream(
   if (answer === "mine" && opened) return opened.doc;
   if (answer === "held") return null;
   const takenAt = opts.now.toISOString();
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < CLAIM_CAS_ATTEMPTS; attempt++) {
     // The token before the document, for the same reason as in `claimAccount`.
     const token = await store.state();
     const found = await store.readStreamClaim();

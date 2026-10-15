@@ -137,6 +137,21 @@ export { isStateMismatch };
 export const WRITE_ATTEMPTS = 2;
 
 /**
+ * How many times a claim's compare-and-set is attempted before it is given up,
+ * and why it is not `WRITE_ATTEMPTS`.
+ *
+ * A claim is a fence (`agent/lease.ts`): it is the document that says which
+ * agent serves a unit, and a fence taken by two agents serves it twice. An
+ * ordinary write can afford one retry because the caller re-reads and asks
+ * again — nobody is waiting on it being the one that landed. A claim that gave
+ * up early would be taken by whichever agent passed next, so this bound is
+ * where contention is read as ownership: the attempts cover the ordinary race
+ * (another agent taking the same free unit between the read and the write), and
+ * a longer fight means somebody else owns the unit now.
+ */
+export const CLAIM_CAS_ATTEMPTS = 4;
+
+/**
  * What a conditional write's failure means, decided here so that every door
  * answers a lost race the same way.
  *
