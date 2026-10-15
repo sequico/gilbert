@@ -9,6 +9,7 @@ import { toast } from "@/ui/toast";
 
 export function VacationSettings() {
   const vacation = useMail((s) => s.vacation);
+  const vacationError = useMail((s) => s.vacationError);
   const load = useMail((s) => s.loadVacation);
   const save = useMail((s) => s.saveVacation);
   const [enabled, setEnabled] = useState(false);
@@ -38,6 +39,32 @@ export function VacationSettings() {
         <p className="lead">
           {t("Vacation responses are not available for this account.")}
         </p>
+      </div>
+    );
+
+  /*
+   * A form whose values could not be read is not a form showing "off".
+   *
+   * The effect above seeds every field from `vacation` and leaves them at their
+   * defaults when there is none — so a read that failed drew the page as an
+   * account with no out-of-office response, complete with a Save button that
+   * would write that emptiness over whatever the account is really answering
+   * with. The form is not offered until the state is known, and the retry is
+   * right here because a reader who wants to look has nothing else to do.
+   */
+  if (vacationError)
+    return (
+      <div>
+        <h1>{t("Out of office")}</h1>
+        <p className="lead">
+          {t(
+            "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.",
+            { error: vacationError },
+          )}
+        </p>
+        <button className="btn" onClick={() => void load()}>
+          {t("Retry")}
+        </button>
       </div>
     );
 

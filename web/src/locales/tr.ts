@@ -2342,6 +2342,10 @@ export const catalog: Catalog = {
       "Yeniden numaralandırılan kardeşlerin bazıları reddedildi.",
     "Saved, but the view could not be refreshed: {error}":
       "Kaydedildi, ancak görünüm yenilenemedi: {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "Bu mesajların ne zaman gideceği okunamadı, bu yüzden bu liste bunu söylemiyor. Buradan hiçbir şey gönderilmedi.",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "Bu hesabın yokluk mesajıyla yanıt verip vermediği okunamadı: {error}. Burada hiçbir şey değiştirilmedi ve okunana kadar kaydetme sunulmuyor.",
   },
   plurals: {
     "({n} deleted first)": {

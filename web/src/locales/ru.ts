@@ -2421,6 +2421,10 @@ export const catalog: Catalog = {
       "Часть перенумерованных соседей была отклонена.",
     "Saved, but the view could not be refreshed: {error}":
       "Сохранено, но представление не удалось обновить: {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "Не удалось прочитать, когда уйдут эти сообщения, поэтому список об этом не говорит. Ничего отсюда не отправлено.",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "Не удалось прочитать, отвечает ли этот аккаунт сообщением об отсутствии: {error}. Здесь ничего не изменено, и сохранение не предлагается, пока это не станет читаемым.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

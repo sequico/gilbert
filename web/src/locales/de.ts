@@ -2483,6 +2483,10 @@ export const catalog: Catalog = {
       "Einige der neu nummerierten Geschwister wurden abgelehnt.",
     "Saved, but the view could not be refreshed: {error}":
       "Gespeichert, aber die Ansicht konnte nicht aktualisiert werden: {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "Wann diese Nachrichten rausgehen, konnte nicht gelesen werden – diese Liste sagt es deshalb nicht. Nichts hier wurde gesendet.",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "Ob dieses Konto mit einer Abwesenheitsnachricht antwortet, konnte nicht gelesen werden: {error}. Hier wurde nichts geändert, und Speichern wird erst angeboten, wenn es gelesen werden kann.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

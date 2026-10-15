@@ -2423,6 +2423,10 @@ export const catalog: Catalog = {
       "番号を振り直した兄弟の一部が拒否されました。",
     "Saved, but the view could not be refreshed: {error}":
       "保存しましたが、表示を更新できませんでした: {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "これらのメッセージがいつ送信されるかを読み取れなかったため、この一覧では表示していません。ここにあるものはまだ送信されていません。",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "このアカウントが不在メッセージで応答しているかどうかを読み取れませんでした: {error}。ここでは何も変更されておらず、読み取れるまで保存はできません。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

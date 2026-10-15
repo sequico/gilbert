@@ -165,7 +165,23 @@ export interface MailState {
    * quota is the group's own (RFC 9425).
    */
   quotaAccountId: Id | null;
+  /**
+   * The account's out-of-office response, or `null` when there is none.
+   *
+   * `null` means the server said there is none — the state exists and it is off
+   * — which is not the same as not knowing. See `vacationError`.
+   */
   vacation: VacationResponse | null;
+  /**
+   * Why the out-of-office response could not be read, or `null` when it was.
+   *
+   * The settings page seeds its form from `vacation` and draws nothing when there
+   * is none, so a read that failed showed the form **off** and empty — a state
+   * that looks exactly like the account's own, and one whose Save button writes
+   * that nothing over whatever is really there. This is the field the page reads
+   * to say the difference instead.
+   */
+  vacationError: string | null;
   list: ListState | null;
   selected: Record<Id, true>;
   /** How much mail each counted keyword holds, for the sidebar. */

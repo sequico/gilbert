@@ -2340,6 +2340,10 @@ export const catalog: Catalog = {
     "Some of the renumbered siblings were refused.": "部分重新编号的相邻项被拒绝。",
     "Saved, but the view could not be refreshed: {error}":
       "已保存，但无法刷新视图：{error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "无法读取这些邮件的发送时间，因此此列表不作说明。此处没有任何邮件已发送。",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "无法读取此账户是否正在用不在办公室消息自动回复：{error}。此处未更改任何内容，在能够读取之前不提供保存。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

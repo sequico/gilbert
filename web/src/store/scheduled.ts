@@ -119,7 +119,17 @@ export interface PendingSend {
 interface ScheduledState {
   /** Pending submissions, keyed by the message they will send. */
   pending: Record<Id, PendingSend>;
-  loaded: boolean;
+  /**
+   * Why the queue could not be read, or `null` when it was.
+   *
+   * `pending` alone cannot say this: an empty map is "the server is holding
+   * nothing", and a read that failed is a different answer that used to be
+   * dressed as that one — the message view simply dropped the banner naming when
+   * a message goes out, so a scheduled message looked unscheduled for the rest
+   * of the session. This is the field the surface reads. It replaces `loaded`,
+   * which was written by four call sites and read by none.
+   */
+  loadError: string | null;
   load(): Promise<void>;
   cancel(emailId: Id): Promise<void>;
   reconcile(): Promise<void>;
@@ -182,7 +192,7 @@ async function loadFor(accountId: Id, emailIds: Id[]): Promise<PendingSend[]> {
 
 export const useScheduled = create<ScheduledState>((set, get) => ({
   pending: {},
-  loaded: false,
+  loadError: null,
 
   async load() {
     const accountId = useMail.getState().accountId;
@@ -191,10 +201,18 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       const list = await loadPending(accountId);
       const pending: Record<Id, PendingSend> = {};
       for (const s of list) pending[s.emailId] = s;
-      set({ pending, loaded: true });
-    } catch {
-      // A server without the submission capability simply has nothing to show.
-      set({ loaded: true });
+      set({ pending, loadError: null });
+    } catch (err) {
+      /*
+       * What was known is kept, and the failure is said. Clearing `pending`
+       * would answer "nothing is waiting to be sent" to a question that was
+       * never answered, and a message already scheduled would lose the banner
+       * naming when it goes out — the reader's only sign that it is on its way.
+       * A server without the submission capability refuses this query too, so it
+       * lands here rather than in a branch of its own; that is the same answer,
+       * said the same way.
+       */
+      set({ loadError: (err as Error).message });
     }
   },
 
@@ -328,11 +346,11 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
          * claiming the mail is settled when it is still in Scheduled.
          */
         await setEmails(accountId, update);
-        set({ pending, loaded: true });
+        set({ pending });
         void mail.loadMailboxes();
         void mail.refreshList();
       } else {
-        set({ pending, loaded: true });
+        set({ pending });
       }
     } catch (err) {
       toast.error(
@@ -342,7 +360,7 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       );
     }
   },
-  reset: () => set({ pending: {}, loaded: false }),
+  reset: () => set({ pending: {}, loadError: null }),
 }));
 
 // A session ending drops the pending list: it names submissions of an account

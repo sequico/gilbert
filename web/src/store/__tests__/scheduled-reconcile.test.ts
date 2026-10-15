@@ -174,13 +174,55 @@ beforeEach(() => {
     list: null,
     emails: {},
   });
-  useScheduled.setState({ pending: {}, loaded: false });
+  useScheduled.setState({ pending: {}, loadError: null });
   useToasts.setState({ toasts: [] });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe("reading the queue", () => {
+  /** The two calls `load` makes, answered from `subs`. */
+  const answering = (subs: Sub[]) =>
+    vi.spyOn(client, "chain").mockImplementation((async () => {
+      const out = new Map<string, Record<string, unknown>[]>();
+      out.set("q", [{ ids: subs.map((s) => s.id) }]);
+      out.set("g", [{ list: subs }]);
+      return out;
+    }) as never);
+
+  it("fills the queue and clears the failure", async () => {
+    answering([{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" }]);
+    await useScheduled.getState().load();
+    expect(useScheduled.getState().pending.e1?.id).toBe("s1");
+    expect(useScheduled.getState().loadError).toBeNull();
+  });
+
+  it("keeps what was known and says it could not read, rather than answering nothing", async () => {
+    /*
+     * The defect this replaces: a failed read left `pending` empty and claimed
+     * the load had succeeded, so a message already scheduled lost the banner
+     * naming when it goes out — the reader's only sign that it is on its way —
+     * and nothing anywhere said why.
+     */
+    const held = {
+      e1: {
+        id: "s1",
+        emailId: "e1",
+        sendAt: Date.parse(FUTURE),
+        undoStatus: "pending" as const,
+      },
+    };
+    useScheduled.setState({ pending: held, loadError: null });
+    vi.spyOn(client, "chain").mockRejectedValue(new Error("the mail server is down"));
+
+    await useScheduled.getState().load();
+
+    expect(useScheduled.getState().pending).toEqual(held);
+    expect(useScheduled.getState().loadError).toContain("down");
+  });
 });
 
 describe("reconcile", () => {
@@ -321,7 +363,7 @@ describe("reconcile", () => {
         undoStatus: "pending" as const,
       },
     };
-    useScheduled.setState({ pending: held, loaded: false });
+    useScheduled.setState({ pending: held, loadError: null });
     server(
       ["gone"],
       [
@@ -336,7 +378,13 @@ describe("reconcile", () => {
     );
     await useScheduled.getState().reconcile();
     expect(useScheduled.getState().pending).toEqual(held);
-    expect(useScheduled.getState().loaded).toBe(false);
+    /*
+     * A refused settle leaves the queue as it was: the message is still in
+     * Scheduled, so dropping it from `pending` would say it had been dealt with
+     * when nothing was written. `loadError` is untouched by `reconcile` — that
+     * field is about whether the queue could be **read**, and this is a write.
+     */
+    expect(useScheduled.getState().loadError).toBeNull();
   });
 });
 

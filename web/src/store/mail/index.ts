@@ -139,6 +139,7 @@ export const useMail = create<MailState>((set, get) => ({
   quotas: [],
   quotaAccountId: null,
   vacation: null,
+  vacationError: null,
   list: null,
   selected: {},
   labelCounts: {},
@@ -182,6 +183,7 @@ export const useMail = create<MailState>((set, get) => ({
       quotas: [],
       quotaAccountId: null,
       vacation: null,
+      vacationError: null,
       list: null,
       selected: {},
       selectedAll: false,
@@ -1691,9 +1693,18 @@ export const useMail = create<MailState>((set, get) => ({
         "VacationResponse/get",
         { accountId, ids: null },
       );
-      set({ vacation: res.list[0] ?? null });
-    } catch {
-      set({ vacation: null });
+      set({ vacation: res.list[0] ?? null, vacationError: null });
+    } catch (err) {
+      /*
+       * What was known is kept and the failure is said. `null` here means the
+       * server answered that there is no out-of-office response, and dressing a
+       * failed read as that answer turns the settings page into a form that is
+       * off and empty when the account may well be answering everybody with a
+       * message — and whose Save then writes that emptiness over it. A server
+       * without the vacation capability refuses this call too, so it lands here
+       * rather than in a branch of its own: the same answer, said the same way.
+       */
+      set({ vacationError: (err as Error).message });
     }
   },
 

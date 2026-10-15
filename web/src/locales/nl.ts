@@ -2424,6 +2424,10 @@ export const catalog: Catalog = {
       "Sommige van de hernummerde items zijn geweigerd.",
     "Saved, but the view could not be refreshed: {error}":
       "Opgeslagen, maar de weergave kon niet worden vernieuwd: {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "Wanneer deze berichten de deur uit gaan kon niet worden gelezen, dus deze lijst zegt het niet. Er is hier niets verzonden.",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "Of dit account met een afwezigheidsbericht antwoordt kon niet worden gelezen: {error}. Er is hier niets gewijzigd, en opslaan wordt niet aangeboden tot het wel kan.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

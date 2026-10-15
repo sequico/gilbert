@@ -133,6 +133,16 @@ interface Props {
   actions: ListActions;
   mailboxId: Id | null;
   isSearch: boolean;
+  /**
+   * The Scheduled folder could not be read, so nothing here says when its mail
+   * goes out.
+   *
+   * The rows themselves come from the folder, which was read; what is missing is
+   * the submission list behind them, which is where the send time lives. Said
+   * once for the folder rather than on every row, and only while that folder is
+   * the one on screen.
+   */
+  scheduledListUnread: boolean;
 }
 
 export function MessageList({
@@ -146,6 +156,7 @@ export function MessageList({
   actions,
   mailboxId,
   isSearch,
+  scheduledListUnread,
 }: Props) {
   const [, navigate] = useLocation();
   const emails = useMail((s) => s.emails);
@@ -731,6 +742,15 @@ export function MessageList({
             })}
           </span>
           <button onClick={() => clearSelection()}>{t("Clear selection")}</button>
+        </div>
+      )}
+      {scheduledListUnread && (
+        <div className="list-hint">
+          <span className="grow">
+            {t(
+              "When these messages go out could not be read, so this list does not say. Nothing here has been sent.",
+            )}
+          </span>
         </div>
       )}
       {list?.error && (

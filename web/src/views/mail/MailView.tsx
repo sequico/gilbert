@@ -52,6 +52,7 @@ export function MailView({
   } | null>(null);
   const reconcile = useScheduled((s) => s.reconcile);
   const scheduledId = useMail((s) => scheduledMailboxIdFrom(s.mailboxes));
+  const scheduledError = useScheduled((s) => s.loadError);
   const accountId = useMail((s) => s.accountId);
   /*
    * The account that owns the folder the route names, or null while no cached
@@ -785,6 +786,7 @@ export function MailView({
           actions={actions}
           mailboxId={mailboxId ?? null}
           isSearch={Boolean(search)}
+          scheduledListUnread={mailboxId === scheduledId && scheduledError !== null}
         />
       )}
       {showList && showReading && settings.readingPane !== "off" && !narrow && (

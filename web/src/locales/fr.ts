@@ -2457,6 +2457,10 @@ export const catalog: Catalog = {
       "Certains des éléments renumérotés ont été refusés.",
     "Saved, but the view could not be refreshed: {error}":
       "Enregistré, mais la vue n'a pas pu être actualisée : {error}",
+    "When these messages go out could not be read, so this list does not say. Nothing here has been sent.":
+      "Impossible de lire quand ces messages partiront : cette liste ne l'indique donc pas. Rien ici n'a été envoyé.",
+    "Whether this account is answering with an out-of-office message could not be read: {error}. Nothing here has been changed, and saving is not offered until it can be.":
+      "Impossible de lire si ce compte répond par un message d'absence : {error}. Rien ici n'a été modifié, et l'enregistrement n'est pas proposé tant que ce n'est pas lisible.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
