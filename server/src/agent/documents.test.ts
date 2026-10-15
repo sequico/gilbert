@@ -414,8 +414,24 @@ test("an area grants a group of actions and never a flagged one", () => {
       irreversible: true,
     },
   ];
-  assert.equal(areaActions("mail", grown).includes("mail.extract"), false);
-  assert.equal(areaActions("files", grown).includes("document.read"), false);
+  /*
+   * The assertion is on the **count**, and that is the whole point of the
+   * fixture's shape. The names are real ones because the field is the catalogue's
+   * union, so `includes` asks a question the flags cannot change: the unflagged
+   * original is in the area whatever the flagged duplicate does. What the flags
+   * decide is visible only in the length — a spec that contributes nothing leaves
+   * the area exactly as it was.
+   */
+  assert.equal(
+    areaActions("mail", grown).length,
+    areaActions("mail").length,
+    "the externally-reaching duplicate adds nothing to its area",
+  );
+  assert.equal(
+    areaActions("files", grown).length,
+    areaActions("files").length,
+    "and neither does the irreversible one",
+  );
   /*
    * Every action is accounted for: it is in exactly one area, or it is one of
    * the entries that stand beside them. Nothing falls between.
@@ -713,19 +729,23 @@ test("the published schema is what a save is refused against", () => {
   /*
    * `actions` is not a field of a rule and never was in this shape: the model
    * answers with actions, the rule carries none. The case a form hits instead
-   * is an empty **capability** list, which the schema allows and the
-   * cross-field half refuses -- so the two are asked separately below.
+   * is an empty **capability** list, and the refusal a person sees comes from
+   * the **schema**: it is the published document the editor validates with, and
+   * its message names the field, which is what lets a form attach it to the
+   * control that is wrong. The cross-field half refuses it as well, with the
+   * sentence that says why; the surface shows both, as one list.
    */
   const emptyCaps = schemaProblems(rule({ capabilities: [] }));
-  assert.deepEqual(
-    emptyCaps,
-    [],
-    "an empty capability list is a shape the schema allows",
+  assert.ok(
+    emptyCaps.some((problem) => /capabilities/.test(problem)),
+    `the shape half refuses it and names the field: ${emptyCaps.join(" | ")}`,
   );
 
-  // The cross-field half comes through the same door, so a form shows one list.
   const noCaps = ruleProblems(rule({ capabilities: [] }));
-  assert.ok(noCaps.some((problem) => /capabilities/.test(problem)));
+  assert.ok(
+    noCaps.some((problem) => /capabilities/.test(problem)),
+    "and through the one door a form reads",
+  );
   assert.ok(ruleProblems({ hello: "world" }).length > 0, "not a rule at all");
 });
 

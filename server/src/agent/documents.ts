@@ -2563,6 +2563,15 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
           "The prose its administrator wrote: the whole of what a run is asked to do.",
       },
       capabilities: {
+        /*
+         * `minItems` is here and not left to the cross-field half on purpose.
+         * This document is **published** (`/api/admin/agent/rule-schema`) and the
+         * browser editor validates with it, so the refusal a person sees comes
+         * from here — and it names the field, which is what lets a form attach it
+         * to the control that is wrong. `ruleProblem` refuses an empty list as
+         * well, with the sentence that says why; both travel in the one list a
+         * surface reads.
+         */
         type: "array",
         minItems: 1,
         items: { enum: AGENT_ACTION_SPECS.map((spec) => spec.name) },
