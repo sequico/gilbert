@@ -139,13 +139,13 @@ function toMessage(node: FileNodeLike, doc: ChatMessageDoc): ChatMessage {
  * The message a run answers, with the chain of replies that led to it.
  *
  * A run is woken by a message and answers *that* one, while a read covers the
- * newest `CHAT_CONTEXT_MAX` messages: a run arriving after more than that many were
- * written would otherwise find its own trigger missing and refuse to answer it.
- * The chain comes with it — `conversationContext` walks `replyTo` inside what it
- * is handed, and a chain is context a member wrote on purpose — so this answers
- * a list, its first entry being the message the run was woken by. One listing
- * finds the nodes; each hop is one read, and the walk is bounded by the context
- * ceiling the chain itself is bounded by.
+ * newest `CHAT_CONTEXT_MAX` messages: a run arriving after more than that many
+ * were written would otherwise find its own trigger missing and refuse to answer
+ * it. The chain comes with it — `conversationContext` walks `replyTo` inside what
+ * it is handed, and a chain is context a member wrote on purpose — so this
+ * answers a list, its first entry being the message the run was woken by. One
+ * listing finds the nodes; each hop is one read, and the walk is bounded by the
+ * context ceiling the chain itself is bounded by.
  */
 export async function readChatThread(
   ctx: Ctx,
@@ -249,8 +249,8 @@ export const AGENT_GREETING = "Hi all! Gilbert here, at your service.";
 /**
  * The document the greeting leaves in the chat folder.
  *
- * A transcript is read in its newest `CHAT_CONTEXT_MAX` messages and a group's chat
- * only grows, so the greeting is eventually older than any read covers. The
+ * A transcript is read in its newest `CHAT_CONTEXT_MAX` messages and a group's
+ * chat only grows, so the greeting is eventually older than any read covers. The
  * marker is what says "this address has greeted this group" once the message is
  * out of the window; a missing or unreadable one reads as "not yet", which
  * repeats a greeting at worst.
