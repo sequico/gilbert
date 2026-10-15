@@ -1707,26 +1707,31 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   async findByUid(uid) {
     const accountId = get().accountId;
     if (!accountId) return null;
-    try {
-      const res = await client.chain([
-        ["CalendarEvent/query", { accountId, filter: { uid }, limit: 1 }, "q"],
-        [
-          "CalendarEvent/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
-            properties: EVENT_PROPS,
-          },
-          "g",
-        ],
-      ]);
-      const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
-      const e = g.list[0];
-      if (e) set((s) => ({ events: { ...s.events, [e.id]: e } }));
-      return e ?? null;
-    } catch {
-      return null;
-    }
+    /*
+     * No `catch`. `null` from here means "this calendar does not hold that
+     * event", and the one caller reads it as the difference between offering
+     * **Update** and offering **Add**: a failure that answered `null` therefore
+     * told the reader an invitation they had already added was new, and pressing
+     * Add made a second copy of it. The caller is inside a promise chain with its
+     * own `catch` that draws "This invitation could not be read", which is the
+     * answer a failed read has; a failed read is not an empty calendar.
+     */
+    const res = await client.chain([
+      ["CalendarEvent/query", { accountId, filter: { uid }, limit: 1 }, "q"],
+      [
+        "CalendarEvent/get",
+        {
+          accountId,
+          "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+          properties: EVENT_PROPS,
+        },
+        "g",
+      ],
+    ]);
+    const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
+    const e = g.list[0];
+    if (e) set((s) => ({ events: { ...s.events, [e.id]: e } }));
+    return e ?? null;
   },
 
   async parseIcs(blobId) {
