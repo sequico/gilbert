@@ -136,6 +136,8 @@ export function checkWorkflowNodeLine(files = [], engines = "") {
   const findings = [];
   if (expected === null) return { ok: true, findings };
 
+  // shortcut: `node-version:` is read as a literal, so a workflow that writes an
+  // expression there is skipped and reported clean; revisit when one needs it.
   for (const file of files) {
     for (const match of file.text.matchAll(/^(.*)$/gm)) {
       const parsed = NODE_VERSION_LINE.exec(match[1]);

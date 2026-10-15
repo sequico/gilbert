@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  checkImageTarget,
+  checkWorkflowNodeLine,
   checkWorkflowPins,
   collectRepoInput,
   formatReport,
@@ -62,4 +64,36 @@ test("this repository passes, and it was actually read", () => {
   const result = checkWorkflowPins(files);
   assert.equal(result.ok, true, formatReport(result.findings).join("\n"));
   assert.ok(result.checked >= 10, "and every action reference in it was read");
+});
+
+/**
+ * The two drift assertions beside the pin rule. Each is the same class of
+ * failure — a value written by hand in one file and repeated in another, which
+ * a rename moves in one place only — so each needs a test that a wrong value
+ * fails, or the assertion could go missing and the gate would still print clean.
+ */
+test("a workflow on another Node line is reported, and the declared one is not", () => {
+  const declared = checkWorkflowNodeLine(
+    [file("          node-version: '24'\n")],
+    ">=24",
+  );
+  assert.equal(declared.ok, true);
+  const stale = checkWorkflowNodeLine([file("          node-version: '22'\n")], ">=24");
+  assert.equal(stale.ok, false);
+  assert.match(stale.findings[0]?.reason ?? "", /Node 24/);
+});
+
+test("a pruner naming another package is reported, and the published one is not", () => {
+  const image = file("  IMAGE: ghcr.io/sequico/gilbert\n");
+  const aligned = checkImageTarget([
+    image,
+    file("        owner: sequico\n        package: gilbert\n"),
+  ]);
+  assert.equal(aligned.ok, true, JSON.stringify(aligned.findings));
+  const stale = checkImageTarget([
+    image,
+    file("        owner: sequico\n        package: someone-else\n"),
+  ]);
+  assert.equal(stale.ok, false);
+  assert.equal(stale.findings[0]?.subject, "prunes sequico/someone-else");
 });
