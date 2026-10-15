@@ -6,7 +6,14 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
-import { batchedSet, CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import {
+  batchedSet,
+  CAP,
+  chunk,
+  client,
+  JmapMethodError,
+  setErrorMessage,
+} from "@/jmap/client";
 import type {
   AddressBook,
   ChangesResponse,
