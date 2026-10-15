@@ -13,6 +13,7 @@ import {
   FILENODE_QUERY,
   FILENODE_SET,
 } from "../shared/appFolder.js";
+import { CAPABILITIES, STALWART_REGISTRY } from "../shared/capabilities.js";
 import { GLOBAL_CONTACTS_BOOK_NAME } from "../shared/globalContacts.js";
 import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
@@ -119,15 +120,15 @@ export const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
 const AGENT_ACCOUNT = "ag1";
 
 const SHARED_CAPS: Obj = {
-  "urn:ietf:params:jmap:mail": {},
-  "urn:ietf:params:jmap:submission": {},
-  "urn:ietf:params:jmap:vacationresponse": {},
-  "urn:ietf:params:jmap:sieve": {},
-  "urn:ietf:params:jmap:calendars": {},
-  "urn:ietf:params:jmap:contacts": {},
-  "urn:ietf:params:jmap:principals": {},
-  "urn:ietf:params:jmap:quota": {},
-  "urn:ietf:params:jmap:filenode": {},
+  [CAPABILITIES.mail]: {},
+  [CAPABILITIES.submission]: {},
+  [CAPABILITIES.vacation]: {},
+  [CAPABILITIES.sieve]: {},
+  [CAPABILITIES.calendars]: {},
+  [CAPABILITIES.contacts]: {},
+  [CAPABILITIES.principals]: {},
+  [CAPABILITIES.quota]: {},
+  [CAPABILITIES.filenode]: {},
 };
 const USER = process.env.MOCK_USER ?? "demo@example.com";
 /**
@@ -5045,7 +5046,7 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
 
 /** The session-level capabilities: identical for every principal. */
 const sessionCapabilities = {
-  "urn:ietf:params:jmap:core": {
+  [CAPABILITIES.core]: {
     maxSizeUpload: 50000000,
     maxConcurrentUpload: 4,
     maxSizeRequest: 10000000,
@@ -5055,30 +5056,30 @@ const sessionCapabilities = {
     maxObjectsInSet: MAX_OBJECTS,
     collationAlgorithms: ["i;ascii-casemap"],
   },
-  "urn:ietf:params:jmap:mail": {},
-  "urn:ietf:params:jmap:submission": {},
-  "urn:ietf:params:jmap:vacationresponse": {},
-  "urn:ietf:params:jmap:webpush-vapid": {
+  [CAPABILITIES.mail]: {},
+  [CAPABILITIES.submission]: {},
+  [CAPABILITIES.vacation]: {},
+  [CAPABILITIES.webpushVapid]: {
     applicationServerKey:
       "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY",
   },
-  "urn:ietf:params:jmap:emailpush": {},
-  "urn:ietf:params:jmap:sieve": { implementation: "mock" },
-  "urn:ietf:params:jmap:calendars": {},
-  "urn:ietf:params:jmap:calendars:parse": {},
-  "urn:ietf:params:jmap:contacts": {},
-  "urn:ietf:params:jmap:contacts:parse": {},
-  "urn:ietf:params:jmap:principals": {},
-  "urn:ietf:params:jmap:principals:availability": {},
-  "urn:ietf:params:jmap:quota": {},
-  "urn:ietf:params:jmap:blob": {},
-  "urn:ietf:params:jmap:filenode": {},
+  [CAPABILITIES.emailpush]: {},
+  [CAPABILITIES.sieve]: { implementation: "mock" },
+  [CAPABILITIES.calendars]: {},
+  [CAPABILITIES.calendarsParse]: {},
+  [CAPABILITIES.contacts]: {},
+  [CAPABILITIES.contactsParse]: {},
+  [CAPABILITIES.principals]: {},
+  [CAPABILITIES.availability]: {},
+  [CAPABILITIES.quota]: {},
+  [CAPABILITIES.blob]: {},
+  [CAPABILITIES.filenode]: {},
 };
 
 /** The capabilities of a principal's own account. */
 const personalCapabilities = (): Obj => ({
-  "urn:ietf:params:jmap:mail": {},
-  "urn:ietf:params:jmap:submission": {
+  [CAPABILITIES.mail]: {},
+  [CAPABILITIES.submission]: {
     maxDelayedSend: MAX_DELAYED_SEND,
     submissionExtensions: {
       FUTURERELEASE: [],
@@ -5089,14 +5090,14 @@ const personalCapabilities = (): Obj => ({
       REQUIRETLS: [],
     },
   },
-  "urn:ietf:params:jmap:vacationresponse": {},
-  "urn:ietf:params:jmap:sieve": {},
-  "urn:ietf:params:jmap:calendars": {},
-  "urn:ietf:params:jmap:contacts": {},
-  "urn:ietf:params:jmap:principals": {},
-  "urn:ietf:params:jmap:quota": {},
-  "urn:ietf:params:jmap:filenode": {},
-  ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": {} }),
+  [CAPABILITIES.vacation]: {},
+  [CAPABILITIES.sieve]: {},
+  [CAPABILITIES.calendars]: {},
+  [CAPABILITIES.contacts]: {},
+  [CAPABILITIES.principals]: {},
+  [CAPABILITIES.quota]: {},
+  [CAPABILITIES.filenode]: {},
+  ...(NO_REGISTRY ? {} : { [STALWART_REGISTRY]: {} }),
 });
 
 /**
@@ -5178,19 +5179,19 @@ const sessionFor = (identity: Identity) => ({
   primaryAccounts: {
     ...Object.fromEntries(
       [
-        "mail",
-        "submission",
-        "vacationresponse",
-        "sieve",
-        "calendars",
-        "contacts",
-        "principals",
-        "quota",
-        "filenode",
-        "blob",
-      ].map((c) => [`urn:ietf:params:jmap:${c}`, identity.accountId]),
+        CAPABILITIES.mail,
+        CAPABILITIES.submission,
+        CAPABILITIES.vacation,
+        CAPABILITIES.sieve,
+        CAPABILITIES.calendars,
+        CAPABILITIES.contacts,
+        CAPABILITIES.principals,
+        CAPABILITIES.quota,
+        CAPABILITIES.filenode,
+        CAPABILITIES.blob,
+      ].map((capability) => [capability, identity.accountId]),
     ),
-    ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": identity.accountId }),
+    ...(NO_REGISTRY ? {} : { [STALWART_REGISTRY]: identity.accountId }),
   },
   username: identity.username,
   apiUrl: `http://127.0.0.1:${PORT}/jmap/`,
@@ -5378,7 +5379,7 @@ export const server = createServer(async (req, res) => {
      * which is the one a client meets before any method runs: the request is
      * too large for the endpoint, not one call in it wrong.
      */
-    const core = sessionCapabilities["urn:ietf:params:jmap:core"];
+    const core = sessionCapabilities[CAPABILITIES.core];
     const limit = (name: string, detail: string) => {
       res.writeHead(400, { "content-type": "application/json" });
       res.end(
