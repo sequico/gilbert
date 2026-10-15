@@ -116,7 +116,13 @@ function server(
       };
     })
     .on("CalendarEvent/get", (call) => {
-      const want = new Set((call.args.ids as string[]) ?? []);
+      /* The store asks for the query's ids by reference and the fake hands the
+         answer straight back, so a referenced read is the whole scan. */
+      const want = new Set(
+        call.args["#ids"]
+          ? existing.map((e) => e.id)
+          : ((call.args.ids as string[]) ?? []),
+      );
       return {
         accountId: "a1",
         state: "1",

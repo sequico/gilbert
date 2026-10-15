@@ -15,22 +15,27 @@ const MAX = 500;
 
 function server(events: Array<Partial<CalendarEvent> & { id: string }>) {
   const queries: Array<{ position: number; expand: boolean }> = [];
+  /* What the last query answered, for the get that names it by reference. */
+  let lastIds: string[] = [];
   fakeJmapServer()
     .on("CalendarEvent/query", (call) => {
       const position = (call.args.position as number) ?? 0;
       queries.push({ position, expand: Boolean(call.args.expandRecurrences) });
       const limit = (call.args.limit as number) ?? MAX;
+      lastIds = events.slice(position, position + limit).map((e) => e.id);
       return {
         accountId: "a1",
         queryState: "1",
         canCalculateChanges: false,
         position,
-        ids: events.slice(position, position + limit).map((e) => e.id),
+        ids: lastIds,
         total: events.length,
       };
     })
     .on("CalendarEvent/get", (call) => {
-      const want = new Set((call.args.ids as string[]) ?? []);
+      const want = new Set(
+        call.args["#ids"] ? lastIds : ((call.args.ids as string[]) ?? []),
+      );
       return {
         accountId: "a1",
         state: "1",
