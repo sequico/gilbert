@@ -35,6 +35,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { errorMessage } from "./shared/errors.js";
 import {
   GILBERT_DEVICE_PREFIX,
   gilbertDeviceClientId,
@@ -313,7 +314,7 @@ async function destroySubscription(entry: AccountPush, id: string): Promise<void
     await jmap(entry, [["PushSubscription/set", { destroy: [id] }, "0"]]);
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not destroy subscription ${id} for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not destroy subscription ${id} for ${entry.username}: ${errorMessage(err)}`,
     );
   }
 }
@@ -325,7 +326,7 @@ async function releaseMine(entry: AccountPush): Promise<number> {
     mine = (await listSubscriptions(entry)).filter((s) => isMine(entry, s));
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not list subscriptions for ${entry.username}: ${errorMessage(err)}`,
     );
     return 0;
   }
@@ -337,7 +338,7 @@ async function releaseMine(entry: AccountPush): Promise<number> {
     return mine.length;
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not release ${mine.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not release ${mine.length} subscription(s) for ${entry.username}: ${errorMessage(err)}`,
     );
     return 0;
   }
@@ -359,7 +360,7 @@ async function reclaimPastBuilds(entry: AccountPush): Promise<number> {
     ours = (await listSubscriptions(entry)).filter((s) => isPastBuildOfOurs(entry, s));
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not list subscriptions for ${entry.username}: ${errorMessage(err)}`,
     );
     return 0;
   }
@@ -371,7 +372,7 @@ async function reclaimPastBuilds(entry: AccountPush): Promise<number> {
     return ours.length;
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not reclaim ${ours.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not reclaim ${ours.length} subscription(s) for ${entry.username}: ${errorMessage(err)}`,
     );
     return 0;
   }
@@ -546,7 +547,7 @@ export function prepare(
     byKey.set(key, entry);
     byToken.set(entry.token, entry);
     subscribe(entry).catch((err) => {
-      fail(entry!, `subscribe failed: ${(err as Error).message}`);
+      fail(entry!, `subscribe failed: ${errorMessage(err)}`);
     });
     startSweeper();
   } else {
@@ -701,7 +702,7 @@ export async function receive(token: string, body: unknown): Promise<number> {
       await verify(entry, msg.verificationCode);
       return 200;
     } catch (err) {
-      console.warn(`[gilbert] push: verify failed: ${(err as Error).message}`);
+      console.warn(`[gilbert] push: verify failed: ${errorMessage(err)}`);
       return 500;
     }
   }
@@ -764,13 +765,13 @@ export function runSweep(): void {
       entry.state = "pending";
       entry.since = now;
       subscribe(entry).catch((err) => {
-        fail(entry, `re-subscribe failed: ${(err as Error).message}`);
+        fail(entry, `re-subscribe failed: ${errorMessage(err)}`);
       });
     } else if (entry.state === "verified" && entry.expires - now < RENEW_BEFORE_MS) {
       entry.state = "pending";
       entry.since = now;
       subscribe(entry).catch((err) => {
-        fail(entry, `renewal failed: ${(err as Error).message}`);
+        fail(entry, `renewal failed: ${errorMessage(err)}`);
       });
     } else if (
       entry.state === "verified" &&

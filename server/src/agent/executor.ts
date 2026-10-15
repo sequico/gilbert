@@ -836,7 +836,7 @@ export class Executor {
       // place to report an unreadable configuration.
       console.warn(
         "[gilbert] could not read the installation's bound on a chain:",
-        (err as Error).message,
+        errorMessage(err),
       );
       return Math.min(config.agent.maxChainHops, AGENT_CHAIN_HOPS_CEILING);
     }
@@ -866,7 +866,7 @@ export class Executor {
       // again for the provider, which is where an unreadable one is refused.
       console.warn(
         "[gilbert] could not read the installation's bound on the pages one run reads:",
-        (err as Error).message,
+        errorMessage(err),
       );
       return Math.min(config.agent.maxPages, AGENT_PAGES_CEILING);
     }

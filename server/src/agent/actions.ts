@@ -402,7 +402,7 @@ export async function probeMailStore(
     // left reading a broken probe as a group that is not granted (ADR 0005).
     console.warn(
       `[gilbert] could not probe the account ${accountId} for a mail store:`,
-      (err as Error).message,
+      errorMessage(err),
     );
     return "unreadable";
   }

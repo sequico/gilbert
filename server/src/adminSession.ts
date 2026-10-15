@@ -16,6 +16,7 @@
 import type { Ctx } from "./appFolder.js";
 import { filesAccountId } from "./appFolder.js";
 import { agentSession, IdentityAdminError, ownIdentityAccount } from "./identityAdmin.js";
+import { errorMessage } from "./shared/errors.js";
 import type { LiveSession } from "./sessions.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstream.js";
 
@@ -163,7 +164,7 @@ export async function administrator(session: LiveSession): Promise<boolean> {
   } catch (err) {
     console.warn(
       `[gilbert] could not read whether ${session.username} administers the installation:`,
-      (err as Error).message,
+      errorMessage(err),
     );
     return false;
   }

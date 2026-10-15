@@ -79,7 +79,7 @@ import type {
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
-import { CodedError } from "./shared/errors.js";
+import { CodedError, errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
@@ -583,7 +583,7 @@ function asIdentityError(err: unknown, tail: string): IdentityAdminError {
     );
   return new IdentityAdminError(
     "identity_failed",
-    `The identity ${tail}: ${(err as Error).message}`,
+    `The identity ${tail}: ${errorMessage(err)}`,
     502,
   );
 }

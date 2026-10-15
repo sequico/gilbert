@@ -54,6 +54,7 @@ import { randomBytes } from "node:crypto";
 import { config } from "./config.js";
 import { deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 import type { SessionSummary } from "./shared/accountSecurity.js";
+import { errorMessage } from "./shared/errors.js";
 import { isRecord } from "./shared/json.js";
 
 export interface StoredSession {
@@ -433,7 +434,7 @@ export class SessionStore implements SessionBackend {
       this.unreadable = true;
       console.warn(
         `[gilbert] could not read ${SESSION_DOCUMENT_NAME}:`,
-        (err as Error).message,
+        errorMessage(err),
       );
       return;
     }
@@ -496,7 +497,7 @@ export class SessionStore implements SessionBackend {
        * again, and nothing saying why.
        */
       .catch((err: unknown) =>
-        console.warn("[gilbert] session flush failed:", (err as Error).message),
+        console.warn("[gilbert] session flush failed:", errorMessage(err)),
       );
     return this.writing;
   }
@@ -547,7 +548,7 @@ export class SessionStore implements SessionBackend {
       } catch (err) {
         console.warn(
           `[gilbert] could not persist sessions to ${SESSION_DOCUMENT_NAME}:`,
-          (err as Error).message,
+          errorMessage(err),
         );
         // Still dirty — the change is not lost — and something has to come back
         // for it, since this attempt is over.

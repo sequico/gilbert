@@ -1250,7 +1250,7 @@ async function recordOpenedGates(
   } catch (err) {
     console.warn(
       `[gilbert] workorder ${uid}: opened gates were not recorded:`,
-      (err as Error).message,
+      errorMessage(err),
     );
     return new Map();
   }

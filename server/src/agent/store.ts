@@ -25,6 +25,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { isStateMismatch } from "../jmap.js";
+import { errorMessage } from "../shared/errors.js";
 import { sleep } from "../shared/async.js";
 import {
   AGENT_AUDIT_DIR,
@@ -262,7 +263,7 @@ export class AgentStore {
         return { doc: next, state: await this.state() };
       } catch (err) {
         if (!isStateMismatch(err))
-          throw new AgentDocumentError(path, what, (err as Error).message);
+          throw new AgentDocumentError(path, what, errorMessage(err));
       }
     }
     throw new AgentDocumentError(path, what, "the compare-and-set kept losing");

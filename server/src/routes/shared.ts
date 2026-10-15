@@ -47,6 +47,7 @@ import {
   SessionStore,
   type SessionTtls,
 } from "../sessions.js";
+import { errorMessage } from "../shared/errors.js";
 import { GENERIC_TYPES, mediaType, PDF_TYPE } from "../shared/media.js";
 import type { PublishJob } from "../shared/publishJob.js";
 import {
@@ -426,7 +427,7 @@ export async function sessionForcedState(
       // itself fails with its own error when the upstream is genuinely down.
       console.warn(
         `[gilbert] could not check the forced-password-change directive for ${session.username}:`,
-        (err as Error).message,
+        errorMessage(err),
       );
       return false;
     }
@@ -462,7 +463,7 @@ export async function sessionIdentityLockState(
       } catch (err) {
         console.warn(
           `[gilbert] could not check the identity lock for ${session.username}:`,
-          (err as Error).message,
+          errorMessage(err),
         );
         return false;
       }
@@ -493,7 +494,7 @@ export async function forcedFlagsFor(
         } catch (err) {
           console.warn(
             `[gilbert] could not read the forced-password-change directive for ${u.name}:`,
-            (err as Error).message,
+            errorMessage(err),
           );
           return false;
         }
@@ -1067,7 +1068,7 @@ export const resolveAdminState = async (session: LiveSession): Promise<boolean> 
   } catch (err) {
     console.warn(
       `[gilbert] admin introspection failed for ${session.username}:`,
-      (err as Error).message,
+      errorMessage(err),
     );
     return false;
   }

@@ -128,6 +128,7 @@ import {
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
+import { errorMessage } from "./shared/errors.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import { isRecord, stableJson } from "./shared/json.js";
 import { AGENT_LABELS, DRAFT_KEYWORD } from "./shared/labels.js";
@@ -507,11 +508,8 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   } catch (err) {
     // The agent's session is open; only its own records failed. That is a
     // partial answer, and it says so rather than reporting a still fleet.
-    console.warn(
-      "[gilbert] could not read the agent's own records:",
-      (err as Error).message,
-    );
-    reason = { code: "agents_unreadable", detail: (err as Error).message };
+    console.warn("[gilbert] could not read the agent's own records:", errorMessage(err));
+    reason = { code: "agents_unreadable", detail: errorMessage(err) };
   }
   return {
     operational: true,
@@ -554,7 +552,7 @@ async function fleetMeter(
       } catch (err) {
         console.warn(
           "[gilbert] could not read a group's audit for the meter:",
-          (err as Error).message,
+          errorMessage(err),
         );
         unreadable.push(name);
       }
@@ -581,7 +579,7 @@ async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
   } catch (err) {
     console.warn(
       "[gilbert] could not read the agent's withdrawal report:",
-      (err as Error).message,
+      errorMessage(err),
     );
     return [];
   }
@@ -1532,10 +1530,7 @@ export async function readDraft(
     await store.cancelAuthoring(token).catch(() => {});
     // A refusal is a code and what the provider said beside it, never a
     // sentence of ours on the wire.
-    throw new AgentAdminError(
-      { code: "reading_failed", detail: (err as Error).message },
-      502,
-    );
+    throw new AgentAdminError({ code: "reading_failed", detail: errorMessage(err) }, 502);
   }
   const text = answer.text.trim();
   if (!text) {
@@ -1557,7 +1552,7 @@ export async function readDraft(
     counted = false;
     console.warn(
       "[gilbert] could not settle a reading in the month's authoring document:",
-      (err as Error).message,
+      errorMessage(err),
     );
   }
   return { text, counted };

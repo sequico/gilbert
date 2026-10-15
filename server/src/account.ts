@@ -10,6 +10,7 @@ import {
 import { config } from "./config.js";
 import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
+import { errorMessage } from "./shared/errors.js";
 import {
   GROUP_LABELS_FILE,
   isLabelCatalog,
@@ -367,7 +368,7 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
   } catch (err) {
     console.warn(
       `[gilbert] could not read the forced-password-change directive for ${ctx.username}:`,
-      (err as Error).message,
+      errorMessage(err),
     );
     return false;
   }

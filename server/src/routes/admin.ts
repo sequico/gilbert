@@ -38,6 +38,7 @@ import {
   normalizeUsername,
 } from "../sessions.js";
 import type { SecurityState } from "../shared/accountSecurity.js";
+import { errorMessage } from "../shared/errors.js";
 import type { PublishJob, PublishUnreached } from "../shared/publishJob.js";
 import {
   fetchAccountIntrospection,
@@ -314,7 +315,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
         unreached.push({
           address,
           code: refusalCodeFor(err),
-          message: (err as Error).message,
+          message: errorMessage(err),
         });
       }
     };
@@ -401,7 +402,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
         await writePublishJob(own, ownAccountId, job);
       } catch (err) {
         job.record = "failed";
-        job.recordMessage = (err as Error).message;
+        job.recordMessage = errorMessage(err);
       }
     }
     return job;
@@ -495,10 +496,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
     } catch (err) {
       if (err instanceof UpstreamError) return upstreamFailure(c, err);
       console.error("[gilbert] directory users query failed:", err);
-      return c.json(
-        { error: "directory_unavailable", message: (err as Error).message },
-        502,
-      );
+      return c.json({ error: "directory_unavailable", message: errorMessage(err) }, 502);
     }
   });
 
@@ -528,10 +526,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
     } catch (err) {
       if (err instanceof UpstreamError) return upstreamFailure(c, err);
       console.error("[gilbert] directory groups query failed:", err);
-      return c.json(
-        { error: "directory_unavailable", message: (err as Error).message },
-        502,
-      );
+      return c.json({ error: "directory_unavailable", message: errorMessage(err) }, 502);
     }
   });
 }

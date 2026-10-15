@@ -27,6 +27,7 @@ import { config } from "../config.js";
 import { prepare as pushPrepare, pushStatus } from "../push.js";
 import { accountKey, normalizeUsername } from "../sessions.js";
 import { CAPABILITIES, STALWART_MIN_VERSION } from "../shared/capabilities.js";
+import { errorMessage } from "../shared/errors.js";
 import {
   fetchUpstreamSession,
   forgetUpstreamSession,
@@ -428,7 +429,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
           // must not turn success into failure.
           console.warn(
             "[gilbert] password changed but the directive could not be cleared:",
-            (err as Error).message,
+            errorMessage(err),
           );
         }
         // The read above cached "forced"; the file is gone now, so the door
@@ -559,10 +560,7 @@ export function registerAccountRoutes(api: Hono<Env>): void {
     } catch (err) {
       // Out of app-password quota, say. 2FA is still worth having; the user
       // just has to sign in again afterwards.
-      console.warn(
-        "[gilbert] could not mint a session app password:",
-        (err as Error).message,
-      );
+      console.warn("[gilbert] could not mint a session app password:", errorMessage(err));
     }
     try {
       await enableOtp(ctx, { url: body.url, code, current: body.current });
