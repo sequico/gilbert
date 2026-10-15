@@ -47,7 +47,7 @@ import {
   SessionStore,
   type SessionTtls,
 } from "../sessions.js";
-import { GENERIC_TYPES, mediaType } from "../shared/media.js";
+import { GENERIC_TYPES, mediaType, PDF_TYPE } from "../shared/media.js";
 import type { PublishJob } from "../shared/publishJob.js";
 import {
   type AccountInfo,
@@ -1554,5 +1554,5 @@ export function securityHeadersFor(
   type: string,
   safeInline: boolean,
 ): "SAMEORIGIN" | "DENY" {
-  return safeInline && mediaType(type) === "application/pdf" ? "SAMEORIGIN" : "DENY";
+  return safeInline && mediaType(type) === PDF_TYPE ? "SAMEORIGIN" : "DENY";
 }

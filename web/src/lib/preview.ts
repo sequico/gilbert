@@ -15,7 +15,12 @@
  * The two answer different questions and neither can be derived from the other:
  * a file the app can render is not always one the server will serve inline.
  */
-import { GENERIC_TYPES, isMarkdownExtension, mediaType } from "@gilbert/shared/media";
+import {
+  GENERIC_TYPES,
+  isMarkdownExtension,
+  mediaType,
+  PDF_TYPE,
+} from "@gilbert/shared/media";
 
 export type PreviewKind = "image" | "pdf" | "text";
 
@@ -61,7 +66,7 @@ export function previewKind(
   if (t && !GENERIC_TYPES.has(t)) {
     if (t === "image/svg+xml") return null;
     if (t.startsWith("image/")) return "image";
-    if (t === "application/pdf") return "pdf";
+    if (t === PDF_TYPE) return "pdf";
     if (textish(t)) return "text";
     // The server was specific and it is not something we show. Guessing from
     // the extension here would override a type the sender actually declared.
