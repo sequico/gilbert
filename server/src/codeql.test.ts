@@ -137,6 +137,11 @@ test("the analysis asks for the suite the repository's settings run", () => {
   assert.deepEqual(args.slice(0, 3), ["/opt/codeql/codeql", "database", "analyze"]);
   assert.ok(args.includes("--format=sarif-latest"));
   assert.ok(args.includes("--output=/tmp/out.sarif"));
+  assert.match(
+    args.find((one) => one.startsWith("--ram=")) ?? "",
+    /^--ram=\d+$/,
+    "the analysis is given a heap rather than the CLI's own resolve-ram guess",
+  );
   assert.equal(args.at(-1), SUITE);
   assert.match(
     SUITE,

@@ -27,6 +27,7 @@ export function createArgs(opts: {
   sourceRoot: string;
 }): string[];
 export function analyzeArgs(opts: { cli: string; db: string; output: string }): string[];
+export function analysisRamMb(totalBytes?: number): number;
 export interface CodeqlResult {
   rule: string;
   severity: string;

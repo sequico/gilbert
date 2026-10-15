@@ -39,7 +39,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { homedir, tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isEntryPoint } from "./lib/repoWalk.mjs";
@@ -178,9 +178,24 @@ export function analyzeArgs({ cli, db, output }) {
     db,
     "--format=sarif-latest",
     `--output=${output}`,
+    `--ram=${analysisRamMb()}`,
     "--threads=0",
     SUITE,
   ];
+}
+
+/**
+ * The heap the analysis is given, in MB.
+ *
+ * The CLI sizes one from the dataset and the memory it finds free, and on this
+ * repository's tree on a busy 7 GB host it resolved to 965 MB — less than the
+ * suite needs, so the evaluation died of it (`run-queries`, status 70) and the
+ * run reported nothing about the code either way. The official action gives an
+ * analysis 80% of the machine it runs on; this mirrors that, with a floor for a
+ * host small enough that a share of it would be no heap at all.
+ */
+export function analysisRamMb(totalBytes = totalmem()) {
+  return Math.max(2048, Math.round((totalBytes / 1024 / 1024) * 0.8));
 }
 
 /**
