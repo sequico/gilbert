@@ -26,7 +26,15 @@ export function sameAddress(
  * not an address), and the check is deliberately structural rather than
  * exhaustive: what a server actually accepts is the server's answer, and this
  * only refuses the obviously-not.
+ *
+ * `<>` is refused and the other punctuation is not. Angle brackets are the one
+ * thing here that cannot be part of an address: they are the wrapper a message
+ * puts around one (`Ann <ann@example.com>`), so a value carrying them is the
+ * display form rather than the address, and accepting it passes the brackets on
+ * to a door that will refuse them. An apostrophe, a comma, a semicolon and a
+ * quote are all legal in a local part, so they stay accepted — refusing them is
+ * how a person whose address holds one stops being able to write to anybody.
  */
 export function isEmailAddress(value: string): boolean {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+  return /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(value.trim());
 }
