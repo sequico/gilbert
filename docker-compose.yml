@@ -61,10 +61,9 @@ services:
   # all.
   gilbert-agent:
     profiles: ["agent"]
-    build:
-      context: .
-      args:
-        BASE_PATH: ${BASE_PATH:-}
+    # The image the server service above builds, not a second build of it: the
+    # agent is the same image with a different command, so `BASE_PATH` and the
+    # build arguments are set once, there.
     image: gilbert:2
     restart: unless-stopped
     command: ["node", "server/dist/agent/agent.js"]
@@ -73,7 +72,6 @@ services:
       GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
-      HEALTH_URL: http://127.0.0.1:8081/health
       IMMUTABLE: "1"
     # The same posture as the server above: nothing to write, nothing to gain
     # and no way to gain it.
@@ -88,11 +86,15 @@ services:
     # `restart: unless-stopped` restarts a dead process; this catches one that
     # is up and holding nothing. The probe is the app's own
     # (`scripts/healthcheck.mjs`, already in the image) rather than a second
-    # spelling of it in YAML: the agent's health server is not the app's route,
-    # so its endpoint is named rather than derived from `BASE_PATH` and `PORT`.
+    # spelling of it in YAML, and `interval`/`timeout` are the image's own
+    # HEALTHCHECK rather than a second copy of them here. The agent's health
+    # server is not the app's route, so its endpoint is named rather than
+    # derived from `BASE_PATH` and `PORT` -- and `$$` leaves the shell to read
+    # `GILBERT_AGENT_HEALTH_PORT`, so the URL is written from the one variable
+    # the health server reads instead of the port being spelled twice.
     healthcheck:
-      test: ["CMD", "node", "scripts/healthcheck.mjs"]
-      interval: 30s
-      timeout: 5s
+      test:
+        - CMD-SHELL
+        - HEALTH_URL=http://127.0.0.1:$${GILBERT_AGENT_HEALTH_PORT}/health node scripts/healthcheck.mjs
       retries: 3
       start_period: 15s
