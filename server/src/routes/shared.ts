@@ -924,10 +924,21 @@ export const refusal = (err: { code: string; message: string; status: number }) 
   err.status as ContentfulStatusCode,
 ] as const;
 
-export const accountFailure = (c: Context, err: unknown) => {
-  if (err instanceof AccountError) return c.json(...refusal(err));
-  return upstreamFailure(c, err);
-};
+/**
+ * The dispatcher a surface answers a failure with: its own class, or upstream's.
+ *
+ * Four surfaces test one error class each and hand every other failure to the
+ * upstream mapper, and the two lines were written out beside each `instanceof`.
+ * What they share is the decision — this class is ours, anything else is the
+ * mail server's — so the dispatcher is made from the class rather than beside
+ * it. A surface whose failure is not that shape keeps its own.
+ */
+export const failureFor =
+  (own: new (...args: never[]) => { code: string; message: string; status: number }) =>
+  (c: Context, err: unknown) =>
+    err instanceof own ? c.json(...refusal(err)) : upstreamFailure(c, err);
+
+export const accountFailure = failureFor(AccountError);
 
 /** The limiter key one credential endpoint's attempts are counted under. */
 export const credentialLimitKey = (c: Context<Env>, scope: string) =>

@@ -8,7 +8,7 @@
  * routes answer with it too.
  */
 
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import {
   groupIdentity,
   IdentityAdminError,
@@ -26,20 +26,16 @@ import {
 import { normalizeUsername } from "../sessions.js";
 import type { Env } from "./shared.js";
 import {
+  failureFor,
   groupDenial,
   identityLockCache,
   readJson,
-  refusal,
   requireAdmin,
   requireSession,
-  upstreamFailure,
 } from "./shared.js";
 
 /** A refusal from these surfaces: the code and the sentence, or upstream's. */
-export function identityFailure(c: Context, err: unknown) {
-  if (err instanceof IdentityAdminError) return c.json(...refusal(err));
-  return upstreamFailure(c, err);
-}
+export const identityFailure = failureFor(IdentityAdminError);
 
 export function registerIdentityRoutes(api: Hono<Env>): void {
   // ---------- Identities an administrator sets (ADR 0007) ----------

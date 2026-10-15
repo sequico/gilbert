@@ -3,7 +3,7 @@
  * from the Master's root and the caller's own groups' parts.
  */
 
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import { isRecord } from "../shared/json.js";
 import {
   isWorkorderRef,
@@ -25,22 +25,13 @@ import {
   WorkorderAdminError,
 } from "../workorderAdmin.js";
 import type { Env } from "./shared.js";
-import {
-  readJson,
-  refusal,
-  requireAdmin,
-  requireSession,
-  upstreamFailure,
-} from "./shared.js";
+import { failureFor, readJson, requireAdmin, requireSession } from "./shared.js";
 
 export function registerWorkorderRoutes(api: Hono<Env>): void {
   // ---------- Workorders (ADR 0028) ----------
 
   /** A refusal from the workorder surface: its code and sentence, or upstream's. */
-  const workorderFailure = (c: Context, err: unknown) => {
-    if (err instanceof WorkorderAdminError) return c.json(...refusal(err));
-    return upstreamFailure(c, err);
-  };
+  const workorderFailure = failureFor(WorkorderAdminError);
 
   /*
    * The creation body, narrowed to what the door writes.

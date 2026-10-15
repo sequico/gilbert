@@ -3,7 +3,7 @@
  * Master, and the group tier a member reaches.
  */
 
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import {
   approveArticle,
   companyArticle,
@@ -28,21 +28,17 @@ import {
 import type { Env } from "./shared.js";
 import {
   enforceAdmin,
+  failureFor,
   readJson,
-  refusal,
   requireAdmin,
   requireSession,
-  upstreamFailure,
 } from "./shared.js";
 
 export function registerKnowledgeRoutes(api: Hono<Env>): void {
   // ---------- The knowledge base (ADR 0024) ----------
 
   /** A refusal from the KB surfaces: the code and the sentence, or upstream's. */
-  const knowledgeFailure = (c: Context, err: unknown) => {
-    if (err instanceof KnowledgeAdminError) return c.json(...refusal(err));
-    return upstreamFailure(c, err);
-  };
+  const knowledgeFailure = failureFor(KnowledgeAdminError);
 
   /**
    * The scope of a KB request, checked before anything is asked of a server.

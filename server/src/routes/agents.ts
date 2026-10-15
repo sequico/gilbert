@@ -94,6 +94,11 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * Membership is not written here — the operator grants the agent in
    * Stalwart's own administration and these routes verify it — and a
    * deployment with no agent answers plainly instead of failing.
+   *
+   * Its own dispatcher rather than the shared `failureFor`: neither of its two
+   * branches answers as a refusal does. A stored document this build cannot use
+   * answers in its own code and a 500, and an administration refusal carries
+   * the reason's own fields spread flat beside its code.
    */
   const agentFailure = (c: Context, err: unknown) => {
     // Narrowed the way `refusal` narrows a status, for the same reason.
