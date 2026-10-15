@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort, jsonCallAs, loginWith } from "./testkit.js";
+import { freePort, jsonCallAs, loginWith, type MethodCall } from "./testkit.js";
 
 /**
  * The forced-password-change door (ADR 0001), end to end against the mock.
@@ -45,6 +45,24 @@ const call = jsonCallAs<Body>(app, HEADERS);
 
 const login = loginWith(call);
 
+/** The capabilities a JMAP request carries, here as in the app. */
+const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"];
+
+/**
+ * One JMAP request against the mock's own endpoint, under the impersonated
+ * credentials the app's proxy is not in the middle of — so the answer is read
+ * here rather than through `call`.
+ */
+async function upstream(auth: string, methodCalls: MethodCall[]): Promise<MethodCall[]> {
+  const res = await fetch(`http://127.0.0.1:${PORT}/jmap/`, {
+    method: "POST",
+    headers: { authorization: auth, "content-type": "application/json" },
+    body: JSON.stringify({ using: USING, methodCalls }),
+  });
+  assert.equal(res.status, 200);
+  return ((await res.json()) as { methodResponses: MethodCall[] }).methodResponses;
+}
+
 async function jmap(cookie: string): Promise<{
   status: number;
   body: ReturnType<typeof JSON.parse>;
@@ -52,7 +70,7 @@ async function jmap(cookie: string): Promise<{
   const res = await call("/api/jmap", cookie, {
     method: "POST",
     body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
+      using: USING,
       methodCalls: [
         ["FileNode/query", { accountId: "b1", filter: { isTopLevel: true } }, "q"],
       ],
@@ -255,81 +273,49 @@ test("a corrupt directive file reads as not forced", async () => {
   assert.equal(upload.status, 200);
   const { blobId } = (await upload.json()) as { blobId: string };
 
-  const query = await fetch(`http://127.0.0.1:${PORT}/jmap/`, {
-    method: "POST",
-    headers: { authorization: auth, "content-type": "application/json" },
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
-      methodCalls: [
-        ["FileNode/query", { accountId: "b1", filter: { isTopLevel: true } }, "q"],
-        [
-          "FileNode/get",
-          {
-            accountId: "b1",
-            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-            properties: ["id", "name", "nodeType"],
-          },
-          "g",
-        ],
-      ],
-    }),
-  });
-  const tree = (await query.json()) as {
-    methodResponses: [string, Record<string, unknown>, string][];
-  };
+  const tree = await upstream(auth, [
+    ["FileNode/query", { accountId: "b1", filter: { isTopLevel: true } }, "q"],
+    [
+      "FileNode/get",
+      {
+        accountId: "b1",
+        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+        properties: ["id", "name", "nodeType"],
+      },
+      "g",
+    ],
+  ]);
   const top = (
-    tree.methodResponses.find((r) => r[2] === "g")![1] as {
+    tree.find((r) => r[2] === "g")![1] as {
       list?: unknown;
     }
   ).list as { id: string; name: string }[];
   const gilbert = top.find((n) => n.name === "gilbert");
   assert.ok(gilbert, "the app folder exists after the admin set");
 
-  const childQuery = await fetch(`http://127.0.0.1:${PORT}/jmap/`, {
-    method: "POST",
-    headers: { authorization: auth, "content-type": "application/json" },
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
-      methodCalls: [
-        ["FileNode/query", { accountId: "b1", filter: { parentId: gilbert!.id } }, "q"],
-        [
-          "FileNode/get",
-          {
-            accountId: "b1",
-            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-            properties: ["id", "name"],
-          },
-          "g",
-        ],
-      ],
-    }),
-  });
-  const children = (await childQuery.json()) as {
-    methodResponses: [string, Record<string, unknown>, string][];
-  };
+  const children = await upstream(auth, [
+    ["FileNode/query", { accountId: "b1", filter: { parentId: gilbert!.id } }, "q"],
+    [
+      "FileNode/get",
+      {
+        accountId: "b1",
+        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+        properties: ["id", "name"],
+      },
+      "g",
+    ],
+  ]);
   const files = (
-    children.methodResponses.find((r) => r[2] === "g")![1] as {
+    children.find((r) => r[2] === "g")![1] as {
       list?: unknown;
     }
   ).list as { id: string; name: string }[];
   const directive = files.find((n) => n.name === "must-change-password.json");
   assert.ok(directive, "the directive file exists");
 
-  const update = await fetch(`http://127.0.0.1:${PORT}/jmap/`, {
-    method: "POST",
-    headers: { authorization: auth, "content-type": "application/json" },
-    body: JSON.stringify({
-      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
-      methodCalls: [
-        [
-          "FileNode/set",
-          { accountId: "b1", update: { [directive!.id]: { blobId } } },
-          "s",
-        ],
-      ],
-    }),
-  });
-  assert.equal(update.status, 200);
+  await upstream(auth, [
+    ["FileNode/set", { accountId: "b1", update: { [directive!.id]: { blobId } } }, "s"],
+  ]);
 
   // A corrupt directive must not refuse sign-in: it reads as not forced and
   // the server logs loudly (ADR 0001).
