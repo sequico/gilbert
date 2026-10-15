@@ -4,6 +4,7 @@ import type { JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * A group mailbox's address books answer in the composer and in "All
@@ -14,63 +15,32 @@ import { useSession } from "@/store/session";
  */
 
 function stubServer() {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "AddressBook/get") {
-          const accountId = args.accountId;
-          // The group account's book is unsubscribed: the old rule would have
-          // skipped its cards entirely.
-          const list =
-            accountId === "e"
-              ? [{ id: "bk1", name: "Team book", isSubscribed: false }]
-              : [];
-          methodResponses.push([name, { accountId, state: "1", list, notFound: [] }, id]);
-        } else if (name === "ContactCard/query") {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", ids: ["c1"], notFound: [] },
-            id,
-          ]);
-        } else if (name === "ContactCard/get") {
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: [
-                {
-                  id: "c1",
-                  addressBookIds: { bk1: { isReadOnly: false } },
-                },
-              ],
-              notFound: [],
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+  return fakeJmapServer()
+    .on("AddressBook/get", (call) => {
+      const accountId = call.args.accountId;
+      // The group account's book is unsubscribed: the old rule would have
+      // skipped its cards entirely.
+      const list =
+        accountId === "e" ? [{ id: "bk1", name: "Team book", isSubscribed: false }] : [];
+      return { accountId, state: "1", list, notFound: [] };
+    })
+    .on("ContactCard/query", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      ids: ["c1"],
+      notFound: [],
+    }))
+    .on("ContactCard/get", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      list: [
+        {
+          id: "c1",
+          addressBookIds: { bk1: { isReadOnly: false } },
+        },
+      ],
+      notFound: [],
+    }));
 }
 
 const SESSION = {
@@ -117,9 +87,9 @@ describe("shared contacts of a group mailbox", () => {
   it("loads a group book's cards without the book being added first", async () => {
     const calls = stubServer();
     await useContacts.getState().loadShared();
-    expect(
-      calls.some((c) => c.name === "AddressBook/get" && c.args.accountId === "e"),
-    ).toBe(true);
+    expect(calls.callsTo("AddressBook/get").some((c) => c.args.accountId === "e")).toBe(
+      true,
+    );
     const st = useContacts.getState();
     expect(st.sharedBooks).toHaveLength(1);
     expect(st.sharedBooks[0]?.book.name).toBe("Team book");

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { ContactCard, JmapSession, UploadResponse } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Re-importing an address book you already have.
@@ -34,108 +35,64 @@ function server(
 ) {
   const sets: SetArgs[] = [];
   const existing = opts.existing ?? [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "ContactCard/parse") {
-        const blobId = (args.blobIds as string[])[0]!;
-        return [
-          name,
-          { accountId: "a1", parsed: { [blobId]: opts.parsed ?? [] }, notParsable: [] },
-          id,
-        ];
-      }
-      if (name === "ContactCard/query") {
-        const position = (args.position as number) ?? 0;
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "1",
-            canCalculateChanges: false,
-            position,
-            ids: position ? [] : existing.map((c) => c.id),
-            total: existing.length,
-          },
-          id,
-        ];
-      }
-      if (name === "ContactCard/get") {
-        const want = new Set((args.ids as string[]) ?? []);
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "1",
-            list: existing.filter((c) => want.has(c.id)),
-            notFound: [],
-          },
-          id,
-        ];
-      }
-      if (name === "ContactCard/set") {
-        sets.push({
-          create: args.create as Record<string, Record<string, unknown>>,
-          update: args.update as Record<string, Record<string, unknown>>,
-        });
-        /* Refused whole over the ceiling, the way Stalwart refuses it, and
-           counting creates and updates together the way Stalwart counts. */
-        const n =
-          Object.keys((args.create ?? {}) as object).length +
-          Object.keys((args.update ?? {}) as object).length;
-        if (opts.max != null && n > opts.max) {
-          return [
-            "error",
-            { type: "requestTooLarge", description: "too many objects" },
-            id,
-          ];
-        }
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created: Object.fromEntries(
-              Object.keys((args.create ?? {}) as object).map((k) => [
-                k,
-                { id: `new-${k}` },
-              ]),
-            ),
-            updated: Object.fromEntries(
-              Object.keys((args.update ?? {}) as object).map((k) => [k, null]),
-            ),
-            notCreated: {},
-            notUpdated: {},
-          },
-          id,
-        ];
-      }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+  fakeJmapServer()
+    .on("ContactCard/parse", ({ args }) => ({
+      accountId: "a1",
+      parsed: { [(args.blobIds as string[])[0]!]: opts.parsed ?? [] },
+      notParsable: [],
+    }))
+    .on("ContactCard/query", ({ args }) => {
+      const position = (args.position as number) ?? 0;
+      return {
+        accountId: "a1",
+        queryState: "1",
+        canCalculateChanges: false,
+        position,
+        ids: position ? [] : existing.map((c) => c.id),
+        total: existing.length,
+      };
+    })
+    .on("ContactCard/get", ({ args }) => {
+      const want = new Set((args.ids as string[]) ?? []);
+      return {
+        accountId: "a1",
+        state: "1",
+        list: existing.filter((c) => want.has(c.id)),
+        notFound: [],
+      };
+    })
+    .on("ContactCard/set", (call) => {
+      sets.push({
+        create: call.args.create as Record<string, Record<string, unknown>>,
+        update: call.args.update as Record<string, Record<string, unknown>>,
+      });
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        created: Object.fromEntries(
+          Object.keys((call.args.create ?? {}) as object).map((k) => [
+            k,
+            { id: `new-${k}` },
+          ]),
+        ),
+        updated: Object.fromEntries(
+          Object.keys((call.args.update ?? {}) as object).map((k) => [k, null]),
+        ),
+        notCreated: {},
+        notUpdated: {},
+      };
+    })
+    /* Refused whole over the ceiling, the way Stalwart refuses it, and counting
+       creates and updates together the way Stalwart counts. */
+    .onError("ContactCard/set", ({ args }) => {
+      const n =
+        Object.keys((args.create ?? {}) as object).length +
+        Object.keys((args.update ?? {}) as object).length;
+      return opts.max != null && n > opts.max
+        ? { type: "requestTooLarge", description: "too many objects" }
+        : undefined;
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return sets;
 }
 

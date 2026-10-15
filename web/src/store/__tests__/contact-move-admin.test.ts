@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { AddressBook, ContactCard, JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Who may move a card from one account to another (ADR 0018).
@@ -39,42 +40,27 @@ const CARD: ContactCard = {
   addressBookIds: { b1: true },
 } as unknown as ContactCard;
 
-/** A server that answers every call, counting what reached it. */
+/** A server that answers every call, recording what reached it. */
 function stubServer() {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses = body.methodCalls.map(([name, args, id]) => {
-        calls.push({ name, args });
-        return [
-          name,
-          {
-            accountId: args.accountId,
-            state: "1",
-            list: [{ ...CARD, id: "new-c1" }],
-            notFound: [],
-            created: name === "ContactCard/set" ? { c: { id: "new-c1" } } : {},
-            updated: {},
-            destroyed: Array.isArray(args.destroy) ? args.destroy : [],
-            notCreated: {},
-            notUpdated: {},
-            notDestroyed: {},
-          },
-          id,
-        ];
-      });
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+  return fakeJmapServer()
+    .on("ContactCard/get", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      list: [{ ...CARD, id: "new-c1" }],
+      notFound: [],
+    }))
+    .on("ContactCard/set", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      list: [{ ...CARD, id: "new-c1" }],
+      notFound: [],
+      created: { c: { id: "new-c1" } },
+      updated: {},
+      destroyed: Array.isArray(call.args.destroy) ? call.args.destroy : [],
+      notCreated: {},
+      notUpdated: {},
+      notDestroyed: {},
+    }));
 }
 
 const session = (isAdmin: boolean) =>
@@ -118,7 +104,7 @@ describe("moving a contact between accounts (ADR 0018)", () => {
     await expect(
       useContacts.getState().moveCardTo("c1", "own", "grp", "g1"),
     ).rejects.toThrow(/installation administrator/);
-    expect(calls).toEqual([]);
+    expect(calls.calls).toEqual([]);
     // The card is still where it was, in the list that showed it.
     expect(useContacts.getState().cards.c1).toBe(CARD);
   });
@@ -129,11 +115,11 @@ describe("moving a contact between accounts (ADR 0018)", () => {
     const calls = stubServer();
     const newId = await useContacts.getState().moveCardTo("c1", "own", "grp", "g1");
     expect(newId).toBe("new-c1");
-    const create = calls.find((c) => c.name === "ContactCard/set" && c.args.create)!;
+    const create = calls.callsTo("ContactCard/set").find((c) => c.args.create)!;
     expect(create.args.accountId).toBe("grp");
-    const destroy = calls.find(
-      (c) => c.name === "ContactCard/set" && !c.args.create && c.args.destroy,
-    )!;
+    const destroy = calls
+      .callsTo("ContactCard/set")
+      .find((c) => !c.args.create && c.args.destroy)!;
     expect(destroy.args.accountId).toBe("own");
   });
 
@@ -146,7 +132,7 @@ describe("moving a contact between accounts (ADR 0018)", () => {
     const calls = stubServer();
     const id = await useContacts.getState().moveCardTo("c1", "grp", "grp", "g2");
     expect(id).toBe("c1");
-    const update = calls.find((c) => c.name === "ContactCard/set" && c.args.update)!;
+    const update = calls.callsTo("ContactCard/set").find((c) => c.args.update)!;
     expect(update.args.accountId).toBe("grp");
   });
 });
