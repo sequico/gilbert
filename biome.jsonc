@@ -40,6 +40,9 @@
       // Recommended set, with deliberate exceptions that match how this repo
       // is written. Each off-rule below is a documented idiom, not a gap:
       "preset": "recommended",
+      // No a11y lint surface ships in this tree, and the UI that does ship is
+      // audited by hand rather than by lint, so the category is off whole
+      // rather than trimmed one rule at a time.
       "a11y": "off",
       "style": {
         // 696 deliberate non-null assertions across the stores and JMAP
