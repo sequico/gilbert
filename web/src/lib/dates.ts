@@ -48,10 +48,6 @@ export function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-export function endOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
-}
-
 /** weekStart: 0 = Sunday, 1 = Monday */
 export function startOfWeek(d: Date, weekStart = 1): Date {
   const x = startOfDay(d);

@@ -231,32 +231,6 @@ export function quoteText(text: string): string {
     .join("\n");
 }
 
-/** Wrap long lines at width for format=flowed-ish plain text. */
-export function wrapText(text: string, width = 76): string {
-  return text
-    .split("\n")
-    .map((line) => {
-      if (line.length <= width || line.startsWith(">")) return line;
-      const words = line.split(" ");
-      const lines: string[] = [];
-      let cur = "";
-      for (const w of words) {
-        if (`${cur} ${w}`.trim().length > width && cur) {
-          lines.push(cur);
-          cur = w;
-        } else cur = cur ? `${cur} ${w}` : w;
-      }
-      if (cur) lines.push(cur);
-      return lines.join("\n");
-    })
-    .join("\n");
-}
-
-export function stripHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
-}
-
 /** Normalize a subject for reply/forward: strip existing prefixes, add new. */
 export function replySubject(
   subject: string | null | undefined,

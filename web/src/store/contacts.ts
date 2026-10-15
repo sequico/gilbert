@@ -587,8 +587,6 @@ interface ContactsState {
   applyChanges(types: Set<string>, accountId?: Id): void;
 }
 
-export const CARD_PROPS = undefined; // all properties
-
 /*
  * Cards of a *group* mailbox's books are loaded whether or not the reader
  * subscribed to each book: membership of the group is the subscription, and

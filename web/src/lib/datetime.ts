@@ -92,13 +92,6 @@ export function resolvedLocale(): string | undefined {
   return prefs.locale || uiLanguage || serverLocale || undefined;
 }
 
-/** Where the effective locale came from — used to label the "Automatic" option. */
-export function localeSource(): "explicit" | "server" | "browser" {
-  if (prefs.locale) return "explicit";
-  if (serverLocale) return "server";
-  return "browser";
-}
-
 export function browserLocale(): string {
   try {
     return new Intl.DateTimeFormat().resolvedOptions().locale;

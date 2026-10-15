@@ -284,7 +284,3 @@ push.onConnection((state, reason) =>
     pushReason: reason,
   }),
 );
-
-export function hasCap(cap: string): boolean {
-  return client.hasCapability(cap);
-}
