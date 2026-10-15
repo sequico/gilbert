@@ -13,9 +13,11 @@ export interface RepoFile {
   text: string;
 }
 
-export interface RetiredMention extends RepoFile {
+export interface RetiredMention {
   name: string;
   line: number;
+  /** Relative to the repository root, as `walk` reports it. */
+  path: string;
 }
 
 export interface EnvRead {
