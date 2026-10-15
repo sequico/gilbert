@@ -42,6 +42,48 @@ import {
 
 export function registerInstallationRoutes(api: Hono<Env>): void {
   /**
+   * The Master's own context, or the reason this session does not get one.
+   *
+   * `impersonateAs` is the one door onto another account (see the policy
+   * publish above): it rebuilds the composite credential from this
+   * administrator's sealed session, and Stalwart refuses an app-password
+   * session for it. Both of its refusals — an app password, and a composite
+   * the server will not accept — are answers this surface can show, so they
+   * come back as values with the server's own words.
+   */
+  const installationMaster = async (
+    session: LiveSession,
+  ): Promise<{ ctx: Ctx } | { refused: InstallationRefused }> => {
+    const master = agentAddress();
+    if (!master)
+      return {
+        refused: {
+          status: 409,
+          code: "no_master",
+          message:
+            "This deployment names no Master (GILBERT_AGENT_ADDRESS), so there is no account whose own " +
+            "app folder a boot reads the installation's document from, and nothing for this surface to " +
+            "read or publish. A process that is not a deployment administers no installation.",
+        },
+      };
+    const imp = await impersonateAs(session, master);
+    if (!imp.ok)
+      return {
+        refused: {
+          status: imp.status,
+          code:
+            imp.status === 403
+              ? "forbidden"
+              : imp.status === 404
+                ? "master_not_found"
+                : "upstream_error",
+          message: imp.message,
+        },
+      };
+    return { ctx: imp.ctx };
+  };
+
+  /**
    * The installation's own document: the one the boot reads (`bootstrap.ts`,
    * whose store and rules are `installation.ts` and `shared/installation.ts`).
    *
@@ -72,57 +114,12 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
    * reads what was just written. Nothing is reloaded and no session is kicked
    * — nothing about the running process changed.
    */
-  const installationRefusal = (c: Context, refused: InstallationRefused) =>
-    c.json({ error: refused.error, message: refused.message }, refused.status);
-
-  /**
-   * The Master's own context, or the reason this session does not get one.
-   *
-   * `impersonateAs` is the one door onto another account (see the policy
-   * publish above): it rebuilds the composite credential from this
-   * administrator's sealed session, and Stalwart refuses an app-password
-   * session for it. Both of its refusals — an app password, and a composite
-   * the server will not accept — are answers this surface can show, so they
-   * come back as values with the server's own words.
-   */
-  const installationMaster = async (
-    session: LiveSession,
-  ): Promise<{ ctx: Ctx } | { refused: InstallationRefused }> => {
-    const master = agentAddress();
-    if (!master)
-      return {
-        refused: {
-          status: 409,
-          error: "no_master",
-          message:
-            "This deployment names no Master (GILBERT_AGENT_ADDRESS), so there is no account whose own " +
-            "app folder a boot reads the installation's document from, and nothing for this surface to " +
-            "read or publish. A process that is not a deployment administers no installation.",
-        },
-      };
-    const imp = await impersonateAs(session, master);
-    if (!imp.ok)
-      return {
-        refused: {
-          status: imp.status,
-          error:
-            imp.status === 403
-              ? "forbidden"
-              : imp.status === 404
-                ? "master_not_found"
-                : "upstream_error",
-          message: imp.message,
-        },
-      };
-    return { ctx: imp.ctx };
-  };
-
   api.get("/admin/installation", requireSession, requireAdmin, async (c) => {
     try {
       const door = await installationMaster(c.get("session"));
-      if ("refused" in door) return installationRefusal(c, door.refused);
+      if ("refused" in door) return c.json(...refusal(door.refused));
       const result = await readInstallationForAdmin(door.ctx);
-      if ("refused" in result) return installationRefusal(c, result.refused);
+      if ("refused" in result) return c.json(...refusal(result.refused));
       return c.json({ installation: result.view });
     } catch (err) {
       return upstreamFailure(c, err);
@@ -133,9 +130,9 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
     const raw = await c.req.text();
     try {
       const door = await installationMaster(c.get("session"));
-      if ("refused" in door) return installationRefusal(c, door.refused);
+      if ("refused" in door) return c.json(...refusal(door.refused));
       const result = await publishInstallation(door.ctx, raw);
-      if ("refused" in result) return installationRefusal(c, result.refused);
+      if ("refused" in result) return c.json(...refusal(result.refused));
       return c.json({ outcome: result.published });
     } catch (err) {
       return upstreamFailure(c, err);

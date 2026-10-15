@@ -906,9 +906,10 @@ export const groupDenial = (c: Context, denied: { error: string; need: string })
 /**
  * The body and status of a refusal from one of this product's own error classes.
  *
- * Six surfaces answer with it — identities, the system Sieve registry, the
- * knowledge base, workorders, the agent administration and the account itself —
- * and each had the shape written out beside its own `instanceof`. A copy of a
+ * Seven surfaces answer with it — identities, the system Sieve registry, the
+ * knowledge base, workorders, the agent administration, the account itself and
+ * the installation document — and each had the shape written out beside its own
+ * `instanceof`. A copy of a
  * refusal shape is a copy that can drift, and the four that differ only in the
  * class they test are exactly the ones that would: what the classes share is
  * `code`, `message` and `status`, and that is all this reads.

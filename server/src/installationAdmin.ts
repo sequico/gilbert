@@ -76,7 +76,7 @@ import {
  */
 export interface InstallationRefused {
   status: 400 | 403 | 404 | 409 | 502;
-  error: string;
+  code: string;
   message: string;
 }
 
@@ -147,7 +147,7 @@ export async function readInstallationForAdmin(
     return {
       refused: {
         status: 502,
-        error: "read_failed",
+        code: "read_failed",
         message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
       },
     };
@@ -218,7 +218,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 400,
-        error: "invalid_installation",
+        code: "invalid_installation",
         message: parsed.problem,
       },
     };
@@ -233,7 +233,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 502,
-        error: "upstream_error",
+        code: "upstream_error",
         message: `The installation document could not be written: ${errorMessage(err)}`,
       },
     };
@@ -255,7 +255,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 502,
-        error: "write_failed",
+        code: "write_failed",
         message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
@@ -268,7 +268,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 502,
-        error: "write_failed",
+        code: "write_failed",
         message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
@@ -277,7 +277,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 502,
-        error: "no_state",
+        code: "no_state",
         message:
           `The account holding the installation document (${where}) would not state the state of its Files, ` +
           "so this write could not be made conditional — and a write that cannot be refused when the " +
@@ -296,7 +296,7 @@ export async function publishInstallation(
     return {
       refused: {
         status: 502,
-        error: "read_failed",
+        code: "read_failed",
         message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
       },
     };
@@ -314,7 +314,7 @@ export async function publishInstallation(
       return {
         refused: {
           status: 409,
-          error: "installation_moved",
+          code: "installation_moved",
           message:
             `The installation document (${where}) moved while this publish was in flight: the account ` +
             "changed after the state this write carried was read, so nothing was written. What is stored " +
@@ -326,14 +326,14 @@ export async function publishInstallation(
       return {
         refused: {
           status: 400,
-          error: "invalid_installation",
+          code: "invalid_installation",
           message: err.message,
         },
       };
     return {
       refused: {
         status: 502,
-        error: "write_failed",
+        code: "write_failed",
         message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
@@ -416,7 +416,7 @@ function readingProblem(text: string): string | null {
 function noFilesAccount(): InstallationRefused {
   return {
     status: 409,
-    error: "no_files_account",
+    code: "no_files_account",
     message:
       "This account has no Files account to hold the installation document, so there is nowhere to read " +
       "it from or write it to. Every account on this Stalwart should have one; check the server's version " +
