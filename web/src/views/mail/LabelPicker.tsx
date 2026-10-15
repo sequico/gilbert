@@ -4,10 +4,9 @@ import { useState } from "react";
 import type { Id } from "@/jmap/types";
 import { useEffectiveLabels, useIsGroupMailbox } from "@/lib/effectiveLabels";
 import { t } from "@/lib/i18n";
-import { labelKeywordFromName } from "@/lib/labelKeyword";
+import { newLabel } from "@/lib/labelKeyword";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
-import { CALENDAR_COLORS } from "@/ui/misc";
 import { Popover } from "@/ui/popover";
 
 /** Labels are IMAP keywords on the messages; their names/colors live in settings. */
@@ -40,13 +39,10 @@ export function LabelPicker({
   const filtered = offered.filter((l) => l.name.toLowerCase().includes(q.toLowerCase()));
 
   const create = () => {
-    const name = q.trim();
-    if (!name) return;
-    const keyword = labelKeywordFromName(name);
-    if (labels.some((l) => l.keyword === keyword)) return;
-    const color = CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!;
-    update({ labels: [...labels, { keyword, name, color }] });
-    void setKeyword(ids, keyword, true).then(onApplied);
+    const label = newLabel(q, labels);
+    if (!label) return;
+    update({ labels: [...labels, label] });
+    void setKeyword(ids, label.keyword, true).then(onApplied);
     setQ("");
     setCreating(false);
   };

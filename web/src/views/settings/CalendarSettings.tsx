@@ -1,9 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { nextPaletteColor } from "@/lib/labelKeyword";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, ColorSwatches, Switch } from "@/ui/misc";
+import { ColorSwatches, Switch } from "@/ui/misc";
 import { WeekStartField } from "./WeekStartField";
 
 export function CalendarSettings() {
@@ -146,8 +147,7 @@ export function CalendarSettings() {
                 ...s.eventCategories,
                 {
                   name: n.trim(),
-                  color:
-                    CALENDAR_COLORS[s.eventCategories.length % CALENDAR_COLORS.length]!,
+                  color: nextPaletteColor(s.eventCategories.length),
                 },
               ],
             });
@@ -222,8 +222,7 @@ export function CalendarSettings() {
                 id: `ics${Date.now()}`,
                 url: url.trim(),
                 name: name.trim(),
-                color:
-                  CALENDAR_COLORS[s.icalSubscriptions.length % CALENDAR_COLORS.length]!,
+                color: nextPaletteColor(s.icalSubscriptions.length),
               },
             ],
           });

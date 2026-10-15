@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
-import { labelKeywordFromName } from "@/lib/labelKeyword";
+import { newLabel } from "@/lib/labelKeyword";
 import type { Label } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, ColorSwatches } from "@/ui/misc";
+import { ColorSwatches } from "@/ui/misc";
 
 /**
  * One label, as both catalogue editors draw it.
@@ -116,25 +116,16 @@ export function LabelRow({
 /**
  * Ask for a new label and build the entry, or answer null.
  *
- * The same question in both surfaces, down to the colour: a fresh label takes
- * the next swatch of the fixed palette by how many there already are, so a list
- * that grows has distinguishable colours without anybody choosing one, and a
- * name that would collide with a keyword already in the catalogue is refused —
- * the keyword is the stable identity, so two labels cannot share it.
+ * The name is asked here, the label is built by `newLabel`: this surface and
+ * the picker on a message are the two that can make one, and they are the same
+ * question down to the colour.
  */
 export async function askNewLabel(labels: Label[]): Promise<Label | null> {
   const name = await promptDialog({
     title: t("New label"),
     placeholder: t("Label name"),
   });
-  if (!name?.trim()) return null;
-  const keyword = labelKeywordFromName(name);
-  if (labels.some((l) => l.keyword === keyword)) return null;
-  return {
-    keyword,
-    name: name.trim(),
-    color: CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!,
-  };
+  return name ? newLabel(name, labels) : null;
 }
 
 /** The button both surfaces add a label with. */
