@@ -165,6 +165,77 @@ function report({ path, line, subject, reason }) {
   return `${path}:${line}: ${subject} ${reason}`;
 }
 
+/**
+ * The package cleanup.yml prunes against the image the release publishes.
+ *
+ * `release.yml` and `publish.yml` name it as one `IMAGE` value while
+ * `cleanup.yml` is handed an `owner` and a `package`. A registry path has to
+ * stay lowercase, so the pair is compared with the lowercased value and not
+ * derived from it; a rename that moves one spelling and not the other would
+ * leave the pruner deleting a package this repository does not own, and nothing
+ * in a run would say so.
+ */
+export function checkImageTarget(files = []) {
+  const findings = [];
+  const images = new Map();
+  const pruned = new Map();
+
+  for (const file of files) {
+    const owners = [];
+    const packages = [];
+    for (const match of file.text.matchAll(/^(.*)$/gm)) {
+      const at = { path: file.path, line: lineOf(file.text, match.index) };
+      const image = IMAGE_ENV.exec(match[1]);
+      const owner = OWNER_KEY.exec(match[1]);
+      const pkg = PACKAGE_KEY.exec(match[1]);
+      if (image) images.set(imagePath(image[1]), at);
+      if (owner) owners.push({ value: owner[1], ...at });
+      if (pkg) packages.push({ value: pkg[1], ...at });
+    }
+    // An owner without a package beside it names no package at all, so it is a
+    // finding of its own rather than a pair that quietly compares unequal.
+    for (const [index, owner] of owners.entries()) {
+      const pkg = packages[index];
+      if (!pkg) {
+        findings.push({
+          ...owner,
+          subject: `owner: ${owner.value}`,
+          reason: "has no package beside it",
+        });
+        continue;
+      }
+      pruned.set(`${owner.value}/${pkg.value}`, owner);
+    }
+  }
+
+  const published = [...images.keys()].join(", ");
+  for (const [name, at] of pruned) {
+    if (!images.has(name)) {
+      findings.push({
+        ...at,
+        subject: `prunes ${name}`,
+        reason: `never published (${published})`,
+      });
+    }
+  }
+  for (const [name, at] of images) {
+    if (!pruned.has(name)) {
+      findings.push({
+        ...at,
+        subject: `publishes ${name}`,
+        reason: "which nothing prunes",
+      });
+    }
+  }
+
+  return { ok: findings.length === 0, findings };
+}
+
+/** A registry path with its host off: the owner and the package, lowercased. */
+function imagePath(image) {
+  return image.toLowerCase().split("/").slice(-2).join("/");
+}
+
 /** Every workflow in this repository, relative to the root. */
 export function collectRepoInput(root = ROOT) {
   const dir = join(root, ".github", "workflows");
@@ -194,8 +265,9 @@ const USAGE =
   "An action's `uses:` is named by its full commit SHA, with the version it is " +
   "in a comment beside it: `owner/action@<40 hex> # vX.Y.Z`. A `./.github/…` " +
   "workflow reference and a `docker://` image are not actions and are not " +
-  "pinned. Every `node-version:` runs the line `engines.node` declares. This " +
-  "check takes no arguments; running it is checking.";
+  "pinned. Every `node-version:` runs the line `engines.node` declares, and the " +
+  "package cleanup.yml prunes is the image the release publishes. This check " +
+  "takes no arguments; running it is checking.";
 
 /** Run the check over the repository, and say what is wrong. 0 or 1. */
 function main() {
@@ -207,15 +279,17 @@ function main() {
   const { files } = collectRepoInput();
   const { findings, checked, references } = checkWorkflowPins(files);
   const node = checkWorkflowNodeLine(files, engines);
+  const image = checkImageTarget(files);
   const problems = [
     ...findings.map((one) => formatReport([one])[0]),
-    ...node.findings.map(report),
+    ...[...node.findings, ...image.findings].map(report),
   ].map((line) => `  ${line}`);
   if (problems.length === 0) {
     process.stdout.write(
       `Workflow pins: ${checked} action reference(s) pinned to a commit.\n` +
         `${formatPins(references).join("\n")}\n` +
-        `Node line: every workflow runs the engines.node line (${engines}).\n`,
+        `Node line: every workflow runs the engines.node line (${engines}).\n` +
+        `Image: the pruner and the published image are the same package.\n`,
     );
     return 0;
   }

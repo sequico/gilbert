@@ -50,6 +50,10 @@ export function checkWorkflowNodeLine(
   files?: WorkflowFile[],
   engines?: string,
 ): { ok: boolean; findings: DriftFinding[] };
+export function checkImageTarget(files?: WorkflowFile[]): {
+  ok: boolean;
+  findings: DriftFinding[];
+};
 export function formatReport(findings: PinFinding[]): string[];
 export function formatPins(references: PinReference[]): string[];
 export function collectRepoInput(root?: string): { files: WorkflowFile[] };

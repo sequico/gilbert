@@ -322,9 +322,10 @@ and is not pinned. Dependabot's `github-actions` updates are what move these —
 a bump that moves the SHA without the version comment beside it is a review
 finding. `npm run workflow:pin` is the check that enforces both: an action
 named by a tag, or pinned with no version beside it, fails the gate. It reads
-the same files for the Node line, which a workflow cannot import, and asserts
-every `node-version:` against the major `engines.node` declares. The
-workflows this repository owns are ours; upstream's CI is not taken.
+the same files for the two values a workflow cannot import — the Node line and
+the image the pruner targets — and asserts the first against `engines.node` and
+the second against the published `IMAGE`, so a Node move or a rename is one
+edit. The workflows this repository owns are ours; upstream's CI is not taken.
 
 **CodeQL runs with the release** (ADR 0027, owner decision 2026-09-27): the
 analysis is `.github/workflows/codeql.yml`, called by `release.yml` as a
