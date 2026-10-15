@@ -38,7 +38,7 @@
  */
 import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
+import { isEntryPoint, lineOf, pathsOf, ROOT, walk } from "./lib/repoWalk.mjs";
 
 /**
  * Names the installation no longer honours. The policy, the identity lock and
@@ -295,7 +295,7 @@ export function collectRepoInput(root = ROOT) {
 
 /** What this check reads, for the gate's read set (`gate-prepush.sh`). */
 export function readPaths(root = ROOT) {
-  return collectRepoInput(root).files.map((one) => one.path);
+  return pathsOf(collectRepoInput(root));
 }
 
 const USAGE =

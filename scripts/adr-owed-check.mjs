@@ -41,7 +41,7 @@ import { readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
 import { ADR_FILE, adrRecords } from "./lib/adr.mjs";
-import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
+import { isEntryPoint, lineOf, pathsOf, ROOT, walk } from "./lib/repoWalk.mjs";
 
 /** The whole body of one HTML comment, so `--` inside it cannot end it early. */
 const HTML_COMMENT = /<!--([\s\S]*?)-->/g;
@@ -258,8 +258,8 @@ export function collectRepoInput(root = ROOT) {
 
 /** What this check reads, for the gate's read set (`gate-prepush.sh`). */
 export function readPaths(root = ROOT) {
-  const input = collectRepoInput(root);
-  return [...input.adrFiles, ...input.codeFiles].map((one) => one.path);
+  const { adrFiles, codeFiles } = collectRepoInput(root);
+  return pathsOf({ adrFiles, codeFiles });
 }
 
 const USAGE =

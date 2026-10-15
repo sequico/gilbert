@@ -41,7 +41,7 @@ import { readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 
 import { ADR_FILE, adrRecords } from "./lib/adr.mjs";
-import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
+import { isEntryPoint, lineOf, pathsOf, ROOT, walk } from "./lib/repoWalk.mjs";
 
 /**
  * `ADR 0003`, `ADR-0003`, and the same with a section pinned to it.
@@ -283,8 +283,8 @@ export function collectRepoInput(root = ROOT) {
 
 /** What this check reads, for the gate's read set (`gate-prepush.sh`). */
 export function readPaths(root = ROOT) {
-  const input = collectRepoInput(root);
-  return [...input.files, ...input.recordFiles].map((one) => one.path);
+  const { files, recordFiles } = collectRepoInput(root);
+  return pathsOf({ files, recordFiles });
 }
 
 const USAGE =

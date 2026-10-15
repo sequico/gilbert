@@ -76,6 +76,20 @@ export function walk(dir, { skipPaths = new Set() } = {}) {
 }
 
 /**
+ * The paths a reader read, from the record of them it kept.
+ *
+ * A check's `collectRepoInput` answers with an object of arrays of
+ * `{ path, text }`, each array under the check's own name; the gate wants the
+ * paths alone. Every array value is flattened, so the names stay a check's
+ * business, and the caller hands only the arrays that hold files.
+ */
+export function pathsOf(input) {
+  return Object.values(input)
+    .flatMap((value) => (Array.isArray(value) ? value : []))
+    .map((file) => file.path);
+}
+
+/**
  * The line an offset falls on, counting from 1.
  *
  * Every check that locates a match by its index — the two ADR checks and the
