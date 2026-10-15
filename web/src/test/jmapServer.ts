@@ -5,10 +5,9 @@ import { vi } from "vitest";
  *
  * A test that drives a store has to answer the client's `POST /api/jmap`: parse
  * `methodCalls`, hand back one `methodResponses` entry per call, in order, with
- * the call's own id. Thirty suites wrote that loop out themselves, each with its
- * own map of method names to answers and its own grab-bag default — the same
- * envelope implemented thirty times, and a place for the copies to disagree
- * about what an unanswered method returns.
+ * the call's own id. This is that envelope, written once, so a suite registers
+ * the methods its assertions are about instead of carrying its own map of
+ * method names to answers and its own grab-bag default.
  *
  * This is the envelope, not a server. It does not model a mailbox, a folder
  * tree, a calendar or a quota: a suite registers the methods its assertions are
@@ -31,6 +30,11 @@ import { vi } from "vitest";
  * returns nothing for the calls to answer normally. That is what a server that
  * refuses a call over a ceiling and accepts it under one looks like — a
  * refusal decided per call, not a different server per test.
+ *
+ * Every answer is handed back as soon as the call is read, so a suite that has
+ * to hold one response in flight while it inspects the store mid-request keeps
+ * its own stub: a promise returned from `on` would land in `methodResponses` as
+ * a promise rather than as the answer it settles to.
  */
 
 /** One call, as the fake saw it. */
