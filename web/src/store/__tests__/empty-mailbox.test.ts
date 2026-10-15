@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -16,106 +17,73 @@ const TRASH = "mbTrash";
 const JUNK = "mbJunk";
 const MAX = 500;
 
-interface Call {
-  name: string;
-  args: Record<string, unknown>;
-  id: string;
-}
-
 /** A server that holds `count` messages and enforces MAX objects per call. */
 function server(count: number, opts: { refuseDestroy?: boolean; mailbox?: string } = {}) {
   const live = new Set(Array.from({ length: count }, (_, i) => `e${i}`));
   const destroyBatches: number[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(
-      ([name, args, id]: [string, Record<string, unknown>, string]) => {
-        if (
-          name === "Email/query" &&
-          (args.filter as { inMailbox?: string })?.inMailbox === (opts.mailbox ?? TRASH)
-        ) {
-          const limit = Math.min((args.limit as number) ?? 50, MAX);
-          return [
-            name,
-            {
-              accountId: "a1",
-              queryState: "q",
-              canCalculateChanges: false,
-              position: 0,
-              ids: [...live].slice(0, limit),
-              total: live.size,
-            },
-            id,
-          ];
-        }
-        if (name === "Email/set" && Array.isArray(args.destroy)) {
-          const destroy = args.destroy as string[];
-          destroyBatches.push(destroy.length);
-          if (destroy.length > MAX)
-            return [
-              "error",
-              {
-                type: "requestTooLarge",
-                description:
-                  "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
-              },
-              id,
-            ];
-          if (opts.refuseDestroy)
-            return [
-              name,
-              {
-                accountId: "a1",
-                oldState: "1",
-                newState: "2",
-                destroyed: [],
-                notDestroyed: Object.fromEntries(
-                  destroy.map((x) => [x, { type: "forbidden", description: "no" }]),
-                ),
-              },
-              id,
-            ];
-          for (const x of destroy) live.delete(x);
-          return [
-            name,
-            {
-              accountId: "a1",
-              oldState: "1",
-              newState: "2",
-              destroyed: destroy,
-              notDestroyed: {},
-            },
-            id,
-          ];
-        }
-        // Everything the store refreshes afterwards; shape fits get and query.
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "1",
-            list: [],
-            notFound: [],
-            ids: [],
-            total: 0,
-            queryState: "q",
-            position: 0,
-            canCalculateChanges: false,
-          },
-          id,
-        ];
-      },
-    ) as unknown as Call[];
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
+  /* Everything the store refreshes afterwards; shape fits get and query. */
+  const fallback = () => ({
+    accountId: "a1",
+    state: "1",
+    list: [],
+    notFound: [],
+    ids: [],
+    total: 0,
+    queryState: "q",
+    position: 0,
+    canCalculateChanges: false,
   });
-  vi.stubGlobal("fetch", fetchMock);
-  return { live, destroyBatches, fetchMock };
+  const fake = fakeJmapServer()
+    .on("Email/query", (call) => {
+      if (
+        (call.args.filter as { inMailbox?: string })?.inMailbox !==
+        (opts.mailbox ?? TRASH)
+      )
+        return fallback();
+      const limit = Math.min((call.args.limit as number) ?? 50, MAX);
+      return {
+        accountId: "a1",
+        queryState: "q",
+        canCalculateChanges: false,
+        position: 0,
+        ids: [...live].slice(0, limit),
+        total: live.size,
+      };
+    })
+    .on("Email/set", (call) => {
+      const destroy = call.args.destroy as string[] | undefined;
+      if (!Array.isArray(destroy)) return fallback();
+      destroyBatches.push(destroy.length);
+      if (opts.refuseDestroy)
+        return {
+          accountId: "a1",
+          oldState: "1",
+          newState: "2",
+          destroyed: [],
+          notDestroyed: Object.fromEntries(
+            destroy.map((x) => [x, { type: "forbidden", description: "no" }]),
+          ),
+        };
+      for (const x of destroy) live.delete(x);
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        destroyed: destroy,
+        notDestroyed: {},
+      };
+    })
+    .onError("Email/set", (call) => {
+      const destroy = call.args.destroy as string[] | undefined;
+      return Array.isArray(destroy) && destroy.length > MAX
+        ? {
+            type: "requestTooLarge",
+            description:
+              "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
+          }
+        : undefined;
+    });
+  return { live, destroyBatches, fake };
 }
 
 const messages = () => useToasts.getState().toasts.map((t) => t.message);
@@ -185,12 +153,7 @@ describe("emptyMailbox", () => {
     expect(Math.max(...s.destroyBatches)).toBeLessThanOrEqual(MAX);
     expect(messages()).toContain("Deleted 1200 messages");
     // Nothing was moved anywhere: every mutating call was a destroy.
-    const sets = s.fetchMock.mock.calls.flatMap(([, init]) => {
-      const body = JSON.parse((init as RequestInit).body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      return body.methodCalls.filter(([n]) => n === "Email/set").map(([, a]) => a);
-    });
+    const sets = s.fake.callsTo("Email/set").map((c) => c.args);
     expect(sets.length).toBeGreaterThan(0);
     for (const a of sets) {
       expect(Array.isArray(a.destroy)).toBe(true);

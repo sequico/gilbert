@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession, Mailbox } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /*
@@ -24,79 +25,53 @@ function server(boxes: Array<Partial<Mailbox> & { id: string; name: string }>) {
   const sets: SetArgs[] = [];
   const live = new Map(boxes.map((b) => [b.id, { parentId: null, role: null, ...b }]));
   let counter = 0;
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "Mailbox/set") {
-        const create = args.create as Record<string, Record<string, unknown>> | undefined;
-        const update = args.update as Record<string, Record<string, unknown>> | undefined;
-        sets.push({ create, update });
-        const created: Record<string, { id: string }> = {};
-        for (const [cid, spec] of Object.entries(create ?? {})) {
-          const newId = `mb-new-${++counter}`;
-          live.set(newId, {
-            id: newId,
-            name: String(spec.name),
-            parentId: null,
-            role: (spec.role as Mailbox["role"]) ?? null,
-          });
-          created[cid] = { id: newId };
-        }
-        for (const [mid, patch] of Object.entries(update ?? {})) {
-          const cur = live.get(mid);
-          if (cur) live.set(mid, { ...cur, ...(patch as object) } as typeof cur);
-        }
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created,
-            updated: {},
-            notCreated: {},
-            notUpdated: {},
-          },
-          id,
-        ];
+  fakeJmapServer()
+    .on("Mailbox/set", (call) => {
+      const create = call.args.create as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const update = call.args.update as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      sets.push({ create, update });
+      const created: Record<string, { id: string }> = {};
+      for (const [cid, spec] of Object.entries(create ?? {})) {
+        const newId = `mb-new-${++counter}`;
+        live.set(newId, {
+          id: newId,
+          name: String(spec.name),
+          parentId: null,
+          role: (spec.role as Mailbox["role"]) ?? null,
+        });
+        created[cid] = { id: newId };
       }
-      if (name === "Mailbox/get")
-        return [
-          name,
-          { accountId: "a1", state: "1", list: [...live.values()], notFound: [] },
-          id,
-        ];
-      if (name === "Email/set")
-        return [
-          name,
-          { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} },
-          id,
-        ];
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
-    });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
+      for (const [mid, patch] of Object.entries(update ?? {})) {
+        const cur = live.get(mid);
+        if (cur) live.set(mid, { ...cur, ...(patch as object) } as typeof cur);
+      }
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        created,
+        updated: {},
+        notCreated: {},
+        notUpdated: {},
+      };
+    })
+    .on("Mailbox/get", () => ({
+      accountId: "a1",
+      state: "1",
+      list: [...live.values()],
+      notFound: [],
+    }))
+    .on("Email/set", () => ({
+      accountId: "a1",
+      oldState: "1",
+      newState: "2",
+      updated: {},
+      notUpdated: {},
+    }));
   return { sets, live };
 }
 

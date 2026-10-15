@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { AddressBook, ContactCard, Id, JmapSession } from "@/jmap/types";
 import { sharedKey, useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Deleting a whole selection, when that selection spans accounts.
@@ -40,39 +41,22 @@ const card = (id: string, bookId: string) =>
 /** A server that records every destroy and confirms exactly what it was given. */
 function stubServer() {
   const destroys: Array<{ accountId: string; ids: Id[] }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses = body.methodCalls.map(([name, args, id]) => {
-        const destroy = args.destroy as Id[] | undefined;
-        if (name === "ContactCard/set" && destroy?.length)
-          destroys.push({ accountId: String(args.accountId), ids: destroy });
-        return [
-          name,
-          {
-            accountId: args.accountId,
-            oldState: "1",
-            newState: "2",
-            created: {},
-            updated: {},
-            destroyed: destroy ?? [],
-            notCreated: {},
-            notUpdated: {},
-            notDestroyed: {},
-          },
-          id,
-        ];
-      });
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
+  fakeJmapServer().on("ContactCard/set", (call) => {
+    const destroy = call.args.destroy as Id[] | undefined;
+    if (destroy?.length)
+      destroys.push({ accountId: String(call.args.accountId), ids: destroy });
+    return {
+      accountId: call.args.accountId,
+      oldState: "1",
+      newState: "2",
+      created: {},
+      updated: {},
+      destroyed: destroy ?? [],
+      notCreated: {},
+      notUpdated: {},
+      notDestroyed: {},
+    };
+  });
   return destroys;
 }
 

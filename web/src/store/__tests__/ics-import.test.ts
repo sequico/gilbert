@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession, UploadResponse } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * Importing a file is not importing an invitation, and the difference is the
@@ -68,107 +69,77 @@ function server(
 ) {
   const sets: SetArgs[] = [];
   const existing = opts.existing ?? [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "CalendarEvent/parse") {
-        const blobIds = args.blobIds as string[];
-        return [
-          name,
-          {
-            accountId: "a1",
-            parsed: parsed === null ? {} : { [blobIds[0]!]: parsed },
-            notParsable: [],
-          },
-          id,
-        ];
-      }
-      if (name === "CalendarEvent/set") {
-        const nth = sets.length;
-        sets.push({
-          create: args.create as Record<string, Record<string, unknown>>,
-          update: args.update as Record<string, Record<string, unknown>>,
-          sendSchedulingMessages: args.sendSchedulingMessages as boolean,
-        });
-        const keys = Object.keys((args.create ?? {}) as object);
-        const patched = Object.keys((args.update ?? {}) as object);
-        /* Whole-call refusals, both of them: nothing in this call gets written.
-           Creates and updates count against the ceiling together, which is why
-           the store batches them together. */
-        if (opts.max != null && keys.length + patched.length > opts.max) {
-          return [
-            "error",
-            {
-              type: "requestTooLarge",
-              description:
-                "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
-            },
-            id,
-          ];
-        }
-        if (opts.failOn === nth)
-          return ["error", { type: "serverFail", description: "the roof fell in" }, id];
-        const notCreated = opts.notCreated ?? {};
-        const notUpdated = opts.notUpdated ?? {};
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created: Object.fromEntries(
-              keys.filter((k) => !(k in notCreated)).map((k) => [k, { id: `new-${k}` }]),
-            ),
-            notCreated,
-            updated: Object.fromEntries(
-              patched.filter((k) => !(k in notUpdated)).map((k) => [k, null]),
-            ),
-            notUpdated,
-          },
-          id,
-        ];
-      }
-      // The scan for UIDs already in the calendar: a query for the account's
-      // events, then their uid and calendarIds.
-      if (name === "CalendarEvent/query") {
-        const position = (args.position as number) ?? 0;
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "1",
-            canCalculateChanges: false,
-            position,
-            ids: position ? [] : existing.map((e) => e.id),
-            total: existing.length,
-          },
-          id,
-        ];
-      }
-      if (name === "CalendarEvent/get") {
-        const want = new Set((args.ids as string[]) ?? []);
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "1",
-            list: existing.filter((e) => want.has(e.id)),
-            notFound: [],
-          },
-          id,
-        ];
-      }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [] }, id];
+  fakeJmapServer()
+    .on("CalendarEvent/parse", (call) => {
+      const blobIds = call.args.blobIds as string[];
+      return {
+        accountId: "a1",
+        parsed: parsed === null ? {} : { [blobIds[0]!]: parsed },
+        notParsable: [],
+      };
+    })
+    .on("CalendarEvent/set", (call) => {
+      sets.push({
+        create: call.args.create as Record<string, Record<string, unknown>>,
+        update: call.args.update as Record<string, Record<string, unknown>>,
+        sendSchedulingMessages: call.args.sendSchedulingMessages as boolean,
+      });
+      const keys = Object.keys((call.args.create ?? {}) as object);
+      const patched = Object.keys((call.args.update ?? {}) as object);
+      const notCreated = opts.notCreated ?? {};
+      const notUpdated = opts.notUpdated ?? {};
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        created: Object.fromEntries(
+          keys.filter((k) => !(k in notCreated)).map((k) => [k, { id: `new-${k}` }]),
+        ),
+        notCreated,
+        updated: Object.fromEntries(
+          patched.filter((k) => !(k in notUpdated)).map((k) => [k, null]),
+        ),
+        notUpdated,
+      };
+    })
+    /* The scan for UIDs already in the calendar: a query for the account's
+       events, then their uid and calendarIds. */
+    .on("CalendarEvent/query", (call) => {
+      const position = (call.args.position as number) ?? 0;
+      return {
+        accountId: "a1",
+        queryState: "1",
+        canCalculateChanges: false,
+        position,
+        ids: position ? [] : existing.map((e) => e.id),
+        total: existing.length,
+      };
+    })
+    .on("CalendarEvent/get", (call) => {
+      const want = new Set((call.args.ids as string[]) ?? []);
+      return {
+        accountId: "a1",
+        state: "1",
+        list: existing.filter((e) => want.has(e.id)),
+        notFound: [],
+      };
+    })
+    /* Whole-call refusals, both of them: nothing in this call gets written.
+       Creates and updates count against the ceiling together, which is why
+       the store batches them together. */
+    .onError("CalendarEvent/set", (call) => {
+      const keys = Object.keys((call.args.create ?? {}) as object);
+      const patched = Object.keys((call.args.update ?? {}) as object);
+      if (opts.max != null && keys.length + patched.length > opts.max)
+        return {
+          type: "requestTooLarge",
+          description:
+            "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
+        };
+      if (opts.failOn === sets.length)
+        return { type: "serverFail", description: "the roof fell in" };
+      return undefined;
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return sets;
 }
 
