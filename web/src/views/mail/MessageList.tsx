@@ -47,7 +47,7 @@ import {
 } from "react";
 import { useLocation } from "wouter";
 import type { Email, Id } from "@/jmap/types";
-import { displayName, shortName } from "@/lib/address";
+import { displayName, shortName, summarizeAddresses } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
 import {
   type ArchiveGranularity,
@@ -1216,29 +1216,17 @@ export const Row = memo(function Row({
   const forwarded = e.keywords.$forwarded;
   const latest = scope.reduce((a, b) => (a.receivedAt > b.receivedAt ? a : b), scope[0]!);
   const count = threadEmails ? scope.length : 0;
-  // Participants: Gmail-style "Ann, Bob, Me (3)"
-  const names = useMemo(() => {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    const src =
-      isSent || isDrafts
-        ? scope.flatMap((x) => x.to ?? [])
-        : scope.map((x) => x.from?.[0]).filter(Boolean);
-    for (const a of src) {
-      if (!a) continue;
-      const k = a.email.toLowerCase();
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(count > 1 ? shortName(a) : displayName(a));
-    }
-    return out;
+  // Participants: one line of names for the whole row, the sender of each
+  // message unless the row is one of our own, in which case its recipients.
+  const who = useMemo(() => {
+    const sent = isSent || isDrafts;
+    const src = sent ? scope.flatMap((x) => x.to ?? []) : scope.map((x) => x.from?.[0]);
+    const summary = summarizeAddresses(src, {
+      name: count > 1 ? shortName : displayName,
+      fallback: sent ? t("(no recipients)") : t("(unknown)"),
+    });
+    return sent && src.length ? `To: ${summary}` : summary;
   }, [scope, isSent, isDrafts, count]);
-  const who =
-    (isSent || isDrafts
-      ? names.length
-        ? `To: ${names.join(", ")}`
-        : "(no recipients)"
-      : names.join(", ")) || "(unknown)";
   // Same rule as the conversation header: the agent's `G-` state is per
   // message and never aggregated onto a row (ADR 0003 resolution 9).
   const rowLabels = labels.filter(

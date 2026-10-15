@@ -1,5 +1,6 @@
 import { isEmailAddress } from "@gilbert/shared/address";
 import type { EmailAddress } from "@/jmap/types";
+import { t } from "@/lib/i18n";
 import { stripControls, withoutBidiControls } from "@/lib/text";
 
 /**
@@ -215,6 +216,42 @@ export function uniqueAddresses(list: EmailAddress[]): EmailAddress[] {
     out.push(a);
   }
   return out;
+}
+
+/**
+ * Who a message is from or to, in the words a surface shows it.
+ *
+ * One answer from one set of pieces, so a row and a header cannot disagree
+ * about the people on the same message: each address once, however many times
+ * it was written, the reader's own identity as `me`, and past `max` names the
+ * rest as a count. How wide one name is — the full display name, the first of
+ * it — belongs to the surface, so it is passed in rather than decided here.
+ */
+export function summarizeAddresses(
+  addresses: readonly (EmailAddress | null | undefined)[],
+  opts: {
+    /** The reader's own identities, lowercased. */
+    own?: readonly string[];
+    /** How many names to print before the rest become a count. */
+    max?: number;
+    /** What to say when there is nobody at all. */
+    fallback: string;
+    /** How one address is named. */
+    name?: (a: EmailAddress) => string;
+  },
+): string {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const a of addresses) {
+    if (!a) continue;
+    const k = a.email.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    names.push(opts.own?.includes(k) ? t("me") : (opts.name ?? displayName)(a));
+  }
+  if (!names.length) return opts.fallback;
+  if (opts.max === undefined || names.length <= opts.max) return names.join(", ");
+  return `${names.slice(0, opts.max).join(", ")} +${names.length - opts.max}`;
 }
 
 export function domainOf(email: string): string {

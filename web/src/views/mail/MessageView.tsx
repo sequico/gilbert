@@ -37,7 +37,7 @@ import {
 import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
-import { displayName, domainOf, formatAddress } from "@/lib/address";
+import { displayName, domainOf, formatAddress, summarizeAddresses } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
 import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
 import { triggerDownload } from "@/lib/download";
@@ -1119,17 +1119,15 @@ export const MessageView = memo(function MessageView({
 });
 
 function summarizeRecipients(e: Email): string {
-  const all = [...(e.to ?? []), ...(e.cc ?? [])];
-  if (!all.length) return "(undisclosed recipients)";
-  const me = useMail
-    .getState()
-    .ownIdentities()
-    .map((i) => i.email.toLowerCase());
-  const names = all.map((a) =>
-    me.includes(a.email.toLowerCase()) ? "me" : displayName(a).split(" ")[0] || a.email,
-  );
-  if (names.length <= 3) return names.join(", ");
-  return `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+  return summarizeAddresses([...(e.to ?? []), ...(e.cc ?? [])], {
+    own: useMail
+      .getState()
+      .ownIdentities()
+      .map((i) => i.email.toLowerCase()),
+    max: 3,
+    fallback: translate("(undisclosed recipients)"),
+    name: (a) => displayName(a).split(" ")[0] || a.email,
+  });
 }
 
 function findPart(
