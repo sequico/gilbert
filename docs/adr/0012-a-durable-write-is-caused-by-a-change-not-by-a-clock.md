@@ -18,7 +18,7 @@ that has been given back. A write is therefore not only work — it is a
 permanent expenditure of the account's budget, counted in documents rather than
 in size.
 
-A write on a clock spends that budget on nothing. A worker record and a claim
+A write on a clock spends that budget on nothing. An agent record and a claim
 written on every heartbeat, for one group at the default thirty seconds, are
 some 8,600 uploads a day — the account's quota gone in under three hours of
 idle running. A sessions document writing itself once a minute for as long as
@@ -35,9 +35,9 @@ work: a document changed, a claim was taken or released, a session began or
 ended. What a clock would have written is held in the process instead.
 
 - **Liveness is a process fact.** The agent's claims are a fence: written when
-  taken and when released, and free to hold. A worker's record says what a
-  worker is doing and is written when that changes. The fleet surface reads
-  aliveness from `liveWorkers()`, in the process that runs the fleet — the
+  taken and when released, and free to hold. An agent's record says what an
+  agent is doing and is written when that changes. The fleet surface reads
+  aliveness from `liveAgents()`, in the process that runs the fleet — the
   server and its agents share a fate, so a durable answer buys nothing.
 - **Activity is a process fact.** A session's `lastSeenAt` moves in memory, and
   the extension of its window is not written for its own sake: the document
@@ -57,7 +57,7 @@ ended. What a clock would have written is held in the process instead.
 Takeover follows from this rather than from a lease: a claim taken before this
 process started is one nobody is holding, and a claim taken after it is a peer
 that was already running (ADR 0003). A rolling restart's brief overlap is
-resolved by the compare-and-set, and a worker that crashed leaves a claim the
+resolved by the compare-and-set, and an agent that crashed leaves a claim the
 next process adopts.
 
 ## Consequences

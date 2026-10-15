@@ -287,7 +287,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
      * The state token is read after the app folder is known to exist: creating
      * that folder moves the account's own state, and a token read before it
      * would make the conditional write lose a race with this very call (the
-     * reason `AgentStore.provision` runs before a worker's first conditional
+     * reason `AgentStore.provision` runs before an agent's first conditional
      * write). A refusal — the folder moved between the read and the write —
      * leaves the account with the document it already had, is named as its own
      * code rather than counted as reached, and never overwrites a copy this

@@ -14,6 +14,19 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   automation limits is therefore not yet reachable in a running installation;
   see [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 
+- **The agent vocabulary, and the one name that does not follow it.** The three
+  words are Master, agent and worker, and `worker` is the browser's service
+  worker alone — never the agent. The identifiers follow them: the files, the
+  types, the functions, the ADRs, the compose file and the tests say **agent**
+  where they meant the agent, and prose does too. What deliberately does not
+  move is the one thing that is a contract rather than a name: the `workers`
+  directory inside an account's app folder, which an installation has already
+  written and whose only reader is the code that removes it
+  (`server/src/agent/store.ts`). `GILBERT_AGENT_*` was already the operators'
+  spelling and stays. Anything that gains the agent's vocabulary later follows
+  the same rule: it moves with every reader and writer of it in one change, or
+  it does not move.
+
 - **A scheduling view of its own.** The grid is built in the event editor — a row
   per participant, steppable, clickable to place the event — but there is no
   destination to visit with nothing in progress. A separate surface could only

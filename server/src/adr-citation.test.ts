@@ -61,7 +61,7 @@ test("a citation with a section number is refused even when the record exists", 
 });
 
 test("`ADR §6` names no record at all and is refused", () => {
-  const { numbers, broken } = citationsIn("// exactly one worker holds it (ADR §6)");
+  const { numbers, broken } = citationsIn("// exactly one agent holds it (ADR §6)");
   assert.deepEqual(numbers, []);
   assert.match(broken[0]!.why, /names a section of no record/);
 });

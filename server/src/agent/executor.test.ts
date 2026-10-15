@@ -213,7 +213,7 @@ const modelStub = createServer(async (req: IncomingMessage, res) => {
 const GROUP = "a3";
 const AGENT = "gilbert@example.com";
 const ADA = "ada@example.org";
-const WORKER = "w-executor-test";
+const AGENT_ID = "w-executor-test";
 const LEASE = 60_000;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 
@@ -227,7 +227,7 @@ const executor = new Executor({
   ctx,
   client,
   address: AGENT,
-  agentId: WORKER,
+  agentId: AGENT_ID,
   now: () => new Date(),
   log: (line) => logLines.push(line),
 });
@@ -339,7 +339,7 @@ async function claimFor() {
   // The claim is a fence taken once: `startedAt` is when the process asking
   // came up, and this one came up before the claim was written, which is what
   // makes a free unit free to take.
-  const claim = await claimAccount(store, WORKER, {
+  const claim = await claimAccount(store, AGENT_ID, {
     now: new Date(),
     startedAt: new Date(Date.now() - LEASE),
   });
@@ -2291,7 +2291,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
 
   // The claim is a fixture: a test that leaves the unit in another agent's
   // hands would decide the tests that come after it.
-  await claimAccount(store, WORKER, {
+  await claimAccount(store, AGENT_ID, {
     now: new Date(Date.now() + 20 * LEASE),
     startedAt: new Date(Date.now() + 20 * LEASE),
   });
@@ -2322,7 +2322,7 @@ test("a reconcile of an account whose unit is somebody else's writes nothing", a
   );
 
   // The claim is a fixture: give the unit back to this suite's agent.
-  await claimAccount(store, WORKER, {
+  await claimAccount(store, AGENT_ID, {
     now: new Date(Date.now() + 2000 * LEASE),
     startedAt: new Date(Date.now() + 2000 * LEASE),
   });

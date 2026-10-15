@@ -43,7 +43,7 @@ const NAMES_PROPS = ["id", "name", "nodeType", "parentId"];
  *
  * `race` makes the first directory create lose: the name is already taken by a
  * folder that appeared between the listing and the create, which is the answer
- * a second worker gets. It is off by default so the ordinary path is the
+ * a second writer gets. It is off by default so the ordinary path is the
  * ordinary path.
  *
  * `truncateScan` makes the whole-account read come back as a *page*: the query

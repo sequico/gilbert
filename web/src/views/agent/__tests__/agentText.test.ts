@@ -105,7 +105,7 @@ describe("reviewText", () => {
 describe("outcomeText", () => {
   it("names every outcome an audit entry carries", () => {
     expect(outcomeText("missed")).toBe("Missed");
-    // A run whose worker stopped holding it, which is an outcome of its own.
+    // A run whose agent stopped holding it, which is an outcome of its own.
     expect(outcomeText("timeout")).toBe("Timed out");
     // A run a chain refused before it started, which is an outcome of its own.
     expect(outcomeText("refused")).toBe("Refused");

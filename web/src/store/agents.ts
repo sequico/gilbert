@@ -347,7 +347,7 @@ const reloads = debouncedReload();
 
 /*
  * A group's agent documents are FileNodes in the group's own account: when an
- * administrator saves rules or the standing instruction, or a worker writes a
+ * administrator saves rules or the standing instruction, or an agent writes a
  * job, the push rail reports a StateChange for that account and the view
  * re-reads it. A StateChange carries only account and type — not which node
  * changed — and chat messages ride the same rail, so the re-read goes through

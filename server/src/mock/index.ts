@@ -107,7 +107,7 @@ const TARGET_PASS = process.env.MOCK_TARGET_PASS ?? "bob-password";
  * group's account with `isPersonal: false`, exactly like a member's, and its
  * `myRights` on the group's mailboxes include `maySubmit` (live-verified on
  * 0.16.21, 2026-09-10, resolutions 12 and 14 of the ADR). The mock reproduces
- * both, because the worker's whole reach is derived from them: a fixture that
+ * both, because the agent's whole reach is derived from them: a fixture that
  * forgot the grant would leave every agent test passing against nothing.
  *
  * `MOCK_AGENT_ADDRESS` and `MOCK_AGENT_PASSWORD` name the principal; its app
@@ -2189,7 +2189,7 @@ const demoSeed = demoSeedNodes({
   at: new Date(now()).toISOString(),
   master: AGENT_ACCOUNT,
   author: AGENT_ADDRESS,
-  worker: USER,
+  signedBy: USER,
   group: GROUP_ACCOUNT,
   groupAppFolder: GROUP_APP_FOLDER,
 });
@@ -3413,7 +3413,7 @@ const handlers: Record<string, Handler> = {
    * on, so the mock reads the same fields out of a small subset of RFC 5322
    * (see `parseRawMessage`, which says what it does not decode), and it
    * announces the arrival the way a delivery would: a change log entry and a
-   * state change. Mail that lands silently is mail no worker reconciling from
+   * state change. Mail that lands silently is mail no agent reconciling from
    * a recorded state ever sees (ADR 0003).
    */
   "Email/import": (a) => {

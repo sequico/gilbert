@@ -205,6 +205,12 @@ export class AgentStore {
      * The `workers` directory is the pre-current heartbeat location and nothing
      * reads it: it is removed with its records rather than left in the account
      * as stale documents.
+     *
+     * The name stays `workers`: it is a folder an installation has already
+     * written, so it is a contract and not one of the agent's own names — the
+     * sweep that moved the rest of this vocabulary does not move it, because
+     * every account that has one has it under this spelling and the only
+     * reader that matters is the removal just below.
      */
     const legacy = await findAppFileAt(this.ctx, this.accountId, this.path("workers"));
     if (legacy.file?.id)

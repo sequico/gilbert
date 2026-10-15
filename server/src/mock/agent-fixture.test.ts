@@ -3,7 +3,7 @@ import { after, test } from "node:test";
 import { freePort, type MethodCall, responseOf } from "../testkit.js";
 
 /**
- * The agent fixture (ADR 0003): the principal the worker authenticates as, and
+ * The agent fixture (ADR 0003): the principal the agent authenticates as, and
  * the reach it is supposed to have.
  *
  * The ADR's live probes fix what a real 0.16.21 server shows for this identity
@@ -44,7 +44,7 @@ const SUBMISSION = "urn:ietf:params:jmap:submission";
 
 type Obj = Record<string, unknown>;
 
-/** The agent's own session, as the worker derives it at boot. */
+/** The agent's own session, as the agent derives it at boot. */
 async function agentSession(): Promise<{
   username: string;
   accounts: Record<string, { name: string; isPersonal: boolean }>;
@@ -213,7 +213,7 @@ test("the agent writes its own app folder into the group's account, conditionall
   assert.equal((responseOf(stale, "l")[1] as { type: string }).type, "stateMismatch");
 
   /*
-   * And the refusal a second worker gets for that same folder, which is the
+   * And the refusal a second agent gets for that same folder, which is the
    * answer `ensureChildFolder` reads as "somebody made it while you were
    * deciding" rather than as a failure. A mock that let the second create
    * through would leave that branch untested here and broken on a real server.
@@ -378,7 +378,7 @@ test("mail landing in the group's inbox is visible to query, get and changes", a
     "text/plain",
   );
 
-  // Reconciliation from a recorded state sees it, which is how a worker wakes.
+  // Reconciliation from a recorded state sees it, which is how an agent wakes.
   const changes = await jmap(AGENT_AUTH, using, [
     ["Email/changes", { accountId: GROUP_ACCOUNT, sinceState: stateBefore }, "c"],
   ]);

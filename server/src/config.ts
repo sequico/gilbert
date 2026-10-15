@@ -106,7 +106,7 @@ if (config.immutable) assertImmutable(fileURLToPath(new URL("../..", import.meta
  *
  * The deployment names it — `GILBERT_AGENT_ADDRESS`, beside the password that
  * account signs in with, in the environment of whoever starts the server and
- * the worker. Nothing in the product names it and nothing falls back to
+ * the agent. Nothing in the product names it and nothing falls back to
  * anything else: one place names the agent, and every surface reads it here.
  */
 

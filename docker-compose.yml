@@ -44,18 +44,18 @@ services:
       # The operator's own statement: may the agent reach a model endpoint
       # inside this network. Not the installation's to decide (ADR 0003).
       GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
-  # The agent worker in a container of its own: the same image, a second
+  # The agent in a container of its own: the same image, a second
   # process, no port and no writable path of its own -- everything it knows
   # lives in Stalwart, so a replacement picks the work up from the documents
-  # (ADR 0003). Whether the server runs a worker beside itself or a deployment
+  # (ADR 0003). Whether the server runs an agent beside itself or a deployment
   # puts it in a container of its own is the installation's own decision
   # (`agent.inProcess` in its document, ADR 0003), so this profile is for a
   # deployment that wants the two apart: bring this service up and leave the
-  # server's own worker out of its document.
+  # server's own agent out of its document.
   #
   # The pair is read from the environment and is not required to bring the stack
   # up: the server service above starts without it, and Admin > Agents names the
-  # state (`agent_not_configured`) beside how to set the two. A worker started
+  # state (`agent_not_configured`) beside how to set the two. An agent started
   # without the pair serves nothing, warns once and keeps its health endpoint
   # up -- so leaving the profile out is how a deployment runs with no agent at
   # all.
@@ -84,7 +84,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    # What the restart policy asks: is this worker serving what it claimed.
+    # What the restart policy asks: is this agent serving what it claimed.
     # `restart: unless-stopped` restarts a dead process; this catches one that
     # is up and holding nothing. The probe is the app's own
     # (`scripts/healthcheck.mjs`, already in the image) rather than a second

@@ -832,7 +832,7 @@ export async function agentSession(admin: LiveSession): Promise<Ctx> {
   if (!address)
     throw new IdentityAdminError(
       "agent_not_configured",
-      "This deployment names no agent, so a group's identity and the Global contacts directory cannot be written: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
+      "This deployment names no agent, so a group's identity and the Global contacts directory cannot be written: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the agent.",
       409,
     );
   const agent = await openAgentSession(admin, address);

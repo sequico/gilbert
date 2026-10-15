@@ -83,7 +83,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     }
   });
 
-  // ---------- The agent worker fleet (ADR 0003) ----------
+  // ---------- The agent fleet (ADR 0003) ----------
   /**
    * The agent surfaces (ADR 0003): the installation's one agent, the groups
    * that have granted it, the agents running for it, its model,
@@ -227,7 +227,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   });
 
   /*
-   * Run one of a group's automations now, on a message a person names (ADR 0003). The answer is the job, which the worker holding the group's claim
+   * Run one of a group's automations now, on a message a person names (ADR 0003). The answer is the job, which the agent holding the group's claim
    * picks up on its next pass: the surface can say when it was asked for and
    * the run's own record says what came of it.
    */

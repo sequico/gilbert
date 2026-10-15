@@ -237,7 +237,7 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
 }
 
 /**
- * The agent worker's configuration, in the names `config.ts` already uses.
+ * The agent's configuration, in the names `config.ts` already uses.
  *
  * The address and the password are the handshake's: the installation's own
  * account **is** the agent (ADR 0003 — one structure agent per installation),

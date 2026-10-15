@@ -2,8 +2,8 @@
  * The server tier's JMAP client: one request shape, one error mapping.
  *
  * Every server-side call to Stalwart goes through here — the account registry
- * (`account.ts`), the app-folder primitives (`appFolder.ts`) and the agent's
- * worker (`agent/`) — so the `using` set, the timeout, the 401/403 mapping and
+ * (`account.ts`), the app-folder primitives (`appFolder.ts`) and the agent
+ * (`agent/`) — so the `using` set, the timeout, the 401/403 mapping and
  * the blob upload/download templates are decided once.
  *
  * The web client has its own transport (`web/src/jmap/client.ts`) because it
@@ -213,7 +213,7 @@ export function noteServerDate(res: Response): void {
 
 /**
  * Now, as the mail server last told us. Falls back to this process's clock
- * before anything has been asked of the server (a worker's first pass), which
+ * before anything has been asked of the server (an agent's first pass), which
  * is the one window where no server time exists yet.
  */
 export function serverNow(): Date {
@@ -226,7 +226,7 @@ export function serverNow(): Date {
  *
  * A `Ctx` is one, and so is anything else carrying the two fields. The client
  * holds the *source*, never a copy of either, so a session that is re-read —
- * which is what a worker does once a poll interval in case a grant was
+ * which is what an agent does once a poll interval in case a grant was
  * withdrawn underneath it — is the one every later call goes to, and there is
  * no second session object beside it to go stale and disagree.
  */

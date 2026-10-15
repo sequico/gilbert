@@ -238,7 +238,7 @@ export async function readAccountPolicy(
  * account whose folder this write has to create pays one write for the folder,
  * which moves the account's state, and a token read before it would make the
  * conditional write lose a race with its own call (the reason
- * `AgentStore.provision` runs before a worker's first conditional write).
+ * `AgentStore.provision` runs before an agent's first conditional write).
  */
 export async function writeAccountPolicy(
   ctx: Ctx,

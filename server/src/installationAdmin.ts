@@ -197,7 +197,7 @@ export async function readInstallationForAdmin(
  * The write is conditional on the account's own FileNode state, read after the
  * app folder is known to exist (creating that folder is itself a write, and a
  * token read before it would make this publish lose a race with its own folder
- * creation — the reason `AgentStore.provision` runs before a worker's first
+ * creation — the reason `AgentStore.provision` runs before an agent's first
  * conditional write, and why the policy publish reads its token there too). A
  * document that moved after that read is refused with its own code, and the
  * stored document keeps every byte and every epoch it had: nothing is

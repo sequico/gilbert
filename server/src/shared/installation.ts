@@ -136,7 +136,7 @@ export interface InstallationPush {
 }
 
 /**
- * The agent worker (ADR 0003): the installation's own fleet.
+ * The agent (ADR 0003): the installation's own fleet.
  *
  * One switch that would fit here is deliberately not here: whether the model
  * may sit inside the deployment's own network.

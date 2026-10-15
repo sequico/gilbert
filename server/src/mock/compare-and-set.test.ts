@@ -249,7 +249,7 @@ test("x:AppPassword/set honours ifInState too, on its own registry state", async
   );
   const state = String(responseOf(read, "g")[1].state);
 
-  const ok = await jmap([write(state, "worker credential")], using);
+  const ok = await jmap([write(state, "agent credential")], using);
   assert.equal(responseOf(ok, "a")[0], "x:AppPassword/set");
   const secret = (responseOf(ok, "a")[1].created as Record<string, { secret: string }>).a!
     .secret;
@@ -266,7 +266,7 @@ test("x:AppPassword/set honours ifInState too, on its own registry state", async
   const rows = responseOf(after, "g")[1].list as Array<{ description: string }>;
   assert.deepEqual(
     rows.map((r) => r.description),
-    ["worker credential"],
+    ["agent credential"],
     "the refused create added nothing",
   );
 });

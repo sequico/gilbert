@@ -11,7 +11,7 @@
  *
  * The format itself -- the document shapes, their validators and the pure
  * text helpers (mentions, replies, ordering, the context bound) -- is defined
- * once in `@gilbert/shared/chat`, because the agent worker reads and writes
+ * once in `@gilbert/shared/chat`, because the agent reads and writes
  * the same documents from the server tier. This file is the client half: what
  * needs the browser's JMAP client and the FileNode tree. It re-exports the
  * shared half, so `@/lib/chat` stays the one import a view needs.

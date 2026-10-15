@@ -64,7 +64,7 @@ export interface DemoSeedInput {
   /** The Master's address: the KB's approver and the documents' writer. */
   author: string;
   /** The demo user's address: who signed the seeded workorder steps. */
-  worker: string;
+  signedBy: string;
   /** The group a template section is assigned to. */
   group: string;
   /** That group's own `gilbert` app folder, which the seeded part files under. */
@@ -235,7 +235,7 @@ function maintenanceProcess(): KnowledgeChecklist {
 
 /** Build the demo's FileNodes, one list per account. */
 export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
-  const { putBlob, at, master, author, worker, group, groupAppFolder } = input;
+  const { putBlob, at, master, author, signedBy, group, groupAppFolder } = input;
   const { dir, json } = nodeFactory(putBlob, at);
   const masterNodes: Obj[] = [
     dir("kb-app", null, APP_FOLDER_NAME),
@@ -533,7 +533,7 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     steps: built.steps.map((step) => {
       const mark = marks[step.path];
       return mark
-        ? { ...step, state: mark.state, by: worker, at: stampAt, note: mark.note ?? "" }
+        ? { ...step, state: mark.state, by: signedBy, at: stampAt, note: mark.note ?? "" }
         : step;
     }),
   });

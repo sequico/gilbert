@@ -4,9 +4,9 @@
  * A chat message is a JSON document in the group account's own JMAP Files:
  * `gilbert/chat` holds one node per message, `gilbert/chat-state` holds one
  * read marker per member (ADR 0005; the folder layout is the group-ownership
- * law). Both the web client and the agent worker read and write those
+ * law). Both the web client and the agent read and write those
  * documents, so the shape, the validators and the pure text helpers live here
- * rather than twice — the client keeps what needs its JMAP client, the worker
+ * rather than twice — the client keeps what needs its JMAP client, the agent
  * keeps what needs its own (`web/src/lib/chat.ts`, `server/src/agent/chat.ts`).
  *
  * Nothing here touches the network, the filesystem or a runtime API beyond

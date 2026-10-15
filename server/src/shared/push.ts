@@ -23,10 +23,10 @@
  * breaking anything, since the relay is the fallback. See
  * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
  *
- * The agent worker's wake-up set is a different thing and deliberately
+ * The agent's wake-up set is a different thing and deliberately
  * narrower: `RECONCILED_TYPES` in `server/src/agent/agent.ts` says which types
  * a reconciliation pass reads, and it acts on mail and files only. This list is
- * what a browser keeps live, not what a worker wakes for.
+ * what a browser keeps live, not what an agent wakes for.
  */
 export const PUSH_STATE_TYPES = [
   // Mail, and the quota bar over it.

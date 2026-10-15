@@ -218,7 +218,7 @@ test("an app-password sign-in is not gated", async () => {
   assert.equal(res.status, 200);
   const created = await call("/api/account/app-passwords", res.cookie, {
     method: "POST",
-    body: JSON.stringify({ description: "worker", current: "bob-forced-new-1" }),
+    body: JSON.stringify({ description: "agent", current: "bob-forced-new-1" }),
   });
   assert.equal(created.status, 200);
   const appSecret: string = created.body.secret;
@@ -367,7 +367,7 @@ test("the admin surface needs a password session: app passwords cannot impersona
   // account must.
   const created = await call("/api/account/app-passwords", adminCookie, {
     method: "POST",
-    body: JSON.stringify({ description: "admin-worker", current: ADMIN_PASS }),
+    body: JSON.stringify({ description: "admin-agent", current: ADMIN_PASS }),
   });
   assert.equal(created.status, 200);
   const appSecret: string = created.body.secret;

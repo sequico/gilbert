@@ -254,7 +254,7 @@ export function fetchGroupMembers(name: string): Promise<GroupMembersView> {
 /**
  * `POST /api/admin/groups/:name/agent/run` — ask for one automation, now.
  *
- * What comes back is the job the ask created: the worker holding the group's
+ * What comes back is the job the ask created: the agent holding the group's
  * claim picks it up, so the surface says the ask landed and the run's own
  * record says what came of it. A refusal of the ask itself comes back as the
  * error `apiFetch` composes the sentence for.
