@@ -894,7 +894,7 @@ export const accountCtx = async (c: Context<Env>) => {
 /**
  * The answer to a group the caller does not hold, and the 403 that carries it.
  *
- * Eighteen guards ask this question — the group access the agent surfaces
+ * Seventeen guards ask this question — the group access the agent surfaces
  * resolve, the member views beside them and the identity assignment — and each
  * wrote the two fields out beside its own narrowing. What they carry is one
  * shape: a code the surface composes its sentence from, and the need it was
@@ -906,13 +906,12 @@ export const groupDenial = (c: Context, denied: { error: string; need: string })
 /**
  * The body and status of a refusal from one of this product's own error classes.
  *
- * Seven surfaces answer with it — identities, the system Sieve registry, the
- * knowledge base, workorders, the agent administration, the account itself and
- * the installation document — and each had the shape written out beside its own
- * `instanceof`. A copy of a
- * refusal shape is a copy that can drift, and the four that differ only in the
- * class they test are exactly the ones that would: what the classes share is
- * `code`, `message` and `status`, and that is all this reads.
+ * Six surfaces answer with it — identities, the system Sieve registry, the
+ * knowledge base, workorders, the account itself and the installation
+ * document — and each had the shape written out beside the refusal it was
+ * making. A copy of a refusal shape is a copy that can drift, and the five that
+ * differ only in the class they test are exactly the ones that would: what
+ * they share is `code`, `message` and `status`, and that is all this reads.
  *
  * Hono types a status as a union of literals; a class carries the number its
  * own code chose (400 for a refusal, 401/403 for a boundary, 409 for a
@@ -920,19 +919,20 @@ export const groupDenial = (c: Context, denied: { error: string; need: string })
  * narrowed to that type rather than asserted as one particular value. Every
  * surface that answers with a status it did not type narrows it this way.
  */
-export const refusal = (err: { code: string; message: string; status: number }) => [
-  { error: err.code, message: err.message },
-  err.status as ContentfulStatusCode,
-] as const;
+export const refusal = (err: { code: string; message: string; status: number }) =>
+  [
+    { error: err.code, message: err.message },
+    err.status as ContentfulStatusCode,
+  ] as const;
 
 /**
  * The dispatcher a surface answers a failure with: its own class, or upstream's.
  *
- * Four surfaces test one error class each and hand every other failure to the
- * upstream mapper, and the two lines were written out beside each `instanceof`.
- * What they share is the decision — this class is ours, anything else is the
- * mail server's — so the dispatcher is made from the class rather than beside
- * it. A surface whose failure is not that shape keeps its own.
+ * Five surfaces test one error class each and hand every other failure to the
+ * upstream mapper, and the two lines were written out beside each
+ * `instanceof`. What they share is the decision — this class is ours, anything
+ * else is the mail server's — so the dispatcher is made from the class rather
+ * than beside it. A surface whose failure is not that shape keeps its own.
  */
 export const failureFor =
   (own: new (...args: never[]) => { code: string; message: string; status: number }) =>
