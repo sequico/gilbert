@@ -399,6 +399,12 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   privileged write authenticates as Stalwart's composite `{target}%{admin}`
   (impersonation) — it needs Stalwart's `Impersonate` permission and a password
   session (app passwords are refused for impersonation), stated up front.
+  **Force passwords** lists every account with that state per row, and the state
+  is three-valued: a session that may not impersonate cannot ask, so the row
+  reads **Unknown** rather than **Not forced**. The difference is the whole
+  point — the second says the server reported an account free of the change
+  wall, and the first says nobody asked, which is what an app-password session
+  gets.
 - **Group label catalog**: an administrator defines the label catalog of a group
   mailbox (ADR 0005). The catalog is **the group's** and lives in the group's own
   `gilbert` app folder. The write is made **as the installation's agent**, the
@@ -616,7 +622,9 @@ text are **derived** from them, so the rules are the one copy.
 The tree marks a template with a red checklist icon; it is made with **New
 checklist template**; the **Templates** filter narrows the tree to the templates
 and the folders that lead to them; and the page lists the **workorders that use
-it**. A workorder that starts from it keeps only the check state and the
+it** — and says so when that list could not be read rather than drawing it as
+none, since retiring a page is the next move for whoever reads it. A workorder
+that starts from it keeps only the check state and the
 signature, so a template can be approved and versioned without disturbing a
 running workorder.
 
@@ -1017,7 +1025,10 @@ unread-only, and composes the same query string.
 
 - **Invitations (iTIP)** render an invite card: what, when, where, the guest list
   with each status, and Yes / Maybe / No. The reply is written to the event and sent
-  back; cancellations are recognised.
+  back; cancellations are recognised. An invitation **already on your calendar**
+  offers to update it rather than to add it, which is a read of your own
+  calendars; when that read fails the card says the invitation could not be read
+  rather than offering to add a second copy of it.
 - **vCard attachments** render a card offering to add the person.
 - **Right-click anyone named** — From, To, Cc, Bcc or Reply-To — to add them to
   contacts (prefilled, display name split), edit them, write to them, or copy the
@@ -1120,7 +1131,11 @@ minimisable and maximisable; full-screen on mobile.
   **Scheduled** folder Gilbert maintains itself (JMAP has no role for one) and
   reconciles when you next open it: released messages move to Sent, cancelled ones
   back to Drafts. The picker offers presets and an exact date and time, bounded by
-  the maximum delay the server advertises.
+  the maximum delay the server advertises. **When they go out is a read** of the
+  submission queue rather than a fact the folder holds, so a read that fails is
+  said at the top of that folder rather than drawn as mail with no hold on it:
+  the messages are there, when they go out is not known, and none of them has
+  been sent.
 - If Stalwart's `futureRelease` is not configured, a "scheduled" message is sent
   **immediately**, with no error and no sign the hold was dropped. Gilbert only
   offers the feature when the account advertises the capability, and the mock has
@@ -1168,6 +1183,12 @@ The sidebar keeps the panes apart:
   each. An unadded calendar draws nothing, because the server reports every
   collection in an account you can reach and being handed one is not evidence it
   was offered.
+- **A subscribe the server refuses is said, not hidden.** Subscribing writes to
+  another account, so a refusal is an ordinary answer rather than an error;
+  Stalwart takes it on a shared calendar where it will not on a shared address
+  book, and which of the two is the server's to change. The choice is then
+  remembered **on this device**, the calendar draws as added, and the surface
+  says so: subscribed here, and it will need subscribing again elsewhere.
 
 Right-click your own to rename, recolour, share, stop sharing or delete;
 right-click a group calendar to hide or show it; right-click one of someone else's
@@ -1459,7 +1480,10 @@ remove a flag, mark read, star, and stop.
 - **Folder renames are tracked**, so a rule that files into a folder keeps working
   when the folder moves.
 - **Out of office** sits beside it as a JMAP `VacationResponse` — subject, body,
-  and an optional start and end.
+  and an optional start and end. A read of it that fails is **not** shown as an
+  account without one: the section says it could not be read and does not offer
+  the form, because a form seeded from nothing draws every field empty and its
+  Save writes that over whatever the account is really answering with.
 
 ---
 
