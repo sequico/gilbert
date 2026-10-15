@@ -40,6 +40,7 @@ import {
   readInstallation,
 } from "./installation.js";
 import { sleep as defaultSleep } from "./shared/async.js";
+import { errorMessage } from "./shared/errors.js";
 import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
@@ -210,7 +211,7 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
   } catch (err) {
     throw new BootstrapError(
       `The Master's sign-in at ${handshake.stalwartUrl} did not answer within ` +
-        `${FIRST_REQUEST_TIMEOUT_MS} ms: ${err instanceof Error ? err.message : String(err)}. ` +
+        `${FIRST_REQUEST_TIMEOUT_MS} ms: ${errorMessage(err)}. ` +
         "Nothing else can be read until this works, so the boot stops here.",
     );
   }
@@ -488,7 +489,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
       stalwartUrl: handshake.stalwartUrl,
     };
   } catch (err) {
-    log(`[gilbert] fatal: ${err instanceof Error ? err.message : String(err)}`);
+    log(`[gilbert] fatal: ${errorMessage(err)}`);
     /*
      * The only channel a process with no port has left. `exit` never returns,
      * and saying so here is what tells the compiler this function cannot fall
@@ -505,7 +506,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
       } catch (err) {
         if (attempt >= attempts) throw err;
         log(
-          `[gilbert] ${handshake.stalwartUrl} did not answer (${err instanceof Error ? err.message : String(err)}) — trying again (${attempt}/${attempts})`,
+          `[gilbert] ${handshake.stalwartUrl} did not answer (${errorMessage(err)}) — trying again (${attempt}/${attempts})`,
         );
         await wait(retryMs);
       }

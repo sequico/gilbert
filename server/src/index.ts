@@ -6,6 +6,7 @@ import { assertServable, config, useConfiguration } from "./config.js";
 import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { ensureKnowledge } from "./knowledgeAdmin.js";
 import { releaseOnShutdown } from "./push.js";
+import { errorMessage } from "./shared/errors.js";
 import { ensureWorkorders } from "./workorderAdmin.js";
 
 async function main() {
@@ -52,10 +53,7 @@ async function main() {
     },
     boot.accountId,
   ).catch((err) => {
-    console.warn(
-      "[gilbert] Global contacts could not be prepared:",
-      err instanceof Error ? err.message : String(err),
-    );
+    console.warn("[gilbert] Global contacts could not be prepared:", errorMessage(err));
   });
   /*
    * The company knowledge base (ADR 0024): the Master-owned folder exists
@@ -75,7 +73,7 @@ async function main() {
   ).catch((err) => {
     console.warn(
       "[gilbert] The knowledge base could not be prepared:",
-      err instanceof Error ? err.message : String(err),
+      errorMessage(err),
     );
   });
   /*
@@ -93,10 +91,7 @@ async function main() {
     },
     boot.accountId,
   ).catch((err) => {
-    console.warn(
-      "[gilbert] Workorders could not be prepared:",
-      err instanceof Error ? err.message : String(err),
-    );
+    console.warn("[gilbert] Workorders could not be prepared:", errorMessage(err));
   });
   await useDurableSessions(
     sessionDocumentIo(

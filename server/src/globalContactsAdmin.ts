@@ -4,6 +4,7 @@ import type { Ctx } from "./appFolder.js";
 import { IdentityAdminError, requireState } from "./identityAdmin.js";
 import { JMAP_CONTACTS, JmapClient, retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
+import { errorMessage } from "./shared/errors.js";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,
   type GlobalContactInput,
@@ -44,7 +45,7 @@ function bookRefusal(err: unknown, what: string): IdentityAdminError {
   if (err instanceof IdentityAdminError) return err;
   return new IdentityAdminError(
     "global_contacts_book",
-    `${what}: ${err instanceof Error ? err.message : String(err)}`,
+    `${what}: ${errorMessage(err)}`,
     502,
   );
 }
@@ -378,11 +379,7 @@ export async function writeGlobalContact(
     return created;
   } catch (err) {
     if (err instanceof IdentityAdminError) throw err;
-    throw new IdentityAdminError(
-      "global_contact",
-      err instanceof Error ? err.message : String(err),
-      502,
-    );
+    throw new IdentityAdminError("global_contact", errorMessage(err), 502);
   }
 }
 
