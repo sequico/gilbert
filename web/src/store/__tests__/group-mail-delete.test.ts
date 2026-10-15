@@ -10,6 +10,7 @@ import {
 import { describeSwipe } from "@/lib/swipe";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -65,58 +66,49 @@ function sessionOf(opts: { isAdmin: boolean; withGroup?: boolean }): JmapSession
 /** Counts what actually left the client, so a refusal that called is visible. */
 function transport(mode: "ok" | "refuse" | "partial" | "throw" = "ok") {
   const destroys: { accountId: string; ids: string[] }[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    if (mode === "throw") throw new Error("the server is unreachable");
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(
-      ([name, args, id]: [string, Record<string, unknown>, string]) => {
-        if (name === "Email/set" && Array.isArray(args.destroy)) {
-          const ids = args.destroy as string[];
-          destroys.push({ accountId: String(args.accountId), ids });
-          /*
-           * The server's own refusal, in the shape JMAP answers it: the ids it
-           * would not destroy come back under `notDestroyed` with a reason, and
-           * `destroyed` carries only the ones that went.
-           */
-          const refused: Record<string, unknown> = {};
-          if (mode !== "ok")
-            for (const one of mode === "partial" ? ids.slice(0, 1) : ids)
-              refused[one] = { type: "forbidden" };
-          const gone = ids.filter((one) => !(one in refused));
-          return [
-            name,
-            {
-              accountId: args.accountId,
-              oldState: "1",
-              newState: "2",
-              destroyed: gone,
-              notDestroyed: refused,
-            },
-            id,
-          ];
-        }
-        return [
-          name,
-          {
-            accountId: args.accountId ?? OWN,
-            state: "1",
-            list: [],
-            notFound: [],
-            ids: [],
-            total: 0,
-            queryState: "q",
-            position: 0,
-            canCalculateChanges: false,
-          },
-          id,
-        ];
-      },
+  /* An unreachable server, which is a transport failure rather than an answer. */
+  if (mode === "throw") {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("the server is unreachable");
+      }),
     );
-    return { ok: true, status: 200, json: async () => ({ methodResponses }) } as Response;
+    return { destroys };
+  }
+  fakeJmapServer().on("Email/set", (call) => {
+    if (!Array.isArray(call.args.destroy))
+      return {
+        accountId: call.args.accountId ?? OWN,
+        state: "1",
+        list: [],
+        notFound: [],
+        ids: [],
+        total: 0,
+        queryState: "q",
+        position: 0,
+        canCalculateChanges: false,
+      };
+    const ids = call.args.destroy as string[];
+    destroys.push({ accountId: String(call.args.accountId), ids });
+    /*
+     * The server's own refusal, in the shape JMAP answers it: the ids it
+     * would not destroy come back under `notDestroyed` with a reason, and
+     * `destroyed` carries only the ones that went.
+     */
+    const refused: Record<string, unknown> = {};
+    if (mode !== "ok")
+      for (const one of mode === "partial" ? ids.slice(0, 1) : ids)
+        refused[one] = { type: "forbidden" };
+    const gone = ids.filter((one) => !(one in refused));
+    return {
+      accountId: call.args.accountId,
+      oldState: "1",
+      newState: "2",
+      destroyed: gone,
+      notDestroyed: refused,
+    };
   });
-  vi.stubGlobal("fetch", fetchMock);
   return { destroys };
 }
 

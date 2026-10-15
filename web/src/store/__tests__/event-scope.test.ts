@@ -10,6 +10,7 @@ import {
   occurrencePatch,
   useCalendar,
 } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * Through 0.16.19 the server caught a synthetic id for us: `CalendarEvent/set`
@@ -75,60 +76,29 @@ interface SetCall {
 function server(opts: { resolvesTo?: string | null } = {}) {
   const calls: SetCall[] = [];
   const resolved = opts.resolvesTo === undefined ? OCCURRENCE.id : opts.resolvesTo;
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "CalendarEvent/get" && id === "g") {
-        // The re-resolution lookup: same recurrenceId, whatever id it wears now.
-        const list = resolved ? [{ ...OCCURRENCE, id: resolved }] : [];
-        return [name, { accountId: "a1", state: "1", list, notFound: [] }, id];
-      }
-      if (name === "CalendarEvent/set") {
-        calls.push({
-          update: args.update as Record<string, unknown>,
-          destroy: args.destroy as string[],
-        });
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            updated: Object.fromEntries(
-              Object.keys((args.update ?? {}) as object).map((k) => [k, null]),
-            ),
-            destroyed: (args.destroy ?? []) as string[],
-            notUpdated: {},
-            notDestroyed: {},
-          },
-          id,
-        ];
-      }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+  fakeJmapServer()
+    .on("CalendarEvent/get", (call) => {
+      // The re-resolution lookup: same recurrenceId, whatever id it wears now.
+      const list = call.id === "g" && resolved ? [{ ...OCCURRENCE, id: resolved }] : [];
+      return { accountId: "a1", state: "1", list, notFound: [] };
+    })
+    .on("CalendarEvent/set", (call) => {
+      calls.push({
+        update: call.args.update as Record<string, unknown>,
+        destroy: call.args.destroy as string[],
+      });
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        updated: Object.fromEntries(
+          Object.keys((call.args.update ?? {}) as object).map((k) => [k, null]),
+        ),
+        destroyed: (call.args.destroy ?? []) as string[],
+        notUpdated: {},
+        notDestroyed: {},
+      };
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return calls;
 }
 

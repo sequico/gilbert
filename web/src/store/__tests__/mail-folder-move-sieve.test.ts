@@ -5,6 +5,7 @@ import { newRule, rulesToSieve } from "@/lib/sieve";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useSieve } from "@/store/sieve";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
@@ -94,74 +95,34 @@ const RULES = [
 ];
 
 function stubServer(trees: Record<string, Tree>) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        const accountId = String(args.accountId ?? "");
-        if (name === "Mailbox/get") {
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              state: "1",
-              list: Object.values(trees[accountId] ?? {}),
-              notFound: [],
-            },
-            id,
-          ]);
-        } else if (name === "Mailbox/set") {
-          const update = (args.update ?? {}) as Record<string, Record<string, unknown>>;
-          for (const [mid, patch] of Object.entries(update))
-            Object.assign(trees[accountId]?.[mid] ?? {}, patch);
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              oldState: "1",
-              newState: "2",
-              updated: Object.fromEntries(Object.keys(update).map((k) => [k, null])),
-            },
-            id,
-          ]);
-        } else if (name === "SieveScript/set") {
-          methodResponses.push([
-            name,
-            { accountId, oldState: "1", newState: "2", updated: { s1: null } },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              state: "1",
-              list: [],
-              notFound: [],
-              ids: [],
-              total: 0,
-              position: 0,
-              queryState: "1",
-              updated: {},
-            },
-            id,
-          ]);
-        }
-      }
+  return fakeJmapServer()
+    .on("Mailbox/get", (call) => {
+      const accountId = String(call.args.accountId ?? "");
       return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+        accountId,
+        state: "1",
+        list: Object.values(trees[accountId] ?? {}),
+        notFound: [],
+      };
+    })
+    .on("Mailbox/set", (call) => {
+      const accountId = String(call.args.accountId ?? "");
+      const update = (call.args.update ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [mid, patch] of Object.entries(update))
+        Object.assign(trees[accountId]?.[mid] ?? {}, patch);
+      return {
+        accountId,
+        oldState: "1",
+        newState: "2",
+        updated: Object.fromEntries(Object.keys(update).map((k) => [k, null])),
+      };
+    })
+    .on("SieveScript/set", (call) => ({
+      accountId: String(call.args.accountId ?? ""),
+      oldState: "1",
+      newState: "2",
+      updated: { s1: null },
+    })).calls;
 }
 
 const SESSION = {
@@ -174,8 +135,8 @@ const SESSION = {
   state: "s1",
 } as unknown as JmapSession;
 
-const sieveWrites = (calls: Array<{ name: string }>) =>
-  calls.filter((c) => c.name === "SieveScript/set");
+const sieveWrites = (calls: Array<{ method: string }>) =>
+  calls.filter((c) => c.method === "SieveScript/set");
 
 beforeEach(() => {
   client.session = SESSION;

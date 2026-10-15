@@ -8,6 +8,7 @@ import {
   subscriptionBackoff,
 } from "@/store/mail/mailboxes";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
@@ -60,67 +61,28 @@ const ownTree = (): Tree => ({
 });
 
 function stubServer(trees: Record<string, Tree>) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        const accountId = String(args.accountId ?? "");
-        if (name === "Mailbox/get") {
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              state: "1",
-              list: Object.values(trees[accountId] ?? {}),
-              notFound: [],
-            },
-            id,
-          ]);
-        } else if (name === "Mailbox/set") {
-          const update = (args.update ?? {}) as Record<string, Record<string, unknown>>;
-          for (const [mid, patch] of Object.entries(update))
-            Object.assign(trees[accountId]?.[mid] ?? {}, patch);
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              oldState: "1",
-              newState: "2",
-              updated: Object.fromEntries(Object.keys(update).map((k) => [k, null])),
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            {
-              accountId,
-              state: "1",
-              list: [],
-              notFound: [],
-              ids: [],
-              total: 0,
-              position: 0,
-              queryState: "1",
-            },
-            id,
-          ]);
-        }
-      }
+  return fakeJmapServer()
+    .on("Mailbox/get", (call) => {
+      const accountId = String(call.args.accountId ?? "");
       return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+        accountId,
+        state: "1",
+        list: Object.values(trees[accountId] ?? {}),
+        notFound: [],
+      };
+    })
+    .on("Mailbox/set", (call) => {
+      const accountId = String(call.args.accountId ?? "");
+      const update = (call.args.update ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [mid, patch] of Object.entries(update))
+        Object.assign(trees[accountId]?.[mid] ?? {}, patch);
+      return {
+        accountId,
+        oldState: "1",
+        newState: "2",
+        updated: Object.fromEntries(Object.keys(update).map((k) => [k, null])),
+      };
+    }).calls;
 }
 
 const SESSION = {
@@ -133,9 +95,9 @@ const SESSION = {
   state: "s1",
 } as unknown as JmapSession;
 
-const subscribedIds = (calls: Array<{ name: string; args: Record<string, unknown> }>) =>
+const subscribedIds = (calls: Array<{ method: string; args: Record<string, unknown> }>) =>
   calls
-    .filter((c) => c.name === "Mailbox/set")
+    .filter((c) => c.method === "Mailbox/set")
     .flatMap((c) => Object.keys((c.args.update ?? {}) as Record<string, unknown>))
     .sort();
 
@@ -171,7 +133,7 @@ describe("a group's folders, read by a member", () => {
     await useMail.getState().loadMailboxes();
     await flush();
     expect(subscribedIds(calls)).toEqual(["a", "l", "t"]);
-    const write = calls.find((c) => c.name === "Mailbox/set");
+    const write = calls.find((c) => c.method === "Mailbox/set");
     expect(write?.args.accountId).toBe("gg");
     expect(Object.values(write?.args.update ?? {})).toEqual([
       { isSubscribed: true },
@@ -197,7 +159,7 @@ describe("a group's folders, read by a member", () => {
     // And again with the tree the first read left behind.
     await useMail.getState().loadMailboxes();
     await flush();
-    expect(calls.filter((c) => c.name === "Mailbox/set")).toEqual([]);
+    expect(calls.filter((c) => c.method === "Mailbox/set")).toEqual([]);
   });
 });
 
@@ -208,7 +170,7 @@ describe("the reader's own mailbox", () => {
     useMail.setState({ accountId: "own" });
     await useMail.getState().loadMailboxes();
     await flush();
-    expect(calls.filter((c) => c.name === "Mailbox/set")).toEqual([]);
+    expect(calls.filter((c) => c.method === "Mailbox/set")).toEqual([]);
   });
 });
 
