@@ -70,7 +70,7 @@ VOLUME="${GILBERT_VOLUME:-gilbert-data}"
 #
 # Nothing is lost to this. Going back is this variable and nothing else:
 #
-#   IMMUTABLE=0 ./gilbert-deploy.sh --yes
+#   IMMUTABLE=0 ./deploy.sh --yes
 #
 # The named volume is never touched either way, so whatever was in it when the
 # switch was thrown is still there to come back to.

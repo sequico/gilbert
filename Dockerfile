@@ -4,7 +4,7 @@ FROM node:24-alpine AS build
 # built at -- worked out by whoever runs the build. It cannot be worked out in
 # here: .dockerignore keeps .git out of the context on purpose, and git is not
 # installed either. `node scripts/version.mjs` in a checkout prints the right
-# answer; gilbert-deploy.sh passes it through. Left empty, the build reports
+# answer; deploy.sh passes it through. Left empty, the build reports
 # `0.0.0`, which is what an unversioned build is meant to look like.
 ARG GILBERT_VERSION=""
 ENV GILBERT_VERSION=$GILBERT_VERSION
