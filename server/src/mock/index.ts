@@ -181,10 +181,9 @@ const REFUSED_USER = process.env.MOCK_REFUSED_USER?.trim() ?? "";
  * the JmapPrincipalQuery permission (crates/jmap/src/principal/query.rs,
  * checked on source 2026-09-07) and refuses the request when the gate is
  * closed for the session, which is why a client degrades to typing an address
- * rather than failing the surface. `MOCK_NO_DIRECTORY_QUERY=1` at boot, or
- * `directoryGate.open = false` from a test that drives the mock in-process,
- * closes it. A mock run leaves it open, because the surfaces it stands in for
- * need the directory.
+ * rather than failing the surface. A test that drives the mock in-process
+ * closes it with `directoryGate.open = false`. A mock run leaves it open,
+ * because the surfaces it stands in for need the directory.
  *
  * The live probe this owes: which of 400 and 403 a real server answers a
  * closed gate with, and whether the refusal is the whole request or one
@@ -192,7 +191,7 @@ const REFUSED_USER = process.env.MOCK_REFUSED_USER?.trim() ?? "";
  * in `server/src/upstream.ts` turns either into a denied read), so the mock
  * answers 403 and nothing turns on the difference.
  */
-export const directoryGate = { open: process.env.MOCK_NO_DIRECTORY_QUERY !== "1" };
+export const directoryGate = { open: true };
 
 /**
  * The registry door, and what it costs a credential that may not open it.
@@ -201,13 +200,11 @@ export const directoryGate = { open: process.env.MOCK_NO_DIRECTORY_QUERY !== "1"
  * principal holding `sysAccountGet`/`sysAccountQuery` (live, 2026-09-13: the
  * built-in User and Group roles carry neither, Tenant Administrator carries
  * both), and refuses with a **method-level** `forbidden` inside an HTTP 200.
- * `MOCK_NO_ACCOUNT_REGISTRY=1` reproduces the refusal so the fallback — the
- * `@` picker's transcript — is exercisable, and a test may close it in process
- * the way it closes `directoryGate`.
+ * A test closes the door with `accountRegistryGate.open = false`, which
+ * reproduces the refusal so the fallback — the `@` picker's transcript — is
+ * exercisable.
  */
-export const accountRegistryGate = {
-  open: process.env.MOCK_NO_ACCOUNT_REGISTRY !== "1",
-};
+export const accountRegistryGate = { open: true };
 /** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 /** The admin permission this process is configured on, read as the server reads it. */
@@ -236,7 +233,7 @@ const permissionsOf = (username: string): string[] => {
   return base;
 };
 /** Locale the fake directory reports for the account (POSIX style, as Stalwart does). */
-const MOCK_LOCALE = process.env.MOCK_LOCALE ?? "en_US";
+const DIRECTORY_LOCALE = "en_US";
 const PASS = process.env.MOCK_PASS ?? "demo";
 /**
  * Credential state, mutable so the self-service flows can be exercised against
@@ -3073,7 +3070,7 @@ const ACCOUNT_REGISTRY: Obj[] = [
     "@type": "User",
     name: USER,
     emailAddress: USER,
-    locale: MOCK_LOCALE,
+    locale: DIRECTORY_LOCALE,
     timeZone: null,
     memberGroupIds: { [GROUP_ACCOUNT]: true, [GROUP2_ACCOUNT]: true },
   },
@@ -3114,7 +3111,7 @@ const ACCOUNT_REGISTRY: Obj[] = [
     "@type": "User",
     name: AGENT_ADDRESS,
     emailAddress: AGENT_ADDRESS,
-    locale: MOCK_LOCALE,
+    locale: DIRECTORY_LOCALE,
     timeZone: null,
     memberGroupIds: { [GROUP_ACCOUNT]: true },
   },
@@ -3127,7 +3124,7 @@ const handlers: Record<string, Handler> = {
     const ids = (a.ids as string[] | null) ?? ["singleton"];
     const list = ids
       .filter((id) => id === "singleton")
-      .map((id) => ({ id, locale: MOCK_LOCALE, timeZone: null, description: null }));
+      .map((id) => ({ id, locale: DIRECTORY_LOCALE, timeZone: null, description: null }));
     return {
       accountId: String(a.accountId ?? ACCOUNT),
       state: stateOf(accountOf(a), "x:AccountSettings"),
@@ -5366,7 +5363,7 @@ export const server = createServer(async (req, res) => {
       JSON.stringify({
         permissions: permissionsOf(identity.username),
         edition: "oss",
-        locale: MOCK_LOCALE,
+        locale: DIRECTORY_LOCALE,
       }),
     );
   }
