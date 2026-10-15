@@ -30,7 +30,7 @@
  */
 
 import { isAddress } from "./adminPolicy.js";
-import { stateRefuser } from "./adminSession.js";
+import { groupNotGrantedRefuser, stateRefuser } from "./adminSession.js";
 import type { GroupAccessDenied } from "./agent/views.js";
 import {
   groupMembers,
@@ -107,6 +107,9 @@ export class IdentityAdminError extends CodedError {
  * refusal too.
  */
 export const requireState = stateRefuser(IdentityAdminError);
+
+/** The refusal a group the Master's own session does not hold carries, in this door's error. */
+const groupNotGranted = groupNotGrantedRefuser(IdentityAdminError);
 
 /* ------------------------------------------------------------------ */
 /* The lock (ADR 0001)                                                 */
@@ -928,10 +931,9 @@ export async function writeGroupIdentity(
   const ctx = await agentSession(admin);
   const accountId = groupAccountId(ctx, group);
   if (!accountId)
-    throw new IdentityAdminError(
-      "group_not_granted",
-      `The installation's agent is not a member of ${group}, so nothing here can write its identity. Grant the agent on that group and save again.`,
-      409,
+    throw groupNotGranted(
+      group,
+      "nothing here can write its identity; grant the agent on that group and try again",
     );
   const existing = await readIdentities(ctx, accountId);
   const assignments = await readAssignments(ctx, accountId);
@@ -992,10 +994,9 @@ export async function removeGroupIdentity(
   const ctx = await agentSession(admin);
   const accountId = groupAccountId(ctx, group);
   if (!accountId)
-    throw new IdentityAdminError(
-      "group_not_granted",
-      `The installation's agent is not a member of ${group}, so nothing here can write its identity. Grant the agent on that group and try again.`,
-      409,
+    throw groupNotGranted(
+      group,
+      "nothing here can write its identity; grant the agent on that group and try again",
     );
   const identities = await readIdentities(ctx, accountId);
   if (!identities.some((identity) => identity.id === id))
@@ -1063,11 +1064,7 @@ export async function storeSignatureHtml(
     ctx = await agentSession(admin);
     accountId = groupAccountId(ctx, address);
     if (!accountId)
-      throw new IdentityAdminError(
-        "group_not_granted",
-        `The installation's agent is not a member of ${address}, so its Files cannot hold this signature.`,
-        409,
-      );
+      throw groupNotGranted(address, "its Files cannot hold this signature");
   } else {
     const imp = await impersonateAs(admin, address);
     if (!imp.ok)

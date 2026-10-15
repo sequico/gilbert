@@ -22,7 +22,12 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { administrator, openMasterAccount, stateRefuser } from "./adminSession.js";
+import {
+  administrator,
+  groupNotGrantedRefuser,
+  openMasterAccount,
+  stateRefuser,
+} from "./adminSession.js";
 import { groupAccountsDetailed } from "./agent/actions.js";
 import { memberReach } from "./agentAdmin.js";
 import {
@@ -109,6 +114,9 @@ export class WorkorderAdminError extends CodedError {
  * write calls, so only the error type is this module's.
  */
 export const requireState = stateRefuser(WorkorderAdminError);
+
+/** The refusal a group the Master's own session does not hold carries, in the workorder error. */
+const groupNotGranted = groupNotGrantedRefuser(WorkorderAdminError);
 
 /* ------------------------------------------------------------------ */
 /* The Master's account, and the caller's own session                  */
@@ -1001,10 +1009,9 @@ export async function createWorkorder(
   const targets = checklistGroups(def);
   for (const groupAccount of targets) {
     if (!heldAccounts.has(groupAccount))
-      throw new WorkorderAdminError(
-        "group_not_granted",
-        "The installation's agent is not a member of the group a section is assigned to, so its part cannot be written.",
-        409,
+      throw groupNotGranted(
+        "the group a section is assigned to",
+        "its part cannot be written",
       );
   }
 
@@ -1329,12 +1336,7 @@ export async function checkStep(
     // from this one read.
     const root = await refuseTerminal(reach.ctx, reach.accountId, uid);
     const groupAccount = reach.masterGroups.get(group.toLowerCase());
-    if (!groupAccount)
-      throw new WorkorderAdminError(
-        "group_not_granted",
-        `The installation's agent is not a member of ${group}, so its checklist cannot be written.`,
-        409,
-      );
+    if (!groupAccount) throw groupNotGranted(group, "its checklist cannot be written");
     await applyStep({
       ctx: reach.ctx,
       accountId: groupAccount,

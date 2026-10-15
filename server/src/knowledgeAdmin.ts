@@ -22,7 +22,12 @@
  * authenticated session, never from the request.
  */
 
-import { openMasterAccount, openMasterSession, stateRefuser } from "./adminSession.js";
+import {
+  groupNotGrantedRefuser,
+  openMasterAccount,
+  openMasterSession,
+  stateRefuser,
+} from "./adminSession.js";
 import { memberGroupAccess } from "./agentAdmin.js";
 import {
   appFolderState,
@@ -104,6 +109,9 @@ export class KnowledgeAdminError extends CodedError {
  * calls, so only the error type is this module's.
  */
 export const requireState = stateRefuser(KnowledgeAdminError);
+
+/** The refusal a group the Master's own session does not hold carries, in the KB's error. */
+const groupNotGranted = groupNotGrantedRefuser(KnowledgeAdminError);
 
 /**
  * The last order a create minted.
@@ -196,12 +204,7 @@ export async function groupKnowledgeAccount(
     (code, message, status) => new KnowledgeAdminError(code, message, status),
   );
   const accountId = groupAccountId(ctx, group);
-  if (!accountId)
-    throw new KnowledgeAdminError(
-      "group_not_granted",
-      `The installation's agent is not a member of ${group.trim() || group}, so its knowledge base cannot be written.`,
-      409,
-    );
+  if (!accountId) throw groupNotGranted(group, "its knowledge base cannot be written");
   // The group's KB is reached by membership, never a share (`gilbert-groups`);
   // only the folder is made, on first use.
   const folderId = await knowledgeFolder(ctx, accountId);

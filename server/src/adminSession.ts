@@ -5,10 +5,12 @@
  * workorders and Global contacts — needs the same things from the identity
  * door: the installation's session (`agentSession`) and, where a caller must be
  * an administrator, the read that answers it. The conditional-write token every
- * door's FileNode writes take (`requireState`) is here too. All of them live
- * here once, so a refusal is translated the same way everywhere and a change
- * reaches every door; each door only states which surface it is (the words its
- * sentence uses) and builds its own error type.
+ * door's FileNode writes take (`requireState`) is here too, and so is the refusal
+ * a group the Master's own session does not hold carries
+ * (`groupNotGrantedRefuser`). All of them live here once, so a refusal is
+ * translated the same way everywhere and a change reaches every door; each door
+ * only states which surface it is (the words its sentence uses) and builds its
+ * own error type.
  */
 
 import type { Ctx } from "./appFolder.js";
@@ -54,6 +56,28 @@ export function stateRefuser(
 ): (state: string) => string {
   return (state) =>
     requireState(state, (code, message, status) => new ErrorClass(code, message, status));
+}
+
+/**
+ * The refusal a group the Master's own session does not hold carries, bound to
+ * one surface's own error type.
+ *
+ * The code and the sentence are the same wherever a door writes into a group the
+ * agent is not a member of — identities, the knowledge base, workorders — so
+ * they are written once here and each door binds them to the error its own
+ * callers read, the way `stateRefuser` binds the conditional-write token.
+ * `subject` is the group, or the words that stand for one where no single group
+ * is named; `what` is what the door cannot do without that membership.
+ */
+export function groupNotGrantedRefuser(
+  ErrorClass: new (code: string, message: string, status: number) => Error,
+): (subject: string, what: string) => Error {
+  return (subject, what) =>
+    new ErrorClass(
+      "group_not_granted",
+      `The installation's agent is not a member of ${subject}, so ${what}.`,
+      409,
+    );
 }
 
 /**
