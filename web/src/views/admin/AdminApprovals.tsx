@@ -32,11 +32,7 @@ const PARTS = [
   { id: "audit", label: "Audit" },
 ] as const;
 
-/*
- * The strip's own name, in the shape its siblings hold it (AdminAgents and
- * GroupAgents): TabStrip translates the key where it renders, so the literal
- * has to be a `label` property for the catalogue scan to see it.
- */
+/** The strip's own name for a reader arriving at it, as a `label:` the check finds. */
 const APPROVALS_TABS = { label: "Approvals sections" };
 
 type Part = (typeof PARTS)[number]["id"];

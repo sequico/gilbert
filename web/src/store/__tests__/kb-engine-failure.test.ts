@@ -31,6 +31,18 @@ beforeEach(() => {
 });
 
 it("reports a search engine whose chunk did not arrive", async () => {
+  // What a previous term found must not outlive the run that could not answer.
+  useKnowledge.setState({
+    results: [
+      {
+        accountId: "a1",
+        nodeId: "old",
+        scope: "company",
+        title: "An earlier page",
+        snippet: "…",
+      },
+    ],
+  });
   useKnowledge.getState().setSearch("anything");
   await useKnowledge.getState().runSearch();
   const state = useKnowledge.getState();

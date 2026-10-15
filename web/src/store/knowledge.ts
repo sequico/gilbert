@@ -208,6 +208,16 @@ let openToken = 0;
  */
 const searchText = new Map<string, string>();
 
+/**
+ * The search whose answer is still wanted.
+ *
+ * A run is asked again on every keystroke, and the session can end while one is
+ * reading: an answer that lands after either describes a term nobody is looking
+ * at, or a page read under a session that has gone. Each run takes the next
+ * number and writes its answer only while it still holds the latest.
+ */
+let searchToken = 0;
+
 export const useKnowledge = create<KnowledgeStore>((set, get) => {
   /**
    * A write, and the re-read that follows it — the two told apart.
@@ -740,6 +750,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         set({ results: [], searching: false, searchedTerm: "" });
         return;
       }
+      const token = ++searchToken;
       set({ searching: true, searchedTerm: term });
       try {
         set({ error: null });
@@ -747,12 +758,12 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         // reached from the boot shell, which applies its changes, and a reader
         // who never searches should not carry a search library to find that
         // out -- and it is asked for here so its fetch overlaps the reads below
-        // rather than following them. A chunk that fails to arrive is not a
-        // search with nothing to show: it is a failure the reader can act on,
-        // so it is said here, where the failure is handled whether or not a
-        // read gets there first.
+        // rather than following them. The handler is attached at the request
+        // itself, so a read that fails first cannot leave a rejected chunk
+        // unhandled; what a failure means is settled at the run's own exit.
+        let engineError: unknown = null;
         const engine = import("@orama/orama").catch((err: unknown) => {
-          set({ error: errorMessage(err), results: [], searching: false });
+          engineError = err;
           return null;
         });
         const docs: Array<{ id: string; title: string; text: string; tags: string }> = [];
@@ -780,7 +791,18 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
           }
         }
         const orama = await engine;
-        if (!orama) return;
+        if (!orama) {
+          // The engine is a chunk, and the one thing a search cannot run
+          // without: a fetch that failed is a failure the reader can act on,
+          // unlike a page whose text could not be read.
+          if (token === searchToken)
+            set({
+              error: errorMessage(engineError),
+              results: [],
+              searching: false,
+            });
+          return;
+        }
         const { create: createIndex, insertMultiple, search: searchIndex } = orama;
         // Rebuilt per search, on purpose: the container is disposable and a
         // cached index is a second store that can disagree with Stalwart. What
@@ -803,11 +825,11 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             snippet: snippetOf(hit.document.text, term),
           });
         }
-        set({ results, searching: false });
+        if (token === searchToken) set({ results, searching: false });
       } catch {
         // A search that cannot run offers no results rather than a failure the
         // reader cannot act on; the box is not a load.
-        set({ results: [], searching: false });
+        if (token === searchToken) set({ results: [], searching: false });
       }
     },
 
@@ -816,6 +838,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       loadEpoch += 1;
       loadPending = false;
       openToken += 1;
+      searchToken += 1;
       set({
         tiers: [],
         loaded: false,

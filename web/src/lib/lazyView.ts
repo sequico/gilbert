@@ -39,8 +39,9 @@ export function withViewTimeout<T>(
 
 /**
  * `lazy()` for a chunk that hangs is a failure like any other, so it reaches
- * the crash boundary instead of leaving a spinner forever. Used for a route
- * view, and for the pieces a reader opens on an action (`views/lazyPieces.ts`).
+ * the crash boundary instead of leaving a spinner forever. It is for a
+ * component the entry does not need to draw: a route view, a sidebar, or a
+ * piece a view renders when the reader gets to it (`views/lazyPieces.ts`).
  */
 // biome-ignore lint/suspicious/noExplicitAny: React's own lazy() constrains T the same way; a narrower bound rejects class components.
 export function lazyView<T extends ComponentType<any>>(

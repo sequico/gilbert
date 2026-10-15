@@ -4,8 +4,9 @@ import { useKnowledge } from "@/store/knowledge";
 /*
  * The KB search box reads the pages' text and matches it as the reader types.
  * These pin the store half: a page is found by a word in its body, and by its
- * title even when the body could not be read, and the box records the term a
- * run searched so it never says "Nothing found." for a term no run has reached.
+ * title even when the body could not be read, the box records the term a run
+ * searched so it never says "Nothing found." for a term no run has reached, and
+ * a run the session left behind is dropped rather than written.
  */
 
 function tier(title: string) {
@@ -74,6 +75,36 @@ describe("the KB search", () => {
     useKnowledge.getState().setSearch("prova");
     await useKnowledge.getState().runSearch();
     expect(useKnowledge.getState().results.map((r) => r.nodeId)).toEqual(["n1"]);
+  });
+
+  it("drops a run the session left behind", async () => {
+    /* The page read is held open, so the run is in flight when the session
+       ends: what it found describes an account that is gone, and the store must
+       not take it. */
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const page = {
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, article: { draft: { text: "magica" } } }),
+    } as unknown as Response;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        await gate;
+        return page;
+      }),
+    );
+    useKnowledge.getState().setSearch("magica");
+    const run = useKnowledge.getState().runSearch();
+    await new Promise((r) => setTimeout(r, 0));
+    useKnowledge.getState().reset();
+    release();
+    await run;
+    expect(useKnowledge.getState().results).toEqual([]);
+    expect(useKnowledge.getState().searching).toBe(false);
   });
 
   it("records the term the run searched, not the one being typed", async () => {
