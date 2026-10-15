@@ -636,9 +636,10 @@ test("a replacement that cannot be recorded is taken back, and nothing has chang
   /*
    * The act is two writes in two accounts and Stalwart has no transaction across
    * them, so the second failing must undo the first rather than leave a
-   * workorder nobody asked for. `casLoses.skip` lets the creation's own writes
-   * pass and makes the *marking* lose every attempt — which is the case a second
-   * write's refusal is, and the one this compensation exists for.
+   * workorder nobody asked for. Aiming `casLoses` at the agent's address makes
+   * the *marking* lose every attempt while the creation's own writes pass — no
+   * create carries an `ifInState` to lose — which is the case a second write's
+   * refusal is, and the one this compensation exists for.
    *
    * The pair is all-or-nothing from the outside: either the successor exists and
    * the predecessor names it, or neither fact is there to be seen. Fails if the

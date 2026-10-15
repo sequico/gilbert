@@ -10,9 +10,9 @@ import { readFileSync } from "node:fs";
  * joined the gate — harmless, because the decision fails closed, but the hook
  * could not skip what it was written to skip.
  *
- * The names are not written down here at all: they are read out of the same
- * `package.json` commands `check:ci` runs, so the gate and this cannot drift by
- * one of them being edited without the other.
+ * The names are read out of `package.json`'s `check:ci` — the `npm run <name>`
+ * segments it runs — so the gate and this cannot disagree, and `CHECK_COMMANDS`
+ * fixes only the order the found checks are assembled in.
  */
 export const CHECK_COMMANDS = [
   "adr:owed",
@@ -25,6 +25,16 @@ export const CHECK_COMMANDS = [
 /** The script files those commands run, in the order the gate runs them. */
 export function checkModules(root) {
   const { scripts } = JSON.parse(readFileSync(`${root}/package.json`, "utf8"));
-  const command = CHECK_COMMANDS.map((name) => scripts[name] ?? "").join(" ");
+  const names = [...(scripts["check:ci"] ?? "").matchAll(/npm run ([\w:.-]+)/g)].map(
+    (match) => match[1],
+  );
+  const rank = (name) => {
+    const at = CHECK_COMMANDS.indexOf(name);
+    return at === -1 ? CHECK_COMMANDS.length : at;
+  };
+  const command = names
+    .sort((a, b) => rank(a) - rank(b))
+    .map((name) => scripts[name] ?? "")
+    .join(" ");
   return command.match(/(scripts\/[\w.-]+\.mjs)/g) ?? [];
 }
