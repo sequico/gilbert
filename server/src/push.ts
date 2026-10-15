@@ -117,6 +117,16 @@ interface AccountPush {
   checkedAt: number;
   authorization: string; // one live session's credential, for set/verify/renew
   subscriptionId: string | null;
+  /**
+   * The subscription attempt in flight for this account, if any.
+   *
+   * A verification can arrive while the create is still running: Stalwart posts
+   * it as soon as the subscription exists, and the id the code is applied to is
+   * assigned when the answer is read. A verification that arrives in that
+   * window waits on this instead of being refused -- the id is an answer still
+   * owed, not a refusal.
+   */
+  subscribing: Promise<void> | null;
   state: "pending" | "verified" | "failed";
   since: number;
   expires: number;
@@ -378,7 +388,17 @@ async function reclaimPastBuilds(entry: AccountPush): Promise<number> {
   }
 }
 
-async function subscribe(entry: AccountPush) {
+async function subscribe(entry: AccountPush): Promise<void> {
+  const attempt = subscribeOnce(entry);
+  entry.subscribing = attempt;
+  try {
+    await attempt;
+  } finally {
+    if (entry.subscribing === attempt) entry.subscribing = null;
+  }
+}
+
+async function subscribeOnce(entry: AccountPush) {
   const url = `${entry.origin}${config.basePath}/api/push/${entry.token}`;
   // Every type a surface keeps live, for every account. The list is the one
   // the relay's `types=*` already covers, so which transport a deployment is
@@ -537,6 +557,7 @@ export function prepare(
       authorization,
       subscriptionId: null,
       state: "pending",
+      subscribing: null,
       lastFailure: null,
       checkedAt: 0,
       since: Date.now(),
@@ -699,6 +720,12 @@ export async function receive(token: string, body: unknown): Promise<number> {
        and answering 200 stops Stalwart retrying a verification we cannot use. */
     if (entry.state !== "pending") return 200;
     try {
+      /* The create mints the id this code belongs to, and Stalwart posts the
+         verification as soon as the subscription exists -- which can be while
+         that create is still running. A code against an id nobody has read yet
+         is an answer we are still owed, so wait for the attempt rather than
+         refusing it; once it settles, the state above is re-read by `verify`. */
+      if (!entry.subscriptionId && entry.subscribing) await entry.subscribing;
       await verify(entry, msg.verificationCode);
       return 200;
     } catch (err) {

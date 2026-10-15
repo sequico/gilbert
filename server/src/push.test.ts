@@ -1211,7 +1211,7 @@ test("a verification the server refuses never makes the entry trusted", async ()
 // still null. Keying the update on null asks Stalwart to update a subscription
 // named "null", and answering 200 would leave the account on a stream that
 // never carries a change.
-test("a verification that arrives before the subscription exists is refused", async () => {
+test("a verification that arrives while the create is in flight is applied when it lands", async () => {
   const push = await isolatedPush("verify-early");
   const restoreUpstream = stubUpstream();
   const capture = captureToken();
@@ -1234,15 +1234,18 @@ test("a verification that arrives before the subscription exists is refused", as
     await new Promise((r) => setTimeout(r, 50)); // the create is in flight
     const token = capture.token();
     assert.ok(token, "the in-flight create carries the push URL");
-    assert.equal(
-      await push.receive(token!, {
-        "@type": "PushVerification",
-        verificationCode: "v",
-      }),
-      500,
-      "there is no subscription to verify yet",
-    );
-    assert.equal(push.pushStatus().accounts.verified, 0, "nothing is trusted");
+    /* Stalwart posts the code as soon as the subscription exists, which is
+       before this process has read the id the code is applied to. The
+       verification waits for that create instead of refusing a code Stalwart
+       does not repeat -- so the answer is owed, and the test has to let the
+       create finish rather than hold it for ever. */
+    const answered = push.receive(token!, {
+      "@type": "PushVerification",
+      verificationCode: "v",
+    });
+    release();
+    assert.equal(await answered, 200, "the code is applied to the subscription it names");
+    assert.equal(push.pushStatus().accounts.verified, 1, "and the account is trusted");
   } finally {
     release();
     globalThis.fetch = NO_NETWORK;
