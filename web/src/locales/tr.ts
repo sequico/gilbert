@@ -2353,7 +2353,6 @@ export const catalog: Catalog = {
     Replace: "Değiştir",
     "Replace with": "Şununla değiştir",
     "Mark completed": "Tamamlandı olarak işaretle",
-    Cancel: "İptal et",
     "Succeeded by {uid}": "Yerine geçen: {uid}",
     "The workorder that succeeded this one": "Bunun yerine geçen iş emri",
   },

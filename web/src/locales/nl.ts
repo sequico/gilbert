@@ -2435,7 +2435,6 @@ export const catalog: Catalog = {
     Replace: "Vervangen",
     "Replace with": "Vervangen door",
     "Mark completed": "Markeer als voltooid",
-    Cancel: "Annuleren",
     "Succeeded by {uid}": "Opgevolgd door {uid}",
     "The workorder that succeeded this one": "De werkorder die deze heeft opgevolgd",
   },

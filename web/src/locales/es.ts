@@ -2458,7 +2458,6 @@ export const catalog: Catalog = {
     Replace: "Reemplazar",
     "Replace with": "Reemplazar por",
     "Mark completed": "Marcar como completada",
-    Cancel: "Cancelar",
     "Succeeded by {uid}": "Sucedida por {uid}",
     "The workorder that succeeded this one": "La orden que sucedió a esta",
   },

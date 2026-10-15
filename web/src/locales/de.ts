@@ -2494,7 +2494,6 @@ export const catalog: Catalog = {
     Replace: "Ersetzen",
     "Replace with": "Ersetzen durch",
     "Mark completed": "Als abgeschlossen markieren",
-    Cancel: "Abbrechen",
     "Succeeded by {uid}": "Abgelöst durch {uid}",
     "The workorder that succeeded this one": "Der Auftrag, der diesen abgelöst hat",
   },

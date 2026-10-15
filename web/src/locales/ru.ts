@@ -2432,7 +2432,6 @@ export const catalog: Catalog = {
     Replace: "Заменить",
     "Replace with": "Заменить на",
     "Mark completed": "Отметить как выполненный",
-    Cancel: "Отменить",
     "Succeeded by {uid}": "Преемник: {uid}",
     "The workorder that succeeded this one": "Workorder, ставший преемником",
   },

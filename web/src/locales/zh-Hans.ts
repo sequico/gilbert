@@ -2351,7 +2351,6 @@ export const catalog: Catalog = {
     Replace: "替换",
     "Replace with": "替换为",
     "Mark completed": "标记为已完成",
-    Cancel: "取消",
     "Succeeded by {uid}": "由 {uid} 接替",
     "The workorder that succeeded this one": "接替此工单的工单",
   },

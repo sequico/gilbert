@@ -2434,7 +2434,6 @@ export const catalog: Catalog = {
     Replace: "置き換える",
     "Replace with": "置き換え先",
     "Mark completed": "完了としてマーク",
-    Cancel: "キャンセル",
     "Succeeded by {uid}": "{uid} が後継",
     "The workorder that succeeded this one": "これを引き継いだワークオーダー",
   },
