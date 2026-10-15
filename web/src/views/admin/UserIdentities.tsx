@@ -19,6 +19,7 @@
  * list — so nothing of a group's is shown here as well.
  */
 
+import { errorMessage } from "@gilbert/shared/errors";
 import { Plus, RotateCw, Star, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
@@ -85,7 +86,7 @@ export function UserIdentities() {
     } catch (err) {
       if (seq !== readSeq.current) return false;
       setView(null);
-      setError((err as Error).message);
+      setError(errorMessage(err));
       return false;
     } finally {
       if (seq === readSeq.current) setLoading(false);
@@ -149,7 +150,7 @@ export function UserIdentities() {
           : t("No default identity: this account sends with its first."),
       );
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -169,7 +170,7 @@ export function UserIdentities() {
       await deleteUserIdentity(address, identity.id);
       await load(address);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
   }
 
@@ -194,7 +195,7 @@ export function UserIdentities() {
           : t("Released — the account can set its own identities again."),
       );
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

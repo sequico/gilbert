@@ -18,6 +18,7 @@
  * list-level actions (activate/deactivate, delete), reloaded after every one
  * of them whether it succeeded or not so the next attempt starts fresh.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { AlertTriangle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -65,7 +66,7 @@ export function SystemSieve() {
       setScripts(res.scripts);
       setListState(res.state);
     } catch (err) {
-      setLoadError((err as Error).message);
+      setLoadError(errorMessage(err));
     }
   }
 
@@ -104,7 +105,7 @@ export function SystemSieve() {
       const full = await getSystemSieveScript(script.id);
       start(script, full.contents, full.state);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -127,7 +128,7 @@ export function SystemSieve() {
       await load();
       return true;
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

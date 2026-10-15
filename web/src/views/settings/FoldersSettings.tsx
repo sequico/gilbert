@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Eye, EyeOff, Folder, Inbox, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
@@ -114,7 +115,7 @@ export function FoldersSettings() {
       // shows what it now is.
       toast.success(t("Folder role updated"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -144,7 +145,7 @@ export function FoldersSettings() {
       }
       toast.success(t("Folder created"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 
@@ -225,7 +226,7 @@ export function FoldersSettings() {
                             .getState()
                             .updateMailbox(m.id, { name: n.trim() });
                         } catch (err) {
-                          toast.error((err as Error).message);
+                          toast.error(errorMessage(err));
                         }
                       }
                     }}
@@ -243,7 +244,7 @@ export function FoldersSettings() {
                           .getState()
                           .updateMailbox(m.id, { isSubscribed: !m.isSubscribed });
                       } catch (err) {
-                        toast.error((err as Error).message);
+                        toast.error(errorMessage(err));
                       }
                     }}
                   >
@@ -291,7 +292,7 @@ export function FoldersSettings() {
                           if (!outcome.ok) return;
                           toast.success(t("Folder deleted"));
                         } catch (err) {
-                          toast.error((err as Error).message);
+                          toast.error(errorMessage(err));
                         }
                       }
                     }}

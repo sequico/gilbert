@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Id } from "@/jmap/types";
@@ -356,7 +357,7 @@ export function RuleDialog({
                       setAction(i, { ...a, mailbox: path, mailboxId: parentId! });
                       toast.success(translate("Folder “{name}” created", { name: path }));
                     } catch (err) {
-                      toast.error((err as Error).message);
+                      toast.error(errorMessage(err));
                     }
                     return;
                   }

@@ -33,6 +33,7 @@
  * and says that an assignment cannot be made until it reads again.
  */
 
+import { errorMessage } from "@gilbert/shared/errors";
 import { Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
@@ -178,7 +179,7 @@ function MemberRow({
       }
       onName(address, ownDisplayName(view, address));
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     } finally {
       setReading(false);
     }
@@ -310,7 +311,7 @@ export function GroupIdentities() {
     } catch (err) {
       if (seq !== readSeq.current) return false;
       setView(null);
-      setError((err as Error).message);
+      setError(errorMessage(err));
       return false;
     } finally {
       // The newer read owns the spinner: clearing it here would end one still
@@ -403,7 +404,7 @@ export function GroupIdentities() {
       await deleteGroupIdentity(name, identity.id);
       await load(name);
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
   }
 

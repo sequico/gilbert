@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import type {
   AppPasswordRow,
   SecurityState,
@@ -32,7 +33,7 @@ export function SecuritySettings() {
         setCurrent(r.current);
         setSessionsError(null);
       })
-      .catch((err) => setSessionsError((err as Error).message));
+      .catch((err) => setSessionsError(errorMessage(err)));
 
   const loadSecurity = useCallback(async () => {
     try {
@@ -49,7 +50,7 @@ export function SecuritySettings() {
         setSecurityError(null);
       } else {
         setUnsupported(null);
-        setSecurityError((err as Error).message);
+        setSecurityError(errorMessage(err));
       }
     }
   }, []);
@@ -234,7 +235,7 @@ export function PasswordForm({
       );
       onChanged();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -330,7 +331,7 @@ function TwoFactorOff({ reload }: { reload: () => Promise<void> }) {
       await reload();
       toast.success(t("Two-factor authentication is off"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -439,7 +440,7 @@ function AppPasswords({
       setCurrent("");
       await reload();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -461,7 +462,7 @@ function AppPasswords({
       await reload();
       toast.success(t("App password revoked"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     }
   };
 

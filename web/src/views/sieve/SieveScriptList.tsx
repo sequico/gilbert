@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Power, Trash2 } from "lucide-react";
 import { t } from "@/lib/i18n";
 import { confirmDialog } from "@/ui/dialog";
@@ -62,7 +63,7 @@ export function SieveScriptList<T extends SieveScriptRow>({
                 try {
                   await onToggle(s);
                 } catch (err) {
-                  toast.error((err as Error).message);
+                  toast.error(errorMessage(err));
                 }
               }}
             >
@@ -82,7 +83,7 @@ export function SieveScriptList<T extends SieveScriptRow>({
                   try {
                     await onDelete(s);
                   } catch (err) {
-                    toast.error((err as Error).message);
+                    toast.error(errorMessage(err));
                   }
                 }
               }}

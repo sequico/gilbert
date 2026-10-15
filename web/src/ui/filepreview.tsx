@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Code2, Download, Eye, Pencil, Printer, Save, Share2, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { triggerDownload } from "@/lib/download";
@@ -136,7 +137,7 @@ export function FilePreviewDialog({
       loaded.replace(draft);
       setMode(markdown ? "rendered" : "source");
     } catch (err) {
-      setSaveError((err as Error).message);
+      setSaveError(errorMessage(err));
     } finally {
       setSaving(false);
     }

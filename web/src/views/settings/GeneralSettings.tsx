@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useState } from "react";
 import { browserTimeZone, listTimeZones } from "@/lib/dates";
 import {
@@ -438,7 +439,7 @@ function MailHandlerSettings() {
       toast.success(t("Your browser will ask whether to open mail links in Gilbert"));
     } catch (err) {
       toast.error(
-        t("Your browser refused the request: {error}", { error: (err as Error).message }),
+        t("Your browser refused the request: {error}", { error: errorMessage(err) }),
       );
     }
   };

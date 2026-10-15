@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
@@ -135,7 +136,7 @@ export function ShareDialog({
       if (kind === "FileNode") void useFiles.getState().refresh([id]);
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

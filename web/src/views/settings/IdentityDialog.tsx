@@ -12,6 +12,7 @@
  * take: name, address, Reply-To, Bcc and a signature within the limit.
  */
 
+import { errorMessage } from "@gilbert/shared/errors";
 import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList, parseAddressList } from "@/lib/address";
@@ -169,7 +170,7 @@ export function IdentityDialog({
       toast.success(t("Identity saved"));
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

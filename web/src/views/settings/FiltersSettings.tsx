@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   AlertTriangle,
   ArrowDown,
@@ -147,9 +148,7 @@ function RulesEditor() {
       toast.success(t("Filters saved"));
       return true;
     } catch (err) {
-      toast.error(
-        t("Could not save filters: {error}", { error: (err as Error).message }),
-      );
+      toast.error(t("Could not save filters: {error}", { error: errorMessage(err) }));
       return false;
     } finally {
       setSaving(false);
@@ -442,7 +441,7 @@ function ScriptsEditor() {
       setValidation(err);
       if (!err) toast.success(t("Script is valid"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -470,7 +469,7 @@ function ScriptsEditor() {
       close();
       return true;
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

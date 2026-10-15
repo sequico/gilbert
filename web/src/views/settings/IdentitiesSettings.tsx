@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { Eye, EyeOff, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
@@ -197,7 +198,7 @@ export function IdentitiesSettings() {
                     try {
                       await useMail.getState().destroyIdentity(i.id);
                     } catch (err) {
-                      toast.error((err as Error).message);
+                      toast.error(errorMessage(err));
                     }
                   }
                 }}
@@ -290,7 +291,7 @@ function GroupIdentities({ account }: { account: MailAccountInfo }) {
      * list.
      */
     loadFor(account.accountId).catch((err) => {
-      if (live) setError((err as Error).message);
+      if (live) setError(errorMessage(err));
     });
     // Read again as the section opens, not only when the store has nothing:
     // the administration assigns from another session, and this page is where a

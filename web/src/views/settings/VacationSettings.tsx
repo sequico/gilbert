@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { CAP, client } from "@/jmap/client";
 import { fromInputDateTime, toInputDateTime, toUTCDate } from "@/lib/dates";
@@ -89,7 +90,7 @@ export function VacationSettings() {
       });
       toast.success(enabled ? t("Auto-reply is on") : t("Auto-reply saved"));
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
