@@ -21,6 +21,16 @@ import { vi } from "vitest";
  * (`list`, `ids`, `created`, `notFound`, …), which is what the hand-written
  * defaults answered with too. A suite that needs a different answer registers
  * the method.
+ *
+ * A suite can also make the server REFUSE a call, which is not an answer at all:
+ * JMAP refuses in an entry whose method name is the literal `"error"` and whose
+ * body is an error object, so no handler can produce one — it would have to
+ * answer under a name no call carried. `onError` is the second registration,
+ * beside `on` and consulted first: it is asked for every call of that method
+ * before any handler, returns the error object for the calls to refuse, and
+ * returns nothing for the calls to answer normally. That is what a server that
+ * refuses a call over a ceiling and accepts it under one looks like — a
+ * refusal decided per call, not a different server per test.
  */
 
 /** One call, as the fake saw it. */
@@ -33,9 +43,19 @@ export interface JmapCall {
 /** What a handler answers for one call: that method's response object. */
 export type JmapAnswer = (call: JmapCall) => unknown;
 
+/**
+ * The refusal of one call: an error object for the calls to refuse, nothing for
+ * the calls to answer normally.
+ */
+export type JmapRefusal = (
+  call: JmapCall,
+) => { type: string; description?: string } | undefined;
+
 export interface JmapFake {
   /** Answer every call of `method` with what `answer` returns. */
   on(method: string, answer: JmapAnswer): JmapFake;
+  /** Refuse every call of `method` that `refuse` answers an error object for. */
+  onError(method: string, refuse: JmapRefusal): JmapFake;
   /** Every call the client made, in order. The array is live: it grows. */
   calls: JmapCall[];
   /** The calls of one method, in order, as they stood when this was called. */
@@ -79,11 +99,16 @@ const emptyResult = (call: JmapCall): Record<string, unknown> => ({
  */
 export function fakeJmapServer(): JmapFake {
   const handlers = new Map<string, JmapAnswer>();
+  const refusals = new Map<string, JmapRefusal>();
   const calls: JmapCall[] = [];
 
   const fake: JmapFake = {
     on(method, answer) {
       handlers.set(method, answer);
+      return fake;
+    },
+    onError(method, refuse) {
+      refusals.set(method, refuse);
       return fake;
     },
     calls,
@@ -99,6 +124,9 @@ export function fakeJmapServer(): JmapFake {
       const methodResponses = body.methodCalls.map(([method, args, id]) => {
         const call: JmapCall = { method, args, id };
         calls.push(call);
+        const refuse = refusals.get(method);
+        const error = refuse?.(call);
+        if (error) return ["error", error, id];
         const answer = handlers.get(method);
         return [method, answer ? answer(call) : emptyResult(call), id];
       });
