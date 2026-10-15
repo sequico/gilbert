@@ -79,8 +79,11 @@ import { useSettings } from "./settings";
  * The UIDs an address book already holds.
  *
  * Read once per import rather than once per card, and narrowed to the target
- * book from `addressBookIds` here rather than through a filter -- the same
- * arrangement, and for the same reasons, as the calendar's scan in #222.
+ * book from `addressBookIds` here rather than through a filter. It asks for the
+ * total as well, because the loop stops when the position reaches it, and it
+ * reads each page back by its ids rather than naming the query's answer by
+ * reference: this is a query and the gets it needs, not the one page
+ * `queryThenGet` builds.
  *
  * Asked of the server rather than read from the cards already in the store.
  * The store's copy is complete once the view has loaded, and importing is not
