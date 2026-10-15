@@ -1,5 +1,5 @@
 import { type PushState, push } from "@/jmap/push";
-import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, storageOf } from "@/lib/storage";
 import { withBase } from "./basePath";
 import { withDeadline } from "./deadline";
 import { APP_VERSION } from "./version";
@@ -31,10 +31,9 @@ import { pollWhileVisible } from "./visiblePoll";
  */
 const TRIED_KEY = deviceKey(DEVICE_KEYS.reloadedFor);
 
-/** sessionStorage throws outright in some privacy modes; treat that as absent. */
 function tried(): string | null {
   try {
-    return sessionStorage.getItem(TRIED_KEY);
+    return storageOf("session")?.getItem(TRIED_KEY) ?? null;
   } catch {
     return null;
   }
@@ -42,15 +41,15 @@ function tried(): string | null {
 
 function remember(version: string): void {
   try {
-    sessionStorage.setItem(TRIED_KEY, version);
+    storageOf("session")?.setItem(TRIED_KEY, version);
   } catch {
-    /* nothing to do: the guard below is best-effort */
+    /* quota exceeded: nothing to do, the guard below is best-effort */
   }
 }
 
 function forget(): void {
   try {
-    sessionStorage.removeItem(TRIED_KEY);
+    storageOf("session")?.removeItem(TRIED_KEY);
   } catch {
     /* as above */
   }

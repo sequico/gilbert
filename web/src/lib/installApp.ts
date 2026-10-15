@@ -16,7 +16,7 @@
  * ready to be asked again -- so there is no re-arming to do here.
  */
 
-import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, storageOf } from "@/lib/storage";
 
 /** The `beforeinstallprompt` event, which the DOM lib does not declare. */
 export interface BeforeInstallPromptEvent extends Event {
@@ -135,7 +135,7 @@ const INSTALLED_KEY = deviceKey(DEVICE_KEYS.appInstalledOnDevice);
 
 function readInstalledMarker(): boolean {
   try {
-    return localStorage.getItem(INSTALLED_KEY) === "1";
+    return storageOf("local")?.getItem(INSTALLED_KEY) === "1";
   } catch {
     return false;
   }
@@ -172,7 +172,7 @@ const BANNER_KEY = deviceKey(DEVICE_KEYS.installBannerDismissed);
 export function installBannerDismissed(): boolean {
   if (justInstalled || appInstallState() === "in-app") return true;
   try {
-    return localStorage.getItem(BANNER_KEY) === appInstallState();
+    return storageOf("local")?.getItem(BANNER_KEY) === appInstallState();
   } catch {
     return false;
   }
@@ -180,9 +180,9 @@ export function installBannerDismissed(): boolean {
 
 export function dismissInstallBanner(): void {
   try {
-    localStorage.setItem(BANNER_KEY, appInstallState());
+    storageOf("local")?.setItem(BANNER_KEY, appInstallState());
   } catch {
-    /* private mode: the banner may return, which is not a failure */
+    /* quota exceeded: the banner may return, which is not a failure */
   }
   announce();
 }
@@ -209,9 +209,9 @@ export function watchInstallApp(): void {
     installedMarker = true;
     justInstalled = true;
     try {
-      localStorage.setItem(INSTALLED_KEY, "1");
+      storageOf("local")?.setItem(INSTALLED_KEY, "1");
     } catch {
-      /* private mode: the marker is only a hint */
+      /* quota exceeded: the marker is only a hint */
     }
     announce();
   });

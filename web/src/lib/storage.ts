@@ -28,9 +28,33 @@ const PREFIX = "gilbert:";
  *
  * So: a key is a name from here, and a module that holds one asks
  * `deviceKey(name)` for its storage key rather than writing the prefix out.
+ * `storageOf` is the other half of the same rule: the store itself, asked for
+ * in a way a private window can be asked in.
  */
 export function deviceKey(name: string): string {
   return `${PREFIX}${name}`;
+}
+
+/** Which of the browser's two per-origin stores a key lives in. */
+export type StorageKind = "local" | "session";
+
+/**
+ * The browser's storage, or `null` where there is none to be had.
+ *
+ * A private window throws on *access* to `localStorage` and `sessionStorage`,
+ * not only on use, so the tolerant read of them is written once here and every
+ * caller asks for `null` instead of catching the throw again. It is ungated on
+ * purpose: the crash marks, the install banner and the notifications-asked
+ * stamp live outside the trust gate, so the modules holding them ask the store
+ * directly.
+ */
+export function storageOf(kind: StorageKind): Storage | null {
+  try {
+    return kind === "local" ? localStorage : sessionStorage;
+  } catch {
+    // Some privacy modes throw on access; there is no store to ask.
+    return null;
+  }
 }
 
 /** The keys a module holds, by the name the sign-out list and this module use. */
@@ -101,7 +125,7 @@ const TRUST_KEY = deviceKey(DEVICE_KEYS.deviceTrusted);
  */
 let trusted = (() => {
   try {
-    return localStorage.getItem(TRUST_KEY) === "1";
+    return storageOf("local")?.getItem(TRUST_KEY) === "1";
   } catch {
     return false;
   }
@@ -115,8 +139,9 @@ export function isDeviceTrusted(): boolean {
 export function setDeviceTrusted(value: boolean): void {
   trusted = value;
   try {
-    if (value) localStorage.setItem(TRUST_KEY, "1");
-    else localStorage.removeItem(TRUST_KEY);
+    const store = storageOf("local");
+    if (value) store?.setItem(TRUST_KEY, "1");
+    else store?.removeItem(TRUST_KEY);
   } catch {
     /* private mode: the in-memory flag still holds for this tab */
   }
@@ -126,8 +151,10 @@ export function setDeviceTrusted(value: boolean): void {
 function ownKeys(): string[] {
   const out: string[] = [];
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
+    const store = storageOf("local");
+    if (!store) return out;
+    for (let i = 0; i < store.length; i++) {
+      const k = store.key(i);
       if (k?.startsWith(PREFIX)) out.push(k.slice(PREFIX.length));
     }
   } catch {
@@ -157,7 +184,7 @@ export function clearAllData(): void {
 export function loadJson<T>(key: string, fallback: T): T {
   if (!trusted) return fallback;
   try {
-    const raw = localStorage.getItem(PREFIX + key);
+    const raw = storageOf("local")?.getItem(PREFIX + key);
     if (raw == null) return fallback;
     return { ...fallback, ...(JSON.parse(raw) as T) };
   } catch {
@@ -178,7 +205,7 @@ export function loadJson<T>(key: string, fallback: T): T {
 export function hasCachedJson(key: string): boolean {
   if (!trusted) return false;
   try {
-    return localStorage.getItem(PREFIX + key) != null;
+    return storageOf("local")?.getItem(PREFIX + key) != null;
   } catch {
     return false;
   }
@@ -187,7 +214,7 @@ export function hasCachedJson(key: string): boolean {
 export function loadRaw<T>(key: string, fallback: T): T {
   if (!trusted) return fallback;
   try {
-    const raw = localStorage.getItem(PREFIX + key);
+    const raw = storageOf("local")?.getItem(PREFIX + key);
     if (raw == null) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -198,7 +225,7 @@ export function loadRaw<T>(key: string, fallback: T): T {
 export function saveJson(key: string, value: unknown): void {
   if (!trusted) return;
   try {
-    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    storageOf("local")?.setItem(PREFIX + key, JSON.stringify(value));
   } catch {
     /* quota exceeded or private mode */
   }
@@ -206,7 +233,7 @@ export function saveJson(key: string, value: unknown): void {
 
 export function removeKey(key: string): void {
   try {
-    localStorage.removeItem(PREFIX + key);
+    storageOf("local")?.removeItem(PREFIX + key);
   } catch {
     /* ignore */
   }

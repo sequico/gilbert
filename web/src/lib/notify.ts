@@ -1,4 +1,4 @@
-import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, storageOf } from "@/lib/storage";
 import { withBase } from "./basePath";
 
 let baseTitle = "gilbert";
@@ -126,7 +126,7 @@ const ASK_KEY = deviceKey(DEVICE_KEYS.notificationsAskedAt);
 /** Whether this device is due to be asked again, given when it last was. */
 export function notificationAskDue(now: number = Date.now()): boolean {
   try {
-    const last = Number(localStorage.getItem(ASK_KEY) ?? 0);
+    const last = Number(storageOf("local")?.getItem(ASK_KEY) ?? 0);
     return !last || now - last >= NOTIFICATION_ASK_COOLDOWN_MS;
   } catch {
     return true;
@@ -136,9 +136,9 @@ export function notificationAskDue(now: number = Date.now()): boolean {
 /** Record that the ask was shown, so it is not repeated before the cooldown. */
 export function rememberNotificationAsk(now: number = Date.now()): void {
   try {
-    localStorage.setItem(ASK_KEY, String(now));
+    storageOf("local")?.setItem(ASK_KEY, String(now));
   } catch {
-    /* private mode: not remembered, which only means the ask may repeat */
+    /* quota exceeded: not remembered, which only means the ask may repeat */
   }
 }
 

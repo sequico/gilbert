@@ -25,7 +25,7 @@
  * attempts is left for a human, with the record intact.
  */
 
-import { DEVICE_KEYS, deviceKey } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, type StorageKind, storageOf } from "@/lib/storage";
 
 const CRASH_KEY = deviceKey(DEVICE_KEYS.lastCrash);
 const RELOAD_MARKS_KEY = deviceKey(DEVICE_KEYS.autoReloadMarks);
@@ -72,38 +72,19 @@ export interface CrashRecord {
   componentStack?: string;
 }
 
-function readRaw(storage: Storage | null, key: string): string | null {
-  if (!storage) return null;
+function readRaw(kind: StorageKind, key: string): string | null {
   try {
-    return storage.getItem(key);
+    return storageOf(kind)?.getItem(key) ?? null;
   } catch {
     return null;
   }
 }
 
-function writeRaw(storage: Storage | null, key: string, value: string): void {
-  if (!storage) return;
+function writeRaw(kind: StorageKind, key: string, value: string): void {
   try {
-    storage.setItem(key, value);
+    storageOf(kind)?.setItem(key, value);
   } catch {
     /* best-effort, as above */
-  }
-}
-
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    // Some privacy modes throw on access; the record is best-effort.
-    return null;
-  }
-}
-
-function sessionStorageOf(): Storage | null {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
   }
 }
 
@@ -122,7 +103,7 @@ export function recordCrash(err: unknown, componentStack?: string): CrashRecord 
     ...(e.stack ? { stack: e.stack } : {}),
     ...(componentStack ? { componentStack } : {}),
   };
-  writeRaw(storage(), CRASH_KEY, JSON.stringify(record));
+  writeRaw("local", CRASH_KEY, JSON.stringify(record));
   console.error(
     "[gilbert] an uncaught error stopped the app; the crash is recorded and an automatic reload may be attempted",
     record,
@@ -132,7 +113,7 @@ export function recordCrash(err: unknown, componentStack?: string): CrashRecord 
 
 /** The last recorded crash, for support to read back after a reload. */
 export function readCrashRecord(): CrashRecord | null {
-  const raw = readRaw(storage(), CRASH_KEY);
+  const raw = readRaw("local", CRASH_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as CrashRecord;
@@ -145,40 +126,37 @@ export function readCrashRecord(): CrashRecord | null {
  * The reload marks live in sessionStorage: they must survive a reload in the
  * same tab (that is the whole point) and they must not leak across tabs (one
  * tab's repair attempt is not another's). The memory mirror is only a
- * fallback for environments where storage exists but refuses to answer — a
+ * fallback for environments where there is no session storage to be had — a
  * privacy mode that throws on access cannot remember across reloads, but can
  * still stop the same page from reloading in a loop. Where storage answers,
  * it is authoritative and the mirror follows it.
  */
-const SESSION = sessionStorageOf();
 let memoryMarks: number[] = [];
 
 function readMarks(): number[] {
-  if (SESSION) {
+  const raw = readRaw("session", RELOAD_MARKS_KEY);
+  if (raw !== null) {
     try {
-      const raw = SESSION.getItem(RELOAD_MARKS_KEY);
-      if (raw !== null) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) {
-          const marks = parsed.filter((x): x is number => typeof x === "number");
-          memoryMarks = marks;
-          return marks;
-        }
-      } else {
-        // A readable empty store is authoritative: this tab has no attempts.
-        memoryMarks = [];
-        return [];
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        const marks = parsed.filter((x): x is number => typeof x === "number");
+        memoryMarks = marks;
+        return marks;
       }
     } catch {
-      // Storage exists but refuses to answer; fall back to the mirror.
+      // Marks that cannot be read back; fall back to the mirror.
     }
+  } else {
+    // A readable empty store is authoritative: this tab has no attempts.
+    memoryMarks = [];
+    return [];
   }
   return memoryMarks;
 }
 
 function writeMarks(marks: number[]): void {
   memoryMarks = marks;
-  writeRaw(SESSION, RELOAD_MARKS_KEY, JSON.stringify(marks));
+  writeRaw("session", RELOAD_MARKS_KEY, JSON.stringify(marks));
 }
 
 function withinWindow(marks: number[], now: number, ms: number): number[] {
