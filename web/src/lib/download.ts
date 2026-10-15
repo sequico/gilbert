@@ -3,8 +3,8 @@
  *
  * Two shapes, one click. `triggerDownload` takes a URL the server serves — an
  * attachment, a message as `.eml`, a file in the account — and is the only place
- * the anchor is written: three lines that get copied, and a copy is where a
- * filename stops matching the URL it names. `downloadFile` takes the content the
+ * a download anchor is written: three lines that get copied, and a copy is where
+ * a filename stops matching the URL it names. `downloadFile` takes the content the
  * app made and releases the object URL as soon as the download has been started,
  * because a click on the link starts it synchronously and an unreleased URL
  * keeps the whole file in memory for as long as the tab is open — an address

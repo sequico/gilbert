@@ -4,7 +4,7 @@ import { browserTimeZone, listTimeZones } from "@/lib/dates";
 import { t as translate } from "@/lib/i18n";
 import { useCalendar } from "@/store/calendar";
 import { Dialog } from "@/ui/dialog";
-import { ColorSwatches } from "@/ui/misc";
+import { ColorSwatches, DEFAULT_CALENDAR_COLOR } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
 export function CalendarDialog({
@@ -19,7 +19,7 @@ export function CalendarDialog({
 }) {
   const cal = useCalendar();
   const [name, setName] = useState(calendar.name ?? "");
-  const [color, setColor] = useState(calendar.color ?? "#0f766e");
+  const [color, setColor] = useState(calendar.color ?? DEFAULT_CALENDAR_COLOR);
   const [description, setDescription] = useState(calendar.description ?? "");
   const [tz, setTz] = useState(calendar.timeZone ?? "");
   const [avail, setAvail] = useState<Calendar["includeInAvailability"]>(

@@ -1,3 +1,4 @@
+import { PDF_TYPE } from "@gilbert/shared/media";
 import {
   Calendar,
   FileArchive,
@@ -25,7 +26,7 @@ export function attachmentIcon(type: string, name?: string | null) {
   if (t.startsWith("image/")) return <ImageIcon size={18} />;
   if (t.startsWith("video/")) return <Film size={18} />;
   if (t.startsWith("audio/")) return <Music size={18} />;
-  if (t === "application/pdf") return <FileText size={18} />;
+  if (t === PDF_TYPE) return <FileText size={18} />;
   if (/zip|tar|gzip|7z|rar|compressed/.test(t) || /\.(zip|tgz|gz|7z|rar)$/.test(n))
     return <FileArchive size={18} />;
   if (/spreadsheet|excel|csv/.test(t) || /\.(xlsx?|csv)$/.test(n))
