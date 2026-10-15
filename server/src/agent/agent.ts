@@ -19,6 +19,7 @@ import { JmapClient, serverNow } from "../jmap.js";
 import { forgetRememberedFor } from "../requestMemory.js";
 import { sleep } from "../shared/async.js";
 import { basicAuth } from "../shared/basicAuth.js";
+import { errorMessage } from "../shared/errors.js";
 import {
   fetchUpstreamSession,
   UpstreamError,
@@ -300,9 +301,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
       } catch (err) {
         // A lost reconcile is not a lost agent: the state stays where it was,
         // so the next pass re-reads the same range.
-        log(
-          `${accountId}: ${type} reconcile failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        log(`${accountId}: ${type} reconcile failed: ${errorMessage(err)}`);
       }
     }
     // Nothing wakes the agent for a time trigger — it is not a change — so the
@@ -424,9 +423,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     if (!servedAccounts.has(accountId)) return;
     if (type !== "Email" && type !== "FileNode") return;
     dirty.add(accountId);
-    void drain().catch((err: unknown) =>
-      log(`reconcile failed: ${err instanceof Error ? err.message : String(err)}`),
-    );
+    void drain().catch((err: unknown) => log(`reconcile failed: ${errorMessage(err)}`));
   };
 
   const openStreamIfHeld = (): void => {
@@ -583,9 +580,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
     try {
       await work();
     } catch (err) {
-      log(
-        `${accountId}: the pass could not finish this account: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log(`${accountId}: the pass could not finish this account: ${errorMessage(err)}`);
     }
   };
 
@@ -615,9 +610,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
         upstreamFor(deps.address),
       );
     } catch (err) {
-      log(
-        `could not re-read the agent's session: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log(`could not re-read the agent's session: ${errorMessage(err)}`);
     }
   };
 
@@ -690,9 +683,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
           await store.provision();
         } catch (err) {
           log(
-            `${accountId}: could not provision the agent folders: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
+            `${accountId}: could not provision the agent folders: ${errorMessage(err)}`,
           );
         }
         // A group hears from the agent once, without anyone having to ask. The
@@ -702,11 +693,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
           const greeted = await greetUnspoken(deps.ctx, accountId, deps.address, client);
           if (greeted) log(`${accountId}: greeted the group`);
         } catch (err) {
-          log(
-            `${accountId}: could not greet the group: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-          );
+          log(`${accountId}: could not greet the group: ${errorMessage(err)}`);
         }
       });
     }
@@ -762,8 +749,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
           await track(pass());
         },
         {
-          onError: (err) =>
-            log(`the pass threw: ${err instanceof Error ? err.message : String(err)}`),
+          onError: (err) => log(`the pass threw: ${errorMessage(err)}`),
         },
       ),
     );
@@ -774,10 +760,7 @@ export async function startAgent(deps: AgentDeps): Promise<AgentHandle> {
           await track(prune());
         },
         {
-          onError: (err) =>
-            log(
-              `the retention sweep threw: ${err instanceof Error ? err.message : String(err)}`,
-            ),
+          onError: (err) => log(`the retention sweep threw: ${errorMessage(err)}`),
         },
       ),
     );
@@ -977,7 +960,7 @@ export async function identityToFollow(
   } catch (err) {
     log(
       `${wanted.address} could not sign in, so the fleet keeps serving ${running.address}: ` +
-        (err instanceof Error ? err.message : String(err)),
+        errorMessage(err),
     );
     return null;
   }
@@ -1055,7 +1038,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
     } catch (err) {
       notice(
         `[gilbert] ${identity.address} could not sign in, so nothing is served: ` +
-          (err instanceof Error ? err.message : String(err)),
+          errorMessage(err),
       );
       return null;
     }
@@ -1100,10 +1083,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
         // A recheck that fails must not take the process down with an unhandled
         // rejection: the next recheck tries again, and the failure is said
         // rather than swallowed.
-        console.error(
-          "[gilbert] the agent identity recheck failed:",
-          err instanceof Error ? err.message : String(err),
-        );
+        console.error("[gilbert] the agent identity recheck failed:", errorMessage(err));
       }
     })();
   }, AGENT_IDENTITY_RECHECK_MS);
@@ -1133,10 +1113,7 @@ export async function main(): Promise<void> {
     } catch (err) {
       // Signalling must not turn a failed stop into an unhandled rejection that
       // hangs the process on the way out.
-      console.error(
-        "[gilbert] stopping the agent failed:",
-        err instanceof Error ? err.message : String(err),
-      );
+      console.error("[gilbert] stopping the agent failed:", errorMessage(err));
     }
     process.exit(0);
   };

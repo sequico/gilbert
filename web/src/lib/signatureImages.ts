@@ -4,6 +4,7 @@
  * blobs) under the app folder (see `appFolder.ts`) and reference them by blob URL; the
  * composer turns such references into inline cid: parts when sending.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { CAP, client } from "@/jmap/client";
 import type { QueryResponse } from "@/jmap/types";
 import { ensureFolder, writeBlobInFolder } from "@/lib/appFolder";
@@ -31,7 +32,7 @@ export async function uploadSignatureImage(file: File): Promise<string> {
     const written = await writeBlobInFolder(accountId, folderId, name, file, type);
     return client.downloadUrl(accountId, written.blobId, name, type, true);
   } catch (err) {
-    toast.error(t("Could not store image: {error}", { error: (err as Error).message }));
+    toast.error(t("Could not store image: {error}", { error: errorMessage(err) }));
     throw err;
   }
 }

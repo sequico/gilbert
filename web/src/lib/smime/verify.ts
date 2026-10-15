@@ -23,6 +23,7 @@
  */
 
 import { sameBytes } from "@gilbert/shared/bytes";
+import { errorMessage } from "@gilbert/shared/errors";
 import { parseAddressList } from "@/lib/address";
 import { parseSignedData, type SignerInfo } from "./cms";
 import {
@@ -163,7 +164,7 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
   try {
     root = parseMime(raw);
   } catch (err) {
-    return { kind: "unsupported", reason: "other", detail: (err as Error).message };
+    return { kind: "unsupported", reason: "other", detail: errorMessage(err) };
   }
 
   const signedPart = findPart(root, (p) => p.contentType === "multipart/signed");
@@ -192,7 +193,7 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
   try {
     signed = parseSignedData(decodeTransfer(signature));
   } catch (err) {
-    return { kind: "unsupported", reason: "other", detail: (err as Error).message };
+    return { kind: "unsupported", reason: "other", detail: errorMessage(err) };
   }
 
   // One signer only: verifying the first of several and reporting intact would

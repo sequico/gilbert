@@ -10,6 +10,7 @@
  *     already came with the message, so the common answer costs one string
  *     comparison and no network at all.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { client } from "@/jmap/client";
 import type { Email, EmailBodyPart, Id } from "@/jmap/types";
@@ -101,7 +102,7 @@ export function useSignature(
             crypto: {
               kind: "unsupported",
               reason: "other",
-              detail: (err as Error).message,
+              detail: errorMessage(err),
             },
             warnings: [],
           },

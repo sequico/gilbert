@@ -17,6 +17,7 @@
  * arrive.
  */
 import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { errorMessage } from "@gilbert/shared/errors";
 import { isRecord } from "@gilbert/shared/json";
 import { SETTINGS_FILE } from "@gilbert/shared/settingsDocument";
 import { CAP, client } from "@/jmap/client";
@@ -289,7 +290,7 @@ export async function flushSettingsPush(): Promise<void> {
     warnedOfFailure = true;
     toast.error(
       t("Your settings could not be saved: {error}", {
-        error: (failure as Error).message ?? String(failure),
+        error: errorMessage(failure),
       }),
     );
   }

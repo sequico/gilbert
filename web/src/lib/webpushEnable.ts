@@ -5,6 +5,7 @@
  * testable: everything here touches the browser's service worker and
  * permission prompt, none of which exists under a test runner.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { requestNotificationPermission } from "@/lib/notify";
 import { isDeviceTrusted } from "@/lib/storage";
 import {
@@ -79,7 +80,7 @@ export async function enableWebPush(): Promise<
     setPushOptedOutHere(false);
     return { ok: true };
   } catch (err) {
-    return { ok: false, code: "subscribe-failed", detail: (err as Error).message };
+    return { ok: false, code: "subscribe-failed", detail: errorMessage(err) };
   }
 }
 

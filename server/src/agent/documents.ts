@@ -27,6 +27,7 @@
 import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
 import { countOrNull } from "../shared/counts.js";
+import { errorMessage } from "../shared/errors.js";
 import { AGENT_PAGES_DEFAULT } from "../shared/installation.js";
 import { isRecord, isStringMap } from "../shared/json.js";
 
@@ -2439,11 +2440,7 @@ export function schemaProblems(rule: unknown): string[] {
   try {
     result = ruleValidator().validate(rule);
   } catch (err) {
-    return [
-      `the document carries a value that is not JSON: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    ];
+    return [`the document carries a value that is not JSON: ${errorMessage(err)}`];
   }
   if (result.valid) return [];
   return result.errors.map((error) => {
