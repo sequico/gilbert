@@ -1,6 +1,8 @@
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import {
   type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -250,6 +252,92 @@ function useTextField(
   return { text, setText, setEditing, onBlur };
 }
 
+/** Enter commits the text and leaves the box; ArrowDown opens the picker of a field that has one. */
+function fieldKeys(e: KeyboardEvent<HTMLInputElement>, open?: () => void) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    e.currentTarget.blur();
+  }
+  if (e.key === "ArrowDown" && open) {
+    e.preventDefault();
+    open();
+  }
+}
+
+/** The box a date or time is typed into, plus the icon that opens its picker. */
+function PickerInput({
+  inputRef,
+  id,
+  disabled,
+  required,
+  placeholder,
+  label,
+  field,
+  icon,
+  openLabel,
+  onOpen,
+  expanded,
+}: {
+  inputRef: RefObject<HTMLInputElement | null>;
+  id?: string;
+  disabled?: boolean;
+  required?: boolean;
+  placeholder: string;
+  label?: string;
+  field: ReturnType<typeof useTextField>;
+  icon: ReactNode;
+  /** Left out by a field that opens nothing: its icon is decorative and ArrowDown does nothing. */
+  onOpen?: () => void;
+  openLabel?: string;
+  expanded?: boolean;
+}) {
+  // ArrowDown opens a picker that is closed.
+  const openFromKey = onOpen && !expanded ? onOpen : undefined;
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        id={id}
+        className="input"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        spellCheck={false}
+        disabled={disabled}
+        required={required}
+        placeholder={placeholder}
+        aria-label={label}
+        aria-haspopup={onOpen ? "dialog" : undefined}
+        aria-expanded={onOpen ? Boolean(expanded) : undefined}
+        value={field.text}
+        onChange={(e) => {
+          field.setEditing(true);
+          field.setText(e.target.value);
+        }}
+        onBlur={field.onBlur}
+        onKeyDown={(e) => fieldKeys(e, openFromKey)}
+      />
+      {onOpen ? (
+        <button
+          type="button"
+          className="dp-open"
+          disabled={disabled}
+          onClick={onOpen}
+          aria-label={openLabel}
+          tabIndex={-1}
+        >
+          {icon}
+        </button>
+      ) : (
+        <span className="dp-open" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function DateField({
   value,
   onChange,
@@ -289,47 +377,19 @@ export function DateField({
 
   return (
     <span className={`dp-field ${className ?? ""}`}>
-      <input
-        ref={inputRef}
+      <PickerInput
+        inputRef={inputRef}
         id={id}
-        className="input"
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        spellCheck={false}
         disabled={disabled}
         required={required}
         placeholder={dateInputPlaceholder()}
-        aria-label={rest["aria-label"]}
-        aria-haspopup="dialog"
-        aria-expanded={Boolean(anchor)}
-        value={field.text}
-        onChange={(e) => {
-          field.setEditing(true);
-          field.setText(e.target.value);
-        }}
-        onBlur={field.onBlur}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          }
-          if (e.key === "ArrowDown" && !anchor) {
-            e.preventDefault();
-            open();
-          }
-        }}
+        label={rest["aria-label"]}
+        field={field}
+        icon={<CalIcon size={15} />}
+        openLabel={translate("Choose a date")}
+        onOpen={open}
+        expanded={Boolean(anchor)}
       />
-      <button
-        type="button"
-        className="dp-open"
-        disabled={disabled}
-        onClick={open}
-        aria-label={translate("Choose a date")}
-        tabIndex={-1}
-      >
-        <CalIcon size={15} />
-      </button>
       {anchor && (
         <Popover
           anchor={anchor}
@@ -428,84 +488,38 @@ export function DateTimeField({
   return (
     <span className={`dp-datetime ${className ?? ""}`}>
       <span className="dp-field">
-        <input
-          ref={dateRef}
+        <PickerInput
+          inputRef={dateRef}
           id={id}
-          className="input"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          spellCheck={false}
           disabled={disabled}
           required={required}
           placeholder={dateInputPlaceholder()}
-          aria-label={
+          label={
             rest["aria-label"]
               ? translate("{label} (date)", { label: rest["aria-label"] })
               : "Date"
           }
-          aria-haspopup="dialog"
-          aria-expanded={Boolean(anchor)}
-          value={dateField.text}
-          onChange={(e) => {
-            dateField.setEditing(true);
-            dateField.setText(e.target.value);
-          }}
-          onBlur={dateField.onBlur}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-            if (e.key === "ArrowDown" && !anchor) {
-              e.preventDefault();
-              open();
-            }
-          }}
+          field={dateField}
+          icon={<CalIcon size={15} />}
+          openLabel={translate("Choose a date and time")}
+          onOpen={open}
+          expanded={Boolean(anchor)}
         />
-        <button
-          type="button"
-          className="dp-open"
-          disabled={disabled}
-          onClick={open}
-          aria-label={translate("Choose a date and time")}
-          tabIndex={-1}
-        >
-          <CalIcon size={15} />
-        </button>
       </span>
       <span className="dp-field dp-time-field">
-        <input
-          ref={timeRef}
+        <PickerInput
+          inputRef={timeRef}
           id={id ? `${id}-time` : undefined}
-          className="input"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          spellCheck={false}
           disabled={disabled}
           placeholder={timeInputPlaceholder()}
-          aria-label={
+          label={
             rest["aria-label"]
               ? translate("{label} (time)", { label: rest["aria-label"] })
               : "Time"
           }
-          value={timeField.text}
-          onChange={(e) => {
-            timeField.setEditing(true);
-            timeField.setText(e.target.value);
-          }}
-          onBlur={timeField.onBlur}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
+          field={timeField}
+          icon={<Clock size={15} />}
         />
-        <span className="dp-open" aria-hidden="true">
-          <Clock size={15} />
-        </span>
       </span>
       {anchor && (
         <Popover
