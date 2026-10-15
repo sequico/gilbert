@@ -25,8 +25,8 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { isStateMismatch } from "../jmap.js";
-import { errorMessage } from "../shared/errors.js";
 import { sleep } from "../shared/async.js";
+import { errorMessage } from "../shared/errors.js";
 import {
   AGENT_AUDIT_DIR,
   AGENT_AUTHORING_DIR,

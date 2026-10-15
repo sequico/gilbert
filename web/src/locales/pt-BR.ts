@@ -1451,7 +1451,7 @@ export const catalog: Catalog = {
     "Delete forever?": "Excluir definitivamente?",
     "Delete?": "Excluir?",
     "No recipients": "Sem destinatários",
-    "me": "eu",
+    me: "eu",
     "(no recipients)": "(sem destinatários)",
     "(unknown)": "(desconhecido)",
     "(undisclosed recipients)": "(destinatários ocultos)",

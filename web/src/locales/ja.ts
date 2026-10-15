@@ -1444,7 +1444,7 @@ export const catalog: Catalog = {
     "Delete forever?": "完全に削除しますか？",
     "Delete?": "削除しますか？",
     "No recipients": "宛先がありません",
-    "me": "自分",
+    me: "自分",
     "(no recipients)": "(宛先なし)",
     "(unknown)": "(不明)",
     "(undisclosed recipients)": "(非表示の宛先)",

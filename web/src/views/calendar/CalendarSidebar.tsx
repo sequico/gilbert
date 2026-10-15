@@ -21,6 +21,7 @@ import { Fragment, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "wouter";
 import type { Calendar, Id } from "@/jmap/types";
 import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
+import { CALENDAR_COLORS, DEFAULT_CALENDAR_COLOR } from "@/lib/calendarColors";
 import {
   addDays,
   addMonths,
@@ -41,7 +42,6 @@ import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { dateTimeKey, useSettings } from "@/store/settings";
 import { choiceDialog, confirmDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, DEFAULT_CALENDAR_COLOR } from "@/lib/calendarColors";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";

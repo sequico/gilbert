@@ -1432,7 +1432,7 @@ export const catalog: Catalog = {
     "Delete forever?": "Видалити назавжди?",
     "Delete?": "Видалити?",
     "No recipients": "Немає одержувачів",
-    "me": "я",
+    me: "я",
     "(no recipients)": "(немає одержувачів)",
     "(unknown)": "(невідомо)",
     "(undisclosed recipients)": "(приховані одержувачі)",

@@ -46,6 +46,7 @@ import {
   mentionsName,
   participantsOf,
 } from "../shared/chat.js";
+import { ref } from "../shared/jmapQuery.js";
 import {
   DRAFT_FILE,
   isKnowledgeDraft,
@@ -57,7 +58,6 @@ import {
   plainTextFromBlocks,
   STATE_FILE,
 } from "../shared/knowledge.js";
-import { ref } from "../shared/jmapQuery.js";
 import { AGENT_LABEL, DRAFT_KEYWORD, SEEN_KEYWORD } from "../shared/labels.js";
 import { buildFilter, parseQuery, resolveMailbox } from "../shared/search.js";
 import {

@@ -1,8 +1,8 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
+import { ref } from "@gilbert/shared/jmapQuery";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
-import { ref } from "@gilbert/shared/jmapQuery";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   ChangesResponse,

@@ -1,10 +1,10 @@
-import { errorMessage } from "@gilbert/shared/errors";
 import type {
   AppPasswordRow,
   SecurityState,
   SessionList,
   SessionSummary,
 } from "@gilbert/shared/accountSecurity";
+import { errorMessage } from "@gilbert/shared/errors";
 import { Copy, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, apiFetch } from "@/jmap/client";

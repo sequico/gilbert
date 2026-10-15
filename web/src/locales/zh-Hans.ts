@@ -1400,7 +1400,7 @@ export const catalog: Catalog = {
     "Delete forever?": "要永久删除吗？",
     "Delete?": "要删除吗？",
     "No recipients": "没有收件人",
-    "me": "我",
+    me: "我",
     "(no recipients)": "(无收件人)",
     "(unknown)": "(未知)",
     "(undisclosed recipients)": "(隐藏收件人)",

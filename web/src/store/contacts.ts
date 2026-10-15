@@ -1,8 +1,8 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   GLOBAL_CONTACTS_BOOK_NAME,
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
-import { errorMessage } from "@gilbert/shared/errors";
 import { queryThenGet, ref } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";

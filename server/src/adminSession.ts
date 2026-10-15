@@ -16,8 +16,8 @@
 import type { Ctx } from "./appFolder.js";
 import { filesAccountId } from "./appFolder.js";
 import { agentSession, IdentityAdminError, ownIdentityAccount } from "./identityAdmin.js";
-import { errorMessage } from "./shared/errors.js";
 import type { LiveSession } from "./sessions.js";
+import { errorMessage } from "./shared/errors.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstream.js";
 
 /** A module's own refusal, built from the identity door's code and sentence. */

@@ -1,6 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { create } from "zustand";
 import { ref } from "@gilbert/shared/jmapQuery";
+import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type {
   EmailSubmission,

@@ -1438,7 +1438,7 @@ export const catalog: Catalog = {
     "Delete forever?": "Удалить навсегда?",
     "Delete?": "Удалить?",
     "No recipients": "Нет получателей",
-    "me": "я",
+    me: "я",
     "(no recipients)": "(нет получателей)",
     "(unknown)": "(неизвестно)",
     "(undisclosed recipients)": "(скрытые получатели)",

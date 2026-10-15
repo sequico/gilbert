@@ -59,6 +59,7 @@ import {
 import type { LiveSession } from "./sessions.js";
 import { ownAccountForCapability } from "./shared/accountRouting.js";
 import { sameAddress } from "./shared/address.js";
+import { CodedError, errorMessage } from "./shared/errors.js";
 import {
   accountOwnIdentity,
   assignmentFor,
@@ -79,7 +80,6 @@ import type {
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
-import { CodedError, errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";

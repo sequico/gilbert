@@ -2355,7 +2355,7 @@ export const catalog: Catalog = {
     "Delete?": "Eliminare?",
 
     "No recipients": "Nessun destinatario",
-    "me": "io",
+    me: "io",
     "(no recipients)": "(nessun destinatario)",
     "(unknown)": "(sconosciuto)",
     "(undisclosed recipients)": "(destinatari nascosti)",

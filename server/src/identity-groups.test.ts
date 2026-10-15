@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort, jsonCall, postWith } from "./testkit.js";
 import type {
   GroupIdentityView,
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
+import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
  * A group's identities, and the roster they belong to (ADR 0007).

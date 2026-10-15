@@ -1,11 +1,11 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { useState } from "react";
 import type { Calendar, Id } from "@/jmap/types";
+import { DEFAULT_CALENDAR_COLOR } from "@/lib/calendarColors";
 import { browserTimeZone, listTimeZones } from "@/lib/dates";
 import { t as translate } from "@/lib/i18n";
 import { useCalendar } from "@/store/calendar";
 import { Dialog } from "@/ui/dialog";
-import { DEFAULT_CALENDAR_COLOR } from "@/lib/calendarColors";
 import { ColorSwatches } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
