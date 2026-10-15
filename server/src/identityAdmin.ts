@@ -79,6 +79,7 @@ import type {
   MemberAssignmentView,
   PersonIdentitiesView,
 } from "./shared/identityViews.js";
+import { CodedError } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { isRecord } from "./shared/json.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
@@ -91,14 +92,9 @@ import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
 import { UpstreamError } from "./upstream.js";
 
 /** A refusal an administrator will read: a code, and the sentence to show. */
-export class IdentityAdminError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status = 400,
-  ) {
-    super(message);
-    this.name = "IdentityAdminError";
+export class IdentityAdminError extends CodedError {
+  constructor(code: string, message: string, status = 400) {
+    super(code, message, status, "IdentityAdminError");
   }
 }
 

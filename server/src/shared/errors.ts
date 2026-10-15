@@ -33,3 +33,24 @@ export function isStateMismatch(err: unknown): boolean {
     (err as { type?: unknown }).type === "stateMismatch"
   );
 }
+
+/**
+ * A refusal, in the shape every door raises it: a code, a sentence and a status.
+ *
+ * Each surface names its own class over this one, so a route reads the same
+ * fields whichever door raised them — the code the client composes its own
+ * sentence from, the status the route answers with, and the message the server
+ * keeps for a person reading it directly. The code comes first because it is
+ * what the refusal *is*; the sentence and the status follow.
+ */
+export class CodedError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status = 400,
+    name = "CodedError",
+  ) {
+    super(message);
+    this.name = name;
+  }
+}

@@ -43,6 +43,7 @@ import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
+import { CodedError } from "./shared/errors.js";
 import { refusalOf } from "./shared/jmap.js";
 import {
   checklistGroups,
@@ -93,14 +94,9 @@ import {
 } from "./shared/workorder.js";
 
 /** A refusal a workorder caller will read: a code, and the sentence to show. */
-export class WorkorderAdminError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status = 400,
-  ) {
-    super(message);
-    this.name = "WorkorderAdminError";
+export class WorkorderAdminError extends CodedError {
+  constructor(code: string, message: string, status = 400) {
+    super(code, message, status, "WorkorderAdminError");
   }
 }
 

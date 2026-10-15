@@ -44,6 +44,7 @@ import { groupAccountId } from "./identityAdmin.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS, FOLDER_PROPS } from "./shared/appFolder.js";
+import { CodedError } from "./shared/errors.js";
 import { refusalOf } from "./shared/jmap.js";
 import {
   buildDraft,
@@ -88,14 +89,9 @@ import {
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 
 /** A refusal a KB caller will read: a code, and the sentence to show. */
-export class KnowledgeAdminError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status = 400,
-  ) {
-    super(message);
-    this.name = "KnowledgeAdminError";
+export class KnowledgeAdminError extends CodedError {
+  constructor(code: string, message: string, status = 400) {
+    super(code, message, status, "KnowledgeAdminError");
   }
 }
 

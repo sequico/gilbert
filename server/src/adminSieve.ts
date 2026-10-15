@@ -19,6 +19,7 @@
 
 import { accountId, type Ctx } from "./account.js";
 import { isStateMismatch } from "./jmap.js";
+import { CodedError } from "./shared/errors.js";
 /*
  * The shapes these routes answer with, and the body a write carries, declared
  * once for both tiers: the surface that sends a write names the same fields the
@@ -49,14 +50,9 @@ const SET_ERRORS: SetErrorPhrases = {
 const OBJECT = "x:SieveSystemScript";
 
 /** An error with a message meant for the administrator using the surface. */
-export class SystemSieveError extends Error {
-  constructor(
-    message: string,
-    public readonly status = 400,
-    public readonly code = "system_sieve_error",
-  ) {
-    super(message);
-    this.name = "SystemSieveError";
+export class SystemSieveError extends CodedError {
+  constructor(code: string, message: string, status = 400) {
+    super(code, message, status, "SystemSieveError");
   }
 }
 
@@ -80,7 +76,7 @@ async function conditionalSet<T>(ctx: Ctx, args: Record<string, unknown>): Promi
     return await clientOf(ctx).call<T>(`${OBJECT}/set`, args);
   } catch (err) {
     if (isStateMismatch(err))
-      throw new SystemSieveError(CONFLICT_MESSAGE, 409, "conflict");
+      throw new SystemSieveError("conflict", CONFLICT_MESSAGE, 409);
     throw err;
   }
 }
@@ -108,9 +104,9 @@ export async function getSystemSieveScript(
   const o = res.list?.[0];
   if (!o)
     throw new SystemSieveError(
+      "not_found",
       "That system Sieve script no longer exists.",
       404,
-      "not_found",
     );
   return {
     ...toRow(o),
@@ -154,17 +150,17 @@ export async function saveSystemSieveScript(
   if (id) {
     const err = res.notUpdated?.[id];
     if (err)
-      throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+      throw new SystemSieveError("invalid", describeSetError(err, SET_ERRORS), 400);
     return id;
   }
   const err = res.notCreated?.s;
-  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+  if (err) throw new SystemSieveError("invalid", describeSetError(err, SET_ERRORS), 400);
   const created = res.created?.s?.id;
   if (!created)
     throw new SystemSieveError(
+      "upstream",
       "Stalwart created the script but did not return its id.",
       502,
-      "upstream",
     );
   return created;
 }
@@ -181,7 +177,7 @@ export async function setSystemSieveScriptActive(
     ...(ifInState ? { ifInState } : {}),
   });
   const err = res.notUpdated?.[id];
-  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+  if (err) throw new SystemSieveError("invalid", describeSetError(err, SET_ERRORS), 400);
 }
 
 export async function deleteSystemSieveScript(
@@ -198,5 +194,5 @@ export async function deleteSystemSieveScript(
     },
   );
   const err = res.notDestroyed?.[id];
-  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+  if (err) throw new SystemSieveError("invalid", describeSetError(err, SET_ERRORS), 400);
 }
