@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { freePort, jsonCall, postWith } from "./testkit.js";
+import type {
+  GroupIdentityView,
+  MemberAssignmentView,
+  PersonIdentitiesView,
+} from "./shared/identityViews.js";
 
 /**
  * A group's identities, and the roster they belong to (ADR 0007).
@@ -64,24 +69,6 @@ const group = (name: string) =>
 const person = (address: string) =>
   call(`/api/admin/identities/user?address=${encodeURIComponent(address)}`);
 
-/** One identity, as the routes answer it. */
-interface Row {
-  id: string;
-  name: string;
-  email: string;
-  textSignature: string;
-}
-
-/** A group's answers: every identity it holds, the roster, and who is assigned which. */
-interface GroupView {
-  name: string;
-  granted: boolean;
-  identities: Row[];
-  members: string[] | null;
-  assignments: Record<string, string>;
-  groupSenderId: string | null;
-}
-
 before(async () => {
   const res = await call("/api/auth/login", {
     method: "POST",
@@ -106,11 +93,11 @@ test("the demo's group holds an identity for the demo user, and assigns it to th
    * that the demo is not *that* state, so the common case is the one the demo
    * shows.
    */
-  const mine = (await person(DEMO)).body as unknown as { identities?: Row[] };
-  const own = (mine.identities ?? []).find((row) => row.email === DEMO);
+  const mine = (await person(DEMO)).body as unknown as PersonIdentitiesView;
+  const own = mine.identities.find((row) => row.email === DEMO);
   assert.ok(own, "the demo user's own account holds an identity carrying their address");
 
-  const held = (await group(TEAM)).body as unknown as GroupView;
+  const held = (await group(TEAM)).body as unknown as GroupIdentityView;
   const bound = held.identities.find((row) => row.id === held.assignments[DEMO]);
   assert.ok(
     bound,
@@ -134,7 +121,7 @@ test("the demo's group holds an identity for the demo user, and assigns it to th
 test("a group answers its identities, its roster and who is assigned which", async () => {
   const first = await group(TEAM);
   assert.equal(first.status, 200, JSON.stringify(first.body));
-  const view = first.body as unknown as GroupView;
+  const view = first.body as unknown as GroupIdentityView;
   assert.equal(view.name, TEAM);
   assert.equal(view.granted, true, "the agent is granted on this group");
   assert.deepEqual(
@@ -181,13 +168,10 @@ test("the composer's question is answered as the member, and only the member's o
    * (`@gilbert/shared/identityAssignment`), and the client derives it from the
    * address the session calls the account rather than reading it back.
    */
-  const view = (await group(TEAM)).body as unknown as GroupView;
+  const view = (await group(TEAM)).body as unknown as GroupIdentityView;
   const mine = await call(`/api/identities/assignment?group=${encodeURIComponent(TEAM)}`);
   assert.equal(mine.status, 200, JSON.stringify(mine.body));
-  const answer = mine.body as unknown as {
-    group: string;
-    assignedId: string | null;
-  };
+  const answer = mine.body as unknown as MemberAssignmentView;
   assert.equal(answer.group, TEAM);
   assert.equal(
     answer.assignedId,
@@ -209,7 +193,7 @@ test("the composer's question is answered as the member, and only the member's o
 });
 
 test("an id-less write assigns a member an identity and does not make a second", async () => {
-  const held = (await group(TEAM)).body as unknown as GroupView;
+  const held = (await group(TEAM)).body as unknown as GroupIdentityView;
   const existing = held.identities.find((row) => row.name === "Gilbert");
   assert.equal(existing, undefined, "the fixture assigns nobody but the demo user");
 
@@ -233,7 +217,7 @@ test("an id-less write assigns a member an identity and does not make a second",
     "a create answers a new identity",
   );
 
-  const after = (await group(TEAM)).body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.deepEqual(
     after.identities.map((row) => row.name).sort(),
     ["Demo User", "Gilbert", "Team"],
@@ -264,7 +248,7 @@ test("an id-less write assigns a member an identity and does not make a second",
     id,
     "the replay answers the identity the member already holds",
   );
-  const grown = (await group(TEAM)).body as unknown as GroupView;
+  const grown = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.equal(
     grown.identities.length,
     after.identities.length,
@@ -275,7 +259,7 @@ test("an id-less write assigns a member an identity and does not make a second",
 });
 
 test("an assignment can be moved, and a member can be given the group's own identity", async () => {
-  const held = (await group(TEAM)).body as unknown as GroupView;
+  const held = (await group(TEAM)).body as unknown as GroupIdentityView;
   const demoIdentity = held.identities.find((row) => row.name === "Demo User")!;
   const groupOwn = held.identities.find((row) => row.id === held.groupSenderId)!;
 
@@ -291,7 +275,7 @@ test("an assignment can be moved, and a member can be given the group's own iden
     patch: { textSignature: "— the group's own" },
   });
   assert.equal(moved.status, 200, JSON.stringify(moved.body));
-  const after = (await group(TEAM)).body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.equal(
     after.assignments[DEMO],
     groupOwn.id,
@@ -321,8 +305,8 @@ test("an assignment can be moved, and a member can be given the group's own iden
 });
 
 test("an id belonging to another group is refused by name", async () => {
-  const team = (await group(TEAM)).body as unknown as GroupView;
-  const design = (await group(DESIGN)).body as unknown as GroupView;
+  const team = (await group(TEAM)).body as unknown as GroupIdentityView;
+  const design = (await group(DESIGN)).body as unknown as GroupIdentityView;
   assert.equal(design.granted, true, "the agent is granted on the second group too");
 
   const foreign = team.identities[0]!.id;
@@ -341,7 +325,7 @@ test("an id belonging to another group is refused by name", async () => {
   assert.equal(refused.status, 404, JSON.stringify(refused.body));
   assert.equal(refused.body?.error, "identity_not_found");
 
-  const after = (await group(DESIGN)).body as unknown as GroupView;
+  const after = (await group(DESIGN)).body as unknown as GroupIdentityView;
   assert.deepEqual(
     after.identities.map((row) => row.id),
     design.identities.map((row) => row.id),
@@ -355,7 +339,7 @@ test("an id belonging to another group is refused by name", async () => {
 });
 
 test("a member that is not an address is refused before anything is written", async () => {
-  const before = (await group(TEAM)).body as unknown as GroupView;
+  const before = (await group(TEAM)).body as unknown as GroupIdentityView;
   const refused = await post("/api/admin/identities/group", {
     name: TEAM,
     member: "not-an-address",
@@ -364,7 +348,7 @@ test("a member that is not an address is refused before anything is written", as
   });
   assert.equal(refused.status, 400, JSON.stringify(refused.body));
   assert.equal(refused.body?.error, "invalid_member");
-  const after = (await group(TEAM)).body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.deepEqual(
     after.identities.map((row) => row.id),
     before.identities.map((row) => row.id),
@@ -387,7 +371,7 @@ test("an identity can be written for nobody, and then assigned to somebody", asy
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const id = created.body?.id as string;
-  const after = (await group(TEAM)).body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.equal(
     Object.values(after.assignments).includes(id),
     false,
@@ -406,7 +390,7 @@ test("an identity can be written for nobody, and then assigned to somebody", asy
     patch: {},
   });
   assert.equal(assigned.status, 200, JSON.stringify(assigned.body));
-  const grown = (await group(TEAM)).body as unknown as GroupView;
+  const grown = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.equal(grown.assignments[AGENT], id, "the identity is somebody's now");
   assert.equal(
     grown.identities.length,
@@ -418,7 +402,7 @@ test("an identity can be written for nobody, and then assigned to somebody", asy
 test("an agent that holds nothing on a group is answered, not refused", async () => {
   const read = await group(LEGAL);
   assert.equal(read.status, 200, JSON.stringify(read.body));
-  const view = read.body as unknown as GroupView;
+  const view = read.body as unknown as GroupIdentityView;
   assert.equal(view.granted, false, "the agent is not on this group");
   assert.deepEqual(view.identities, [], "and nothing of it is read");
   assert.equal(view.members, null, "no account the agent holds, so no roster either");
@@ -447,7 +431,7 @@ test("the first assignment a group ever gets is written, for one upload", async 
    * spend; a write that read the state before the folder existed spends two, the
    * second for a document that was already written.
    */
-  const before = (await group(DESIGN)).body as unknown as GroupView;
+  const before = (await group(DESIGN)).body as unknown as GroupIdentityView;
   assert.deepEqual(before.assignments, {}, "nothing is assigned here yet");
 
   const realFetch = globalThis.fetch;
@@ -476,7 +460,7 @@ test("the first assignment a group ever gets is written, for one upload", async 
     1,
     `one upload, and no second for an attempt that was refused: ${JSON.stringify(uploads)}`,
   );
-  const after = (await group(DESIGN)).body as unknown as GroupView;
+  const after = (await group(DESIGN)).body as unknown as GroupIdentityView;
   assert.equal(after.assignments[AGENT], written.body?.id, "and it is recorded");
 });
 
@@ -494,7 +478,7 @@ test("a write that lands between the state and the list is not overwritten", asy
    * The other administrator's write is interposed on this one's state read,
    * which is exactly the window in question.
    */
-  const before = (await group(DESIGN)).body as unknown as GroupView;
+  const before = (await group(DESIGN)).body as unknown as GroupIdentityView;
   const mine = before.assignments[AGENT];
   assert.ok(mine, "the fixture assigns the agent an identity of its own");
   const other = before.identities.find((row) => row.id !== mine)?.id;
@@ -536,7 +520,7 @@ test("a write that lands between the state and the list is not overwritten", asy
   assert.equal(interposed, true, "the other administrator's write landed mid-read");
   assert.equal(rival.status, 200, JSON.stringify(rival.body));
   assert.equal(written.status, 200, JSON.stringify(written.body));
-  const after = (await group(DESIGN)).body as unknown as GroupView;
+  const after = (await group(DESIGN)).body as unknown as GroupIdentityView;
   assert.equal(
     after.assignments[AGENT],
     other,
@@ -560,7 +544,7 @@ test("a member's own sender can be deleted, and the group's own identity cannot"
    * identity — what a member with no identity of their own sends as. The
    * group's own is refused by name, because everybody falls back to it.
    */
-  let view = (await group(TEAM)).body as unknown as GroupView;
+  let view = (await group(TEAM)).body as unknown as GroupIdentityView;
   let assignedId = view.assignments[DEMO];
   if (!assignedId) {
     const wrote = await post("/api/admin/identities/group", {
@@ -570,7 +554,7 @@ test("a member's own sender can be deleted, and the group's own identity cannot"
       patch: { name: "Demo User", email: TEAM },
     });
     assert.equal(wrote.status, 200, JSON.stringify(wrote.body));
-    view = (await group(TEAM)).body as unknown as GroupView;
+    view = (await group(TEAM)).body as unknown as GroupIdentityView;
     assignedId = view.assignments[DEMO];
   }
   assert.ok(assignedId, "the member has a per-member identity to delete");
@@ -583,7 +567,7 @@ test("a member's own sender can be deleted, and the group's own identity cannot"
   });
   assert.equal(gone.status, 200, JSON.stringify(gone.body));
 
-  const after = (await group(TEAM)).body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupIdentityView;
   assert.equal(
     after.identities.some((row) => row.id === assignedId),
     false,
