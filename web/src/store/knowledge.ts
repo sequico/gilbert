@@ -19,11 +19,6 @@
 
 import { errorMessage } from "@gilbert/shared/errors";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
-import {
-  create as createIndex,
-  insertMultiple,
-  search as searchIndex,
-} from "@orama/orama";
 import { create } from "zustand";
 import type { Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
@@ -776,6 +771,15 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         // cached index is a second store that can disagree with Stalwart. What
         // it indexes is the session's own read of each page's text, dropped
         // whenever the tree is re-listed, so a changed page is read again.
+        //
+        // The engine arrives with the search that needs it: this store is
+        // reached from the boot shell (its own changes), and a reader who never
+        // searches should not carry a search library to find that out.
+        const {
+          create: createIndex,
+          insertMultiple,
+          search: searchIndex,
+        } = await import("@orama/orama");
         const db = createIndex({
           schema: { title: "string", text: "string", tags: "string" },
         });
