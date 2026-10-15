@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { type Mode, type PaletteId, toggleTarget } from "@/lib/palette";
+import {
+  effectiveMode,
+  type Mode,
+  migrateTheme,
+  type PaletteId,
+  toggleTarget,
+} from "@/lib/palette";
 import { loadJson, saveJson, setDeviceTrusted } from "@/lib/storage";
 import {
   acceptRemote,
   DEFAULT_SETTINGS,
   DEVICE_KEYS,
-  isDarkTheme,
   syncedPart,
-  type Theme,
   useSettings,
 } from "@/store/settings";
 
@@ -17,30 +21,35 @@ import {
  * icon from the answer, and the message frame decides whether mail sits on a
  * light card or follows the app. A theme that painted dark while reporting
  * light would show a sun icon on a dark screen and light-card mail on it.
+ *
+ * The answer is the pair (`migrateTheme`, then `effectiveMode`), the one every
+ * reader goes through: a second predicate beside it would be a second answer.
  */
 
 describe("which themes paint dark", () => {
   it("counts gilbert as dark, regardless of the OS", () => {
-    expect(isDarkTheme("gilbert", false)).toBe(true);
-    expect(isDarkTheme("gilbert", true)).toBe(true);
+    const { mode } = migrateTheme("gilbert");
+    expect(mode).toBe("dark");
+    expect(effectiveMode(mode, false)).toBe("dark");
+    expect(effectiveMode(mode, true)).toBe("dark");
   });
 
   it("still resolves the ordinary three the way it always did", () => {
-    expect(isDarkTheme("dark", false)).toBe(true);
-    expect(isDarkTheme("light", true)).toBe(false);
-    expect(isDarkTheme("system", true)).toBe(true);
-    expect(isDarkTheme("system", false)).toBe(false);
+    expect(effectiveMode("dark", false)).toBe("dark");
+    expect(effectiveMode("light", true)).toBe("light");
+    expect(effectiveMode("system", true)).toBe("dark");
+    expect(effectiveMode("system", false)).toBe("light");
   });
 
   it("treats a missing OS preference as light, not as unknown", () => {
     // matchMedia is absent in some embeddings; the default must not read dark.
-    expect(isDarkTheme("system")).toBe(false);
+    expect(effectiveMode("system", false)).toBe("light");
   });
 
-  it("has an answer for every theme there is", () => {
-    // A theme added later without a branch here would silently paint light.
-    const all: Theme[] = ["system", "light", "dark", "gilbert"];
-    for (const t of all) expect(typeof isDarkTheme(t, false), t).toBe("boolean");
+  it("has an answer for every mode there is", () => {
+    // A mode added later without a branch here would silently paint light.
+    const all: Mode[] = ["system", "light", "dark"];
+    for (const m of all) expect(["light", "dark"], m).toContain(effectiveMode(m, false));
   });
 });
 

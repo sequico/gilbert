@@ -935,11 +935,6 @@ function paletteThemeColor(_palette: PaletteId, mode: "light" | "dark"): string 
   return readCssVar("--bg", mode === "dark" ? THEME_COLOR.dark : THEME_COLOR.light);
 }
 
-/** Whether a theme paints dark, resolving "system" against the OS. */
-export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
-  return theme === "dark" || theme === "gilbert" || (theme === "system" && prefersDark);
-}
-
 /*
  * Whose settings are in hand, answered again when a session starts or ends.
  *
