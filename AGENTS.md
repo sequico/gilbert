@@ -94,14 +94,17 @@ decision: `NNNN-kebab-case-title.md` starting at `0001`, written in English,
 with a `Status` line (Proposed / Accepted) and an `Implementation` line, then
 Context, Decision and Consequences sections.
 **`Status` is where the decision stands; `Implementation` is where the tree
-stands.** One line each, both required. `Status` moves only when the owner
-accepts a decision — it is a judgement, not a build state — and it never carries
-a date or a note about what an earlier version said. `Implementation` says
-whether the tree carries the decision and names the files that do:
-`Built.` with the paths, `Partly built.` naming what is carried and what is
-not, or `Not built.` A record whose implementation is owed the live probe it
-depends on says so in its body, and `ROADMAP.md` carries what is planned.
-Neither line is a changelog: the version before this commit is git's.
+stands.** Both are required, and each opens a short paragraph rather than a
+single line:
+`Status` moves only when the owner accepts a decision — it is a judgement, not a
+build state — and it never carries a date or a note about what an earlier
+version said. `Implementation` says whether the tree carries the decision and
+names what does: `Built.` with the paths, `Built and live-verified.` for a
+behaviour confirmed against a live Stalwart, `Built, and carried by …` when the
+repository's own shape rather than code carries it, `Partly built.` naming what
+is carried and what is not, or `Not built.` A record whose implementation is
+owed the live probe it depends on says so in its body, and `ROADMAP.md` carries
+what is planned. Neither is a changelog: the version before this commit is git's.
 Write the ADR when the change is designed, before or alongside the
 implementation, so the design is reviewable first; an implementation must
 match the ADR that covers it. ADRs stay `Proposed` until the owner accepts them.
