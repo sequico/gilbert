@@ -24,6 +24,7 @@ import { escapeHtml, htmlToText, quoteText, replySubject, textToHtml } from "@/l
 import { toast } from "@/ui/toast";
 import { useContacts } from "./contacts";
 import { BODY_PROPS, FULL_PROPS, useMail } from "./mail";
+import { destroyEmails as destroyEmailsBatched } from "./mail/mutations";
 import { ensureScheduledMailbox, useScheduled } from "./scheduled";
 import { useSession } from "./session";
 import { settings } from "./settings";
@@ -1799,15 +1800,15 @@ export function sendOutcomeUnknown(err: unknown): boolean {
 /**
  * Destroy a set of messages and report whether the server confirmed it. Used
  * for the copy a failed send created; a refusal is not fatal here, only the
- * reason to stop trusting that the copy is gone. A server that refuses per
- * object answers without throwing — it names the ids it kept in
- * `notDestroyed` — so the answer is read as well as the throw.
+ * reason to stop trusting that the copy is gone. `mail/mutations` splits the
+ * call into what the server takes, and a per-object refusal comes back in the
+ * answer rather than as a throw, so the answer is read as well as the throw.
  */
 async function destroyEmails(accountId: Id, ids: Id[]): Promise<boolean> {
   if (!ids.length) return true;
   try {
-    const res = await client.call<SetResponse>("Email/set", { accountId, destroy: ids });
-    return Object.keys(res.notDestroyed ?? {}).length === 0;
+    const { notDestroyed } = await destroyEmailsBatched(accountId, ids);
+    return Object.keys(notDestroyed).length === 0;
   } catch {
     return false;
   }
