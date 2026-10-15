@@ -9,6 +9,7 @@
  * stays the copy an administrator takes before the oldest month is pruned;
  * this table is for reading without downloading anything.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { fetchAgentAuditExport } from "@/lib/agents";
@@ -39,7 +40,7 @@ export function GroupAudit({ group, known }: { group: string; known: boolean }) 
         `${group.replace(/[^\w.-]+/g, "_")}.audit.json`,
       );
     } catch (err) {
-      setDownloadProblem(err instanceof Error ? err.message : String(err));
+      setDownloadProblem(errorMessage(err));
     } finally {
       setDownloading(false);
     }

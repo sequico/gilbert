@@ -22,6 +22,7 @@
  * the installation's own rules, which is also the scope the API takes: the two
  * reach different routes, and the difference belongs there rather than here.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { fetchAgentProse, readDraft, saveAgentProse } from "@/lib/agents";
 import { t } from "@/lib/i18n";
@@ -86,7 +87,7 @@ export function ProsePanel({
         setSaved({ at: view.updatedAt, by: view.updatedBy });
       })
       .catch((err) => {
-        if (live) setProblem(err instanceof Error ? err.message : String(err));
+        if (live) setProblem(errorMessage(err));
       })
       .finally(() => {
         if (live) setBusy(false);
@@ -108,7 +109,7 @@ export function ProsePanel({
         setSaved({ at: view.updatedAt, by: view.updatedBy });
         setDone(true);
       })
-      .catch((err) => setProblem(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setProblem(errorMessage(err)))
       .finally(() => setBusy(false));
   };
 
@@ -128,7 +129,7 @@ export function ProsePanel({
         setReading(answer.text);
         setReadingCounted(answer.counted);
       })
-      .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setReading(errorMessage(err)))
       .finally(() => setReadingBusy(false));
   };
 

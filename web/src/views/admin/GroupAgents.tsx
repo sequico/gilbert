@@ -35,6 +35,7 @@
  * about one group and a question about all of them are two different pages,
  * and a page that tried to answer both was harder to read than either.
  */
+import { errorMessage } from "@gilbert/shared/errors";
 import { Bot, CheckCircle2, Tags } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
@@ -295,7 +296,7 @@ function LabelSetup({ group }: { group: string }) {
           : t("This group's label catalogue already has every reserved label."),
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

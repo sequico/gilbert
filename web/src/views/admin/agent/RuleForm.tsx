@@ -33,6 +33,7 @@ import {
   automationLabel,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { useState } from "react";
 import { type AgentGrantCatalog, grantIsReadable, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
@@ -136,7 +137,7 @@ export function RuleForm({
         setReading(answer.text);
         setReadingCounted(answer.counted);
       })
-      .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setReading(errorMessage(err)))
       .finally(() => setReadingBusy(false));
   };
   const setTrigger = (patch: Partial<AgentTrigger>) =>

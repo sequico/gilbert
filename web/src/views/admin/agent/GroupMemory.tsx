@@ -15,6 +15,7 @@
  */
 
 import type { AgentNotebookFact } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchGroupNotebook, saveAgentNotebook } from "@/lib/agents";
@@ -58,8 +59,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
       setBounds({ maxFact: view.maxFact, maxFacts: view.maxFacts });
       setChanged(false);
     } catch (err) {
-      if (picked.current === group)
-        setProblem(err instanceof Error ? err.message : String(err));
+      if (picked.current === group) setProblem(errorMessage(err));
     } finally {
       if (picked.current === group) setBusy(false);
     }
@@ -97,8 +97,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
       setChanged(false);
       toast.success(t("Memory saved"));
     } catch (err) {
-      if (picked.current === g)
-        setProblem(err instanceof Error ? err.message : String(err));
+      if (picked.current === g) setProblem(errorMessage(err));
     } finally {
       if (picked.current === g) setBusy(false);
     }

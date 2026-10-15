@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { RotateCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
@@ -57,7 +58,7 @@ function useDirectory<L>(empty: L, fetchIt: () => Promise<L>): L & DirectoryRead
     setLoading(true);
     void fetchIt()
       .then(setListing)
-      .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setLoadError(errorMessage(err)))
       .finally(() => setLoading(false));
   }, [fetchIt]);
   useEffect(reload, [reload]);

@@ -1,4 +1,5 @@
 import { sameAddress } from "@gilbert/shared/address";
+import { errorMessage } from "@gilbert/shared/errors";
 import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
@@ -57,8 +58,7 @@ export function GroupLabels() {
       if (picked.current !== name) return;
       setLabels(Array.isArray(res.labels) ? res.labels : []);
     } catch (err) {
-      if (picked.current === name)
-        setError(err instanceof Error ? err.message : String(err));
+      if (picked.current === name) setError(errorMessage(err));
     }
   }
 
@@ -82,7 +82,7 @@ export function GroupLabels() {
        */
       if (picked.current === group) {
         setLabels(prev);
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMessage(err));
       }
     } finally {
       setBusy(false);

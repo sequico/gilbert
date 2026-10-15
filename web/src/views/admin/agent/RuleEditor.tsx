@@ -29,6 +29,7 @@ import {
   ruleProblems,
   rulesProblem,
 } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { runAgentRule } from "@/lib/agents";
@@ -146,7 +147,7 @@ export function RuleEditor({
       setAsked(rule.id);
       void loadGroup(group);
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      setProblem(errorMessage(err));
     } finally {
       setAsking(null);
     }
@@ -184,7 +185,7 @@ export function RuleEditor({
       setBaseline(null);
       toast.success(t("Automation saved"));
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      setProblem(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -218,7 +219,7 @@ export function RuleEditor({
       setBaseline(null);
       toast.success(t("Automation deleted"));
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      setProblem(errorMessage(err));
     } finally {
       setBusy(false);
     }

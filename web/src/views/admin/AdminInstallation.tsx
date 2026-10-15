@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
 import {
@@ -54,7 +55,7 @@ export function AdminInstallation() {
       }
       setLoaded(true);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
+      setLoadError(errorMessage(err));
     }
   }
 
@@ -98,7 +99,7 @@ export function AdminInstallation() {
           : current,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }

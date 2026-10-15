@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { X } from "lucide-react";
 import { create } from "zustand";
 import { t as translate } from "@/lib/i18n";
@@ -107,9 +108,7 @@ export function ToastHost() {
                  */
                 void Promise.resolve()
                   .then(() => t.action!.onClick())
-                  .catch((err) =>
-                    toast.error(err instanceof Error ? err.message : String(err)),
-                  )
+                  .catch((err) => toast.error(errorMessage(err)))
                   .finally(() => dismiss(t.id));
               }}
             >

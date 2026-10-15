@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import type { GlobalContactInput } from "@gilbert/shared/globalContacts";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -91,7 +92,7 @@ export function GlobalContactsEditor({
       setDraft(null);
       toast.success(t("Saved."));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -111,7 +112,7 @@ export function GlobalContactsEditor({
       await deleteGlobalContact(card.id);
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     }
   }
 

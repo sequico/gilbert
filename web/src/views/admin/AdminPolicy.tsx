@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import type { PublishJob } from "@gilbert/shared/publishJob";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
@@ -195,7 +196,7 @@ export function AdminPolicy() {
       setJob(res.job ?? null);
       setLoaded(true);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
+      setLoadError(errorMessage(err));
     }
   }
 
@@ -239,7 +240,7 @@ export function AdminPolicy() {
       }
       useSettings.getState().applyPolicyChanges();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }

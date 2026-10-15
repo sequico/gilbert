@@ -23,6 +23,7 @@
  */
 import type { AgentReviewMode } from "@gilbert/agent/documents";
 import { AGENT_REVIEW_MODES, EMPTY_GROUP_POLICY } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { fetchGroupPolicy, saveGroupPolicy } from "@/lib/agents";
 import { t } from "@/lib/i18n";
@@ -67,7 +68,7 @@ export function GroupPolicy({ group }: { group: string }) {
         setSaved({ at: view.updatedAt, by: view.updatedBy });
       })
       .catch((err) => {
-        if (live) setProblem(err instanceof Error ? err.message : String(err));
+        if (live) setProblem(errorMessage(err));
       })
       .finally(() => {
         if (live) setBusy(false);
@@ -93,7 +94,7 @@ export function GroupPolicy({ group }: { group: string }) {
         setSaved({ at: view.updatedAt, by: view.updatedBy });
         setDone(true);
       })
-      .catch((err) => setProblem(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setProblem(errorMessage(err)))
       .finally(() => setBusy(false));
   };
 

@@ -17,6 +17,7 @@ import {
   AGENT_PAGES_CEILING,
   MODEL_MAX_OUTPUT_CEILING,
 } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { BrainCircuit } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
@@ -234,7 +235,7 @@ function ProviderEditor({
       setApiKey("");
       toast.success(t("Model saved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -265,7 +266,7 @@ function ProviderEditor({
       setApiKey("");
       toast.success(t("Model removed"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorMessage(err));
     } finally {
       setBusy(false);
     }

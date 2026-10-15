@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { t } from "@/lib/i18n";
@@ -35,7 +36,7 @@ export function AdminUsers() {
       setEnumerationMessage(res.enumerationMessage ?? null);
       setImpersonation(res.impersonation);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
+      setLoadError(errorMessage(err));
     }
   }
 
@@ -58,7 +59,7 @@ export function AdminUsers() {
       });
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(null);

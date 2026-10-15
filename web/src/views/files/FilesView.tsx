@@ -1,4 +1,5 @@
 import { FILENODE_GET } from "@gilbert/shared/appFolder";
+import { errorMessage } from "@gilbert/shared/errors";
 import {
   ArrowDown,
   ArrowUp,
@@ -556,7 +557,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       setEditTarget({ id: target.id, blobId: next });
       toast.success(t("Saved"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorMessage(err));
     }
   };
 
