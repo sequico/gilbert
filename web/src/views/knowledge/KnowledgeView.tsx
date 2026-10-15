@@ -1,9 +1,10 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { BookOpen, Eye } from "lucide-react";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
 import { articleKey, emptyChecklist } from "@/lib/knowledge";
+import { lazyView } from "@/lib/lazyView";
 import { useKnowledge } from "@/store/knowledge";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { Empty, Spinner } from "@/ui/misc";
@@ -15,14 +16,14 @@ import { tierLabel } from "./KnowledgeSidebar";
  * The checklist builder is a lazy chunk: authoring belongs to a template that
  * is open, never to the app's first paint (ADR 0030).
  */
-const ChecklistSurface = lazy(() => import("./ChecklistSurface"));
+const ChecklistSurface = lazyView(() => import("./ChecklistSurface"));
 
 /*
- * The editor is the heaviest thing this route can need -- BlockNote and its own
- * dependencies -- and it belongs to a page that is open, not to the list of
- * them: an article is read or edited, and the pane is reached without it.
+ * The editor's chunk carries BlockNote and its dependencies, and it belongs to
+ * a page that is open, not to the list of them: an article is read or edited,
+ * and the pane is reached without it.
  */
-const KnowledgeEditor = lazy(() =>
+const KnowledgeEditor = lazyView(() =>
   import("./KnowledgeEditor").then((m) => ({ default: m.KnowledgeEditor })),
 );
 

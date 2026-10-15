@@ -743,6 +743,18 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       set({ searching: true, searchedTerm: term });
       try {
         set({ error: null });
+        // The engine arrives with the search that needs it -- this store is
+        // reached from the boot shell, which applies its changes, and a reader
+        // who never searches should not carry a search library to find that
+        // out -- and it is asked for here so its fetch overlaps the reads below
+        // rather than following them. A chunk that fails to arrive is not a
+        // search with nothing to show: it is a failure the reader can act on,
+        // so it is said here, where the failure is handled whether or not a
+        // read gets there first.
+        const engine = import("@orama/orama").catch((err: unknown) => {
+          set({ error: errorMessage(err), results: [], searching: false });
+          return null;
+        });
         const docs: Array<{ id: string; title: string; text: string; tags: string }> = [];
         const index = new Map<
           string,
@@ -767,19 +779,13 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
             index.set(key, { tier, summary });
           }
         }
+        const orama = await engine;
+        if (!orama) return;
+        const { create: createIndex, insertMultiple, search: searchIndex } = orama;
         // Rebuilt per search, on purpose: the container is disposable and a
         // cached index is a second store that can disagree with Stalwart. What
         // it indexes is the session's own read of each page's text, dropped
         // whenever the tree is re-listed, so a changed page is read again.
-        //
-        // The engine arrives with the search that needs it: this store is
-        // reached from the boot shell (its own changes), and a reader who never
-        // searches should not carry a search library to find that out.
-        const {
-          create: createIndex,
-          insertMultiple,
-          search: searchIndex,
-        } = await import("@orama/orama");
         const db = createIndex({
           schema: { title: "string", text: "string", tags: "string" },
         });
