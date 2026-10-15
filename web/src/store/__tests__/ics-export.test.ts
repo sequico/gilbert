@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { CalendarEvent, JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Exporting a calendar: the read side of it, which the writer's own tests do
@@ -14,50 +15,29 @@ const MAX = 500;
 
 function server(events: Array<Partial<CalendarEvent> & { id: string }>) {
   const queries: Array<{ position: number; expand: boolean }> = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "CalendarEvent/query") {
-        const position = (args.position as number) ?? 0;
-        queries.push({ position, expand: Boolean(args.expandRecurrences) });
-        const limit = (args.limit as number) ?? MAX;
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "1",
-            canCalculateChanges: false,
-            position,
-            ids: events.slice(position, position + limit).map((e) => e.id),
-            total: events.length,
-          },
-          id,
-        ];
-      }
-      if (name === "CalendarEvent/get") {
-        const want = new Set((args.ids as string[]) ?? []);
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "1",
-            list: events.filter((e) => want.has(e.id)),
-            notFound: [],
-          },
-          id,
-        ];
-      }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [] }, id];
+  fakeJmapServer()
+    .on("CalendarEvent/query", (call) => {
+      const position = (call.args.position as number) ?? 0;
+      queries.push({ position, expand: Boolean(call.args.expandRecurrences) });
+      const limit = (call.args.limit as number) ?? MAX;
+      return {
+        accountId: "a1",
+        queryState: "1",
+        canCalculateChanges: false,
+        position,
+        ids: events.slice(position, position + limit).map((e) => e.id),
+        total: events.length,
+      };
+    })
+    .on("CalendarEvent/get", (call) => {
+      const want = new Set((call.args.ids as string[]) ?? []);
+      return {
+        accountId: "a1",
+        state: "1",
+        list: events.filter((e) => want.has(e.id)),
+        notFound: [],
+      };
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
   return queries;
 }
 

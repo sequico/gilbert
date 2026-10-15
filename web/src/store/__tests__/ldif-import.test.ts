@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * The store half of LDIF import: everything that happens after the file has
@@ -27,52 +28,20 @@ interface SetArgs {
 
 function server(opts: { notCreated?: Record<string, unknown> } = {}) {
   const sets: SetArgs[] = [];
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "ContactCard/set") {
-        sets.push({ create: args.create as Record<string, Record<string, unknown>> });
-        const keys = Object.keys((args.create ?? {}) as object);
-        const notCreated = opts.notCreated ?? {};
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created: Object.fromEntries(
-              keys.filter((k) => !(k in notCreated)).map((k) => [k, { id: `new-${k}` }]),
-            ),
-            notCreated,
-          },
-          id,
-        ];
-      }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
-    });
+  fakeJmapServer().on("ContactCard/set", (call) => {
+    sets.push({ create: call.args.create as Record<string, Record<string, unknown>> });
+    const keys = Object.keys((call.args.create ?? {}) as object);
+    const notCreated = opts.notCreated ?? {};
     return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
+      accountId: "a1",
+      oldState: "1",
+      newState: "2",
+      created: Object.fromEntries(
+        keys.filter((k) => !(k in notCreated)).map((k) => [k, { id: `new-${k}` }]),
+      ),
+      notCreated,
+    };
   });
-  vi.stubGlobal("fetch", fetchMock);
   return sets;
 }
 
