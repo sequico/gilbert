@@ -19,6 +19,7 @@ import {
   restoreArticle,
   saveDraft,
 } from "../knowledgeAdmin.js";
+import { errorMessage } from "../shared/errors.js";
 import {
   isKnowledgeChecklist,
   type KnowledgeArticleInput,
@@ -383,10 +384,7 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
             );
             applied.push(folder);
           } catch (err) {
-            refused.push({
-              folder,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            refused.push({ folder, error: errorMessage(err) });
           }
         }
         return c.json({ ok: refused.length === 0, applied, refused });

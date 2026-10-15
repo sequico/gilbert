@@ -37,6 +37,7 @@ import {
   WRITE_ATTEMPTS,
 } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
+import { errorMessage } from "../shared/errors.js";
 import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import type { SetResponse } from "../shared/jmap.js";
 import { isRecord } from "../shared/json.js";
@@ -701,9 +702,7 @@ export async function runActions(
       // job on this type (`runJob`). Wrapping it would erase the reason and let
       // a retry run the effect the fence just stopped.
       if (err instanceof RefusedError) throw err;
-      throw new Error(
-        `"${action.do}" failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      throw new Error(`"${action.do}" failed: ${errorMessage(err)}`);
     }
   }
   return results;
