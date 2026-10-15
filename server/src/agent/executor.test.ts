@@ -1026,7 +1026,8 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
 
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
   const job = (await jobsOf("trashed-draft")).at(-1);
-  assert.ok(job?.proposal?.draft, String(job?.error));
+  assert.ok(job, "the pass wrote a job for the rule");
+  assert.ok(job.proposal?.draft, String(job.error));
 
   const before = await submissionCount();
   // The most ordinary way a person rejects a proposal: they delete the draft,
