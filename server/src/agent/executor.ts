@@ -2115,7 +2115,7 @@ export class Executor {
       let messages = await this.readChatOf(accountId, pass.chats);
       let anchor = messages.find((message) => message.id === trigger.chatId);
       /*
-       * The read is the newest `CHAT_READ_MAX` messages, and a run can arrive
+       * The read is the newest `CHAT_CONTEXT_MAX` messages, and a run can arrive
        * long after the message that woke it: its own trigger is then read on its
        * own — with the chain that led to it, which the context is built from —
        * rather than the run refused. The window is a bound on the read, not a
