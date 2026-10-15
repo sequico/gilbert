@@ -43,15 +43,29 @@ export type CalendarContext =
  * popover's Edit button and this context menu cannot disagree. The popover
  * re-exports it for its existing callers.
  */
+/**
+ * Whether the reader organised this event.
+ *
+ * Two surfaces ask it — whether the event may be edited, and what the popover
+ * shows where the organiser is — and the answer decides whether a write-own
+ * right reaches an event, so it is written once. An event naming no
+ * participants is the reader's own, and `isOrigin` is false on an event copied
+ * out of another calendar.
+ */
+export function isEventOrganizer(ev: CalendarEvent, myKeys: readonly string[]): boolean {
+  const participants = Object.entries(ev.participants ?? {});
+  return (
+    ev.isOrigin !== false &&
+    (!participants.length ||
+      participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)))
+  );
+}
+
 export function canEditInstance(inst: EventInstance): boolean {
   const ev = inst.event;
   const cal = useCalendar.getState();
   const myKeys = myParticipantKeys(ev, cal.identities);
-  const participants = Object.entries(ev.participants ?? {});
-  const isOrganizer =
-    ev.isOrigin !== false &&
-    (!participants.length ||
-      participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)));
+  const isOrganizer = isEventOrganizer(ev, myKeys);
   return Boolean(
     inst.calendar?.myRights.mayWriteAll ||
       (inst.calendar?.myRights.mayWriteOwn && isOrganizer) ||

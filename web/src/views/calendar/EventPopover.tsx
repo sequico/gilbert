@@ -44,7 +44,12 @@ import { toast } from "@/ui/toast";
  * gesture, the popover button and the menu cannot disagree about which events
  * may be edited.
  */
-import { canEditInstance, categoryOf, eventColor } from "./CalendarContextMenu";
+import {
+  canEditInstance,
+  categoryOf,
+  eventColor,
+  isEventOrganizer,
+} from "./CalendarContextMenu";
 import { askDeleteScope, runScoped } from "./scope";
 
 export { canEditInstance };
@@ -72,10 +77,7 @@ export function EventPopover({
   const myStatus = myKeys.length
     ? ev.participants?.[myKeys[0]!]?.participationStatus
     : undefined;
-  const isOrganizer =
-    ev.isOrigin !== false &&
-    (!participants.length ||
-      participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)));
+  const isOrganizer = isEventOrganizer(ev, myKeys);
   const location = Object.values(ev.locations ?? {})[0];
   const vloc = Object.values(ev.virtualLocations ?? {})[0];
   const alerts = Object.values(ev.alerts ?? {});
