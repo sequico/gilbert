@@ -48,7 +48,7 @@ import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
 import { FILE_PROPS } from "./shared/appFolder.js";
-import { CodedError } from "./shared/errors.js";
+import { CodedError, errorMessage } from "./shared/errors.js";
 import { refusalOf } from "./shared/jmap.js";
 import {
   checklistGroups,
@@ -1553,7 +1553,7 @@ async function undoSuccessor(
     } catch (err) {
       console.warn(
         `[gilbert] workorder ${successor.uid} could not be taken back, so it is there:`,
-        err instanceof Error ? err.message : String(err),
+        errorMessage(err),
       );
       return false;
     }
@@ -1569,7 +1569,7 @@ async function undoSuccessor(
       undone = false;
       console.warn(
         `[gilbert] workorder ${successor.uid} left a part in ${part.accountId}:`,
-        err instanceof Error ? err.message : String(err),
+        errorMessage(err),
       );
     }
   }
@@ -1622,7 +1622,7 @@ export async function replaceWorkorder(
   try {
     await setRootState(session, id, "replaced", successor.uid);
   } catch (err) {
-    const why = err instanceof Error ? err.message : String(err);
+    const why = errorMessage(err);
     const undone = await undoSuccessor(session, successor);
     throw new WorkorderAdminError(
       "workorder_replace_failed",
