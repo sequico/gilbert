@@ -31,6 +31,14 @@ export interface PinReference {
   comment: string | null;
 }
 
+/** A value written by hand in one workflow and repeated in another. */
+export interface DriftFinding {
+  path: string;
+  line: number;
+  subject: string;
+  reason: string;
+}
+
 export function checkWorkflowPins(files?: WorkflowFile[]): {
   /** False when any `uses:` is not pinned the way this repository requires. */
   ok: boolean;
@@ -38,6 +46,10 @@ export function checkWorkflowPins(files?: WorkflowFile[]): {
   references: PinReference[];
   checked: number;
 };
+export function checkWorkflowNodeLine(
+  files?: WorkflowFile[],
+  engines?: string,
+): { ok: boolean; findings: DriftFinding[] };
 export function formatReport(findings: PinFinding[]): string[];
 export function formatPins(references: PinReference[]): string[];
 export function collectRepoInput(root?: string): { files: WorkflowFile[] };

@@ -321,7 +321,9 @@ A `./.github/workflows/…` reference is a workflow here rather than an action,
 and is not pinned. Dependabot's `github-actions` updates are what move these —
 a bump that moves the SHA without the version comment beside it is a review
 finding. `npm run workflow:pin` is the check that enforces both: an action
-named by a tag, or pinned with no version beside it, fails the gate. The
+named by a tag, or pinned with no version beside it, fails the gate. It reads
+the same files for the Node line, which a workflow cannot import, and asserts
+every `node-version:` against the major `engines.node` declares. The
 workflows this repository owns are ours; upstream's CI is not taken.
 
 **CodeQL runs with the release** (ADR 0027, owner decision 2026-09-27): the
