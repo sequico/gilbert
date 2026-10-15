@@ -215,7 +215,7 @@ export function SaveToFilesDialog({
       // one tap rather than a reopened menu.
       if (saved || !failed.length) onClose();
     } catch (err) {
-      toast.error((err as Error).message || translate("Could not save the attachments."));
+      toast.error(errorMessage(err) || translate("Could not save the attachments."));
     } finally {
       setBusy(false);
     }
