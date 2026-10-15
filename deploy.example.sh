@@ -96,7 +96,7 @@ KEEP_VERSIONS="${GILBERT_KEEP_VERSIONS:-3}"
 SELF="$(readlink -f "$0")"
 APP_REAL="$(readlink -f "$APP" 2>/dev/null || printf '%s' "$APP")"
 if [ -z "${GILBERT_REEXEC:-}" ] && [ "${SELF#"$APP_REAL"/}" != "$SELF" ]; then
-  COPY="$(mktemp "${TMPDIR:-/tmp}/gilbert-deploy.XXXXXX")"
+  COPY="$(mktemp "${TMPDIR:-/tmp}/deploy.XXXXXX")"
   cat "$SELF" > "$COPY"
   chmod +x "$COPY"
   GILBERT_REEXEC=1 exec "$COPY" "$@"
