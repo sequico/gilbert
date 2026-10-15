@@ -2,6 +2,7 @@ import {
   FILENODE_GET,
   FILENODE_QUERY,
   FILENODE_SET,
+import { errorMessage } from "@gilbert/shared/errors";
   isAppFolder,
 } from "@gilbert/shared/appFolder";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
@@ -673,7 +674,7 @@ async function uploadOne(
     }
     set((s) => ({
       runs: s.runs.map((u) =>
-        u.id === row.id ? { ...u, error: (err as Error).message } : u,
+        u.id === row.id ? { ...u, error: errorMessage(err) } : u,
       ),
     }));
   }
@@ -1103,7 +1104,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       });
     } catch (err) {
       // The listing still works without a tree, so this must not blank the view.
-      set({ error: (err as Error).message, treeLoaded: true });
+      set({ error: errorMessage(err), treeLoaded: true });
     }
   },
 
@@ -1147,7 +1148,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       // whole tree instead would hide a real fault behind a performance cliff
       // nobody would notice.
       childrenLoads -= 1;
-      set({ loading: childrenLoads > 0, error: (err as Error).message });
+      set({ loading: childrenLoads > 0, error: errorMessage(err) });
     }
   },
 
@@ -1286,7 +1287,7 @@ export const useFiles = create<FilesState>((set, get) => ({
         dropRow();
         return;
       }
-      fail((err as Error).message);
+      fail(errorMessage(err));
       return;
     } finally {
       endRun(run);
@@ -1494,7 +1495,7 @@ export const useFiles = create<FilesState>((set, get) => ({
             }
           }
           missing.add(key);
-          set({ error: (err as Error).message });
+          set({ error: errorMessage(err) });
         }
       }
       const byFolder = new Map<string, File[]>();

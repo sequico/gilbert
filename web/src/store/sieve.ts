@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse, SieveScript } from "@/jmap/types";
@@ -107,7 +108,7 @@ export const useSieve = create<SieveState>((set, get) => ({
       // a reload whose fetch failed must not throw that away.
       set((st) => ({ contents: { ...st.contents, ...fetched } }));
     } catch (err) {
-      set({ loading: false, error: (err as Error).message });
+      set({ loading: false, error: errorMessage(err) });
     }
   },
 
@@ -252,7 +253,7 @@ export const useSieve = create<SieveState>((set, get) => ({
       }>("SieveScript/validate", { accountId, blobId: up.blobId });
       return res.error ? (res.error.description ?? res.error.type) : null;
     } catch (err) {
-      return (err as Error).message;
+      return errorMessage(err);
     }
   },
 

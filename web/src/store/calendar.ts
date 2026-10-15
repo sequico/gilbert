@@ -2,6 +2,7 @@ import {
   OCCURRENCE_INHERITED,
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
+import { errorMessage } from "@gilbert/shared/errors";
 import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { API_TIMEOUT_MS, CAP, chunk, client, setErrorMessage } from "@/jmap/client";
@@ -820,7 +821,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
              otherwise indistinguishable from one that has none -- and the
              calendars a group owns live in exactly such an account. */
           console.warn(
-            `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
+            `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${errorMessage(err)}`,
           );
           return [];
         }
@@ -1006,7 +1007,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          * to look deleted.
          */
         ids.push(...held);
-        failed.push((err as Error).message);
+        failed.push(errorMessage(err));
       }
     }
     set((s) => {
@@ -1045,7 +1046,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       for (const c of res.list) calendars[c.id] = c;
       set({ calendars, error: null });
     } catch (err) {
-      set({ error: (err as Error).message });
+      set({ error: errorMessage(err) });
     }
   },
 
@@ -1118,7 +1119,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       void get().loadSharedRange(start, end);
     } catch (err) {
       if (shows) rangeLoads -= 1;
-      set({ loading: rangeLoads > 0, error: (err as Error).message });
+      set({ loading: rangeLoads > 0, error: errorMessage(err) });
     }
   },
 
@@ -1177,7 +1178,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         errors[sub.id] =
           (err as Error).name === "AbortError"
             ? t("The calendar did not answer in time.")
-            : (err as Error).message;
+            : errorMessage(err);
       }
     }
     set({
@@ -1878,7 +1879,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       // someone looking for events that are already there.
       if (!created && !updated) throw err;
       throw new Error(
-        `${created + updated} of ${keys.length} events were imported before this happened: ${(err as Error).message}`,
+        `${created + updated} of ${keys.length} events were imported before this happened: ${errorMessage(err)}`,
       );
     } finally {
       if (created || updated) get().refreshWindows();

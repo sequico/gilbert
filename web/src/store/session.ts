@@ -2,6 +2,7 @@ import {
   accountForCapability,
   ownAccountForCapability,
 } from "@gilbert/shared/accountRouting";
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { ApiError, apiFetch, CAP, client } from "@/jmap/client";
 import { type PushState, push } from "@/jmap/push";
@@ -100,7 +101,7 @@ export const useSession = create<SessionState>((set, get) => ({
             accountId: null,
             forcedPasswordChange: false,
             identityLocked: false,
-            error: (err as Error).message,
+            error: errorMessage(err),
           });
       } finally {
         bootstrapInFlight = null;

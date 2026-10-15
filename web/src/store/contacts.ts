@@ -2,6 +2,7 @@ import {
   GLOBAL_CONTACTS_BOOK_NAME,
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
+import { errorMessage } from "@gilbert/shared/errors";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
@@ -186,7 +187,7 @@ async function writeCards(
       // sends someone looking for contacts that are already there.
       if (!created && !updated) throw err;
       throw new Error(
-        `${created + updated} of ${keys.length} contacts were imported before this happened: ${(err as Error).message}`,
+        `${created + updated} of ${keys.length} contacts were imported before this happened: ${errorMessage(err)}`,
       );
     }
     created += Object.keys(res.created ?? {}).length;
@@ -883,7 +884,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
               position += q.ids.length;
             }
           } catch (err) {
-            failures.push(`${account.name ?? accountId}: ${(err as Error).message}`);
+            failures.push(`${account.name ?? accountId}: ${errorMessage(err)}`);
           }
         }),
       );
@@ -1077,7 +1078,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       restoreBookPlace();
     } catch (err) {
       if (epoch !== sessionEpoch || get().accountId !== accountId) return;
-      set({ error: (err as Error).message });
+      set({ error: errorMessage(err) });
     }
   },
 
@@ -1131,7 +1132,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
         set({ loading: false });
         return;
       }
-      set({ loading: false, error: (err as Error).message });
+      set({ loading: false, error: errorMessage(err) });
     }
   },
 
@@ -1436,7 +1437,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     } catch (err) {
       return {
         destroyed: 0,
-        refused: { type: "serverFail", description: (err as Error).message },
+        refused: { type: "serverFail", description: errorMessage(err) },
       };
     }
   },

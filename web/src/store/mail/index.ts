@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
@@ -112,7 +113,7 @@ function offerArchiveFolder(retry: () => Promise<void>): void {
         } catch (err) {
           toast.error(
             t("Could not set up an Archive folder: {error}", {
-              error: (err as Error).message,
+              error: errorMessage(err),
             }),
           );
         }
@@ -354,7 +355,7 @@ export const useMail = create<MailState>((set, get) => ({
       if (!mailboxesReadReported) {
         mailboxesReadReported = true;
         console.warn(
-          `[gilbert] could not read the folder tree of ${accountId}: ${(err as Error).message}`,
+          `[gilbert] could not read the folder tree of ${accountId}: ${errorMessage(err)}`,
         );
       }
       return;
@@ -506,7 +507,7 @@ export const useMail = create<MailState>((set, get) => ({
       if (get().list?.key !== key) return;
       set((s) => ({
         list: s.list
-          ? { ...s.list, loading: false, error: (err as Error).message }
+          ? { ...s.list, loading: false, error: errorMessage(err) }
           : s.list,
       }));
     }
@@ -575,7 +576,7 @@ export const useMail = create<MailState>((set, get) => ({
     } catch (err) {
       const cur = get().list;
       if (cur && cur.key === l.key)
-        set({ list: { ...cur, loadingMore: false, error: (err as Error).message } });
+        set({ list: { ...cur, loadingMore: false, error: errorMessage(err) } });
     }
   },
 
@@ -794,7 +795,7 @@ export const useMail = create<MailState>((set, get) => ({
     try {
       await setEmails(accountId, update);
     } catch (err) {
-      toast.error(t("Could not update: {error}", { error: (err as Error).message }));
+      toast.error(t("Could not update: {error}", { error: errorMessage(err) }));
       /*
        * `getEmails` answers from what is already held, so it would leave the
        * optimistic keywords exactly where the refused write put them. The list
@@ -892,7 +893,7 @@ export const useMail = create<MailState>((set, get) => ({
       void get().loadMailboxes();
       return { ok: true };
     } catch (err) {
-      toast.error(t("Move failed: {error}", { error: (err as Error).message }));
+      toast.error(t("Move failed: {error}", { error: errorMessage(err) }));
       void get().refreshList();
       /*
        * The server refused, so nothing moved: the refresh re-reads the list's
@@ -928,7 +929,7 @@ export const useMail = create<MailState>((set, get) => ({
       void get().loadMailboxes();
     } catch (err) {
       toast.error(
-        t("Could not update labels: {error}", { error: (err as Error).message }),
+        t("Could not update labels: {error}", { error: errorMessage(err) }),
       );
       // `getEmails` would answer from what is already held and leave the
       // optimistic folder membership in place; the list is read again instead.
@@ -1030,7 +1031,7 @@ export const useMail = create<MailState>((set, get) => ({
       if (failed.length && failed.length === ids.length)
         return { ok: false, code: "server_refused" };
     } catch (err) {
-      toast.error(t("Delete failed: {error}", { error: (err as Error).message }));
+      toast.error(t("Delete failed: {error}", { error: errorMessage(err) }));
       void get().refreshList();
       /*
        * The server refused, so the messages are still there — and the optimistic
@@ -1116,7 +1117,7 @@ export const useMail = create<MailState>((set, get) => ({
         targets.set(target, [...(targets.get(target) ?? []), ...group.ids]);
       }
     } catch (err) {
-      toast.error(t("Archive failed: {error}", { error: (err as Error).message }));
+      toast.error(t("Archive failed: {error}", { error: errorMessage(err) }));
       void get().refreshList();
       return;
     }
@@ -1152,7 +1153,7 @@ export const useMail = create<MailState>((set, get) => ({
        * not. Said the way this store says a refused keyword write everywhere
        * else.
        */
-      toast.error(t("Could not update: {error}", { error: (err as Error).message }));
+      toast.error(t("Could not update: {error}", { error: errorMessage(err) }));
     }
     return get().move(ids, target, { label: isSpam ? "Junk Mail" : "Inbox" });
   },
@@ -1232,7 +1233,7 @@ export const useMail = create<MailState>((set, get) => ({
       });
     } catch (err) {
       toast.error(
-        t("Could not empty folder: {error}", { error: (err as Error).message }) +
+        t("Could not empty folder: {error}", { error: errorMessage(err) }) +
           (deleted
             ? " " +
               plural(deleted, {
@@ -1340,7 +1341,7 @@ export const useMail = create<MailState>((set, get) => ({
       void get().loadMailboxes();
     } catch (err) {
       toast.error(
-        t("Could not mark as read: {error}", { error: (err as Error).message }),
+        t("Could not mark as read: {error}", { error: errorMessage(err) }),
       );
     }
   },
@@ -1704,7 +1705,7 @@ export const useMail = create<MailState>((set, get) => ({
        * without the vacation capability refuses this call too, so it lands here
        * rather than in a branch of its own: the same answer, said the same way.
        */
-      set({ vacationError: (err as Error).message });
+      set({ vacationError: errorMessage(err) });
     }
   },
 
@@ -2017,7 +2018,7 @@ export const useMail = create<MailState>((set, get) => ({
             if (!changesReported) {
               changesReported = true;
               console.warn(
-                `[gilbert] could not read mail changes: ${(err as Error).message}`,
+                `[gilbert] could not read mail changes: ${errorMessage(err)}`,
               );
             }
           }
@@ -2421,7 +2422,7 @@ async function followFolders(accountId: Id, before: FolderRef[]): Promise<void> 
   } catch (err) {
     toast.error(
       t("Folder changed, but its filter rules could not be updated: {error}", {
-        error: (err as Error).message,
+        error: errorMessage(err),
       }),
     );
   }

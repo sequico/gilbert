@@ -17,6 +17,7 @@
  * and without a cached index to go stale.
  */
 
+import { errorMessage } from "@gilbert/shared/errors";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import {
   create as createIndex,
@@ -234,7 +235,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
       set({ error: null });
       written = await write();
     } catch (err) {
-      set({ error: (err as Error).message });
+      set({ error: errorMessage(err) });
       return false;
     }
     try {
@@ -242,7 +243,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
     } catch (err) {
       set({
         error: t("Saved, but the view could not be refreshed: {error}", {
-          error: (err as Error).message,
+          error: errorMessage(err),
         }),
       });
     }
@@ -452,7 +453,7 @@ export const useKnowledge = create<KnowledgeStore>((set, get) => {
         });
       } catch (err) {
         if (token !== openToken) return;
-        set({ articleLoading: false, error: (err as Error).message });
+        set({ articleLoading: false, error: errorMessage(err) });
       }
     },
 

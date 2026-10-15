@@ -21,6 +21,7 @@
  * enough to refresh both the list and the open panel.
  */
 
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
@@ -197,7 +198,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         if (epoch !== loadEpoch) return;
         // A failed read leaves the last list in place, or none; the panel shows
         // the error and the next open or refresh retries.
-        set({ error: (err as Error).message, loading: false });
+        set({ error: errorMessage(err), loading: false });
         if (pendingReload) {
           pendingReload = false;
           void get().load();
@@ -283,7 +284,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         put(await createWorkorder(input));
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },
@@ -302,7 +303,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         );
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },
@@ -312,7 +313,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         put(await closeWorkorder(uid, state));
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },
@@ -331,7 +332,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         set({ openUid: successor.uid });
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },
@@ -341,7 +342,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         put(await editWorkorderRefs(uid, { add: ref }));
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },
@@ -351,7 +352,7 @@ export const useWorkorders = create<WorkorderStore>((set, get) => {
         put(await editWorkorderRefs(uid, { remove: ref }));
         return true;
       } catch (err) {
-        set({ error: (err as Error).message });
+        set({ error: errorMessage(err) });
         return false;
       }
     },

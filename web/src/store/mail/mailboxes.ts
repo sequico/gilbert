@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { chunk, client } from "@/jmap/client";
 import type { Email, GetResponse, Id, Mailbox, SetResponse, Thread } from "@/jmap/types";
 import type { ConversedMessage } from "@/lib/archiveTarget";
@@ -124,7 +125,7 @@ export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void
       // and holds the write back until the back-off above expires.
       if (!subscriptionBackoff.has(accountId)) {
         console.warn(
-          `[gilbert] could not subscribe the folders of ${accountId}: ${(err as Error).message}`,
+          `[gilbert] could not subscribe the folders of ${accountId}: ${errorMessage(err)}`,
         );
       }
       subscriptionBackoff.set(accountId, Date.now() + SUBSCRIBE_RETRY_MS);

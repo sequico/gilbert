@@ -15,6 +15,7 @@
  */
 
 import { FILENODE_CHANGES, FILENODE_GET } from "@gilbert/shared/appFolder";
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { client, JmapMethodError } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
@@ -215,7 +216,7 @@ export const useChat = create<ChatState>((set, get) => {
           [accountId]: {
             ...(s.conversations[accountId] ?? empty(accountId, name)),
             loading: false,
-            error: (err as Error).message,
+            error: errorMessage(err),
           },
         },
       }));
@@ -545,7 +546,7 @@ export const useChat = create<ChatState>((set, get) => {
         }));
         markAt(accountId);
       } catch (err) {
-        toast.show(t("Message not sent — {what}", { what: (err as Error).message }));
+        toast.show(t("Message not sent — {what}", { what: errorMessage(err) }));
       } finally {
         set((s) => {
           const c = s.conversations[accountId];

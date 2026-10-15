@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { htmlSignatureBlock, textSignatureBlock } from "@gilbert/shared/signature";
 import { create } from "zustand";
 import { ApiError, client, setErrorMessage } from "@/jmap/client";
@@ -881,7 +882,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
         toast.show(translate("Draft saved"));
       } catch (err) {
         toast.error(
-          translate("Could not save draft: {error}", { error: (err as Error).message }),
+          translate("Could not save draft: {error}", { error: errorMessage(err) }),
         );
       }
     } else {
@@ -947,7 +948,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
           patchAtt(
             key,
             a.id,
-            { error: (err as Error).message || translate("Upload failed") },
+            { error: errorMessage(err) || translate("Upload failed") },
             set,
           ),
         );
@@ -1023,7 +1024,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
         patchAtt(
           key,
           a.id,
-          { error: (err as Error).message || translate("Could not attach") },
+          { error: errorMessage(err) || translate("Could not attach") },
           set,
         );
       }
@@ -1051,7 +1052,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
     } catch (err) {
       if (!opts.silent)
         toast.error(
-          translate("Could not save draft: {error}", { error: (err as Error).message }),
+          translate("Could not save draft: {error}", { error: errorMessage(err) }),
         );
       return null;
     }
@@ -1150,7 +1151,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
         }
         const leftOrphan =
           (err as { sendOutcomeOrphan?: boolean }).sendOutcomeOrphan === true;
-        const message = (err as Error).message;
+        const message = errorMessage(err);
         openDraft(current, message, leftOrphan);
         toast.error(translate("Send failed: {error}", { error: message }), {
           action: { label: translate("Open draft"), onClick: () => get().focus(key) },
@@ -1723,7 +1724,7 @@ async function saveDraftInternal(
     if (!opts.final)
       set((s) => ({
         drafts: s.drafts.map((x) =>
-          x.key === d.key ? { ...x, saving: false, error: (err as Error).message } : x,
+          x.key === d.key ? { ...x, saving: false, error: errorMessage(err) } : x,
         ),
       }));
     throw err;

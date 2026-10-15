@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { CAP, client, ref, setErrorMessage } from "@/jmap/client";
 import type {
@@ -212,7 +213,7 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
        * lands here rather than in a branch of its own; that is the same answer,
        * said the same way.
        */
-      set({ loadError: (err as Error).message });
+      set({ loadError: errorMessage(err) });
     }
   },
 
@@ -355,7 +356,7 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
     } catch (err) {
       toast.error(
         t("Could not update the Scheduled folder: {error}", {
-          error: (err as Error).message,
+          error: errorMessage(err),
         }),
       );
     }

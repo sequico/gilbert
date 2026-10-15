@@ -1,3 +1,4 @@
+import { errorMessage } from "@gilbert/shared/errors";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { Email, EmailAddress, Id, SetResponse } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
@@ -158,7 +159,7 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     } catch (err) {
       // The submission never answered: nothing will send the receipt, so it is
       // taken back out and the mark cleared.
-      return didNotGo((err as Error).message);
+      return didNotGo(errorMessage(err));
     }
 
     const sub = res.get("s")?.[0] as unknown as
