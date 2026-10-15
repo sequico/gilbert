@@ -3,7 +3,7 @@ import {
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
 import { errorMessage } from "@gilbert/shared/errors";
-import { queryThenGet } from "@gilbert/shared/jmapQuery";
+import { queryThenGet, ref } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import { API_TIMEOUT_MS, batchedSet, CAP, client, setErrorMessage } from "@/jmap/client";
@@ -303,7 +303,7 @@ async function currentOccurrenceId(accountId: Id, event: CalendarEvent): Promise
       "CalendarEvent/get",
       {
         accountId,
-        "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+        "#ids": ref("q", "CalendarEvent/query", "/ids"),
         properties: ["id", "baseEventId", "recurrenceId"],
       },
       "g",
@@ -980,7 +980,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
               "CalendarEvent/get",
               {
                 accountId,
-                "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+                "#ids": ref("q", "CalendarEvent/query", "/ids"),
                 properties: EVENT_PROPS,
                 timeZone: tz,
               },
@@ -1095,7 +1095,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           "CalendarEvent/get",
           {
             accountId,
-            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+            "#ids": ref("q", "CalendarEvent/query", "/ids"),
             properties: EVENT_PROPS,
             timeZone: tz,
           },
@@ -1724,7 +1724,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         "CalendarEvent/get",
         {
           accountId,
-          "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+          "#ids": ref("q", "CalendarEvent/query", "/ids"),
           properties: EVENT_PROPS,
         },
         "g",

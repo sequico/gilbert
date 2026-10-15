@@ -27,6 +27,25 @@ import type { Invocation } from "./jmap.js";
  * attached.
  */
 
+/** A JMAP result reference: the call a later one reads its ids from. */
+export interface ResultRef {
+  resultOf: string;
+  name: string;
+  path: string;
+}
+
+/**
+ * Build a JMAP result reference argument (`"#ids": {...}`).
+ *
+ * A reference names the call it points at (`resultOf`), the method that call
+ * used (`name`) and the path into its answer (`path`). Spelled by hand, the
+ * three have to agree with a call that may move or be renamed in another file,
+ * and nothing checks that they do.
+ */
+export function ref(resultOf: string, name: string, path: string): ResultRef {
+  return { resultOf, name, path };
+}
+
 export interface QueryThenGet {
   /** The `/query` method, e.g. `FileNode/query`. */
   query: string;
@@ -79,7 +98,7 @@ export function queryThenGet({
       get,
       {
         accountId,
-        "#ids": { resultOf: "q", name: query, path: "/ids" },
+        "#ids": ref("q", query, "/ids"),
         ...(properties ? { properties } : {}),
       },
       "g",

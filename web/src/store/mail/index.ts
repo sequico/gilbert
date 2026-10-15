@@ -2,6 +2,7 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
+import { ref } from "@gilbert/shared/jmapQuery";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   ChangesResponse,
@@ -676,7 +677,7 @@ export const useMail = create<MailState>((set, get) => ({
           "Email/get",
           {
             accountId,
-            "#ids": { resultOf: "t", name: "Thread/get", path: "/list/*/emailIds" },
+            "#ids": ref("t", "Thread/get", "/list/*/emailIds"),
             properties: FULL_PROPS,
             fetchHTMLBodyValues: true,
             fetchTextBodyValues: true,
@@ -2247,7 +2248,7 @@ async function runQueryOnce(
       "Email/get",
       {
         accountId,
-        "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+        "#ids": ref("q", "Email/query", "/ids"),
         properties: LIST_PROPS,
       },
       "e",
@@ -2258,7 +2259,7 @@ async function runQueryOnce(
       "Thread/get",
       {
         accountId,
-        "#ids": { resultOf: "e", name: "Email/get", path: "/list/*/threadId" },
+        "#ids": ref("e", "Email/get", "/list/*/threadId"),
       },
       "t",
     ]);
@@ -2266,7 +2267,7 @@ async function runQueryOnce(
       "Email/get",
       {
         accountId,
-        "#ids": { resultOf: "t", name: "Thread/get", path: "/list/*/emailIds" },
+        "#ids": ref("t", "Thread/get", "/list/*/emailIds"),
         properties: LIST_PROPS,
       },
       "te",

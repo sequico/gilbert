@@ -3,7 +3,7 @@ import {
   type GlobalContactView,
 } from "@gilbert/shared/globalContacts";
 import { errorMessage } from "@gilbert/shared/errors";
-import { queryThenGet } from "@gilbert/shared/jmapQuery";
+import { queryThenGet, ref } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
 import {
@@ -1077,7 +1077,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
             "ContactCard/get",
             {
               accountId,
-              "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+              "#ids": ref("q", "ContactCard/query", "/ids"),
             },
             "g",
           ],
@@ -1819,7 +1819,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
           "Principal/get",
           {
             accountId,
-            "#ids": { resultOf: "q", name: "Principal/query", path: "/ids" },
+            "#ids": ref("q", "Principal/query", "/ids"),
             properties: ["id", "type", "name", "description", "email", "timeZone"],
           },
           "g",

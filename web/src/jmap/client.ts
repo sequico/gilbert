@@ -101,8 +101,6 @@ interface Pending {
   reject: (e: unknown) => void;
 }
 
-export type ResultRef = { resultOf: string; name: string; path: string };
-
 const HEADERS = {
   "content-type": "application/json",
   accept: "application/json",
@@ -782,11 +780,6 @@ function usingFor(method: string): string[] {
 }
 
 export const client = new JmapClient();
-
-/** Build a JMAP result reference argument ("#ids": {...}). */
-export function ref(resultOf: string, name: string, path: string): ResultRef {
-  return { resultOf, name, path };
-}
 
 /** Chunk ids so a /get or /set call stays under the server's per-call maximum. */
 export function chunk<T>(arr: T[], size: number): T[][] {
