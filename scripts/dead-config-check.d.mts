@@ -22,15 +22,21 @@ export interface EnvRead {
   line: number;
 }
 
+/** An `EnvRead` judged in a file: the read, and where it was read. */
+export interface EnvMention extends EnvRead {
+  /** Relative to the repository root, as `judgeFile` reports it. */
+  path: string;
+}
+
 export interface JudgedFile {
   retired: RetiredMention[];
-  env: EnvRead[];
+  env: EnvMention[];
 }
 
 export interface DeadConfiguration {
   ok: boolean;
   retired: RetiredMention[];
-  env: EnvRead[];
+  env: EnvMention[];
   counts: { files: number; retiredNames: number };
 }
 

@@ -7,11 +7,7 @@
  * signature the check no longer has.
  */
 
-export interface WorkflowFile {
-  /** Relative to the repository root, as `collectRepoInput` reports it. */
-  path: string;
-  text: string;
-}
+import type { RepoFile } from "./lib/repoFile.mjs";
 
 /** A `uses:` that is not pinned the way this repository requires. */
 export interface PinFinding {
@@ -39,7 +35,7 @@ export interface DriftFinding {
   reason: string;
 }
 
-export function checkWorkflowPins(files?: WorkflowFile[]): {
+export function checkWorkflowPins(files?: RepoFile[]): {
   /** False when any `uses:` is not pinned the way this repository requires. */
   ok: boolean;
   findings: PinFinding[];
@@ -47,14 +43,14 @@ export function checkWorkflowPins(files?: WorkflowFile[]): {
   checked: number;
 };
 export function checkWorkflowNodeLine(
-  files?: WorkflowFile[],
+  files?: RepoFile[],
   engines?: string,
 ): { ok: boolean; findings: DriftFinding[] };
-export function checkImageTarget(files?: WorkflowFile[]): {
+export function checkImageTarget(files?: RepoFile[]): {
   ok: boolean;
   findings: DriftFinding[];
 };
 export function formatReport(findings: PinFinding[]): string[];
 export function formatPins(references: PinReference[]): string[];
-export function collectRepoInput(root?: string): { files: WorkflowFile[] };
+export function collectRepoInput(root?: string): { files: RepoFile[] };
 export function readPaths(root?: string): string[];

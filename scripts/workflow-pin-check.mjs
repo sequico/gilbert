@@ -41,7 +41,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
-import { isEntryPoint, lineOf, ROOT } from "./lib/repoWalk.mjs";
+import { isEntryPoint, lineOf, pathsOf, ROOT } from "./lib/repoWalk.mjs";
 
 /** A `uses:` line, with the reference and whatever comment follows it. */
 const USES_LINE = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*(#.*)?$/;
@@ -260,7 +260,7 @@ function enginesNode(root = ROOT) {
 
 /** What this check reads, for the gate's read set (`gate-prepush.sh`). */
 export function readPaths(root = ROOT) {
-  return ["package.json", ...collectRepoInput(root).files.map((one) => one.path)];
+  return ["package.json", ...pathsOf(collectRepoInput(root))];
 }
 
 const USAGE =
