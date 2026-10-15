@@ -468,8 +468,10 @@ describe("re-importing events the calendar already has", () => {
       updated: 2,
     });
     expect(sets).toHaveLength(1);
-    expect(Object.keys(sets[0]!.create!)).toHaveLength(0);
-    expect(Object.keys(sets[0]!.update!)).toHaveLength(2);
+    // An empty partition is not sent at all: the question is whether the call
+    // carries any creates, not whether it carries an empty `create`.
+    expect(Object.keys(sets[0]!.create ?? {})).toHaveLength(0);
+    expect(Object.keys(sets[0]!.update ?? {})).toHaveLength(2);
   });
 
   it("reports a refusal to update, rather than reporting nothing imported", async () => {

@@ -126,7 +126,7 @@ describe("re-importing an LDIF address book", () => {
     const sets = server([here("c1", uidFor("cn=jane doe,ou=people"), "Jane Doe")]);
     const r = await useContacts.getState().importLdif(JANE, "book1");
     expect(r).toEqual({ created: 0, updated: 1, alike: 0 });
-    expect(sets[0]!.create).toEqual({});
+    expect(sets[0]!.create ?? {}).toEqual({});
     expect(Object.keys(sets[0]!.update!)).toEqual(["c1"]);
   });
 
@@ -179,7 +179,7 @@ describe("re-importing an LDIF address book", () => {
     ]);
     const r = await useContacts.getState().importLdif(JANE, "book1");
     expect(r.created).toBe(1);
-    expect(sets[0]!.update).toEqual({});
+    expect(sets[0]!.update ?? {}).toEqual({});
   });
 
   it("still counts a look-alike whose dn moved, and imports it anyway", async () => {
