@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import type { EmailAddress } from "@/jmap/types";
 import { avatarColor, initials } from "@/lib/address";
+import { CALENDAR_COLORS } from "@/lib/calendarColors";
 import { contactPhoto } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { keyLabel } from "@/lib/keyboard";
@@ -195,21 +196,3 @@ export function ColorSwatches({
  * the same fixed colour it was avoiding.
  */
 export const ACTIVE_COLOR = "var(--success)";
-
-/** The swatch a new entry gets when nothing has been taken yet. */
-export const DEFAULT_CALENDAR_COLOR = "#0f766e";
-
-export const CALENDAR_COLORS = [
-  DEFAULT_CALENDAR_COLOR,
-  "#2563eb",
-  "#7c3aed",
-  "#db2777",
-  "#dc2626",
-  "#ea580c",
-  "#ca8a04",
-  "#16a34a",
-  "#0891b2",
-  "#4b5563",
-  "#9333ea",
-  "#be123c",
-];

@@ -5,7 +5,8 @@ import { browserTimeZone, listTimeZones } from "@/lib/dates";
 import { t as translate } from "@/lib/i18n";
 import { useCalendar } from "@/store/calendar";
 import { Dialog } from "@/ui/dialog";
-import { ColorSwatches, DEFAULT_CALENDAR_COLOR } from "@/ui/misc";
+import { DEFAULT_CALENDAR_COLOR } from "@/lib/calendarColors";
+import { ColorSwatches } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
 export function CalendarDialog({

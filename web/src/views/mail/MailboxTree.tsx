@@ -40,6 +40,7 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
+import { CALENDAR_COLORS } from "@/lib/calendarColors";
 import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
@@ -60,7 +61,7 @@ import { isScheduledMailbox } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
+import { useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";

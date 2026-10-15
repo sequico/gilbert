@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
 import { t } from "@/lib/i18n";
-import { nextPaletteColor } from "@/lib/labelKeyword";
+import { nextPaletteColor } from "@/lib/calendarColors";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";

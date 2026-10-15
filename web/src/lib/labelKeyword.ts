@@ -1,5 +1,5 @@
 import type { Label } from "@/store/settings";
-import { CALENDAR_COLORS } from "@/ui/misc";
+import { nextPaletteColor } from "./calendarColors";
 
 /**
  * The keyword a new label gets from its display name. The keyword is the
@@ -13,16 +13,6 @@ export function labelKeywordFromName(name: string): string {
     .replace(/[^a-z0-9_.-]+/g, "_")
     .replace(/^_+|_+$/g, "");
   return slug || `label${Date.now()}`;
-}
-
-/**
- * The next swatch of the fixed palette, by how many entries there already are,
- * so a list that grows has distinguishable colours without anybody choosing
- * one. Labels and calendar entries both grow this way; the step is one rule,
- * and a second copy of `count % length` is a second answer to it.
- */
-export function nextPaletteColor(taken: number): string {
-  return CALENDAR_COLORS[taken % CALENDAR_COLORS.length]!;
 }
 
 /**

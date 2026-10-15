@@ -5,9 +5,9 @@
  * the swatch is the next of the fixed palette.
  */
 import { describe, expect, it } from "vitest";
-import { labelKeywordFromName, newLabel, nextPaletteColor } from "@/lib/labelKeyword";
+import { CALENDAR_COLORS } from "@/lib/calendarColors";
+import { labelKeywordFromName, newLabel } from "@/lib/labelKeyword";
 import type { Label } from "@/store/settings";
-import { CALENDAR_COLORS } from "@/ui/misc";
 
 const label = (keyword: string): Label => ({ keyword, name: keyword, color: "#000" });
 
@@ -22,16 +22,6 @@ describe("labelKeywordFromName", () => {
     // A name of punctuation trims to something, but the slug is empty, and an
     // empty keyword is a label the server would refuse.
     expect(labelKeywordFromName("!!!")).toMatch(/^label\d+$/);
-  });
-});
-
-describe("nextPaletteColor", () => {
-  it("cycles the fixed palette by how many are already taken", () => {
-    expect(nextPaletteColor(0)).toBe(CALENDAR_COLORS[0]);
-    expect(nextPaletteColor(1)).toBe(CALENDAR_COLORS[1]);
-    // Past the end it starts over rather than running out.
-    expect(nextPaletteColor(CALENDAR_COLORS.length)).toBe(CALENDAR_COLORS[0]);
-    expect(nextPaletteColor(CALENDAR_COLORS.length + 3)).toBe(CALENDAR_COLORS[3]);
   });
 });
 
