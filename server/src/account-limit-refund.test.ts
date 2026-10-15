@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort } from "./testkit.js";
+import { freePort, jsonCall } from "./testkit.js";
 
 /**
  * An outage must not spend a credential endpoint's attempts.
@@ -26,25 +26,8 @@ const { createApp } = await import("./app.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 const realFetch = globalThis.fetch;
-let cookie = "";
 
-async function call(
-  path: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: ReturnType<typeof JSON.parse> }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null };
-}
+const call = jsonCall(app, HEADERS);
 
 before(async () => {
   const res = await call("/api/auth/login", {

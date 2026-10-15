@@ -100,17 +100,20 @@ type RequestApp = {
   request(path: string, init?: RequestInit): Response | Promise<Response>;
 };
 
-/** A JSON route's answer: its status, and the body it parsed. */
-type JsonAnswer = { status: number; body: Record<string, unknown> | null };
+/**
+ * A JSON route's answer: its status, and the body it parsed — of the type the
+ * suite asks for, `Record<string, unknown>` unless it names its own.
+ */
+type JsonAnswer<B = Record<string, unknown>> = { status: number; body: B | null };
 
 /** The one request every `call` helper below makes. */
-async function requestJson(
+async function requestJson<B>(
   app: RequestApp,
   headers: Record<string, string>,
   path: string,
   cookie: string,
   init: RequestInit,
-): Promise<JsonAnswer & { cookie: string }> {
+): Promise<JsonAnswer<B> & { cookie: string }> {
   const res = await app.request(path, {
     ...init,
     headers: {
@@ -131,15 +134,15 @@ async function requestJson(
 /**
  * A suite's JSON `call` against the app it built: it merges the suite's default
  * headers, carries the session cookie a sign-in answered into every request
- * after it, and hands back the parsed body.
+ * after it, and hands back the parsed body. `B` is the suite's own body type.
  */
-export function jsonCall(
+export function jsonCall<B = Record<string, unknown>>(
   app: RequestApp,
   headers: Record<string, string>,
-): (path: string, init?: RequestInit) => Promise<JsonAnswer> {
+): (path: string, init?: RequestInit) => Promise<JsonAnswer<B>> {
   let cookie = "";
   return async (path, init = {}) => {
-    const answer = await requestJson(app, headers, path, cookie, init);
+    const answer = await requestJson<B>(app, headers, path, cookie, init);
     cookie = answer.cookie;
     return { status: answer.status, body: answer.body };
   };
@@ -150,15 +153,15 @@ export function jsonCall(
  * request as `jsonCall`, but the cookie comes in as an argument, for a suite
  * that drives more than one identity.
  */
-export function jsonCallAs(
+export function jsonCallAs<B = Record<string, unknown>>(
   app: RequestApp,
   headers: Record<string, string>,
 ): (
   path: string,
   cookie: string,
   init?: RequestInit,
-) => Promise<JsonAnswer & { cookie: string }> {
-  return (path, cookie, init = {}) => requestJson(app, headers, path, cookie, init);
+) => Promise<JsonAnswer<B> & { cookie: string }> {
+  return (path, cookie, init = {}) => requestJson<B>(app, headers, path, cookie, init);
 }
 
 /** A POST of one JSON body through a suite's own `call` helper. */

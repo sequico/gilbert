@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort, postWith } from "../testkit.js";
+import { freePort, jsonCall, postWith } from "../testkit.js";
 
 /**
  * What the mock answers for a query's total, which is the one number the
@@ -26,29 +26,12 @@ const mock = await import("./index.js");
 const { createApp } = await import("../app.js");
 
 const app = createApp();
-let cookie = "";
 
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
 type Body = ReturnType<typeof JSON.parse>;
 
-async function call(
-  path: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: Body }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null };
-}
+const call = jsonCall<Body>(app, HEADERS);
 
 const post = postWith(call);
 

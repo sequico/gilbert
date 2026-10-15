@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { PublishJob, PublishOutcome } from "./app.js";
-import { freePort, loginWith } from "./testkit.js";
+import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
  * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
@@ -29,8 +29,6 @@ const ADMIN = "demo@example.com";
 const ADMIN_PASS = "demo-password";
 const BOB = "bob@example.com";
 const BOB_PASS = "bob-password";
-
-type Body = Record<string, unknown>;
 
 interface AccountPolicy {
   policy: {
@@ -81,27 +79,7 @@ async function ownAccount(): Promise<{
   return { ctx, accountId };
 }
 
-async function call(
-  path: string,
-  cookie: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: Body | null; cookie: string }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Body) : null,
-    cookie: setCookie ? setCookie.split(";")[0]! : cookie,
-  };
-}
+const call = jsonCallAs(app, HEADERS);
 
 const login = loginWith(call);
 

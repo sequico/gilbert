@@ -6,7 +6,7 @@ import type {
   SessionList,
   SessionSummary,
 } from "./shared/accountSecurity.js";
-import { freePort, postWith } from "./testkit.js";
+import { freePort, jsonCall, postWith } from "./testkit.js";
 
 /**
  * End-to-end self-service credential flows against the mock, which enforces
@@ -27,29 +27,14 @@ const { createApp } = await import("./app.js");
 const { parseOtpauthUrl, totpCode } = await import("./totp.js");
 
 const app = createApp();
-let cookie = "";
 
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-async function call(
-  path: string,
-  init: RequestInit = {},
-  // The parsed JSON body: `ReturnType<typeof JSON.parse>` keeps it opaque
-  // (JSON.parse returns `any`) without spelling `any` out.
-): Promise<{ status: number; body: ReturnType<typeof JSON.parse> }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0]!;
-  const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null };
-}
+// The parsed JSON body: `ReturnType<typeof JSON.parse>` keeps it opaque
+// (JSON.parse returns `any`) without spelling `any` out.
+type Body = ReturnType<typeof JSON.parse>;
+
+const call = jsonCall<Body>(app, HEADERS);
 
 const post = postWith(call);
 

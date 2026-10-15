@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { freePort, loginWith } from "./testkit.js";
+import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 
 /**
  * The forced-password-change door (ADR 0001), end to end against the mock.
@@ -38,28 +38,10 @@ const { createApp } = await import("./app.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
+type Body = ReturnType<typeof JSON.parse>;
+
 /** API call carrying an explicit cookie; returns status, body and any new cookie. */
-async function call(
-  path: string,
-  cookie: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: ReturnType<typeof JSON.parse>; cookie: string }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? JSON.parse(text) : null,
-    cookie: setCookie ? setCookie.split(";")[0]! : cookie,
-  };
-}
+const call = jsonCallAs<Body>(app, HEADERS);
 
 const login = loginWith(call);
 

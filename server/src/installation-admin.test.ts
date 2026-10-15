@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { InstallationPublished, InstallationView } from "./installationAdmin.js";
-import { freePort, loginWith } from "./testkit.js";
+import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /**
@@ -52,8 +52,6 @@ const BOB_PASS = "bob-password";
 /** The Master these tests name: the account a boot signs in as, and the one it reads. */
 const MASTER = BOB;
 
-type Body = Record<string, unknown>;
-
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
 const { publishInstallation, readInstallationForAdmin } = await import(
@@ -67,27 +65,7 @@ const cfg = await import("./config.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
-async function call(
-  path: string,
-  cookie: string,
-  init: RequestInit = {},
-): Promise<{ status: number; body: Body | null; cookie: string }> {
-  const res = await app.request(path, {
-    ...init,
-    headers: {
-      ...HEADERS,
-      ...(init.headers as Record<string, string>),
-      ...(cookie ? { cookie } : {}),
-    },
-  });
-  const setCookie = res.headers.get("set-cookie");
-  const text = await res.text();
-  return {
-    status: res.status,
-    body: text ? (JSON.parse(text) as Body) : null,
-    cookie: setCookie ? setCookie.split(";")[0]! : cookie,
-  };
-}
+const call = jsonCallAs(app, HEADERS);
 
 const login = loginWith(call);
 
