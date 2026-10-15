@@ -3,16 +3,9 @@ import { readFileSync } from "node:fs";
 /**
  * The check scripts the pre-push hook asks which paths they read.
  *
- * Named here, once, so the hook and `package.json`'s `check:ci` cannot disagree:
- * `check:ci` runs the checks, this finds them, and a check added to one and not
- * the other shows up as a check the hook has never heard of. The list used to be
- * written inside the hook itself, where `i18n:check` had been missing since it
- * joined the gate — harmless, because the decision fails closed, but the hook
- * could not skip what it was written to skip.
- *
- * The names are read out of `package.json`'s `check:ci` — the `npm run <name>`
- * segments it runs — so the gate and this cannot disagree, and `CHECK_COMMANDS`
- * fixes only the order the found checks are assembled in.
+ * The hook follows `package.json`'s `check:ci`: the names are read out of its
+ * own `npm run <name>` segments, so the gate and this cannot drift, and
+ * `CHECK_COMMANDS` fixes only the order the found checks are assembled in.
  */
 export const CHECK_COMMANDS = [
   "adr:owed",
