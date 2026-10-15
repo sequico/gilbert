@@ -80,11 +80,7 @@ export function TabStrip<Id extends string>({
           onClick={() => onSelect(entry.id)}
         >
           {t(entry.label)}
-          {entry.badge != null && (
-            <span className="badge" style={{ marginLeft: 6 }}>
-              {entry.badge}
-            </span>
-          )}
+          {entry.badge != null && <span className="badge">{entry.badge}</span>}
         </button>
       ))}
     </div>

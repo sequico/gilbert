@@ -105,7 +105,7 @@ export function AdminAgents() {
         idPrefix="master-tab-"
         label={MASTER_TABS.label}
       />
-      <TabPanel idPrefix="master-tab-" selected={part} style={{ marginTop: 20 }}>
+      <TabPanel idPrefix="master-tab-" selected={part}>
         {part === "identity" && <Identity status={status} />}
         {part === "model" && <AgentProviders />}
         {part === "rules" && (

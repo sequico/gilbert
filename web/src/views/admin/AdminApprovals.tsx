@@ -67,7 +67,7 @@ export function AdminApprovals() {
         idPrefix="approvals-tab-"
         label="Approvals sections"
       />
-      <TabPanel idPrefix="approvals-tab-" selected={part} style={{ marginTop: 16 }}>
+      <TabPanel idPrefix="approvals-tab-" selected={part}>
         {part === "pending" && <AgentApprovals />}
         {part === "audit" && <CrossGroupAudit />}
       </TabPanel>
