@@ -9,6 +9,7 @@ import {
   formatShapeReport,
   recordProblems,
 } from "../../scripts/adr-citation-check.mjs";
+import { file } from "../../scripts/lib/repoFile.mjs";
 
 /**
  * Every citation points at a record that exists, and every record says what it
@@ -26,7 +27,6 @@ import {
  * these tests exist to keep from returning.
  */
 
-const file = (path: string, text: string) => ({ path, text });
 const RECORDS = ["0001", "0002", "0003", "0005", "0007", "0009"];
 
 test("a citation naming a record that exists passes", () => {

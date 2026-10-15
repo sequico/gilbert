@@ -9,3 +9,6 @@ export interface RepoFile {
   path: string;
   text: string;
 }
+
+/** The `{ path, text }` a suite stages a file as. */
+export function file(path: string, text: string): RepoFile;

@@ -6,6 +6,7 @@ import {
   collectRepoInput,
   formatReport,
 } from "../../scripts/adr-owed-check.mjs";
+import { file } from "../../scripts/lib/repoFile.mjs";
 
 /**
  * The owed debt, kept in one place (ADR 0003 "Owed").
@@ -16,7 +17,6 @@ import {
  * carry, or a tag the code claims and no ADR declares, fails the gate.
  */
 
-const file = (path: string, text: string) => ({ path, text });
 const adr = (text: string) => file("docs/adr/0003-example.md", text);
 const marked = "<!-- owed: a-thing -->\n";
 const tagged = (n: string) => `// ADR-${n} OWED: a-thing\n`;

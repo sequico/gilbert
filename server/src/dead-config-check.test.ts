@@ -11,6 +11,7 @@ import {
   judgeFile,
   retiredNamesIn,
 } from "../../scripts/dead-config-check.mjs";
+import { file } from "../../scripts/lib/repoFile.mjs";
 
 /**
  * The installation's configuration lives in Stalwart (ADR 0001).
@@ -29,8 +30,6 @@ import {
  * the whole tree would reach — a root file, a workflow, a hook — and prove it is
  * read.
  */
-
-const file = (path: string, text: string) => ({ path, text });
 
 /** Plant a file in a staged tree, creating the directories it needs. */
 function plant(root: string, path: string, text: string) {
