@@ -1,6 +1,7 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushMicrotasks } from "@/test/testkit";
 import { type Anchor, Popover } from "../popover";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -20,10 +21,7 @@ import { type Anchor, Popover } from "../popover";
 const ANCHOR: Anchor = { x: 0, y: 0, w: 0, h: 0 };
 
 /** The listeners are registered on a timeout: one macrotask settles them. */
-const settle = () =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+const settle = () => act(flushMicrotasks);
 
 const pressOutside = () =>
   act(() => {
