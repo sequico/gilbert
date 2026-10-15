@@ -57,6 +57,7 @@ import {
   plainTextFromBlocks,
   STATE_FILE,
 } from "../shared/knowledge.js";
+import { ref } from "../shared/jmapQuery.js";
 import { AGENT_LABEL, DRAFT_KEYWORD, SEEN_KEYWORD } from "../shared/labels.js";
 import { buildFilter, parseQuery, resolveMailbox } from "../shared/search.js";
 import {
@@ -1326,7 +1327,7 @@ export class Executor {
           "Email/get",
           {
             accountId,
-            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+            "#ids": ref("q", "Email/query", "/ids"),
             properties: ["id", "from", "subject", "receivedAt", "keywords"],
           },
           "g",
