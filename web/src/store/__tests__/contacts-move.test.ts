@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { AddressBook, ContactCard, Id, JmapSession } from "@/jmap/types";
 import { sharedKey, useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Moving a card between accounts must carry the reader's edits: a copy built
@@ -42,71 +43,40 @@ const CARD: ContactCard = {
 
 /** A server that records every /set and answers gets with the last thing made. */
 function stubServer(opts: { refuseDestroy?: boolean } = {}) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   let made: Record<string, unknown> = { ...CARD };
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "ContactCard/set") {
-          const create = args.create as
-            | Record<string, Record<string, unknown>>
-            | undefined;
-          const destroy = args.destroy as Id[] | undefined;
-          const key = Object.keys(create ?? {})[0];
-          if (key && create)
-            made = { ...(create[key] as Record<string, unknown>), id: "new-c1" };
-          const notDestroyed: Record<string, unknown> = {};
-          if (opts.refuseDestroy && destroy?.length)
-            notDestroyed[destroy[0]!] = { type: "forbidden", description: "Cannot" };
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              oldState: "1",
-              newState: "2",
-              created: key ? { [key]: { id: "new-c1" } } : {},
-              updated: {},
-              destroyed: opts.refuseDestroy ? [] : (destroy ?? []),
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: notDestroyed,
-            },
-            id,
-          ]);
-        } else if (name === "ContactCard/get") {
-          const ids = (args.ids as Id[]) ?? [];
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: ids.map((x) => ({ ...made, id: x })),
-              notFound: [],
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], ids: [], total: 0 },
-            id,
-          ]);
-        }
-      }
+  return fakeJmapServer()
+    .on("ContactCard/set", (call) => {
+      const create = call.args.create as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const destroy = call.args.destroy as Id[] | undefined;
+      const key = Object.keys(create ?? {})[0];
+      if (key && create)
+        made = { ...(create[key] as Record<string, unknown>), id: "new-c1" };
+      const notDestroyed: Record<string, unknown> = {};
+      if (opts.refuseDestroy && destroy?.length)
+        notDestroyed[destroy[0]!] = { type: "forbidden", description: "Cannot" };
       return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+        accountId: call.args.accountId,
+        oldState: "1",
+        newState: "2",
+        created: key ? { [key]: { id: "new-c1" } } : {},
+        updated: {},
+        destroyed: opts.refuseDestroy ? [] : (destroy ?? []),
+        notCreated: {},
+        notUpdated: {},
+        notDestroyed,
+      };
+    })
+    .on("ContactCard/get", (call) => {
+      const ids = (call.args.ids as Id[]) ?? [];
+      return {
+        accountId: call.args.accountId,
+        state: "1",
+        list: ids.map((x) => ({ ...made, id: x })),
+        notFound: [],
+      };
+    }).calls;
 }
 
 const edited = {
@@ -124,9 +94,9 @@ const edited = {
   },
 } as unknown as Partial<ContactCard>;
 
-const createBodies = (calls: Array<{ name: string; args: Record<string, unknown> }>) =>
+const createBodies = (calls: Array<{ method: string; args: Record<string, unknown> }>) =>
   calls
-    .filter((c) => c.name === "ContactCard/set" && c.args.create)
+    .filter((c) => c.method === "ContactCard/set" && c.args.create)
     .map((c) => (c.args.create as Record<string, Record<string, unknown>>).c!);
 
 beforeEach(() => {
@@ -181,10 +151,10 @@ describe("moving a card to a book in another account", () => {
     expect(body.addressBookIds).toEqual({ s1: true });
     expect(body.uid).toBe("u1");
     // The copy goes to the target account, the original is destroyed after it.
-    const create = calls.find((c) => c.name === "ContactCard/set" && c.args.create)!;
+    const create = calls.find((c) => c.method === "ContactCard/set" && c.args.create)!;
     expect(create.args.accountId).toBe("a2");
     const destroy = calls.find(
-      (c) => c.name === "ContactCard/set" && !c.args.create && c.args.destroy,
+      (c) => c.method === "ContactCard/set" && !c.args.create && c.args.destroy,
     )!;
     expect(destroy.args.accountId).toBe("a1");
     expect(destroy.args.destroy).toEqual(["c1"]);
@@ -227,12 +197,12 @@ describe("moving a card to a book in another account", () => {
     await useContacts
       .getState()
       .moveCardTo("c2", "a2", "a1", "b1", edited as Partial<ContactCard>);
-    const create = calls.find((c) => c.name === "ContactCard/set" && c.args.create)!;
+    const create = calls.find((c) => c.method === "ContactCard/set" && c.args.create)!;
     expect(create.args.accountId).toBe("a1");
     const body = createBodies(calls)[0]!;
     expect(body.name).toEqual({ "@type": "Name", full: "New name" });
     const destroy = calls.find(
-      (c) => c.name === "ContactCard/set" && !c.args.create && c.args.destroy,
+      (c) => c.method === "ContactCard/set" && !c.args.create && c.args.destroy,
     )!;
     expect(destroy.args.accountId).toBe("a2");
     expect(destroy.args.destroy).toEqual(["c2"]);

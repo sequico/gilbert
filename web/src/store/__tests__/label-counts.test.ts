@@ -5,6 +5,7 @@ import { countedKeywords, SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCou
 import { useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * The sidebar's numbers: what they are read from, and what moves them.
@@ -56,24 +57,11 @@ const email = (id: string, keywords: Record<string, boolean>): Email =>
  */
 function stub(answers: (filter: unknown) => number, queries?: unknown[]) {
   const asked: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses = body.methodCalls.map(([name, args, id]) => {
-        asked.push(args.filter);
-        queries?.push(args);
-        return [name, { accountId: args.accountId, total: answers(args.filter) }, id];
-      });
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "s1" }),
-      } as Response;
-    }),
-  );
+  fakeJmapServer().on("Email/query", (call) => {
+    asked.push(call.args.filter);
+    queries?.push(call.args);
+    return { accountId: call.args.accountId, total: answers(call.args.filter) };
+  });
   return asked;
 }
 
@@ -168,30 +156,21 @@ describe("more labels than one request carries", () => {
     useSettings.setState({ settings: { ...DEFAULT_SETTINGS, labels } });
 
     const sizes: number[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        sizes.push(body.methodCalls.length);
-        const methodResponses = body.methodCalls.map(([name, args, id]) => {
-          const filter = args.filter as { operator?: string } | undefined;
-          return [
-            name,
-            { accountId: args.accountId, total: filter?.operator ? 2 : 7 },
-            id,
-          ];
-        });
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses, sessionState: "s1" }),
-        } as Response;
-      }),
-    );
+    fakeJmapServer().on("Email/query", (call) => {
+      const filter = call.args.filter as { operator?: string } | undefined;
+      return { accountId: call.args.accountId, total: filter?.operator ? 2 : 7 };
+    });
 
     await useMail.getState().loadLabelCounts();
+    // One request per fetch call; the store must chunk the eighteen queries.
+    for (const [, init] of vi.mocked(fetch).mock.calls)
+      sizes.push(
+        (
+          JSON.parse(String((init as RequestInit).body)) as {
+            methodCalls: unknown[];
+          }
+        ).methodCalls.length,
+      );
 
     expect(sizes.length).toBeGreaterThan(1);
     expect(sizes.every((n) => n <= client.maxCallsInRequest)).toBe(true);

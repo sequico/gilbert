@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { AddressBook, ContactCard, Id, JmapSession } from "@/jmap/types";
 import { sharedKey, useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Merging two contacts writes the merged card and then destroys the one it
@@ -58,73 +59,45 @@ const CARD_G: ContactCard = {
 
 /** A server that records every call and answers the update and the destroy. */
 function stubServer(opts: { refuseDestroy?: boolean; refuseUpdate?: boolean } = {}) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "ContactCard/set") {
-          const update = args.update as
-            | Record<string, Record<string, unknown>>
-            | undefined;
-          const destroy = args.destroy as Id[] | undefined;
-          const updated: Record<string, unknown> = {};
-          if (update) for (const key of Object.keys(update)) updated[key] = null;
-          const notUpdated: Record<string, unknown> = {};
-          if (opts.refuseUpdate && update)
-            for (const key of Object.keys(update)) {
-              notUpdated[key] = { type: "invalidProperties", description: "No" };
-              delete updated[key];
-            }
-          const notDestroyed: Record<string, unknown> = {};
-          if (opts.refuseDestroy && destroy?.length)
-            notDestroyed[destroy[0]!] = { type: "forbidden", description: "Cannot" };
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              oldState: "1",
-              newState: "2",
-              created: {},
-              updated,
-              destroyed: opts.refuseDestroy ? [] : (destroy ?? []),
-              notCreated: {},
-              notUpdated,
-              notDestroyed,
-            },
-            id,
-          ]);
-        } else if (name === "ContactCard/get") {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], ids: [], total: 0 },
-            id,
-          ]);
+  return fakeJmapServer()
+    .on("ContactCard/set", (call) => {
+      const update = call.args.update as
+        | Record<string, Record<string, unknown>>
+        | undefined;
+      const destroy = call.args.destroy as Id[] | undefined;
+      const updated: Record<string, unknown> = {};
+      if (update) for (const key of Object.keys(update)) updated[key] = null;
+      const notUpdated: Record<string, unknown> = {};
+      if (opts.refuseUpdate && update)
+        for (const key of Object.keys(update)) {
+          notUpdated[key] = { type: "invalidProperties", description: "No" };
+          delete updated[key];
         }
-      }
+      const notDestroyed: Record<string, unknown> = {};
+      if (opts.refuseDestroy && destroy?.length)
+        notDestroyed[destroy[0]!] = { type: "forbidden", description: "Cannot" };
       return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+        accountId: call.args.accountId,
+        oldState: "1",
+        newState: "2",
+        created: {},
+        updated,
+        destroyed: opts.refuseDestroy ? [] : (destroy ?? []),
+        notCreated: {},
+        notUpdated,
+        notDestroyed,
+      };
+    })
+    .on("ContactCard/get", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      list: [],
+      notFound: [],
+    })).calls;
 }
 
-const updateBody = (calls: Array<{ name: string; args: Record<string, unknown> }>) => {
-  const call = calls.find((c) => c.name === "ContactCard/set" && c.args.update);
+const updateBody = (calls: Array<{ method: string; args: Record<string, unknown> }>) => {
+  const call = calls.find((c) => c.method === "ContactCard/set" && c.args.update);
   return (call?.args.update as Record<string, Record<string, unknown>> | undefined)?.c1;
 };
 
@@ -168,9 +141,9 @@ describe("merging two contacts", () => {
       .getState()
       .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: null });
 
-    const write = calls.findIndex((c) => c.name === "ContactCard/set" && c.args.update);
+    const write = calls.findIndex((c) => c.method === "ContactCard/set" && c.args.update);
     const destroy = calls.findIndex(
-      (c) => c.name === "ContactCard/set" && !c.args.update && c.args.destroy,
+      (c) => c.method === "ContactCard/set" && !c.args.update && c.args.destroy,
     );
     expect(write).toBeGreaterThanOrEqual(0);
     expect(destroy).toBeGreaterThan(write);
@@ -248,7 +221,7 @@ describe("merging two contacts", () => {
       .mergeCards({ card: CARD_A, accountId: null }, { card: CARD_B, accountId: null });
 
     const updates = calls
-      .filter((c) => c.name === "ContactCard/set" && c.args.update)
+      .filter((c) => c.method === "ContactCard/set" && c.args.update)
       .map((c) => c.args.update as Record<string, Record<string, unknown>>);
     expect(updates.find((u) => u.c3 !== undefined)?.c3?.members).toEqual({
       u2: null,
@@ -257,12 +230,12 @@ describe("merging two contacts", () => {
     // The re-point is written before the destroy, never after it.
     const repoint = calls.findIndex(
       (c) =>
-        c.name === "ContactCard/set" &&
+        c.method === "ContactCard/set" &&
         c.args.update &&
         (c.args.update as Record<string, unknown>).c3 !== undefined,
     );
     const destroy = calls.findIndex(
-      (c) => c.name === "ContactCard/set" && c.args.destroy,
+      (c) => c.method === "ContactCard/set" && c.args.destroy,
     );
     expect(repoint).toBeGreaterThanOrEqual(0);
     expect(destroy).toBeGreaterThan(repoint);
@@ -284,7 +257,7 @@ describe("merging two contacts", () => {
       .getState()
       .mergeCards({ card: CARD_A, accountId: "a2" }, { card: CARD_B, accountId: "a2" });
 
-    const setCalls = calls.filter((c) => c.name === "ContactCard/set");
+    const setCalls = calls.filter((c) => c.method === "ContactCard/set");
     expect(setCalls.every((c) => c.args.accountId === "a2")).toBe(true);
     expect(useContacts.getState().sharedCards[sharedKey("a2", "c2")]).toBeUndefined();
   });

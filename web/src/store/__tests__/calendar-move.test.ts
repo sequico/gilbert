@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { Calendar, CalendarEvent, JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * Moving an event to a calendar that lives in another account — the reader's
@@ -35,65 +36,34 @@ const CALENDAR = (id: string) =>
 
 /** A server that answers every calendar call and records what it was asked. */
 function stubServer() {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "CalendarEvent/get") {
-          const ids = (args.ids as string[]) ?? [];
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: ids.map((x) => ({ ...EVENT, id: x })),
-              notFound: [],
-            },
-            id,
-          ]);
-        } else if (name === "CalendarEvent/set") {
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: `n${k}` };
-          const updated: Record<string, unknown> = {};
-          for (const k of Object.keys((args.update as Record<string, unknown>) ?? {}))
-            updated[k] = null;
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              created,
-              updated,
-              destroyed: args.destroy ?? [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
+  return fakeJmapServer()
+    .on("CalendarEvent/get", (call) => {
+      const ids = (call.args.ids as string[]) ?? [];
       return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+        accountId: call.args.accountId,
+        state: "1",
+        list: ids.map((x) => ({ ...EVENT, id: x })),
+        notFound: [],
+      };
+    })
+    .on("CalendarEvent/set", (call) => {
+      const created: Record<string, unknown> = {};
+      for (const k of Object.keys((call.args.create as Record<string, unknown>) ?? {}))
+        created[k] = { id: `n${k}` };
+      const updated: Record<string, unknown> = {};
+      for (const k of Object.keys((call.args.update as Record<string, unknown>) ?? {}))
+        updated[k] = null;
+      return {
+        accountId: call.args.accountId,
+        state: "1",
+        created,
+        updated,
+        destroyed: call.args.destroy ?? [],
+        notCreated: {},
+        notUpdated: {},
+        notDestroyed: {},
+      };
+    }).calls;
 }
 
 const setState = (sharedSubscribed = true) => {
@@ -146,7 +116,7 @@ describe("moving an event to a calendar in another account", () => {
       .updateEvent(EVENT, { calendarIds: { s1: true } }, false, "series");
     expect(dropped).toEqual([]);
 
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(sets).toHaveLength(2);
     // The target account first: the event exists somewhere before it stops
     // existing somewhere else.
@@ -162,7 +132,7 @@ describe("moving an event to a calendar in another account", () => {
     expect(destroy.args.accountId).toBe("a1");
     expect(destroy.args.destroy).toEqual(["i"]);
     // And a fresh read of the stored event sat between them.
-    const gets = calls.filter((c) => c.name === "CalendarEvent/get");
+    const gets = calls.filter((c) => c.method === "CalendarEvent/get");
     expect(gets).toHaveLength(1);
     expect(gets[0]!.args.accountId).toBe("a1");
     expect(gets[0]!.args.ids).toEqual(["i"]);
@@ -178,7 +148,7 @@ describe("moving an event to a calendar in another account", () => {
         false,
         "series",
       );
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(sets).toHaveLength(3);
     // 1: the edit, where the event already is, with no calendar move in it.
     expect(sets[0]!.args.accountId).toBe("a1");
@@ -196,7 +166,7 @@ describe("moving an event to a calendar in another account", () => {
       .getState()
       .updateEvent(EVENT, { calendarIds: { c2: true } }, false, "series");
     expect(dropped).toEqual([]);
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]!.args.accountId).toBe("a1");
     const patch = (sets[0]!.args.update as Record<string, Record<string, unknown>>).i!;
@@ -207,13 +177,13 @@ describe("moving an event to a calendar in another account", () => {
     setState(false); // s1 not subscribed
     const calls = stubServer();
     await useCalendar.getState().createEvent({ title: "Team sync" }, "s1", false);
-    const calendarSets = calls.filter((c) => c.name === "Calendar/set");
+    const calendarSets = calls.filter((c) => c.method === "Calendar/set");
     expect(calendarSets).toHaveLength(1);
     expect(calendarSets[0]!.args.accountId).toBe("a2");
     expect(calendarSets[0]!.args.update).toEqual({
       s1: { isSubscribed: true },
     });
-    const eventSets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const eventSets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(eventSets[0]!.args.accountId).toBe("a2");
     const made = (eventSets[0]!.args.create as Record<string, Record<string, unknown>>)
       .e!;
@@ -224,15 +194,15 @@ describe("moving an event to a calendar in another account", () => {
     setState(true); // s1 subscribed already
     const calls = stubServer();
     await useCalendar.getState().createEvent({ title: "Team sync" }, "s1", false);
-    expect(calls.filter((c) => c.name === "Calendar/set")).toHaveLength(0);
-    expect(calls.some((c) => c.name === "CalendarEvent/set")).toBe(true);
+    expect(calls.filter((c) => c.method === "Calendar/set")).toHaveLength(0);
+    expect(calls.some((c) => c.method === "CalendarEvent/set")).toBe(true);
   });
 
   it("reads a shared master from the account that holds it", async () => {
     const calls = stubServer();
     const found = await useCalendar.getState().getEvent("i", "a2");
     expect(found?.id).toBe("i");
-    const gets = calls.filter((c) => c.name === "CalendarEvent/get");
+    const gets = calls.filter((c) => c.method === "CalendarEvent/get");
     expect(gets).toHaveLength(1);
     expect(gets[0]!.args.accountId).toBe("a2");
   });
@@ -261,7 +231,7 @@ describe("when two accounts hold a same-id calendar", () => {
     collide();
     const calls = stubServer();
     await useCalendar.getState().createEvent({ title: "Team sync" }, "c1", false, "a2");
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]!.args.accountId).toBe("a2");
     const made = (sets[0]!.args.create as Record<string, Record<string, unknown>>).e!;
@@ -280,7 +250,7 @@ describe("when two accounts hold a same-id calendar", () => {
         "series",
         { accountId: "a1", moveTo: { accountId: "a2", calendarId: "c1" } },
       );
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     // Edit on the source, re-file on the target, destroy the original.
     expect(sets[0]!.args.accountId).toBe("a1");
     const patch = (sets[0]!.args.update as Record<string, Record<string, unknown>>).i!;
@@ -306,7 +276,7 @@ describe("when two accounts hold a same-id calendar", () => {
         { accountId: "a1", moveTo: { accountId: "a1", calendarId: "c1" } },
       );
     expect(dropped).toEqual([]);
-    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    const sets = calls.filter((c) => c.method === "CalendarEvent/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]!.args.accountId).toBe("a1");
     const patch = (sets[0]!.args.update as Record<string, Record<string, unknown>>).i!;
