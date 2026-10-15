@@ -6,6 +6,7 @@ import type { Calendar, CalendarEvent, JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { EventEditor } from "../EventEditor";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -96,7 +97,7 @@ const SESSION = {
 describe("changing an event's calendar from the editor", () => {
   let host: HTMLDivElement;
   let root: Root;
-  let calls: Array<{ name: string; args: Record<string, unknown> }>;
+  let calls: Array<{ method: string; args: Record<string, unknown> }>;
 
   const render = async (event: CalendarEvent) => {
     await act(async () => {
@@ -140,45 +141,34 @@ describe("changing an event's calendar from the editor", () => {
   beforeEach(async () => {
     calls = [];
     client.session = SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        const methodResponses: unknown[] = [];
-        for (const [name, args, id] of body.methodCalls) {
-          calls.push({ name, args });
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: "e2" };
-          const updated: Record<string, unknown> = {};
-          for (const k of Object.keys((args.update as Record<string, unknown>) ?? {}))
-            updated[k] = null;
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: [EVENT],
-              notFound: [],
-              created,
-              updated,
-              destroyed: args.destroy ?? [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        }
+    const fake = fakeJmapServer()
+      .on("CalendarEvent/get", (call) => ({
+        accountId: call.args.accountId,
+        state: "1",
+        list: [EVENT],
+        notFound: [],
+      }))
+      .on("CalendarEvent/set", (call) => {
+        const created: Record<string, unknown> = {};
+        for (const k of Object.keys((call.args.create as Record<string, unknown>) ?? {}))
+          created[k] = { id: "e2" };
+        const updated: Record<string, unknown> = {};
+        for (const k of Object.keys((call.args.update as Record<string, unknown>) ?? {}))
+          updated[k] = null;
         return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses, sessionState: "1" }),
-        } as Response;
-      }),
-    );
+          accountId: call.args.accountId,
+          state: "1",
+          list: [EVENT],
+          notFound: [],
+          created,
+          updated,
+          destroyed: call.args.destroy ?? [],
+          notCreated: {},
+          notUpdated: {},
+          notDestroyed: {},
+        };
+      });
+    calls = fake.calls;
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,
@@ -233,7 +223,7 @@ describe("changing an event's calendar from the editor", () => {
     await save();
 
     const sets = calls.filter(
-      (c) => c.name === "CalendarEvent/set" && (c.args.create || c.args.destroy),
+      (c) => c.method === "CalendarEvent/set" && (c.args.create || c.args.destroy),
     );
     const created = sets.find((c) => c.args.create);
     const destroyed = sets.find((c) => c.args.destroy);
@@ -262,7 +252,7 @@ describe("changing an event's calendar from the editor", () => {
 
     const subscribe = calls.find(
       (c) =>
-        c.name === "Calendar/set" &&
+        c.method === "Calendar/set" &&
         (c.args.update as Record<string, { isSubscribed?: boolean }> | undefined)?.gc1
           ?.isSubscribed === true,
     );

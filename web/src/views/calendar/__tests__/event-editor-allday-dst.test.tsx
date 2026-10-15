@@ -15,6 +15,7 @@ import type { Calendar, JmapSession } from "@/jmap/types";
 import { parseDuration } from "@/lib/dates";
 import { useCalendar } from "@/store/calendar";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { EventEditor } from "../EventEditor";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -90,7 +91,7 @@ const SESSION = {
 describe("an all-day event saved on the fall-back day", () => {
   let host: HTMLDivElement;
   let root: Root;
-  let calls: Array<{ name: string; args: Record<string, unknown> }>;
+  let calls: Array<{ method: string; args: Record<string, unknown> }>;
 
   const render = async () => {
     await act(async () => {
@@ -132,7 +133,7 @@ describe("an all-day event saved on the fall-back day", () => {
   };
 
   const created = () => {
-    const set = calls.find((c) => c.name === "CalendarEvent/set" && c.args.create);
+    const set = calls.find((c) => c.method === "CalendarEvent/set" && c.args.create);
     const create = set?.args.create as { e?: Record<string, unknown> } | undefined;
     return create?.e;
   };
@@ -149,42 +150,24 @@ describe("an all-day event saved on the fall-back day", () => {
   beforeEach(async () => {
     calls = [];
     client.session = SESSION;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        const methodResponses: unknown[] = [];
-        for (const [name, args, id] of body.methodCalls) {
-          calls.push({ name, args });
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: "e2" };
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: [],
-              notFound: [],
-              created,
-              updated: {},
-              destroyed: [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses, sessionState: "1" }),
-        } as Response;
-      }),
-    );
+    const fake = fakeJmapServer().on("CalendarEvent/set", (call) => {
+      const created: Record<string, unknown> = {};
+      for (const k of Object.keys((call.args.create as Record<string, unknown>) ?? {}))
+        created[k] = { id: "e2" };
+      return {
+        accountId: call.args.accountId,
+        state: "1",
+        list: [],
+        notFound: [],
+        created,
+        updated: {},
+        destroyed: [],
+        notCreated: {},
+        notUpdated: {},
+        notDestroyed: {},
+      };
+    });
+    calls = fake.calls;
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,

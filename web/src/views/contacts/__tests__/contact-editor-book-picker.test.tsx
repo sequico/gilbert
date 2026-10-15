@@ -6,6 +6,7 @@ import type { AddressBook, JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { ContactEditor } from "../ContactEditor";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,7 +40,7 @@ const book = (id: string, name: string, isSubscribed: boolean) =>
 describe("the address book a new contact is filed into", () => {
   let host: HTMLDivElement;
   let root: Root;
-  let calls: Array<{ name: string; args: Record<string, unknown> }>;
+  let calls: Array<{ method: string; args: Record<string, unknown> }>;
 
   const render = async () => {
     await act(async () => {
@@ -76,40 +77,19 @@ describe("the address book a new contact is filed into", () => {
       primaryAccounts: {},
       state: "s1",
     } as unknown as JmapSession;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        const body = JSON.parse(init.body as string) as {
-          methodCalls: [string, Record<string, unknown>, string][];
-        };
-        const methodResponses: unknown[] = [];
-        for (const [name, args, id] of body.methodCalls) {
-          calls.push({ name, args });
-          const created = name === "ContactCard/set" ? { c: { id: "new1" } } : {};
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              list: [],
-              notFound: [],
-              created,
-              updated: {},
-              destroyed: [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ methodResponses, sessionState: "1" }),
-        } as Response;
-      }),
-    );
+    const fake = fakeJmapServer().on("ContactCard/set", (call) => ({
+      accountId: call.args.accountId,
+      state: "1",
+      list: [],
+      notFound: [],
+      created: { c: { id: "new1" } },
+      updated: {},
+      destroyed: [],
+      notCreated: {},
+      notUpdated: {},
+      notDestroyed: {},
+    }));
+    calls = fake.calls;
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,
@@ -186,7 +166,7 @@ describe("the address book a new contact is filed into", () => {
       save!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
 
-    const set = calls.find((c) => c.name === "ContactCard/set");
+    const set = calls.find((c) => c.method === "ContactCard/set");
     if (!set) throw new Error("no ContactCard/set was made");
     const create = set.args.create as { c: { addressBookIds: Record<string, boolean> } };
     expect(set.args.accountId).toBe("grp");
