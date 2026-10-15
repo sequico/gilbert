@@ -40,7 +40,7 @@ import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { dateTimeKey, useSettings } from "@/store/settings";
 import { choiceDialog, confirmDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS } from "@/ui/misc";
+import { CALENDAR_COLORS, DEFAULT_CALENDAR_COLOR } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { LazyShareDialog } from "../lazyPieces";
@@ -176,7 +176,7 @@ export function CalendarSidebar() {
         .filter((c) => c.accountId === accountId)
         .map((c) => c.calendar.color),
     );
-    return CALENDAR_COLORS.find((c) => !used.has(c)) ?? CALENDAR_COLORS[0] ?? "#0f766e";
+    return CALENDAR_COLORS.find((c) => !used.has(c)) ?? DEFAULT_CALENDAR_COLOR;
   };
   const sharedOnlySubscribed = cal.sharedCalendars.filter(
     (c) => !groupIds.has(c.accountId) && isAdded(c),

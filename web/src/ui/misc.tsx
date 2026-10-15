@@ -196,8 +196,11 @@ export function ColorSwatches({
  */
 export const ACTIVE_COLOR = "var(--success)";
 
+/** The swatch a new entry gets when nothing has been taken yet. */
+export const DEFAULT_CALENDAR_COLOR = "#0f766e";
+
 export const CALENDAR_COLORS = [
-  "#0f766e",
+  DEFAULT_CALENDAR_COLOR,
   "#2563eb",
   "#7c3aed",
   "#db2777",
