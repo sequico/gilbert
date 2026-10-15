@@ -52,7 +52,7 @@ HOLD="${GILBERT_HOLD:-$APP/.deploy-hold}"
 # Container name, and where to publish it. The default binds to loopback only,
 # for a reverse proxy in front (see Caddyfile.example / nginx.example.conf).
 NAME="${GILBERT_NAME:-gilbert}"
-BIND="${GILBERT_BIND:-127.0.0.1:8090}"
+BIND="${GILBERT_BIND:-127.0.0.1:8080}"
 # Named volume for /data (sessions). Unused when running immutably.
 VOLUME="${GILBERT_VOLUME:-gilbert-data}"
 # Run the container immutably: read-only root filesystem, no volume. See
