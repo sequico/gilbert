@@ -63,7 +63,10 @@ services:
     profiles: ["agent"]
     # The image the server service above builds, not a second build of it: the
     # agent is the same image with a different command, so `BASE_PATH` and the
-    # build arguments are set once, there.
+    # build arguments are set once, there. Nothing builds it here, so build it
+    # first -- bring the stack up (`docker compose up -d`) or build the image
+    # alone (`docker compose build gilbert`) -- or `docker compose --profile
+    # agent up` on a machine with no image has nothing to run.
     image: gilbert:2
     restart: unless-stopped
     command: ["node", "server/dist/agent/agent.js"]
@@ -86,8 +89,9 @@ services:
     # `restart: unless-stopped` restarts a dead process; this catches one that
     # is up and holding nothing. The probe is the app's own
     # (`scripts/healthcheck.mjs`, already in the image) rather than a second
-    # spelling of it in YAML, and `interval`/`timeout` are the image's own
-    # HEALTHCHECK rather than a second copy of them here. The agent's health
+    # spelling of it in YAML; `interval` is the image's own HEALTHCHECK, and the
+    # five-second `timeout` is written out so this probe states its own bound
+    # rather than leaning on Compose to inherit one. The agent's health
     # server is not the app's route, so its endpoint is named rather than
     # derived from `BASE_PATH` and `PORT` -- and `$$` leaves the shell to read
     # `GILBERT_AGENT_HEALTH_PORT`, so the URL is written from the one variable
@@ -96,5 +100,6 @@ services:
       test:
         - CMD-SHELL
         - HEALTH_URL=http://127.0.0.1:$${GILBERT_AGENT_HEALTH_PORT}/health node scripts/healthcheck.mjs
+      timeout: 5s
       retries: 3
       start_period: 15s
