@@ -2,9 +2,9 @@ import {
   FILENODE_GET,
   FILENODE_QUERY,
   FILENODE_SET,
-import { errorMessage } from "@gilbert/shared/errors";
   isAppFolder,
 } from "@gilbert/shared/appFolder";
+import { errorMessage } from "@gilbert/shared/errors";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create, type StoreApi } from "zustand";
@@ -673,9 +673,7 @@ async function uploadOne(
       return;
     }
     set((s) => ({
-      runs: s.runs.map((u) =>
-        u.id === row.id ? { ...u, error: errorMessage(err) } : u,
-      ),
+      runs: s.runs.map((u) => (u.id === row.id ? { ...u, error: errorMessage(err) } : u)),
     }));
   }
 }

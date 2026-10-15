@@ -506,9 +506,7 @@ export const useMail = create<MailState>((set, get) => ({
     } catch (err) {
       if (get().list?.key !== key) return;
       set((s) => ({
-        list: s.list
-          ? { ...s.list, loading: false, error: errorMessage(err) }
-          : s.list,
+        list: s.list ? { ...s.list, loading: false, error: errorMessage(err) } : s.list,
       }));
     }
   },
@@ -928,9 +926,7 @@ export const useMail = create<MailState>((set, get) => ({
       await setEmails(accountId, update);
       void get().loadMailboxes();
     } catch (err) {
-      toast.error(
-        t("Could not update labels: {error}", { error: errorMessage(err) }),
-      );
+      toast.error(t("Could not update labels: {error}", { error: errorMessage(err) }));
       // `getEmails` would answer from what is already held and leave the
       // optimistic folder membership in place; the list is read again instead.
       void get().refreshList();
@@ -1340,9 +1336,7 @@ export const useMail = create<MailState>((set, get) => ({
       );
       void get().loadMailboxes();
     } catch (err) {
-      toast.error(
-        t("Could not mark as read: {error}", { error: errorMessage(err) }),
-      );
+      toast.error(t("Could not mark as read: {error}", { error: errorMessage(err) }));
     }
   },
 
@@ -2017,9 +2011,7 @@ export const useMail = create<MailState>((set, get) => ({
              */
             if (!changesReported) {
               changesReported = true;
-              console.warn(
-                `[gilbert] could not read mail changes: ${errorMessage(err)}`,
-              );
+              console.warn(`[gilbert] could not read mail changes: ${errorMessage(err)}`);
             }
           }
         }
@@ -2220,7 +2212,7 @@ async function runQuery(accountId: Id, q: ListQuery, position: number, limit: nu
 /** The error a server raises for a sort property it does not implement. */
 function isUnsupportedSort(err: unknown): boolean {
   const type = (err as { type?: string } | null)?.type;
-  const message = String((err as Error | null)?.message ?? "");
+  const message = errorMessage(err);
   return type === "unsupportedSort" || /unsupportedSort/i.test(message);
 }
 
