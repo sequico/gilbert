@@ -8,7 +8,6 @@ import { useKnowledge } from "@/store/knowledge";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { Empty, Spinner } from "@/ui/misc";
 import { toast } from "@/ui/toast";
-import { KnowledgeEditor } from "./KnowledgeEditor";
 import { KnowledgeRevBadge } from "./KnowledgeRevBadge";
 import { tierLabel } from "./KnowledgeSidebar";
 
@@ -17,6 +16,15 @@ import { tierLabel } from "./KnowledgeSidebar";
  * is open, never to the app's first paint (ADR 0030).
  */
 const ChecklistSurface = lazy(() => import("./ChecklistSurface"));
+
+/*
+ * The editor is the heaviest thing this route can need -- BlockNote and its own
+ * dependencies -- and it belongs to a page that is open, not to the list of
+ * them: an article is read or edited, and the pane is reached without it.
+ */
+const KnowledgeEditor = lazy(() =>
+  import("./KnowledgeEditor").then((m) => ({ default: m.KnowledgeEditor })),
+);
 
 /**
  * The knowledge base's reading and editing pane (ADR 0024).
@@ -427,12 +435,14 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
         ) : (
           /* BlockNote is uncontrolled, so a new article -- or a switch between
              reading and editing, which seeds different blocks -- remounts it. */
-          <KnowledgeEditor
-            key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
-            blocks={body}
-            editable={editing}
-            onChange={(blocks, text) => setEdit({ blocks, text })}
-          />
+          <Suspense fallback={<Spinner size="lg" />}>
+            <KnowledgeEditor
+              key={`${articleKey(article.accountId, article.summary.nodeId)}:${editing ? "edit" : "read"}`}
+              blocks={body}
+              editable={editing}
+              onChange={(blocks, text) => setEdit({ blocks, text })}
+            />
+          </Suspense>
         )}
       </div>
 
