@@ -32,6 +32,13 @@ const PARTS = [
   { id: "audit", label: "Audit" },
 ] as const;
 
+/*
+ * The strip's own name, in the shape its siblings hold it (AdminAgents and
+ * GroupAgents): TabStrip translates the key where it renders, so the literal
+ * has to be a `label` property for the catalogue scan to see it.
+ */
+const APPROVALS_TABS = { label: "Approvals sections" };
+
 type Part = (typeof PARTS)[number]["id"];
 
 export function AdminApprovals() {
@@ -65,7 +72,7 @@ export function AdminApprovals() {
         selected={part}
         onSelect={setPart}
         idPrefix="approvals-tab-"
-        label="Approvals sections"
+        label={APPROVALS_TABS.label}
       />
       <TabPanel idPrefix="approvals-tab-" selected={part}>
         {part === "pending" && <AgentApprovals />}
