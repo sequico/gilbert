@@ -7,9 +7,9 @@
  * that it is not masked as `invalidArguments`, that the FileNode state token
  * advances on the writes that matter, and whether a blob upload — which writes
  * no node — advances it at all. The mock simulates every one of those
- * (`server/src/mock/index.ts`, `checkIfInState`, whose TODO this script
- * answers); until a real instance is asked, the agent tests prove the client's
- * logic against a simulation and not the server's behaviour.
+ * (`server/src/mock/index.ts`, `checkIfInState`). This script asks a real
+ * instance those same questions, and the mock's note beside that function
+ * records the answers it gave.
  *
  * Five questions, asked the way the code asks them:
  *
