@@ -7,11 +7,7 @@
  * signature the check no longer has.
  */
 
-export interface RepoFile {
-  /** Relative to the repository root. */
-  path: string;
-  text: string;
-}
+import type { RepoFile } from "./lib/repoFile.mjs";
 
 /** A `Status` or `Implementation` line a record does not carry, or carries wrong. */
 export interface RecordProblem {

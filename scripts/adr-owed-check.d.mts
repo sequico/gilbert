@@ -7,11 +7,7 @@
  * signature the check no longer has.
  */
 
-export interface RepoFile {
-  /** Relative to the repository root. */
-  path: string;
-  text: string;
-}
+import type { RepoFile } from "./lib/repoFile.mjs";
 
 /** An `<!-- owed: <slug> -->` marker, and where it sits. */
 export interface OwedMarker {

@@ -7,11 +7,7 @@
  * signature the check no longer has.
  */
 
-export interface RepoFile {
-  /** Relative to the repository root, as `walk` reports it. */
-  path: string;
-  text: string;
-}
+import type { RepoFile } from "./lib/repoFile.mjs";
 
 export interface RetiredMention {
   name: string;
