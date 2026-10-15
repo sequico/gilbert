@@ -4,6 +4,7 @@ import {
   type GroupNeed,
 } from "@gilbert/agent/views";
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
+import { errorMessage } from "@gilbert/shared/errors";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
 import { DeadlineError, withDeadline } from "@/lib/deadline";
@@ -15,6 +16,7 @@ import type {
   JmapSession,
   MethodError,
   SetError,
+  SetResponse,
   UploadResponse,
 } from "./types";
 
@@ -791,6 +793,94 @@ export function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
+}
+
+/** What a batched write landed, across every batch it took. */
+export interface BatchedSetResult {
+  created: number;
+  updated: number;
+  destroyed: Id[];
+  refused?: SetError;
+}
+
+/**
+ * A `/set` the server will take, sent `maxObjectsInSet` objects at a time.
+ *
+ * The server counts every object in a call against one ceiling -- creates,
+ * updates and destroys together -- and refuses the call whole past it, taking
+ * none of it: an import, a selection or a folder emptying that crosses the
+ * ceiling writes nothing at all. One budget for all three kinds is the whole
+ * point, because batching them apart would send 300 creates and 300 updates as
+ * two calls that each stay under a limit of 500 and be refused for one both of
+ * them are under. The ceiling is the session's own, so a deployment that has
+ * tuned it is followed.
+ *
+ * A batch that fails after earlier ones landed is reported with the `noun` it
+ * was given, so a half-finished write says how much of it is already on the
+ * server rather than only that it failed. Without a `noun` the failure is
+ * thrown as it came, for a caller that answers instead of throwing.
+ *
+ * `onSettled` is told how much landed whenever the loop ends, thrown or not,
+ * for a caller that has to show a partial write either way.
+ */
+export async function batchedSet<T>(opts: {
+  /** The object type, not the call: `ContactCard` goes out as `ContactCard/set`. */
+  method: string;
+  accountId: Id;
+  create?: Record<string, unknown>;
+  update?: Record<Id, unknown>;
+  destroy?: Id[];
+  /** What the method needs besides the three kinds, such as `sendSchedulingMessages`. */
+  extra?: Record<string, unknown>;
+  noun?: string;
+  onSettled?: (written: number) => void;
+}): Promise<BatchedSetResult> {
+  const { method, accountId, create = {}, update = {}, destroy = [], extra, noun } = opts;
+  const work = [
+    ...Object.keys(create).map((k) => ["create", k] as const),
+    ...Object.keys(update).map((k) => ["update", k] as const),
+    ...destroy.map((k) => ["destroy", k] as const),
+  ];
+  let created = 0;
+  let updated = 0;
+  const gone: Id[] = [];
+  let refused: SetError | undefined;
+  try {
+    for (const part of chunk(work, client.maxObjectsInSet)) {
+      const subCreate: Record<string, unknown> = {};
+      const subUpdate: Record<Id, unknown> = {};
+      const subDestroy: Id[] = [];
+      for (const [kind, k] of part) {
+        if (kind === "create") subCreate[k] = create[k];
+        else if (kind === "update") subUpdate[k] = update[k];
+        else subDestroy.push(k);
+      }
+      const res = await client.call<SetResponse<T>>(`${method}/set`, {
+        accountId,
+        ...(Object.keys(subCreate).length ? { create: subCreate } : {}),
+        ...(Object.keys(subUpdate).length ? { update: subUpdate } : {}),
+        ...(subDestroy.length ? { destroy: subDestroy } : {}),
+        ...extra,
+      });
+      created += Object.keys(res.created ?? {}).length;
+      updated += Object.keys(res.updated ?? {}).length;
+      gone.push(...(res.destroyed ?? []));
+      refused ??=
+        Object.values(res.notCreated ?? {})[0] ??
+        Object.values(res.notUpdated ?? {})[0] ??
+        Object.values(res.notDestroyed ?? {})[0];
+    }
+  } catch (err) {
+    const written = created + updated + gone.length;
+    if (noun && written)
+      throw new Error(
+        `${written} of ${work.length} ${noun} were imported before this happened: ${errorMessage(err)}`,
+      );
+    throw err;
+  } finally {
+    opts.onSettled?.(created + updated + gone.length);
+  }
+  return { created, updated, destroyed: gone, refused };
 }
 
 /**

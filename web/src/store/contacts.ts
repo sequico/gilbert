@@ -6,7 +6,7 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord, sessionIsAdmin } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
-import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import { batchedSet, CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   AddressBook,
   ChangesResponse,
@@ -153,48 +153,15 @@ async function writeCards(
   create: Record<string, unknown>,
   update: Record<Id, unknown> = {},
 ): Promise<{ created: number; updated: number; refused?: SetError }> {
-  /*
-   * Creates and updates share one budget. Stalwart counts every object in a
-   * `/set` against `maxObjectsInSet` -- creates, updates and destroys together
-   * -- so batching them separately would let a file of 300 new and 300 changed
-   * cards through as two calls of 300 and be refused for a limit of 500 that
-   * neither half exceeds.
-   */
-  const keys = [
-    ...Object.keys(create).map((k) => ["create", k] as const),
-    ...Object.keys(update).map((k) => ["update", k] as const),
-  ];
-  let created = 0;
-  let updated = 0;
-  let refused: SetError | undefined;
-  for (const part of chunk(keys, client.maxObjectsInSet)) {
-    const subCreate: Record<string, unknown> = {};
-    const subUpdate: Record<string, unknown> = {};
-    for (const [kind, k] of part) {
-      if (kind === "create") subCreate[k] = create[k];
-      else subUpdate[k] = update[k];
-    }
-    let res: SetResponse<ContactCard>;
-    try {
-      res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
-        accountId,
-        create: subCreate,
-        update: subUpdate,
-      });
-    } catch (err) {
-      // A batch that failed with earlier ones already filed: those contacts are
-      // in the address book, and an error saying only that the import failed
-      // sends someone looking for contacts that are already there.
-      if (!created && !updated) throw err;
-      throw new Error(
-        `${created + updated} of ${keys.length} contacts were imported before this happened: ${errorMessage(err)}`,
-      );
-    }
-    created += Object.keys(res.created ?? {}).length;
-    updated += Object.keys(res.updated ?? {}).length;
-    refused ??=
-      Object.values(res.notCreated ?? {})[0] ?? Object.values(res.notUpdated ?? {})[0];
-  }
+  /* Creates and updates share one budget: `batchedSet` is where that loop
+   * lives, and the sentence a half-finished import throws comes with it. */
+  const { created, updated, refused } = await batchedSet<ContactCard>({
+    method: "ContactCard",
+    accountId,
+    create,
+    update,
+    noun: "contacts",
+  });
   return { created, updated, refused };
 }
 
@@ -1583,37 +1550,19 @@ export const useContacts = create<ContactsState>((set, get) => ({
       else destroy.push(c.id);
     }
 
-    const gone: Id[] = [];
-    let unfiled = 0;
-    let refused: SetError | undefined;
-    /* One budget for both, the way `writeCards` shares one: Stalwart counts
-       every object in a `/set` against `maxObjectsInSet` together. */
-    const work = [
-      ...destroy.map((id) => ["destroy", id] as const),
-      ...Object.keys(update).map((id) => ["update", id] as const),
-    ];
+    /* One budget for destroys and updates together, the way `writeCards` shares
+       one for creates and updates: `batchedSet` is that loop. */
     try {
-      for (const part of chunk(work, client.maxObjectsInSet)) {
-        const partDestroy = part
-          .filter(([kind]) => kind === "destroy")
-          .map(([, id]) => id);
-        const partUpdate: Record<Id, unknown> = {};
-        for (const [kind, id] of part) if (kind === "update") partUpdate[id] = update[id];
-        const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
-          accountId,
-          ...(partDestroy.length ? { destroy: partDestroy } : {}),
-          ...(Object.keys(partUpdate).length ? { update: partUpdate } : {}),
-        });
-        gone.push(...(res.destroyed ?? []));
-        unfiled += Object.keys(res.updated ?? {}).length;
-        refused ??=
-          Object.values(res.notDestroyed ?? {})[0] ??
-          Object.values(res.notUpdated ?? {})[0];
-      }
+      const { destroyed, updated, refused } = await batchedSet<ContactCard>({
+        method: "ContactCard",
+        accountId,
+        destroy,
+        update,
+      });
+      return { destroyed: destroyed.length, unfiled: updated, refused };
     } finally {
       await get().syncCards();
     }
-    return { destroyed: gone.length, unfiled, refused };
   },
 
   /**

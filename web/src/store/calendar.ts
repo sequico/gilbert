@@ -3,9 +3,10 @@ import {
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
 import { errorMessage } from "@gilbert/shared/errors";
+import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { isSharedAccountRecord } from "@gilbert/shared/sessionAccount";
 import { create } from "zustand";
-import { API_TIMEOUT_MS, CAP, chunk, client, setErrorMessage } from "@/jmap/client";
+import { API_TIMEOUT_MS, batchedSet, CAP, client, setErrorMessage } from "@/jmap/client";
 import type {
   BusyPeriod,
   Calendar,
@@ -17,7 +18,6 @@ import type {
   JSCalendarRecurrenceRule,
   ParticipantIdentity,
   QueryResponse,
-  SetError,
   SetResponse,
 } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
@@ -634,21 +634,22 @@ async function eventsInCalendar(
   const found: CalendarEvent[] = [];
   const page = client.maxObjectsInGet;
   for (let position = 0; ; ) {
-    const q = await client.call<QueryResponse>("CalendarEvent/query", {
-      accountId,
-      position,
-      limit: page,
-    });
+    const res = await client.chain(
+      queryThenGet({
+        query: "CalendarEvent/query",
+        get: "CalendarEvent/get",
+        accountId,
+        position,
+        limit: page,
+        maxObjectsInGet: page,
+        properties,
+      }),
+    );
+    const q = res.get("q")?.[0] as unknown as QueryResponse;
+    const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
     const ids = q.ids ?? [];
     if (!ids.length) break;
-    for (const part of chunk(ids, page)) {
-      const g = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
-        accountId,
-        ids: part,
-        properties,
-      });
-      for (const e of g.list) if (e.calendarIds?.[calendarId]) found.push(e);
-    }
+    for (const e of g.list) if (e.calendarIds?.[calendarId]) found.push(e);
     position += ids.length;
     // `total` is optional, so the empty page above is what actually ends this;
     // this only saves the round trip that would find it.
@@ -1840,50 +1841,21 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       };
     });
     /*
-     * Creates and updates share one budget. Stalwart counts every object in a
-     * `/set` against `maxObjectsInSet` together, so batching the two separately
-     * would send a file of 300 new events and 300 changed ones as two calls of
-     * 300 and be refused for a ceiling of 500 that neither half crosses.
-     * Contacts' `writeCards` splits the same way for the same reason.
+     * Creates and updates share one budget, and `batchedSet` is the loop that
+     * spends it: the ceiling is counted across the whole call, so the two kinds
+     * cannot be batched apart. One refresh at the end, not one per batch.
      */
-    const keys = [
-      ...Object.keys(create).map((k) => ["create", k] as const),
-      ...Object.keys(update).map((k) => ["update", k] as const),
-    ];
-    let created = 0;
-    let updated = 0;
-    let refused: SetError | undefined;
-    try {
-      for (const part of chunk(keys, client.maxObjectsInSet)) {
-        const subCreate: Record<string, unknown> = {};
-        const subUpdate: Record<string, unknown> = {};
-        for (const [kind, k] of part) {
-          if (kind === "create") subCreate[k] = create[k];
-          else subUpdate[k] = update[k];
-        }
-        const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
-          accountId,
-          create: subCreate,
-          update: subUpdate,
-          sendSchedulingMessages: false,
-        });
-        created += Object.keys(res.created ?? {}).length;
-        updated += Object.keys(res.updated ?? {}).length;
-        refused ??=
-          Object.values(res.notCreated ?? {})[0] ??
-          Object.values(res.notUpdated ?? {})[0];
-      }
-    } catch (err) {
-      // A batch that failed with earlier ones already written: those events are
-      // in the calendar, and an error saying only that the import failed sends
-      // someone looking for events that are already there.
-      if (!created && !updated) throw err;
-      throw new Error(
-        `${created + updated} of ${keys.length} events were imported before this happened: ${errorMessage(err)}`,
-      );
-    } finally {
-      if (created || updated) get().refreshWindows();
-    }
+    const { created, updated, refused } = await batchedSet<CalendarEvent>({
+      method: "CalendarEvent",
+      accountId,
+      create,
+      update,
+      extra: { sendSchedulingMessages: false },
+      noun: "events",
+      onSettled: (landed) => {
+        if (landed) get().refreshWindows();
+      },
+    });
     // Nothing at all got in: say why rather than report importing zero events
     // as though the file had been empty.
     if (!created && !updated)
