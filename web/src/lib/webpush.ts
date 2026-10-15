@@ -23,7 +23,7 @@ import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isIOS } from "@/lib/installApp";
 import type { PushTarget } from "@/lib/mailAccounts";
-import { DEVICE_KEYS, deviceKey, isDeviceTrusted } from "@/lib/storage";
+import { DEVICE_KEYS, deviceKey, isDeviceTrusted, storageOf } from "@/lib/storage";
 import { clearWorkerFacts } from "@/lib/swFacts";
 
 /**
@@ -159,13 +159,13 @@ export function encodeKey(buffer: ArrayBuffer | null): string {
 let fallbackDeviceId: string | null = null;
 export function deviceClientId(): string {
   const KEY = deviceKey(DEVICE_KEYS.pushDeviceId);
-  if (!isDeviceTrusted())
-    return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
+  const store = isDeviceTrusted() ? storageOf("local") : null;
+  if (!store) return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
   try {
-    const existing = localStorage.getItem(KEY);
+    const existing = store.getItem(KEY);
     if (existing) return existing;
     const made = gilbertDeviceClientId(crypto.randomUUID());
-    localStorage.setItem(KEY, made);
+    store.setItem(KEY, made);
     return made;
   } catch {
     return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
@@ -279,7 +279,7 @@ const ENABLED_KEY = deviceKey(DEVICE_KEYS.pushEnabled);
 export function pushEnabledHere(): boolean {
   if (!isDeviceTrusted()) return false;
   try {
-    return localStorage.getItem(ENABLED_KEY) === "1";
+    return storageOf("local")?.getItem(ENABLED_KEY) === "1";
   } catch {
     return false;
   }
@@ -287,8 +287,9 @@ export function pushEnabledHere(): boolean {
 
 export function setPushEnabledHere(on: boolean): void {
   try {
-    if (on) localStorage.setItem(ENABLED_KEY, "1");
-    else localStorage.removeItem(ENABLED_KEY);
+    const store = storageOf("local");
+    if (on) store?.setItem(ENABLED_KEY, "1");
+    else store?.removeItem(ENABLED_KEY);
   } catch {
     /* private mode: push will not survive the session there anyway */
   }
@@ -308,7 +309,7 @@ const OPTOUT_KEY = deviceKey(DEVICE_KEYS.pushOptOut);
 export function pushOptedOutHere(): boolean {
   if (!isDeviceTrusted()) return false;
   try {
-    return localStorage.getItem(OPTOUT_KEY) === "1";
+    return storageOf("local")?.getItem(OPTOUT_KEY) === "1";
   } catch {
     return false;
   }
@@ -316,8 +317,9 @@ export function pushOptedOutHere(): boolean {
 
 export function setPushOptedOutHere(on: boolean): void {
   try {
-    if (on) localStorage.setItem(OPTOUT_KEY, "1");
-    else localStorage.removeItem(OPTOUT_KEY);
+    const store = storageOf("local");
+    if (on) store?.setItem(OPTOUT_KEY, "1");
+    else store?.removeItem(OPTOUT_KEY);
   } catch {
     /* private mode: nothing is remembered there anyway */
   }
@@ -540,7 +542,7 @@ const ENDPOINT_KEY = deviceKey(DEVICE_KEYS.pushEndpoint);
 
 export function registeredEndpoint(): string | null {
   try {
-    return localStorage.getItem(ENDPOINT_KEY);
+    return storageOf("local")?.getItem(ENDPOINT_KEY) ?? null;
   } catch {
     return null;
   }
@@ -548,8 +550,9 @@ export function registeredEndpoint(): string | null {
 
 export function rememberEndpoint(endpoint: string | null): void {
   try {
-    if (endpoint) localStorage.setItem(ENDPOINT_KEY, endpoint);
-    else localStorage.removeItem(ENDPOINT_KEY);
+    const store = storageOf("local");
+    if (endpoint) store?.setItem(ENDPOINT_KEY, endpoint);
+    else store?.removeItem(ENDPOINT_KEY);
   } catch {
     /* private mode: every start is then a fresh registration, which still works */
   }
