@@ -22,6 +22,15 @@ import { LOCALE_TAGS } from "./locales";
 
 export { normalizeLocale };
 
+/**
+ * A day in milliseconds.
+ *
+ * The unit every span in the app is counted in, and the one place it is
+ * written: `@/lib/dates` re-exports it, which is where the calendar reads it
+ * from.
+ */
+export const DAY_MS = 86_400_000;
+
 export type DateFormat = "auto" | "dmy-dot" | "dmy-slash" | "mdy-slash" | "ymd-dash";
 export type TimeFormat = "auto" | "12" | "24";
 
@@ -599,7 +608,7 @@ export function weekdayName(
   const i = WEEKDAY_KEYS.indexOf(day);
   if (i < 0) return day;
   return intl({ weekday: width, timeZone: "UTC" }).format(
-    new Date(WEEKDAY_BASE + i * 86_400_000),
+    new Date(WEEKDAY_BASE + i * DAY_MS),
   );
 }
 

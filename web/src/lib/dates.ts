@@ -1,12 +1,13 @@
 import { localDateOnly, localDateTime, pad2 } from "@gilbert/shared/localDateTime";
 import {
+  DAY_MS,
   formatClock,
   formatDayMonth,
   formatDayMonthTime,
   formatWeekdayDate,
 } from "./datetime";
 
-export const DAY_MS = 86_400_000;
+export { DAY_MS };
 
 export function startOfDay(d: Date): Date {
   const x = new Date(d);

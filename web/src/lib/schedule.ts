@@ -13,7 +13,7 @@
  */
 
 import { plural, t } from "@/lib/i18n";
-import { addDays, startOfDay } from "./dates";
+import { addDays, DAY_MS, startOfDay } from "./dates";
 import { formatFullDateTime } from "./datetime";
 
 /** The account's `urn:ietf:params:jmap:submission` capability object. */
@@ -122,7 +122,7 @@ export function scheduleError(at: Date, now: Date, maxMs: number): string | null
  * the two languages agreeing. Russian needs three forms and Japanese one.
  */
 export function describeSpan(ms: number): string {
-  const days = Math.floor(ms / 86_400_000);
+  const days = Math.floor(ms / DAY_MS);
   if (days >= 1) return plural(days, { one: "{n} day", other: "{n} days" });
   const hours = Math.max(1, Math.floor(ms / 3_600_000));
   return plural(hours, { one: "{n} hour", other: "{n} hours" });
