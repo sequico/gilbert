@@ -68,6 +68,13 @@ class Keyboard {
   groups(): Array<[string, ShortcutHelp[]]> {
     const byGroup = new Map<string, ShortcutHelp[]>();
     for (const binding of this.list()) {
+      /*
+       * A binding with no description is one the app listens for without
+       * offering it as help — `arrowdown` and `arrowup` move the focus in the
+       * message list, and neither is a thing to tell a reader to press. Both
+       * surfaces drew them anyway, as two rows with no label beside a chip.
+       */
+      if (!binding.description) continue;
       const group = byGroup.get(binding.group) ?? [];
       group.push(binding);
       byGroup.set(binding.group, group);
@@ -203,44 +210,45 @@ export function comboOf(e: KeyboardEvent): string | null {
   return parts.join("+");
 }
 
-export function formatKeys(keys: string): string {
-  return keys
-    .split(" ")
-    .map((k) =>
-      k
-        .split("+")
-        .map((p) =>
-          p === "mod"
-            ? isMac
-              ? "⌘"
-              : "Ctrl"
-            : p === "shift"
-              ? "⇧"
-              : p === "alt"
-                ? isMac
-                  ? "⌥"
-                  : "Alt"
-                : p === "enter"
-                  ? "↵"
-                  : p === "esc"
-                    ? "Esc"
-                    : p === "space"
-                      ? "Space"
-                      : p === "arrowup"
-                        ? "↑"
-                        : p === "arrowdown"
-                          ? "↓"
-                          : p === "arrowleft"
-                            ? "←"
-                            : p === "arrowright"
-                              ? "→"
-                              : p.length === 1
-                                ? p
-                                : p[0]!.toUpperCase() + p.slice(1),
-        )
-        .join(isMac ? "" : "+"),
-    )
-    .join(" then ");
+/**
+ * How one part of a binding is written for a reader.
+ *
+ * The one definition, read by the surface that shows a key: `Kbd` wraps each
+ * part in its own `<kbd>`. There were two copies of this mapping and the one
+ * that shipped was the incomplete one — it knew `mod`, `shift`, `enter` and
+ * `esc`, so anything else was printed as the token it is stored under. `arrowdown` and `arrowup` are
+ * registered on the message list, so the shortcuts surfaces showed a chip
+ * reading **arrowdown**, in all twelve languages, and an `alt+…` binding would
+ * have shown `alt`.
+ *
+ * A part is a symbol where a symbol is what a keyboard shows, and the token
+ * capitalised where it is a word.
+ */
+export function keyLabel(part: string): string {
+  switch (part) {
+    case "mod":
+      return isMac ? "⌘" : "Ctrl";
+    case "shift":
+      return "⇧";
+    case "alt":
+      return isMac ? "⌥" : "Alt";
+    case "enter":
+      return "↵";
+    case "esc":
+      return "Esc";
+    case "space":
+      return "Space";
+    case "arrowup":
+      return "↑";
+    case "arrowdown":
+      return "↓";
+    case "arrowleft":
+      return "←";
+    case "arrowright":
+      return "→";
+    default:
+      return part.length === 1 ? part : part[0]!.toUpperCase() + part.slice(1);
+  }
 }
 
 export const keyboard = new Keyboard();

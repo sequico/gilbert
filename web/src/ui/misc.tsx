@@ -3,6 +3,7 @@ import type { EmailAddress } from "@/jmap/types";
 import { avatarColor, initials } from "@/lib/address";
 import { contactPhoto } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { keyLabel } from "@/lib/keyboard";
 import { useContacts } from "@/store/contacts";
 
 export function Avatar({
@@ -150,17 +151,7 @@ export function Kbd({ keys }: { keys: string }) {
           )}
           {k.split("+").map((p, j) => (
             <kbd key={j} className="kbd" style={{ marginRight: 2 }}>
-              {p === "mod"
-                ? navigator.platform.includes("Mac")
-                  ? "⌘"
-                  : "Ctrl"
-                : p === "shift"
-                  ? "⇧"
-                  : p === "enter"
-                    ? "↵"
-                    : p === "esc"
-                      ? "Esc"
-                      : p}
+              {keyLabel(p)}
             </kbd>
           ))}
         </span>
