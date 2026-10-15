@@ -4,6 +4,9 @@ import {
   buildChecklist,
   buildWorkorderDoc,
   isStepComplete,
+  type WorkorderPartView,
+  type WorkorderStepView,
+  type WorkorderSummary,
   WORKORDER_FOLDER,
   workorderClosedPath,
   workorderFileName,
@@ -119,65 +122,25 @@ const PROCESS = {
   ],
 };
 
-interface StepView {
-  path: string;
-  label: string;
-  state: string;
-  by: string | null;
-  at: string | null;
-  note: string;
-}
 
-interface PartView {
-  scope: string;
-  /** The group's own name, null for the global part. See `WorkorderPartView`. */
-  group: string | null;
-  groups: Array<{
-    key: string;
-    label: string;
-    repeat: string | null;
-    gate?: { requires: string[]; labels: string[] };
-    items: Array<{
-      key: string;
-      label: string;
-      fields: Array<{ key: string; label: string; value: string }>;
-      steps: StepView[];
-    }>;
-  }>;
-  checklist: {
-    variants: Record<string, string>;
-    items: Record<string, Array<{ key: string; data: Record<string, string> }>>;
-    steps: Array<{ path: string; state: string; by: string | null; at: string | null }>;
-  };
-  templateTitle: string | null;
-}
 
-interface Summary {
-  uid: string;
-  name: string;
-  state: string;
-  /** The successor's uid, on a replaced workorder. */
-  replacedBy?: string | null;
-  updated: { by: string; at: string };
-  parts: PartView[];
-}
 
-const workorderOf = (body: Record<string, unknown> | null): Summary => {
-  const w = body?.workorder as Summary | undefined;
+const workorderOf = (body: Record<string, unknown> | null): WorkorderSummary => {
+  const w = body?.workorder as WorkorderSummary | undefined;
   assert.ok(w, "the route answers with a workorder");
   return w;
 };
 
-const partOf = (workorder: Summary, scope: string): PartView => {
+const partOf = (workorder: WorkorderSummary, scope: string): WorkorderPartView => {
   const part = workorder.parts.find((p) => p.scope === scope);
   assert.ok(part, `the ${scope} part is there`);
   return part;
 };
 
-const stepAt = (workorder: Summary, scope: string, path: string): StepView => {
+const stepAt = (workorder: WorkorderSummary, scope: string, path: string): WorkorderStepView => {
   const step = partOf(workorder, scope).checklist.steps.find((s) => s.path === path);
   assert.ok(step, `the ${scope} checklist has a step "${path}"`);
-  return step as StepView;
+  return step as WorkorderStepView;
 };
 
 /**
@@ -297,7 +260,7 @@ async function templateRef(
 async function createWorkorder(
   name: string,
   template: { accountId: string; id: string; revision: string },
-): Promise<Summary> {
+): Promise<WorkorderSummary> {
   const created = await post("/api/workorders/create", {
     name,
     template,
@@ -459,7 +422,7 @@ test("a workorder instantiates a template's process and checks steps by path", a
   const listed = await call("/api/workorders");
   assert.equal(listed.status, 200);
   assert.ok(
-    ((listed.body?.workorders as Summary[] | undefined) ?? []).some(
+    ((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some(
       (w) => w.uid === workorder.uid,
     ),
     "the registry lists it",
@@ -589,7 +552,7 @@ test("closing a workorder moves its root to closed/ and keeps it", async () => {
 
   const read = await call(`/api/workorders/${workorder.uid}`);
   assert.equal(read.status, 200, "a closed workorder is kept, not destroyed");
-  assert.equal((read.body?.workorder as Summary | undefined)?.state, "completed");
+  assert.equal((read.body?.workorder as WorkorderSummary | undefined)?.state, "completed");
 });
 
 test("replacing hands the work over: the successor exists and the old one names it", async () => {
@@ -615,7 +578,7 @@ test("replacing hands the work over: the successor exists and the old one names 
   assert.equal(successor.state, "running", "and it is the live one");
 
   const before = await call(`/api/workorders/${predecessor.uid}`);
-  const settled = (before.body?.workorder as Summary | undefined) ?? undefined;
+  const settled = (before.body?.workorder as WorkorderSummary | undefined) ?? undefined;
   assert.equal(settled?.state, "replaced", "the predecessor is replaced");
   assert.equal(
     settled?.replacedBy,
@@ -624,7 +587,7 @@ test("replacing hands the work over: the successor exists and the old one names 
   );
   const listed = await call("/api/workorders");
   assert.equal(
-    ((listed.body?.workorders as Summary[] | undefined) ?? []).some(
+    ((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some(
       (w) => w.uid === successor.uid,
     ),
     true,
@@ -648,7 +611,7 @@ test("a replacement that cannot be recorded is taken back, and nothing has chang
    */
   const template = await templateRef();
   const predecessor = await createWorkorder("Never handed over", template);
-  const before = ((await call("/api/workorders")).body?.workorders as Summary[]).map(
+  const before = ((await call("/api/workorders")).body?.workorders as WorkorderSummary[]).map(
     (w) => w.uid,
   );
 
@@ -679,12 +642,12 @@ test("a replacement that cannot be recorded is taken back, and nothing has chang
   assert.equal(refused.body?.error, "workorder_replace_failed");
   assert.match(String((refused.body as { message?: string }).message), /taken back/);
 
-  const after = ((await call("/api/workorders")).body?.workorders as Summary[]).map(
+  const after = ((await call("/api/workorders")).body?.workorders as WorkorderSummary[]).map(
     (w) => w.uid,
   );
   assert.deepEqual(after.sort(), before.sort(), "the registry is exactly as it was");
   const still = await call(`/api/workorders/${predecessor.uid}`);
-  const settled = still.body?.workorder as Summary | undefined;
+  const settled = still.body?.workorder as WorkorderSummary | undefined;
   assert.equal(settled?.state, "running", "the predecessor is still running");
   assert.equal(settled?.replacedBy ?? null, null, "and names nobody");
 });
@@ -708,7 +671,7 @@ test("a workorder is not marked replaced by hand", async () => {
   assert.equal(refused.body?.error, "replaced_is_not_a_choice");
   const after = await call(`/api/workorders/${workorder.uid}`);
   assert.equal(
-    (after.body?.workorder as Summary | undefined)?.state,
+    (after.body?.workorder as WorkorderSummary | undefined)?.state,
     "running",
     "and the workorder is where it was",
   );
@@ -903,7 +866,7 @@ test("a group section gated on a global section opens across parts", async () =>
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const uid = workorderOf(created.body).uid;
-  const groupKeys = (w: Summary) =>
+  const groupKeys = (w: WorkorderSummary) =>
     w.parts.find((p) => p.group === groupName)?.groups.map((g) => g.key) ?? [];
 
   const before = workorderOf((await call(`/api/workorders/${uid}`)).body);
@@ -1241,7 +1204,7 @@ test("a member reaches a workorder whose group part document has gone missing", 
   );
   const listed = await callAs(member, "/api/workorders");
   assert.ok(
-    ((listed.body?.workorders as Summary[] | undefined) ?? []).some((w) => w.uid === uid),
+    ((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some((w) => w.uid === uid),
     "and the member's list holds it",
   );
 
@@ -1256,7 +1219,7 @@ test("a member reaches a workorder whose group part document has gone missing", 
     body: JSON.stringify({ uid, scope: "global", path: "global.g", state: "done" }),
   });
   assert.equal(checked.status, 200, JSON.stringify(checked.body));
-  const global = ((checked.body?.workorder as Summary).parts ?? []).find(
+  const global = ((checked.body?.workorder as WorkorderSummary).parts ?? []).find(
     (part) => part.scope === "global",
   );
   assert.equal(
@@ -1322,14 +1285,14 @@ test("a workorder with no global section is its groups' alone", async () => {
   );
   const listed = await callAs(outside, "/api/workorders");
   assert.ok(
-    !((listed.body?.workorders as Summary[] | undefined) ?? []).some(
+    !((listed.body?.workorders as WorkorderSummary[] | undefined) ?? []).some(
       (w) => w.uid === workorder.uid,
     ),
     "and it is not in the outsider's list either",
   );
   const mine = await callAs(member, "/api/workorders");
   assert.ok(
-    ((mine.body?.workorders as Summary[] | undefined) ?? []).some(
+    ((mine.body?.workorders as WorkorderSummary[] | undefined) ?? []).some(
       (w) => w.uid === workorder.uid,
     ),
     "while the member's list holds it",
@@ -1515,7 +1478,7 @@ test("the registry list reads only the newest page of roots", async () => {
 
   const { result: listed, urls } = await countDownloads(() => call("/api/workorders"));
   assert.equal(listed.status, 200, JSON.stringify(listed.body));
-  const workorders = (listed.body?.workorders as Summary[] | undefined) ?? [];
+  const workorders = (listed.body?.workorders as WorkorderSummary[] | undefined) ?? [];
   const read = seeded.filter((uid) => urls.some((url) => url.includes(`/${uid}.json`)));
   assert.equal(
     read.length,
