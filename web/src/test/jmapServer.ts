@@ -40,8 +40,6 @@ export interface JmapFake {
   calls: JmapCall[];
   /** The calls of one method, in order, as they stood when this was called. */
   callsTo(method: string): JmapCall[];
-  /** How many times `method` was asked. */
-  count(method: string): number;
 }
 
 /**
@@ -90,7 +88,6 @@ export function fakeJmapServer(): JmapFake {
     },
     calls,
     callsTo: (method) => calls.filter((call) => call.method === method),
-    count: (method) => calls.filter((call) => call.method === method).length,
   };
 
   vi.stubGlobal(
