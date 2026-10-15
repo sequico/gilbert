@@ -100,5 +100,6 @@ describe("the tab strip", () => {
       );
     });
     expect(onSelect).toHaveBeenCalledWith("b");
+    expect(document.activeElement).toBe(tabs()[1]);
   });
 });

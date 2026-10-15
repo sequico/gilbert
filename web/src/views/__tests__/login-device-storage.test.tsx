@@ -3,9 +3,9 @@
  *
  * Two promises: the name it signed in with is remembered, and a store that
  * refuses the write — a full quota, a private window — is not a failed sign-in.
- * The second is the one worth pinning: the write sits inside the sign-in's own
- * `try`, so an unguarded refusal used to surface as "Network error" for a
- * sign-in that had already worked.
+ * The second is the one worth pinning: the write is nested inside the sign-in's
+ * own `try`, whose catch would report it as "Network error" for a sign-in that
+ * had already worked.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -90,7 +90,7 @@ describe("the sign-in form's device storage", () => {
   it("remembers the name it signed in with", async () => {
     await render();
     await signIn();
-    expect(login).toHaveBeenCalled();
+    expect(login).toHaveBeenCalledWith("me@example.org", "a-password", "", true);
     expect(localStorage.getItem(deviceKey(DEVICE_KEYS.lastUser))).toBe("me@example.org");
   });
 
