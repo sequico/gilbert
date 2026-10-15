@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { adminPermissionMarkerOf } from "../configuration.js";
 import { freePort } from "../testkit.js";
 
 /**
@@ -104,7 +105,7 @@ test("the target signs in as themselves with their own password", async () => {
   assert.equal(intro.status, 200);
   const introBody = (await intro.json()) as { permissions: string[] };
   assert.equal(
-    introBody.permissions.includes("sysAccountCreate"),
+    introBody.permissions.includes(adminPermissionMarkerOf()),
     false,
     "the non-admin target lacks the admin marker (ADR 0001)",
   );
@@ -127,7 +128,7 @@ test("the composite username authenticates as the target with the master's crede
   assert.equal(intro.status, 200);
   const introBody = (await intro.json()) as { permissions: string[] };
   assert.equal(
-    introBody.permissions.includes("sysAccountCreate"),
+    introBody.permissions.includes(adminPermissionMarkerOf()),
     false,
     "impersonating a non-admin target reports the target's own list",
   );

@@ -18,6 +18,7 @@ process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-flag";
 
 const { isStalwartAdmin } = await import("./upstream.js");
+const { adminPermissionMarkerOf } = await import("./configuration.js");
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
 
@@ -42,11 +43,12 @@ after(() => {
 });
 
 test("isStalwartAdmin reads the admin marker from the permission list", () => {
-  // The marker is `sysAccountCreate` by default (config.adminPermissionMarker,
+  // The marker is the one the installation is configured with
+  // (`config.adminPermissionMarker`, `sysAccountCreate` by default,
   // live-verified 2026-09-09); the recovery admin token reports every
   // permission, marker included.
   assert.equal(
-    isStalwartAdmin(["jmapEmailGet", "sysAccountCreate", "impersonate"]),
+    isStalwartAdmin(["jmapEmailGet", adminPermissionMarkerOf(), "impersonate"]),
     true,
   );
   // An admin role bundles `impersonate`, but the marker is what decides: a
