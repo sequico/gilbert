@@ -76,8 +76,14 @@ export function LoginPage() {
       // No two-factor code: the field is not on this form until the flow works
       // end to end, and the server treats an absent code as none given.
       await login(username.trim(), password, "", trustDevice);
-      if (trustDevice)
-        storageOf("local")?.setItem(deviceKey(DEVICE_KEYS.lastUser), username.trim());
+      if (trustDevice) {
+        try {
+          storageOf("local")?.setItem(deviceKey(DEVICE_KEYS.lastUser), username.trim());
+        } catch {
+          /* The remembered name is a convenience: a store that refuses a write
+             (a full quota, a private window) is not a failed sign-in. */
+        }
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === "invalid_credentials") {
