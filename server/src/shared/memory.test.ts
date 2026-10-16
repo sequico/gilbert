@@ -207,7 +207,7 @@ test("the selection carries the group's standing set, what the change names and 
   );
   assert.deepEqual(
     recallFacts(memory, "the other group's convention", GROUP).map((fact) => fact.id),
-    ["f-theirs"],
+    ["f-standing", "f-theirs"],
     "while any fact is recalled by its subject, whichever group it is about",
   );
 

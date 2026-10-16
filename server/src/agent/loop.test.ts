@@ -1083,9 +1083,9 @@ test("a fact one run learns is handed to the next change's call, and the record 
     (fact) => fact.subject === "Maersk",
   );
   assert.ok(learned, "the fact is one sheet in the installation's memory");
-  remembered.push(learned.fact.id);
+  remembered.push(learned.id);
   assert.equal(
-    learned.fact.group,
+    learned.group,
     accountId,
     "and it records the group it is about — the run's own account (ADR 0037)",
   );
@@ -1120,7 +1120,7 @@ test("a fact one run learns is handed to the next change's call, and the record 
   assert.ok(answered, "the second change opened its own run");
   assert.deepEqual(
     answered.run.recalled,
-    [learned.fact.id],
+    [learned.id],
     "and the run's record names the fact its calls carried",
   );
 

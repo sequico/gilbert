@@ -216,9 +216,11 @@ export function parseFactDocumentDetailed(
     return { problem: '"links" must be the ids of the facts it is linked to.' };
   if (typeof whole.standing !== "boolean")
     return { problem: '"standing" must be true or false.' };
-  // A version-1 sheet named no group, and reads as a fact about none.
+  // A version-1 sheet named no group, and reads as a fact about none; a sheet
+  // of this version names one, and one that names none is a document this build
+  // did not write.
   const group = withoutGroup ? (whole.group ?? "") : whole.group;
-  if (typeof group !== "string" || !group)
+  if (typeof group !== "string" || (!withoutGroup && !group))
     return { problem: '"group" must name the group the fact is about.' };
   return {
     fact: {
