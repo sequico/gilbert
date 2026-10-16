@@ -1,3 +1,4 @@
+import { AGENT_LABEL, AGENT_LABELS } from "@gilbert/shared/labels";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -351,5 +352,32 @@ describe("the labels section", () => {
     // Settings › Labels edits the reader's personal labels, which is not this
     // list: a pencil here would open the wrong surface.
     expect(document.querySelector('a[href="/settings/labels"]')).toBeNull();
+  });
+
+  it("draws the reserved states as a System labels section on a group", () => {
+    useMail.setState({
+      accountId: "g1",
+      mailboxes: { ginbox: box("ginbox", "Team Inbox", null, 0) },
+      accountTrees: { g1: { ginbox: box("ginbox", "Team Inbox", null, 0) } },
+      labelCounts: { [AGENT_LABEL.processed]: { total: 5, unread: 2 } },
+    });
+    mount();
+    const seen = outline();
+    expect(seen).toContain("System labels");
+    for (const l of AGENT_LABELS) expect(seen).toContain(l.name);
+    // The section draws no control, and a row is a filter with a count from the
+    // same read the labels use.
+    const row = document.querySelector(
+      `a[href="/search?q=label:${encodeURIComponent(AGENT_LABEL.processed)}"]`,
+    );
+    expect(row).not.toBeNull();
+    expect(row?.querySelector("button, input, select")).toBeNull();
+    expect(row?.querySelector(".nav-count")?.textContent).toBe("2 (5)");
+  });
+
+  it("draws no System labels section on a person's account", () => {
+    mount();
+    expect(outline()).not.toContain("System labels");
+    for (const l of AGENT_LABELS) expect(outline()).not.toContain(l.name);
   });
 });

@@ -1,4 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import { AGENT_LABELS } from "@gilbert/shared/labels";
 import {
   AlertOctagon,
   Archive,
@@ -42,7 +43,7 @@ import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
 import { CALENDAR_COLORS } from "@/lib/calendarColors";
 import { askDeleteFolder } from "@/lib/deleteConfirm";
-import { useEffectiveLabels } from "@/lib/effectiveLabels";
+import { useEffectiveLabels, useIsGroupMailbox } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, canMoveFolderTo, folderColor, movable } from "@/lib/folderMove";
 import { foldersByParent } from "@/lib/folderOrder";
@@ -258,6 +259,8 @@ export function MailboxTree() {
   const showHidden = useSettings((s) => s.settings.showHiddenFolders);
   const labels = useEffectiveLabels();
   const labelsSidebar = useSettings((s) => s.settings.labelsSidebar);
+  /** Whether the account on screen is a group's: only a group has system labels. */
+  const isGroup = useIsGroupMailbox();
   const labelCounts = useMail((s) => s.labelCounts);
   const shownLabels = useMemo(
     () => visibleLabels(labelTree(labels, labelCounts)),
@@ -643,6 +646,38 @@ export function MailboxTree() {
                 depth={n.depth}
               />
             ))}
+            {/*
+             * The product's reserved `G-` states, below the group's own labels.
+             * They belong to no group and to no catalog: the entries come from
+             * the shared vocabulary (`AGENT_LABELS`) and this section draws no
+             * rename, delete or Manage control, so nothing here can change one.
+             * A person's account has none of it — an agent runs in a group's
+             * account only (ADR 0031) — so the section is drawn for a group.
+             * Each row is a filter like its siblings, and its count comes from
+             * the same `labelCounts` read, which counts these keywords for a
+             * group (`countedKeywords`).
+             */}
+            {isGroup && (
+              <>
+                <div className="nav-section">
+                  <span>{t("System labels")}</span>
+                </div>
+                {AGENT_LABELS.map((l) => {
+                  const c = countOf(labelCounts, l.keyword);
+                  return (
+                    <KeywordRow
+                      key={l.keyword}
+                      href={`/search?q=label:${encodeURIComponent(l.keyword)}`}
+                      name={l.name}
+                      total={c.total}
+                      unread={c.unread}
+                      color={l.color}
+                      depth={0}
+                    />
+                  );
+                })}
+              </>
+            )}
           </>
         )}
         {/* The other mailboxes, under the account on screen: group mailboxes

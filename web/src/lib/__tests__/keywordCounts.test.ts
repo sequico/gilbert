@@ -1,3 +1,4 @@
+import { AGENT_LABELS } from "@gilbert/shared/labels";
 import { describe, expect, it } from "vitest";
 import {
   countedKeywords,
@@ -25,6 +26,16 @@ describe("countedKeywords", () => {
 
   it("counts Starred even with no labels at all", () => {
     expect(countedKeywords([])).toEqual([STARRED_KEYWORD]);
+  });
+
+  it("counts the reserved states too on a group's account, after its labels", () => {
+    expect(
+      countedKeywords([{ keyword: "freight", name: "Freight", color: "#000" }], true),
+    ).toEqual([STARRED_KEYWORD, "freight", ...AGENT_LABELS.map((l) => l.keyword)]);
+  });
+
+  it("counts no reserved state on a person's account", () => {
+    expect(countedKeywords([], false)).toEqual([STARRED_KEYWORD]);
   });
 });
 

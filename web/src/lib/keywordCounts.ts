@@ -12,8 +12,9 @@
  *    ("3 (5)") and which decides whether a label set to "while unread" is
  *    drawn at all (`visibleLabels`).
  *
- * The reserved `G-` state is deliberately not among the counted keywords: it
- * is per-message processing state, never a row in the sidebar.
+ * The reserved `G-` state is counted for a group's account and never for a
+ * person's: a group's sidebar draws it as its own `System labels` section, and
+ * a person's account has no agent and none of it (ADR 0031).
  *
  * **A count is taken over the row, not the message.** A conversation counted
  * once while its messages each counted once is not a detail: the number would
@@ -21,7 +22,7 @@
  * (`countsConversations`) and read by both sides — the read that answers the
  * number and the write that moves it — so they cannot be counted differently.
  */
-import { SEEN_KEYWORD, STARRED_KEYWORD } from "@gilbert/shared/labels";
+import { AGENT_LABELS, SEEN_KEYWORD, STARRED_KEYWORD } from "@gilbert/shared/labels";
 import { anyCarries, type CarriesKeywords } from "@/lib/rowScope";
 import { type Label, settings } from "@/store/settings";
 
@@ -59,12 +60,18 @@ export function countOf(
 
 /**
  * The keywords a sidebar counts, in the order it draws them: **Starred**
- * first — a row of its own, which is not a label — then the account's labels.
+ * first — a row of its own, which is not a label — then the account's labels,
+ * then, on a group's account (`system`), the reserved `G-` states the sidebar
+ * draws below them as `System labels`.
  *
  * One definition, so what is counted and what is drawn cannot drift apart.
  */
-export function countedKeywords(labels: Label[]): string[] {
-  return [STARRED_KEYWORD, ...labels.map((l) => l.keyword)];
+export function countedKeywords(labels: Label[], system = false): string[] {
+  return [
+    STARRED_KEYWORD,
+    ...labels.map((l) => l.keyword),
+    ...(system ? AGENT_LABELS.map((l) => l.keyword) : []),
+  ];
 }
 
 /**

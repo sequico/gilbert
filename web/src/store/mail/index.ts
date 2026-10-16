@@ -1754,7 +1754,10 @@ export const useMail = create<MailState>((set, get) => ({
      * labels still has stars, so the empty case is the counted set being
      * empty and never the label array.
      */
-    const keywords = countedKeywords(labels);
+    const keywords = countedKeywords(
+      labels,
+      isGroupMailboxAccount(accountId, get().mailAccounts),
+    );
     if (!accountId) {
       if (Object.keys(get().labelCounts).length) set({ labelCounts: {} });
       return;

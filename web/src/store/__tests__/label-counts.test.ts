@@ -1,3 +1,4 @@
+import { AGENT_LABEL, AGENT_LABELS } from "@gilbert/shared/labels";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { Email, JmapSession } from "@/jmap/types";
@@ -136,6 +137,12 @@ describe("reading the counts", () => {
     await useMail.getState().loadLabelCounts();
     expect(useMail.getState().labelCounts).toEqual({});
   });
+
+  it("counts no reserved label on a person's account", async () => {
+    const asked = stub(() => 0);
+    await useMail.getState().loadLabelCounts();
+    expect(asked).not.toContainEqual({ hasKeyword: AGENT_LABEL.processed });
+  });
 });
 
 describe("more labels than one request carries", () => {
@@ -214,6 +221,15 @@ describe("a group mailbox's own labels", () => {
     expect(asked).not.toContainEqual({ hasKeyword: "work" });
   });
 
+  it("counts the product's reserved labels for a group, because it draws them", async () => {
+    stub(() => 0);
+    await useMail.getState().loadLabelCounts();
+    expect(useMail.getState().labelCounts[AGENT_LABEL.processed]).toEqual({
+      total: 0,
+      unread: 0,
+    });
+  });
+
   it("counts the unit the list will show: conversations when conversation view is on", async () => {
     // A conversation of three messages carrying a label counts once when the
     // list collapses threads, because that is the row the reader will see. A
@@ -243,10 +259,11 @@ describe("a group mailbox's own labels", () => {
     ).toBe(false);
   });
 
-  it("counts nothing but Starred while the group's catalog is not read yet", async () => {
+  it("counts Starred and the reserved states while the group's catalog is not read yet", async () => {
     // The catalog is a file in the group's app folder and arrives after the
-    // folder tree does, so the first recount of a freshly opened group has
-    // nothing to count but the star -- which is an account's anyway.
+    // folder tree does, so the first recount of a freshly opened group counts
+    // the star and the product's own `G-` states -- the account's regardless of
+    // the catalog -- and no human label.
     useGroupLabels.setState({ byAccount: {} });
     const asked = stub(() => 0);
     await useMail.getState().loadLabelCounts();
@@ -256,6 +273,13 @@ describe("a group mailbox's own labels", () => {
         operator: "AND",
         conditions: [{ hasKeyword: STARRED_KEYWORD }, { notKeyword: SEEN_KEYWORD }],
       },
+      ...AGENT_LABELS.flatMap((l) => [
+        { hasKeyword: l.keyword },
+        {
+          operator: "AND",
+          conditions: [{ hasKeyword: l.keyword }, { notKeyword: SEEN_KEYWORD }],
+        },
+      ]),
     ]);
   });
 

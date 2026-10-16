@@ -758,6 +758,12 @@ applied from `l` or the context menu, and optionally listed in the sidebar.
   labels on their own mailbox, and a **group's own catalog** on a group's
   (ADR 0005). The pencil goes only where the client manages labels; a group's
   catalog is read from the group's own app folder.
+- **A group's sidebar shows the product's reserved labels too, read-only.** Below
+  the group's own labels a **System labels** section lists the `G-` processing
+  states the agent applies (`AGENT_LABELS`) — each a filter carrying a count from
+  the same read the labels use — and draws no rename, delete or Manage control.
+  They name the agent's work, which runs in a group's account only (ADR 0031), so
+  a person's own sidebar has no such section.
 - **A change made by another member shows up live.** A star or label written in a
   group mailbox reaches other members through the push rail as an `Email` change,
   and counts re-read; a catalog edit is a `FileNode` change.
