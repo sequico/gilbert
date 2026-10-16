@@ -4,7 +4,9 @@ Status: Accepted
 
 Implementation: Built. One JSON node per message and one read marker per member,
 both in the group account (`web/src/lib/chat.ts`, `web/src/store/chat.ts`), with
-the label catalog beside them (`web/src/store/groupLabels.ts`).
+the label catalog beside them (`web/src/store/groupLabels.ts`) and the reserved
+`G-` labels rendered from the shared vocabulary, never from the catalog
+(`server/src/shared/labels.ts`, `web/src/lib/agentLabels.ts`).
 
 Groups (team mailboxes such as `freight@…`) are Stalwart principals whose
 members reach the group's own account through their own JMAP session.
@@ -120,6 +122,14 @@ any member.
   permission error.
 - **Effective catalog.** Browsing a group mailbox always uses the group's
   own catalog; a reader's personal labels stay personal.
+- **The reserved labels.** `G-` is the product's own namespace, never a group's
+  and never an entry in a group's catalog: the states the agent marks a message
+  with are named in code (`server/src/shared/labels.ts`, `AGENT_LABELS`), and
+  the client renders them from there — on the individual message, kept out of
+  the manual picker and never aggregated onto a thread row. Applying one is the
+  **agent's** act (ADR 0032 class 1), not a member's, and the catalog's own
+  write refuses the namespace, so a group's `labels.json` can only ever hold its
+  human labels.
 - **Real-time.** `labels.json` is a FileNode, so a catalog edit rides the
   same push rail chat does; keyword changes on messages ride the Email push
   rail.

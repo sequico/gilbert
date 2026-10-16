@@ -1,5 +1,4 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   Ban,
   CalendarPlus,
@@ -39,10 +38,10 @@ import { useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress, summarizeAddresses } from "@/lib/address";
+import { agentLabelsOn } from "@/lib/agentLabels";
 import { startAppointment } from "@/lib/appointment";
 import { askDeleteMessages, deleteNeedsConfirm } from "@/lib/deleteConfirm";
 import { triggerDownload } from "@/lib/download";
-import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
 import {
@@ -353,11 +352,9 @@ export const MessageView = memo(function MessageView({
   );
   const unsubscribe = e["header:List-Unsubscribe:asText"];
   /* The agent's processing state on this message, and only on this message:
-     the group's catalog names it, the keyword says whether this one carries
-     it. */
-  const agentLabels = useEffectiveLabels().filter(
-    (label) => isAgentLabel(label.keyword) && e.keywords[label.keyword],
-  );
+     the product's own vocabulary names it, the keyword says whether this one
+     carries it. */
+  const agentLabels = agentLabelsOn(e.keywords);
 
   const isHighPriority =
     /^[12]/.test(e["header:X-Priority:asText"] ?? "") ||

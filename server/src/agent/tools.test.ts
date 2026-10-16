@@ -44,6 +44,7 @@ const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
   "../shared/knowledge.js"
 );
+const { AGENT_LABEL } = await import("../shared/labels.js");
 const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js");
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
@@ -573,15 +574,21 @@ test("the writing tools change the group's own account", async () => {
     "a folder that is not there is not a destination",
   );
 
-  // A keyword, on and off, and the reserved namespace left alone.
+  // A keyword, on and off, and the reserved namespace: the vocabulary's own
+  // label is the agent's to apply, an invented member of it is nobody's.
   await writeTool("mail.keyword", { id: message, keyword: "$flagged" });
   assert.ok(await hasKeyword(message, "$flagged"), "the mark is on the message");
   await writeTool("mail.keyword", { id: message, keyword: "$flagged", on: false });
   assert.ok(!(await hasKeyword(message, "$flagged")), "and it comes off again");
+  await writeTool("mail.keyword", { id: message, keyword: AGENT_LABEL.processed });
+  assert.ok(
+    await hasKeyword(message, AGENT_LABEL.processed),
+    "the agent marks a message processed with the product's own label",
+  );
   await assert.rejects(
     () => writeTool("mail.keyword", { id: message, keyword: "G-filed" }),
     /reserved/,
-    "the reserved namespace is the product's own",
+    "an invented member of the reserved namespace is refused",
   );
 
   // The group's own label catalog: a label joins it, and the same keyword
@@ -606,6 +613,16 @@ test("the writing tools change the group's own account", async () => {
     changed.added,
     false,
     "a keyword the catalog holds is changed, not added twice",
+  );
+  await assert.rejects(
+    () =>
+      writeTool("mail.label", {
+        keyword: AGENT_LABEL.processed,
+        name: "Processed",
+        color: "#123456",
+      }),
+    /reserved/,
+    "the catalog is the group's human labels, and the reserved namespace is never stored in it",
   );
 
   // A folder of the account's own Files, and a node moved and renamed into it.

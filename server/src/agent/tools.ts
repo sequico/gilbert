@@ -56,6 +56,7 @@ import { queryThenGet } from "../shared/jmapQuery.js";
 import { isRecord } from "../shared/json.js";
 import { KNOWLEDGE_FOLDER, knowledgeFolderName } from "../shared/knowledge.js";
 import {
+  AGENT_LABELS,
   G_LABEL_PREFIX,
   isAgentLabel,
   type LabelCatalogEntry,
@@ -687,18 +688,26 @@ const setKeyword = defineTool({
   name: "mail.keyword",
   description:
     "Put a keyword on a message of this account, or take it off. A keyword is a " +
-    "mark on a message: $seen when it has been read, $flagged for a star, or the " +
-    "keyword of one of the group's own labels.",
+    "mark on a message: $seen when it has been read, $flagged for a star, the " +
+    "keyword of one of the group's own labels, or one of the reserved processing " +
+    `labels the product names (${AGENT_LABELS.map((one) => one.keyword).join(", ")}), ` +
+    "which is how you mark a message you have processed.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const keyword = textArg(args, "keyword");
-    if (isAgentLabel(keyword))
+    /*
+     * The `G-` namespace is the product's own: what may be applied is exactly
+     * the vocabulary in `AGENT_LABELS`, so a `G-` string outside it is an
+     * invented member of a namespace that is not the caller's and is refused
+     * like any other argument the tool cannot use.
+     */
+    if (isAgentLabel(keyword) && !AGENT_LABELS.some((one) => one.keyword === keyword))
       throw new ToolError(
         "bad_arguments",
-        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace, which is the product's own.`,
+        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace and is not one of its labels; that namespace is the product's own.`,
       );
     const on = args.on ?? true;
     if (typeof on !== "boolean")
@@ -732,7 +741,7 @@ const defineLabel = defineTool({
     if (isAgentLabel(keyword))
       throw new ToolError(
         "bad_arguments",
-        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace, which is the product's own.`,
+        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace, which is the product's own; this catalog holds the group's human labels.`,
       );
     return {
       keyword,

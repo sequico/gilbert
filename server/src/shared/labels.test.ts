@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  AGENT_LABEL,
+  AGENT_LABELS,
   G_LABEL_PREFIX,
   GROUP_LABELS_FILE,
   isAgentLabel,
@@ -14,6 +16,22 @@ test("the reserved prefix names the reserved state", () => {
   assert.equal(isAgentLabel("todo"), false);
   // A human label that merely starts with a capital G is not reserved.
   assert.equal(isAgentLabel("Groceries"), false);
+});
+
+test("the reserved vocabulary is the one the agent marks a message with", () => {
+  // The keyword and the user-visible name, both pinned: the client renders
+  // this name on the message, so a rename of either has to be deliberate.
+  assert.deepEqual(
+    AGENT_LABELS.map((label) => [label.keyword, label.name]),
+    [
+      [AGENT_LABEL.needAttention, "Gilbert: needs attention"],
+      [AGENT_LABEL.processed, "Gilbert: processed"],
+      [AGENT_LABEL.awaiting, "Gilbert: awaiting approval"],
+      [AGENT_LABEL.rejected, "Gilbert: rejected"],
+    ],
+  );
+  for (const label of AGENT_LABELS)
+    assert.equal(isAgentLabel(label.keyword), true, `${label.keyword} is reserved`);
 });
 
 test("the catalog validator accepts what a group writes and nothing else", () => {

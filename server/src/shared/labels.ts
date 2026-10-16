@@ -7,11 +7,13 @@
  * identity that rides on the messages; the name and colour are display only,
  * so renaming a label changes nothing on any message.
  *
- * The `G-` prefix is reserved, never a human label. It is a **product
- * convention, not a server ACL**: a JMAP keyword is free-form, so what makes
- * these labels reserved is that the client renders them on the individual
- * message, keeps them out of the manual picker, and never aggregates them onto
- * a thread row.
+ * The `G-` prefix is reserved for the agent's own processing state, never a
+ * human label and never an entry in a group's catalog: the states are the
+ * product's own (`AGENT_LABELS`), the agent is what applies them, and it is a
+ * **product convention, not a server ACL** — a JMAP keyword is free-form, so
+ * what makes these labels reserved is that the client renders them on the
+ * individual message, keeps them out of the manual picker, and never
+ * aggregates them onto a thread row.
  */
 
 import { isRecord } from "./json.js";
@@ -55,6 +57,44 @@ export const ANSWERED_KEYWORD = "$answered";
 export interface LabelCatalog {
   labels: LabelCatalogEntry[];
 }
+
+/**
+ * The reserved labels by the state they name.
+ *
+ * A call site says `AGENT_LABEL.processed`, never the string: the keyword is
+ * the one stable identity that rides on a message, and it is exactly the kind
+ * of thing a rename must not be able to miss in one place.
+ */
+export const AGENT_LABEL = {
+  needAttention: "G-needattention",
+  processed: "G-processed",
+  awaiting: "G-awaiting",
+  rejected: "G-rejected",
+} as const;
+
+/**
+ * The reserved labels, with the names a reader sees. One definition, both
+ * tiers.
+ *
+ * The server accepts the keyword the agent marks a message with, and the
+ * client renders the name and the colour — from here, never from a group's
+ * catalog: the catalog is the group's human labels, and this namespace is the
+ * product's own.
+ */
+export const AGENT_LABELS: ReadonlyArray<LabelCatalogEntry> = [
+  {
+    keyword: AGENT_LABEL.needAttention,
+    name: "Gilbert: needs attention",
+    color: "#b91c1c",
+  },
+  { keyword: AGENT_LABEL.processed, name: "Gilbert: processed", color: "#15803d" },
+  {
+    keyword: AGENT_LABEL.awaiting,
+    name: "Gilbert: awaiting approval",
+    color: "#b45309",
+  },
+  { keyword: AGENT_LABEL.rejected, name: "Gilbert: rejected", color: "#475569" },
+];
 
 /**
  * Whether a keyword belongs to the reserved `G-` namespace.
