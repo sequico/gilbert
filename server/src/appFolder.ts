@@ -767,6 +767,10 @@ async function setFileNode(
  * missing. `ifInState` makes the write conditional: the server refuses it if
  * any FileNode in the account changed since that state was read, which is the
  * compare-and-set JMAP offers in place of a lock.
+ *
+ * The node's id comes back, because a caller that has to name what it wrote —
+ * a chat message a reply will be addressed to — can only name an id the server
+ * gave it.
  */
 export async function writeAppFileIn(
   ctx: Ctx,
@@ -775,13 +779,13 @@ export async function writeAppFileIn(
   name: string,
   value: unknown,
   opts: { ifInState?: string; type?: string } = {},
-): Promise<void> {
+): Promise<string> {
   const type = opts.type ?? DOCUMENT_TYPE_DEFAULT;
   // The bytes this document is about to be written as, before any of them are
   // uploaded: the same serialization `uploadJsonBlob` sends
   // (`appDocumentJson`), so what is compared is what would be stored.
   const bytes = utf8.encode(appDocumentJson(value));
-  await writeFile(
+  return await writeFile(
     ctx,
     accountId,
     folderId,
@@ -1169,15 +1173,17 @@ export async function destroyAppNode(
  * Move or rename a node.
  *
  * Beside the destroy because it is the other way a level's membership changes.
- * `ifInState` is the conditional the caller read -- the three callers hold the
- * state of the account they are writing in -- and the refusal comes back for the
- * caller to name in its own words.
+ * A `parentId` of `null` is the top level of Files, which is a place rather than
+ * a miss — the same reading `findVisibleFolder` gives it. `ifInState` is the
+ * conditional the caller read -- the three callers hold the state of the account
+ * they are writing in -- and the refusal comes back for the caller to name in
+ * its own words.
  */
 export async function updateAppNode(
   ctx: Ctx,
   accountId: string,
   id: string,
-  change: { name?: string; parentId?: string },
+  change: { name?: string; parentId?: string | null },
   ifInState: string,
 ): Promise<SetResponse> {
   return await clientOf(ctx).call<SetResponse>(

@@ -29,28 +29,48 @@
  * same documents a person does.
  */
 
+import { readGroupLabels, writeGroupLabels } from "../account.js";
 import {
+  appFolderState,
   type Ctx,
   documentType,
+  ensureRootFolderPath,
   type FileNodeLike,
   fileChildren,
   findFolderPath,
   findVisibleFolder,
   nodeStamp,
+  pathSegments,
   readAppJsonAt,
   readVisibleFileAt,
+  updateAppNode,
 } from "../appFolder.js";
-import { findChatMessages, readChatMessage } from "../chat.js";
+import { findChatMessages, postChatMessage, readChatMessage } from "../groupChat.js";
+import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { readArticle } from "../knowledgeAdmin.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { CHAT_MAX_TEXT } from "../shared/chat.js";
+import { refusalOf, type SetResponse } from "../shared/jmap.js";
 import { queryThenGet } from "../shared/jmapQuery.js";
 import { isRecord } from "../shared/json.js";
 import { KNOWLEDGE_FOLDER, knowledgeFolderName } from "../shared/knowledge.js";
-import type { RunAuthority, RunAuthorityAct, RunDoc, RunSpent } from "../shared/run.js";
+import {
+  G_LABEL_PREFIX,
+  isAgentLabel,
+  type LabelCatalogEntry,
+} from "../shared/labels.js";
+import type {
+  RunAuthority,
+  RunAuthorityAct,
+  RunDoc,
+  RunSpent,
+  RunWait,
+} from "../shared/run.js";
 import {
   buildFilter,
   parseQuery,
+  resolveMailbox,
   SEARCH_GRAMMAR,
   type SearchMailbox,
 } from "../shared/search.js";
@@ -559,11 +579,348 @@ const readRunTool = defineTool({
   },
 });
 
+/* ------------------------------------------------------------------ */
+/* The tools that change the group's own account                       */
+/* ------------------------------------------------------------------ */
+
 /**
- * Every tool this build has: the reading half, and nothing beside it yet.
+ * The text of a chat message, bounded where the document is.
  *
- * The writing tools land with the loop (ADR 0034), and they are what the
- * `writes` flag and `readingTools` exist for.
+ * `CHAT_MAX_TEXT` is the chat's own ceiling (ADR 0005): a message longer than it
+ * is a message the reader would not render, so it is refused here rather than
+ * written and silently cut.
+ */
+function chatText(args: Record<string, unknown>): string {
+  const text = textArg(args, "text");
+  if (text.length > CHAT_MAX_TEXT)
+    throw new ToolError(
+      "bad_arguments",
+      `"text" must be at most ${CHAT_MAX_TEXT} characters.`,
+    );
+  return text;
+}
+
+/**
+ * One conditional write of a node in the account's Files, retried once.
+ *
+ * `updateAppNode` writes against the account's FileNode state, and any writer in
+ * the account invalidates it — a member's upload, another document, a prune
+ * (`gilbert-stalwart`). One retry re-reads the state and writes again; a race
+ * lost twice is refused rather than retried for ever, and the refusal the server
+ * names for the node (`alreadyExists` on a rename, a right) is handed back in
+ * its own words.
+ */
+async function writeNode(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  change: { name?: string; parentId?: string | null },
+): Promise<void> {
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const token = await appFolderState(ctx, accountId);
+    try {
+      const res = await updateAppNode(ctx, accountId, id, change, token);
+      const refused = res.notUpdated?.[id];
+      if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+      return;
+    } catch (err) {
+      if (retryStateMismatch(err, attempt)) break;
+    }
+  }
+  throw new ToolError(
+    "write_raced",
+    "Another write kept winning the race for that node; it was left as it is.",
+    409,
+  );
+}
+
+const fileMessage = defineTool({
+  name: "mail.file",
+  description:
+    "File a message of this account into one of its folders, by the folder's " +
+    "name or its role (inbox, archive, junk, trash). The message is taken out " +
+    "of the folders it was in: it is moved, not copied.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), folder: textArg(args, "folder") };
+  },
+  run: async ({ ctx, accountId }, { id, folder }) => {
+    const boxes = await mailboxesOf(ctx, accountId);
+    const target = resolveMailbox(folder, boxes);
+    if (!target) throw notFound(`folder "${folder}" in this account`);
+    const answer = await clientOf(ctx).call<{ list?: Array<{ mailboxIds?: unknown }> }>(
+      "Email/get",
+      { accountId, ids: [id], properties: ["mailboxIds"] },
+      [CAPABILITIES.mail],
+    );
+    const message = answer.list?.[0];
+    if (!message) throw notFound(`message "${id}" in this account`);
+    /*
+     * The per-folder patch, never a replacement of the whole map: a message can
+     * sit in several folders at once, and a folder it gained since this read —
+     * a server-side rule, another device — is not this move's to take away.
+     *
+     * shortcut: the patch is the same rule the client's move writes
+     * (`web/src/store/mail/mutations.ts` `moveMailboxPatch`), spelled again here
+     * because the server tier cannot import from `web/`; hoist it into
+     * `@gilbert/shared` when a unit may touch the client.
+     */
+    const patch: Record<string, unknown> = { [`mailboxIds/${target.id}`]: true };
+    const held = isRecord(message.mailboxIds) ? message.mailboxIds : {};
+    for (const was of Object.keys(held))
+      if (was !== target.id) patch[`mailboxIds/${was}`] = null;
+    const res = await clientOf(ctx).call<SetResponse>(
+      "Email/set",
+      { accountId, update: { [id]: patch } },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notUpdated?.[id];
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    return { id, folder: target.name };
+  },
+});
+
+const setKeyword = defineTool({
+  name: "mail.keyword",
+  description:
+    "Put a keyword on a message of this account, or take it off. A keyword is a " +
+    "mark on a message: $seen when it has been read, $flagged for a star, or the " +
+    "keyword of one of the group's own labels.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const keyword = textArg(args, "keyword");
+    if (isAgentLabel(keyword))
+      throw new ToolError(
+        "bad_arguments",
+        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace, which is the product's own.`,
+      );
+    const on = args.on ?? true;
+    if (typeof on !== "boolean")
+      throw new ToolError("bad_arguments", `"on" must be true or false.`);
+    return { id: textArg(args, "id"), keyword, on };
+  },
+  run: async ({ ctx, accountId }, { id, keyword, on }) => {
+    const res = await clientOf(ctx).call<SetResponse>(
+      "Email/set",
+      { accountId, update: { [id]: { [`keywords/${keyword}`]: on ? true : null } } },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notUpdated?.[id];
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    return { id, keyword, on };
+  },
+});
+
+const defineLabel = defineTool({
+  name: "mail.label",
+  description:
+    "Add a label to this group's own label catalog, or change the name or the " +
+    "colour of one it already holds. A label is a keyword with a name and a " +
+    "colour; mail.keyword puts one on a message.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const keyword = textArg(args, "keyword");
+    if (isAgentLabel(keyword))
+      throw new ToolError(
+        "bad_arguments",
+        `"${keyword}" is in the reserved "${G_LABEL_PREFIX}" namespace, which is the product's own.`,
+      );
+    return {
+      keyword,
+      name: textArg(args, "name"),
+      color: textArg(args, "color"),
+    };
+  },
+  run: async ({ ctx, accountId }, { keyword, name, color }) => {
+    const read = await readGroupLabels(ctx, accountId);
+    if (read.state === "unreadable")
+      throw new ToolError(
+        "catalog_unreadable",
+        "The group's label catalog is there and cannot be read; it has been left exactly as it is.",
+        409,
+      );
+    const labels: LabelCatalogEntry[] = read.state === "catalog" ? [...read.labels] : [];
+    const at = labels.findIndex((one) => one.keyword === keyword);
+    if (at < 0) labels.push({ keyword, name, color });
+    else labels[at] = { keyword, name, color };
+    await writeGroupLabels(ctx, accountId, labels);
+    return { keyword, name, color, added: at < 0 };
+  },
+});
+
+const createMailFolder = defineTool({
+  name: "mail.folder",
+  description:
+    "Create a folder in this account's mailbox, by its name, inside the folder " +
+    "`parent` names or at the top level. A folder already there by that name is " +
+    "the answer rather than an error.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { name: textArg(args, "name"), parent: optionalTextArg(args, "parent") };
+  },
+  run: async ({ ctx, accountId }, { name, parent }) => {
+    const boxes = await mailboxesOf(ctx, accountId);
+    let parentId: string | null = null;
+    if (parent) {
+      const found = resolveMailbox(parent, boxes);
+      if (!found) throw notFound(`folder "${parent}" in this account`);
+      parentId = found.id;
+    }
+    // A folder already carrying the name is the one the caller asked for, so the
+    // call is safe to repeat and rests on no server refusal this build has not
+    // read.
+    const held = Object.values(boxes).find(
+      (box) => box.parentId === parentId && box.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (held) return { id: held.id, name: held.name, parent: parentId };
+    const res = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+      "Mailbox/set",
+      { accountId, create: { n: { name, parentId, isSubscribed: true } } },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notCreated?.n;
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    const id = res.created?.n?.id;
+    if (!id)
+      throw new ToolError(
+        "write_refused",
+        "The mail server created the folder but returned no id.",
+        502,
+      );
+    return { id, name, parent: parentId };
+  },
+});
+
+const createFileFolder = defineTool({
+  name: "files.folder",
+  description:
+    "Create a folder in this account's own Files, by its path — " +
+    "`Containers/2026`, or a single name at the top level. Every folder of the " +
+    "path that is missing is made and one that is there is left as it is. The " +
+    "`gilbert` app folder is not a destination.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
+  run: async ({ ctx, accountId }, { path }) => {
+    const id = await ensureRootFolderPath(ctx, accountId, path);
+    return { folder: pathSegments(path).join("/"), id };
+  },
+});
+
+const moveFile = defineTool({
+  name: "files.move",
+  description:
+    "Move a node of this account's own Files into a folder, by the folder's " +
+    "path; name no folder to move it to the top level. The node keeps its name " +
+    "and its id, and a move into its own subtree is refused.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), folder: optionalTextArg(args, "folder") ?? "" };
+  },
+  run: async ({ ctx, accountId }, { id, folder }) => {
+    const dest = await findVisibleFolder(ctx, accountId, folder);
+    if (dest === undefined) throw notFound(`folder "${folder}" in this account's Files`);
+    // `null` is the top level of Files, and it is a destination: a patch that
+    // dropped it would leave the node where it was.
+    await writeNode(ctx, accountId, id, { parentId: dest });
+    return { id, folder: folder || null };
+  },
+});
+
+const renameFile = defineTool({
+  name: "files.rename",
+  description:
+    "Rename a node of this account's own Files. A name another node of the same " +
+    "folder already carries is refused rather than taken.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), name: textArg(args, "name") };
+  },
+  run: async ({ ctx, accountId }, { id, name }) => {
+    await writeNode(ctx, accountId, id, { name });
+    return { id, name };
+  },
+});
+
+const sayInChat = defineTool({
+  name: "chat.say",
+  description:
+    "Say something in this group's own conversation, as yourself: how the group " +
+    "is told what the work did. Asking a person something the work needs " +
+    "answered is chat.ask.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { text: chatText(args), replyTo: optionalTextArg(args, "replyTo") };
+  },
+  run: async ({ ctx, accountId }, { text, replyTo }) => {
+    // The agent writes as itself and acts in the group's account (ADR 0033):
+    // the sender is the address the session signed in as.
+    const id = await postChatMessage(ctx, accountId, ctx.username, text, { replyTo });
+    return { id };
+  },
+});
+
+const askInChat = defineTool({
+  name: "chat.ask",
+  description:
+    "Ask a person a question in this group's own conversation and leave the run " +
+    "waiting on their answer: the run stops until somebody replies, and the " +
+    "answer is read from the conversation. Use it for what only a person can " +
+    "decide; a report nobody has to answer is chat.say.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
+  run: async ({ ctx, accountId }, { text }) => {
+    const id = await postChatMessage(ctx, accountId, ctx.username, text);
+    /*
+     * What the run waits for is a person's answer, and that wait carries **no
+     * date**: the run is picked up when the answer arrives in the conversation,
+     * never by a clock (ADR 0033, 0034). The answer goes into the run's own
+     * document by the loop (`waitUntil`) — the run is the loop's to write, as
+     * its tally is — and `asked` is the message the answer will reply to.
+     */
+    const wait: RunWait = {
+      what: text,
+      asked: { channel: "chat", id },
+      until: null,
+    };
+    return { id, wait };
+  },
+});
+
+/**
+ * Every tool this build has: the half that reads, and the half that changes the
+ * group's own account.
+ *
+ * The half that writes is the reversible class of ADR 0032 and nothing beside
+ * it: filing a message, a keyword, a label, a folder, a folder of Files, a move,
+ * a rename, saying something in the conversation, asking a person. The acts a
+ * **person** must answer for — a send, a destroy, a policy override, an intent —
+ * are the tools of the unit after this one, and they are what the guard's
+ * act-binding exists for.
  */
 export const TOOLS: readonly AnyTool[] = [
   findMessages,
@@ -576,6 +933,15 @@ export const TOOLS: readonly AnyTool[] = [
   readWorkorder,
   readKnowledgePage,
   readRunTool,
+  fileMessage,
+  setKeyword,
+  defineLabel,
+  createMailFolder,
+  createFileFolder,
+  moveFile,
+  renameFile,
+  sayInChat,
+  askInChat,
 ];
 
 /**

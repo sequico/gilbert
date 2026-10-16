@@ -1,12 +1,13 @@
 /**
- * A group's chat, read by this tier (ADR 0005).
+ * A group's chat, read and written by this tier (ADR 0005).
  *
  * A chat message is one JSON document per node in the group account's own
  * `gilbert/chat` folder, and its shape, its validator and the ordering of the
  * transcript are `@gilbert/shared/chat` — one definition both tiers read. This
  * is the server tier's door to those documents, the twin of the client's
- * (`web/src/lib/chat.ts`): the agent reads the conversation a member reads,
- * through the same app folder the rest of the group's documents live in.
+ * (`web/src/lib/chat.ts`): the agent reads the conversation a member reads and
+ * says something in it, through the same app folder the rest of the group's
+ * documents live in.
  *
  * A node in the folder that is not a readable message is not part of the
  * transcript, exactly as it is not for the client: the folder is Files, and
@@ -17,18 +18,23 @@ import {
   type Ctx,
   documentType,
   downloadBlobText,
+  ensureFolderPath,
   FILENODE_CAP,
   type FileNodeLike,
   fileChildren,
   findFolderPath,
+  writeAppFileIn,
 } from "./appFolder.js";
 import { FILENODE_GET } from "./shared/appFolder.js";
 import {
   CHAT_FOLDER,
   CHAT_PAGE,
+  type ChatMention,
   type ChatMessage,
   compareMessages,
   isChatMessageDoc,
+  messageDoc,
+  messageFileName,
   messageProps,
 } from "./shared/chat.js";
 import { clientOf } from "./util.js";
@@ -130,4 +136,29 @@ export async function findChatMessages(
     }
   }
   return found;
+}
+
+/**
+ * Say something in the conversation, as `from`, and answer the message's id.
+ *
+ * The chat folders are made on the way (`ensureFolderPath`), so the first thing
+ * the agent says in a group that has never spoken creates them, and the id the
+ * write answers with is what a reply is addressed to (`replyTo`, ADR 0033) and
+ * what a run waits on when the message is a question.
+ */
+export async function postChatMessage(
+  ctx: Ctx,
+  accountId: string,
+  from: string,
+  text: string,
+  opts: { replyTo?: string; mentions?: ChatMention[] } = {},
+): Promise<string> {
+  const folderId = await ensureFolderPath(ctx, accountId, CHAT_FOLDER);
+  return await writeAppFileIn(
+    ctx,
+    accountId,
+    folderId,
+    messageFileName(),
+    messageDoc(from, text, opts.replyTo, opts.mentions),
+  );
 }

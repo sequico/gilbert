@@ -1,21 +1,23 @@
 /**
- * The agent's tools (ADR 0031) — the shape, the guard, and the reading half.
+ * The agent's tools (ADR 0031) — the shape, the guard, and both halves.
  *
- * Four properties are pinned here, and each of them is a mechanism rather than
- * a run of the code: a tool's arguments are validated **before** its executor
- * runs, a tool that writes is unreachable through the reading half, the guard
- * asks the authority class the tool **declares**, and a read spends nothing of
- * the run's budget. The catalogue's own shape is checked beside them — no two
- * tools take one name, every one of them is described for the model, and the
- * arguments a tool cannot use are refused before the server is asked anything —
- * and the reading tools are then driven against the mock Stalwart, so an
- * executor that throws fails here rather than at the first run of the loop.
+ * Six properties are pinned here, and each of them is a mechanism rather than a
+ * run of the code: a tool's arguments are validated **before** its executor
+ * runs, a tool that writes is unreachable through the reading half, every
+ * surface has a reading tool that reaches it, the guard asks the authority class
+ * the tool **declares** and the act that authority is for, a read spends nothing
+ * of the run's budget, and a question leaves the run waiting on a person with no
+ * date. The catalogue's own shape is checked beside them — no two tools take one
+ * name, every one of them is described for the model, and the arguments a tool
+ * cannot use are refused before the server is asked anything — and both halves
+ * are then driven against the mock Stalwart, so an executor that throws fails
+ * here rather than at the first run of the loop.
  */
 
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
-import type { RunDoc } from "../shared/run.js";
+import type { RunDoc, RunWait } from "../shared/run.js";
 import { freePort, waitForPort } from "../testkit.js";
 import type { UpstreamSession } from "../upstream.js";
 
@@ -29,8 +31,14 @@ process.env.APP_SECRET = "test-secret-for-tools";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, readAppFileAt, writeAppFileAt, writeBytesIntoVisibleFolder } =
-  await import("../appFolder.js");
+const {
+  filesAccountId,
+  readAppFileAt,
+  readVisibleFileAt,
+  writeAppFileAt,
+  writeBytesIntoVisibleFolder,
+} = await import("../appFolder.js");
+const { readGroupLabels } = await import("../account.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
@@ -74,6 +82,11 @@ function callTool<T>(name: string, raw: unknown): Promise<T> {
     name,
     raw,
   ) as Promise<T>;
+}
+
+/** Call a tool the agent may write with: the whole catalogue, and this run. */
+function writeTool<T>(name: string, raw: unknown): Promise<T> {
+  return runTool(TOOLS, { ctx, accountId, run: plainRun() }, name, raw) as Promise<T>;
 }
 
 /**
@@ -281,6 +294,23 @@ test("the reading half this build ships holds no writer, and spends nothing", ()
       spendRun(run, tool.spend).spent,
       run.spent,
       `and spending it leaves the run's tally where it was`,
+    );
+  }
+
+  // The other half: an act that changes the account takes a step of the run's
+  // budget, which is what makes reading free and acting cost.
+  const writers = TOOLS.filter((tool) => tool.writes);
+  assert.ok(writers.length > 0, "the catalogue has acts that change the account");
+  for (const tool of writers) {
+    assert.deepEqual(
+      tool.spend,
+      { steps: 1 },
+      `"${tool.name}" takes a step of the run's budget`,
+    );
+    assert.deepEqual(
+      spendRun(run, tool.spend).spent,
+      { ...run.spent, steps: 1 },
+      `and spending it moves the tally by the one step`,
     );
   }
 });
@@ -498,4 +528,168 @@ test("the reading tools answer from the group's account", async () => {
   );
   assert.equal(chatMessage.message.text, "the container has left the port");
   assert.equal(chatMessage.message.from, "sam@example.com");
+});
+
+/** Whether a message carries a keyword, read straight from the account. */
+async function hasKeyword(id: string, keyword: string): Promise<boolean> {
+  const answer = await clientOf(ctx).call<{
+    list?: Array<{ keywords?: Record<string, boolean> }>;
+  }>("Email/get", { accountId, ids: [id], properties: ["keywords"] }, [
+    CAPABILITIES.mail,
+  ]);
+  return Boolean(answer.list?.[0]?.keywords?.[keyword]);
+}
+
+test("the writing tools change the group's own account", async () => {
+  // A folder of the mailbox, made once and answered the same way the second
+  // time: the call is safe to repeat.
+  const folder = await writeTool<{ id: string; name: string }>("mail.folder", {
+    name: "Filed 2026",
+  });
+  assert.equal(folder.name, "Filed 2026");
+  const again = await writeTool<{ id: string }>("mail.folder", { name: "filed 2026" });
+  assert.equal(
+    again.id,
+    folder.id,
+    "a folder already there is the answer, not a second one",
+  );
+
+  // A message filed into it: moved, not copied.
+  const message = await deliver("an invoice for container 12");
+  await writeTool("mail.file", { id: message, folder: "Filed 2026" });
+  const filed = await clientOf(ctx).call<{
+    list?: Array<{ mailboxIds?: Record<string, boolean> }>;
+  }>("Email/get", { accountId, ids: [message], properties: ["mailboxIds"] }, [
+    CAPABILITIES.mail,
+  ]);
+  assert.deepEqual(
+    filed.list?.[0]?.mailboxIds,
+    { [folder.id]: true },
+    "the message is in the folder it was filed into, and out of the ones it was in",
+  );
+  await assert.rejects(
+    () => writeTool("mail.file", { id: message, folder: "Nowhere" }),
+    /no folder "Nowhere"/,
+    "a folder that is not there is not a destination",
+  );
+
+  // A keyword, on and off, and the reserved namespace left alone.
+  await writeTool("mail.keyword", { id: message, keyword: "$flagged" });
+  assert.ok(await hasKeyword(message, "$flagged"), "the mark is on the message");
+  await writeTool("mail.keyword", { id: message, keyword: "$flagged", on: false });
+  assert.ok(!(await hasKeyword(message, "$flagged")), "and it comes off again");
+  await assert.rejects(
+    () => writeTool("mail.keyword", { id: message, keyword: "G-filed" }),
+    /reserved/,
+    "the reserved namespace is the product's own",
+  );
+
+  // The group's own label catalog: a label joins it, and the same keyword
+  // changes rather than doubling.
+  await writeTool("mail.label", {
+    keyword: "shipping",
+    name: "Shipping",
+    color: "#123456",
+  });
+  const catalog = await readGroupLabels(ctx, accountId);
+  assert.ok(
+    catalog.state === "catalog" &&
+      catalog.labels.some((one) => one.keyword === "shipping" && one.name === "Shipping"),
+    "the label is in the group's own catalog",
+  );
+  const changed = await writeTool<{ added: boolean }>("mail.label", {
+    keyword: "shipping",
+    name: "Shipped",
+    color: "#123456",
+  });
+  assert.equal(
+    changed.added,
+    false,
+    "a keyword the catalog holds is changed, not added twice",
+  );
+
+  // A folder of the account's own Files, and a node moved and renamed into it.
+  const made = await writeTool<{ folder: string; id: string }>("files.folder", {
+    path: "Containers/2026",
+  });
+  assert.equal(made.folder, "Containers/2026", "a path of folders is made whole");
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    "Documents",
+    "booking.txt",
+    new TextEncoder().encode("a booking"),
+    "text/plain",
+  );
+  const booking = await readVisibleFileAt(ctx, accountId, "Documents/booking.txt");
+  assert.ok(booking, "the document is in the visible tree");
+  const node = String(booking.file.id);
+  await writeTool("files.move", { id: node, folder: "Containers/2026" });
+  const moved = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    folder: "Containers/2026",
+  });
+  assert.deepEqual(
+    moved.nodes.map((one) => one.path),
+    ["Containers/2026/booking.txt"],
+    "the node is where it was moved to",
+  );
+  const left = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    folder: "Documents",
+  });
+  assert.ok(
+    !left.nodes.some((one) => one.path === "Documents/booking.txt"),
+    "and no longer where it was",
+  );
+  await writeTool("files.rename", { id: node, name: "booking-2026.txt" });
+  const renamed = await writeTool<{ name: string; text: string }>("files.read", {
+    path: "Containers/2026/booking-2026.txt",
+  });
+  assert.equal(
+    renamed.name,
+    "booking-2026.txt",
+    "the node keeps its bytes and its place",
+  );
+  assert.equal(renamed.text, "a booking");
+
+  // The top level of Files is a destination like any folder, and `null` has to
+  // reach the server for the move to happen at all.
+  await writeTool("files.move", { id: node });
+  const atTop = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {});
+  assert.ok(
+    atTop.nodes.some((one) => one.path === "booking-2026.txt"),
+    "a move that names no folder is a move to the top level of Files",
+  );
+
+  // The conversation: a report, and a question the run waits on.
+  const said = await writeTool<{ id: string }>("chat.say", {
+    text: "container 12 is on its way",
+  });
+  const saidBack = await writeTool<{ message: { text: string; from: string } }>(
+    "chat.read",
+    { id: said.id },
+  );
+  assert.equal(saidBack.message.text, "container 12 is on its way");
+  assert.equal(
+    saidBack.message.from,
+    ctx.username,
+    "the agent writes as itself (ADR 0033)",
+  );
+
+  const question = "@sam@example.com is the delivery confirmed?";
+  const asked = await writeTool<{ id: string; wait: RunWait }>("chat.ask", {
+    text: question,
+  });
+  assert.deepEqual(
+    asked.wait,
+    { what: question, asked: { channel: "chat", id: asked.id }, until: null },
+    "a question is a run waiting on a person, with no date (ADR 0034)",
+  );
+  const askedBack = await writeTool<{ message: { text: string } }>("chat.read", {
+    id: asked.id,
+  });
+  assert.equal(
+    askedBack.message.text,
+    question,
+    "and the question is in the conversation",
+  );
 });
