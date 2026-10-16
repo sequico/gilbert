@@ -58,8 +58,15 @@ export interface QueryThenGet {
    * a limit the server will refuse the pair over without meaning to.
    */
   maxObjectsInGet: number;
-  /** The query's filter, when the read has one. */
-  filter?: Record<string, unknown>;
+  /**
+   * The query's filter, when the read has one.
+   *
+   * The shape is the query's own: a `Filter` the protocol defines, or the one
+   * this tree builds for a search (`shared/search.ts`'s `SearchFilter`), which
+   * is not a record by construction. This passes it through untouched, and only
+   * the server judges it.
+   */
+  filter?: unknown;
   sort?: Array<{ property: string; isAscending: boolean }>;
   position?: number;
   limit?: number;
