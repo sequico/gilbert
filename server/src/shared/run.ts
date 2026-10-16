@@ -540,8 +540,24 @@ export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
   };
 }
 
+/**
+ * The instant the run's wait comes due, or null when it has none.
+ *
+ * The run's own answer to "is it waiting, and until when", and the one place it
+ * is given: a run that is not running is not waiting whatever its document
+ * keeps beside an ending, and a run that is running and waiting on a person
+ * carries no date. Both readers of the answer ask it here — the process that
+ * arms the waits (`agent/timers.ts`) and the question of whether one has come
+ * due (`isRunDue`) — so the two cannot drift apart on a dateless or an ended
+ * run.
+ */
+export function waitDueAt(run: RunDoc): string | null {
+  if (run.state !== "running") return null;
+  return run.waiting?.until ?? null;
+}
+
 /** Whether the run's wait has come due at `now`. */
 export function isRunDue(run: RunDoc, now: Date): boolean {
-  if (run.state !== "running" || !run.waiting?.until) return false;
-  return Date.parse(run.waiting.until) <= now.getTime();
+  const until = waitDueAt(run);
+  return until !== null && Date.parse(until) <= now.getTime();
 }

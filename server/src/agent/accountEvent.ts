@@ -1,13 +1,13 @@
 /**
- * What changed in a group's own account (ADR 0035) — one definition, both
- * tiers.
+ * What changed in a group's own account (ADR 0035).
  *
  * A rule watches the activity of the group's own account: the mail that arrived
  * or was sent, the nodes written in its Files, the messages posted in its chat,
- * and the writes to its own workorders. This module names that description
- * once, so what the agent reads out of the server and what a rule says it
- * watches are the same vocabulary — a shape declared a second time would drift
- * from the first the day one of them gains a source.
+ * and the writes to its own workorders. This module names that description once,
+ * beside the reader that fills it (`events.ts`), so the events the agent reads
+ * out of the server and what a rule says it watches are the same vocabulary — a
+ * shape declared a second time would drift from the first the day one of them
+ * gains a source.
  *
  * An event says **what** changed and **where it is**, and never carries the
  * object itself: the payload is Stalwart's, and whoever acts on an event reads
@@ -22,9 +22,9 @@
  * spelling of the path.
  */
 
-import { APP_FOLDER_NAME } from "./appFolder.js";
-import { CHAT_FOLDER } from "./chat.js";
-import { WORKORDER_FOLDER } from "./workorder.js";
+import { APP_FOLDER_NAME } from "../shared/appFolder.js";
+import { CHAT_FOLDER } from "../shared/chat.js";
+import { WORKORDER_FOLDER } from "../shared/workorder.js";
 
 /** A surface of a group's own account that activity happens on (ADR 0035). */
 export type AccountEventSource = "mail" | "files" | "chat" | "workorder";
@@ -39,9 +39,9 @@ export type AccountEventChange = "created" | "updated" | "destroyed";
  * the path of a node — app-folder-relative under the `gilbert` folder, the
  * account's own path for a node in the visible tree. A node the server has
  * already destroyed has no address left to read, and such an event carries the
- * node's **id** instead: the removal is reported, because a removal is
- * activity, but where the node used to be is not something the server can be
- * asked for after the fact.
+ * node's **id** unless the reader already read its path while the node was
+ * there: the removal is reported either way, because a removal is activity, and
+ * the surface it happened on is the one its former path belonged to.
  */
 export interface AccountEvent {
   source: AccountEventSource;

@@ -26,6 +26,7 @@ import {
   startRun,
   takeAuthorisation,
   touchObject,
+  waitDueAt,
   waitUntil,
 } from "./run.js";
 
@@ -286,6 +287,25 @@ test("a wait is a date on the run, and the run is due when it passes", () => {
   const ended = finishRun(waiting, "done", { at: AT, why: "the answer came" });
   assert.equal(ended.waiting, null, "a run that ended is not waiting");
   assert.equal(isRunDue(ended, new Date("2026-10-17T00:00:00.000Z")), false);
+});
+
+test("the run answers when its wait is due, and a dateless or stopped wait has no date", () => {
+  const run = startRun({ id: "r13", startedBy: START });
+  assert.equal(waitDueAt(run), null, "a run that is not waiting has no date");
+  assert.equal(
+    waitDueAt(waitUntil(run, QUESTION)),
+    null,
+    "a wait on a person is a question, not an instant",
+  );
+
+  const dated = waitUntil(run, { what: "the booking window", asked: ASKED, until: AT });
+  assert.equal(waitDueAt(dated), AT, "a dated wait answers its own instant");
+
+  // A date kept beside an ending is not a wait: the run has stopped, and firing
+  // it would start a run whose end nobody re-opened.
+  const stopped = finishRun(dated, "blocked", { at: AT, why: "a person must decide" });
+  assert.equal(stopped.waiting?.until, AT, "the blocked run keeps the question it left");
+  assert.equal(waitDueAt(stopped), null, "and its date is no longer a wait");
 });
 
 test("a run blocked on a person keeps the question it left, and where it asked", () => {

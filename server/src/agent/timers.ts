@@ -13,15 +13,28 @@
  * event (`events.ts`) rather than at an instant this process can compute. So is
  * a run that has ended, including one that ended blocked on a person and keeps
  * the question it left — a date on a stopped run is not a wait, and firing it
- * would start a run whose end nobody re-opened.
+ * would start a run whose end nobody re-opened. Which of the two a run is is the
+ * document's own answer (`waitDueAt`), never derived a second time here.
  *
  * Firing says one thing: this run's date has come. The caller re-reads the run
  * and decides what that means, because the document may have moved in the hours
  * between arming and firing — the answer may have arrived, the budget may have
  * run out, the wait may have been replaced.
+ *
+ * **The contract that keeps one date from firing twice.** `arm` promises to
+ * hand over every wait of every running run exactly once per due instant: a due
+ * run it has already fired is not fired again while its document still carries
+ * the same instant, however many times `arm` runs beside it. What the caller
+ * owes is the other half — every due run it is handed is to be read and acted
+ * on, and its document advanced (a new wait, or an ending), **before** it arms
+ * the account again. With both halves kept, a re-arm beside a run that has
+ * already fired changes nothing; with the caller's half skipped, this process
+ * still refuses to fire the same instant twice, but the next holder reads the
+ * unadvanced document (ADR 0036) and the wait is handed over afresh.
  */
 
 import type { Ctx } from "../appFolder.js";
+import { waitDueAt } from "../shared/run.js";
 import { listRuns } from "./runs.js";
 
 /**
@@ -39,6 +52,11 @@ export interface DueWait {
   runId: string;
 }
 
+/** What one run's wait is called here: the account it lives in, and its id. */
+function waitKey(accountId: string, runId: string): string {
+  return `${accountId}\u0000${runId}`;
+}
+
 /**
  * The waits one process holds, and the alarm that ends them.
  *
@@ -48,6 +66,9 @@ export interface DueWait {
  */
 export class WaitTimers {
   private readonly waits = new Map<string, NodeJS.Timeout>();
+
+  /** The instant each run's wait was already fired at, by account and run. */
+  private readonly fired = new Map<string, number>();
 
   constructor(private readonly onDue: (due: DueWait) => void) {}
 
@@ -60,13 +81,20 @@ export class WaitTimers {
    * reason (`runs.ts`) — the account's other waits are not armed behind a
    * document nobody can explain, and the caller reports it rather than serving
    * a process that believes it has armed them all.
+   *
+   * A run this process has already fired at the instant its document still
+   * carries is left alone: the caller owes the advance between the two arms, and
+   * arming it again would hand the same date over twice.
    */
   async arm(ctx: Ctx, accountId: string): Promise<string[]> {
     const armed: string[] = [];
     for (const { run } of await listRuns(ctx, accountId)) {
-      const until = run.state === "running" ? run.waiting?.until : null;
+      const until = waitDueAt(run);
       if (!until) continue;
-      this.schedule(accountId, run.id, Date.parse(until));
+      const key = waitKey(accountId, run.id);
+      const dueMs = Date.parse(until);
+      if (this.fired.get(key) === dueMs) continue;
+      this.schedule(accountId, run.id, dueMs);
       armed.push(run.id);
     }
     return armed;
@@ -76,10 +104,11 @@ export class WaitTimers {
   stop(): void {
     for (const at of this.waits.values()) clearTimeout(at);
     this.waits.clear();
+    this.fired.clear();
   }
 
   private schedule(accountId: string, runId: string, dueMs: number): void {
-    const key = `${accountId}\u0000${runId}`;
+    const key = waitKey(accountId, runId);
     const previous = this.waits.get(key);
     if (previous) clearTimeout(previous);
     const delay = Math.min(Math.max(dueMs - Date.now(), 0), MAX_DELAY_MS);
@@ -91,6 +120,9 @@ export class WaitTimers {
         return;
       }
       this.waits.delete(key);
+      // Recorded before the hand-over, so a re-arm that arrives while the
+      // caller is still working on the run cannot arm the same instant again.
+      this.fired.set(key, dueMs);
       this.onDue({ accountId, runId });
     }, delay);
     // A wait is a passenger: it must never keep a disposable process alive, and

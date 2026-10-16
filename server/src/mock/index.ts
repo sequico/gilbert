@@ -3274,18 +3274,7 @@ const handlers: Record<string, Handler> = {
     const accountId = String(a.accountId ?? ACCOUNT);
     const relevant = emailChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("Email");
-    const pick = (k: "created" | "updated" | "destroyed") => [
-      ...new Set(relevant.flatMap((c) => c[k])),
-    ];
-    return {
-      accountId: String(a.accountId ?? ACCOUNT),
-      oldState: String(a.sinceState ?? "1"),
-      newState: stateOf(accountId, "Email"),
-      hasMoreChanges: false,
-      created: pick("created"),
-      updated: pick("updated"),
-      destroyed: pick("destroyed"),
-    };
+    return pageChanges(accountId, "Email", relevant, a.sinceState, a.maxChanges);
   },
   "Email/set": (a) => {
     const list = emailsFor(a.accountId);
@@ -4653,25 +4642,13 @@ const handlers: Record<string, Handler> = {
     // and removes again carry both, and a watcher told about creates alone
     // would never see either.
     //
-    // `newState` is the account's current FileNode state, so a caller that
-    // stored it can ask again from there; `hasMoreChanges` is false because
-    // the log answers its whole window in one go, and a caller behind that
-    // window is refused (see `changeLog`).
+    // `maxChanges` pages the window (`pageChanges`), and a caller behind the
+    // window the log still holds is refused (see `changeLog`) rather than
+    // answered with a page of it.
     const accountId = String(a.accountId ?? ACCOUNT);
     const relevant = fileNodeChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("FileNode");
-    const pick = (k: "created" | "updated" | "destroyed") => [
-      ...new Set(relevant.flatMap((c) => c[k])),
-    ];
-    return {
-      accountId: String(a.accountId ?? ACCOUNT),
-      oldState: String(a.sinceState ?? "1"),
-      newState: stateOf(accountId, "FileNode"),
-      hasMoreChanges: false,
-      created: pick("created"),
-      updated: pick("updated"),
-      destroyed: pick("destroyed"),
-    };
+    return pageChanges(accountId, "FileNode", relevant, a.sinceState, a.maxChanges);
   },
   [FILENODE_SET]: (a, who) => {
     /*
@@ -5289,6 +5266,48 @@ function cannotCalculateChanges(type: string): MethodError {
     "cannotCalculateChanges",
     `The ${type} state given in sinceState is older than this server's change log.`,
   );
+}
+
+/**
+ * One page of a change log, as the server pages it.
+ *
+ * A caller asks for a page with `maxChanges`, and a real server answers at most
+ * that many changes and says `hasMoreChanges` when it held more, with
+ * `newState` **an intermediate state**: the point the rest resumes from, not the
+ * account's current one. What a real server does with the argument is
+ * `min(maxChanges, changes_max_results)` -- it caps the page at its own bound as
+ * well, so an answer may be shorter than the caller asked for -- and
+ * `has_more_changes` is what turns `new_state` into `State::new_intermediate`
+ * (`crates/jmap/src/changes/get.rs`, v0.16.26). Without `maxChanges` the whole
+ * window is answered, which is what a caller that does not page asks for. A mock
+ * that always answered the whole window left every paging loop unexercised
+ * here.
+ */
+function pageChanges(
+  accountId: string,
+  type: string,
+  relevant: ChangeLogEntry[],
+  sinceState: unknown,
+  maxChanges: unknown,
+) {
+  const page =
+    typeof maxChanges === "number" && maxChanges > 0
+      ? relevant.slice(0, Math.floor(maxChanges))
+      : relevant;
+  const hasMoreChanges = page.length < relevant.length;
+  const last = page[page.length - 1];
+  const pick = (k: "created" | "updated" | "destroyed") => [
+    ...new Set(page.flatMap((c) => c[k])),
+  ];
+  return {
+    accountId,
+    oldState: String(sinceState ?? "1"),
+    newState: hasMoreChanges && last ? String(last.state) : stateOf(accountId, type),
+    hasMoreChanges,
+    created: pick("created"),
+    updated: pick("updated"),
+    destroyed: pick("destroyed"),
+  };
 }
 
 function broadcast(types: string[], accountId: string = ACCOUNT) {

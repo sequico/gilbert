@@ -10,10 +10,10 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { APP_FOLDER_NAME } from "../shared/appFolder.js";
+import { CHAT_FOLDER } from "../shared/chat.js";
+import { WORKORDER_FOLDER, workorderClosedPath } from "../shared/workorder.js";
 import { eventSourceOf } from "./accountEvent.js";
-import { APP_FOLDER_NAME } from "./appFolder.js";
-import { CHAT_FOLDER } from "./chat.js";
-import { WORKORDER_FOLDER, workorderClosedPath } from "./workorder.js";
 
 test("a chat message, a workorder and a plain node are told apart by the folder they sit in", () => {
   assert.equal(eventSourceOf(`${APP_FOLDER_NAME}/${CHAT_FOLDER}/a.json`), "chat");
