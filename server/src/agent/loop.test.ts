@@ -1207,3 +1207,77 @@ test("two memories of one answer leave one sheet, and the refusal is on the run"
     "and neither call recalled anything: the memory held nothing about it yet",
   );
 });
+
+test("a fact a pass writes is visible to the next pass, not to the pass that wrote it", async () => {
+  /*
+   * The pass reads the store **once** and hands that one reading to the recall
+   * and to the write (ADR 0037), so a fact written while the pass works is not
+   * in the reading the rest of the same pass recalls from: what one change
+   * learned reaches the **next** pass's calls. That is the price of not walking
+   * the whole memory again for every change, and it is pinned here, so a reading
+   * taken per change — or per write — is a failing test rather than a silent
+   * cost.
+   */
+  const id = "intake-same-pass";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  // One pass over two changes: the first remembers what it found, the second is
+  // worked after it and recalls against the reading the pass began with.
+  const first = await deliver("the change that learns the shipper");
+  await deliver("the change that comes after it");
+  /** Whether a call carried the memory block at all. */
+  const carried = (call: Seen): boolean =>
+    call.user.includes("from the installation's memory");
+  let wrote = false;
+  onCall = (system, user) => {
+    if (isDecision(system)) return { rules: [id], facts: {} };
+    if (user.includes(first) && !wrote) {
+      wrote = true;
+      return {
+        calls: [
+          {
+            name: "memory.remember",
+            arguments: {
+              subject: "Maersk",
+              fact: "the shipper this account books with",
+            },
+          },
+        ],
+      };
+    }
+    return { done: "noted" };
+  };
+  const summary = await agent.pass();
+  assert.equal(summary.runs, 2, "one pass worked both changes");
+
+  const learned = (await listFacts(ctx, memoryAccountId)).facts.find(
+    (fact) => fact.subject === "Maersk",
+  );
+  assert.ok(learned, "the first change's run wrote the fact");
+  remembered.push(learned.id);
+  assert.equal(
+    seen.some(carried),
+    false,
+    "and no call of that pass carried it: the pass recalls from the reading it began with",
+  );
+
+  // The next pass takes a fresh reading, and the fact is in it: it reaches the
+  // calls, which is what the memory is for.
+  freshCalls();
+  onCall = (system) =>
+    isDecision(system)
+      ? { rules: [id], facts: { shipper: "Maersk" } }
+      : { done: "answered from what I know" };
+  await deliver("a change the memory now knows about");
+  await agent.pass();
+  assert.ok(
+    seen.some(
+      (call) =>
+        carried(call) &&
+        call.user.includes("Maersk: the shipper this account books with"),
+    ),
+    "the next pass's calls carry the fact the one before it wrote",
+  );
+});
