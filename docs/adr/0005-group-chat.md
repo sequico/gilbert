@@ -130,14 +130,20 @@ any member.
   **agent's** act (ADR 0032 class 1), not a member's, and the catalog's own
   write refuses the namespace, so a group's `labels.json` can only ever hold its
   human labels.
-- **The surface.** The administration's group-label surface shows the two
-  namespaces as two sections: **Labels**, the group's own catalog, edited there,
-  and **System labels**, the reserved `G-` ones, read-only —
-  the section draws no add, rename, colour or delete control, and its entries
-  come from `AGENT_LABELS`, never from a catalog. A person's own label surface
-  (`views/settings/LabelsSettings.tsx`) shows only the one section, the personal
-  labels: the reserved labels name the agent's work, and a person's account has
-  none of it (ADR 0031).
+- **The surface.** Where a group's labels are drawn, the two namespaces are two
+  sections: **Labels**, the group's own catalog, and **System labels**, the
+  reserved `G-` ones, whose entries come from `AGENT_LABELS` and never from a
+  catalog. In the administration the catalog is edited and the reserved section
+  is read-only — it draws no add, rename, colour or delete control — and a read
+  drops a reserved entry an older document still carries. In the mail client's
+  own label block (`views/mail/MailboxTree.tsx`) the reserved section is drawn
+  for a group's account, as filter rows carrying the counts the other labels
+  carry — through `countedKeywords`, never through `labelsForAccount`, so no
+  reserved keyword reaches the picker, a thread row or the catalog's own counts.
+  A person's own
+  label surface (`views/settings/LabelsSettings.tsx`) shows only the one section,
+  the personal labels: the reserved labels name the agent's work, and a person's
+  account has none of it (ADR 0031).
 - **Real-time.** `labels.json` is a FileNode, so a catalog edit rides the
   same push rail chat does; keyword changes on messages ride the Email push
   rail.
