@@ -7,11 +7,12 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **The agent is not built.** `gilbertagents` — the Master's agent and the loop
-  that works a run — is designed and not built: ADR 0031 (its tools), 0032 (what
+- **The loop that works a run is not built.** `gilbertagents` — the Master's
+  agent — is designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
-  mail), 0034 (a run is a document, and the record is the product) and 0035 (a
-  group's engagement is a rule in prose). What the tree carries is a run's durable
+  mail), 0034 (a run is a document, and the record is the product), 0035 (a
+  group's engagement is a rule in prose) and 0036 (one installation claims its
+  agent). What the tree carries is a run's durable
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
   tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
   rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),

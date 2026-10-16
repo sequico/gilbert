@@ -27,14 +27,15 @@
 
 Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
 and files, a knowledge base and the procedures a job follows. Its agent is
-designed and not built: it will read incoming mail and files, file documents into
+partly built, and its loop is not: it will read incoming mail and files, file documents into
 the right folder, read the document inside them, draft replies and report what it
 did in the group's chat — inside the group's own account, everything recorded,
 and anything that leaves the group waiting for a person to say so, in words.
 
-> **The agent part (`gilbertagents`) is designed and not built.** Its decisions
-> are ADR 0031–0035; the tree carries a run's durable state and the catalogue of
-> tools, and nothing drives them yet.
+> **The agent part (`gilbertagents`) is partly built.** Its decisions
+> are ADR 0031–0036; the tree carries a run's durable state, the catalogue of
+> tools, a group's rules in prose and the installation's one model with the first
+> turn of decision — and nothing works a run yet.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -67,7 +68,8 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed and not built, by ADR 0031–0035.
+- **gilbertagents** — the agent: designed by ADR 0031–0036 and partly built, the
+  loop that works a run being what the tree does not carry.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
