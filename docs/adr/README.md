@@ -268,3 +268,41 @@ is, not what a user sees.
   are **derived**. The authoring surface is Gilbert's own, not an off-the-shelf
   form builder. The workorder side materialises the applicable steps by **path**,
   with the four step states. **Built.**
+- **0031 — The agent's tools are described and composable (accepted).** The
+  agent's capabilities are a small catalogue of **tools**, each one a task over an
+  object Stalwart offers, and the **model chooses** which to call and in what
+  order — never a list of permitted business actions, and no plan compiled at
+  write time. A tool's description is the product's interface to the model; two
+  tools that do one thing are a defect. The catalogue **grows freely** — a new
+  tool is not an architectural decision, a new **object** or a change to the
+  authority classes is — and every run carries a budget of steps, time and model
+  calls. One model serves the installation, chosen in Administration.
+  **Not built.**
+- **0032 — What the agent decides, and what only a person decides (accepted).**
+  The bound on the agent is not a catalogue but five classes: **reversible and
+  inside the group** the agent decides; **irreversible or destructive** a person,
+  always, and the product's preference is that nothing disappears; **outward** a
+  person's word, or a rule that **declares** it sends; **beyond the policy** only
+  an installation administrator may override, with the name, the moment and the
+  message in the trace; **the intent** (which policy is right, what is approved)
+  is never the agent's, only proposed. It **reopens** a settled step when the
+  evidence says it is not settled, and **what it asserts is its own**: the signer
+  of a step it settles is the agent, never a person. **Not built.**
+- **0033 — The conversation runs in chat and mail (accepted).** One
+  conversation, two channels: a question, an answer, an authorisation and a report
+  are the same in the group's chat and in mail, and **everything is in words** —
+  no link, no signed token, no form, because a person away from the product has a
+  mail client and nothing else. An instruction by mail is honoured only from a
+  sender the installation knows or lists **and** with a passing authentication
+  result from the receiving server; every message the agent sends carries
+  `X-Gilbert-Run: <id>` so its own words can never drive it; the correlation is
+  the thread in mail and a `replyTo` in chat. **Not built** (the mail channel owes
+  its live probe).
+- **0034 — A run is a document, and the record is the product (accepted).** A run
+  is one document in the group's account and the whole of the agent's durable
+  state: which rule or instruction started it, the plan, each step's outcome, what
+  it waits for, every authorisation with its message, and the evidence. **A wait
+  is a date in the run**, re-armed on boot, so a restart or a dead container costs
+  nothing. A run ends done, blocked on a person, or out of budget — written down.
+  There is no separate audit ledger, and a person can read a run and undo by hand
+  what can be undone. **Not built.**
