@@ -294,8 +294,9 @@ is, not what a user sees.
   rules and may change them, as with the KB. **Partly built** — the rule documents
   are `server/src/agent/rule.ts`, addressed by `server/src/agent/rules.ts`, and the
   three levels are built by `server/src/agent/prose.ts`; a run records the rule or
-  the instruction that started it (`server/src/shared/run.ts`), and nothing yet
-  matches an event against the rules and starts a run.
+  the instruction that started it (`server/src/shared/run.ts`), and the loop that
+  matches an event against the rules and starts one is `server/src/agent/loop.ts`,
+  started by the server's own boot (`server/src/agent/supervisor.ts`).
 - **0036 — One agent per installation, held by a claim (accepted).** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the
