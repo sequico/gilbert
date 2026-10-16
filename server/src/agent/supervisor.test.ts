@@ -56,6 +56,23 @@ const { resolveGroupAccounts, startAgent, supervise, AGENT_PASS_INTERVAL_MS } =
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Wait until `done` answers true, or give up after a generous bound.
+ *
+ * The supervisor's own schedule is what a test here is standing on, and the
+ * passes it asks are the caller's to observe. A test that needs a pass to have
+ * happened therefore waits on the state that pass produced, never on a duration:
+ * a sleep long enough on an idle box is a window too short on a loaded one, and
+ * a full-suite run is the loaded case — which is how the claim test went flaky
+ * (`0 !== 1`, a pass that had not fitted inside the window). The bound is long
+ * enough that reaching it is a real failure of the mechanism being pinned, not
+ * of the machine.
+ */
+async function waitFor(done: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const until = Date.now() + timeoutMs;
+  while (!done() && Date.now() < until) await sleep(5);
+}
+
 /* ------------------------------------------------------------------ */
 /* The loop the supervisor asks, and the lines it writes               */
 /* ------------------------------------------------------------------ */
@@ -446,9 +463,12 @@ test("a claim that lapses is taken over, and said once", async (t) => {
   const { lines, log } = collector();
   const process = supervise({ loop: stand.loop, intervalMs: 10, log });
   t.after(() => process.stop());
-  await sleep(40);
+  await waitFor(() => lines.some((line) => line.includes("another process holds")));
   // The peer's claim lapses (`CLAIM_TTL_MS`): the next pass is this process's.
   stand.held = false;
+  await waitFor(() => lines.some((line) => line.includes("is this process's again")));
+  // Then it stays said once: every later pass holds the claim and repeats it
+  // never. A delay here cannot make the count too low, only confirm it settled.
   await sleep(40);
   assert.equal(
     lines.filter((line) => line.includes("is this process's again")).length,
