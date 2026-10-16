@@ -39,7 +39,9 @@ process.env.APP_SECRET = "test-secret-for-loop";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, destroyAppNode, readAppFileAt } = await import("../appFolder.js");
+const { filesAccountId, destroyAppNode, readAppFileAt, writeAppFileAt } = await import(
+  "../appFolder.js"
+);
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { startRun, waitUntil } = await import("../shared/run.js");
@@ -274,6 +276,38 @@ test("a change a rule watches opens a run, and the record shows every step of it
     new RegExp(`mail created: ${message}`),
     "and the choosing turn is told the run's own change",
   );
+});
+
+test("two changes of one address open one run, not two", async () => {
+  const id = "intake-fused";
+  await putRule(id, ["workorder"]);
+  const agent = loop();
+  await agent.start();
+
+  // A node written twice in one batch — created and then written again through
+  // the update path — is two changes for one document. The rule answers one
+  // document with one run: two would let the agent answer it twice.
+  onCall = (system) => (isDecision(system) ? { rule: id, facts: {} } : { done: "noted" });
+  await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
+    v: 1,
+    uid: "wo-fused",
+  });
+  await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
+    v: 1,
+    uid: "wo-fused",
+    name: "written again",
+  });
+  const summary = await agent.pass();
+
+  assert.equal(
+    summary.runs,
+    1,
+    "one document opened one run, however many changes it made",
+  );
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  assert.equal(runs.length, 1, "and only one run for it is in the account");
 });
 
 test("a change no rule watches costs no model call and no step", async () => {

@@ -31,6 +31,15 @@ agent's durable state.
   for — and until when, when there is a date — every authorisation with the
   message it arrived in and the authority given, the evidence behind every claim,
   and the budget it has spent.
+- **One change of the server is one event.** The agent reads a group's activity
+  from the server's own change logs, and a node written twice in one batch —
+  created and then written again — reaches them as two changes for one address,
+  which is one event, not two: a rule watching that surface opens one run for one
+  document and the agent cannot answer one message twice. Two changes are of one
+  event when they name the same **address**, the surface and the path (or the id
+  a removal has no path left for); the folded event is named **`created`**,
+  because the node did not exist before the read and exists now, and a removal is
+  never folded behind a creation.
 - **A wait is a date in the run** — or no date at all, when what it waits for is
   a person — not a timer in a process. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that

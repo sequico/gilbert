@@ -39,12 +39,18 @@
  * than hidden — mail that arrived while no agent was running is not replayed to
  * the next one.
  *
- * One write can appear as two changes, and the reading does not fold them: the
- * tree's own write path issues a create and then the update that puts the bytes
- * in it (`appFolder.ts`), and Stalwart reports both. Folding would have to
- * choose which one a reader sees, and a node created and then destroyed in one
- * window is both — hiding the removal behind the creation is the kind of
- * silence this design refuses.
+ * **One change is one event.** A node written twice in one batch — created, then
+ * written again through the update path (`setFileNode`, `appFolder.ts`) — reaches
+ * the reading as two changes for the same address, `created` and then `updated`.
+ * The reading folds the two into one event, **named
+ * `created`**: the node did not exist before this read and does now, which is
+ * what a reader acts on, and the update that followed it is the same write. "The
+ * same address" is the event's own `source` and `where` — the surface and the
+ * path (or the id a removal has no path left for) — so the two changes of one
+ * node are one event and a rule watching that surface opens one run for one
+ * document rather than two (ADR 0034). A **removal is never folded**: a node
+ * created and then destroyed in one read is reported as both, because hiding the
+ * removal behind the creation is the kind of silence this design refuses.
  */
 
 import {
@@ -227,7 +233,7 @@ export async function readAccountEvents(
     } catch (err) {
       if (err instanceof JmapError && err.type === "cannotCalculateChanges")
         return {
-          events,
+          events: fuseEvents(events),
           cursor: await anchorEvents(ctx, accountId),
           gap: "The mail server no longer holds the changes this account's reading asks for: what it missed in between is lost, and the reading resumes from the state the server holds now.",
         };
@@ -270,7 +276,35 @@ export async function readAccountEvents(
     files = page.files.newState;
     if (!page.mail.hasMoreChanges && !page.files.hasMoreChanges) break;
   }
-  return { events, cursor: { mail, files, seen }, gap: null };
+  return { events: fuseEvents(events), cursor: { mail, files, seen }, gap: null };
+}
+
+/**
+ * One event per address: a create and a later update of the same node are one
+ * change to a rule that only acts on the address (ADR 0034).
+ *
+ * The two changes of one document are folded into the **`created`**, which is
+ * the one a reader acts on — the node did not exist before this read and does
+ * now — and an `updated` whose address was not created in this read stands as
+ * itself. A `destroyed` is never folded into either: a node created and then
+ * removed in one read is reported as both. The fold is applied to one read's
+ * whole event list, which is the batch the loop is handed.
+ */
+function fuseEvents(events: readonly AccountEvent[]): AccountEvent[] {
+  const created = new Set<string>();
+  for (const event of events)
+    if (event.change === "created") created.add(addressOf(event));
+  const fused: AccountEvent[] = [];
+  for (const event of events) {
+    if (event.change === "updated" && created.has(addressOf(event))) continue;
+    fused.push(event);
+  }
+  return fused;
+}
+
+/** Which address an event names: its surface and the path (or id) on it. */
+function addressOf(event: AccountEvent): string {
+  return `${event.source}\n${event.where}`;
 }
 
 /**

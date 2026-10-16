@@ -39,7 +39,12 @@ import { WORKORDER_FOLDER } from "../shared/workorder.js";
  */
 export type AccountEventSource = "mail" | "files" | "chat" | "workorder" | "knowledge";
 
-/** What happened to the object: it appeared, it changed, or it was removed. */
+/**
+ * What happened to the object: it appeared, it changed, or it was removed.
+ *
+ * A create and a later update of the same node are one event, named `created`
+ * (`events.ts`, ADR 0034): the reading folds the two changes of one address.
+ */
 export type AccountEventChange = "created" | "updated" | "destroyed";
 
 /**

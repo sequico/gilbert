@@ -182,6 +182,36 @@ test("a change is read once: the next read resumes where the last one ended", as
   );
 });
 
+test("a create and the update that writes its bytes are one event", async () => {
+  const anchor = await anchorEvents(ctx, accountId);
+  // A node written twice in one batch: the write path makes it, then a second
+  // write goes through the update path (`setFileNode`, `appFolder.ts`), and the
+  // change log carries `created` and `updated` for one address. A rule watching
+  // that surface must hear about one document once.
+  await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
+    v: 1,
+    uid: "wo-fused",
+  });
+  await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
+    v: 1,
+    uid: "wo-fused",
+    name: "written again",
+  });
+
+  const { events } = await readAccountEvents(ctx, accountId, anchor);
+  assert.deepEqual(
+    events.filter((event) => event.where === "gilbert/workorders/wo-fused.json"),
+    [
+      {
+        source: "workorder",
+        change: "created",
+        where: "gilbert/workorders/wo-fused.json",
+      },
+    ],
+    "the create and the update that followed it are one event, named created",
+  );
+});
+
 test("a log larger than one page is read to its end", async () => {
   const anchor = await anchorEvents(ctx, accountId);
   const before = mock.methodCalls["Email/changes"] ?? 0;
