@@ -1,5 +1,5 @@
 /**
- * The installation's model, and the first turn of decision (ADR 0031).
+ * The installation's model, and the two turns it is asked (ADR 0031).
  *
  * One model serves the installation: the provider, the model, its
  * OpenAI-compatible base URL and a write-only key, chosen in Administration and
@@ -31,9 +31,19 @@
  * facts and nothing else. It never grants an authority and never chooses a tool
  * that writes; anything but the demanded shape is refused, never guessed at.
  *
- * Nothing in the tree calls `decideEvent` yet: the loop that carries a rule out —
- * woken by an event, told the prose, choosing tools and writing the run — is to
- * be written with `gilbertagents` (ADR 0035).
+ * **The choosing turn** (`chooseStep`) works a run (ADR 0031): it is handed the
+ * catalogue as the catalogue describes itself — one definition, never a second
+ * prose copy — and the run so far, and answers with **one** tool and its
+ * arguments, or that the run is done. It is handed the whole catalogue rather
+ * than the write-free half, because it may always propose an act; whether the
+ * act runs is the authority guard's answer (`runTool`, ADR 0032) and never the
+ * model's. An answer of any other shape, or one naming a tool the catalogue does
+ * not hold, is refused — never guessed at, never bent into the nearest valid
+ * step — and the caller records the refusal on the run.
+ *
+ * Nothing in the tree calls `decideEvent` or `chooseStep` yet: the loop that
+ * carries a rule out — woken by an event, told the prose, choosing tools and
+ * writing the run — is to be written with `gilbertagents` (ADR 0035).
  */
 
 import { randomUUID } from "node:crypto";
@@ -41,10 +51,11 @@ import { hostAddresses, isPrivateAddress } from "../imageproxy.js";
 import { CodedError } from "../shared/errors.js";
 import type { InstallationDocument, InstallationModel } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
+import type { RunStep } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
-import { proseForModel } from "./prose.js";
+import { type ProseLevel, proseForModel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
-import { READING_TOOLS, runTool, type ToolCall } from "./tools.js";
+import { type AnyTool, READING_TOOLS, runTool, type ToolCall } from "./tools.js";
 
 /** How long one model call may take before it counts as unreachable. */
 export const MODEL_TIMEOUT_MS = 60_000;
@@ -623,4 +634,191 @@ function textOf(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* The choosing turn                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How much of one step's outcome a call is shown.
+ *
+ * An outcome is whatever a tool answered, and a tool that reads a message or a
+ * document answers with its text: the plan grows one step at a time, and a call
+ * that carried every step whole would hand the provider the account's own
+ * documents over and over. The ceiling is far above any useful outcome and is
+ * the same number the loop keeps on the run, so what the model is told and what
+ * the record holds are one text.
+ */
+export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
+
+/** One step's outcome, bounded for the prompt and the record alike. */
+function clipped(text: string): string {
+  return text.length > OUTCOME_IN_PROMPT_MAX
+    ? `${text.slice(0, OUTCOME_IN_PROMPT_MAX)}…`
+    : text;
+}
+
+/**
+ * What one choosing call answered (ADR 0031).
+ *
+ * A **call** is one tool and its arguments: the model acts, is shown what came
+ * back, and chooses again. **Done** is the run's work being finished, said in
+ * the model's own words, which are what the run's ending is written with. There
+ * is nothing else an answer can be, and asking a person is not a third shape: it
+ * is `chat.ask`, one of the tools, which leaves the run waiting on the answer.
+ *
+ * What the answer carries is a tool and its arguments and nothing beside them: it
+ * grants no authority and names no capability, because what may be done is the
+ * authority classes (ADR 0032) and never the model's.
+ */
+export type StepChoice =
+  | { kind: "call"; name: string; args: unknown }
+  | { kind: "done"; why: string };
+
+/**
+ * What one choosing turn is given: the change, the plan so far, and the prose.
+ *
+ * The plan is the whole of what the model is told it has done — what each step
+ * was and what it answered — because the run document is the agent's only
+ * durable state (ADR 0034) and a turn that could see more than the document
+ * would answer differently after a restart. `facts` is what the decision turn
+ * found the change to be about, when this turn follows one.
+ */
+export interface StepQuestion {
+  /** The change that woke the run, in the group's own words. */
+  woke: string;
+  /** The steps the run has taken so far, and how each ended. */
+  plan: readonly RunStep[];
+  /** The prose the turn carries, outermost first (ADR 0035). */
+  prose: Partial<Record<ProseLevel, string>>;
+  /** What the decision found the change to be about, when this turn follows one. */
+  facts?: Record<string, string>;
+}
+
+/**
+ * Read one choosing answer, or say what is wrong with it.
+ *
+ * Strict: an object, exactly the fields of one of the two shapes, and nothing
+ * else. A key this build does not know is **refused**, not ignored, so an answer
+ * that adds an authority, a capability or a list of actions is answered with a
+ * refusal rather than with an effect. Whether the tool it names exists, and
+ * whether its arguments are usable, is the catalogue's and the tool's own
+ * question, asked where the tool is run (`runTool`), and a refusal from there is
+ * the caller's to record.
+ */
+export function parseStepAnswerDetailed(
+  raw: unknown,
+): { choice: StepChoice } | { problem: string } {
+  if (!isRecord(raw)) return { problem: "The answer must be a JSON object." };
+  const keys = Object.keys(raw);
+  const hasTool = keys.includes("tool");
+  const hasDone = keys.includes("done");
+  if (hasTool === hasDone)
+    return {
+      problem:
+        'The answer must name one "tool" and its "arguments" to take a step, or "done" when the work is finished — and never both.',
+    };
+  if (hasDone) {
+    const unknown = keys.filter((key) => key !== "done");
+    if (unknown.length)
+      return {
+        problem: `An answer that is done carries nothing beside "done", and it carries ${unknown.join(", ")}.`,
+      };
+    if (typeof raw.done !== "string" || !raw.done.trim())
+      return { problem: '"done" must say what is finished.' };
+    return { choice: { kind: "done", why: raw.done.trim() } };
+  }
+  const unknown = keys.filter((key) => key !== "tool" && key !== "arguments");
+  if (unknown.length)
+    return {
+      problem:
+        `A step carries a "tool" and its "arguments" and nothing else, and it carries ${unknown.join(", ")}: ` +
+        "what may be done is never the model's to say.",
+    };
+  if (typeof raw.tool !== "string" || !raw.tool.trim())
+    return { problem: '"tool" must name one of the tools you are given.' };
+  return {
+    choice: { kind: "call", name: raw.tool.trim(), args: raw.arguments ?? {} },
+  };
+}
+
+/**
+ * One choosing turn: given the run so far, the next step or the end.
+ *
+ * The catalogue is handed to the model **as it describes itself** — the same
+ * `name` and `description` every reader of it reads, so what the model is told
+ * and what the caller runs are one definition. The catalogue is the caller's:
+ * the loop hands the whole one, because the model may always propose an act and
+ * whether the act runs is the guard's answer, while the decision turn's reads
+ * stay in the write-free half.
+ *
+ * The answer is validated before it is returned: a malformed one is refused
+ * rather than guessed at, and a tool the catalogue does not hold, or arguments
+ * it cannot use, are refused where the tool is run, never coerced into the
+ * nearest step that would work.
+ */
+export async function chooseStep(
+  catalogue: readonly AnyTool[],
+  access: ModelAccess,
+  question: StepQuestion,
+  opts: { timeoutMs?: number } = {},
+): Promise<StepChoice> {
+  const heads = proseForModel(question.prose);
+  const system = [
+    DATA_NOT_INSTRUCTIONS,
+    "You are the agent of one group, working one run in that group's own account.",
+    'Answer with one JSON object and nothing else: {"tool": {"name": "<one of the tools below>", "arguments": {...}}} to take one step, or {"done": "<what is finished>"} when the work of this run is finished.',
+    "One step at a time: choose one tool, and you are asked again with what it answered. The tools below say what each one is for and what arguments it takes.",
+    "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
+    "The tools you may take a step with:",
+    ...catalogue.map((tool) => `- ${tool.name}: ${tool.description}`),
+    ...heads,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const answer = await callModel(access, {
+    system,
+    user: stepData(question),
+    ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
+  });
+  const parsed = parseStepAnswerDetailed(answer);
+  if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
+  return parsed.choice;
+}
+
+/**
+ * The volatile tail of one choosing call: the change, what it is about, and what
+ * the run has done.
+ *
+ * Every line of it is **data**, and each block is fenced as such: the change is
+ * what happened in the group's own account, the facts are the decision's own
+ * reading of it, and an outcome is whatever the group's own state answered with —
+ * a message, a page, a document somebody outside the group wrote.
+ */
+function stepData(question: StepQuestion): string {
+  const token = randomUUID().slice(0, 8);
+  const done = question.plan.map((step, index) =>
+    dataBlock(token, [
+      `step ${index + 1}: ${step.what}`,
+      `state: ${step.state}`,
+      `outcome: ${clipped(step.outcome) || "(nothing yet)"}`,
+    ]),
+  );
+  return [
+    "The change that woke this run:",
+    dataBlock(token, [question.woke]),
+    ...(question.facts && Object.keys(question.facts).length
+      ? [
+          "What the change was found to be about:",
+          dataBlock(
+            token,
+            Object.entries(question.facts).map(([name, value]) => `${name}: ${value}`),
+          ),
+        ]
+      : []),
+    "What this run has done so far, and what each step answered:",
+    ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
+  ].join("\n");
 }
