@@ -46,7 +46,11 @@ agent's durable state.
   because none of them waits on another's result; a call that does is the model's
   next answer. Each call is its own step in the plan, with its own outcome and its
   own spend, and one of them leaving a wait has it honoured after the whole batch.
-  The batch is written once, whole.
+  The batch is written once, whole. A message whose attachment must be saved and
+  which must then be filed in a folder is one such turn: neither act waits on the
+  other, so both are asked for at once — and the same turn may ask a person in
+  chat about what follows, the acts and the question being one batch, whose wait
+  begins once they are done.
 - **A wait is a date in the run** — or no date at all, when what it waits for is
   a person — not a timer in a process. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that
