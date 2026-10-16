@@ -235,12 +235,14 @@ is, not what a user sees.
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
   order — never a list of permitted business actions, and no plan compiled at
-  write time. A tool's description is the product's interface to the model; two
-  tools that do one thing are a defect. The catalogue **grows freely** — a new
-  tool is not an architectural decision, a new **object** or a change to the
-  authority classes is — and every run carries a budget of steps, time and model
-  calls. One model serves the installation, chosen in Administration.
-  **Not built.**
+  write time. It works on **five surfaces and has all of them**: the group's chat,
+  mail, KB (checklist templates among its pages) and workorders, with its own runs
+  beside them, each readable and writeable within the authority classes. A tool's
+  description is the product's interface to the model; two tools that do one thing
+  are a defect. The catalogue **grows freely** — a new tool is not an architectural
+  decision, a new **object** or a change to the authority classes is — and every
+  run carries a budget of steps, time and model calls. One model serves the
+  installation, chosen in Administration. **Not built.**
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,

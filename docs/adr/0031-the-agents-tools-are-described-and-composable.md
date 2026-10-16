@@ -29,6 +29,13 @@ typed arguments, each acting on one of those objects.
 - **The model chooses the tools, and the order.** It reads what each one is for,
   acts, looks at the result, and chooses again. There is no list of permitted
   business actions and no plan compiled at write time.
+- **The agent works on five surfaces, and has all of them.** They are the
+  group's **chat**, its **mail**, its **KB** — its pages and the **checklist
+  templates** among them — and its **workorders**, with its own **runs** beside
+  them as the record of what it did. Every one is both readable and writeable
+  within the authority classes (ADR 0032): an agent that could file mail but not
+  read a template, or settle a workorder step but not say so in the chat, would be
+  half of the product. They are the objects the catalogue is built over.
 - **A tool does a task, not a step of the protocol.** No tool mirrors a JMAP
   method: there is one that finds messages by the search grammar the mail client
   already speaks, one that reads a page, one that files a message, one that puts

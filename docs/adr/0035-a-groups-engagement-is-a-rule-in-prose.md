@@ -21,8 +21,10 @@ reads it.
 ## Decision
 
 **One rule is one document, in the group's own account**, and it says two things:
-**what it watches** — the activity of that account, mail in and out, its Files,
-its chat, and the writes to its own workorders — and **in prose, what should
+**what it watches** — the activity of that account across the five surfaces the
+agent works on (ADR 0031): its **chat**, its **mail** in and out, its **KB** (a
+page written, a checklist template changed), its **workorders** (a step settled,
+a workorder opened or closed), and its Files — and **in prose, what should
 happen** when that activity is met.
 
 - The prose is the instruction. Nothing about a rule is compiled, and a rule
