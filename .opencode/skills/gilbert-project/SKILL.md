@@ -106,14 +106,19 @@ everything belongs to: the account in Stalwart (`gilbert@…`), its address, its
 password, its grants and the model it uses. Its **agent** is the process that
 acts as it, and it runs inside `gilbertserver`. An unqualified **"worker"** means
 the browser's service worker and nothing else.
-- **The agent is designed and not built.** Its decisions are **ADR 0031** (a
-described catalogue of tools, and one model per installation chosen in
-Administration), **0032** (what it decides and what only a person decides,
-an override being an administrator's), **0033** (one conversation in chat and
-mail, in words), **0034** (a run is a document, and the record is the product)
-and **0035** (a group's engagement is a rule in prose). Nothing in the tree
-serves a group's work, and no document, comment or surface may describe it as if
-one did.
+- **The agent's decisions are six records, and the tree carries part of them.**
+**ADR 0031** (a described catalogue of tools, and one model per installation
+chosen in Administration), **0032** (what it decides and what only a person
+decides, an override being an administrator's), **0033** (one conversation in
+chat and mail, in words), **0034** (a run is a document, and the record is the
+product), **0035** (a group's engagement is a rule in prose) and **0036** (one
+installation claims its agent). Each record's `Implementation` line says what
+the tree carries and what it still owes, and it is the truth about the tree
+rather than a summary of the design: read it instead of assuming. The
+catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
+`server/src/agent/rule.ts`, the model's turn is `server/src/agent/model.ts`,
+and the loop that works a run and the mail channel are not in the tree — no
+document, comment or surface may describe them as if they were.
 - **Identifiers follow those words.** Two halves: the names, and the things that
 are contracts rather than names — a field in a document an installation has
 already written, a refusal code a client composes a sentence from, an environment
