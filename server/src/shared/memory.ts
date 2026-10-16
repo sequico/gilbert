@@ -68,10 +68,12 @@ export const MEMORY_SUBJECT_MAX = 200;
  * subjects and sentences together.
  *
  * The memory is recalled on **every** call, so what bounds it is the whole
- * reason the selection exists: the standing set is taken first and a selection
- * that outgrows either ceiling is cut at the end rather than handed over whole.
- * A graph that does not fit is a memory that has stopped being worth keeping —
- * the discipline of a page, said as a number.
+ * reason the selection exists: the standing set is taken first, and a fact that
+ * would outgrow either ceiling is skipped rather than carried — one sheet that
+ * does not fit must not be the end of the selection, or a single very long fact
+ * would leave the memory empty for the whole installation. A graph that does not
+ * fit is a memory that has stopped being worth keeping — the discipline of a
+ * page, said as a number.
  */
 export const RECALL_FACTS_MAX = 20;
 export const RECALL_CHARS_MAX = 4_000;
@@ -249,9 +251,10 @@ export function sameSubject(a: string, b: string): boolean {
  *    is linked to and no further.
  *
  * There is no ranking engine and no index of its own: what the selection needs
- * is the words the change arrived in, and the change already carries them. The
- * ceiling is applied last, so what is cut is the end of the list and never the
- * standing set.
+ * is the words the change arrived in, and the change already carries them. Both
+ * ceilings are applied as each fact is taken, so the facts that fit are carried
+ * and one that does not is **skipped** rather than ending the selection — and the
+ * standing set is taken first, so it is the last thing a ceiling costs.
  */
 export function recallFacts(
   facts: readonly FactDoc[],
@@ -261,9 +264,20 @@ export function recallFacts(
   const named = fold(words);
   const picked: FactDoc[] = [];
   const held = new Set<string>();
+  /** The characters of the subjects and sentences carried so far. */
+  let chars = 0;
   const take = (fact: FactDoc): void => {
     if (held.has(fact.id)) return;
     held.add(fact.id);
+    const size = fact.subject.length + fact.fact.length;
+    /*
+     * A fact that does not fit is skipped, and the ones after it are still
+     * considered: a cut that stopped here would let one very long sheet — one a
+     * person wrote, read whatever it holds — empty the memory for every call of
+     * the installation, silently.
+     */
+    if (picked.length >= RECALL_FACTS_MAX || chars + size > RECALL_CHARS_MAX) return;
+    chars += size;
     picked.push(fact);
   };
   for (const fact of facts) if (fact.standing && fact.group === group) take(fact);
@@ -276,19 +290,5 @@ export function recallFacts(
       const linked = byId.get(id);
       if (linked) take(linked);
     }
-  return withinCeiling(picked);
-}
-
-/** The facts that fit both ceilings, in the order the selection took them. */
-function withinCeiling(facts: readonly FactDoc[]): FactDoc[] {
-  const kept: FactDoc[] = [];
-  let chars = 0;
-  for (const fact of facts) {
-    if (kept.length >= RECALL_FACTS_MAX) break;
-    const size = fact.subject.length + fact.fact.length;
-    if (chars + size > RECALL_CHARS_MAX) break;
-    chars += size;
-    kept.push(fact);
-  }
-  return kept;
+  return picked;
 }
