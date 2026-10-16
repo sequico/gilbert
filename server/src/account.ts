@@ -59,6 +59,14 @@ export class AccountError extends Error {
   }
 }
 
+/**
+ * Whether a failure is this server's own refusal rather than the mail server
+ * failing: `AccountError` is thrown for both, a 4xx being a judgement this
+ * server made and a 5xx the mail server not answering.
+ */
+export const isOwnRefusal = (err: unknown): err is AccountError =>
+  err instanceof AccountError && err.status < 500;
+
 /* ------------------------------------------------------------------ */
 /* Transport                                                           */
 /* ------------------------------------------------------------------ */

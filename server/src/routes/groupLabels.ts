@@ -5,7 +5,7 @@
 
 import type { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { readGroupLabels, writeGroupLabels } from "../account.js";
+import { isOwnRefusal, readGroupLabels, writeGroupLabels } from "../account.js";
 import { GroupAccessError, resolveGroupAccess } from "../groupAccess.js";
 import {
   accountFailure,
@@ -60,10 +60,11 @@ export function registerGroupLabelRoutes(api: Hono<Env>): void {
           err.status as ContentfulStatusCode,
         );
       }
-      /* The door refuses the reserved namespace with an `AccountError`, which
-         is this server's own refusal and is answered as one rather than as an
-         upstream failure. */
-      return accountFailure(c, err);
+      /* The door refuses the reserved namespace with a 4xx `AccountError`, a
+         judgement of this server's own, and that is answered as one; a 5xx is
+         the mail server failing, whose sentence `upstreamFailure` fixes and
+         whose log it writes. */
+      return isOwnRefusal(err) ? accountFailure(c, err) : upstreamFailure(c, err);
     }
   });
 }
