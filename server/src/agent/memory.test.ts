@@ -84,6 +84,7 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
       run: "r-1",
       at: AT,
       standing: true,
+      group: accountId,
     },
     await store(),
   );
@@ -93,6 +94,7 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
   assert.deepEqual(read?.fact, first, "the sheet reads back whole");
   assert.deepEqual(first.origin, { by: "run", run: "r-1" }, "with the run it came from");
   assert.equal(first.standing, true, "and what the group keeps standing");
+  assert.equal(first.group, accountId, "about the group the run lives in");
 
   // The same subject again: the agent's own sheet is corrected, keeping its id,
   // so the links that point at it keep pointing at it.
@@ -104,6 +106,7 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
       fact: "the usual shipper, and only for containers",
       run: "r-2",
       at: AT,
+      group: accountId,
     },
     await store(),
   );
@@ -132,7 +135,7 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
   const first = await rememberFact(
     ctx,
     accountId,
-    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT },
+    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT, group: accountId },
     await store(),
   );
   written.push(first.id);
@@ -143,7 +146,13 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
   const other = await rememberFact(
     ctx,
     accountId,
-    { subject: "ACME", fact: "the client this account books for", run: "r-1", at: AT },
+    {
+      subject: "ACME",
+      fact: "the client this account books for",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
     await store(),
   );
   written.push(other.id);
@@ -153,7 +162,13 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
       rememberFact(
         ctx,
         accountId,
-        { subject: "maersk", fact: "the usual shipper, corrected", run: "r-2", at: AT },
+        {
+          subject: "maersk",
+          fact: "the usual shipper, corrected",
+          run: "r-2",
+          at: AT,
+          group: accountId,
+        },
         stale,
       ),
     (err: unknown) => isStateMismatch(err),
@@ -179,7 +194,7 @@ test("two writes of one reading cannot make two sheets for one subject", async (
   const first = await rememberFact(
     ctx,
     accountId,
-    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT },
+    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT, group: accountId },
     reading,
   );
   written.push(first.id);
@@ -189,7 +204,13 @@ test("two writes of one reading cannot make two sheets for one subject", async (
       rememberFact(
         ctx,
         accountId,
-        { subject: "maersk", fact: "the same shipper, said again", run: "r-1", at: AT },
+        {
+          subject: "maersk",
+          fact: "the same shipper, said again",
+          run: "r-1",
+          at: AT,
+          group: accountId,
+        },
         reading,
       ),
     (err: unknown) => isStateMismatch(err),
@@ -212,6 +233,7 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
     at: AT,
     links: [],
     standing: false,
+    group: accountId,
   });
   written.push("person-1");
 
@@ -225,6 +247,7 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
           fact: "what the agent concluded instead",
           run: "r-1",
           at: AT,
+          group: accountId,
         },
         await store(),
       ),
@@ -250,6 +273,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
       fact: "the usual shipper",
       run: "r-1",
       at: AT,
+      group: accountId,
     },
     await store(),
   );
@@ -262,6 +286,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
       fact: "goes by the usual shipper",
       run: "r-1",
       at: AT,
+      group: accountId,
       links: ["maersk"],
     },
     await store(),
@@ -277,7 +302,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
   // belongs with, one hop out and no further.
   const memory = (await store()).facts;
   assert.deepEqual(
-    recallFacts(memory, "mail created: m-1\nbooking: booking 4711").map(
+    recallFacts(memory, "mail created: m-1\nbooking: booking 4711", accountId).map(
       (fact) => fact.subject,
     ),
     ["booking 4711", "Maersk"],
@@ -294,6 +319,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
           fact: "goes somewhere else",
           run: "r-1",
           at: AT,
+          group: accountId,
           links: ["Nowhere"],
         },
         await store(),

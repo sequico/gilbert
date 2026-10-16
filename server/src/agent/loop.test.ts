@@ -1084,6 +1084,11 @@ test("a fact one run learns is handed to the next change's call, and the record 
   );
   assert.ok(learned, "the fact is one sheet in the installation's memory");
   remembered.push(learned.fact.id);
+  assert.equal(
+    learned.fact.group,
+    accountId,
+    "and it records the group it is about — the run's own account (ADR 0037)",
+  );
 
   // Run two, over a later change: the memory is read first and what was learned
   // is handed to the call.

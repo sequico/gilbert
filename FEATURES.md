@@ -126,17 +126,22 @@ waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
 0036).
 
 **The agent remembers, and every call starts from what it knows** (ADR 0037): a
-graph of small **facts**, each with the provenance it came from, kept in the
+graph of small **facts**, each about a **group** and each with the provenance it
+came from, kept in the
 **Master's** own account — one memory for the installation, so a group reasons
 with what the whole installation knows — in a `memory/` folder beside the
 knowledge base, which stays a store of its own. A fact is the subject it is about,
-one sentence of what the agent holds true of it, the run or the person it came
-from, and the facts it links to; the sheet, its parser and the **selection** a call
+the group it is about, one sentence of what the agent holds true of it, the run or
+the person it came from, and the facts it links to; the sheet, its parser and the
+**selection** a call
 carries are `server/src/shared/memory.ts`, and where it lives and the one write the
 agent makes are `server/src/agent/memory.ts`. What a call carries is a selection
 and never the whole graph: the subjects the change at hand names, their nearest
-links, and the small standing set the group keeps about itself, inside a ceiling of
-facts and of characters. **Both turns read it** (`server/src/agent/model.ts`), it
+links, and the small standing set **of the group being worked** — the conventions
+that group keeps about itself, and no other group's — inside a ceiling of facts and
+of characters. Any fact, standing or not, is recalled by its subject for any group:
+what one group learned is the installation's knowledge. **Both turns read it**
+(`server/src/agent/model.ts`), it
 travels fenced as data like every other block of text somebody outside the group
 decided, and **what was recalled is written into the run's record** (`recalled`),
 so a wrong conclusion traces to the fact that carried it — while a change the

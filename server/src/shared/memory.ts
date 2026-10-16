@@ -10,12 +10,15 @@
  *
  * The sheet says the **subject** it is about (a shipper, a mailbox, a client,
  * the group itself), what the agent holds true of it in one sentence, where it
- * came from — the run that wrote it, or a person — when it was written, and
- * which other facts it is linked to. **A fact is information, never an
- * instruction**: it grants nothing and authorises nothing, the authority
- * classes (ADR 0032) and the trust of a sender (ADR 0033) are untouched by
- * anything it says, and a fact that reads like an order does not become one by
- * being remembered.
+ * came from — the run that wrote it, or a person — when it was written, which
+ * other facts it is linked to, and **the group it is about**. The standing set a
+ * call carries is the group being worked — what that group keeps about itself —
+ * while any fact, standing or not, is recalled by its subject for **any** group:
+ * one memory serves the installation, which is the point of it. **A fact is
+ * information, never an instruction**: it grants nothing and authorises nothing,
+ * the authority classes (ADR 0032) and the trust of a sender (ADR 0033) are
+ * untouched by anything it says, and a fact that reads like an order does not
+ * become one by being remembered.
  *
  * This module is the shape, its parser and the **selection** a call carries
  * (`recallFacts`): no I/O, so what a call recalls is answerable in a test
@@ -35,7 +38,20 @@ import { isInstant } from "./run.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how a change reaches a fact an installation has already written.
  */
-export const MEMORY_VERSION = 1;
+export const MEMORY_VERSION = 2;
+
+/**
+ * The version before this one, which this build reads as well.
+ *
+ * `group` is the field this version added: a fact records the group it is about,
+ * and the standing set a call carries is the group being worked. A document of
+ * the version before it reads with no group — a fact about no group this build
+ * knows, so it stands for none and is recalled by its subject like any other —
+ * rather than being refused, because a version is how a change reaches the facts
+ * an installation already wrote, not how it abandons them. Anything else this
+ * build does not know stays refused.
+ */
+const MEMORY_VERSION_WITHOUT_GROUP = 1;
 
 /**
  * How long the one sentence of a fact may be, and the subject it is about.
@@ -75,11 +91,11 @@ export type FactOrigin = { by: "run"; run: string } | { by: "person"; who: strin
  * Every field is written when the sheet is, so a document missing one is a
  * document this build did not write. `standing` is what makes a fact part of
  * the small set a group keeps about itself: it is carried by every call of the
- * group, whatever the change at hand names.
+ * group it is **about** (`group`), whatever the change at hand names.
  */
 export interface FactDoc {
   /** The schema version; `MEMORY_VERSION` today. */
-  v: 1;
+  v: 2;
   /** The fact's identity: its document's name under `memory/`. */
   id: string;
   /** What it is about, in the group's own words. */
@@ -91,8 +107,21 @@ export interface FactDoc {
   at: string;
   /** The ids of the facts it is linked to. */
   links: string[];
-  /** Whether every call of the group carries it, whatever the change names. */
+  /** Whether every call of the group it is about carries it, whatever the change names. */
   standing: boolean;
+  /**
+   * The group the fact is about: the account of the run that wrote it (ADR 0037).
+   *
+   * It is what the **standing** set is filtered by — a standing fact is carried
+   * by every call of this group and of no other, because the standing set is what
+   * a group keeps about itself. Every other fact is recalled by its **subject**
+   * for any group: one memory serves the installation, which is the point of it,
+   * and a group reasons with what the rest of the installation knows.
+   *
+   * Empty only for a sheet of the version before this one, which named no group:
+   * it stands for none and is recalled by subject like any other.
+   */
+  group: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -117,6 +146,12 @@ function isOrigin(x: unknown): x is FactOrigin {
  * retired one, decides nothing here and does not refuse a sheet that is
  * otherwise whole — and the parsed fact carries only the fields above, so the
  * next write of it drops what was unknown.
+ *
+ * A `v` this build does not know is refused, because a document written by a
+ * newer Gilbert may carry a field whose meaning changed. The one version before
+ * this is read instead, with the field it added — `group` — defaulted to none
+ * (`MEMORY_VERSION_WITHOUT_GROUP`): its facts are about no group this build
+ * knows, so they stand for none and stay recalled by their subject.
  */
 export function parseFactDocumentDetailed(
   raw: string,
@@ -128,7 +163,8 @@ export function parseFactDocumentDetailed(
     return { problem: `Not valid JSON${errorDetail(err)}.` };
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
-  if (whole.v !== MEMORY_VERSION)
+  const withoutGroup = whole.v === MEMORY_VERSION_WITHOUT_GROUP;
+  if (whole.v !== MEMORY_VERSION && !withoutGroup)
     return {
       problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${MEMORY_VERSION}.`,
     };
@@ -151,6 +187,10 @@ export function parseFactDocumentDetailed(
     return { problem: '"links" must be the ids of the facts it is linked to.' };
   if (typeof whole.standing !== "boolean")
     return { problem: '"standing" must be true or false.' };
+  // A version-1 sheet named no group, and reads as a fact about none.
+  const group = withoutGroup ? (whole.group ?? "") : whole.group;
+  if (typeof group !== "string" || !group)
+    return { problem: '"group" must name the group the fact is about.' };
   return {
     fact: {
       v: MEMORY_VERSION,
@@ -161,6 +201,7 @@ export function parseFactDocumentDetailed(
       at: whole.at,
       links: whole.links,
       standing: whole.standing,
+      group,
     },
   };
 }
@@ -194,12 +235,16 @@ export function sameSubject(a: string, b: string): boolean {
  *
  * Three parts, in the order they are taken (ADR 0037):
  *
- * 1. the group's small **standing set** — every fact marked `standing`, because
- *    that is what the group keeps about itself and every call starts from it;
+ * 1. the **standing set of the group being worked** — every fact marked
+ *    `standing` that is about `group`, because that is what a group keeps about
+ *    itself and every call of it starts from there. A standing fact of another
+ *    group is not carried: a group's conventions are its own;
  * 2. what the **change at hand names**: a fact whose subject the change's own
- *    words carry (the surface, the address, the subjects the decision found —
- *    `words` is that text, and the containment is what makes "Maersk" recall a
- *    sheet about it however the sheet spells the subject around it);
+ *    words carry, whatever group it is about (the surface, the address, the
+ *    subjects the decision found — `words` is that text, and the containment is
+ *    what makes "Maersk" recall a sheet about it however the sheet spells the
+ *    subject around it). One memory serves the installation, so a fact learned
+ *    in one group is recalled in another when a change names its subject;
  * 3. their **nearest links** — one hop, so a fact about a thing brings what it
  *    is linked to and no further.
  *
@@ -208,7 +253,11 @@ export function sameSubject(a: string, b: string): boolean {
  * ceiling is applied last, so what is cut is the end of the list and never the
  * standing set.
  */
-export function recallFacts(facts: readonly FactDoc[], words: string): FactDoc[] {
+export function recallFacts(
+  facts: readonly FactDoc[],
+  words: string,
+  group: string,
+): FactDoc[] {
   const named = fold(words);
   const picked: FactDoc[] = [];
   const held = new Set<string>();
@@ -217,7 +266,7 @@ export function recallFacts(facts: readonly FactDoc[], words: string): FactDoc[]
     held.add(fact.id);
     picked.push(fact);
   };
-  for (const fact of facts) if (fact.standing) take(fact);
+  for (const fact of facts) if (fact.standing && fact.group === group) take(fact);
   if (named)
     for (const fact of facts)
       if (fact.subject && named.includes(fold(fact.subject))) take(fact);

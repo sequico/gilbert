@@ -753,6 +753,11 @@ test("the memory tool records a fact where the installation keeps them", async (
     "with the run that recorded it",
   );
   assert.equal(parsed.fact.standing, true, "and what the group keeps standing");
+  assert.equal(
+    parsed.fact.group,
+    accountId,
+    "and the group it is about: the account the run lives in (ADR 0037)",
+  );
   assert.ok(
     (await listFacts(ctx, accountId)).facts.some((fact) => fact.id === recorded.id),
     "the store answers the whole memory, so a selection can be made from it",
@@ -769,6 +774,7 @@ test("the memory tool records a fact where the installation keeps them", async (
     at: "2026-10-16T10:00:00.000Z",
     links: [],
     standing: false,
+    group: accountId,
   });
   await assert.rejects(
     () =>

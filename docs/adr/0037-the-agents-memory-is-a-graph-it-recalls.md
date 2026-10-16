@@ -3,8 +3,9 @@
 Status: Accepted
 
 Implementation: Built, and partly owed. A fact is one small sheet — the subject it
-is about, one sentence of what is held true of it, where it came from and its links
-— whose shape, parser and the **selection** a call carries are
+is about, one sentence of what is held true of it, the group it is about, where it
+came from and its links — whose shape, parser and the **selection** a call carries
+are
 `server/src/shared/memory.ts`; where the sheet lives, how the store is read and the
 one write the agent makes are `server/src/agent/memory.ts`, writing
 `memory/<id>.json` under the **Master's** own app folder, one memory for the
@@ -62,17 +63,22 @@ those facts from Administration.
   page: a fact that belongs to the KB is a reference to it, never a paraphrase of
   it.
 - **A fact is one small thing**: the subject it is about (an address, a mailbox,
-  a file, a customer, a shipper, the group itself), what the agent holds to be
-  true of it in one sentence, where it came from (the run that wrote it, or a
-  person), and when. The links between facts are their own small record, and the
+  a file, a customer, a shipper, the group itself), **the group it is about** —
+  the account of the run that wrote it — what the agent holds to be true of it in
+  one sentence, where it came from (the run that wrote it, or a person), and when.
+  The links between facts are their own small record, and the
   sheet is what the store's own parser refuses to read when it is malformed.
 - **A call recalls a selection, never the whole graph.** What reaches a call is
   what the change at hand is about: the group it happened in, the surfaces
   involved, and the subjects the change names (the booking, the shipper, the
   client) with their nearest links, inside a ceiling of facts and characters the
-  call carries. What every call also carries is the small standing set a group
-  keeps about itself. What was recalled is written into the run's record, so a
-  wrong conclusion can be traced to the fact that carried it (ADR 0034).
+  call carries. What every call also carries is the small **standing set of the
+  group being worked** — what that group keeps about itself — and no other
+  group's: a group's conventions are its own. Every other fact, standing or not,
+  is recalled by its **subject** for **any** group, because one memory serves the
+  installation and a group reasons with what the rest of it knows. What was
+  recalled is written into the run's record, so a wrong conclusion can be traced
+  to the fact that carried it (ADR 0034).
 - **A fact is information, never an instruction.** It is read and reasoned over;
   it grants nothing and authorises nothing. The authority classes (ADR 0032) and
   the trust of a sender (ADR 0033) are untouched by anything a fact says, and a

@@ -940,6 +940,7 @@ test("the facts the memory recalled are fenced as data in both turns, and a call
       at: "2026-10-16T10:00:00.000Z",
       links: [],
       standing: false,
+      group: "a1",
     },
   ];
   const block = (body: string): RegExp =>

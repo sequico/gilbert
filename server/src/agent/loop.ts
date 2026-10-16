@@ -333,7 +333,7 @@ export class AgentLoop {
           event,
           rules,
           prose: {},
-          memory: recallFacts((await this.memory()).facts, woke),
+          memory: recallFacts((await this.memory()).facts, woke, accountId),
         },
         this.readingCall(accountId, event, candidates),
       );
@@ -429,7 +429,11 @@ export class AgentLoop {
      * traces to the fact that carried it, and every turn of this working is
      * handed it.
      */
-    const selection = recallFacts((await this.memory()).facts, memoryWords(run, facts));
+    const selection = recallFacts(
+      (await this.memory()).facts,
+      memoryWords(run, facts),
+      accountId,
+    );
     current = recordRecall(
       current,
       selection.map((fact) => fact.id),

@@ -203,6 +203,14 @@ export interface FactWrite {
   run: string;
   /** When it is written, ISO 8601. */
   at: string;
+  /**
+   * The group the fact is about: the account of the run that writes it.
+   *
+   * It is what the standing set is filtered by — a fact marked `standing` is
+   * carried by every call of this group and of no other — while every fact is
+   * recalled by its subject for any group (ADR 0037).
+   */
+  group: string;
   /** The **subjects** of the facts it is linked to, resolved to their ids. */
   links?: readonly string[];
   /** Whether every call of the group should carry it. */
@@ -221,7 +229,10 @@ export interface FactWrite {
  * token is carried by a **create as well**, not only by a replace: two calls of
  * one answer both find a subject absent and both ask for its sheet, and the
  * second — same reading, same token — is refused rather than the memory holding
- * two spellings of one thing. A **person's** sheet is not replaced at all — a
+ * two spellings of one thing. The sheet records the **group it is about**
+ * (`FactWrite.group`, the run's own account): that is what its `standing` mark is
+ * filtered by, so a fact a group keeps about itself is carried by that group's
+ * calls and not by another's. A **person's** sheet is not replaced at all — a
  * person's fact is in force (ADR 0037) — and the refusal says so in a code.
  */
 export async function rememberFact(
@@ -263,6 +274,7 @@ export async function rememberFact(
     at: write.at,
     links: linkIds(store.facts, write.links ?? []),
     standing: write.standing === true,
+    group: write.group,
   };
   await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {
     ifInState: store.state,
