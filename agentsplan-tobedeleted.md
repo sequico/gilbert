@@ -143,7 +143,8 @@ reaching a run, and any surface that shows what the agent did.
 
 ### 2.9 The agent's memory — a graph it recalls (ADR 0037, Accepted)
 
-- **The record:** 0037, `Accepted`, built nowhere.
+- **The record:** 0037, `Accepted`, whose `Implementation` line now says what the
+  tree carries.
 - **The decision:** the agent **always** has memory; it is a graph of facts in the
   **Master's own account** — one memory for the installation, so a group reasons
   with what the whole installation knows — in a **second store**, not the
@@ -153,9 +154,16 @@ reaching a run, and any surface that shows what the agent did.
   small thing with a provenance; the agent writes them within its authority
   classes; an administrator reads and edits them from Administration, and **a
   person's fact is in force** — the agent proposes against it, never overwrites it.
-- **To do:** the store and its parser; the write the agent makes while working;
-  the recall into both turns and its ceiling; the surface; and the sentence in
-  `FEATURES.md` and the index when the code lands.
+- **Built:** the store and its parser (`server/src/shared/memory.ts`, one sheet per
+  fact in the Master's `memory/` folder, refused when malformed and never
+  guessed); the write the agent makes while working (`memory.remember`, which
+  refuses a person's fact in the code `fact_in_force`); the recall into both turns
+  with its ceiling of facts and characters, fenced as data, and the facts a run
+  carried written into its own record (`recalled`); the `FEATURES.md` paragraph and
+  the index line.
+- **To do:** the Administration surface alone — where an administrator reads,
+  corrects and removes a fact, and where what the agent concludes against a
+  person's fact is proposed rather than written over.
 - **Proof:** a fact the agent learned in one run changes what it does in the next,
   and an administrator's correction changes it again — with no restart between
   them; and a fact the agent concluded against one a person wrote is a proposal,

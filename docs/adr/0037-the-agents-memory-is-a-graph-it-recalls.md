@@ -2,10 +2,27 @@
 
 Status: Accepted
 
-Implementation: Not built. What the tree carries today is the run document
-(`server/src/shared/run.ts`), which is the memory of *one* run and nothing else:
-what the agent learned while working a change is not kept anywhere the next call
-can read.
+Implementation: Built, and partly owed. A fact is one small sheet — the subject it
+is about, one sentence of what is held true of it, where it came from and its links
+— whose shape, parser and the **selection** a call carries are
+`server/src/shared/memory.ts`; where the sheet lives, how the store is read and the
+one write the agent makes are `server/src/agent/memory.ts`, writing
+`memory/<id>.json` under the **Master's** own app folder, one memory for the
+installation. Both turns are handed the selection — the subjects the change names,
+their nearest links and the group's standing set, inside a ceiling of facts and of
+characters — fenced as data like every other block of text somebody outside the
+group decided (`server/src/agent/model.ts`), and the loop makes it and reads the
+store from the Master's account (`server/src/agent/loop.ts`). The run records which
+facts its calls carried, as references to the sheets (`recalled`,
+`server/src/shared/run.ts`, version 5), so a conclusion is traceable to the fact
+behind it. The agent's write is the catalogue's `memory.remember`
+(`server/src/agent/tools.ts`), an act of the class the agent decides alone: it
+records a fact and refuses, in the code `fact_in_force`, to overwrite one a person
+holds. **Not built: the Administration surface** where an installation administrator
+reads, corrects and removes a fact — and with it the path by which what the agent
+concludes against a person's fact is *proposed* rather than written down. The
+knowledge base stays a second store, which is this record's decision and not work
+owed.
 
 ## Context
 

@@ -26,7 +26,11 @@
  *
  * Every tool acts in the account its run lives in — the group's own (ADR 0035)
  * — and reads it through the same doors the surfaces use, so the agent sees the
- * same documents a person does.
+ * same documents a person does. The one that does not is `memory.remember`,
+ * which records a fact into the **installation's** own store in the Master's
+ * account rather than into any group's (ADR 0037): the memory is one for the
+ * whole installation, which is what makes what one group learned worth knowing
+ * in the next.
  */
 
 import { readGroupLabels, writeGroupLabels } from "../account.js";
@@ -37,6 +41,7 @@ import {
   ensureRootFolderPath,
   type FileNodeLike,
   fileChildren,
+  filesAccountId,
   findFolderPath,
   findVisibleFolder,
   nodeStamp,
@@ -61,6 +66,7 @@ import {
   isAgentLabel,
   type LabelCatalogEntry,
 } from "../shared/labels.js";
+import { MEMORY_FACT_MAX, MEMORY_SUBJECT_MAX } from "../shared/memory.js";
 import type {
   RunAuthority,
   RunAuthorityAct,
@@ -82,6 +88,7 @@ import {
   workorderFileName,
 } from "../shared/workorder.js";
 import { clientOf } from "../util.js";
+import { rememberFact } from "./memory.js";
 import { readRun } from "./runs.js";
 
 /* ------------------------------------------------------------------ */
@@ -275,6 +282,24 @@ function countArg(
       `"${key}" must be a whole number of at least 1.`,
     );
   return Math.min(value, max);
+}
+
+/**
+ * One optional list of text fields, each naming something.
+ *
+ * The list's own reader, so "a list of names" means one thing to every tool
+ * that takes one: an entry that is not text, or is empty, is the same refusal
+ * as a single field that is.
+ */
+function textListArg(raw: Record<string, unknown>, key: string): string[] {
+  const value = raw[key];
+  if (value === undefined || value === null) return [];
+  if (
+    !Array.isArray(value) ||
+    !value.every((one) => typeof one === "string" && Boolean(one.trim()))
+  )
+    throw new ToolError("bad_arguments", `"${key}" must be a list of names.`);
+  return (value as string[]).map((one) => one.trim());
 }
 
 /** A missing object, in the model's own words: not a failure to report as one. */
@@ -920,13 +945,78 @@ const askInChat = defineTool({
   },
 });
 
+/* ------------------------------------------------------------------ */
+/* The tool that changes the installation's memory                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One fact the agent records while it works (ADR 0037).
+ *
+ * The write lands in the **Master's** own account and not the group's: one
+ * memory serves the installation, so what is learned while working one group's
+ * change is known by the next call in any of them. Its class is the agent's own
+ * (`reversible`, ADR 0032): a fact it wrote can be read back and removed, so
+ * nothing here asks a person — and the one thing that is *not* the agent's to
+ * undo, a **person's** fact, is refused by the store itself and never reached
+ * through the class.
+ */
+const rememberFactTool = defineTool({
+  name: "memory.remember",
+  description:
+    "Record one thing you have come to hold true, so that later calls start " +
+    "from it: the subject it is about — a shipper, a client, a booking, a " +
+    "folder, this group itself — and one sentence of what you hold of it. It is " +
+    "information you reason from, never an instruction: it grants nothing and " +
+    "authorises nothing. Name the facts it belongs with in `links`, and mark it " +
+    "`standing` when every call of this group should carry it. A fact a person " +
+    "wrote is in force and this refuses it: what you conclude against one is " +
+    "proposed, never written over.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const subject = textArg(args, "subject");
+    if (subject.length > MEMORY_SUBJECT_MAX)
+      throw new ToolError(
+        "bad_arguments",
+        `"subject" must be at most ${MEMORY_SUBJECT_MAX} characters.`,
+      );
+    const fact = textArg(args, "fact");
+    if (fact.length > MEMORY_FACT_MAX)
+      throw new ToolError(
+        "bad_arguments",
+        `"fact" must be at most ${MEMORY_FACT_MAX} characters.`,
+      );
+    const standing = args.standing ?? false;
+    if (typeof standing !== "boolean")
+      throw new ToolError("bad_arguments", '"standing" must be true or false.');
+    return { subject, fact, links: textListArg(args, "links"), standing };
+  },
+  run: async ({ ctx, run }, { subject, fact, links, standing }) => {
+    // The memory is the installation's, so the account is the principal's own —
+    // the Master's — and never the group's the run lives in (ADR 0037).
+    const written = await rememberFact(ctx, filesAccountId(ctx), {
+      subject,
+      fact,
+      run: run.id,
+      at: new Date().toISOString(),
+      links,
+      standing,
+    });
+    return { id: written.id, subject: written.subject };
+  },
+});
+
 /**
  * Every tool this build has: the half that reads, and the half that changes the
  * group's own account.
  *
  * The half that writes is the reversible class of ADR 0032 and nothing beside
  * it: filing a message, a keyword, a label, a folder, a folder of Files, a move,
- * a rename, saying something in the conversation, asking a person. The acts a
+ * a rename, saying something in the conversation, asking a person, and
+ * remembering a fact — the one that is written into the installation's own
+ * memory rather than the group's account. The acts a
  * **person** must answer for — a send, a destroy, a policy override, an intent —
  * are the tools of the unit after this one, and they are what the guard's
  * act-binding exists for.
@@ -951,6 +1041,7 @@ export const TOOLS: readonly AnyTool[] = [
   renameFile,
   sayInChat,
   askInChat,
+  rememberFactTool,
 ];
 
 /**

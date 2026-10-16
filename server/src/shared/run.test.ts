@@ -4,8 +4,8 @@
  * What a transition does is the whole of what is pinned here: a run ends in one
  * of three ways and says which, a step's outcome is recorded where it belongs,
  * the plan grows with the step the model chose — a step may wait on an earlier
- * one and be left unrun when no branch names its outcome — what the run touched
- * and what it
+ * one and be left unrun when no branch names its outcome — what the run touched,
+ * which facts of the installation's memory it recalled, and what it
  * spent are written by a transition each, an authorisation carries the sentence
  * it arrived in, the authority that was given and the act it is for, and the
  * wait is a date in the
@@ -24,6 +24,7 @@ import {
   parseRunDocumentDetailed,
   RUN_VERSION,
   recordEvidence,
+  recordRecall,
   recordStep,
   spendRun,
   startRun,
@@ -53,6 +54,7 @@ test("a run starts running, its plan open, having touched and spent nothing", ()
   assert.equal(run.ended, null);
   assert.equal(run.waiting, null);
   assert.deepEqual(run.touched, [], "a run that just started has touched nothing");
+  assert.deepEqual(run.recalled, [], "and recalled nothing");
   assert.deepEqual(run.evidence, []);
   assert.deepEqual(run.authorisations, []);
   assert.deepEqual(run.spent, { steps: 0, calls: 0, ms: 0 });
@@ -203,6 +205,32 @@ test("a run names every object it touched, in one reference shape", () => {
     /is not one/,
     "a reference of a kind no reader knows is refused, not written",
   );
+});
+
+test("a run records which facts of the installation's memory it recalled", () => {
+  const run = startRun({ id: "r15", startedBy: START });
+
+  const recalled = recordRecall(run, ["f-1", "f-2"]);
+  assert.deepEqual(
+    recalled.recalled,
+    ["f-1", "f-2"],
+    "what the memory gave its calls is on the run, as references to the sheets",
+  );
+  assert.deepEqual(
+    recordRecall(recalled, ["f-2", "f-3"]).recalled,
+    ["f-1", "f-2", "f-3"],
+    "a later call adds what it carried and repeats nothing",
+  );
+  assert.deepEqual(run.recalled, [], "the run it was given is untouched");
+  assert.throws(() => recordRecall(run, [""]), /is not one/);
+  assert.throws(
+    () => recordRecall(finishRun(run, "done", { at: AT, why: "over" }), ["f-1"]),
+    /has ended/,
+  );
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(recalled));
+  assert.ok("run" in stored, "and the list is part of the stored contract");
+  assert.deepEqual(stored.run.recalled, ["f-1", "f-2"]);
 });
 
 test("the budget is a tally the run carries, and it only grows", () => {
@@ -444,13 +472,13 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    ['{"v":5,"id":"r6"}', /this build reads version 4/],
+    ['{"v":6,"id":"r6"}', /this build reads version 5/],
     [
-      '{"v":4,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      '{"v":5,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"id" must be/,
     ],
     [
-      '{"v":4,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      '{"v":5,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"plan" must be a list of steps/,
     ],
     // A step this build writes carries what it waits on; one without it is a
@@ -512,6 +540,10 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       // is a document this build did not write.
     ],
     [JSON.stringify({ ...whole, touched: [{ kind: "nope" }] }), /"touched" must be/],
+    [
+      JSON.stringify({ ...whole, recalled: ["f-1", ""] }),
+      /"recalled" must be the ids of the facts/,
+    ],
     [JSON.stringify({ ...whole, spent: { steps: 1, calls: 0 } }), /"spent" must be/],
     [
       JSON.stringify({

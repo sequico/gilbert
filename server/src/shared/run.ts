@@ -8,7 +8,8 @@
  * woke it, the plan — each step, what it waits on and how it left it, so a
  * reader of the record alone can say why a step ran and why one did not —
  * the objects it touched, what it waits for, where it asked a person and until
- * when, every authorisation with the sentence it arrived in, the authority that
+ * when, which facts of the installation's memory its calls carried (ADR 0037),
+ * every authorisation with the sentence it arrived in, the authority that
  * was given and the act it is for, the evidence behind what it claims, the
  * budget it has spent,
  * and the state it is in. A **wait is a date in this document** (or no date at
@@ -34,7 +35,7 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how the change reaches a run an installation has already written.
  */
-export const RUN_VERSION = 4;
+export const RUN_VERSION = 5;
 
 /**
  * A step's state: `open` until it leaves the plan, and the three ways it can.
@@ -219,7 +220,7 @@ export interface RunEnd {
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 4;
+  v: 5;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   startedBy: RunStart;
@@ -232,6 +233,15 @@ export interface RunDoc {
   touched: WorkorderRef[];
   /** The live wait, or null when the run is not waiting. */
   waiting: RunWait | null;
+  /**
+   * What the memory gave the calls of this run (ADR 0037): the ids of the facts
+   * it recalled, each addressed under `memory/` in the **Master's** own account.
+   *
+   * A reference and never a copy — the sentence lives in the sheet, so a
+   * correction of a fact lands in one place — and it is the whole of what makes
+   * a wrong conclusion traceable to the fact that carried it.
+   */
+  recalled: string[];
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
   /** What the run has spent so far (ADR 0031). */
@@ -444,6 +454,13 @@ export function parseRunDocumentDetailed(
         '"waiting" must be null or what the run waits for, where it asked and until when.',
     };
   if (
+    !Array.isArray(whole.recalled) ||
+    !whole.recalled.every((id) => typeof id === "string" && !!id)
+  )
+    return {
+      problem: '"recalled" must be the ids of the facts the run recalled.',
+    };
+  if (
     !Array.isArray(whole.authorisations) ||
     !whole.authorisations.every(isAuthorisation)
   )
@@ -479,6 +496,7 @@ export function parseRunDocumentDetailed(
       plan: whole.plan,
       touched: whole.touched,
       waiting: whole.waiting,
+      recalled: whole.recalled,
       authorisations: whole.authorisations,
       evidence: whole.evidence,
       spent: whole.spent,
@@ -531,6 +549,7 @@ export function startRun(input: {
     })),
     touched: [],
     waiting: null,
+    recalled: [],
     authorisations: [],
     evidence: [],
     spent: { steps: 0, calls: 0, ms: 0 },
@@ -608,6 +627,27 @@ export function touchObject(run: RunDoc, ref: WorkorderRef): RunDoc {
   if (!isWorkorderRef(ref))
     throw new Error(`a reference the run "${run.id}" touched is not one.`);
   return { ...run, touched: [...run.touched, ref] };
+}
+
+/**
+ * Record the facts a call carried from the installation's memory (ADR 0037).
+ *
+ * One list and never a second: a fact recalled by a later call of the same run
+ * is already on it, so the record says which facts the run reasoned from
+ * without repeating the same one for every turn. What is written is the id of
+ * each sheet — a reference, so a correction of a fact lands in the memory and
+ * not in every run that read it — and the order is the order the selection
+ * carried them in.
+ */
+export function recordRecall(run: RunDoc, ids: readonly string[]): RunDoc {
+  mustBeRunning(run);
+  const recalled = [...run.recalled];
+  for (const id of ids) {
+    if (typeof id !== "string" || !id)
+      throw new Error(`a fact the run "${run.id}" recalled is not one.`);
+    if (!recalled.includes(id)) recalled.push(id);
+  }
+  return { ...run, recalled };
 }
 
 /**

@@ -100,9 +100,11 @@ else a member does to move mail around still works.
 > conversation in chat and mail), [0034](docs/adr/0034-a-run-is-a-document-and-the-record-is-the-product.md)
 > (a run is a document, and the record is the product),
 > [0035](docs/adr/0035-a-groups-engagement-is-a-rule-in-prose.md) (a group's
-> engagement is a rule in prose) and
+> engagement is a rule in prose),
 > [0036](docs/adr/0036-one-agent-per-installation-held-by-a-claim.md) (one claim
-> holds the installation's single agent).
+> holds the installation's single agent) and
+> [0037](docs/adr/0037-the-agents-memory-is-a-graph-it-recalls.md) (the agent's
+> memory: a graph of facts it recalls on every call).
 
 The agent acts for one group, inside that group's own account. It reads the
 company's written policy and the group's own rules, it does the reversible work
@@ -122,6 +124,27 @@ single agent working it: a document taken by compare-and-set that a holder
 renews and that lapses on its own if it dies, so a restart costs one TTL of
 waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
 0036).
+
+**The agent remembers, and every call starts from what it knows** (ADR 0037): a
+graph of small **facts**, each with the provenance it came from, kept in the
+**Master's** own account — one memory for the installation, so a group reasons
+with what the whole installation knows — in a `memory/` folder beside the
+knowledge base, which stays a store of its own. A fact is the subject it is about,
+one sentence of what the agent holds true of it, the run or the person it came
+from, and the facts it links to; the sheet, its parser and the **selection** a call
+carries are `server/src/shared/memory.ts`, and where it lives and the one write the
+agent makes are `server/src/agent/memory.ts`. What a call carries is a selection
+and never the whole graph: the subjects the change at hand names, their nearest
+links, and the small standing set the group keeps about itself, inside a ceiling of
+facts and of characters. **Both turns read it** (`server/src/agent/model.ts`), it
+travels fenced as data like every other block of text somebody outside the group
+decided, and **what was recalled is written into the run's record** (`recalled`),
+so a wrong conclusion traces to the fact that carried it — while a change the
+memory holds nothing about is worked exactly as it was before the memory existed.
+The agent records a fact with `memory.remember`, within the authority classes, and
+**a fact a person wrote is in force**: the write refuses to overwrite it, in a code,
+rather than correcting it in silence. An installation administrator reads and edits
+the facts from Administration — the surface is not built yet.
 
 **A group's engagement is a rule in prose** (ADR 0035): one document in the
 group's own account, under `rules/`, that names the surfaces of that account it

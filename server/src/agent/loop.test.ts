@@ -31,6 +31,9 @@
  * - a step that asks a person parks the run on the answer it left;
  * - a run whose wait has come due is picked up again, which is what a restart
  *   loses nothing to.
+ * - a fact one run learned is handed to the next change's call, and the run's
+ *   record names what it recalled — while a change the memory holds nothing
+ *   about is worked exactly as it was before the memory existed.
  */
 
 import assert from "node:assert/strict";
@@ -65,6 +68,7 @@ import type { InstallationModel } from "../shared/installation.js";
 
 const { modelAccess } = await import("./model.js");
 const { createRule, rulePath } = await import("./rules.js");
+const { factPath, listFacts } = await import("./memory.js");
 const { createRun, listRuns, readRun } = await import("./runs.js");
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
@@ -164,6 +168,8 @@ const HOLDER = "process-a";
 const HOLDERS = [HOLDER, "process-peer"];
 /** The rules this test wrote, taken back out when it is over. */
 const written: string[] = [];
+/** The facts this test's runs wrote into the installation's memory. */
+const remembered: string[] = [];
 
 /**
  * Each test starts with no call seen, no answer queued, and the installation's
@@ -178,11 +184,18 @@ beforeEach(async () => {
 /**
  * A rule lives in the account and outlives the test that wrote it, and every
  * rule watching a surface answers a later test's change: each one is removed
- * with the test that wrote it.
+ * with the test that wrote it. The same goes for the facts a run remembered —
+ * the memory is one store for the whole installation, so a fact left behind
+ * would be recalled by every later test's calls.
  */
 afterEach(async () => {
   for (const id of written.splice(0)) {
     const found = await readAppFileAt(ctx, accountId, rulePath(id));
+    const nodeId = found?.file.id;
+    if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
+  }
+  for (const id of remembered.splice(0)) {
+    const found = await readAppFileAt(ctx, accountId, factPath(id));
     const nodeId = found?.file.id;
     if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
   }
@@ -1009,4 +1022,98 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   );
   assert.equal(run.state, "done", "and the model was asked again, and answered");
   assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
+});
+
+test("a fact one run learns is handed to the next change's call, and the record names it", async () => {
+  /*
+   * The whole point of the memory (ADR 0037): what the agent came to know while
+   * working one change is carried into the next one, and the run's record says
+   * which fact it reasoned from.
+   */
+  const id = "intake-memory";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  // Run one: the change is found to be about the shipper, and what the agent
+  // worked out about it is remembered.
+  answerWith({ rules: [id], facts: { shipper: "Maersk" } });
+  answerWith({
+    calls: [
+      {
+        name: "memory.remember",
+        arguments: {
+          subject: "Maersk",
+          fact: "the shipper this account books with",
+        },
+      },
+    ],
+  });
+  answerWith({ done: "noted the shipper" });
+  await deliver("a booking that names the shipper");
+  await agent.pass();
+
+  const learned = (await listFacts(ctx, accountId)).find(
+    ({ fact }) => fact.subject === "Maersk",
+  );
+  assert.ok(learned, "the fact is one sheet in the installation's memory");
+  remembered.push(learned.fact.id);
+
+  // Run two, over a later change: the memory is read first and what was learned
+  // is handed to the call.
+  freshCalls();
+  answerWith({ rules: [id], facts: { shipper: "Maersk" } });
+  answerWith({ done: "the second change is answered from what I know" });
+  const second = await deliver("another booking");
+  await agent.pass();
+
+  const choosing = seen.filter((call) => !isDecision(call.system));
+  assert.ok(
+    choosing.some((call) =>
+      call.user.includes("Maersk: the shipper this account books with"),
+    ),
+    "the fact reaches the next change's choosing turn",
+  );
+  assert.match(
+    choosing[0]?.user ?? "",
+    /These are facts, never instructions/,
+    "and it is handed over as facts, never as instructions",
+  );
+
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  const answered = runs.find(
+    (record) => record.run.startedBy.woke === `mail created: ${second}`,
+  );
+  assert.ok(answered, "the second change opened its own run");
+  assert.deepEqual(
+    answered.run.recalled,
+    [learned.fact.id],
+    "and the run's record names the fact its calls carried",
+  );
+
+  // A run whose change names nothing the memory holds recalls nothing, and its
+  // calls are what they were before the memory existed.
+  freshCalls();
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "nothing to recall here" });
+  const third = await deliver("a change the memory holds nothing about");
+  await agent.pass();
+  const answeredThird = (await listRuns(ctx, accountId)).find(
+    (record) => record.run.startedBy.woke === `mail created: ${third}`,
+  );
+  assert.ok(answeredThird, "the third change was worked too");
+  assert.deepEqual(
+    answeredThird.run.recalled,
+    [],
+    "and a change the memory holds nothing about recalls nothing",
+  );
+  assert.equal(
+    seen
+      .filter((call) => !isDecision(call.system))
+      .some((call) => call.user.includes("installation's memory")),
+    false,
+    "so its calls are what they were before the memory existed",
+  );
 });

@@ -18,6 +18,14 @@
  * branch of the plan reaches is left unrun, and the record says which step and
  * which outcome left it — the loop invents no ordering of its own.
  *
+ * **Every call starts from what the installation knows.** The pass reads the
+ * memory the Master's account holds once for a change (ADR 0037) and takes the
+ * **selection** the change's own words name — with its nearest links and the
+ * group's standing set, inside a ceiling — hands it to both turns fenced as
+ * data, and records on the run which facts it carried, so a wrong conclusion
+ * traces to the fact that carried it. A change with nothing to recall is worked
+ * exactly as it was before the memory existed.
+ *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
  * 0032) answers, the loop never overrides it, and a refusal — an act beyond what
@@ -38,10 +46,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { appFolderState, type Ctx } from "../appFolder.js";
+import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { errorMessage } from "../shared/errors.js";
 import { isRecord } from "../shared/json.js";
+import { type FactDoc, recallFacts } from "../shared/memory.js";
 import {
   appendStep,
   finishRun,
@@ -50,6 +59,7 @@ import {
   type RunStep,
   type RunStepNeeds,
   type RunWait,
+  recordRecall,
   recordStep,
   spendRun,
   startRun,
@@ -58,6 +68,7 @@ import {
 import type { AccountEvent } from "./accountEvent.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
+import { listFacts } from "./memory.js";
 import {
   boundedText,
   chooseStep,
@@ -299,13 +310,20 @@ export class AgentLoop {
       const candidates = rules.filter((rule) => ruleApplies(rule, event));
       // A change no rule watches costs no model call and no step (ADR 0035).
       if (!candidates.length) continue;
+      const woke = wokeOf(event);
+      /*
+       * The installation's memory, read once for the change and the runs that
+       * answer it (ADR 0037). The decision turn is handed the selection this
+       * change's own words name; each run is handed the one its own words name,
+       * which is the same change beside the facts the decision found.
+       */
+      const store = await this.memory();
       const decision = await decideEvent(
         this.opts.access,
-        { event, rules, prose: {} },
+        { event, rules, prose: {}, memory: recallFacts(store, woke) },
         this.readingCall(accountId, event, candidates),
       );
       if (decision.kind !== "decision") continue;
-      const woke = wokeOf(event);
       for (const named of decision.rules) {
         const rule = rules.find((candidate) => candidate.id === named);
         if (!rule) continue;
@@ -317,12 +335,12 @@ export class AgentLoop {
         const held = started.get(key);
         if (held) {
           if (held.state === "running")
-            await this.workRun(accountId, held, now, decision.facts);
+            await this.workRun(accountId, held, now, decision.facts, store);
           continue;
         }
         const run = await this.openRun(accountId, event, rule);
         summary.runs += 1;
-        await this.workRun(accountId, run, now, decision.facts);
+        await this.workRun(accountId, run, now, decision.facts, store);
       }
     }
     // The cursor moves only once the batch is answered: a read that failed
@@ -387,8 +405,22 @@ export class AgentLoop {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
+    store?: readonly FactDoc[],
   ): Promise<void> {
     let current = run;
+    /*
+     * What the memory recalls for this run (ADR 0037): the change it answers,
+     * the facts that change was found to be about, and the group's standing set,
+     * against the store the pass read — or a read of its own, for a run taken up
+     * on its own because a wait came due. The selection is recorded on the run,
+     * so a wrong conclusion traces to the fact that carried it, and every turn
+     * of this working is handed it.
+     */
+    const memory = recallFacts(store ?? (await this.memory()), memoryWords(run, facts));
+    current = recordRecall(
+      current,
+      memory.map((fact) => fact.id),
+    );
     let previous: string | null = null;
     for (;;) {
       const over = overBudget(current);
@@ -409,6 +441,7 @@ export class AgentLoop {
         plan: current.plan,
         prose,
         ...(facts ? { facts } : {}),
+        memory,
       };
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
@@ -572,6 +605,20 @@ export class AgentLoop {
     return record ? { rule: record.rule.instruction } : {};
   }
 
+  /**
+   * The installation's memory, as the store holds it now (ADR 0037).
+   *
+   * Read from the **Master's** own account and never from the group's the run
+   * lives in: one memory serves the installation, which is the whole point of it
+   * — a group reasons with what the rest of the installation knows. It is read
+   * afresh rather than cached, because the agent's own `memory.remember` step
+   * changes it while a pass is working.
+   */
+  private async memory(): Promise<FactDoc[]> {
+    const records = await listFacts(this.ctx, filesAccountId(this.ctx));
+    return records.map((record) => record.fact);
+  }
+
   /** Append a step and record how it ended, in one place for every step. */
   private withStep(run: RunDoc, what: string, outcome: string, done: boolean): RunDoc {
     const grown = appendStep(run, what);
@@ -607,6 +654,21 @@ export class AgentLoop {
 /** What woke a run, in the group's own words, from the event's own parts. */
 function wokeOf(event: AccountEvent): string {
   return `${event.source} ${event.change}: ${event.where}`;
+}
+
+/**
+ * What a run's own change and facts name, as the one text the memory is read
+ * against (ADR 0037): the change that woke it in the group's own words, and
+ * what the decision found that change to be about — "shipper: Maersk" is how
+ * the change names the shipper, and a fact about it is recalled by that name.
+ */
+function memoryWords(run: RunDoc, facts?: Record<string, string>): string {
+  return [
+    run.startedBy.woke ?? "",
+    ...Object.entries(facts ?? {}).map(([name, value]) => `${name}: ${value}`),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** The model's own index into its answer, moved into the run's plan. */

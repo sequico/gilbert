@@ -7,7 +7,10 @@
  * surface has a reading tool that reaches it, the guard asks the authority class
  * the tool **declares** and the act that authority is for, a read spends nothing
  * of the run's budget, and a question leaves the run waiting on a person with no
- * date. The catalogue's own shape is checked beside them — no two tools take one
+ * date. Beside them is the one write that leaves the group's account entirely —
+ * the memory tool, which records a fact into the installation's own store while
+ * refusing the one a person holds. The catalogue's own shape is checked
+ * beside them — no two tools take one
  * name, every one of them is described for the model, and the arguments a tool
  * cannot use are refused before the server is asked anything — and both halves
  * are then driven against the mock Stalwart, so an executor that throws fails
@@ -32,6 +35,7 @@ process.env.APP_SECRET = "test-secret-for-tools";
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const {
+  destroyAppNode,
   filesAccountId,
   readAppFileAt,
   readVisibleFileAt,
@@ -45,9 +49,13 @@ const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
   "../shared/knowledge.js"
 );
 const { AGENT_LABEL } = await import("../shared/labels.js");
+const { MEMORY_FACT_MAX, MEMORY_VERSION, parseFactDocumentDetailed } = await import(
+  "../shared/memory.js"
+);
 const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js");
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
+const { factPath, listFacts, MemoryError } = await import("./memory.js");
 const { defineTool, READING_TOOLS, readingTools, runTool, TOOLS } = await import(
   "./tools.js"
 );
@@ -712,4 +720,75 @@ test("the writing tools change the group's own account", async () => {
     question,
     "and the question is in the conversation",
   );
+});
+
+test("the memory tool records a fact where the installation keeps them", async () => {
+  // The one tool that writes outside the group's account (ADR 0037): the fact
+  // lands in the Master's own memory, and the whole store reads it back.
+  const recorded = await writeTool<{ id: string; subject: string }>("memory.remember", {
+    subject: "Bologna Express",
+    fact: "the shipper the office books containers with",
+    standing: true,
+  });
+  assert.equal(recorded.subject, "Bologna Express");
+  const sheet = await readAppFileAt(ctx, accountId, factPath(recorded.id));
+  assert.ok(sheet, "the fact is one sheet in the memory");
+  const parsed = parseFactDocumentDetailed(sheet.text);
+  assert.ok("fact" in parsed, "and it is the shape this build writes");
+  assert.deepEqual(
+    parsed.fact.origin,
+    { by: "run", run: "r1" },
+    "with the run that recorded it",
+  );
+  assert.equal(parsed.fact.standing, true, "and what the group keeps standing");
+  assert.ok(
+    (await listFacts(ctx, accountId)).some(({ fact }) => fact.id === recorded.id),
+    "the store answers the whole memory, so a selection can be made from it",
+  );
+
+  // A fact a person wrote is in force: the tool refuses it in a code, and the
+  // sheet is left exactly as it was.
+  await writeAppFileAt(ctx, accountId, factPath("person-2"), {
+    v: MEMORY_VERSION,
+    id: "person-2",
+    subject: "Maersk",
+    fact: "the account's own shipper",
+    origin: { by: "person", who: "admin@example.com" },
+    at: "2026-10-16T10:00:00.000Z",
+    links: [],
+    standing: false,
+  });
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "Maersk",
+        fact: "what the agent concluded instead",
+      }),
+    (err: unknown) => err instanceof MemoryError && err.code === "fact_in_force",
+    "a person's fact is not the agent's to overwrite",
+  );
+
+  // Arguments the tool cannot use are refused before the memory is touched.
+  await assert.rejects(
+    () => writeTool("memory.remember", { subject: "x", fact: "y", standing: "yes" }),
+    /"standing" must be true or false/,
+  );
+  await assert.rejects(
+    () => writeTool("memory.remember", { subject: "", fact: "y" }),
+    /"subject" must be text/,
+  );
+  await assert.rejects(
+    () =>
+      writeTool("memory.remember", {
+        subject: "x",
+        fact: "y".repeat(MEMORY_FACT_MAX + 1),
+      }),
+    /"fact" must be at most/,
+  );
+
+  for (const id of [recorded.id, "person-2"]) {
+    const found = await readAppFileAt(ctx, accountId, factPath(id));
+    const nodeId = found?.file.id;
+    if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
+  }
 });

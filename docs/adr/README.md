@@ -327,4 +327,10 @@ is, not what a user sees.
   ceiling — and what was recalled is written into the run's record (ADR 0034). The
   agent writes facts as it works, within the authority classes; an installation
   administrator reads and edits them, and **a person's fact is in force** — what
-  the agent concludes against one it proposes, never overwrites. **Not built.**
+  the agent concludes against one it proposes, never overwrites. **Built**, the
+  Administration surface excepted: the sheet and its selection are
+  `server/src/shared/memory.ts`, the store and the agent's write
+  `server/src/agent/memory.ts` in the Master's `memory/` folder, both turns carry
+  the selection fenced as data (`server/src/agent/model.ts`), the run records what
+  it recalled (`recalled`, `server/src/shared/run.ts`), and `memory.remember` is
+  the tool (`server/src/agent/tools.ts`).
