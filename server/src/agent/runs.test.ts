@@ -184,7 +184,7 @@ test("an unreadable run is reported, never guessed at", async () => {
   await assert.rejects(() => listRuns(ctx, accountId), /The run at runs\/junk\.json/);
 
   // A document of the right JSON that is not the shape this build writes.
-  await writeAppFileAt(ctx, accountId, "runs/other.json", { v: 1, id: "other" });
+  await writeAppFileAt(ctx, accountId, "runs/other.json", { v: 2, id: "other" });
   await assert.rejects(() => readRun(ctx, accountId, "other"), /"startedBy" must name/);
 
   // A run that is not there is absent, and that is not the same answer.
