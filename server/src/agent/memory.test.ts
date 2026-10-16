@@ -135,7 +135,13 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
   const first = await rememberFact(
     ctx,
     accountId,
-    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT, group: accountId },
+    {
+      subject: "Maersk",
+      fact: "the usual shipper",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
     await store(),
   );
   written.push(first.id);
@@ -194,7 +200,13 @@ test("two writes of one reading cannot make two sheets for one subject", async (
   const first = await rememberFact(
     ctx,
     accountId,
-    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT, group: accountId },
+    {
+      subject: "Maersk",
+      fact: "the usual shipper",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
     reading,
   );
   written.push(first.id);
@@ -237,6 +249,7 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
   });
   written.push("person-1");
 
+  const reading = await store();
   await assert.rejects(
     () =>
       rememberFact(
@@ -249,7 +262,7 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
           at: AT,
           group: accountId,
         },
-        await store(),
+        reading,
       ),
     (err: unknown) => err instanceof MemoryError && err.code === "fact_in_force",
     "the refusal is a code a caller composes a sentence from",
@@ -309,6 +322,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
     "the selection carries the fact the change names and its nearest link",
   );
 
+  const reading = await store();
   await assert.rejects(
     () =>
       rememberFact(
@@ -322,7 +336,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
           group: accountId,
           links: ["Nowhere"],
         },
-        await store(),
+        reading,
       ),
     (err: unknown) => err instanceof MemoryError && err.code === "link_unknown",
     "a link to a subject the memory holds nothing for is refused, never dropped",

@@ -89,7 +89,7 @@ import {
   workorderFileName,
 } from "../shared/workorder.js";
 import { clientOf } from "../util.js";
-import { rememberFact, type MemoryStore } from "./memory.js";
+import { type MemoryStore, rememberFact } from "./memory.js";
 import { readRun } from "./runs.js";
 
 /* ------------------------------------------------------------------ */

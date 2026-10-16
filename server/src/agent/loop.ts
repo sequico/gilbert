@@ -186,7 +186,7 @@ export class AgentLoop {
    * per remembered fact. The pass clears it as it begins, so every pass reads the
    * memory afresh and a fact written during one is visible to the next.
    */
-  private store: Promise<MemoryStore> | null = null;
+  private reading: Promise<MemoryStore> | null = null;
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -224,7 +224,7 @@ export class AgentLoop {
    * moment, so a grant added or withdrawn needs no restart.
    */
   async pass(now = new Date()): Promise<PassSummary> {
-    this.store = null;
+    this.reading = null;
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -641,8 +641,8 @@ export class AgentLoop {
    * to the next one, which is the price of that (`agent/memory.ts`).
    */
   private async memory(): Promise<MemoryStore> {
-    this.store ??= listFacts(this.ctx, filesAccountId(this.ctx));
-    return await this.store;
+    this.reading ??= listFacts(this.ctx, filesAccountId(this.ctx));
+    return await this.reading;
   }
 
   /** Append a step and record how it ended, in one place for every step. */
