@@ -72,7 +72,10 @@ after(() => {
 
 /** A run that has decided nothing: the authority every read needs is its own. */
 function plainRun(): RunDoc {
-  return startRun({ id: "r1", startedBy: { rule: "intake", instruction: null } });
+  return startRun({
+    id: "r1",
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+  });
 }
 
 /** Call a reading tool the way the loop will: through the write-free half. */
@@ -382,7 +385,7 @@ test("the reading tools answer from the group's account", async () => {
   // A run of this account, read as the document it is.
   const stored = startRun({
     id: "read-me",
-    startedBy: { rule: "intake", instruction: null },
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
   });
   await createRun(ctx, accountId, stored);
   const read = await tool<{ run: RunDoc }>("run.read", { id: "read-me" });

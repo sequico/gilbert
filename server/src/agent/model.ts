@@ -41,9 +41,9 @@
  * not hold, is refused — never guessed at, never bent into the nearest valid
  * step — and the caller records the refusal on the run.
  *
- * Nothing in the tree calls `decideEvent` or `chooseStep` yet: the loop that
- * carries a rule out — woken by an event, told the prose, choosing tools and
- * writing the run — is to be written with `gilbertagents` (ADR 0035).
+ * The loop that works a run is `agent/loop.ts`, and it asks both turns here; the
+ * loop that carries a person's instruction out — a sentence in the chat or the
+ * mail — is to be written with `gilbertagents` (ADR 0035).
  */
 
 import { randomUUID } from "node:crypto";
@@ -657,6 +657,18 @@ function clipped(text: string): string {
   return text.length > OUTCOME_IN_PROMPT_MAX
     ? `${text.slice(0, OUTCOME_IN_PROMPT_MAX)}…`
     : text;
+}
+
+/**
+ * A tool's answer or the arguments it was called with, as the bounded text a
+ * run's step keeps and the next call is shown.
+ *
+ * One function for both, because the run document is the agent's only durable
+ * state (ADR 0034) and the model is told the document: what the record holds and
+ * what the model remembers are the same string, however large the answer was.
+ */
+export function boundedText(value: unknown): string {
+  return clipped(textOf(value));
 }
 
 /**

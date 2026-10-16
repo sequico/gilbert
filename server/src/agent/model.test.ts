@@ -195,7 +195,7 @@ function toolCall(): { ctx: Ctx; accountId: string; run: ReturnType<typeof start
     accountId,
     run: startRun({
       id: "r-1",
-      startedBy: { rule: "shipper-answer", instruction: null },
+      startedBy: { rule: "shipper-answer", instruction: null, woke: "mail created: m-1" },
     }),
   };
 }
@@ -621,7 +621,14 @@ test("the change, the facts and what each step answered are fenced as data", asy
   answerWith({ tool: "files.list", arguments: {} });
   const plan = recordStep(
     appendStep(
-      startRun({ id: "w-1", startedBy: { rule: "shipper-answer", instruction: null } }),
+      startRun({
+        id: "w-1",
+        startedBy: {
+          rule: "shipper-answer",
+          instruction: null,
+          woke: "mail created: m-1",
+        },
+      }),
       'mail.find {"query":"from:maersk"}',
     ),
     0,
@@ -651,7 +658,17 @@ test("the change, the facts and what each step answered are fenced as data", asy
 
 test("an outcome is bounded for the prompt, and a malformed answer is refused", async () => {
   const plan = recordStep(
-    appendStep(startRun({ id: "w-2", startedBy: { rule: "r", instruction: null } }), "x"),
+    appendStep(
+      startRun({
+        id: "w-2",
+        startedBy: {
+          rule: "r",
+          instruction: null,
+          woke: "chat created: gilbert/chat/c-1.json",
+        },
+      }),
+      "x",
+    ),
     0,
     { state: "done", outcome: "y".repeat(OUTCOME_IN_PROMPT_MAX * 2) },
   ).plan;

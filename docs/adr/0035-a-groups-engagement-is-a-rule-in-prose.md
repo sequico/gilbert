@@ -9,9 +9,13 @@ in the group's own account (ADR 0005), read, created, listed and replaced under
 the account's own compare-and-set. The prose that reaches the model is the three
 levels of `server/src/agent/prose.ts`, in the builder's own order. A run records
 the rule or the instruction that started it (`server/src/shared/run.ts`,
-`RunStart`), and the tools a rule's instruction is carried out with are
-`server/src/agent/tools.ts`. What is not written is the loop that carries it out:
-nothing yet matches an event against the rules and starts a run from them.
+`RunStart`), the tools a rule's instruction is carried out with are
+`server/src/agent/tools.ts`, and the loop that carries it out is
+`server/src/agent/loop.ts`: each change is put to the decision turn, a rule that
+applies opens a run named by the change it answered, and the choosing turn works
+it. What the loop is not told yet is the installation's own line and the group's
+standing instruction: no reader for those two documents is built, so a call
+carries the rule's instruction alone.
 
 ## Context
 

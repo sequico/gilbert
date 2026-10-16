@@ -7,8 +7,8 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **The loop that works a run is not built.** `gilbertagents` — the Master's
-  agent — is designed by ADR 0031 (its tools), 0032 (what
+- **`gilbertagents` is built, and no process starts it.** The Master's agent is
+  designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
   group's engagement is a rule in prose) and 0036 (one installation claims its
@@ -16,10 +16,14 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
   tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
   rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),
-  the installation's one model and the first turn of decision
-  (`server/src/agent/model.ts`) and the claim that holds the installation's one
-  agent; nothing works a run yet, so nothing in a running installation serves a
-  group's work.
+  the installation's one model and its two turns of decision
+  (`server/src/agent/model.ts`), the claim that holds the installation's one agent
+  and **the loop that works a run** (`server/src/agent/loop.ts`): a pass claims
+  the installation, re-arms the waits it finds, reads each account's changes, and
+  works a run from the model's own choices with the budget, the guard and the
+  record. What is not built is the process that drives it — nothing signs in as
+  the Master and calls `AgentLoop.pass()`, on a timer or on a wake — so a running
+  installation still serves no group's work.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

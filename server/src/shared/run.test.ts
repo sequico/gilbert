@@ -31,7 +31,11 @@ import {
   waitUntil,
 } from "./run.js";
 
-const START = { rule: "intake", instruction: null } as const;
+const START = {
+  rule: "intake",
+  instruction: null,
+  woke: "mail created: m-1",
+} as const;
 const AT = "2026-10-16T10:00:00.000Z";
 const ASKED = { channel: "mail", id: "m-ask-1" } as const;
 const QUESTION = { what: "the shipper's answer", asked: ASKED, until: null } as const;
@@ -363,7 +367,11 @@ test("a run blocked on a person keeps the question it left, and where it asked",
 test("a stored run tolerates a field this build does not know, and keeps the rest", () => {
   const run = startRun({
     id: "r5",
-    startedBy: { rule: null, instruction: { channel: "chat", id: "node-7" } },
+    startedBy: {
+      rule: null,
+      instruction: { channel: "chat", id: "node-7" },
+      woke: null,
+    },
     plan: ["look"],
   });
   const stored = JSON.stringify({ ...run, budget: { steps: 12 }, retiredThing: true });
@@ -387,11 +395,30 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    ['{"v":3,"id":"r6"}', /this build reads version 2/],
-    ['{"v":2,"id":"","startedBy":{"rule":"a","instruction":null}}', /"id" must be/],
+    ['{"v":4,"id":"r6"}', /this build reads version 3/],
     [
-      '{"v":2,"id":"r6","startedBy":{"rule":"a","instruction":null}}',
+      '{"v":3,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      /"id" must be/,
+    ],
+    [
+      '{"v":3,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"plan" must be a list of steps/,
+    ],
+    [
+      JSON.stringify({
+        ...whole,
+        startedBy: { rule: "a", instruction: null },
+      }),
+      /"startedBy" must name/,
+    ],
+    [
+      JSON.stringify({
+        ...whole,
+        startedBy: { rule: "a", instruction: null, woke: null },
+      }),
+      /"startedBy" must name/,
+      // A rule is woken by a change, so a rule-started run that names no change
+      // is a document this build did not write.
     ],
     [JSON.stringify({ ...whole, touched: [{ kind: "nope" }] }), /"touched" must be/],
     [JSON.stringify({ ...whole, spent: { steps: 1, calls: 0 } }), /"spent" must be/],

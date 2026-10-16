@@ -28,9 +28,8 @@ const { filesAccountId, writeAppBytesAt, writeAppFileAt } = await import(
   "../appFolder.js"
 );
 const { isStateMismatch } = await import("../jmap.js");
-const { finishRun, spendRun, startRun, touchObject, waitUntil } = await import(
-  "../shared/run.js"
-);
+const { finishRun, RUN_VERSION, spendRun, startRun, touchObject, waitUntil } =
+  await import("../shared/run.js");
 const { createRun, dueRuns, listRuns, readRun, replaceRun, RunError } = await import(
   "./runs.js"
 );
@@ -70,7 +69,7 @@ test("a run read by a process that never wrote it carries its wait, its tally an
       waitUntil(
         startRun({
           id: "restart-1",
-          startedBy: { rule: "intake", instruction: null },
+          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
           plan: ["read the mail"],
         }),
         { what: "the shipper's answer", asked, until },
@@ -104,11 +103,17 @@ test("a run read by a process that never wrote it carries its wait, its tally an
 test("only the runs whose wait has come due are ready to be re-armed", async () => {
   const asked = { channel: "chat", id: "node-1" } as const;
   const past = waitUntil(
-    startRun({ id: "due-1", startedBy: { rule: "intake", instruction: null } }),
+    startRun({
+      id: "due-1",
+      startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    }),
     { what: "the answer", asked, until: new Date(Date.now() - 60_000).toISOString() },
   );
   const future = waitUntil(
-    startRun({ id: "due-2", startedBy: { rule: "intake", instruction: null } }),
+    startRun({
+      id: "due-2",
+      startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+    }),
     { what: "the answer", asked, until: new Date(Date.now() + 60_000).toISOString() },
   );
   await createRun(ctx, accountId, past);
@@ -130,7 +135,10 @@ test("only the runs whose wait has come due are ready to be re-armed", async () 
 });
 
 test("a run is created once and replaced under the state it was read at", async () => {
-  const run = startRun({ id: "cas-1", startedBy: { rule: "intake", instruction: null } });
+  const run = startRun({
+    id: "cas-1",
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+  });
   await createRun(ctx, accountId, run);
   await assert.rejects(
     () => createRun(ctx, accountId, run),
@@ -184,7 +192,10 @@ test("an unreadable run is reported, never guessed at", async () => {
   await assert.rejects(() => listRuns(ctx, accountId), /The run at runs\/junk\.json/);
 
   // A document of the right JSON that is not the shape this build writes.
-  await writeAppFileAt(ctx, accountId, "runs/other.json", { v: 2, id: "other" });
+  await writeAppFileAt(ctx, accountId, "runs/other.json", {
+    v: RUN_VERSION,
+    id: "other",
+  });
   await assert.rejects(() => readRun(ctx, accountId, "other"), /"startedBy" must name/);
 
   // A run that is not there is absent, and that is not the same answer.

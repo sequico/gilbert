@@ -69,7 +69,10 @@ test("a fresh process re-arms every wait by reading the runs", async () => {
     ctx,
     accountId,
     waitUntil(
-      startRun({ id: "boot", startedBy: { rule: "intake", instruction: null } }),
+      startRun({
+        id: "boot",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      }),
       {
         what: "the booking window",
         asked: { channel: "chat", id: "c-1" },
@@ -110,11 +113,17 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
     createRun(
       ctx,
       accountId,
-      waitUntil(startRun({ id, startedBy: { rule: "intake", instruction: null } }), {
-        what: "what it waits for",
-        asked: { channel: "chat", id: `c-${id}` },
-        until,
-      }),
+      waitUntil(
+        startRun({
+          id,
+          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        }),
+        {
+          what: "what it waits for",
+          asked: { channel: "chat", id: `c-${id}` },
+          until,
+        },
+      ),
     );
 
   await arm("soon", dueAt)();
@@ -132,7 +141,10 @@ test("a dated wait fires once at its date, and a wait with no date is never arme
     accountId,
     finishRun(
       waitUntil(
-        startRun({ id: "blocked", startedBy: { rule: "intake", instruction: null } }),
+        startRun({
+          id: "blocked",
+          startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+        }),
         {
           what: "the answer",
           asked: { channel: "mail", id: "m-1" },
@@ -175,7 +187,10 @@ test("a wait this process already fired is not handed over again at the same ins
     ctx,
     accountId,
     waitUntil(
-      startRun({ id: "once", startedBy: { rule: "intake", instruction: null } }),
+      startRun({
+        id: "once",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      }),
       {
         what: "the answer",
         asked: { channel: "chat", id: "c-once" },
@@ -245,7 +260,10 @@ test("a wait further out than one timer may run is armed in hops, and fires at i
     ctx,
     accountId,
     waitUntil(
-      startRun({ id: "hops", startedBy: { rule: "intake", instruction: null } }),
+      startRun({
+        id: "hops",
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      }),
       {
         what: "something months away",
         asked: { channel: "chat", id: "c-hops" },

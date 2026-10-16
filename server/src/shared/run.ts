@@ -4,7 +4,8 @@
  * A run is one document in the **group's own account**: `<id>.json` under
  * `runs/` in that account's `gilbert` app folder, addressed by
  * `server/src/agent/runs.ts`. It is the whole of the agent's durable state —
- * which rule or which instruction started it, the plan and how each step ended,
+ * which rule or which instruction started it and which change in the account
+ * woke it, the plan and how each step ended,
  * the objects it touched, what it waits for, where it asked a person and until
  * when, every authorisation with the sentence it arrived in, the authority that
  * was given and the act it is for, the evidence behind what it claims, the
@@ -32,7 +33,7 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how the change reaches a run an installation has already written.
  */
-export const RUN_VERSION = 2;
+export const RUN_VERSION = 3;
 
 /** A step's state: `open` until it ends, and the two ways it can end. */
 export type RunStepState = "open" | RunStepOutcome;
@@ -74,6 +75,15 @@ export interface RunStart {
   rule: string | null;
   /** The sentence the instruction arrived in; null when a rule started the run. */
   instruction: RunMessageRef | null;
+  /**
+   * The change in the group's account that woke the rule, in the group's own
+   * words; null when an instruction started the run.
+   *
+   * A rule fires on activity, and the run has to say which activity, or a
+   * process that takes the run over cannot tell what it is answering. The words
+   * are the loop's, composed from the event's own surface, change and address.
+   */
+  woke: string | null;
 }
 
 /** One step of the plan: what it is, and how it ended. */
@@ -145,12 +155,11 @@ export interface RunEvidence {
  * What the run has spent (ADR 0031): the tally of its budget, and only the
  * tally.
  *
- * The budget is steps, time and model calls. The **ceiling** is not here: it
- * belongs where the rule is written (ADR 0035) and where the installation
- * chooses its model, because a run measured against a ceiling it carried itself
- * is a run that could raise it. The tally is here because the run is the whole
- * of the agent's durable state and a tally that did not survive a restart would
- * start a run over on the budget it had already spent.
+ * The budget is steps, time and model calls. The **ceiling** is not here: it is
+ * the loop's own (`agent/loop.ts`), because a run measured against a ceiling it
+ * carried itself is a run that could raise it. The tally is here because the run
+ * is the whole of the agent's durable state and a tally that did not survive a
+ * restart would start a run over on the budget it had already spent.
  */
 export interface RunSpent {
   /** Plan steps that ended. */
@@ -182,7 +191,7 @@ export interface RunEnd {
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 2;
+  v: 3;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   startedBy: RunStart;
@@ -234,11 +243,18 @@ function isMessageRef(x: unknown): x is RunMessageRef {
 
 function isStart(x: unknown): x is RunStart {
   if (!isRecord(x)) return false;
-  const { rule, instruction } = x;
+  const { rule, instruction, woke } = x;
+  // A field this build writes is a field it requires: a document missing one is
+  // a document this build did not write.
+  if (!("woke" in x)) return false;
   if (rule !== null && (typeof rule !== "string" || !rule)) return false;
   if (instruction !== null && !isMessageRef(instruction)) return false;
+  if (woke !== null && (typeof woke !== "string" || !woke.trim())) return false;
   // One of the two, and never both: a run that was started twice is not a run.
-  return (rule === null) !== (instruction === null);
+  if ((rule === null) === (instruction === null)) return false;
+  // A rule is woken by a change in the group's account; an instruction **is**
+  // the change, so it names none beside it.
+  return (rule === null) === (woke === null);
 }
 
 function isStepState(x: unknown): x is RunStepState {
@@ -255,7 +271,14 @@ function isStep(x: unknown): x is RunStep {
   );
 }
 
-function isWait(x: unknown): x is RunWait {
+/**
+ * Whether a value is one of the run's waits (ADR 0033, 0034).
+ *
+ * The one reader of a wait's shape, so a caller that has just been handed
+ * something — the result of the tool that asked a person — asks whether it is a
+ * wait the same way this document's own parser does, and the two cannot drift.
+ */
+export function isRunWait(x: unknown): x is RunWait {
   return (
     isRecord(x) &&
     typeof x.what === "string" &&
@@ -359,7 +382,7 @@ export function parseRunDocumentDetailed(
     return { problem: '"plan" must be a list of steps.' };
   if (!Array.isArray(whole.touched) || !whole.touched.every(isWorkorderRef))
     return { problem: '"touched" must be a list of what the run touched.' };
-  if (whole.waiting !== null && !isWait(whole.waiting))
+  if (whole.waiting !== null && !isRunWait(whole.waiting))
     return {
       problem:
         '"waiting" must be null or what the run waits for, where it asked and until when.',
@@ -511,7 +534,7 @@ export function waitUntil(run: RunDoc, wait: RunWait): RunDoc {
   mustBeRunning(run);
   if (wait.until !== null)
     requireInstant("a wait needs the instant it comes due", wait.until);
-  if (!isWait(wait)) throw new Error(`the run "${run.id}" cannot wait on that.`);
+  if (!isRunWait(wait)) throw new Error(`the run "${run.id}" cannot wait on that.`);
   return {
     ...run,
     waiting: { what: wait.what, asked: wait.asked, until: wait.until },

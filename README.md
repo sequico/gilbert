@@ -27,16 +27,17 @@
 
 Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
 and files, a knowledge base and the procedures a job follows. Its agent is partly
-built, and its loop is not: it will read incoming mail and files, file documents
-into the right folder, read the document inside them, draft replies and report
-what it did in the group's chat — inside the group's own account, everything
-recorded, and anything that leaves the group waiting for a person to say so, in
-words.
+built: it reads incoming mail and files, files documents into the right folder,
+reads the document inside them, drafts replies and reports what it did in the
+group's chat — inside the group's own account, everything recorded, and anything
+that leaves the group waiting for a person to say so, in words. What is not
+started is the loop itself.
 
 > **The agent part (`gilbertagents`) is partly built.** Its decisions
 > are ADR 0031–0036; the tree carries a run's durable state, the catalogue of
-> tools, a group's rules in prose and the installation's one model with the first
-> turn of decision — and nothing works a run yet.
+> tools, a group's rules in prose, the installation's one model with its two
+> turns of decision, and the loop that works a run — and no process starts that
+> loop yet.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the

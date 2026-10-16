@@ -4,11 +4,13 @@ Status: Accepted
 
 Implementation: Partly built. The run document — its shape, its parser and the
 transitions over it — is `server/src/shared/run.ts`, and where a run lives, how
-it is read and how it is written whole is `server/src/agent/runs.ts`. Still to be
-written with the agent: the loop that works a run, and the re-arm of its waits
-on boot. The records a run writes next to a person's already exist — a workorder
-step's `state`/`by`/`at`/`note` (`server/src/shared/workorder.ts`) and a KB
-page's revisions (ADR 0024).
+it is read and how it is written whole is `server/src/agent/runs.ts`. The loop
+that works a run, and the re-arm of its waits on boot, are
+`server/src/agent/loop.ts`: a pass takes the installation's claim, arms every
+wait each account's runs carry, works the runs whose wait has come due, and opens
+and works a run for each change a rule covers. The records a run writes next to a
+person's already exist — a workorder step's `state`/`by`/`at`/`note`
+(`server/src/shared/workorder.ts`) and a KB page's revisions (ADR 0024).
 
 ## Context
 

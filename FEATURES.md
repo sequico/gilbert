@@ -66,8 +66,9 @@ bolted on. The **group** is the unit everything else is built around: a group
 mailbox is an account of its own, and what it owns — its chat, its label catalog,
 its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
-**Chat** is one conversation per group. **Agents** is designed and not built
-(ADR 0031–0035 below).
+**Chat** is one conversation per group. **Agents** is built and not started
+(ADR 0031–0036 below): the loop that works a run is there, and no process starts
+it yet.
 
 The one thing a member cannot do with group-owned mail is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
@@ -78,11 +79,12 @@ else a member does to move mail around still works.
 
 # Agents
 
-> **Designed, and only partly built.** Nothing runs a group's work on its own:
-> there is no loop that chooses a tool. What the tree carries is the durable
-> state of a run, the catalogue of tools a run's steps are taken with, a group's
-> rules in prose, and the installation's one model — the call, and the first turn
-> of decision. The agent's decisions are
+> **Built, and no process starts it.** The loop that works a run is
+> `server/src/agent/loop.ts`: a pass claims the installation, re-arms the waits
+> it finds, reads each account's changes, asks the decision turn which rule
+> applies, and works a run from the model's own step-by-step choices with the
+> budget, the authority guard and the record — and nothing signs in as the Master
+> and calls it yet, so no group's work runs on its own. The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -100,8 +102,9 @@ of the account, it records what it did and why, and it asks a person for anythin
 that leaves the account — or for anything the policy forbids.
 
 **A run is one document in the group's account** and the whole of the agent's
-durable state: which rule or instruction started it, the plan the model chose
-step by step, what it touched, what it waits for and the sentence it asked in,
+durable state: which rule or instruction started it and which change woke it, the
+plan the model chose step by step with the outcome of each one, what it touched,
+what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and the budget it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
@@ -131,12 +134,15 @@ stored one. `server/src/agent/model.ts` posts one OpenAI-compatible chat
 completion with the zero-retention opt-out on every request, refuses a provider
 whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
-(`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries the **decision turn**:
-given one change in a group's own account and the rules that watch it, it answers
+(`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns: the **decision
+turn** — given one change in a group's own account and the rules that watch it,
 which rule applies and what the facts are, looking the group's own state up first
-with the **reading tools** when it needs to. An answer is facts and nothing else
-— one that carries an authorisation, or names a tool that writes, is refused —
-and an installation that has chosen no model has no agent.
+with the **reading tools** when it needs to — and the **choosing turn**, which is
+handed the catalogue as the catalogue describes itself and the run so far, and
+answers with one tool and its arguments or that the work is finished. An answer
+is facts and nothing else — one that carries an authorisation, or names a tool
+that writes, is refused — and an installation that has chosen no model has no
+agent.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
@@ -150,8 +156,20 @@ their answer, with no date. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision
-turn looks the group's state up with; the write-free half is exercised against
-the mock Stalwart, and nothing works a run with them yet.
+turn looks the group's state up with; the loop runs a chosen tool through the
+guard, so a refusal is a failed step on the run rather than a silent skip, and the
+whole catalogue is exercised against the mock Stalwart.
+
+**The loop that works a run is `server/src/agent/loop.ts`** (ADR 0031–0036): one
+pass takes the installation's claim, works the runs whose wait has come due,
+reads each account's changes and puts each one to the decision turn. A change no
+rule watches costs no model call and no step; a rule that applies opens a run
+naming the change that woke it, and the choosing turn works it — one tool at a
+time, its result written on the run as a step, until the model says done, a step
+parks the run on a person's answer, or the run's **budget** (steps, model calls
+and time) is spent, which the record states. A model that chooses the same step
+twice is a stall the record shows rather than an endless turn. Nothing starts the
+loop yet.
 
 # Administration
 
