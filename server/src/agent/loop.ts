@@ -9,11 +9,14 @@
  * each account's changes, and for each change asks the **decision turn** which
  * rules apply. A change no rule watches costs no model call and no step; every
  * rule that applies opens or continues its own run (ADR 0035), and each run is
- * worked by the **choosing turn** — the model asks for a batch of one or more
- * calls, the loop makes them **together**, writes each as its own step with its
- * own outcome and its own spend on the run, spends the budget, and asks again,
- * until the model says done, a call parks the run on a person, or the budget
- * ends it.
+ * worked by the **choosing turn** — the model asks for a plan of one or more
+ * steps, each naming what it waits on, the loop runs the steps whose
+ * dependencies have ended **together**, reads each outcome and takes the branch
+ * that outcome names, writes each as its own step with its own outcome and its
+ * own spend on the run, spends the budget, and asks again, until the model says
+ * done, a step parks the run on a person, or the budget ends it. A step no
+ * branch of the plan reaches is left unrun, and the record says which step and
+ * which outcome left it — the loop invents no ordering of its own.
  *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
@@ -25,9 +28,9 @@
  * key this build does not know — is refused whole and recorded the same way.
  *
  * **The run document is the product** (ADR 0034): the model is shown exactly what
- * the document holds — the change that woke the run, the plan, and what each step
- * answered — so a run picked up by the next holder continues from the record and
- * never from a process's memory.
+ * the document holds — the change that woke the run, the plan with what each step
+ * waited on, and what each step answered — so a run picked up by the next holder
+ * continues from the record and never from a process's memory.
  *
  * There is no timer of its own here: a pass is the caller's to ask for, and the
  * waits' alarms are armed per account (`timers.ts`) so a process that starts
@@ -44,6 +47,8 @@ import {
   finishRun,
   isRunWait,
   type RunDoc,
+  type RunStep,
+  type RunStepNeeds,
   type RunWait,
   recordStep,
   spendRun,
@@ -367,8 +372,8 @@ export class AgentLoop {
   }
 
   /**
-   * Work one run: choose a batch, run its calls together, write them whole,
-   * spend, choose again.
+   * Work one run: choose a plan, work its steps out, write them whole, spend,
+   * choose again.
    *
    * Every stop leaves the record saying which one it was — the model's `done`,
    * the budget spent, a stall, or a call that parked the run on a person. Every
@@ -440,9 +445,16 @@ export class AgentLoop {
       }
 
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
-      const chosen = batch.join(" | ");
+      // What the model asked for, dependencies and all: the same answer twice is
+      // the stall below, whether or not its steps are ordered.
+      const chosen = choice.calls
+        .map(
+          (call, at) =>
+            `${batch[at]}${call.needs ? ` after ${call.needs.step} when ${call.needs.when}` : ""}`,
+        )
+        .join(" | ");
       if (chosen === previous) {
-        // The same batch twice cannot make progress, and running it again is the
+        // The same answer twice cannot make progress, and running it again is the
         // endless turn this stops: the record says the model chose it twice.
         current = this.withStep(
           current,
@@ -462,52 +474,81 @@ export class AgentLoop {
       previous = chosen;
 
       /*
-       * The batch runs together: the calls of one answer do not depend on one
-       * another — a call that needs another's result is the model's next answer
-       * — so they are made at once and each is awaited by its own step.
-       * `allSettled` never rejects, so one call's refusal is its own failed step
-       * and its siblings' steps are on the record beside it.
+       * The answer becomes the plan's newest steps, each with what it waits on —
+       * the model's own index into this answer, moved into the run's plan — and
+       * then the answer is worked out: the steps whose dependencies have ended
+       * run **together**, each outcome is read, and the steps that waited on it
+       * follow. The plan the model wrote decides the order; the loop invents
+       * none, and a step no branch of the plan reaches is left unrun on the
+       * record rather than guessed at (ADR 0034).
        */
-      const ranMs = Date.now();
-      const settled = await Promise.allSettled(
-        choice.calls.map((call) =>
-          runTool(
-            this.catalogue,
-            { ctx: this.ctx, accountId, run: current },
-            call.name,
-            call.args,
-          ),
-        ),
-      );
-      const elapsedMs = Date.now() - ranMs;
+      const base = current.plan.length;
+      for (const call of choice.calls)
+        current = appendStep(
+          current,
+          `${call.name} ${boundedText(call.args)}`,
+          shiftNeeds(call.needs, base),
+        );
       let wait: RunWait | null = null;
-      for (let at = 0; at < choice.calls.length; at++) {
-        const call = choice.calls[at];
-        const what = batch[at];
-        if (!call || what === undefined) continue;
-        const result = settled[at];
-        if (result?.status === "fulfilled") {
-          current = this.withStep(current, what, boundedText(result.value), true);
-          // Each call spends what its tool declares; the batch's own wall time
-          // is spent once below, because the calls ran together.
-          const tool = this.catalogue.find((one) => one.name === call.name);
-          current = spendRun(current, { ...(tool?.spend ?? {}) });
-          wait = waitOf(result.value) ?? wait;
-        } else
-          current = this.withStep(
-            current,
-            what,
-            `refused: ${errorMessage(result?.reason)}`,
-            false,
-          );
+      for (;;) {
+        const { ready, left } = readiness(current.plan, base);
+        if (!ready.length && !left.length) break;
+        for (const step of left)
+          current = recordStep(current, step.at, {
+            state: "skipped",
+            outcome: step.why,
+          });
+        if (!ready.length) continue;
+        const wave = ready.flatMap((at) => {
+          const call = choice.calls[at - base];
+          return call ? [{ at, call }] : [];
+        });
+        /*
+         * A wave runs together: the steps that are ready at one moment wait on
+         * nothing that is still to end, so they are made at once and each is
+         * awaited by its own step. `allSettled` never rejects, so one call's
+         * refusal is its own failed step and its siblings' steps are on the
+         * record beside it.
+         */
+        const ranMs = Date.now();
+        const settled = await Promise.allSettled(
+          wave.map(({ call }) =>
+            runTool(
+              this.catalogue,
+              { ctx: this.ctx, accountId, run: current },
+              call.name,
+              call.args,
+            ),
+          ),
+        );
+        const elapsedMs = Date.now() - ranMs;
+        for (const [which, { at, call }] of wave.entries()) {
+          const result = settled[which];
+          if (result?.status === "fulfilled") {
+            current = recordStep(current, at, {
+              state: "done",
+              outcome: boundedText(result.value),
+            });
+            // Each call spends what its tool declares; the wave's own wall time
+            // is spent once below, because the calls ran together.
+            const tool = this.catalogue.find((one) => one.name === call.name);
+            current = spendRun(current, { ...(tool?.spend ?? {}) });
+            wait = waitOf(result.value) ?? wait;
+          } else
+            current = recordStep(current, at, {
+              state: "failed",
+              outcome: `refused: ${errorMessage(result?.reason)}`,
+            });
+        }
+        current = spendRun(current, { ms: elapsedMs });
       }
-      current = spendRun(current, { ms: elapsedMs });
 
       /*
-       * A wait is honoured after the batch, not instead of it: every call of the
-       * answer has run and is on the record, and the run then waits. A wait with
-       * a date is the clock's, and the alarm picks it up; a wait with none is a
-       * person's, and the run ends parked on the answer it left (ADR 0033, 0034).
+       * A wait is honoured after the whole answer, not instead of it: every step
+       * the plan reached has run and is on the record, and the run then waits. A
+       * wait with a date is the clock's, and the alarm picks it up; a wait with
+       * none is a person's, and the run ends parked on the answer it left
+       * (ADR 0033, 0034).
        */
       if (wait) {
         current = waitUntil(current, wait);
@@ -517,7 +558,7 @@ export class AgentLoop {
             why: `waiting on a person: ${wait.what}`,
           });
       }
-      // The document is written whole, once, after the batch.
+      // The document is written whole, once, after the answer.
       await this.store(accountId, current);
       if (wait) return;
     }
@@ -566,6 +607,57 @@ export class AgentLoop {
 /** What woke a run, in the group's own words, from the event's own parts. */
 function wokeOf(event: AccountEvent): string {
   return `${event.source} ${event.change}: ${event.where}`;
+}
+
+/** The model's own index into its answer, moved into the run's plan. */
+function shiftNeeds(needs: RunStepNeeds | null, base: number): RunStepNeeds | null {
+  return needs ? { step: needs.step + base, when: needs.when } : null;
+}
+
+/** The steps of one answer that can be taken now, and those no branch reaches. */
+interface StepReadiness {
+  /** The plan indices of the steps whose dependencies have ended as they need. */
+  ready: number[];
+  /** The steps no branch of the plan reaches, each with why it is left unrun. */
+  left: Array<{ at: number; why: string }>;
+}
+
+/**
+ * Which of one answer's steps can run now, and which were left unrun (ADR 0034).
+ *
+ * A step that waits on nothing is ready as soon as the run reaches it. One that
+ * waits on a step ending a given way is ready once that step has ended that way,
+ * and left unrun once it has ended the other way — or was itself left unrun —
+ * because the branch this step is for did not happen. A step whose dependency
+ * has not ended yet is neither: it belongs to a later moment of the same answer.
+ * Only the steps this answer appended are looked at, and a dependency of one is
+ * always among them, because a step waits on a step named before it.
+ */
+function readiness(plan: readonly RunStep[], base: number): StepReadiness {
+  const ready: number[] = [];
+  const left: Array<{ at: number; why: string }> = [];
+  for (let at = base; at < plan.length; at++) {
+    const step = plan[at];
+    if (step?.state !== "open") continue;
+    if (!step.needs) {
+      ready.push(at);
+      continue;
+    }
+    const waited = plan[step.needs.step];
+    if (!waited || waited.state === "open") continue;
+    if (waited.state === step.needs.when) {
+      ready.push(at);
+      continue;
+    }
+    left.push({
+      at,
+      why:
+        waited.state === "skipped"
+          ? `left unrun: it waits on step ${step.needs.step + 1}, which was itself left unrun`
+          : `left unrun: it waits on step ${step.needs.step + 1} ending ${step.needs.when}, and that step ended ${waited.state}`,
+    });
+  }
+  return { ready, left };
 }
 
 /**

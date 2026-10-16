@@ -111,7 +111,8 @@ that leaves the account — or for anything the policy forbids.
 
 **A run is one document in the group's account** and the whole of the agent's
 durable state: which rule or instruction started it and which change woke it, the
-plan the model chose step by step with the outcome of each one, what it touched,
+plan the model chose — each step, what it waits on and the outcome of each one,
+so the record alone says why a step ran and why one did not — what it touched,
 what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and the budget it has spent — the shape, its parser
@@ -149,10 +150,9 @@ turn** — given one change in a group's own account and the rules that watch it
 which rules apply and what the facts are, looking the group's own state up first
 with the **reading tools** when it needs to — and the **choosing turn**, which is
 handed the catalogue as the catalogue describes itself and the run so far, and
-answers with a **batch**: one or more calls, each a tool and its arguments, or
-that the work is finished. The calls of one answer are made together, so what a
-run needs in several parts is one turn; each is its own step with its own outcome
-and its own spend. The decision turn's answer is facts and nothing else — one that
+answers with a **plan**: one or more steps, each a tool, its arguments and what it
+waits on, or that the work is finished — so what a run needs in several parts,
+and what follows from each outcome, is one turn. The decision turn's answer is facts and nothing else — one that
 carries an authorisation, or names a tool that writes, is refused — and an
 installation that has chosen no model has no agent.
 
@@ -178,11 +178,15 @@ reads each account's changes and puts each one to the decision turn. A change no
 rule watches costs no model call and no step; every rule that fits the change
 opens or continues **its own** run naming the change that woke it — two rules a
 group wrote over one activity are two runs, and the same rule over the same
-change is one — and the choosing turn works each — **a batch of one
-or more calls made together**, each its own step with its own outcome and its own
-spend, until the model says done, a call parks the run on a person's answer, or
-the run's **budget** (steps, model calls and time) is spent, which the record
-states. A model that chooses the same batch twice is a stall the record shows
+change is one — and the choosing turn works each — **a plan of one or more
+steps, the ones whose dependencies have ended made together**, each its own step
+with its own outcome and its own spend, until the model says done, a step parks
+the run on a person's answer, or the run's **budget** (steps, model calls and
+time) is spent, which the record states. A step that waits on an earlier one runs
+only when that step ends the way it needs, and a step no branch reaches is left
+unrun with the record naming which step and which outcome left it — the model
+writes the order and the conditions from the group's knowledge, its checklists and
+its workorders, and the loop invents none. A model that chooses the same plan twice is a stall the record shows
 rather than an endless turn. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass every ten seconds, and
 the accounts each pass works — the Master's groups — are read from the mail

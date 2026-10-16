@@ -31,18 +31,20 @@
  * facts and nothing else. It never grants an authority and never chooses a tool
  * that writes; anything but the demanded shape is refused, never guessed at.
  *
- * **The choosing turn** (`chooseStep`) works a run (ADR 0031): it is handed the
- * catalogue as the catalogue describes itself — one definition, never a second
- * prose copy — and the run so far, and answers with a **batch**: a list of one
- * or more calls, each a tool and its arguments, or that the run is done. The
- * calls of one answer are made together, so what a run needs in several parts is
- * one turn rather than one call per turn. It is handed the whole catalogue
- * rather than the write-free half, because it may always propose an act; whether
- * the act runs is the authority guard's answer (`runTool`, ADR 0032) and never
- * the model's. An answer of any other shape — a tool the catalogue does not
- * hold, an entry that is not a call, arguments a tool cannot use, any key this
- * build does not know — refuses the whole answer, never guessed at, and the
- * caller records the refusal on the run.
+ * **The choosing turn** (`chooseStep`) works a run (ADR 0031, 0034): it is
+ * handed the catalogue as the catalogue describes itself — one definition, never
+ * a second prose copy — and the run so far, and answers with a **plan**: a list
+ * of one or more steps, each a tool, its arguments and what it waits on, or that
+ * the run is done. The steps whose dependencies have ended are made together, so
+ * what a run needs in several parts is one turn rather than one call per turn,
+ * and a step that must follow another's outcome says so. It is handed the whole
+ * catalogue rather than the write-free half, because it may always propose an
+ * act; whether the act runs is the authority guard's answer (`runTool`, ADR
+ * 0032) and never the model's. An answer of any other shape — a tool the
+ * catalogue does not hold, an entry that is not a step, arguments a tool cannot
+ * use, a step waiting on a name the answer does not carry, any key this build
+ * does not know — refuses the whole answer, never guessed at, and the caller
+ * records the refusal on the run.
  *
  * The loop that works a run is `agent/loop.ts`, and it asks both turns here; the
  * loop that carries a person's instruction out — a sentence in the chat or the
@@ -54,7 +56,7 @@ import { hostAddresses, isPrivateAddress } from "../imageproxy.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import type { InstallationDocument, InstallationModel } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
-import type { RunStep } from "../shared/run.js";
+import type { RunStep, RunStepNeeds } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
@@ -691,31 +693,38 @@ export function boundedText(value: unknown): string {
 }
 
 /**
- * One call of a batch: a tool of the catalogue and the arguments it is given
- * (ADR 0031). A step of a run is one of these, and a batch is a list of them: a
- * tool may be called once or several times in one answer.
+ * One step of a plan: a tool of the catalogue, the arguments it is given, and
+ * what it waits on (ADR 0031, 0034).
+ *
+ * A plan is a list of these. `needs` is null when the step is ready as soon as
+ * the run reaches it; otherwise it names a step of the **same answer**, by its
+ * index there, and the outcome that step must end with. The loop shifts that
+ * index into the run's own plan when it appends the step.
  */
 export interface StepCall {
   name: string;
   args: unknown;
+  needs: RunStepNeeds | null;
 }
 
 /**
- * What one choosing call answered (ADR 0031).
+ * What one choosing call answered (ADR 0031, 0034).
  *
- * A **batch** is one or more calls: the model decides what the change needs —
- * one thing, several, one tool twice — and the loop makes them together.
- * **Done** is the run's work being finished, said in the model's own words,
- * which are what the run's ending is written with. There is nothing else an
- * answer can be, and asking a person is not a third shape: it is `chat.ask`, one
- * of the calls, which leaves the run waiting on the answer.
+ * A **plan** is one or more steps: the model decides what the change needs —
+ * one thing, several, one tool twice — and says which steps wait on which, and
+ * the loop works them out: the steps whose dependencies have ended run together,
+ * each outcome is read, and the steps that waited on it follow. **Done** is the
+ * run's work being finished, said in the model's own words, which are what the
+ * run's ending is written with. There is nothing else an answer can be, and
+ * asking a person is not a third shape: it is `chat.ask`, one of the steps,
+ * which leaves the run waiting on the answer.
  *
- * What a call carries is a tool and its arguments and nothing beside them: it
- * grants no authority and names no capability, because what may be done is the
- * authority classes (ADR 0032) and never the model's.
+ * What a step carries is a tool, its arguments and what it waits on, and nothing
+ * beside them: it grants no authority and names no capability, because what may
+ * be done is the authority classes (ADR 0032) and never the model's.
  */
 export type StepChoice =
-  | { kind: "batch"; calls: StepCall[] }
+  | { kind: "plan"; calls: StepCall[] }
   | { kind: "done"; why: string };
 
 /**
@@ -739,15 +748,67 @@ export interface StepQuestion {
 }
 
 /**
+ * Read what one call waits on, or say what is wrong with it.
+ *
+ * The step it waits on is named by the `id` an earlier call of the **same
+ * answer** carries, and the parser resolves that name to the call's index there
+ * — the loop shifts it into the run's plan. A name the answer has not defined
+ * yet, including the call's own, waits on nothing that can end, and refusing it
+ * is what makes a cycle unwritable rather than merely unlikely (ADR 0034). The
+ * outcome it waits for is one of the two a step can end with, so a branch no
+ * outcome can reach is refused with the whole answer rather than kept as a step
+ * that can never run.
+ */
+function stepNeeds(
+  raw: unknown,
+  named: ReadonlyMap<string, number>,
+): { needs: RunStepNeeds | null } | { problem: string } {
+  if (raw === undefined || raw === null) return { needs: null };
+  if (!isRecord(raw))
+    return {
+      problem:
+        'A call\'s "needs" must be an object naming the "step" id it waits on and the "when" it needs.',
+    };
+  const extra = Object.keys(raw).filter((key) => key !== "step" && key !== "when");
+  if (extra.length)
+    return {
+      problem: `A call's "needs" carries a "step" and its "when" and nothing else, and one carries ${extra.join(", ")}.`,
+    };
+  if (typeof raw.step !== "string" || !raw.step.trim())
+    return {
+      problem:
+        'A call\'s "needs.step" must name the "id" of a step the answer already carries.',
+    };
+  const at = named.get(raw.step.trim());
+  if (at === undefined)
+    return {
+      problem:
+        `A step waits on "${raw.step.trim()}", which no earlier step of the answer carries: ` +
+        "a step waits only on one named before it, so the plan cannot cycle.",
+    };
+  const when: unknown = raw.when;
+  if (when !== "done" && when !== "failed")
+    return {
+      problem:
+        `A step waits on "${raw.step.trim()}" ending ${JSON.stringify(when)}; a step ends ` +
+        '"done" or "failed", so no outcome can reach that branch.',
+    };
+  return { needs: { step: at, when } };
+}
+
+/**
  * Read one choosing answer, or say what is wrong with it.
  *
- * Strict: an object, exactly one of the two shapes, and nothing else. A batch is
- * a **non-empty** list of calls, each an object naming a tool and its arguments
- * and nothing beside them; a key this build does not know, an entry that is not
- * a call, or a list with nothing in it refuses the **whole answer**. Whether the
- * named tool is in the catalogue, and whether its arguments are usable, is the
- * catalogue's own question too — asked by `chooseStep` before anything runs, so
- * it too refuses the whole answer rather than making a call the model cannot use.
+ * Strict: an object, exactly one of the two shapes, and nothing else. A plan is
+ * a **non-empty** list of steps, each an object naming a tool and its arguments,
+ * optionally an `id` a later step may wait on, and optionally what it `needs` —
+ * the id of an earlier step of the same answer and the outcome it must end with;
+ * a key this build does not know, an entry that is not a step, a step waiting on
+ * a name the answer has not defined, or a list with nothing in it refuses the
+ * **whole answer**. Whether the named tool is in the catalogue, and whether its
+ * arguments are usable, is the catalogue's own question too — asked by
+ * `chooseStep` before anything runs, so it too refuses the whole answer rather
+ * than making a call the model cannot use.
  */
 export function parseStepAnswerDetailed(
   raw: unknown,
@@ -775,23 +836,25 @@ export function parseStepAnswerDetailed(
   if (unknown.length)
     return {
       problem:
-        `A batch carries a "calls" list and nothing else, and it carries ${unknown.join(", ")}: ` +
+        `A plan carries a "calls" list and nothing else, and it carries ${unknown.join(", ")}: ` +
         "what may be done is never the model's to say.",
     };
   const list = raw.calls;
   if (!Array.isArray(list) || !list.length)
     return { problem: '"calls" must be a list of at least one call.' };
   const calls: StepCall[] = [];
+  /** The id each step so far carries, so a later one can wait on it by name. */
+  const named = new Map<string, number>();
   for (const entry of list) {
     if (!isRecord(entry))
       return { problem: 'Every call in "calls" must be a JSON object.' };
     const extra = Object.keys(entry).filter(
-      (key) => key !== "name" && key !== "arguments",
+      (key) => key !== "id" && key !== "name" && key !== "arguments" && key !== "needs",
     );
     if (extra.length)
       return {
         problem:
-          `A call carries a "name" and its "arguments" and nothing else, and one carries ${extra.join(", ")}: ` +
+          `A call carries an "id" when another waits on it, a "name", its "arguments" and what it "needs", and nothing else, and one carries ${extra.join(", ")}: ` +
           "what may be done is never the model's to say.",
       };
     if (typeof entry.name !== "string" || !entry.name.trim())
@@ -801,13 +864,28 @@ export function parseStepAnswerDetailed(
       return {
         problem: `The arguments of the call to "${entry.name.trim()}" must be an object.`,
       };
-    calls.push({ name: entry.name.trim(), args: args ?? {} });
+    const id = entry.id;
+    if (id !== undefined) {
+      if (typeof id !== "string" || !id.trim())
+        return {
+          problem:
+            'A call\'s "id" is the name a later step waits on, and it must be text.',
+        };
+      if (named.has(id.trim()))
+        return {
+          problem: `Two steps of one answer carry the id "${id.trim()}": an id names one step.`,
+        };
+    }
+    const read = stepNeeds(entry.needs, named);
+    if ("problem" in read) return { problem: read.problem };
+    calls.push({ name: entry.name.trim(), args: args ?? {}, needs: read.needs });
+    if (id !== undefined) named.set((id as string).trim(), calls.length - 1);
   }
-  return { choice: { kind: "batch", calls } };
+  return { choice: { kind: "plan", calls } };
 }
 
 /**
- * One choosing turn: given the run so far, the batch of calls to make or the
+ * One choosing turn: given the run so far, the plan of steps to make or the
  * end of the work.
  *
  * The catalogue is handed to the model **as it describes itself** — the same
@@ -817,11 +895,12 @@ export function parseStepAnswerDetailed(
  * whether the act runs is the guard's answer, while the decision turn's reads
  * stay in the write-free half.
  *
- * The answer is validated before it is returned: a malformed one is refused
- * rather than guessed at, and every call of a batch is checked against the
- * catalogue — a name it does not hold, or arguments its tool cannot use, refuses
- * the **whole answer** rather than the call alone, so a batch is never half
- * made and never bent into the nearest call that would work.
+ * The answer is validated before it is returned: a malformed one — including one
+ * whose steps wait on a name the answer does not carry, or on an outcome no step
+ * can end with — is refused rather than guessed at, and every step is checked
+ * against the catalogue: a name it does not hold, or arguments its tool cannot
+ * use, refuses the **whole answer** rather than the step alone, so a plan is
+ * never half made and never bent into the nearest call that would work.
  */
 export async function chooseStep(
   catalogue: readonly AnyTool[],
@@ -834,7 +913,9 @@ export async function chooseStep(
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
     'Answer with one JSON object and nothing else: {"calls": [{"name": "<one of the tools below>", "arguments": {...}}, ...]} to take one or more steps, or {"done": "<what is finished>"} when the work of this run is finished.',
-    "Decide what this change needs and ask for it in one answer: one tool, several tools, or the same tool twice. The calls of one answer are made together, and each is shown to you before you are asked again; a call that needs what another answered belongs in the answer after it.",
+    "Decide what this change needs and ask for it in one answer, as a small plan: name a tool and its arguments for each step — one tool, several, or the same tool twice. The steps whose dependencies have ended are carried out together, and each is shown to you before you are asked again.",
+    'A step that has to follow another gives itself an "id" and waits on it: {"id": "file", "name": "mail.file", "arguments": {...}}, then {"name": "chat.say", "arguments": {...}, "needs": {"step": "file", "when": "done"}} — or "when": "failed". It runs only once the step it names has ended that way, so a plan whose second act differs by how the first ended names a step for each outcome.',
+    "A step waits only on a step named before it in the same answer. A step that waits on an outcome that did not come — or on a step that was itself left unrun — is left unrun, and the run's record says which step and which outcome left it.",
     "The tools below say what each one is for and what arguments it takes.",
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools you may take a step with:",
@@ -851,11 +932,11 @@ export async function chooseStep(
   });
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
-  if (parsed.choice.kind === "batch") {
+  if (parsed.choice.kind === "plan") {
     /*
      * Every call is put to the catalogue's own door before any of them runs: a
      * name the catalogue does not hold, or arguments its tool cannot use, is the
-     * whole answer's refusal (ADR 0031), never a batch with the bad call quietly
+     * whole answer's refusal (ADR 0031), never a plan with the bad step quietly
      * left out. The arguments are validated again where the call runs (`runTool`
      * does it too), and one definition of that lives in `tools.ts`.
      */
@@ -888,6 +969,11 @@ function stepData(question: StepQuestion): string {
     dataBlock(token, [
       `step ${index + 1}: ${step.what}`,
       `state: ${step.state}`,
+      // What it waited on, so the model sees the plan's own shape and can name a
+      // step that did not run and why.
+      ...(step.needs
+        ? [`waits on: step ${step.needs.step + 1} ending "${step.needs.when}"`]
+        : []),
       `outcome: ${clipped(step.outcome) || "(nothing yet)"}`,
     ]),
   );

@@ -20,9 +20,14 @@
  *   refusal is a failed step on the run — the act itself does not run;
  * - the model choosing the same step twice is a stall the record shows, not an
  *   endless turn;
- * - a turn's batch is executed together — three calls are three steps, a refused
- *   call leaves its siblings' steps beside it, the calls run at once, and a wait
- *   is honoured after them;
+ * - a turn's plan is executed together — three independent calls are three steps,
+ *   a refused call leaves its siblings' steps beside it, the ready calls run at
+ *   once, and a wait is honoured after them;
+ * - a step that waits on an earlier one runs the branch that step's outcome
+ *   names and is left unrun when no branch does, and the record says which step
+ *   and which outcome left it;
+ * - an answer whose plan cannot be read is refused whole, recorded, and asked
+ *   again;
  * - a step that asks a person parks the run on the answer it left;
  * - a run whose wait has come due is picked up again, which is what a restart
  *   loses nothing to.
@@ -652,7 +657,7 @@ test("a run whose wait has come due is picked up again, from its document", asyn
   );
 });
 
-test("a batch of calls is executed, and each is its own step", async () => {
+test("the independent calls of one answer are executed, each its own step", async () => {
   const id = "intake-batch";
   await putRule(id);
   const agent = loop();
@@ -684,7 +689,7 @@ test("a batch of calls is executed, and each is its own step", async () => {
   );
 });
 
-test("the calls of one batch run together, not one after another", async () => {
+test("the steps of one answer that are ready run together, not one after another", async () => {
   const id = "intake-parallel";
   await putRule(id);
   // A tool that is in flight for a moment: two of them overlap only if the loop
@@ -726,7 +731,7 @@ test("the calls of one batch run together, not one after another", async () => {
   );
 });
 
-test("a refused call in a batch leaves its siblings' steps on the record", async () => {
+test("a refused call in a wave leaves its siblings' steps on the record", async () => {
   const id = "intake-partial";
   await putRule(id);
   const ran: string[] = [];
@@ -771,7 +776,7 @@ test("a refused call in a batch leaves its siblings' steps on the record", async
   assert.match(run.plan[1]?.what ?? "", /^chat\.say /);
 });
 
-test("a wait in a batch is honoured after it, with the other calls on the record", async () => {
+test("a wait in an answer is honoured after it, with the other calls on the record", async () => {
   const id = "intake-batch-wait";
   await putRule(id);
   const agent = loop();
@@ -795,9 +800,213 @@ test("a wait in a batch is honoured after it, with the other calls on the record
   assert.equal(
     run.state,
     "blocked",
-    "the run parks on the person's answer after the batch",
+    "the run parks on the person's answer after the answer is worked out",
   );
   assert.equal(run.waiting?.what, "which folder should this go in?");
   assert.equal(run.waiting?.until, null, "with no date: a person answers when they do");
   assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
+});
+
+test("a step that waits on an earlier one runs the branch that step's outcome names", async () => {
+  /*
+   * The model writes the order and the conditions (ADR 0034): the later steps of
+   * the plan both wait on the first, one for each outcome it can have, so the
+   * same plan takes whichever branch the outcome names — and the branch that did
+   * not come is left unrun on the record, with which step and which outcome left
+   * it. Two runs, because the two outcomes are two facts.
+   */
+  const id = "intake-branches";
+  await putRule(id);
+  const ran: string[] = [];
+  const remove = defineTool({
+    name: "mail.remove",
+    description: "Destroy a message; a person must authorise it.",
+    authority: "destructive",
+    writes: true,
+    spend: { steps: 1 },
+    act: (args: { id: string }) => ({ target: args.id, content: null }),
+    parse: (raw: unknown) => raw as { id: string },
+    run: async (_call, args: { id: string }) => {
+      ran.push(args.id);
+      return { id: args.id };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
+  await agent.start();
+
+  // Run one: the first step lands, so the branch for "done" runs.
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [
+      { id: "first", name: "chat.say", arguments: { text: "the first act" } },
+      {
+        name: "chat.say",
+        arguments: { text: "it worked" },
+        needs: { step: "first", when: "done" },
+      },
+      {
+        name: "chat.say",
+        arguments: { text: "it did not work" },
+        needs: { step: "first", when: "failed" },
+      },
+    ],
+  });
+  answerWith({ done: "the branch that came was taken" });
+  const landed = await deliver("a change whose first step lands");
+  await agent.pass();
+
+  // Run two: the first step is refused, so the branch for "failed" is the one.
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [
+      { id: "first", name: "mail.remove", arguments: { id: "m-1" } },
+      {
+        name: "chat.say",
+        arguments: { text: "it worked" },
+        needs: { step: "first", when: "done" },
+      },
+      {
+        name: "chat.say",
+        arguments: { text: "it did not work" },
+        needs: { step: "first", when: "failed" },
+      },
+    ],
+  });
+  answerWith({ done: "the other branch was taken" });
+  const refused = await deliver("a change whose first step is refused");
+  await agent.pass();
+
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  const woke = (message: string): string => `mail created: ${message}`;
+  const of = (message: string) => {
+    const found = runs.find((record) => record.run.startedBy.woke === woke(message));
+    assert.ok(found, `a run for ${message} should be in the account`);
+    return found.run;
+  };
+
+  const tookDone = of(landed);
+  assert.deepEqual(
+    tookDone.plan.map((step) => step.state),
+    ["done", "done", "skipped"],
+    "the first step landed, so that branch ran and the other was left unrun",
+  );
+  assert.deepEqual(
+    tookDone.plan[2]?.needs,
+    { step: 0, when: "failed" },
+    "and the record says what the step that did not run waited for",
+  );
+  assert.match(
+    tookDone.plan[2]?.outcome ?? "",
+    /left unrun: it waits on step 1 ending failed, and that step ended done/,
+    "naming the step and the outcome that left it, so a reader can say why it did not run",
+  );
+
+  const tookFailed = of(refused);
+  assert.deepEqual(
+    tookFailed.plan.map((step) => step.state),
+    ["failed", "skipped", "done"],
+    "with the first step refused, the other branch is the one that ran",
+  );
+  assert.match(
+    tookFailed.plan[1]?.outcome ?? "",
+    /left unrun: it waits on step 1 ending done, and that step ended failed/,
+    "and its record names the step and the outcome that left it too",
+  );
+  assert.deepEqual(
+    ran,
+    [],
+    "the destructive act the run carries no authority for never ran",
+  );
+});
+
+test("a step whose dependency was left unrun is left unrun too, and the record says so", async () => {
+  const id = "intake-skipped-chain";
+  await putRule(id);
+  const remove = defineTool({
+    name: "mail.remove",
+    description: "Destroy a message; a person must authorise it.",
+    authority: "destructive",
+    writes: true,
+    spend: { steps: 1 },
+    act: (args: { id: string }) => ({ target: args.id, content: null }),
+    parse: (raw: unknown) => raw as { id: string },
+    run: async (_call, args: { id: string }) => ({ id: args.id }),
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [
+      { id: "destroy", name: "mail.remove", arguments: { id: "m-1" } },
+      {
+        id: "report",
+        name: "chat.say",
+        arguments: { text: "it was destroyed" },
+        needs: { step: "destroy", when: "done" },
+      },
+      {
+        name: "chat.say",
+        arguments: { text: "after the report" },
+        needs: { step: "report", when: "done" },
+      },
+    ],
+  });
+  answerWith({ done: "nothing of the plan could be taken" });
+  await deliver("do not destroy me");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.deepEqual(
+    run.plan.map((step) => step.state),
+    ["failed", "skipped", "skipped"],
+    "the refused act leaves the step that waited on it, and the one after that, unrun",
+  );
+  assert.match(
+    run.plan[1]?.outcome ?? "",
+    /left unrun: it waits on step 1 ending done, and that step ended failed/,
+  );
+  assert.match(
+    run.plan[2]?.outcome ?? "",
+    /left unrun: it waits on step 2, which was itself left unrun/,
+    "and a step waiting on one that was itself left unrun says that much",
+  );
+});
+
+test("an answer whose plan cannot be read is refused whole, recorded, and asked again", async () => {
+  const id = "intake-refused-plan";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  // A step waiting on a step the answer does not carry: a plan cannot cycle.
+  answerWith({
+    calls: [
+      {
+        name: "chat.say",
+        arguments: { text: "the only step" },
+        needs: { step: "nowhere", when: "done" },
+      },
+    ],
+  });
+  answerWith({ done: "the plan was refused, so nothing was done" });
+  await deliver("a change whose plan cannot be read");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(
+    run.plan.length,
+    1,
+    "the refused answer left a step of its own, not a plan",
+  );
+  assert.equal(run.plan[0]?.state, "failed", "the refusal is on the record");
+  assert.match(
+    run.plan[0]?.outcome ?? "",
+    /waits on "nowhere", which no earlier step of the answer carries/,
+  );
+  assert.equal(run.state, "done", "and the model was asked again, and answered");
+  assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
 });

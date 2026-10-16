@@ -5,7 +5,8 @@
  * `runs/` in that account's `gilbert` app folder, addressed by
  * `server/src/agent/runs.ts`. It is the whole of the agent's durable state —
  * which rule or which instruction started it and which change in the account
- * woke it, the plan and how each step ended,
+ * woke it, the plan — each step, what it waits on and how it left it, so a
+ * reader of the record alone can say why a step ran and why one did not —
  * the objects it touched, what it waits for, where it asked a person and until
  * when, every authorisation with the sentence it arrived in, the authority that
  * was given and the act it is for, the evidence behind what it claims, the
@@ -33,12 +34,18 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how the change reaches a run an installation has already written.
  */
-export const RUN_VERSION = 3;
+export const RUN_VERSION = 4;
 
-/** A step's state: `open` until it ends, and the two ways it can end. */
-export type RunStepState = "open" | RunStepOutcome;
+/**
+ * A step's state: `open` until it leaves the plan, and the three ways it can.
+ *
+ * "skipped" is the one that did not run: a step whose dependency ended in a way
+ * no branch of the plan names is left unrun, and its record says which step and
+ * which outcome left it (ADR 0034).
+ */
+export type RunStepState = "open" | RunStepOutcome | "skipped";
 
-/** How a step ended: it worked, or it did not. */
+/** How a step ended: it worked, or it did not. A branch names one of these two. */
 export type RunStepOutcome = "done" | "failed";
 
 /** The three ways a run ends (ADR 0034): done, a person is needed, or the budget is spent. */
@@ -89,12 +96,30 @@ export interface RunStart {
   woke: string | null;
 }
 
-/** One step of the plan: what it is, and how it ended. */
+/**
+ * What a step waits on: the step of the same plan it follows, and the outcome it
+ * needs that step to have ended with (ADR 0034).
+ *
+ * A step with no `needs` is ready as soon as the run reaches it. One that names
+ * a step is ready once that step has ended with its `when`, and is left unrun
+ * once that step has ended any other way — because the branch this step is for
+ * did not happen.
+ */
+export interface RunStepNeeds {
+  /** The index in the plan of the step it waits on. */
+  step: number;
+  /** The outcome that step must have ended with for this one to run. */
+  when: RunStepOutcome;
+}
+
+/** One step of the plan: what it is, what it waits on, and how it ended. */
 export interface RunStep {
   what: string;
   state: RunStepState;
-  /** What actually happened, "" until the step ends. */
+  /** What actually happened, "" until the step leaves the plan. */
   outcome: string;
+  /** What it waits on, or null when it is ready as soon as the run reaches it. */
+  needs: RunStepNeeds | null;
 }
 
 /** What a run waits for, where it asked, and until when (ADR 0033, 0034). */
@@ -194,7 +219,7 @@ export interface RunEnd {
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 3;
+  v: 4;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   startedBy: RunStart;
@@ -261,7 +286,18 @@ function isStart(x: unknown): x is RunStart {
 }
 
 function isStepState(x: unknown): x is RunStepState {
-  return x === "open" || x === "done" || x === "failed";
+  return x === "open" || x === "done" || x === "failed" || x === "skipped";
+}
+
+/** Whether a value names a step of the plan and the outcome it must end with. */
+function isStepNeeds(x: unknown): x is RunStepNeeds {
+  return (
+    isRecord(x) &&
+    typeof x.step === "number" &&
+    Number.isInteger(x.step) &&
+    x.step >= 0 &&
+    (x.when === "done" || x.when === "failed")
+  );
 }
 
 function isStep(x: unknown): x is RunStep {
@@ -270,8 +306,21 @@ function isStep(x: unknown): x is RunStep {
     typeof x.what === "string" &&
     !!x.what &&
     isStepState(x.state) &&
-    typeof x.outcome === "string"
+    typeof x.outcome === "string" &&
+    (x.needs === null || isStepNeeds(x.needs))
   );
+}
+
+/**
+ * Whether every step of a plan waits on a step the plan already carries.
+ *
+ * A step waits only on one defined before it, which is what makes the plan a
+ * graph with no cycle by construction rather than one a reader has to search:
+ * the loop only ever appends a step whose dependency is already there, so a plan
+ * waiting forward or on itself is a document this build did not write.
+ */
+function planIsOrdered(plan: readonly RunStep[]): boolean {
+  return plan.every((step, index) => !step.needs || step.needs.step < index);
 }
 
 /**
@@ -383,6 +432,10 @@ export function parseRunDocumentDetailed(
     };
   if (!Array.isArray(whole.plan) || !whole.plan.every(isStep))
     return { problem: '"plan" must be a list of steps.' };
+  if (!planIsOrdered(whole.plan))
+    return {
+      problem: 'every step of "plan" must wait on a step the plan already carries.',
+    };
   if (!Array.isArray(whole.touched) || !whole.touched.every(isWorkorderRef))
     return { problem: '"touched" must be a list of what the run touched.' };
   if (whole.waiting !== null && !isRunWait(whole.waiting))
@@ -470,7 +523,12 @@ export function startRun(input: {
     v: RUN_VERSION,
     id: input.id,
     startedBy: input.startedBy,
-    plan: (input.plan ?? []).map((what) => ({ what, state: "open", outcome: "" })),
+    plan: (input.plan ?? []).map((what) => ({
+      what,
+      state: "open",
+      outcome: "",
+      needs: null,
+    })),
     touched: [],
     waiting: null,
     authorisations: [],
@@ -481,17 +539,28 @@ export function startRun(input: {
   };
 }
 
-/** Record how one step of the plan ended, and what actually happened. */
+/**
+ * Record how one step left the plan, and what actually happened.
+ *
+ * The three terminal states are the two an outcome can be and `skipped`, the one
+ * for a step no branch of the plan reached. The step's `needs` is kept as it was:
+ * what a step waits on is the plan's shape, not the ending's business.
+ */
 export function recordStep(
   run: RunDoc,
   index: number,
-  ended: { state: RunStepOutcome; outcome: string },
+  ended: { state: RunStepOutcome | "skipped"; outcome: string },
 ): RunDoc {
   mustBeRunning(run);
   const step = run.plan[index];
   if (!step) throw new Error(`the run "${run.id}" has no step ${index}`);
   const plan = [...run.plan];
-  plan[index] = { what: step.what, state: ended.state, outcome: ended.outcome };
+  plan[index] = {
+    what: step.what,
+    state: ended.state,
+    outcome: ended.outcome,
+    needs: step.needs,
+  };
   return { ...run, plan };
 }
 
@@ -502,11 +571,28 @@ export function recordStep(
  * acts, looks at the result and chooses again, so a step it decides on is
  * appended at the end of the plan and starts `open` — there is no plan compiled
  * when the run is written, and none of them is known before it acts.
+ *
+ * `needs` is what the step waits on: a step of the plan the model named before
+ * it, so the value refers to a step already appended or to none (ADR 0034).
  */
-export function appendStep(run: RunDoc, what: string): RunDoc {
+export function appendStep(
+  run: RunDoc,
+  what: string,
+  needs: RunStepNeeds | null = null,
+): RunDoc {
   mustBeRunning(run);
   if (!what) throw new Error(`a step the run "${run.id}" appends needs what it is`);
-  return { ...run, plan: [...run.plan, { what, state: "open", outcome: "" }] };
+  if (needs) {
+    if (!isStepNeeds(needs)) throw new Error(`the run "${run.id}" cannot wait on that.`);
+    if (needs.step >= run.plan.length)
+      throw new Error(
+        `the run "${run.id}" has no step ${needs.step} to wait on: a step waits on one already in its plan.`,
+      );
+  }
+  return {
+    ...run,
+    plan: [...run.plan, { what, state: "open", outcome: "", needs }],
+  };
 }
 
 /**

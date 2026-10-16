@@ -234,8 +234,8 @@ is, not what a user sees.
 - **0031 — The agent's tools are described and composable (accepted).** The
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
-  order — **one or more in a single answer, made together** — never a list of
-  permitted business actions, and no plan compiled at write time. It works on
+  order — **one or more in a single answer, together where independent** — never a
+  list of permitted business actions, and no plan compiled at write time. It works on
   **five surfaces and has all of them**: the group's chat,
   mail, KB (checklist templates among its pages) and workorders, with its own runs
   beside them, each readable and writeable within the authority classes. A tool's
@@ -247,7 +247,7 @@ is, not what a user sees.
   a write-only key. **Partly built** — the catalogue is `server/src/agent/tools.ts`,
   both halves and the guard, the installation's one model is
   `server/src/agent/model.ts` (its two turns — the decision over the reading
-  tools, the choosing over the whole catalogue and answering a batch), and the
+  tools, the choosing over the whole catalogue and answering a plan), and the
   loop that works a run is `server/src/agent/loop.ts`, started by the server's own
   boot (`server/src/agent/supervisor.ts`).
 - **0032 — What the agent decides, and what only a person decides (accepted).**
@@ -279,13 +279,18 @@ is, not what a user sees.
   state: which rule or instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
   its message and its authority, the evidence, and the budget it has spent. **A
-  turn may carry several calls**, made together and each its own step. **A
+  turn may carry several calls**, the independent ones made together and each its
+  own step, and **a plan carries order and conditions**: a step waits on an
+  earlier one and the outcome it needs, the loop takes the branch that outcome
+  names, and a step no branch reaches is left unrun with its record saying why.
+  **A
   wait is a date in the run**, re-armed on boot, so a restart or a dead container
   costs nothing — and a run blocked on a person keeps the question it left. A run
   ends done, blocked on a person, or out of budget — written down. There is no
   separate audit ledger, and a person can read a run and undo by hand what can be
-  undone. **Partly built** — the run document is `server/src/shared/run.ts`,
-  addressed by `server/src/agent/runs.ts`.
+  undone. **Built** — the run document is `server/src/shared/run.ts`, addressed by
+  `server/src/agent/runs.ts`, and the plan's order and conditions are worked out
+  by `server/src/agent/loop.ts`.
 - **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
   document in the group's own account, saying **what it watches** — the account's
   activity across the five surfaces, its chat, its mail, its KB, its workorders
@@ -313,3 +318,13 @@ is, not what a user sees.
   nobody's claim but its own; and a claim document that cannot be read is no
   claim at all, so a damaged one cannot leave the installation with no agent.
   **Built** (`server/src/agent/claim.ts`).
+- **0037 — The agent's memory is a graph, and it recalls it on every call
+  (accepted).** The agent **always** has memory: a graph of small facts with a
+  provenance, in the **Master's own account**, in a **second store** beside the
+  knowledge base — one memory for the installation, so a group reasons with what
+  the whole installation knows. A call recalls a **selection** — the change's own
+  subjects with their nearest links, plus the group's standing set, inside a
+  ceiling — and what was recalled is written into the run's record (ADR 0034). The
+  agent writes facts as it works, within the authority classes; an installation
+  administrator reads and edits them, and **a person's fact is in force** — what
+  the agent concludes against one it proposes, never overwrites. **Not built.**

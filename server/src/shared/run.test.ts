@@ -3,7 +3,9 @@
  *
  * What a transition does is the whole of what is pinned here: a run ends in one
  * of three ways and says which, a step's outcome is recorded where it belongs,
- * the plan grows with the step the model chose, what the run touched and what it
+ * the plan grows with the step the model chose — a step may wait on an earlier
+ * one and be left unrun when no branch names its outcome — what the run touched
+ * and what it
  * spent are written by a transition each, an authorisation carries the sentence
  * it arrived in, the authority that was given and the act it is for, and the
  * wait is a date in the
@@ -58,10 +60,10 @@ test("a run starts running, its plan open, having touched and spent nothing", ()
   assert.deepEqual(
     run.plan,
     [
-      { what: "read the mail", state: "open", outcome: "" },
-      { what: "file it", state: "open", outcome: "" },
+      { what: "read the mail", state: "open", outcome: "", needs: null },
+      { what: "file it", state: "open", outcome: "", needs: null },
     ],
-    "every step the plan names is open and none is ended",
+    "every step the plan names is open, waits on nothing and has not ended",
   );
 
   for (const ending of ["done", "blocked", "out-of-budget"] as const) {
@@ -87,13 +89,23 @@ test("a step records how it ended, and a run that ended does not act again", () 
   const run = startRun({ id: "r2", startedBy: START, plan: ["one", "two"] });
 
   const afterOne = recordStep(run, 0, { state: "done", outcome: "filed it" });
-  assert.deepEqual(afterOne.plan[0], { what: "one", state: "done", outcome: "filed it" });
+  assert.deepEqual(afterOne.plan[0], {
+    what: "one",
+    state: "done",
+    outcome: "filed it",
+    needs: null,
+  });
   assert.deepEqual(
     afterOne.plan[1],
-    { what: "two", state: "open", outcome: "" },
+    { what: "two", state: "open", outcome: "", needs: null },
     "the other steps are left as they were",
   );
-  assert.deepEqual(run.plan[0], { what: "one", state: "open", outcome: "" });
+  assert.deepEqual(run.plan[0], {
+    what: "one",
+    state: "open",
+    outcome: "",
+    needs: null,
+  });
   // The transition answers a new document: the one it was handed is untouched.
   assert.notEqual(afterOne, run);
 
@@ -118,8 +130,8 @@ test("the plan grows with the step the model chose after seeing a result", () =>
   );
   assert.deepEqual(
     grown.plan[1],
-    { what: "answer the shipper", state: "open", outcome: "" },
-    "and it starts open, like every step the plan names",
+    { what: "answer the shipper", state: "open", outcome: "", needs: null },
+    "and it starts open and waits on nothing, like every step the plan names by itself",
   );
   assert.equal(run.plan.length, 1, "the run it was given is untouched");
   assert.throws(() => appendStep(run, ""), /needs what it is/);
@@ -127,6 +139,43 @@ test("the plan grows with the step the model chose after seeing a result", () =>
     () => appendStep(finishRun(run, "done", { at: AT, why: "over" }), "one more"),
     /has ended/,
   );
+});
+
+test("a step may wait on an earlier step, and is left unrun when no branch names its outcome", () => {
+  const run = startRun({ id: "r14", startedBy: START, plan: ["file the confirmation"] });
+
+  const planned = appendStep(run, "tell the shipper", { step: 0, when: "done" });
+  assert.deepEqual(
+    planned.plan[1]?.needs,
+    { step: 0, when: "done" },
+    "a step says which step it waits on and the outcome it needs",
+  );
+  assert.equal(planned.plan[1]?.state, "open", "and it starts open like any other");
+  assert.throws(
+    () => appendStep(run, "waiting on nothing there", { step: 5, when: "done" }),
+    /no step 5 to wait on/,
+    "a step cannot wait on a step the plan does not already carry",
+  );
+
+  // The step it waited on ends the other way: no branch names that outcome, so
+  // the step is left unrun and its own record says which step and outcome did.
+  const denied = recordStep(planned, 0, {
+    state: "failed",
+    outcome: "refused: no authority",
+  });
+  const left = recordStep(denied, 1, {
+    state: "skipped",
+    outcome: "left unrun: it waits on step 1 ending done, and that step ended failed",
+  });
+  assert.equal(left.plan[1]?.state, "skipped", "a step no branch reaches is not run");
+
+  const stored = parseRunDocumentDetailed(JSON.stringify(left));
+  assert.ok(
+    "run" in stored,
+    "a plan with a dependency and a skipped step is a document this build reads",
+  );
+  assert.deepEqual(stored.run.plan[1]?.needs, { step: 0, when: "done" });
+  assert.equal(stored.run.plan[1]?.state, "skipped");
 });
 
 test("a run names every object it touched, in one reference shape", () => {
@@ -395,13 +444,55 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    ['{"v":4,"id":"r6"}', /this build reads version 3/],
+    ['{"v":5,"id":"r6"}', /this build reads version 4/],
     [
-      '{"v":3,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      '{"v":4,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"id" must be/,
     ],
     [
-      '{"v":3,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      '{"v":4,"id":"r6","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
+      /"plan" must be a list of steps/,
+    ],
+    // A step this build writes carries what it waits on; one without it is a
+    // document a build before this one wrote.
+    [
+      JSON.stringify({ ...whole, plan: [{ what: "a", state: "open", outcome: "" }] }),
+      /"plan" must be a list of steps/,
+    ],
+    // A step waits only on a step defined before it: waiting forward, or on
+    // itself, is a cycle this build's own loop cannot write.
+    [
+      JSON.stringify({
+        ...whole,
+        plan: [
+          { what: "a", state: "open", outcome: "", needs: null },
+          {
+            what: "b",
+            state: "open",
+            outcome: "",
+            needs: { step: 1, when: "done" },
+          },
+        ],
+      }),
+      /wait on a step the plan already carries/,
+    ],
+    [
+      JSON.stringify({
+        ...whole,
+        plan: [
+          { what: "a", state: "open", outcome: "", needs: { step: 0, when: "done" } },
+        ],
+      }),
+      /wait on a step the plan already carries/,
+    ],
+    // A branch names an outcome a step can end with, and nothing else.
+    [
+      JSON.stringify({
+        ...whole,
+        plan: [
+          { what: "a", state: "open", outcome: "", needs: { step: 0, when: "maybe" } },
+        ],
+      }),
       /"plan" must be a list of steps/,
     ],
     [
