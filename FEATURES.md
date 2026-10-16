@@ -80,8 +80,8 @@ else a member does to move mail around still works.
 
 > **Designed, and only partly built.** Nothing runs a group's work on its own:
 > there is no model and no loop that chooses a tool. What the tree carries is the
-> durable state of a run and the catalogue of tools a run's steps are taken with.
-> The agent's decisions are
+> durable state of a run, the catalogue of tools a run's steps are taken with,
+> and a group's rules in prose. The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -109,6 +109,19 @@ single agent working it: a document taken by compare-and-set that a holder
 renews and that lapses on its own if it dies, so a restart costs one TTL of
 waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
 0036).
+
+**A group's engagement is a rule in prose** (ADR 0035): one document in the
+group's own account, under `rules/`, that names the surfaces of that account it
+watches — its **chat**, its **mail**, its **KB**, its **workorders** and its
+**Files** — and says in prose what should happen when that activity is met. The
+shape, its parser and the one test of what a rule watches are
+`server/src/agent/rule.ts`, and where a rule lives is `server/src/agent/rules.ts`.
+A rule carries **no list of permitted actions** — what bounds the agent is the
+authority classes (ADR 0032) — and it may **declare that it sends**, which is the
+one power it carries of its own. The prose that reaches the model has three
+levels, outermost first: the **installation's own line**, the **group's standing
+instruction** and the **rule's own instruction**, and one builder,
+`server/src/agent/prose.ts`, produces that order for every caller.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed

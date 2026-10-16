@@ -1,0 +1,163 @@
+/**
+ * The one place a rule is addressed (ADR 0035).
+ *
+ * A rule is one document named `<id>.json` under `rules/` in the **group's own
+ * account** — the group's `gilbert` app folder — so reading a group's rules is
+ * reading its own documents, under the group's own access, like its runs and
+ * its workorders. The shape, its parser and the one test of what a rule watches
+ * are `./rule`; what lives here is where the document is, how it is read and
+ * how it is written.
+ *
+ * JMAP offers no lock, so a replace carries the account's FileNode state as
+ * `ifInState` (`appFolder.ts`), and the token is read **before** the document:
+ * a write landing between the two advances the state past the token, so a
+ * replace carrying it is refused rather than overwriting a change this read
+ * never saw. Holding that token from a read to the replace that follows it is
+ * the caller's — `RuleRecord` carries it.
+ */
+
+import {
+  appFolderState,
+  type Ctx,
+  listAppDir,
+  readAppFileAt,
+  writeAppFileAt,
+} from "../appFolder.js";
+import { CodedError, errorMessage } from "../shared/errors.js";
+import { parseRuleDocumentDetailed, type RuleDoc } from "./rule.js";
+
+/** Where a group's rules live under its app folder: the one path constant. */
+export const RULES_DIR = "rules";
+
+/**
+ * A rule's document path, app-folder-relative.
+ *
+ * A rule's id is a file name and nothing else: a member names a rule, and an id
+ * carrying a path separator would file it in a folder of its own rather than
+ * beside its siblings. `.` and `..` are refused by the same test, and by
+ * `pathSegments` after it.
+ */
+export function rulePath(id: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id))
+    throw new RuleError(
+      "rule_id_invalid",
+      `"${id}" is not a rule name: a rule is named by one plain file name.`,
+    );
+  return `${RULES_DIR}/${id}.json`;
+}
+
+/**
+ * A rule this build cannot use.
+ *
+ * A rule that is there but unreadable is a **defect the agent reports**, never
+ * a shape it guesses at (ADR 0035): a document that is not the shape this build
+ * writes, or whose `id` is not the name it is filed under, is refused with its
+ * path and the reason rather than read as a rule with nothing in it — which
+ * would be a rule the agent then carries out as though it said nothing. The
+ * code is what a surface composes its own sentence from.
+ */
+export class RuleError extends CodedError {
+  constructor(code: string, message: string, status = 502) {
+    super(code, message, status, "RuleError");
+  }
+}
+
+/** A rule together with the compare-and-set token its read saw. */
+export interface RuleRecord {
+  rule: RuleDoc;
+  /** The account's FileNode state at read time: pass it as `ifInState` to replace. */
+  state: string;
+}
+
+function unreadable(path: string, why: string): RuleError {
+  return new RuleError(
+    "rule_unreadable",
+    `The rule at ${path} is not readable: ${why} It has been left exactly as it is.`,
+  );
+}
+
+/** One rule's document by id, or null when there is none. */
+async function readRuleDoc(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<RuleDoc | null> {
+  const path = rulePath(id);
+  let found: Awaited<ReturnType<typeof readAppFileAt>>;
+  try {
+    found = await readAppFileAt(ctx, accountId, path);
+  } catch (err) {
+    // A document that is there with bytes that do not come back is unreadable,
+    // not absent: the alternative is a rule this build replaces or ignores.
+    throw unreadable(path, errorMessage(err));
+  }
+  if (!found) return null;
+  const parsed = parseRuleDocumentDetailed(found.text);
+  if ("problem" in parsed) throw unreadable(path, parsed.problem);
+  if (parsed.rule.id !== id)
+    throw unreadable(path, `it names the rule "${parsed.rule.id}".`);
+  return parsed.rule;
+}
+
+/** A rule by id, with the token a replace of it needs, or null when there is none. */
+export async function readRule(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<RuleRecord | null> {
+  const state = await appFolderState(ctx, accountId);
+  const rule = await readRuleDoc(ctx, accountId, id);
+  return rule ? { rule, state } : null;
+}
+
+/**
+ * Store a new rule.
+ *
+ * A rule's id is its own, and a document already filed under it is another
+ * rule: writing over it would erase text a group wrote, so the create refuses
+ * instead. A change to a rule that is there is a `replaceRule`.
+ */
+export async function createRule(
+  ctx: Ctx,
+  accountId: string,
+  rule: RuleDoc,
+): Promise<void> {
+  if (await readRuleDoc(ctx, accountId, rule.id))
+    throw new RuleError("rule_exists", `A rule "${rule.id}" is already there.`, 409);
+  await writeAppFileAt(ctx, accountId, rulePath(rule.id), rule);
+}
+
+/**
+ * Write a rule whole, conditionally on `ifInState` when one is given.
+ *
+ * The token is the one a read handed back, and passing it is what turns the
+ * write into a compare-and-set: a stale one is refused rather than overwriting
+ * whatever moved in between.
+ */
+export async function replaceRule(
+  ctx: Ctx,
+  accountId: string,
+  rule: RuleDoc,
+  opts: { ifInState?: string } = {},
+): Promise<void> {
+  await writeAppFileAt(ctx, accountId, rulePath(rule.id), rule, opts);
+}
+
+/**
+ * A group's rules, each with the token a replace of it needs.
+ *
+ * A document in `rules/` that cannot be read is reported, not skipped: it is one
+ * rule the group can no longer see, and a listing that hid it would answer
+ * "these are all of them" about a folder it could not read.
+ */
+export async function listRules(ctx: Ctx, accountId: string): Promise<RuleRecord[]> {
+  const state = await appFolderState(ctx, accountId);
+  const records: RuleRecord[] = [];
+  for (const node of await listAppDir(ctx, accountId, RULES_DIR)) {
+    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
+    if (!node.name.endsWith(".json")) continue;
+    const rule = await readRuleDoc(ctx, accountId, node.name.slice(0, -".json".length));
+    if (rule) records.push({ rule, state });
+  }
+  return records;
+}
