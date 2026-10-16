@@ -45,12 +45,13 @@ reaching a run, and any surface that shows what the agent did.
 
 ## 2. The to-do, in the order the owner decided it
 
-### 2.1 Several rules may answer one change — **the next unit**
+### 2.1 Several rules may answer one change — **built** (`bed8ade`)
 
-- **The record:** 0035, whose decision now says every rule that fits a change
-  opens or continues its own run, and whose `Implementation` line says this is
-  not built.
-- **Today:** `loop.ts` puts a change to the decision turn once and opens one run.
+- **The record:** 0035, whose decision says every rule that fits a change opens
+  or continues its own run, and whose `Implementation` line now says so.
+- **Built:** the decision turn answers every rule that applies beside the facts of
+  the change, and the loop opens or continues one run per rule, reading the run's
+  own document to recognise a change it has already answered.
 - **To do:** the decision turn answers **every** rule that applies, and the loop
   opens or continues one run per rule; the change's own record names them all.
 - **Proof:** two rules over one change produce two runs, and removing one of them
@@ -142,8 +143,9 @@ reaching a run, and any surface that shows what the agent did.
 - **Decided:** a repeated warning is a useless log. `probeMailStore`
   (`server/src/groupAccess.ts`) writes one per unreadable candidate — read once
   at boot before, six times a minute now that the groups are resolved every pass.
-- **To do:** say it once when the state begins and once when it changes, the same
-  shape the supervisor uses for the claim and for the groups.
+- **Built** (`b3ae60a`): the line is said once per account while the answer stays
+  the same, and forgotten the moment the account answers again, so a later
+  failure is a new state and is said.
 
 ### 2.9 The agent's memory — a graph it recalls (ADR 0037, Accepted)
 
