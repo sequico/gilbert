@@ -246,8 +246,10 @@ is, not what a user sees.
   installation, chosen in Administration, in the installation's own document with
   a write-only key. **Partly built** — the catalogue is `server/src/agent/tools.ts`,
   both halves and the guard, the installation's one model is
-  `server/src/agent/model.ts` (one call, and the decision turn over the reading
-  tools), and the loop that works a run is `server/src/agent/loop.ts`.
+  `server/src/agent/model.ts` (its two turns — the decision over the reading
+  tools, the choosing over the whole catalogue and answering a batch), and the
+  loop that works a run is `server/src/agent/loop.ts`, started by the server's own
+  boot (`server/src/agent/supervisor.ts`).
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -269,8 +271,9 @@ is, not what a user sees.
   result from the receiving server; every message the agent sends carries
   `X-Gilbert-Run: <id>` so its own words can never drive it; the correlation is
   the thread in mail and a `replyTo` in chat. **Partly built** — the chat half is
-  the conversation tools in `server/src/agent/tools.ts`; the mail channel owes its
-  live probe.
+  the conversation tools in `server/src/agent/tools.ts`; the mail channel is not
+  built, its decision is `server/src/agent/trust.ts` (which nothing calls yet),
+  and its live probe is owed.
 - **0034 — A run is a document, and the record is the product (accepted).** A run
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
@@ -288,9 +291,10 @@ is, not what a user sees.
   activity across the five surfaces, its chat, its mail, its KB, its workorders
   and its Files — and **in prose what should happen**; nothing is compiled, and a
   rule carries **no list of permitted actions**. A rule may **declare that it
-  sends**, written in the rule itself. The prose that reaches the model has three
+  sends**, written in the rule itself. The agent's prose has three
   levels, outermost first: the installation's line, the group's standing
-  instruction, the rule's own — one builder for every caller. A member reads the
+  instruction, the rule's own — one builder for every caller, and the loop carries
+  the rule's own instruction alone. A member reads the
   rules and may change them, as with the KB. **Partly built** — the rule documents
   are `server/src/agent/rule.ts`, addressed by `server/src/agent/rules.ts`, and the
   three levels are built by `server/src/agent/prose.ts`; a run records the rule or

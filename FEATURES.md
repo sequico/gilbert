@@ -126,10 +126,12 @@ shape, its parser and the one test of what a rule watches are
 `server/src/agent/rule.ts`, and where a rule lives is `server/src/agent/rules.ts`.
 A rule carries **no list of permitted actions** — what bounds the agent is the
 authority classes (ADR 0032) — and it may **declare that it sends**, which is the
-one power it carries of its own. The prose that reaches the model has three
+one power it carries of its own. The agent's prose has three
 levels, outermost first: the **installation's own line**, the **group's standing
 instruction** and the **rule's own instruction**, and one builder,
-`server/src/agent/prose.ts`, produces that order for every caller.
+`server/src/agent/prose.ts`, produces that order for every caller; no reader for
+the other two documents is built, so the loop carries the rule's own instruction
+alone.
 
 **One model serves the installation** (ADR 0031), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of
@@ -146,9 +148,9 @@ handed the catalogue as the catalogue describes itself and the run so far, and
 answers with a **batch**: one or more calls, each a tool and its arguments, or
 that the work is finished. The calls of one answer are made together, so what a
 run needs in several parts is one turn; each is its own step with its own outcome
-and its own spend. An answer is facts and nothing else — one that carries an
-authorisation, or names a tool that writes, is refused — and an installation that
-has chosen no model has no agent.
+and its own spend. The decision turn's answer is facts and nothing else — one that
+carries an authorisation, or names a tool that writes, is refused — and an
+installation that has chosen no model has no agent.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
@@ -162,7 +164,7 @@ their answer, with no date. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision
-turn looks the group's state up with; the loop runs a chosen tool through the
+turn looks the group's state up with; the loop runs each chosen call through the
 guard, so a refusal is a failed step on the run rather than a silent skip, and the
 whole catalogue is exercised against the mock Stalwart.
 

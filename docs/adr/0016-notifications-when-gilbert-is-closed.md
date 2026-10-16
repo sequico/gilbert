@@ -184,7 +184,7 @@ Chat cannot ride an `EmailPush`, so it rides the mechanism Stalwart does have:
 watched for. There is no way to narrow it — the only filter a subscription
 carries is `EmailPush`'s, and it is email-shaped — so the wake-up is **every
 file write in every account the device is subscribed for**: the group's chat,
-its agent documents and jobs, an upload, and the reader's own `settings.json`.
+its agent's own documents, an upload, and the reader's own `settings.json`.
 Stalwart offers no filter that would make it the chat folder alone, and asking
 for a narrower wake-up would mean asking upstream for one.
 
