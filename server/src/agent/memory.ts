@@ -25,18 +25,20 @@
  * not walked again for every change; the price is stated where the reading is
  * handed over.
  *
- * JMAP offers no lock, so a replace carries the account's FileNode state as
- * `ifInState` (`appFolder.ts`), and the token is read **before** the sheet: a
- * write landing between the two advances the state past the token, so a
- * replace carrying it is refused rather than overwriting a change this read
- * never saw.
+ * JMAP offers no lock, so a write of the store carries the account's FileNode
+ * state as `ifInState` (`appFolder.ts`) — a **create** as much as a replace — and
+ * the token is read **before** the sheets: a write landing between the two
+ * advances the state past the token, so a write carrying it is refused rather
+ * than overwriting a change this read never saw, and two writes that both found
+ * a subject absent cannot both make a sheet for it.
  */
 
 import { randomUUID } from "node:crypto";
 import {
   appFolderState,
   type Ctx,
-  listAppDir,
+  ensureFolderPath,
+  fileChildren,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -169,11 +171,20 @@ export async function readFact(
  * sheet that cannot be read is **reported**, never skipped: it is one fact the
  * installation can no longer see, and a listing that hid it would answer "this
  * is what I know" about a store it could not read.
+ *
+ * The folder the sheets live in is **made before the token is read**, and not
+ * left to the write that follows. Making it is a write, and one left to the
+ * writer would move the account's state on after this reading had taken its
+ * token: every write of an installation whose memory is new would be refused by
+ * its own folder, for ever, one pass behind itself. The make is idempotent and
+ * happens once — the folder is Gilbert's own, inside its own app folder — and a
+ * caller of `recallFacts` never sees it.
  */
 export async function listFacts(ctx: Ctx, accountId: string): Promise<MemoryStore> {
+  const folderId = await ensureFolderPath(ctx, accountId, MEMORY_DIR);
   const state = await appFolderState(ctx, accountId);
   const facts: FactDoc[] = [];
-  for (const node of await listAppDir(ctx, accountId, MEMORY_DIR)) {
+  for (const node of await fileChildren(ctx, accountId, folderId)) {
     if (node.nodeType !== "file" || typeof node.name !== "string") continue;
     if (!node.name.endsWith(".json")) continue;
     const fact = await readFactDoc(ctx, accountId, node.name.slice(0, -".json".length));
@@ -206,9 +217,12 @@ export interface FactWrite {
  * — the pass's one reading (ADR 0037) — and both the sheet it replaces and the
  * token it carries come from that reading, so a write landing since is refused
  * rather than overwritten: two turns that reached the same conclusion cannot
- * replace each other in silence, and the one that loses says so on its step. A
- * **person's** sheet is not replaced at all — a person's fact is in force (ADR
- * 0037) — and the refusal says so in a code.
+ * replace each other in silence, and the one that loses says so on its step. The
+ * token is carried by a **create as well**, not only by a replace: two calls of
+ * one answer both find a subject absent and both ask for its sheet, and the
+ * second — same reading, same token — is refused rather than the memory holding
+ * two spellings of one thing. A **person's** sheet is not replaced at all — a
+ * person's fact is in force (ADR 0037) — and the refusal says so in a code.
  */
 export async function rememberFact(
   ctx: Ctx,
@@ -250,13 +264,9 @@ export async function rememberFact(
     links: linkIds(store.facts, write.links ?? []),
     standing: write.standing === true,
   };
-  await writeAppFileAt(
-    ctx,
-    accountId,
-    factPath(doc.id),
-    doc,
-    same ? { ifInState: store.state } : {},
-  );
+  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {
+    ifInState: store.state,
+  });
   return doc;
 }
 

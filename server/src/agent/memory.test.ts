@@ -166,6 +166,42 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
   );
 });
 
+test("two writes of one reading cannot make two sheets for one subject", async () => {
+  /*
+   * Two `memory.remember` calls in one answer run **together** (the loop's wave,
+   * `Promise.allSettled`) and both are made against the pass's one reading
+   * (ADR 0037), so each finds the subject absent and each asks for a sheet. The
+   * create carries the reading's token, so only the first lands: the second is
+   * refused as a lost compare-and-set, which is what keeps "one subject is one
+   * sheet" true when two calls decide it at once.
+   */
+  const reading = await store();
+  const first = await rememberFact(
+    ctx,
+    accountId,
+    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT },
+    reading,
+  );
+  written.push(first.id);
+
+  await assert.rejects(
+    () =>
+      rememberFact(
+        ctx,
+        accountId,
+        { subject: "maersk", fact: "the same shipper, said again", run: "r-1", at: AT },
+        reading,
+      ),
+    (err: unknown) => isStateMismatch(err),
+    "the second create carries the same token, so it is refused",
+  );
+  assert.equal(
+    (await store()).facts.filter((fact) => sameSubject(fact.subject, "Maersk")).length,
+    1,
+    "and the memory holds one sheet for the subject, not two",
+  );
+});
+
 test("a fact a person wrote is in force, and the write refuses it", async () => {
   await writeAppFileAt(ctx, accountId, factPath("person-1"), {
     v: MEMORY_VERSION,

@@ -33,7 +33,9 @@
  *   loses nothing to.
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
- *   about is worked exactly as it was before the memory existed.
+ *   about is worked exactly as it was before the memory existed;
+ * - two `memory.remember` calls in one answer leave one sheet for the subject,
+ *   and the call that lost the compare-and-set is a refused step on the run.
  */
 
 import assert from "node:assert/strict";
@@ -70,6 +72,7 @@ const { modelAccess } = await import("./model.js");
 const { createRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
+const { sameSubject } = await import("../shared/memory.js");
 const { createRun, listRuns, readRun } = await import("./runs.js");
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
@@ -1138,5 +1141,64 @@ test("a fact one run learns is handed to the next change's call, and the record 
       .some((call) => call.user.includes("installation's memory")),
     false,
     "so its calls are what they were before the memory existed",
+  );
+});
+
+test("two memories of one answer leave one sheet, and the refusal is on the run", async () => {
+  /*
+   * A `memory.remember` repeated in one answer is two steps of one wave
+   * (`Promise.allSettled`), and both decide against the pass's **one** reading of
+   * the store (ADR 0037): each finds the subject absent and each asks for a
+   * sheet. The create carries that reading's token, so only the first lands —
+   * the second loses the compare-and-set and its step says so, rather than the
+   * memory holding two sheets for one subject.
+   */
+  const id = "intake-remember-twice";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({
+    calls: [
+      {
+        name: "memory.remember",
+        arguments: { subject: "Maersk", fact: "the shipper this account books with" },
+      },
+      {
+        name: "memory.remember",
+        arguments: {
+          subject: "Maersk",
+          fact: "the shipper this account books with, said again",
+        },
+      },
+    ],
+  });
+  answerWith({ done: "noted the shipper once" });
+  await deliver("a booking that names the shipper");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.deepEqual(
+    run.plan.map((step) => step.state).sort(),
+    ["done", "failed"],
+    "the two calls are two steps, one of which was refused",
+  );
+  const refused = run.plan.find((step) => step.state === "failed");
+  assert.match(
+    refused?.outcome ?? "",
+    /^refused: /,
+    "and the record says the write was refused rather than leaving it silent",
+  );
+
+  const sheets = (await listFacts(ctx, memoryAccountId)).facts.filter((fact) =>
+    sameSubject(fact.subject, "Maersk"),
+  );
+  assert.equal(sheets.length, 1, "the memory holds one sheet for the subject");
+  remembered.push((sheets[0] as { id: string }).id);
+  assert.equal(
+    run.recalled.length,
+    0,
+    "and neither call recalled anything: the memory held nothing about it yet",
   );
 });
