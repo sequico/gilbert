@@ -361,29 +361,33 @@ test("a valid publish is what the next read returns, and the answer names when i
   assert.deepEqual(await readView(), view, "and reading it again agrees");
 });
 
-test("the model's key is write-only: no answer hands it back, none keeps it and an empty one clears it", async () => {
+test("the model's key is write-only: a save keeps it unless it names a provider needing none", async () => {
   /*
    * The installation's model lives in its own document (ADR 0011, 0031), and
    * its key is write-only the way an app password is: the surface can set it and
    * nothing reads it back. So the text both halves of this door answer with has
    * the key **taken out** — while the document the account holds keeps it, or the
-   * model could never be called — and the three things a save can say about it
-   * are told apart by the field itself: stating none keeps the stored one,
-   * stating a value writes it, and stating an empty one clears it.
+   * model could never be called. The three things a save can say about it are
+   * told apart by the field itself: a stated value writes it, the `null` a save
+   * states for a provider that needs none clears it, and a save that says nothing
+   * — no `apiKey` field, or an empty one — keeps the stored key.
    */
   nameMaster(MASTER);
   const key = "sk-a-key-the-surface-never-reads-back";
-  const withProvider = JSON.stringify({
-    ...(JSON.parse(VALID) as Record<string, unknown>),
-    agent: {
-      provider: {
-        provider: "ollama",
-        model: "a-small-model",
-        baseUrl: "https://models.example.com/v1",
-        apiKey: key,
+  /** The model's provider as a document states it, with the key the caller passes. */
+  const providerStating = (apiKey: unknown): string =>
+    JSON.stringify({
+      ...(JSON.parse(VALID) as Record<string, unknown>),
+      agent: {
+        provider: {
+          provider: "ollama",
+          model: "a-small-model",
+          baseUrl: "https://models.example.com/v1",
+          apiKey,
+        },
       },
-    },
-  });
+    });
+  const withProvider = providerStating(key);
 
   const published = await publish(adminCookie, withProvider);
   assert.equal(published.status, 200);
@@ -404,10 +408,15 @@ test("the model's key is write-only: no answer hands it back, none keeps it and 
   const master = await masterCtx();
   const masterAccount = filesAccountId(master);
   assert.ok(masterAccount);
-  const stored = await documentIn(master, masterAccount);
+  /** The key the Master's document holds right now. */
+  const storedKey = async (): Promise<unknown> =>
+    (
+      JSON.parse((await documentIn(master, masterAccount)) ?? "{}") as {
+        agent?: { provider?: { apiKey?: unknown } };
+      }
+    ).agent?.provider?.apiKey;
   assert.equal(
-    (JSON.parse(stored ?? "") as { agent: { provider: { apiKey: string } } }).agent
-      .provider.apiKey,
+    await storedKey(),
     key,
     "the document the account holds keeps the key, so the model can still be called",
   );
@@ -425,45 +434,31 @@ test("the model's key is write-only: no answer hands it back, none keeps it and 
   const resaved = await publish(adminCookie, view.document ?? "");
   assert.equal(resaved.status, 200);
   assert.equal(
-    (
-      JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
-        agent: { provider: { apiKey: string } };
-      }
-    ).agent.provider.apiKey,
+    await storedKey(),
     key,
     "a publish that states no key keeps the stored one",
   );
 
-  // A save that states an **empty** key is the third thing one can say: the
-  // provider needs none — a model on the deployment's own network — and the
-  // stored key is cleared rather than kept.
-  const cleared = await publish(
-    adminCookie,
-    JSON.stringify(
-      {
-        ...(JSON.parse(VALID) as Record<string, unknown>),
-        agent: {
-          provider: {
-            provider: "ollama",
-            model: "a-small-model",
-            baseUrl: "https://models.example.com/v1",
-            apiKey: "",
-          },
-        },
-      },
-      null,
-      2,
-    ),
+  // An **empty** key is the older spelling of the same thing: a save that
+  // predates the switch says "keep" with an empty string, and the meaning of a
+  // document's field is a contract, so it keeps the stored key too rather than
+  // clearing it.
+  const emptied = await publish(adminCookie, providerStating(""));
+  assert.equal(emptied.status, 200);
+  assert.equal(
+    await storedKey(),
+    key,
+    "a publish that states an empty key keeps the stored one too",
   );
+
+  // The one way to say the provider needs none — a model on the deployment's own
+  // network — is `null`, and that is what clears the stored key.
+  const cleared = await publish(adminCookie, providerStating(null));
   assert.equal(cleared.status, 200);
   assert.equal(
-    (
-      JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
-        agent: { provider: { apiKey: string } };
-      }
-    ).agent.provider.apiKey,
+    await storedKey(),
     "",
-    "a save that states an empty key clears the stored one",
+    "a publish that states a null key clears the stored one",
   );
   const clearedView = await readView();
   assert.equal(
@@ -491,10 +486,11 @@ test("the model's key is write-only: no answer hands it back, none keeps it and 
     "and a document with no provider clears the model",
   );
 
-  // A document that is otherwise unreadable still carries its key — a hand edit,
-  // a half-finished upload — and a read must not hand that back either: the key
-  // is emptied from the text whatever else is wrong with the document, and the
-  // reason a boot would refuse it is still shown.
+  // A document that is JSON but one a boot would refuse still carries its key —
+  // a hand edit, a half-finished upload — and a read takes that key out of it
+  // too, while the rest of the text and the reason a boot would refuse it are
+  // still shown. Text that is not JSON at all is handed back byte for byte
+  // instead, key included: repairing it by hand is the only way it comes back.
   await writeAppFile(master, masterAccount, "installation.json", {
     server: { port: 70000 },
     agent: {

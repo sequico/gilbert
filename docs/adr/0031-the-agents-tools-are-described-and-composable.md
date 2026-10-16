@@ -10,8 +10,9 @@ model is `server/src/agent/model.ts`, and it is chosen at Administration →
 Installation (`web/src/views/admin/AdminInstallation.tsx`, whose fields write
 the document's `agent.provider`): the key is write-only in the installation's
 own document (`shared/installation.ts`, `installationAdmin.ts`) — a save that
-states no key keeps the stored one and a save that states an empty one clears it
-— the call is one OpenAI-compatible chat completion with the zero-retention
+states no key, or states an empty one, keeps the stored one, and the `null` a
+save states for a provider that needs none clears it — the call is one
+OpenAI-compatible chat completion with the zero-retention
 opt-out and the operator's private-address switch, the **decision turn** answers
 which rules apply and what the facts are over the reading tools, and the
 **choosing turn** (`chooseStep`) answers a plan of one or more steps — each a

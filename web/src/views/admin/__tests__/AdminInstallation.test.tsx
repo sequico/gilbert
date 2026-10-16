@@ -397,7 +397,24 @@ describe("the installation document surface", () => {
     expect(provider.provider).toBe(MODEL.provider);
     expect(provider.model).toBe("gpt-5-mini");
     // The key field was never touched, so the save states nothing about the key
-    // and the stored one stands. Writing an empty one here would clear it.
+    // and the stored one stands.
+    expect("apiKey" in provider).toBe(false);
+  });
+
+  it("keeps the stored key when the key field is typed into and emptied again", async () => {
+    const fetchMock = stubServer(MODEL_DOCUMENT);
+
+    await render();
+    await fill("model-key", "sk-a-key-that-was-then-taken-back");
+    // Emptying the field is the same save as never typing into it: it states
+    // nothing about the key, so the stored one stands. Only the switch clears it.
+    await fill("model-key", "");
+    // Something else has to move for there to be anything to publish.
+    await fill("model-name", "gpt-5-mini");
+    await click("Publish document");
+
+    const provider = sentProvider(fetchMock);
+    expect(provider.model).toBe("gpt-5-mini");
     expect("apiKey" in provider).toBe(false);
   });
 
@@ -427,9 +444,10 @@ describe("the installation document surface", () => {
     await needsNoKey();
     await click("Publish document");
 
-    // An empty `apiKey` is the third thing a save can say: the provider needs
-    // none, which clears the stored one rather than keeping it.
-    expect(sentProvider(fetchMock).apiKey).toBe("");
+    // The switch is the one thing a save can state that clears the key: it sends
+    // `apiKey: null`, which the door reads as "the provider needs none" and
+    // stores as an empty key. An empty string would keep the stored one.
+    expect(sentProvider(fetchMock).apiKey).toBe(null);
   });
 
   it("says the installation has no agent when the document names no model", async () => {

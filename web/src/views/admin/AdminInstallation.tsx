@@ -23,12 +23,14 @@ interface ModelDraft {
 /**
  * The three things a save can say about the model's key, which is never shown.
  *
- * `kept` is the untouched field: the save states no key at all, so the stored
- * one stands. `none` is the operator saying the provider needs none — a model on
- * the deployment's own network — which clears the stored key. A value is the key
- * to write. The document tells the three apart by the field itself, and
- * `installationAdmin.ts` reads it that way: no `apiKey` at all keeps the stored
- * one, an empty one needs none, a value is that key.
+ * `kept` is a field that says nothing: untouched, or typed into and emptied
+ * again — the two are the same save, and both leave the stored key exactly as it
+ * is. `none` is the operator saying the provider needs none — a model on the
+ * deployment's own network — which clears the stored key. A value is the key to
+ * write. The document tells the three apart by the field itself, and
+ * `installationAdmin.ts` reads it that way: no `apiKey` at all, or an empty one,
+ * keeps the stored key; the `null` the switch below sends says the provider
+ * needs none; a value is that key.
  */
 type KeyDraft = { kind: "kept" } | { kind: "none" } | { kind: "key"; value: string };
 
@@ -73,7 +75,7 @@ function modelOf(text: string): ModelDraft {
  */
 function withModelField(
   text: string,
-  patch: Partial<Record<"provider" | "model" | "baseUrl" | "apiKey", string>>,
+  patch: Partial<Record<"provider" | "model" | "baseUrl" | "apiKey", string | null>>,
 ): string {
   const whole = parseObject(text);
   if (!whole) return text;
@@ -90,15 +92,16 @@ function withModelField(
  * The document to publish, with the key the form states.
  *
  * The key never reaches the text this surface holds — the server takes it out
- * when it reads, and the form keeps its copy in memory only — so the three
- * things a save can say about it are written here, once, into what is sent. A
- * document that names no provider has no model, and so no key to carry or to
- * clear.
+ * when it reads, and the form keeps its copy in memory only — so the two things
+ * a save can state are written here, once, into what is sent: a value, or `null`
+ * for a provider that needs none. A field left untouched or emptied states
+ * nothing, and the text goes as it is. A document that names no provider has no
+ * model, and so no key to carry or to clear.
  */
 function withModelKey(text: string, draft: KeyDraft): string {
   if (draft.kind === "kept") return text;
   if (!modelOf(text).provider) return text;
-  return withModelField(text, { apiKey: draft.kind === "none" ? "" : draft.value });
+  return withModelField(text, { apiKey: draft.kind === "none" ? null : draft.value });
 }
 
 /**
@@ -317,13 +320,16 @@ export function AdminInstallation() {
           placeholder={t("Stored on the server")}
           onChange={(e) =>
             setKeyDraft(
-              e.target.value ? { kind: "key", value: e.target.value } : { kind: "none" },
+              // Emptying the field says nothing about the key, exactly as never
+              // typing into it does: the stored one stands. The switch is the
+              // one thing that clears it.
+              e.target.value ? { kind: "key", value: e.target.value } : { kind: "kept" },
             )
           }
         />
         <span className="hint">
           {t(
-            "The key is write-only: no read hands it back, so this field is empty and every answer carries none of it. Leaving it alone keeps the stored key, a value replaces it, and a provider that needs none — a model on this deployment's own network, say — clears it. A document that names no model carries no key.",
+            "The key is write-only: no read hands it back, so this field is empty and every answer carries none of it. An untouched or emptied field keeps the stored key, a value replaces it, and the switch below — for a provider that needs no key, a model on this deployment's own network, say — clears it. A document that names no model carries no key.",
           )}
         </span>
       </div>

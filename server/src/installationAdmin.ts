@@ -94,11 +94,13 @@ export interface InstallationView {
   present: boolean;
   /**
    * The document as it is stored, or null when there is none — with the model's
-   * key **taken out**, because the key is write-only: it is stored so a call can
-   * carry it, and no read hands it back (`withoutProviderKey`). A publish that
-   * states no `apiKey` is what keeps the stored one, which is why the field is
-   * absent here rather than empty: a text handed back as it was read states
-   * nothing about the key.
+   * key **taken out** of every document this module can read as JSON
+   * (`withoutProviderKey`), because the key is write-only: it is stored so a
+   * call can carry it, and no read hands it back. A document that is not JSON is
+   * the exception, handed back byte for byte so a person can repair it. A
+   * publish that says nothing about the key — the field absent or empty — is
+   * what keeps the stored one, which is why the field is absent here rather than
+   * empty: a text handed back as it was read states nothing about the key.
    */
   document: string | null;
   /**
@@ -206,25 +208,33 @@ function providerIn(text: string): Record<string, unknown> | null {
 }
 
 /**
- * What a text says about the model's key: whether it says anything at all, and
- * the key it states.
+ * What a text states about the model's key, which is one of three things.
  *
- * `stated` is the difference between the two ways a save can leave the stored
- * key alone and the one way it removes it: an `apiKey` that is **absent** is a
- * save that never touched the key, and an **empty** one is the provider needing
- * none — a real choice for a model on the deployment's own network — which
- * clears it. A text that is not JSON, or carries no provider, says nothing.
+ * `kept` is a save that says nothing about it — the field **absent**, or present
+ * and **empty** — and the stored key stands. The empty spelling is the older one
+ * and its meaning does not move: a client that predates this surface's switch
+ * says "keep" with an empty key, and a field of a document is a contract rather
+ * than a preference. `none` is the one way to say the provider needs none — a
+ * model on the deployment's own network, say — written as `apiKey: null`, which
+ * the validator stores as an empty key, so clearing is stated in a way "keep"
+ * never was. `key` is the value to write. A text that is not JSON, or carries no
+ * provider, says nothing.
  */
-function providerKeyIn(text: string): { stated: boolean; key: string } {
+type KeyStatement = { kind: "kept" } | { kind: "none" } | { kind: "key"; key: string };
+
+function keyStatementIn(text: string): KeyStatement {
   const provider = providerIn(text);
-  if (!provider || !("apiKey" in provider)) return { stated: false, key: "" };
+  if (!provider || !("apiKey" in provider)) return { kind: "kept" };
   const apiKey = provider.apiKey;
-  return { stated: true, key: typeof apiKey === "string" ? apiKey : "" };
+  if (apiKey === null) return { kind: "none" };
+  if (typeof apiKey !== "string" || !apiKey) return { kind: "kept" };
+  return { kind: "key", key: apiKey };
 }
 
 /** The key a text stores, or "" when it stores none. */
 function providerKeyOf(text: string): string {
-  return providerKeyIn(text).key;
+  const statement = keyStatementIn(text);
+  return statement.kind === "key" ? statement.key : "";
 }
 
 /**
@@ -256,13 +266,14 @@ function withoutProviderKey(text: string): string {
 /**
  * The document a publish means, with the key the text it sent did not state.
  *
- * The model's key is written by a save that states one, kept by a save that
- * states nothing about it, and cleared by a save that states an empty one — the
- * provider needs none — and the three are told apart by the field itself
- * (`providerKeyIn`). A provider that is **absent** clears the model and its key
- * with it, which is how an installation stops having an agent. The key is read
- * from the stored **text**, because only this module knows a publish is taking
- * place.
+ * Three things a save can say about the key, and each is kept
+ * (`keyStatementIn`): a value is the key the document now carries, `null` is the
+ * provider needing none — the validator stores that as an empty key — and a save
+ * that says nothing, the field absent or empty, has the stored key put back,
+ * because a surface that cannot show a key must not erase one by saying nothing.
+ * A provider that is **absent** clears the model and its key with it, which is
+ * how an installation stops having an agent. The key is read from the stored
+ * **text**, because only this module knows a publish is taking place.
  */
 function withStoredKey(
   doc: InstallationDocument,
@@ -271,7 +282,9 @@ function withStoredKey(
 ): InstallationDocument {
   const provider = doc.agent.provider;
   if (!provider) return doc;
-  if (providerKeyIn(submitted).stated) return doc;
+  // A stated value and a stated `null` are already what the validator parsed;
+  // only a save that said nothing about the key gets the stored one put back.
+  if (keyStatementIn(submitted).kind !== "kept") return doc;
   const storedKey = providerKeyOf(stored ?? "");
   if (!storedKey) return doc;
   return { ...doc, agent: { provider: { ...provider, apiKey: storedKey } } };
@@ -406,8 +419,9 @@ export async function publishInstallation(
   try {
     written = await writeInstallation(
       store,
-      // The stored key stands when the publish stated none, and goes when the
-      // publish stated an empty one (see `withStoredKey`).
+      // The stored key stands when the publish said nothing about it — the
+      // field absent or empty — and goes when the publish said the provider
+      // needs none (see `withStoredKey`).
       { ...withStoredKey(parsed.doc, stored, raw), epoch: storedEpoch(stored) },
       { ifInState: state },
     );
