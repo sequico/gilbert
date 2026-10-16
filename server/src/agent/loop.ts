@@ -7,8 +7,8 @@
  * the Master joins is worked by the next pass and one it leaves stops being
  * worked, with no restart — then works the runs whose wait has come due, reads
  * each account's changes, and for each change asks the **decision turn** which
- * rule applies. A change no rule watches costs no model call and no step; a
- * rule that applies opens a run, and the run is
+ * rules apply. A change no rule watches costs no model call and no step; every
+ * rule that applies opens or continues its own run (ADR 0035), and each run is
  * worked by the **choosing turn** — the model asks for a batch of one or more
  * calls, the loop makes them **together**, writes each as its own step with its
  * own outcome and its own spend on the run, spends the budget, and asks again,
@@ -62,7 +62,14 @@ import {
 } from "./model.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules, readRule } from "./rules.js";
-import { createRun, dueRuns, readRun, replaceRun } from "./runs.js";
+import {
+  createRun,
+  dueRuns,
+  listRuns,
+  type RunRecord,
+  readRun,
+  replaceRun,
+} from "./runs.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import { type AnyTool, runTool, TOOLS } from "./tools.js";
 
@@ -247,7 +254,23 @@ export class AgentLoop {
     }
   }
 
-  /** One account's changes, each put to the decision turn. */
+  /**
+   * One account's changes, each put to the decision turn, and every rule that
+   * fits it given its own run.
+   *
+   * A change no rule watches costs no model call and no step. Every rule the
+   * decision turn names opens or continues **its own** run (ADR 0035): two rules
+   * over one change are two runs, each naming its own rule and the change that
+   * woke it. The same rule over the same change is not a second run — the runs
+   * the account already holds are read for it once, when the first change is
+   * covered, and a run whose `startedBy` names this rule and this change is what
+   * the record says that change has been answered by: one still running is
+   * continued from its own document, and one that has ended is left as the
+   * answer it is, so a pass that re-reads a change it did not finish cannot work
+   * it twice. One change reaches this loop once per read — a node's create and
+   * its update are one event (`events.ts`) — so the record is the whole of what
+   * "the same change" is recognised by.
+   */
   private async workChanges(
     accountId: string,
     now: Date,
@@ -264,6 +287,8 @@ export class AgentLoop {
     const read = await readAccountEvents(this.ctx, accountId, cursor);
     if (read.gap) summary.gaps.push(read.gap);
     const rules = (await listRules(this.ctx, accountId)).map((record) => record.rule);
+    /** The runs the account already held, asked for once and only when needed. */
+    let started: Map<string, RunDoc> | null = null;
     for (const event of read.events) {
       summary.changes += 1;
       const candidates = rules.filter((rule) => ruleApplies(rule, event));
@@ -274,12 +299,26 @@ export class AgentLoop {
         { event, rules, prose: {} },
         this.readingCall(accountId, event, candidates),
       );
-      if (decision.kind !== "decision" || !decision.rule) continue;
-      const rule = rules.find((candidate) => candidate.id === decision.rule);
-      if (!rule) continue;
-      const run = await this.openRun(accountId, event, rule);
-      summary.runs += 1;
-      await this.workRun(accountId, run, now, decision.facts);
+      if (decision.kind !== "decision") continue;
+      const woke = wokeOf(event);
+      for (const named of decision.rules) {
+        const rule = rules.find((candidate) => candidate.id === named);
+        if (!rule) continue;
+        const key = startKey(named, woke);
+        // A run of the account that already names this rule and this change is
+        // that change being worked, or the answer it already has: never a second
+        // run over it.
+        started ??= runsByStart(await listRuns(this.ctx, accountId));
+        const held = started.get(key);
+        if (held) {
+          if (held.state === "running")
+            await this.workRun(accountId, held, now, decision.facts);
+          continue;
+        }
+        const run = await this.openRun(accountId, event, rule);
+        summary.runs += 1;
+        await this.workRun(accountId, run, now, decision.facts);
+      }
     }
     // The cursor moves only once the batch is answered: a read that failed
     // half-way is read again rather than lost as silence.
@@ -290,9 +329,9 @@ export class AgentLoop {
    * The call the decision turn's own reads are made against.
    *
    * Those reads are the write-free half of the catalogue, which asks nobody's
-   * authority, so the run this carries is never consulted by the guard: it is the
-   * run this change would open, and the run the loop actually writes is the one
-   * the decision names.
+   * authority, so the run this carries is never consulted by the guard: it is a
+   * stand-in for the runs this change would open, and the runs the loop actually
+   * writes are the ones the decision names.
    */
   private readingCall(
     accountId: string,
@@ -527,6 +566,44 @@ export class AgentLoop {
 /** What woke a run, in the group's own words, from the event's own parts. */
 function wokeOf(event: AccountEvent): string {
   return `${event.source} ${event.change}: ${event.where}`;
+}
+
+/**
+ * Which rule and which change a run is the answer to: its own `startedBy`.
+ *
+ * The change is named the way the run carries it (`wokeOf`), so the pair a run
+ * is filed under and the pair a change is looked up by are one string and not
+ * two spellings that could drift.
+ */
+function startKey(rule: string, woke: string): string {
+  return `${rule}\n${woke}`;
+}
+
+/**
+ * The account's runs by what started them: one entry per rule-and-change pair.
+ *
+ * A run an instruction started names no rule and no change, and is not an answer
+ * to one — nothing here. Two runs of one pair cannot be written by this build,
+ * and the one a pass can continue is the one still running, so that is the one
+ * kept when a hand-written pair of documents says otherwise.
+ *
+ * shortcut: a change is named by its surface, its kind and its address, which is
+ * all the change log hands over — so a document created again at a path a rule
+ * already answered is read as the change that was answered, not as a new one.
+ * Upgrade when an event can name the state it happened at, or the object's own
+ * version, which is what tells a recurrence from a replay.
+ */
+function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
+  const byStart = new Map<string, RunDoc>();
+  for (const { run } of records) {
+    const { rule, woke } = run.startedBy;
+    if (!rule || !woke) continue;
+    const key = startKey(rule, woke);
+    const held = byStart.get(key);
+    if (!held || (held.state !== "running" && run.state === "running"))
+      byStart.set(key, run);
+  }
+  return byStart;
 }
 
 /** The ceiling a run has spent, or null when it has budget left (ADR 0031). */

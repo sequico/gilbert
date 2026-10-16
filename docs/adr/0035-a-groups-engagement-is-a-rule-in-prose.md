@@ -11,14 +11,14 @@ the account's own compare-and-set. The builder of the prose the agent carries is
 the rule or the instruction that started it (`server/src/shared/run.ts`,
 `RunStart`), the tools a rule's instruction is carried out with are
 `server/src/agent/tools.ts`, and the loop that carries it out is
-`server/src/agent/loop.ts`: each change is put to the decision turn, a rule that
-applies opens a run named by the change it answered, and the choosing turn works
-it. What the loop is not told yet is the installation's own line and the group's
+`server/src/agent/loop.ts`: a change is put to the decision turn once, the turn
+answers with **every** rule that fits it, and each one opens or continues **its
+own** run named by the change it answered — a run whose `startedBy` already names
+that rule and that change is the change being worked, or the answer it already
+has, so a pass that re-reads a change it did not finish does not work it twice.
+What the loop is not told yet is the installation's own line and the group's
 standing instruction: no reader for those two documents is built, so a call
-carries the rule's instruction alone. What is not built either is this record's
-own answer to a collision: a change is put to the decision turn once and the
-rule that applies opens a run, so several rules over one change do not each run
-yet.
+carries the rule's instruction alone.
 
 ## Context
 

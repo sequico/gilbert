@@ -7,6 +7,10 @@
  *
  * - a change a rule watches opens a run, and the record shows the change, the
  *   rule, the step the model chose and the ending;
+ * - **every** rule that fits one change opens its own run, each naming its own
+ *   rule and the change it answered;
+ * - the same rule and the same change are one run, continued from its document
+ *   rather than opened a second time;
  * - a change no rule watches costs no model call and no step at all;
  * - the accounts the pass works are asked for on **every** pass, so a group the
  *   Master is added to is worked by the next one;
@@ -248,7 +252,7 @@ test("a change a rule watches opens a run, and the record shows every step of it
   const agent = loop();
   await agent.start();
 
-  answerWith({ rule: id, facts: { shipper: "Maersk" } });
+  answerWith({ rules: [id], facts: { shipper: "Maersk" } });
   answerWith({
     calls: [{ name: "chat.say", arguments: { text: "filed with the booking" } }],
   });
@@ -294,7 +298,8 @@ test("two changes of one address open one run, not two", async () => {
   // A node written twice in one batch — created and then written again through
   // the update path — is two changes for one document. The rule answers one
   // document with one run: two would let the agent answer it twice.
-  onCall = (system) => (isDecision(system) ? { rule: id, facts: {} } : { done: "noted" });
+  onCall = (system) =>
+    isDecision(system) ? { rules: [id], facts: {} } : { done: "noted" };
   await writeAppFileAt(ctx, accountId, "workorders/wo-fused.json", {
     v: 1,
     uid: "wo-fused",
@@ -315,6 +320,102 @@ test("two changes of one address open one run, not two", async () => {
     (record) => record.run.startedBy.rule === id,
   );
   assert.equal(runs.length, 1, "and only one run for it is in the account");
+});
+
+test("every rule that fits one change opens its own run", async () => {
+  // Two rules a group wrote over the same surface. Both are its decision, so
+  // neither is set aside for the other: the change is put to the decision turn
+  // once, and every rule it names gets a run of its own (ADR 0035).
+  const first = "intake-bookings";
+  const second = "intake-containers";
+  await putRule(first);
+  await putRule(second);
+  const agent = loop();
+  await agent.start();
+
+  onCall = (system) =>
+    isDecision(system)
+      ? { rules: [first, second], facts: { shipper: "Maersk" } }
+      : { done: "answered it" };
+  const message = await deliver("a message both rules cover");
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 2, "two rules over one change are two runs");
+  const a = await runOf(first);
+  const b = await runOf(second);
+  assert.notEqual(a.id, b.id, "each run is its own document");
+  assert.equal(a.startedBy.rule, first, "each run names the rule that started it");
+  assert.equal(b.startedBy.rule, second);
+  assert.equal(
+    a.startedBy.woke,
+    `mail created: ${message}`,
+    "and each carries the change that woke it",
+  );
+  assert.equal(b.startedBy.woke, `mail created: ${message}`);
+  assert.equal(a.state, "done", "and both were worked to their ending");
+  assert.equal(b.state, "done");
+  assert.equal(
+    seen.filter((call) => isDecision(call.system)).length,
+    1,
+    "the change is put to the decision turn once, not once per rule",
+  );
+  for (const call of seen.filter((one) => !isDecision(one.system)))
+    assert.match(
+      call.user,
+      /shipper: Maersk/,
+      "and every run's turn is told what the change was found to be about",
+    );
+});
+
+test("the same rule and the same change continue one run rather than open a second", async () => {
+  /*
+   * A pass re-reads a change whose batch it did not finish — the cursor only
+   * moves once the whole read is answered — and the same rule must not answer
+   * the same change twice. What says the change has been answered is the
+   * account's own record: a run whose `startedBy` names this rule and this
+   * change. One still running is continued from its document; one that ended is
+   * the answer it already has.
+   */
+  const id = "intake-once";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  const message = await deliver("a booking confirmation");
+  await createRun(
+    ctx,
+    accountId,
+    startRun({
+      id: "already-open",
+      startedBy: { rule: id, instruction: null, woke: `mail created: ${message}` },
+      plan: ["chat.say the first half"],
+    }),
+  );
+  onCall = (system) =>
+    isDecision(system) ? { rules: [id], facts: {} } : { done: "the rest is done" };
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "no second run was opened for this rule and this change");
+  const runs = (await listRuns(ctx, accountId)).filter(
+    (record) => record.run.startedBy.rule === id,
+  );
+  assert.equal(runs.length, 1, "the account holds the one run for that change");
+  assert.equal(runs[0]?.run.id, "already-open", "and it is the one already there");
+  assert.equal(
+    runs[0]?.run.plan.length,
+    1,
+    "which kept the plan it had rather than being replaced by a fresh run",
+  );
+  assert.equal(
+    runs[0]?.run.ended?.why,
+    "the rest is done",
+    "and was worked to its ending",
+  );
+  assert.match(
+    seen.find((call) => !isDecision(call.system))?.user ?? "",
+    /chat\.say the first half/,
+    "the choosing turn was told where that run's own document had left it",
+  );
 });
 
 test("a change no rule watches costs no model call and no step", async () => {
@@ -347,7 +448,7 @@ test("a claim another process holds stops the pass before it works anything", as
   assert.ok(peer, "the peer takes the installation's claim");
   const agent = loop();
   await agent.start();
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   await deliver("nobody should answer this");
 
   const summary = await agent.pass();
@@ -382,7 +483,7 @@ test("a group added between two passes is worked by the pass that follows", asyn
   // The Master is added to the group, between two passes.
   accounts = [accountId];
   await agent.pass();
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({ done: "the shipper's message is filed" });
   const message = await deliver("a booking confirmation");
   const summary = await agent.pass();
@@ -405,7 +506,7 @@ test("the budget ends a run that cannot finish, and the record says so", async (
 
   // A model that keeps taking steps and never says it is done.
   onCall = (system) => {
-    if (isDecision(system)) return { rule: id, facts: {} };
+    if (isDecision(system)) return { rules: [id], facts: {} };
     return {
       calls: [{ name: "mail.folder", arguments: { name: `folder-${seen.length}` } }],
     };
@@ -444,7 +545,7 @@ test("an act the run carries no authority for is refused, and the refusal is on 
   const agent = loop("process-a", { catalogue: [...TOOLS, remove] });
   await agent.start();
 
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({ calls: [{ name: "mail.remove", arguments: { id: "m-1" } }] });
   answerWith({ done: "I could not destroy it, so I left it" });
   await deliver("do not destroy me");
@@ -474,7 +575,7 @@ test("the model choosing the same step twice is a stall the record shows", async
 
   // The same call, twice: it made no progress the first time and cannot the
   // second, and running it again is the endless turn this stops.
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
   answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
   await deliver("a change that stalls");
@@ -495,7 +596,7 @@ test("a step that asks a person parks the run on the answer it left", async () =
   const agent = loop();
   await agent.start();
 
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({
     calls: [{ name: "chat.ask", arguments: { text: "which booking is this?" } }],
   });
@@ -557,7 +658,7 @@ test("a batch of calls is executed, and each is its own step", async () => {
   const agent = loop();
   await agent.start();
 
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({
     calls: [
       { name: "chat.say", arguments: { text: "filed the message" } },
@@ -608,7 +709,7 @@ test("the calls of one batch run together, not one after another", async () => {
 
   onCall = (system) =>
     isDecision(system)
-      ? { rule: id, facts: {} }
+      ? { rules: [id], facts: {} }
       : {
           calls: [
             { name: "probe.hold", arguments: {} },
@@ -646,7 +747,7 @@ test("a refused call in a batch leaves its siblings' steps on the record", async
   const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
   await agent.start();
 
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({
     calls: [
       { name: "mail.remove", arguments: { id: "m-1" } },
@@ -676,7 +777,7 @@ test("a wait in a batch is honoured after it, with the other calls on the record
   const agent = loop();
   await agent.start();
 
-  answerWith({ rule: id, facts: {} });
+  answerWith({ rules: [id], facts: {} });
   answerWith({
     calls: [
       { name: "chat.say", arguments: { text: "I filed the message" } },

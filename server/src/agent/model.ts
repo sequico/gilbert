@@ -24,8 +24,8 @@
  * made in `callModel`, so every path to the provider passes it.
  *
  * **The decision turn.** Given one change in a group's own account and the
- * rules that watch it, the model answers one bounded question: does a rule
- * apply, which one, and what are the facts. It may look something up with the
+ * rules that watch it, the model answers one bounded question: which rules
+ * apply, and what are the facts. It may look something up with the
  * **reading tools** already built — the write-free half of the catalogue, so a
  * tool that changes the account is not in it to name — and what it answers is
  * facts and nothing else. It never grants an authority and never chooses a tool
@@ -384,10 +384,11 @@ function firstLine(text: string): string {
 /**
  * What one deciding call answered.
  *
- * A **decision** names the rule that applies — or null, when none of the
- * candidates covers this change after all — and the facts the change is about,
- * in the group's own vocabulary. A **read** asks for one look at the group's own
- * state first; it is not a decision, and the caller performs it and asks again.
+ * A **decision** names **every** rule that applies — an empty list when, after
+ * looking, none of the candidates covers this change — and the facts the change
+ * is about, in the group's own vocabulary. A **read** asks for one look at the
+ * group's own state first; it is not a decision, and the caller performs it and
+ * asks again.
  *
  * There is nothing else an answer can be. It carries no authority and no tool
  * that writes: an authorisation is a person's word recorded on the run
@@ -395,7 +396,7 @@ function firstLine(text: string): string {
  * the write-free half of the catalogue.
  */
 export type ModelAnswer =
-  | { kind: "decision"; rule: string | null; facts: Record<string, string> }
+  | { kind: "decision"; rules: string[]; facts: Record<string, string> }
   | { kind: "read"; name: string; args: unknown };
 
 /**
@@ -405,21 +406,26 @@ export type ModelAnswer =
  * else. A key this build does not know is **refused**, not ignored, and that is
  * the whole of the bound on what an answer can carry — a model that adds an
  * `authority`, a `capability` or an `actions` list to its decision is answered
- * with a refusal rather than with an effect. Facts are the model's own
- * vocabulary (which booking, which shipper, which client), so the *names* inside
- * `facts` are open; their values are text.
+ * with a refusal rather than with an effect. The **facts sit beside the rules
+ * and not inside them**: a change is one thing, several rules may fit it, and
+ * the facts describe the change — one answer is therefore smaller than a fact
+ * list per rule, and cannot say that one rule saw a differently-described
+ * change from another. Facts are the model's own vocabulary (which booking,
+ * which shipper, which client), so the *names* inside `facts` are open; their
+ * values are text. A rule named twice is refused with the rest: a run per
+ * naming is not what the group wrote.
  */
 export function parseAnswerDetailed(
   raw: unknown,
 ): { answer: ModelAnswer } | { problem: string } {
   if (!isRecord(raw)) return { problem: "The answer must be a JSON object." };
   const keys = Object.keys(raw);
-  const hasRule = keys.includes("rule");
+  const hasRules = keys.includes("rules");
   const hasRead = keys.includes("read");
-  if (hasRule === hasRead)
+  if (hasRules === hasRead)
     return {
       problem:
-        'The answer must carry "rule" and "facts" when it decides, or "read" when it looks something up — and never both.',
+        'The answer must carry "rules" and "facts" when it decides, or "read" when it looks something up — and never both.',
     };
   if (hasRead) {
     const unknown = keys.filter((key) => key !== "read");
@@ -442,25 +448,30 @@ export function parseAnswerDetailed(
       answer: { kind: "read", name: read.tool.trim(), args: read.arguments ?? {} },
     };
   }
-  const unknown = keys.filter((key) => key !== "rule" && key !== "facts");
+  const unknown = keys.filter((key) => key !== "rules" && key !== "facts");
   if (unknown.length)
     return {
       problem:
-        `A decision carries "rule" and "facts" and nothing else, and it carries ${unknown.join(", ")}: ` +
+        `A decision carries "rules" and "facts" and nothing else, and it carries ${unknown.join(", ")}: ` +
         "what may be done is never the model's to say.",
     };
-  const rule = raw.rule;
-  if (rule !== null && (typeof rule !== "string" || !rule.trim()))
-    return { problem: '"rule" must be the name of a rule, or null.' };
+  const rules = raw.rules;
+  if (
+    !Array.isArray(rules) ||
+    !rules.every((one) => typeof one === "string" && one.trim())
+  )
+    return {
+      problem:
+        '"rules" must be a list of rule names — every one that applies, and an empty list when none does.',
+    };
+  const named = (rules as string[]).map((one) => one.trim());
+  if (new Set(named).size !== named.length)
+    return { problem: '"rules" must name each rule at most once.' };
   const facts = raw.facts;
   if (!isRecord(facts) || !Object.values(facts).every((v) => typeof v === "string"))
     return { problem: '"facts" must be an object whose values are text.' };
   return {
-    answer: {
-      kind: "decision",
-      rule: typeof rule === "string" ? rule.trim() : null,
-      facts: facts as Record<string, string>,
-    },
+    answer: { kind: "decision", rules: named, facts: facts as Record<string, string> },
   };
 }
 
@@ -493,16 +504,15 @@ interface ReadMade {
 }
 
 /**
- * One decision turn: given a change and the group's rules, which rule applies
+ * One decision turn: given a change and the group's rules, which rules apply
  * and what are the facts.
  *
  * The candidates are the rules whose watch covers the change (`ruleApplies`) and
  * nothing else, so the watch a rule declares is enforced here rather than
  * trusted to the model. A change no rule watches is decided without a call at
- * all — and without a bill. More than one candidate may cover the change, and
- * choosing between them is the model's: it names the one that fits best and the
- * others wait for the next change, because a change two rules cover is not an
- * error (ADR 0035).
+ * all — and without a bill. Every candidate that fits the change is named and
+ * runs: a change two rules cover is the group's own decision, so the model
+ * chooses between no two of them (ADR 0035).
  *
  * The model may look the group's own state up with the **reading tools** before
  * it answers, up to `DECISION_READS_MAX` times; each read is run through
@@ -519,16 +529,16 @@ export async function decideEvent(
   opts: { maxReads?: number; timeoutMs?: number } = {},
 ): Promise<ModelAnswer> {
   const candidates = question.rules.filter((rule) => ruleApplies(rule, question.event));
-  if (!candidates.length) return { kind: "decision", rule: null, facts: {} };
+  if (!candidates.length) return { kind: "decision", rules: [], facts: {} };
 
   const maxReads = opts.maxReads ?? DECISION_READS_MAX;
   const heads = proseForModel(question.prose);
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group. You are told one change in the group's own account, and the rules the group wrote for it.",
-    'Answer with one JSON object and nothing else: {"rule": <the name of the rule that applies, or null>, "facts": {"<name>": "<what you found>"}}.',
-    '"rule" is the name of exactly one of the rules you are given, or null when none of them applies. Several of them may fit this change: name the one that fits it best, and the others are simply not chosen — a change more than one rule covers is not an error.',
-    '"facts" is what the change is about, in the group\'s own vocabulary: which booking, which shipper, which client, and what is being asked. Its names are yours; its values are text.',
+    'Answer with one JSON object and nothing else: {"rules": [<the name of every rule that applies>], "facts": {"<name>": "<what you found>"}}.',
+    '"rules" names every rule you are given that applies to this change, and it is an empty list when none of them does. Two rules a group wrote over one activity are both its decision: name every one that fits, and choose between none of them.',
+    "\"facts\" is what the change is about, in the group's own vocabulary: which booking, which shipper, which client, and what is being asked. They are the change's own facts and sit beside the rules, not inside them. Its names are yours; its values are text.",
     "You never decide what may be done: what is allowed is the authority classes, not you, and an answer that carries a capability, a tool or an authorisation is refused.",
     `When you need the group's own state to answer, look it up first: answer {"read": {"tool": "<name>", "arguments": {}}} and you are asked again with what came back. At most ${maxReads} lookups.`,
     "The tools you may read with:",
@@ -549,12 +559,12 @@ export async function decideEvent(
     if ("problem" in parsed)
       throw new ModelError("model_answer_malformed", parsed.problem);
     if (parsed.answer.kind === "decision") {
-      const { rule } = parsed.answer;
-      if (rule !== null && !candidates.some((candidate) => candidate.id === rule))
-        throw new ModelError(
-          "model_answer_malformed",
-          `The model named the rule "${rule}", which this group did not write.`,
-        );
+      for (const named of parsed.answer.rules)
+        if (!candidates.some((candidate) => candidate.id === named))
+          throw new ModelError(
+            "model_answer_malformed",
+            `The model named the rule "${named}", which this group did not write.`,
+          );
       return parsed.answer;
     }
     /*
@@ -606,7 +616,7 @@ function turnData(
       `change: ${event.change}`,
       `address: ${event.where}`,
     ]),
-    "The group's rules that watch it. More than one may cover this change: answer with the name of the one that fits it best, and the others wait for the next change:",
+    "The group's rules that watch it. Name every one of them that applies, and an empty list when none does:",
     ...candidates.map((rule) =>
       dataBlock(token, [
         `rule: ${rule.id}${rule.sends ? " (this rule sends)" : ""}`,

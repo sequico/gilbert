@@ -8,7 +8,8 @@ it is read and how it is written whole is `server/src/agent/runs.ts`. The loop
 that works a run, and the re-arm of its waits on boot, are
 `server/src/agent/loop.ts`: a pass takes the installation's claim, arms every
 wait each account's runs carry, works the runs whose wait has come due, and opens
-and works a run for each change a rule covers. The records a run writes next to a
+or continues and works a run for each rule a change fits (ADR 0035). The records
+a run writes next to a
 person's already exist — a workorder step's `state`/`by`/`at`/`note`
 (`server/src/shared/workorder.ts`) and a KB page's revisions (ADR 0024). What the
 plan cannot carry yet is order and conditions: the calls of one answer run

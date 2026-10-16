@@ -9,8 +9,8 @@ is handed (`readingTools`) is the one that cannot write. The installation's one
 model is `server/src/agent/model.ts`: the key is write-only in the installation's
 own document (`shared/installation.ts`, `installationAdmin.ts`), the call is one
 OpenAI-compatible chat completion with the zero-retention opt-out and the
-operator's private-address switch, the **decision turn** answers which rule
-applies and what the facts are over the reading tools, and the **choosing turn**
+operator's private-address switch, the **decision turn** answers which rules
+apply and what the facts are over the reading tools, and the **choosing turn**
 (`chooseStep`) answers a batch of one or more calls over the whole catalogue. The loop that
 works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that

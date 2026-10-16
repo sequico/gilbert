@@ -146,7 +146,7 @@ whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
 (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries both turns: the **decision
 turn** — given one change in a group's own account and the rules that watch it,
-which rule applies and what the facts are, looking the group's own state up first
+which rules apply and what the facts are, looking the group's own state up first
 with the **reading tools** when it needs to — and the **choosing turn**, which is
 handed the catalogue as the catalogue describes itself and the run so far, and
 answers with a **batch**: one or more calls, each a tool and its arguments, or
@@ -175,8 +175,10 @@ whole catalogue is exercised against the mock Stalwart.
 **The loop that works a run is `server/src/agent/loop.ts`** (ADR 0031–0036): one
 pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change no
-rule watches costs no model call and no step; a rule that applies opens a run
-naming the change that woke it, and the choosing turn works it — **a batch of one
+rule watches costs no model call and no step; every rule that fits the change
+opens or continues **its own** run naming the change that woke it — two rules a
+group wrote over one activity are two runs, and the same rule over the same
+change is one — and the choosing turn works each — **a batch of one
 or more calls made together**, each its own step with its own outcome and its own
 spend, until the model says done, a call parks the run on a person's answer, or
 the run's **budget** (steps, model calls and time) is spent, which the record

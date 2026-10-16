@@ -82,6 +82,9 @@ export interface RunStart {
    * A rule fires on activity, and the run has to say which activity, or a
    * process that takes the run over cannot tell what it is answering. The words
    * are the loop's, composed from the event's own surface, change and address.
+   * A rule together with the change it names is also what the loop reads a
+   * change once by: a run already naming that pair is the change being worked or
+   * the answer it already has, never a reason for a second run (ADR 0035).
    */
   woke: string | null;
 }

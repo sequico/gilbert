@@ -203,12 +203,12 @@ function toolCall(): { ctx: Ctx; accountId: string; run: ReturnType<typeof start
 /* ------------------------------------------------------------------ */
 
 test("one call carries the zero-retention opt-out, a JSON answer shape and a ceiling", async () => {
-  answerWith({ rule: "shipper-answer", facts: { shipper: "Maersk" } });
+  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
   const answer = await callModel(
     { model, allowPrivateProvider: true },
     { system: "the group's rules", user: "the change" },
   );
-  assert.deepEqual(answer, { rule: "shipper-answer", facts: { shipper: "Maersk" } });
+  assert.deepEqual(answer, { rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
 
   const request = seen[0];
   assert.equal(request?.url, "/v1/chat/completions", "one call, to the chat endpoint");
@@ -245,7 +245,7 @@ test("a private provider is refused unless the operator's switch allows it (the 
     "a model inside the deployment's own network is refused without the operator's word",
   );
 
-  answerWith({ rule: null, facts: {} });
+  answerWith({ rules: [], facts: {} });
   await assert.rejects(
     () =>
       decideEvent(
@@ -258,7 +258,7 @@ test("a private provider is refused unless the operator's switch allows it (the 
   );
   assert.equal(seen.length, 0, "the key never left the process");
 
-  answerWith({ rule: null, facts: {} });
+  answerWith({ rules: [], facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
     { event: mailEvent, rules: [shipperRule], prose },
@@ -274,19 +274,29 @@ test("a private provider is refused unless the operator's switch allows it (the 
 test("an answer that is not the demanded shape is refused, never guessed at", async () => {
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
-    [{ summary: "I decided something" }, 'carry "rule" and "facts"'],
-    [{ rule: "shipper-answer" }, '"facts" must be an object'],
-    [{ rule: "", facts: {} }, '"rule" must be the name of a rule'],
-    [{ rule: "shipper-answer", facts: "none" }, '"facts" must be an object'],
-    [{ rule: "shipper-answer", facts: { shipper: 42 } }, "values are text"],
+    [{ summary: "I decided something" }, 'carry "rules" and "facts"'],
+    [{ rules: ["shipper-answer"] }, '"facts" must be an object'],
+    [{ rules: "shipper-answer", facts: {} }, '"rules" must be a list of rule names'],
     [
-      { rule: "shipper-answer", facts: {}, authority: "outward" },
+      { rules: ["shipper-answer", ""], facts: {} },
+      '"rules" must be a list of rule names',
+    ],
+    [{ rules: [42], facts: {} }, '"rules" must be a list of rule names'],
+    [{ rules: [], facts: { shipper: 42 } }, "values are text"],
+    [
+      { rules: ["shipper-answer", "shipper-answer"], facts: {} },
+      '"rules" must name each rule at most once',
+    ],
+    // A rule named is not a rule run twice: the answer is refused rather than
+    // read as a second run over the same change.
+    [
+      { rules: ["shipper-answer"], facts: {}, authority: "outward" },
       "what may be done is never the model's to say",
     ],
     // An answer cannot produce an authorisation either: naming a writing tool,
     // or a capability, is refused as the shape it is not.
     [
-      { rule: "shipper-answer", facts: {}, actions: [{ do: "mail.send" }] },
+      { rules: ["shipper-answer"], facts: {}, actions: [{ do: "mail.send" }] },
       "never the model's to say",
     ],
     [
@@ -303,7 +313,7 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
     );
   }
 
-  answerWith({ rule: "shipper-answer", facts: {}, authority: "outward" });
+  answerWith({ rules: ["shipper-answer"], facts: {}, authority: "outward" });
   await assert.rejects(
     () =>
       decideEvent(
@@ -315,7 +325,7 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
     "the turn refuses the answer rather than acting on what it could not read",
   );
 
-  answerWith({ rule: "a-rule-the-group-never-wrote", facts: {} });
+  answerWith({ rules: ["a-rule-the-group-never-wrote"], facts: {} });
   await assert.rejects(
     () =>
       decideEvent(
@@ -325,6 +335,24 @@ test("an answer that is not the demanded shape is refused, never guessed at", as
       ),
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
     "and an answer naming a rule the group did not write is refused too",
+  );
+
+  // One name among several that is not the group's refuses the whole answer: a
+  // rule it did not write is not dropped from the list and acted on beside the
+  // names it did.
+  answerWith({
+    rules: ["shipper-answer", "a-rule-the-group-never-wrote"],
+    facts: {},
+  });
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { event: mailEvent, rules: [shipperRule], prose },
+        toolCall(),
+      ),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+    "and the whole answer is refused, not the one bad name",
   );
 });
 
@@ -344,7 +372,7 @@ test("the turn may look the group's own state up with the reading tools, and not
   seen = [];
   answers = [];
   answerWith({ read: { tool: "files.list", arguments: {} } });
-  answerWith({ rule: "shipper-answer", facts: { shipper: "Maersk" } });
+  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
     { event: mailEvent, rules: [shipperRule], prose },
@@ -352,7 +380,7 @@ test("the turn may look the group's own state up with the reading tools, and not
   );
   assert.deepEqual(
     decision,
-    { kind: "decision", rule: "shipper-answer", facts: { shipper: "Maersk" } },
+    { kind: "decision", rules: ["shipper-answer"], facts: { shipper: "Maersk" } },
     "the turn answers with the decision once the read came back",
   );
   assert.equal(seen.length, 2, "the read is a second call");
@@ -369,10 +397,11 @@ test("the turn may look the group's own state up with the reading tools, and not
   );
 });
 
-test("more than one rule may cover a change: the model names one, and that is not an error", async () => {
+test("more than one rule may cover a change, and the turn answers with every one of them", async () => {
   // Two rules on the same surface. The turn hands both to the model and takes
-  // the one it names, without a fault and without dropping the other: a change
-  // two rules cover is the group's business, not a defect (ADR 0035).
+  // the ones it names — every one that fits, without a fault and without
+  // choosing between them: a change two rules cover is both of the group's
+  // decisions, neither set aside for the other (ADR 0035).
   const second: RuleDoc = {
     v: RULE_VERSION,
     id: "container-filing",
@@ -380,13 +409,20 @@ test("more than one rule may cover a change: the model names one, and that is no
     instruction: "A container document is filed with its booking.",
     sends: false,
   };
-  answerWith({ rule: "container-filing", facts: {} });
+  answerWith({
+    rules: ["shipper-answer", "container-filing"],
+    facts: { shipper: "Maersk" },
+  });
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
     { event: mailEvent, rules: [shipperRule, second], prose },
     toolCall(),
   );
-  assert.deepEqual(decision, { kind: "decision", rule: "container-filing", facts: {} });
+  assert.deepEqual(decision, {
+    kind: "decision",
+    rules: ["shipper-answer", "container-filing"],
+    facts: { shipper: "Maersk" },
+  });
   assert.match(
     MESSAGE(0),
     /rule: shipper-answer/,
@@ -402,7 +438,7 @@ test("the change, the candidate prose and a reading are all fenced as data", asy
   // back with. The fence's token is drawn per call, so a body cannot spell the
   // end marker and step out.
   answerWith({ read: { tool: "files.list", arguments: {} } });
-  answerWith({ rule: "shipper-answer", facts: { shipper: "Maersk" } });
+  answerWith({ rules: ["shipper-answer"], facts: { shipper: "Maersk" } });
   await decideEvent(
     { model, allowPrivateProvider: true },
     { event: mailEvent, rules: [shipperRule], prose },
@@ -442,7 +478,7 @@ test("the standing prose reaches the system turn unfenced, and a rule's own inst
       `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}\\n--- END DATA \\[\\w+\\] ---`,
     ).test(text);
 
-  answerWith({ rule: "shipper-answer", facts: {} });
+  answerWith({ rules: ["shipper-answer"], facts: {} });
   await decideEvent(
     { model, allowPrivateProvider: true },
     { event: mailEvent, rules: [shipperRule], prose },
@@ -489,7 +525,7 @@ test("a change no rule watches is decided without a call, and without a bill", a
     },
     toolCall(),
   );
-  assert.deepEqual(decision, { kind: "decision", rule: null, facts: {} });
+  assert.deepEqual(decision, { kind: "decision", rules: [], facts: {} });
   assert.equal(
     seen.length,
     0,
