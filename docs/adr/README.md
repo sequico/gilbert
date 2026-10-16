@@ -263,12 +263,15 @@ is, not what a user sees.
   its live probe).
 - **0034 — A run is a document, and the record is the product (accepted).** A run
   is one document in the group's account and the whole of the agent's durable
-  state: which rule or instruction started it, the plan, each step's outcome, what
-  it waits for, every authorisation with its message, and the evidence. **A wait
-  is a date in the run**, re-armed on boot, so a restart or a dead container costs
-  nothing. A run ends done, blocked on a person, or out of budget — written down.
-  There is no separate audit ledger, and a person can read a run and undo by hand
-  what can be undone. **Not built.**
+  state: which rule or instruction started it, the plan, each step's outcome,
+  what it touched, what it waits for and where it asked, every authorisation with
+  its message and its authority, the evidence, and the budget it has spent. **A
+  wait is a date in the run**, re-armed on boot, so a restart or a dead container
+  costs nothing — and a run blocked on a person keeps the question it left. A run
+  ends done, blocked on a person, or out of budget — written down. There is no
+  separate audit ledger, and a person can read a run and undo by hand what can be
+  undone. **Partly built** — the run document is `server/src/shared/run.ts`,
+  addressed by `server/src/agent/runs.ts`.
 - **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
   document in the group's own account, saying **what it watches** — the account's
   activity, mail in and out, Files, chat, the writes to its own workorders — and
@@ -278,3 +281,14 @@ is, not what a user sees.
   first: the installation's line, the group's standing instruction, the rule's own
   — one builder for every caller. A member reads the rules and may change them, as
   with the KB. **Not built.**
+- **0036 — One agent per installation, held by a claim (accepted).** One
+  `agent-claim.json` in the app folder of the account the agent signs in as — the
+  Master's, one per installation and no per-group lease — taken by the
+  compare-and-set JMAP offers and renewed while the holder works. It carries who
+  holds it and when it stops being believed, and that instant means one thing:
+  until it, the holder is believed; after it, the claim is free. A claim that is
+  not renewed therefore lapses into the next process's hands, so a restart costs
+  one TTL of waiting and never a document deleted by hand; a release takes
+  nobody's claim but its own; and a claim document that cannot be read is no
+  claim at all, so a damaged one cannot leave the installation with no agent.
+  **Built** (`server/src/agent/claim.ts`).

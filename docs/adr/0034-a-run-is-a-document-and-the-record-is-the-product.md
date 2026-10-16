@@ -2,10 +2,13 @@
 
 Status: Accepted
 
-Implementation: Not built. The run document and the re-arm of its waits are to be
-written with the agent; the records a run writes next to a person's already exist
-— a workorder step's `state`/`by`/`at`/`note` (`server/src/shared/workorder.ts`)
-and a KB page's revisions (ADR 0024).
+Implementation: Partly built. The run document — its shape, its parser and the
+transitions over it — is `server/src/shared/run.ts`, and where a run lives, how
+it is read and how it is written whole is `server/src/agent/runs.ts`. Still to be
+written with the agent: the loop that works a run, and the re-arm of its waits
+on boot. The records a run writes next to a person's already exist — a workorder
+step's `state`/`by`/`at`/`note` (`server/src/shared/workorder.ts`) and a KB
+page's revisions (ADR 0024).
 
 ## Context
 
@@ -23,16 +26,21 @@ agent's durable state.
 
 - It carries which rule or which instruction started it, the plan (the steps the
   model chose, or the rule declared), the outcome of each one, what it is waiting
-  for and until when, every authorisation with the message it arrived in, and the
-  evidence behind every claim.
-- **A wait is a date in the run**, not a timer in a process. On boot the agent
-  re-arms the waits it finds, so a restart in the middle of a run loses nothing
-  and a container that dies is not an incident.
+  for — and until when, when there is a date — every authorisation with the
+  message it arrived in and the authority given, the evidence behind every claim,
+  and the budget it has spent.
+- **A wait is a date in the run** — or no date at all, when what it waits for is
+  a person — not a timer in a process. On boot the agent re-arms the waits it
+  finds, so a restart in the middle of a run loses nothing and a container that
+  dies is not an incident.
 - **A run ends in one of three ways** — the work is done, it is blocked on a
   person, or its budget (ADR 0031) is spent — and its ending is written down, so a
-  run that stops says why.
+  run that stops says why. The one that ends blocked on a person keeps the
+  question it left, and the sentence it asked it in, so the answer that comes
+  back can be recognised as addressed to it.
 - **A person can read a run** and undo by hand what can be undone: it names what
-  it touched, and the objects themselves are Stalwart's.
+  it touched, as references rather than copies, and the objects themselves are
+  Stalwart's.
 - **What the agent settles goes into the record that carries the work**: a
   workorder step changes state with the agent as its signer and the evidence in
   its note; a KB change is a proposal awaiting approval (ADR 0024).

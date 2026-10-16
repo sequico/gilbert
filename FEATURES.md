@@ -79,20 +79,35 @@ else a member does to move mail around still works.
 # Agents
 
 > **Not built.** Gilbert's agent is designed and not built: nothing in the tree
-> serves a group's work today. Its decisions are
+> serves a group's work today, and what is here is a run's own durable state.
+> Its decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
 > [0033](docs/adr/0033-the-conversation-runs-in-chat-and-mail.md) (one
 > conversation in chat and mail), [0034](docs/adr/0034-a-run-is-a-document-and-the-record-is-the-product.md)
-> (a run is a document, and the record is the product) and
+> (a run is a document, and the record is the product),
 > [0035](docs/adr/0035-a-groups-engagement-is-a-rule-in-prose.md) (a group's
-> engagement is a rule in prose).
+> engagement is a rule in prose) and
+> [0036](docs/adr/0036-one-agent-per-installation-held-by-a-claim.md) (one claim
+> holds the installation's single agent).
 
 The agent acts for one group, inside that group's own account. It reads the
 company's written policy and the group's own rules, it does the reversible work
 of the account, it records what it did and why, and it asks a person for anything
 that leaves the account — or for anything the policy forbids.
+
+**A run is one document in the group's account** and the whole of the agent's
+durable state: which rule or instruction started it, the plan the model chose
+step by step, what it touched, what it waits for and the sentence it asked in,
+every authorisation with the message it arrived in and the authority given, the
+evidence behind its claims, and the budget it has spent — the shape, its parser
+and its transitions are `server/src/shared/run.ts`, and where a run lives is
+`server/src/agent/runs.ts` (ADR 0034). **One claim per installation** keeps a
+single agent working it: a document taken by compare-and-set that a holder
+renews and that lapses on its own if it dies, so a restart costs one TTL of
+waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
+0036).
 
 # Administration
 

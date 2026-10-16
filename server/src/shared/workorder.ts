@@ -127,8 +127,24 @@ export interface WorkorderChecklist {
   steps: WorkorderStep[];
 }
 
-/** What a reference points at: a folder, a file, or a KB article. */
-export type WorkorderRefKind = "folder" | "file" | "kb";
+/**
+ * What a reference points at.
+ *
+ * The three objects a workorder files its work against — a folder, a file and a
+ * KB article — and the three a run touches besides: a message, a chat node and
+ * another workorder (ADR 0034). One shape and one vocabulary for both
+ * documents, so a reference written by one reader means the same to the next.
+ */
+export const WORKORDER_REF_KINDS = [
+  "folder",
+  "file",
+  "kb",
+  "message",
+  "chat",
+  "workorder",
+] as const;
+
+export type WorkorderRefKind = (typeof WORKORDER_REF_KINDS)[number];
 
 export interface WorkorderRef {
   accountId: string;
@@ -237,7 +253,8 @@ export function isWorkorderRef(x: unknown): x is WorkorderRef {
   return (
     isRecord(x) &&
     typeof x.accountId === "string" &&
-    (x.kind === "folder" || x.kind === "file" || x.kind === "kb") &&
+    typeof x.kind === "string" &&
+    (WORKORDER_REF_KINDS as readonly string[]).includes(x.kind) &&
     typeof x.id === "string"
   );
 }
