@@ -14,8 +14,13 @@ applies and what the facts are over the reading tools, and the **choosing turn**
 (`chooseStep`) answers the next step over the whole catalogue. The loop that
 works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that
-reaches one ends `out-of-budget` saying so. What is not built is the process that
-starts the loop.
+reaches one ends `out-of-budget` saying so. The process that starts the loop is
+`server/src/agent/agent.ts` with `server/src/agent/supervisor.ts` (`npm run
+agent`): it boots as the Master on the deployment's own handshake, takes the
+installation's model and the groups the Master works, and asks
+`AgentLoop.pass()` every thirty seconds. What the catalogue does not hold yet is
+a tool that settles a step of a workorder and one that proposes a change to a KB
+page (ADR 0032, ADR 0024).
 
 ## Context
 

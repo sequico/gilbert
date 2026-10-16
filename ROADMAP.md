@@ -7,7 +7,7 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **`gilbertagents` is built, and no process starts it.** The Master's agent is
+- **A deployment does not bring the agent up yet.** The Master's agent is
   designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
@@ -18,12 +18,18 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),
   the installation's one model and its two turns of decision
   (`server/src/agent/model.ts`), the claim that holds the installation's one agent
-  and **the loop that works a run** (`server/src/agent/loop.ts`): a pass claims
+  (`server/src/agent/claim.ts`), **the loop that works a run**
+  (`server/src/agent/loop.ts`): a pass claims
   the installation, re-arms the waits it finds, reads each account's changes, and
   works a run from the model's own choices with the budget, the guard and the
-  record. What is not built is the process that drives it — nothing signs in as
-  the Master and calls `AgentLoop.pass()`, on a timer or on a wake — so a running
-  installation still serves no group's work.
+  record — and **the process that asks it for a pass**
+  (`server/src/agent/agent.ts` with `server/src/agent/supervisor.ts`): it boots
+  as the Master on the deployment's own handshake, takes the installation's model
+  and the groups the Master works, and asks again every thirty seconds, with the
+  claim keeping an installation to one agent when a second copy runs. What is
+  missing is the deployment's own shape: `docker-compose.yml` and the host
+  installer bring up the server alone, so an installation works no group's runs
+  until its operator starts the agent process beside it.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

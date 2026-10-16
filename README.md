@@ -30,14 +30,15 @@ and files, a knowledge base and the procedures a job follows. Its agent is partl
 built: it reads incoming mail and files, files documents into the right folder,
 reads the document inside them, drafts replies and reports what it did in the
 group's chat — inside the group's own account, everything recorded, and anything
-that leaves the group waiting for a person to say so, in words. What is not
-started is the loop itself.
+that leaves the group waiting for a person to say so, in words. The loop that
+works it runs in the agent's own process (`npm run agent`), a second process of
+`gilbertserver` beside the server.
 
 > **The agent part (`gilbertagents`) is partly built.** Its decisions
 > are ADR 0031–0036; the tree carries a run's durable state, the catalogue of
 > tools, a group's rules in prose, the installation's one model with its two
-> turns of decision, and the loop that works a run — and no process starts that
-> loop yet.
+> turns of decision, the loop that works a run, and the process that asks it for
+> a pass (`server/src/agent/agent.ts`).
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -71,7 +72,9 @@ other:
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
 - **gilbertagents** — the agent: designed by ADR 0031–0036 and built as far as
-  the loop that works a run, which nothing starts yet.
+  the loop that works a run and the process that asks it for a pass
+  (`npm run agent`); a deployment bringing that process up beside its server is
+  not wired yet.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
