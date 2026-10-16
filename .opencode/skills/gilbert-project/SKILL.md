@@ -116,9 +116,11 @@ installation claims its agent). Each record's `Implementation` line says what
 the tree carries and what it still owes, and it is the truth about the tree
 rather than a summary of the design: read it instead of assuming. The
 catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
-`server/src/agent/rule.ts`, the model's turn is `server/src/agent/model.ts`,
-and the loop that works a run and the mail channel are not in the tree — no
-document, comment or surface may describe them as if they were.
+`server/src/agent/rule.ts`, the model's turns are `server/src/agent/model.ts`,
+and the loop that works a run is `server/src/agent/loop.ts` — which **nothing
+starts**: no process signs in as the Master and asks for a pass. The mail
+channel is not in the tree, and no document, comment or surface may describe it
+as if it were.
 - **Identifiers follow those words.** Two halves: the names, and the things that
 are contracts rather than names — a field in a document an installation has
 already written, a refusal code a client composes a sentence from, an environment
