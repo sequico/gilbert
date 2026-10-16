@@ -11,7 +11,8 @@ npm workspaces: the root coordinates, the two packages hold the code.
   `web/src/main.tsx`.
 - `server/` — `@gilbert/server`, Node + Hono: `server/src/index.ts` serves the
   SPA and `/api/*`, assembled by `server/src/app.ts` and answered by the route
-  groups under `server/src/routes/`; `server/src/mock/` is the in-memory fake
+  groups under `server/src/routes/`; `server/src/agent/` is the agent's own tree,
+  whose design is ADR 0031–0036; `server/src/mock/` is the in-memory fake
   Stalwart; `server/src/shared/` is the tree both tiers read.
 - **One definition, two readers.** The client imports the server's shared tree
   as `@gilbert/shared/*`, aliased in
