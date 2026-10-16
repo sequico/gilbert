@@ -242,7 +242,9 @@ is, not what a user sees.
   are a defect. The catalogue **grows freely** — a new tool is not an architectural
   decision, a new **object** or a change to the authority classes is — and every
   run carries a budget of steps, time and model calls. One model serves the
-  installation, chosen in Administration. **Not built.**
+  installation, chosen in Administration. **Partly built** — the catalogue is
+  `server/src/agent/tools.ts`, both halves and the guard; the loop that chooses a
+  tool is not written.
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -252,7 +254,9 @@ is, not what a user sees.
   message in the trace; **the intent** (which policy is right, what is approved)
   is never the agent's, only proposed. It **reopens** a settled step when the
   evidence says it is not settled, and **what it asserts is its own**: the signer
-  of a step it settles is the agent, never a person. **Not built.**
+  of a step it settles is the agent, never a person. **Partly built** — the five
+  classes and the guard that asks them are `server/src/agent/tools.ts`; the acts a
+  person must authorise are not in the catalogue yet.
 - **0033 — The conversation runs in chat and mail (accepted).** One
   conversation, two channels: a question, an answer, an authorisation and a report
   are the same in the group's chat and in mail, and **everything is in words** —
@@ -261,8 +265,9 @@ is, not what a user sees.
   sender the installation knows or lists **and** with a passing authentication
   result from the receiving server; every message the agent sends carries
   `X-Gilbert-Run: <id>` so its own words can never drive it; the correlation is
-  the thread in mail and a `replyTo` in chat. **Not built** (the mail channel owes
-  its live probe).
+  the thread in mail and a `replyTo` in chat. **Partly built** — the chat half is
+  the conversation tools in `server/src/agent/tools.ts`; the mail channel owes its
+  live probe.
 - **0034 — A run is a document, and the record is the product (accepted).** A run
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
@@ -282,7 +287,9 @@ is, not what a user sees.
   the rule itself. The prose that reaches the model has three levels, outermost
   first: the installation's line, the group's standing instruction, the rule's own
   — one builder for every caller. A member reads the rules and may change them, as
-  with the KB. **Not built.**
+  with the KB. **Partly built** — a run records the rule or the instruction that
+  started it (`server/src/shared/run.ts`); the rule documents and the prose
+  builder are not written.
 - **0036 — One agent per installation, held by a claim (accepted).** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the

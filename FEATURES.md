@@ -78,9 +78,10 @@ else a member does to move mail around still works.
 
 # Agents
 
-> **Not built.** Gilbert's agent is designed and not built: nothing in the tree
-> serves a group's work today, and what is here is a run's own durable state.
-> Its decisions are
+> **Designed, and only partly built.** Nothing runs a group's work on its own:
+> there is no model and no loop that chooses a tool. What the tree carries is the
+> durable state of a run and the catalogue of tools a run's steps are taken with.
+> The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -108,6 +109,20 @@ single agent working it: a document taken by compare-and-set that a holder
 renews and that lapses on its own if it dies, so a restart costs one TTL of
 waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
 0036).
+
+**The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
+a task over an object. The reading half — the only half a reading caller is handed
+— finds and reads a message, a folder, a document in Files, a KB page, a
+workorder, a run and the group's own conversation. The half that changes the
+group's account files a message, puts a keyword or one of the product's reserved
+**`G-`** labels on it, adds or changes a label in the group's catalog, makes a
+folder in the mailbox or in Files, moves or renames a document, says something in
+the conversation, and asks a person a question — which leaves the run waiting for
+their answer, with no date. Every tool declares the **authority class** it
+exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
+rather than the tool's name, and an act a person must authorise is refused while
+the run carries no authority for that act. Nothing drives the catalogue yet: the
+tools are exercised against the mock Stalwart.
 
 # Administration
 

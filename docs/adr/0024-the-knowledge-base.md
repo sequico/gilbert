@@ -12,7 +12,9 @@ and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
 BlockNote editor are `web/src/views/knowledge/`. The agent's part — a tool that
 reads a page and one that proposes a change (ADR 0031), with approval kept a
-person's (ADR 0032) — is **not built**: nothing in the tree carries it yet. Not
+person's (ADR 0032) — is **partly built**: the reading tool is
+(`server/src/agent/tools.ts`, `knowledge.read`), and the tool that proposes a
+change is not. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
 diagrams). The checklist templates a workorder instantiates are built, with their
 **resolver** and the workorder instance side (ADR 0030, ADR 0028); the builder

@@ -2,9 +2,12 @@
 
 Status: Accepted
 
-Implementation: Not built. The chat is the group's own (ADR 0005); the mail
-channel's anchor — the authentication result the receiving server writes into a
-message — is one of the headers the client already asks for
+Implementation: Partly built. The chat half is the conversation tools
+(`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
+over the group's own chat (ADR 0005), with `replyTo` as the correlation and a
+question leaving the run waiting on a person's answer with no date. The mail
+channel is not built; its anchor — the authentication result the receiving server
+writes into a message — is one of the headers the client already asks for
 (`web/src/jmap/types.ts`).
 
 ## Context

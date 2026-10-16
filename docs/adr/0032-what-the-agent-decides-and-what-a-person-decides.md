@@ -2,8 +2,12 @@
 
 Status: Accepted
 
-Implementation: Not built. The classes are the design of the agent's guard; the
-admin marker they lean on is the installation administrator's
+Implementation: Partly built. The five authority classes and the guard that asks
+them — `ToolAuthority`, `authorityNeeded` and `mayRun` in
+`server/src/agent/tools.ts` — are built, and an authorisation names the act it is
+for (`RunAuthorityAct`), so a class alone answers for no act. The acts a person
+must authorise — a send, a destroy, a policy override — are not in the catalogue
+yet. The admin marker they lean on is the installation administrator's
 (`session.gilbert.isAdmin`, ADR 0001) and the policy the agent reads is a KB page
 (ADR 0024).
 

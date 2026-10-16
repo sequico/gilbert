@@ -2,9 +2,12 @@
 
 Status: Accepted
 
-Implementation: Not built. The rules' documents and the builder that orders the
-prose for the model are to be written with `gilbertagents`; the group's own
-account (ADR 0005) is where they live.
+Implementation: Partly built. A run records the rule or the instruction that
+started it (`server/src/shared/run.ts`, `RunStart`), and the tools a rule's
+instruction is carried out with are `server/src/agent/tools.ts`. The rule
+documents themselves and the builder that orders the prose for the model are to
+be written with `gilbertagents`; the group's own account (ADR 0005) is where they
+live.
 
 ## Context
 

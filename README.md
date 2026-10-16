@@ -33,7 +33,8 @@ did in the group's chat — inside the group's own account, everything recorded,
 and anything that leaves the group waiting for a person to say so, in words.
 
 > **The agent part (`gilbertagents`) is designed and not built.** Its decisions
-> are ADR 0031–0035; nothing in the tree serves a group's work today.
+> are ADR 0031–0035; the tree carries a run's durable state and the catalogue of
+> tools, and nothing drives them yet.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
