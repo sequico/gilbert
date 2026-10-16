@@ -46,6 +46,12 @@ happen** when that activity is met.
   account), and the **rule's own instruction** (in the rule). One builder
   produces that order for every caller, so what the agent is told is one thing
   however it was reached.
+- **One change is answered by one rule, and a collision is not an error.**
+  Several rules may watch one surface, and more than one may fit the change the
+  agent was woken by; the model names the one that fits it best, and the others
+  are simply not chosen — a rule that was not named has not failed and stays for
+  the next change, and a change two rules cover is not a fault the agent reports.
+  A change no rule covers is answered with no rule at all.
 - **A rule belongs to the group that wrote it**, like everything else the group
   owns: a member reads it, and changing it is a member's act, the same as
   editing the KB.

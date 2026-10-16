@@ -16,7 +16,10 @@
  * of its own does not leave a heading in the prompt with prose missing under
  * it. The prose is data to the rest of the prompt like any other text — it says
  * how to work, and never what may be done, because what bounds the agent is the
- * authority classes (ADR 0032) and nothing here changes them.
+ * authority classes (ADR 0032) and nothing here changes them. The levels travel
+ * in the system turn as what the agent works by; the rule's own instruction also
+ * reaches the model in the user turn, inside the data fence there, because it is
+ * the prose a change is matched against (`model.ts`).
  */
 
 /** The three levels of prose, outermost first (ADR 0035). */

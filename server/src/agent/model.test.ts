@@ -6,9 +6,16 @@
  * zero-retention opt-out on every request, a JSON answer shape and a ceiling on
  * the answer, and — the parts that matter for what the agent may do — a private
  * provider that the operator has not allowed is refused before the key leaves,
- * an answer that is not the demanded shape is refused rather than guessed at, an
- * answer can carry no authority and can name no tool that writes, and the prose
- * a turn carries is the record's three levels in the record's order.
+ * an installation with no model is refused in the same coded shape, an answer
+ * that is not the demanded shape is refused rather than guessed at, an answer can
+ * carry no authority and can name no tool that writes, and the prose a turn
+ * carries is the record's three levels in the record's order. Every block of
+ * somebody else's text in the prompt — the change, a candidate rule's
+ * instruction, a reading — is fenced as data, under a token drawn per call.
+ *
+ * The four ways a call or a turn can fail without an answer are pinned too: a
+ * body that is not JSON, a provider past the call's time bound, a body over the
+ * ceiling a call reads, and a turn that has spent all its lookups.
  *
  * The reading tools are real: the turn's lookups run against the mock Stalwart,
  * so "it may look something up" is asked rather than assumed.
@@ -41,7 +48,9 @@ const {
   modelAccess,
   ModelError,
   parseAnswerDetailed,
+  requireModelAccess,
   MODEL_MAX_OUTPUT_DEFAULT,
+  MODEL_RESPONSE_BYTES_MAX,
 } = await import("./model.js");
 const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
 
@@ -57,6 +66,10 @@ interface Seen {
 
 let seen: Seen[] = [];
 let answers: string[] = [];
+/** A body to answer with verbatim, rather than a chat completion. */
+let rawBody: string | null = null;
+/** How long the stub waits before answering, so the call's own time bound is asked. */
+let answerDelayMs = 0;
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
@@ -68,12 +81,24 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 const PROVIDER_PORT = await freePort();
 const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  // A client that has given up is not an error to report: the timeout test
+  // below walks away from a request this handler is still holding.
+  res.on("error", () => undefined);
   const raw = await readBody(req);
   seen.push({
     url: req.url ?? "",
     headers: req.headers,
     body: raw ? (JSON.parse(raw) as Record<string, unknown>) : {},
   });
+  if (answerDelayMs) {
+    await new Promise((resolve) => setTimeout(resolve, answerDelayMs));
+    if (res.destroyed) return;
+  }
+  if (rawBody !== null) {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end(rawBody);
+    return;
+  }
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
     JSON.stringify({
@@ -137,10 +162,12 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-/** Each test starts with no request seen and no answer queued. */
+/** Each test starts with no request seen, no answer queued and no stub behaviour set. */
 beforeEach(() => {
   seen = [];
   answers = [];
+  rawBody = null;
+  answerDelayMs = 0;
 });
 
 /** The group's rule, and the change in its account that wakes it. */
@@ -193,14 +220,22 @@ test("one call carries the zero-retention opt-out, a JSON answer shape and a cei
 });
 
 test("a private provider is refused unless the operator's switch allows it (the key never leaves)", async () => {
-  assert.equal(baseUrlProblem("https://models.example.com/v1"), null);
-  assert.equal(baseUrlProblem("http://models.example.com/v1"), "not an https URL");
-  assert.equal(baseUrlProblem("https://localhost/v1"), "a private address");
-  assert.equal(baseUrlProblem("https://[::1]/v1"), "a private address");
-  assert.equal(baseUrlProblem("https://10.0.0.5/v1"), "a private address");
-  assert.equal(baseUrlProblem("not a url"), "not an absolute URL");
+  // The address is the one the name answers with, not the name's spelling: a
+  // literal, a name that resolves into the network, and a name that resolves to
+  // nothing are all refused, while a public literal passes.
+  assert.equal(await baseUrlProblem("https://93.184.216.34/v1"), null);
+  assert.equal(await baseUrlProblem("http://models.example.com/v1"), "not an https URL");
+  assert.equal(await baseUrlProblem("https://localhost/v1"), "a private address");
+  assert.equal(await baseUrlProblem("https://[::1]/v1"), "a private address");
+  assert.equal(await baseUrlProblem("https://10.0.0.5/v1"), "a private address");
+  assert.equal(
+    await baseUrlProblem("https://no-such-provider.invalid/v1"),
+    "a name that does not resolve",
+    '".invalid" is reserved and never resolves',
+  );
+  assert.equal(await baseUrlProblem("not a url"), "not an absolute URL");
 
-  assert.throws(
+  await assert.rejects(
     () => assertUsableProvider({ model, allowPrivateProvider: false }),
     (err: unknown) => err instanceof ModelError && err.code === "model_address_refused",
     "a model inside the deployment's own network is refused without the operator's word",
@@ -330,6 +365,69 @@ test("the turn may look the group's own state up with the reading tools, and not
   );
 });
 
+test("more than one rule may cover a change: the model names one, and that is not an error", async () => {
+  // Two rules on the same surface. The turn hands both to the model and takes
+  // the one it names, without a fault and without dropping the other: a change
+  // two rules cover is the group's business, not a defect (ADR 0035).
+  const second: RuleDoc = {
+    v: RULE_VERSION,
+    id: "container-filing",
+    watches: ["mail"],
+    instruction: "A container document is filed with its booking.",
+    sends: false,
+  };
+  answerWith({ rule: "container-filing", facts: {} });
+  const decision = await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, rules: [shipperRule, second], prose },
+    toolCall(),
+  );
+  assert.deepEqual(decision, { kind: "decision", rule: "container-filing", facts: {} });
+  assert.match(
+    MESSAGE(0),
+    /rule: shipper-answer/,
+    "both candidates are given to the model",
+  );
+  assert.match(MESSAGE(0), /rule: container-filing/);
+});
+
+test("the change, the candidate prose and a reading are all fenced as data", async () => {
+  // The prompt's only injection guard is a sentence saying data is not
+  // instructions, so every block of text somebody else wrote is marked where it
+  // sits: the change, each candidate rule's instruction, and what a lookup came
+  // back with. The fence's token is drawn per call, so a body cannot spell the
+  // end marker and step out.
+  answerWith({ read: { tool: "files.list", arguments: {} } });
+  answerWith({ rule: "shipper-answer", facts: { shipper: "Maersk" } });
+  await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, rules: [shipperRule], prose },
+    toolCall(),
+  );
+
+  const block = (body: string): RegExp =>
+    new RegExp(
+      `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}[\\s\\S]*?--- END DATA \\[\\w+\\] ---`,
+    );
+  assert.match(MESSAGE(0), block("surface: mail"), "the change is data");
+  assert.match(
+    MESSAGE(0),
+    block(`rule: shipper-answer\\ninstruction: ${shipperRule.instruction}`),
+    "the candidate rule's own prose is data",
+  );
+  assert.match(
+    MESSAGE(1),
+    block("\\{"),
+    "what the reading tool answered is data, not instructions",
+  );
+  assert.match(MESSAGE(1), /What files\.list answered:\n--- BEGIN DATA/);
+  assert.notEqual(
+    /\[(\w+)\] ---/.exec(MESSAGE(0))?.[1],
+    /\[(\w+)\] ---/.exec(MESSAGE(1))?.[1],
+    "the fence is drawn per call rather than spelled out, so no body can close it",
+  );
+});
+
 test("a change no rule watches is decided without a call, and without a bill", async () => {
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
@@ -356,4 +454,74 @@ test("an installation that has chosen no model has no agent", () => {
     null,
     "there is no default provider nobody chose: an installation with no model has no agent (ADR 0031)",
   );
+  // Absence is refused in the same shape a provider the operator has not
+  // allowed is refused in: a code, so a surface says it to a person instead of
+  // handing them a `null` to interpret.
+  assert.throws(
+    () => requireModelAccess(none.doc, true),
+    (err: unknown) => err instanceof ModelError && err.code === "model_absent",
+    "and a caller that needs a model is given a refusal it can compose a sentence from",
+  );
+});
+
+/* ------------------------------------------------------------------ */
+/* The ways a provider can fail                                        */
+/* ------------------------------------------------------------------ */
+
+test("a provider that answers with a body that is not JSON is refused with its own words", async () => {
+  rawBody = "<html><body>502 Bad Gateway</body></html>";
+  await assert.rejects(
+    () => callModel({ model, allowPrivateProvider: true }, { system: "s", user: "u" }),
+    (err: unknown) =>
+      err instanceof ModelError &&
+      err.code === "model_call_failed" &&
+      err.message.includes("not JSON") &&
+      err.message.includes("502 Bad Gateway"),
+    "a gateway's error page reads like one, rather than surfacing a parse error",
+  );
+});
+
+test("a provider that does not answer inside the call's time is abandoned", async () => {
+  answerDelayMs = 300;
+  await assert.rejects(
+    () =>
+      callModel(
+        { model, allowPrivateProvider: true },
+        { system: "s", user: "u", timeoutMs: 20 },
+      ),
+    (err: unknown) => err instanceof ModelError && err.code === "model_call_failed",
+    "the call's own time bound ends it, as a coded failure rather than a platform abort",
+  );
+});
+
+test("an answer past the ceiling a call reads is refused, and the read is abandoned", async () => {
+  rawBody = "x".repeat(MODEL_RESPONSE_BYTES_MAX + 1);
+  await assert.rejects(
+    () => callModel({ model, allowPrivateProvider: true }, { system: "s", user: "u" }),
+    (err: unknown) =>
+      err instanceof ModelError &&
+      err.code === "model_call_failed" &&
+      err.message.includes(`${MODEL_RESPONSE_BYTES_MAX} bytes`),
+    "a body over the ceiling is not held, however long the provider streams",
+  );
+});
+
+test("a turn that has spent all its lookups and asks for another is refused", async () => {
+  answerWith({ read: { tool: "files.list", arguments: {} } });
+  answerWith({ read: { tool: "files.list", arguments: {} } });
+  await assert.rejects(
+    () =>
+      decideEvent(
+        { model, allowPrivateProvider: true },
+        { event: mailEvent, rules: [shipperRule], prose },
+        toolCall(),
+        { maxReads: 1 },
+      ),
+    (err: unknown) =>
+      err instanceof ModelError &&
+      err.code === "model_answer_malformed" &&
+      err.message.includes("1 lookups spent"),
+    "the cap ends the turn rather than looping for as long as the model asks",
+  );
+  assert.equal(seen.length, 2, "the first lookup ran; the second was refused");
 });

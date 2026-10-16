@@ -70,22 +70,31 @@ export function isAllowedPort(url: URL): boolean {
 }
 
 /**
+ * Every address a host answers with: the literal itself, or one per record DNS
+ * returns.
+ *
+ * This is the one definition of where a name points, because two callers put the
+ * same answers to the same question: `resolveAllowed` below, and the agent's
+ * provider check (`server/src/agent/model.ts`), which refuses a base URL whose
+ * address is not public and so has to judge a name and a literal alike.
+ */
+export async function hostAddresses(hostname: string): Promise<string[]> {
+  const host = hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) return [host];
+  return (await lookup(host, { all: true })).map((a) => a.address);
+}
+
+/**
  * Settle on one address for `hostname` and refuse it if it is somewhere we
  * should not be reaching.
  */
 async function resolveAllowed(hostname: string): Promise<string> {
-  const host = hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host)) {
-    if (isPrivateAddress(host)) throw new BlockedTarget(host);
-    return host;
-  }
-  const addrs = await lookup(host, { all: true });
-  if (!addrs.length) throw new BlockedTarget(host);
+  const addrs = await hostAddresses(hostname);
+  if (!addrs.length) throw new BlockedTarget(hostname.replace(/^\[|\]$/g, ""));
   // Every answer has to be acceptable: one bad record is enough to mean the
   // name is not something we should be fetching at all.
-  for (const a of addrs)
-    if (isPrivateAddress(a.address)) throw new BlockedTarget(a.address);
-  return addrs[0]!.address;
+  for (const a of addrs) if (isPrivateAddress(a)) throw new BlockedTarget(a);
+  return addrs[0]!;
 }
 
 /**
