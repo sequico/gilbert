@@ -97,7 +97,7 @@ function hook(dir: string, line: string) {
     cwd: dir,
     input: `${line}\n`,
     encoding: "utf8",
-    env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}` },
+    env: { ...gitEnv(), PATH: `${join(dir, "bin")}:${process.env.PATH}` },
   });
 }
 
