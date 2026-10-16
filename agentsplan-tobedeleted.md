@@ -67,10 +67,11 @@ reaching a run, and any surface that shows what the agent did.
   then that one; if that call filed the message do this, if it was refused do
   that — reasoned from the group's KB, its checklists and its workorders. The loop
   runs what is ready, reads each outcome, and takes the branch the outcome names.
-- **Open, and the owner should rule before it is designed:** the answer's shape
-  (a plan of steps with dependencies, or a list the loop reads in the order
-  given), and whether an outcome's branch is written by the model per step or
-  deduced by the loop from each step's recorded outcome.
+- **Decided, by the owner:** **the model writes the order and the conditions**,
+  from the rules the group's KB and checklists carry, or by inferring them, or by
+  asking a person for instruction. The loop executes what is ready, reads each
+  outcome, and takes the branch the outcome names; it invents no semantics of its
+  own.
 - **Proof:** a two-step plan whose second step differs by the first's outcome runs
   both branches in two runs; a plan whose first step is refused does not run the
   step that depends on it landing.
@@ -143,6 +144,23 @@ reaching a run, and any surface that shows what the agent did.
   at boot before, six times a minute now that the groups are resolved every pass.
 - **To do:** say it once when the state begins and once when it changes, the same
   shape the supervisor uses for the claim and for the groups.
+
+### 2.9 The agent's memory — a graph it recalls (ADR 0037)
+
+- **The record:** 0037, `Proposed`, with five questions to settle before anything
+  is built.
+- **The decision:** the agent **always** has memory; it is a graph of facts,
+  durable in Stalwart, recalled on **every** model call, written by the agent
+  within its authority classes, and readable and editable by an installation
+  administrator from Administration.
+- **To do:** settle the five questions the record leaves open (whose account owns
+  it; whether it is the knowledge base's own graph or a second store; what a call
+  carries; what one fact is in the document; who else may write, and whose word
+  wins) and then build the store, the recall into both turns, the agent's own
+  writes, and the surface.
+- **Proof:** a fact the agent learned in one run changes what it does in the next,
+  and an administrator's correction changes it again — with no restart between
+  them.
 
 ---
 
