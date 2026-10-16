@@ -5,8 +5,13 @@ Status: Accepted
 Implementation: Partly built. The catalogue is `server/src/agent/tools.ts` —
 each tool names its arguments, its authority class and what it spends, the
 arguments are validated before its executor runs, and the half a reading caller
-is handed (`readingTools`) is the one that cannot write. The loop that chooses a
-tool and the model that drives it are to be written with `gilbertagents`.
+is handed (`readingTools`) is the one that cannot write. The installation's one
+model is `server/src/agent/model.ts`: the key is write-only in the installation's
+own document (`shared/installation.ts`, `installationAdmin.ts`), the call is one
+OpenAI-compatible chat completion with the zero-retention opt-out and the
+operator's private-address switch, and the decision turn answers which rule
+applies and what the facts are, over the reading tools. The loop that chooses a
+tool and works a run is to be written with `gilbertagents`.
 
 ## Context
 

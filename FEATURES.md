@@ -79,9 +79,10 @@ else a member does to move mail around still works.
 # Agents
 
 > **Designed, and only partly built.** Nothing runs a group's work on its own:
-> there is no model and no loop that chooses a tool. What the tree carries is the
-> durable state of a run, the catalogue of tools a run's steps are taken with,
-> and a group's rules in prose. The agent's decisions are
+> there is no loop that chooses a tool. What the tree carries is the durable
+> state of a run, the catalogue of tools a run's steps are taken with, a group's
+> rules in prose, and the installation's one model — the call, and the first turn
+> of decision. The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -123,6 +124,20 @@ levels, outermost first: the **installation's own line**, the **group's standing
 instruction** and the **rule's own instruction**, and one builder,
 `server/src/agent/prose.ts`, produces that order for every caller.
 
+**One model serves the installation** (ADR 0031), chosen in Administration and
+stored in the installation's own document with a **write-only** key: a read of
+that document never hands the key back, and a save that states none keeps the
+stored one. `server/src/agent/model.ts` posts one OpenAI-compatible chat
+completion with the zero-retention opt-out on every request, refuses a provider
+whose address is not public unless the **operator** has said the installation's
+model may sit inside the deployment's own network
+(`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`), and carries the **decision turn**:
+given one change in a group's own account and the rules that watch it, it answers
+which rule applies and what the facts are, looking the group's own state up first
+with the **reading tools** when it needs to. An answer is facts and nothing else
+— one that carries an authorisation, or names a tool that writes, is refused —
+and an installation that has chosen no model has no agent.
+
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
 — finds and reads a message, a folder, a document in Files, a KB page, a
@@ -134,8 +149,9 @@ the conversation, and asks a person a question — which leaves the run waiting 
 their answer, with no date. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
-the run carries no authority for that act. Nothing drives the catalogue yet: the
-tools are exercised against the mock Stalwart.
+the run carries no authority for that act. The reading half is what the decision
+turn looks the group's state up with; the write-free half is exercised against
+the mock Stalwart, and nothing works a run with them yet.
 
 # Administration
 

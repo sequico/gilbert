@@ -361,6 +361,119 @@ test("a valid publish is what the next read returns, and the answer names when i
   assert.deepEqual(await readView(), view, "and reading it again agrees");
 });
 
+test("the model's key is write-only: no answer hands it back, and a publish that states none keeps it", async () => {
+  /*
+   * The installation's model lives in its own document (ADR 0011, 0031), and
+   * its key is write-only the way an app password is: the surface can set it and
+   * nothing reads it back. So the text both halves of this door answer with has
+   * the key emptied — while the document the account holds keeps it, or the
+   * model could never be called — and a save from an editor that never saw the
+   * key (because it cannot) keeps the stored one rather than erasing it.
+   */
+  nameMaster(MASTER);
+  const key = "sk-a-key-the-surface-never-reads-back";
+  const withProvider = JSON.stringify({
+    ...(JSON.parse(VALID) as Record<string, unknown>),
+    agent: {
+      provider: {
+        provider: "ollama",
+        model: "a-small-model",
+        baseUrl: "https://models.example.com/v1",
+        apiKey: key,
+      },
+    },
+  });
+
+  const published = await publish(adminCookie, withProvider);
+  assert.equal(published.status, 200);
+  const outcome = (published.body as { outcome: InstallationPublished }).outcome;
+  assert.equal(
+    outcome.document.includes(key),
+    false,
+    "the publish's own answer never carries the key",
+  );
+  assert.equal(
+    (JSON.parse(outcome.document) as { agent: { provider: { apiKey: string } } }).agent
+      .provider.apiKey,
+    "",
+    "the key is emptied in what is handed back",
+  );
+
+  const master = await masterCtx();
+  const masterAccount = filesAccountId(master);
+  assert.ok(masterAccount);
+  const stored = await documentIn(master, masterAccount);
+  assert.equal(
+    (JSON.parse(stored ?? "") as { agent: { provider: { apiKey: string } } }).agent
+      .provider.apiKey,
+    key,
+    "the document the account holds keeps the key, so the model can still be called",
+  );
+
+  const view = await readView();
+  assert.equal(
+    view.document,
+    outcome.document,
+    "the read returns what the publish wrote",
+  );
+  assert.equal((view.document ?? "").includes(key), false, "and never the key");
+
+  // A save made from the text the surface showed — which cannot contain the key
+  // — keeps the stored one rather than clearing the model's credential.
+  const resaved = await publish(adminCookie, view.document ?? "");
+  assert.equal(resaved.status, 200);
+  assert.equal(
+    (
+      JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
+        agent: { provider: { apiKey: string } };
+      }
+    ).agent.provider.apiKey,
+    key,
+    "a publish that states no key keeps the stored one",
+  );
+
+  // A provider that is absent clears the model, and its key with it: that is
+  // how an installation stops having an agent.
+  const cleared = await publish(adminCookie, VALID_AGAIN);
+  assert.equal(cleared.status, 200);
+  assert.equal(
+    (
+      JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
+        agent: { provider?: unknown };
+      }
+    ).agent.provider,
+    undefined,
+    "and a document with no provider clears the model",
+  );
+
+  // A document that is otherwise unreadable still carries its key — a hand edit,
+  // a half-finished upload — and a read must not hand that back either: the key
+  // is emptied from the text whatever else is wrong with the document, and the
+  // reason a boot would refuse it is still shown.
+  await writeAppFile(master, masterAccount, "installation.json", {
+    server: { port: 70000 },
+    agent: {
+      provider: {
+        provider: "ollama",
+        model: "a-small-model",
+        baseUrl: "https://models.example.com/v1",
+        apiKey: key,
+      },
+    },
+    secret: "an-installation-secret-long-enough-to-seal-a-session-with",
+  });
+  const broken = await readView();
+  assert.equal(
+    (broken.document ?? "").includes(key),
+    false,
+    "a document a boot would refuse never hands the key back either",
+  );
+  assert.ok(broken.problem, "and the reason it is refused is still shown");
+
+  // Leave a document this build can read, for the tests that follow.
+  assert.equal((await publish(adminCookie, VALID)).status, 200);
+});
+
 test("a save from a stale editor does not move the stored epoch backwards", async () => {
   /*
    * The editor's copy is old, so it carries an old epoch — here the very first

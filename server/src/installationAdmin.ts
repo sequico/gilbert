@@ -64,6 +64,7 @@ import {
   isUsableAppSecret,
   parseInstallationDocumentDetailed,
 } from "./shared/installation.js";
+import { isRecord } from "./shared/json.js";
 
 /**
  * A refusal, as the route answers it: a status, a machine-readable code and a
@@ -91,7 +92,12 @@ export interface InstallationRefused {
 export interface InstallationView {
   /** Whether the account holds a document at all. */
   present: boolean;
-  /** The document byte for byte as it is stored, or null when there is none. */
+  /**
+   * The document as it is stored, or null when there is none — with the model's
+   * key **emptied**, because the key is write-only: it is stored so a call can
+   * carry it, and no read hands it back (`withoutProviderKey`). An empty
+   * `apiKey` is what a publish states to keep the stored one.
+   */
   document: string | null;
   /**
    * Why a boot would refuse the stored document, or null when it would not.
@@ -167,13 +173,78 @@ export async function readInstallationForAdmin(
   return {
     view: {
       present: true,
-      document: found.text,
+      document: withoutProviderKey(found.text),
       problem: readingProblem(found.text),
       account: accountId,
       master: ctx.username,
       location: where,
     },
   };
+}
+
+/**
+ * The model's key, as the raw document text carries it: "" when it carries none.
+ *
+ * Read from the JSON shape rather than through the document's validator, and
+ * deliberately so: a stored document that is otherwise unreadable — a hand edit
+ * with a typo in it, a half-finished upload — still carries a key, and the two
+ * things this module does with one (never hand it back, never erase it on a
+ * save that did not state one) must not depend on the rest of the document
+ * being readable. Text that is not JSON, or carries no provider, has no key.
+ */
+function providerKeyOf(text: string): string {
+  let whole: unknown;
+  try {
+    whole = JSON.parse(text);
+  } catch {
+    return "";
+  }
+  if (!isRecord(whole) || !isRecord(whole.agent) || !isRecord(whole.agent.provider))
+    return "";
+  const apiKey = whole.agent.provider.apiKey;
+  return typeof apiKey === "string" ? apiKey : "";
+}
+
+/**
+ * The document as the administration reads it: the model's key emptied.
+ *
+ * The key is **write-only** — the surface that chooses the model may set it and
+ * nothing reads it back — so every answer that carries document text goes
+ * through here. A document that carries no key is handed back byte for byte; one
+ * that carries a key is the same document with that one field emptied, and one
+ * that is not JSON at all is returned exactly as it is, because that is the case
+ * a person comes to this surface to repair and hiding its bytes would take away
+ * the only place they are.
+ */
+function withoutProviderKey(text: string): string {
+  if (!providerKeyOf(text)) return text;
+  const whole = JSON.parse(text) as Record<string, unknown> & {
+    agent: Record<string, unknown> & { provider: Record<string, unknown> };
+  };
+  return appDocumentJson({
+    ...whole,
+    agent: { ...whole.agent, provider: { ...whole.agent.provider, apiKey: "" } },
+  });
+}
+
+/**
+ * The document a publish means, with the key it did not state.
+ *
+ * An empty `apiKey` on a provider that is there means "keep the stored one":
+ * the surface cannot show the key, so a save that did not touch it must not
+ * erase it. A provider that is **absent** clears the model and its key with it,
+ * which is how an installation stops having an agent. The key is read from the
+ * stored **text**, because only this module knows a publish is taking place.
+ */
+function withStoredKey(
+  doc: InstallationDocument,
+  stored: string | null,
+): InstallationDocument {
+  const provider = doc.agent.provider;
+  if (!provider || provider.apiKey) return doc;
+  const storedKey = providerKeyOf(stored ?? "");
+  if (!storedKey) return doc;
+  return { ...doc, agent: { provider: { ...provider, apiKey: storedKey } } };
 }
 
 /**
@@ -305,7 +376,8 @@ export async function publishInstallation(
   try {
     written = await writeInstallation(
       store,
-      { ...parsed.doc, epoch: storedEpoch(stored) },
+      // The stored key stands when the publish stated none (see `withStoredKey`).
+      { ...withStoredKey(parsed.doc, stored), epoch: storedEpoch(stored) },
       { ifInState: state },
     );
   } catch (err) {
@@ -348,8 +420,9 @@ export async function publishInstallation(
       master: ctx.username,
       location: where,
       // The bytes the store was handed, which is what a read reads back
-      // (`appDocumentJson` is the one JSON writer for an app-folder document).
-      document: appDocumentJson(written),
+      // (`appDocumentJson` is the one JSON writer for an app-folder document),
+      // with the model's key emptied as every answer carrying it is.
+      document: withoutProviderKey(appDocumentJson(written)),
       epoch: written.epoch,
       applies: "next-boot",
       message: applies,

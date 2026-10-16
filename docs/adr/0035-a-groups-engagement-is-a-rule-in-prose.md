@@ -2,12 +2,16 @@
 
 Status: Accepted
 
-Implementation: Partly built. A run records the rule or the instruction that
-started it (`server/src/shared/run.ts`, `RunStart`), and the tools a rule's
-instruction is carried out with are `server/src/agent/tools.ts`. The rule
-documents themselves and the builder that orders the prose for the model are to
-be written with `gilbertagents`; the group's own account (ADR 0005) is where they
-live.
+Implementation: Partly built. The rule documents are
+`server/src/agent/rule.ts` — their shape, their parser and the one test of what a
+rule watches — and `server/src/agent/rules.ts` is where they live, under `rules/`
+in the group's own account (ADR 0005), read, created, listed and replaced under
+the account's own compare-and-set. The prose that reaches the model is the three
+levels of `server/src/agent/prose.ts`, in the builder's own order. A run records
+the rule or the instruction that started it (`server/src/shared/run.ts`,
+`RunStart`), and the tools a rule's instruction is carried out with are
+`server/src/agent/tools.ts`. What is not written is the loop that carries it out:
+nothing yet matches an event against the rules and starts a run from them.
 
 ## Context
 

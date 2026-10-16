@@ -1,8 +1,9 @@
 # Known issues and what they need
 
 > **The `gilbertagents` part is designed and not built.** The tree carries a run's
-> durable state and the catalogue of tools, and nothing drives them yet; its
-> decisions are ADR 0031–0035.
+> durable state, the catalogue of tools, a group's rules in prose and the
+> installation's one model with the first turn of decision — and nothing works a
+> run yet; its decisions are ADR 0031–0035.
 
 Where Stalwart departs from a spec, the settings a feature needs, and what
 Gilbert deliberately does not do. The supported server is the **0.16** line —

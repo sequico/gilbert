@@ -13,9 +13,12 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   mail), 0034 (a run is a document, and the record is the product) and 0035 (a
   group's engagement is a rule in prose). What the tree carries is a run's durable
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
-  tools a run's steps are taken with (`server/src/agent/tools.ts`) and the claim
-  that holds the installation's one agent; nothing drives the catalogue yet, so
-  nothing in a running installation serves a group's work.
+  tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
+  rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),
+  the installation's one model and the first turn of decision
+  (`server/src/agent/model.ts`) and the claim that holds the installation's one
+  agent; nothing works a run yet, so nothing in a running installation serves a
+  group's work.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

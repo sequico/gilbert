@@ -242,9 +242,11 @@ is, not what a user sees.
   are a defect. The catalogue **grows freely** — a new tool is not an architectural
   decision, a new **object** or a change to the authority classes is — and every
   run carries a budget of steps, time and model calls. One model serves the
-  installation, chosen in Administration. **Partly built** — the catalogue is
-  `server/src/agent/tools.ts`, both halves and the guard; the loop that chooses a
-  tool is not written.
+  installation, chosen in Administration, in the installation's own document with
+  a write-only key. **Partly built** — the catalogue is `server/src/agent/tools.ts`,
+  both halves and the guard, and the installation's one model is
+  `server/src/agent/model.ts` (one call, and the decision turn over the reading
+  tools); the loop that chooses a tool is not written.
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -281,15 +283,17 @@ is, not what a user sees.
   addressed by `server/src/agent/runs.ts`.
 - **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
   document in the group's own account, saying **what it watches** — the account's
-  activity, mail in and out, Files, chat, the writes to its own workorders — and
-  **in prose what should happen**; nothing is compiled, and a rule carries **no
-  list of permitted actions**. A rule may **declare that it sends**, written in
-  the rule itself. The prose that reaches the model has three levels, outermost
-  first: the installation's line, the group's standing instruction, the rule's own
-  — one builder for every caller. A member reads the rules and may change them, as
-  with the KB. **Partly built** — a run records the rule or the instruction that
-  started it (`server/src/shared/run.ts`); the rule documents and the prose
-  builder are not written.
+  activity across the five surfaces, its chat, its mail, its KB, its workorders
+  and its Files — and **in prose what should happen**; nothing is compiled, and a
+  rule carries **no list of permitted actions**. A rule may **declare that it
+  sends**, written in the rule itself. The prose that reaches the model has three
+  levels, outermost first: the installation's line, the group's standing
+  instruction, the rule's own — one builder for every caller. A member reads the
+  rules and may change them, as with the KB. **Partly built** — the rule documents
+  are `server/src/agent/rule.ts`, addressed by `server/src/agent/rules.ts`, and the
+  three levels are built by `server/src/agent/prose.ts`; a run records the rule or
+  the instruction that started it (`server/src/shared/run.ts`), and nothing yet
+  matches an event against the rules and starts a run.
 - **0036 — One agent per installation, held by a claim (accepted).** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the

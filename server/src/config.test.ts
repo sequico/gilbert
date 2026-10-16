@@ -226,22 +226,51 @@ test("adopting a configuration with no app secret at all is refused", () => {
 });
 
 /**
- * The operator's switch, which an installation may not grant itself.
+ * The model the installation chose, and the switch it may not choose.
  *
- * Whether the installation's model may sit inside the deployment's own network
- * is a security decision the deployment makes, so it is read from the
- * environment and never from the document. The document is a whole-JSON file an
- * administrator can hand-edit, and one that still carries the retired `agent`
- * section — written by a build that had it — is read as though it did not:
- * unknown keys are ignored by the validator rather than refused, so the section
- * neither decides anything nor keeps the installation from booting.
+ * The document's `agent` section is where the installation's one model lives
+ * (ADR 0011, 0031): an installation that has chosen none has no agent. What the
+ * document may **not** decide is whether that model may sit inside the
+ * deployment's own network — that is a security decision the deployment makes,
+ * so it is read from the environment and never from the document. The document
+ * is a whole-JSON file an administrator can hand-edit, and one that carries an
+ * `allowPrivateProvider` under `agent` is read with that key ignored: unknown
+ * keys are dropped by the validator rather than refused, so it neither decides
+ * anything nor keeps the installation from booting.
  */
-test("a document that still carries the retired agent section loads, and does not decide the switch", () => {
+test("the model is the document's, and the switch over where it may sit is not", () => {
+  const chosen = documentFromJson({
+    agent: {
+      provider: {
+        provider: "ollama",
+        model: "a-small-model",
+        baseUrl: "https://models.example.com/v1",
+        apiKey: "sk-a-key-the-surface-never-reads-back",
+      },
+    },
+  });
+  assert.deepEqual(
+    chosen.agent.provider,
+    {
+      provider: "ollama",
+      model: "a-small-model",
+      baseUrl: "https://models.example.com/v1",
+      apiKey: "sk-a-key-the-surface-never-reads-back",
+    },
+    "the installation's model is chosen in the document",
+  );
+  const none = documentFromJson({});
+  assert.equal(
+    none.agent.provider,
+    undefined,
+    "and an installation that has chosen none has no agent",
+  );
+
   const saysYes = documentFromJson({ agent: { allowPrivateProvider: true } });
   assert.equal(
-    "agent" in saysYes,
-    false,
-    "the retired section is not part of the document this build reads",
+    saysYes.agent.provider,
+    undefined,
+    "a document cannot grant the installation a model by stating the switch",
   );
 
   const served = servedConfiguration(HANDSHAKE_ENV, saysYes);
@@ -391,7 +420,7 @@ test("a boot runs on the document's values, and never on the document's provider
   assert.equal(
     configuration.agent.allowPrivateProvider,
     false,
-    "the retired section in that document grants nothing: the switch is the environment's",
+    "the allowPrivateProvider key in that document grants nothing: the switch is the environment's",
   );
   assert.equal(configuration.appSecretSource, "document");
   assert.doesNotThrow(

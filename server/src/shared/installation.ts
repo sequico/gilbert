@@ -136,6 +136,44 @@ export interface InstallationPush {
   rawRelay: boolean;
 }
 
+/**
+ * The one model an installation runs on (ADR 0031).
+ *
+ * Provider, model, an OpenAI-compatible base URL and a key. One model serves
+ * the whole installation — which model a kind of work deserves is not a
+ * question the administration is asked — and an installation with no provider
+ * here has no agent. It is chosen in Administration and stored in the
+ * installation's own document (ADR 0011), which is why it lives here rather
+ * than in a second document of its own.
+ *
+ * The key is **write-only**: `apiKey` is stored so a call can carry it, and the
+ * administration never reads it back (`installationAdmin.ts` masks it in what
+ * the read returns, and a publish that states none keeps the stored one). An
+ * empty key is a provider that needs none — a model on the deployment's own
+ * network, say — and is not the same as no provider at all.
+ */
+export interface InstallationModel {
+  /** A free name for the surface: "openai", "openrouter", "ollama", … */
+  provider: string;
+  model: string;
+  /** The OpenAI-compatible base URL the calls are posted to. */
+  baseUrl: string;
+  /** The key the calls carry; empty when the provider needs none. */
+  apiKey: string;
+}
+
+/**
+ * The agent's own section of the installation's document (ADR 0031).
+ *
+ * One thing lives here today: the model the installation runs on. The section
+ * is kept rather than folded into `branding` because the record names it
+ * (ADR 0011) and because the agent's configuration is its own subject.
+ */
+export interface InstallationAgentSection {
+  /** The installation's model, or absent when it has none and therefore no agent. */
+  provider?: InstallationModel;
+}
+
 /** What the installation calls itself. */
 export interface InstallationBranding {
   /** `APP_NAME` (default `"Gilbert"`). */
@@ -167,6 +205,7 @@ export interface InstallationDocument {
    * base URL. Empty means one server, `STALWART_URL`.
    */
   upstreams: Record<string, string>;
+  agent: InstallationAgentSection;
   branding: InstallationBranding;
   /** `APP_SECRET`. Generated on the first boot; see the note above. */
   secret: string;
@@ -211,6 +250,9 @@ export function installationDefaults(): InstallationDocument {
       rawRelay: true, // RAW_PUSH_RELAY (`"0"` turned it off)
     },
     upstreams: {},
+    // No model: an installation that has chosen none has no agent (ADR 0031).
+    // What a provider is, and that its key is write-only, is `InstallationModel`.
+    agent: {},
     branding: {
       appName: "Gilbert", // APP_NAME
     },
@@ -275,12 +317,13 @@ function readUpstreams(
  * became 8080 is how an installation ends up answering somewhere nobody
  * expects. Unknown keys are ignored, as every other document reader here
  * ignores them: a key this build does not know -- one a newer build added, or a
- * retired one such as the `agent` section, which this build does not read --
- * decides nothing and does not refuse the document, so an installation that
- * still carries one keeps booting and a later publish drops it. The operator's
- * own switch over which model may be reached
- * (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is absent here for the same reason:
- * it is read from the environment and nowhere else.
+ * retired one -- decides nothing and does not refuse the document, so an
+ * installation that still carries one keeps booting and a later publish drops
+ * it. The operator's own switch over which model may be reached
+ * (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is absent here for that same reason
+ * and one more: it is read from the environment and nowhere else, because an
+ * installation must not grant itself the right to aim its model at the network
+ * the deployment runs in (ADR 0011).
  *
  * A `version` this build does not know is refused. That is what the field is
  * for: a document written by a newer Gilbert may carry a field whose meaning
@@ -349,10 +392,47 @@ export function parseInstallationDocumentDetailed(
     return n;
   };
 
+  /** One required, non-empty text field of a nested object. */
+  const readTextIn = (where: string, v: unknown): string => {
+    if (typeof v !== "string" || !v.trim()) {
+      problems.push(`"${where}" must be text.`);
+      return "";
+    }
+    return v;
+  };
+  /**
+   * The installation's model, or undefined when it has none.
+   *
+   * A provider that is there must name the three things a call needs — the
+   * provider, the model and the base URL — and may carry a key or not, since a
+   * model inside the deployment's own network needs none. Whether the address
+   * may be used at all is the call's question and not this parser's: the test
+   * is `net`'s (the agent's `assertUsableProvider`), and this module is also
+   * read where `net` is not.
+   */
+  const readProvider = (v: unknown): InstallationModel | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (!isRecord(v)) {
+      problems.push(`"agent.provider" must be an object.`);
+      return undefined;
+    }
+    const provider = readTextIn("agent.provider.provider", v.provider);
+    const model = readTextIn("agent.provider.model", v.model);
+    const baseUrl = readTextIn("agent.provider.baseUrl", v.baseUrl);
+    const apiKey = v.apiKey === undefined || v.apiKey === null ? "" : v.apiKey;
+    if (typeof apiKey !== "string") {
+      problems.push(`"agent.provider.apiKey" must be a string.`);
+      return undefined;
+    }
+    if (!provider || !model || !baseUrl) return undefined;
+    return { provider, model, baseUrl, apiKey };
+  };
+
   const server = readSection("server", whole.server);
   const limits = readSection("limits", whole.limits);
   const sessions = readSection("sessions", whole.sessions);
   const push = readSection("push", whole.push);
+  const agent = readSection("agent", whole.agent);
   const branding = readSection("branding", whole.branding);
 
   const version = readInt("version", whole.version, INSTALLATION_VERSION);
@@ -389,6 +469,7 @@ export function parseInstallationDocumentDetailed(
       `"server.cookieName" must not be empty: sessions are held in that cookie, so a nameless one would sign nobody in.`,
     );
 
+  const provider = readProvider(agent.provider);
   const doc: InstallationDocument = {
     version,
     epoch: readAtLeast("epoch", whole.epoch, defaults.epoch, 1),
@@ -472,6 +553,10 @@ export function parseInstallationDocumentDetailed(
       rawRelay: readBool("push.rawRelay", push.rawRelay, defaults.push.rawRelay),
     },
     upstreams: readUpstreams("upstreams", whole.upstreams, defaults.upstreams, problems),
+    // A provider that is there is kept whole; a section with none drops the key
+    // rather than carrying an `undefined` one, so a document read and written
+    // back is the same document.
+    agent: provider ? { provider } : {},
     branding: { appName },
     secret: readText("secret", whole.secret, defaults.secret),
   };
