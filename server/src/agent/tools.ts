@@ -969,6 +969,25 @@ export function readingTools(catalogue: readonly AnyTool[]): readonly AnyTool[] 
 export const READING_TOOLS = readingTools(TOOLS);
 
 /**
+ * Find a tool in a catalogue and validate the arguments it is given.
+ *
+ * One definition of the two, so the door a call is run through (`runTool`) and a
+ * caller that only asks whether a call is well formed before running anything
+ * (`chooseStep`, `model.ts`) cannot disagree on which tool a name finds or what
+ * its arguments are. A name the catalogue does not hold, or arguments its tool
+ * refuses, is thrown as a `ToolError`.
+ */
+export function validatedTool(
+  catalogue: readonly AnyTool[],
+  name: string,
+  raw: unknown,
+): { tool: AnyTool; args: unknown } {
+  const tool = catalogue.find((one) => one.name === name);
+  if (!tool) throw new ToolError("unknown_tool", `There is no tool named "${name}".`);
+  return { tool, args: tool.parse(raw) };
+}
+
+/**
  * Call one tool: find it, validate its arguments, ask the guard, and run it.
  *
  * The catalogue is the caller's — the reading half for a reading call — and
@@ -982,9 +1001,7 @@ export async function runTool(
   name: string,
   raw: unknown,
 ): Promise<unknown> {
-  const tool = catalogue.find((one) => one.name === name);
-  if (!tool) throw new ToolError("unknown_tool", `There is no tool named "${name}".`);
-  const args = tool.parse(raw);
+  const { tool, args } = validatedTool(catalogue, name, raw);
   if (!mayRun(tool, call.run, args))
     throw new ToolError(
       "needs_authority",

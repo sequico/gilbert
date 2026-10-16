@@ -546,17 +546,24 @@ function stepQuestion(
   };
 }
 
-test("an answer that is not a step or a done is refused, never guessed at", () => {
+test("an answer that is not a batch or a done is refused, never guessed at", () => {
   const cases: Array<[unknown, string]> = [
     ["not an object", "must be a JSON object"],
-    [{}, 'must name one "tool"'],
-    [{ tool: "mail.find", done: "nothing more" }, "and never both"],
+    [{}, 'must carry "calls"'],
+    [{ calls: [], done: "nothing more" }, "and never both"],
     [{ done: "   " }, '"done" must say what is finished'],
     [{ done: "over", authority: "outward" }, "carries nothing beside"],
-    [{ tool: 42 }, "must name one of the tools you are given"],
+    [{ calls: [] }, "list of at least one call"],
+    [{ calls: ["mail.find"] }, "must be a JSON object"],
+    [{ calls: [{ arguments: {} }] }, "names one of the tools you are given"],
+    [{ calls: [{ name: "mail.find", arguments: "none" }] }, "must be an object"],
     [
-      { tool: "mail.find", arguments: {}, capability: "mail.send" },
+      { calls: [{ name: "mail.find", arguments: {}, capability: "mail.send" }] },
       "what may be done is never the model's to say",
+    ],
+    [
+      { calls: [{ name: "mail.find", arguments: {} }], authority: "outward" },
+      "and nothing else",
     ],
   ];
   for (const [bad, expected] of cases) {
@@ -568,18 +575,40 @@ test("an answer that is not a step or a done is refused, never guessed at", () =
     );
   }
 
-  // The two shapes that are the whole of what a step can be.
+  // The two shapes that are the whole of what a step can be: a batch of one or
+  // more calls, and a done.
   assert.deepEqual(
-    parseStepAnswerDetailed({ tool: "mail.find", arguments: { query: "from:x" } }),
-    { choice: { kind: "call", name: "mail.find", args: { query: "from:x" } } },
+    parseStepAnswerDetailed({
+      calls: [{ name: "mail.find", arguments: { query: "from:x" } }],
+    }),
+    {
+      choice: {
+        kind: "batch",
+        calls: [{ name: "mail.find", args: { query: "from:x" } }],
+      },
+    },
   );
   assert.deepEqual(
-    parseStepAnswerDetailed({ tool: "chat.read", arguments: { id: "c-1" } }),
-    { choice: { kind: "call", name: "chat.read", args: { id: "c-1" } } },
+    parseStepAnswerDetailed({
+      calls: [
+        { name: "chat.read", arguments: { id: "c-1" } },
+        { name: "chat.read", arguments: { id: "c-2" } },
+      ],
+    }),
+    {
+      choice: {
+        kind: "batch",
+        calls: [
+          { name: "chat.read", args: { id: "c-1" } },
+          { name: "chat.read", args: { id: "c-2" } },
+        ],
+      },
+    },
+    "the same tool may be called more than once in one answer",
   );
   assert.deepEqual(
-    parseStepAnswerDetailed({ tool: "files.list" }),
-    { choice: { kind: "call", name: "files.list", args: {} } },
+    parseStepAnswerDetailed({ calls: [{ name: "files.list" }] }),
+    { choice: { kind: "batch", calls: [{ name: "files.list", args: {} }] } },
     "a tool that takes no arguments is called without any",
   );
   assert.deepEqual(parseStepAnswerDetailed({ done: "  the filing is done  " }), {
@@ -587,8 +616,29 @@ test("an answer that is not a step or a done is refused, never guessed at", () =
   });
 });
 
+test("a batch naming a tool the catalogue does not hold, or arguments a tool cannot use, is refused whole", async () => {
+  answerWith({
+    calls: [
+      { name: "mail.find", arguments: { query: "from:x" } },
+      { name: "mail.send", arguments: { to: "x@example.com" } },
+    ],
+  });
+  await assert.rejects(
+    () => chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion()),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+    "one unknown tool refuses the whole answer, not only the call that named it",
+  );
+
+  answerWith({ calls: [{ name: "mail.find", arguments: {} }] });
+  await assert.rejects(
+    () => chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion()),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+    "and arguments a tool cannot use refuse the whole answer too",
+  );
+});
+
 test("the choosing turn hands the catalogue as it describes itself, and may propose a write", async () => {
-  answerWith({ tool: "chat.ask", arguments: { text: "which one?" } });
+  answerWith({ calls: [{ name: "chat.ask", arguments: { text: "which one?" } }] });
   const choice = await chooseStep(
     TOOLS,
     { model, allowPrivateProvider: true },
@@ -596,8 +646,8 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
   );
   assert.deepEqual(
     choice,
-    { kind: "call", name: "chat.ask", args: { text: "which one?" } },
-    "asking a person is one of the tools, not a third shape of answer",
+    { kind: "batch", calls: [{ name: "chat.ask", args: { text: "which one?" } }] },
+    "asking a person is one of the calls, not a third shape of answer",
   );
 
   const system = SYSTEM(0);
@@ -618,7 +668,7 @@ test("the choosing turn hands the catalogue as it describes itself, and may prop
 });
 
 test("the change, the facts and what each step answered are fenced as data", async () => {
-  answerWith({ tool: "files.list", arguments: {} });
+  answerWith({ calls: [{ name: "files.list", arguments: {} }] });
   const plan = recordStep(
     appendStep(
       startRun({

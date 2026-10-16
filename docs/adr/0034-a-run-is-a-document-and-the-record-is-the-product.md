@@ -40,6 +40,13 @@ agent's durable state.
   a removal has no path left for); the folded event is named **`created`**,
   because the node did not exist before the read and exists now, and a removal is
   never folded behind a creation.
+- **A turn may carry several calls, and they may run together.** The model
+  decides what a change needs and may ask for one tool or several in one answer —
+  the same tool twice among them — and the calls of one answer are made together,
+  because none of them waits on another's result; a call that does is the model's
+  next answer. Each call is its own step in the plan, with its own outcome and its
+  own spend, and one of them leaving a wait has it honoured after the whole batch.
+  The batch is written once, whole.
 - **A wait is a date in the run** — or no date at all, when what it waits for is
   a person — not a timer in a process. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that

@@ -234,8 +234,9 @@ is, not what a user sees.
 - **0031 — The agent's tools are described and composable (accepted).** The
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
-  order — never a list of permitted business actions, and no plan compiled at
-  write time. It works on **five surfaces and has all of them**: the group's chat,
+  order — **one or more in a single answer, made together** — never a list of
+  permitted business actions, and no plan compiled at write time. It works on
+  **five surfaces and has all of them**: the group's chat,
   mail, KB (checklist templates among its pages) and workorders, with its own runs
   beside them, each readable and writeable within the authority classes. A tool's
   description is the product's interface to the model; two tools that do one thing
@@ -244,9 +245,9 @@ is, not what a user sees.
   run carries a budget of steps, time and model calls. One model serves the
   installation, chosen in Administration, in the installation's own document with
   a write-only key. **Partly built** — the catalogue is `server/src/agent/tools.ts`,
-  both halves and the guard, and the installation's one model is
+  both halves and the guard, the installation's one model is
   `server/src/agent/model.ts` (one call, and the decision turn over the reading
-  tools); the loop that chooses a tool is not written.
+  tools), and the loop that works a run is `server/src/agent/loop.ts`.
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -275,6 +276,7 @@ is, not what a user sees.
   state: which rule or instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
   its message and its authority, the evidence, and the budget it has spent. **A
+  turn may carry several calls**, made together and each its own step. **A
   wait is a date in the run**, re-armed on boot, so a restart or a dead container
   costs nothing — and a run blocked on a person keeps the question it left. A run
   ends done, blocked on a person, or out of budget — written down. There is no

@@ -6,17 +6,20 @@
  * runs whose wait has come due, reads each account's changes, and for each change
  * asks the **decision turn** which rule applies. A change no rule watches costs
  * no model call and no step; a rule that applies opens a run, and the run is
- * worked by the **choosing turn** — the model picks one tool, the loop runs it
- * and writes the step and its result on the run, spends the budget, and asks
- * again, until the model says done, a step parks the run on a person, or the
- * budget ends it.
+ * worked by the **choosing turn** — the model asks for a batch of one or more
+ * calls, the loop makes them **together**, writes each as its own step with its
+ * own outcome and its own spend on the run, spends the budget, and asks again,
+ * until the model says done, a call parks the run on a person, or the budget
+ * ends it.
  *
- * **The loop never decides what may be done.** A chosen tool is run through
+ * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
  * 0032) answers, the loop never overrides it, and a refusal — an act beyond what
- * the run carries, a tool the catalogue does not hold, arguments it cannot use —
- * is written on the run as a failed step rather than skipped, so the record shows
- * what was refused and the model is told it before it chooses again.
+ * the run carries, or a call that failed — is written on the run as a failed step
+ * rather than skipped, so the record shows what was refused and the model is told
+ * it before it chooses again. An answer the choosing turn could not use at all —
+ * an unknown tool, a call that is not a call, arguments a tool cannot take, any
+ * key this build does not know — is refused whole and recorded the same way.
  *
  * **The run document is the product** (ADR 0034): the model is shown exactly what
  * the document holds — the change that woke the run, the plan, and what each step
@@ -296,12 +299,15 @@ export class AgentLoop {
   }
 
   /**
-   * Work one run: choose a step, run it, write what it did, spend, choose again.
+   * Work one run: choose a batch, run its calls together, write them whole,
+   * spend, choose again.
    *
    * Every stop leaves the record saying which one it was — the model's `done`,
-   * the budget spent, a stall, or a step that parked the run on a person. A
-   * refusal is a failed step on the run, never a silent skip, and the model is
-   * shown it before it chooses again.
+   * the budget spent, a stall, or a call that parked the run on a person. Every
+   * call is its own step with its own outcome and its own spend, and a refusal —
+   * an act beyond what the run carries, or a call that failed — is a failed step
+   * on the run, never a silent skip. The model is shown every call's outcome
+   * before it chooses again.
    */
   private async workRun(
     accountId: string,
@@ -365,65 +371,87 @@ export class AgentLoop {
         return;
       }
 
-      const called = `${choice.name} ${boundedText(choice.args)}`;
-      if (called === previous) {
-        // The same step twice cannot make progress, and running it again is the
+      const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
+      const chosen = batch.join(" | ");
+      if (chosen === previous) {
+        // The same batch twice cannot make progress, and running it again is the
         // endless turn this stops: the record says the model chose it twice.
         current = this.withStep(
           current,
-          called,
-          "the same step was chosen twice and made no progress",
+          chosen,
+          "the same calls were chosen twice and made no progress",
           false,
         );
         await this.store(
           accountId,
           finishRun(current, "out-of-budget", {
             at: now.toISOString(),
-            why: `the model chose the same step twice (${called}) and made no progress, so the run stopped.`,
+            why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
           }),
         );
         return;
       }
-      previous = called;
+      previous = chosen;
 
+      /*
+       * The batch runs together: the calls of one answer do not depend on one
+       * another — a call that needs another's result is the model's next answer
+       * — so they are made at once and each is awaited by its own step.
+       * `allSettled` never rejects, so one call's refusal is its own failed step
+       * and its siblings' steps are on the record beside it.
+       */
       const ranMs = Date.now();
-      let outcome: unknown;
-      try {
-        outcome = await runTool(
-          this.catalogue,
-          { ctx: this.ctx, accountId, run: current },
-          choice.name,
-          choice.args,
-        );
-      } catch (err) {
-        current = this.withStep(current, called, `refused: ${errorMessage(err)}`, false);
-        await this.store(accountId, current);
-        continue;
+      const settled = await Promise.allSettled(
+        choice.calls.map((call) =>
+          runTool(
+            this.catalogue,
+            { ctx: this.ctx, accountId, run: current },
+            call.name,
+            call.args,
+          ),
+        ),
+      );
+      const elapsedMs = Date.now() - ranMs;
+      let wait: RunWait | null = null;
+      for (let at = 0; at < choice.calls.length; at++) {
+        const call = choice.calls[at];
+        const what = batch[at];
+        if (!call || what === undefined) continue;
+        const result = settled[at];
+        if (result?.status === "fulfilled") {
+          current = this.withStep(current, what, boundedText(result.value), true);
+          // Each call spends what its tool declares; the batch's own wall time
+          // is spent once below, because the calls ran together.
+          const tool = this.catalogue.find((one) => one.name === call.name);
+          current = spendRun(current, { ...(tool?.spend ?? {}) });
+          wait = waitOf(result.value) ?? wait;
+        } else
+          current = this.withStep(
+            current,
+            what,
+            `refused: ${errorMessage(result?.reason)}`,
+            false,
+          );
       }
+      current = spendRun(current, { ms: elapsedMs });
 
-      const tool = this.catalogue.find((one) => one.name === choice.name);
-      current = this.withStep(current, called, boundedText(outcome), true);
-      current = spendRun(current, {
-        ...(tool?.spend ?? {}),
-        ms: Date.now() - ranMs,
-      });
-      const wait = waitOf(outcome);
+      /*
+       * A wait is honoured after the batch, not instead of it: every call of the
+       * answer has run and is on the record, and the run then waits. A wait with
+       * a date is the clock's, and the alarm picks it up; a wait with none is a
+       * person's, and the run ends parked on the answer it left (ADR 0033, 0034).
+       */
       if (wait) {
         current = waitUntil(current, wait);
-        /*
-         * A wait with a date is the clock's: the run stays in flight and the
-         * alarm picks it up. A wait with none is a person's, and the run ends
-         * parked on the answer it left (ADR 0033, 0034).
-         */
         if (wait.until === null)
           current = finishRun(current, "blocked", {
             at: now.toISOString(),
             why: `waiting on a person: ${wait.what}`,
           });
-        await this.store(accountId, current);
-        return;
       }
+      // The document is written whole, once, after the batch.
       await this.store(accountId, current);
+      if (wait) return;
     }
   }
 

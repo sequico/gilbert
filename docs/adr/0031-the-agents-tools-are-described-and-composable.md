@@ -11,7 +11,7 @@ own document (`shared/installation.ts`, `installationAdmin.ts`), the call is one
 OpenAI-compatible chat completion with the zero-retention opt-out and the
 operator's private-address switch, the **decision turn** answers which rule
 applies and what the facts are over the reading tools, and the **choosing turn**
-(`chooseStep`) answers the next step over the whole catalogue. The loop that
+(`chooseStep`) answers a batch of one or more calls over the whole catalogue. The loop that
 works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that
 reaches one ends `out-of-budget` saying so. The process that starts the loop is
@@ -44,7 +44,10 @@ The agent's capabilities are **tools**: a small set, each with a description and
 typed arguments, each acting on one of those objects.
 
 - **The model chooses the tools, and the order.** It reads what each one is for,
-  acts, looks at the result, and chooses again. There is no list of permitted
+  decides what the change needs, and asks for **one or more calls in a single
+  answer** — several tools, or the same tool twice — which the loop then makes
+  **together**, shows it what each answered, and asks again. A call that needs
+  what another answered is the answer after it. There is no list of permitted
   business actions and no plan compiled at write time.
 - **The agent works on five surfaces, and has all of them.** They are the
   group's **chat**, its **mail**, its **KB** — its pages and the **checklist

@@ -14,6 +14,9 @@
  *   refusal is a failed step on the run — the act itself does not run;
  * - the model choosing the same step twice is a stall the record shows, not an
  *   endless turn;
+ * - a turn's batch is executed together — three calls are three steps, a refused
+ *   call leaves its siblings' steps beside it, the calls run at once, and a wait
+ *   is honoured after them;
  * - a step that asks a person parks the run on the answer it left;
  * - a run whose wait has come due is picked up again, which is what a restart
  *   loses nothing to.
@@ -244,7 +247,9 @@ test("a change a rule watches opens a run, and the record shows every step of it
   await agent.start();
 
   answerWith({ rule: id, facts: { shipper: "Maersk" } });
-  answerWith({ tool: "chat.say", arguments: { text: "filed with the booking" } });
+  answerWith({
+    calls: [{ name: "chat.say", arguments: { text: "filed with the booking" } }],
+  });
   answerWith({ done: "the shipper's message is filed" });
 
   const message = await deliver("a booking confirmation");
@@ -364,8 +369,7 @@ test("the budget ends a run that cannot finish, and the record says so", async (
   onCall = (system) => {
     if (isDecision(system)) return { rule: id, facts: {} };
     return {
-      tool: "mail.folder",
-      arguments: { name: `folder-${seen.length}` },
+      calls: [{ name: "mail.folder", arguments: { name: `folder-${seen.length}` } }],
     };
   };
   await deliver("something to work");
@@ -403,7 +407,7 @@ test("an act the run carries no authority for is refused, and the refusal is on 
   await agent.start();
 
   answerWith({ rule: id, facts: {} });
-  answerWith({ tool: "mail.remove", arguments: { id: "m-1" } });
+  answerWith({ calls: [{ name: "mail.remove", arguments: { id: "m-1" } }] });
   answerWith({ done: "I could not destroy it, so I left it" });
   await deliver("do not destroy me");
 
@@ -433,8 +437,8 @@ test("the model choosing the same step twice is a stall the record shows", async
   // The same call, twice: it made no progress the first time and cannot the
   // second, and running it again is the endless turn this stops.
   answerWith({ rule: id, facts: {} });
-  answerWith({ tool: "mail.folders", arguments: {} });
-  answerWith({ tool: "mail.folders", arguments: {} });
+  answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
+  answerWith({ calls: [{ name: "mail.folders", arguments: {} }] });
   await deliver("a change that stalls");
   await agent.pass();
 
@@ -442,9 +446,9 @@ test("the model choosing the same step twice is a stall the record shows", async
   assert.equal(run.plan.length, 2, "the step was taken once, not twice over");
   assert.equal(run.plan[0]?.state, "done");
   assert.equal(run.plan[1]?.state, "failed", "the repeat is on the run as a failure");
-  assert.match(run.plan[1]?.outcome ?? "", /same step was chosen twice/);
+  assert.match(run.plan[1]?.outcome ?? "", /same calls were chosen twice/);
   assert.equal(run.state, "out-of-budget", "and the run stopped rather than turning");
-  assert.match(run.ended?.why ?? "", /same step twice/);
+  assert.match(run.ended?.why ?? "", /same calls twice/);
 });
 
 test("a step that asks a person parks the run on the answer it left", async () => {
@@ -454,7 +458,9 @@ test("a step that asks a person parks the run on the answer it left", async () =
   await agent.start();
 
   answerWith({ rule: id, facts: {} });
-  answerWith({ tool: "chat.ask", arguments: { text: "which booking is this?" } });
+  answerWith({
+    calls: [{ name: "chat.ask", arguments: { text: "which booking is this?" } }],
+  });
   await deliver("a message with a question of its own");
   await agent.pass();
 
@@ -505,4 +511,154 @@ test("a run whose wait has come due is picked up again, from its document", asyn
     false,
     "a run that exists is not re-decided: the choosing turn is asked directly",
   );
+});
+
+test("a batch of calls is executed, and each is its own step", async () => {
+  const id = "intake-batch";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rule: id, facts: {} });
+  answerWith({
+    calls: [
+      { name: "chat.say", arguments: { text: "filed the message" } },
+      { name: "chat.say", arguments: { text: "the attachment is saved" } },
+      { name: "chat.say", arguments: { text: "asking about the next step" } },
+    ],
+  });
+  answerWith({ done: "three things said" });
+  await deliver("a message that needs three things");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.plan.length, 3, "every call of the answer is its own step");
+  for (const step of run.plan) {
+    assert.equal(step.state, "done", "and each one ran");
+    assert.match(step.what, /^chat\.say /, "the record says which tool each was");
+    assert.match(step.outcome, /"id"/, "and what it answered");
+  }
+  assert.equal(
+    new Set(run.plan.map((step) => step.outcome)).size,
+    3,
+    "the three calls were executed, not one call recorded three times",
+  );
+});
+
+test("the calls of one batch run together, not one after another", async () => {
+  const id = "intake-parallel";
+  await putRule(id);
+  // A tool that is in flight for a moment: two of them overlap only if the loop
+  // makes them at once.
+  const inFlight = { now: 0, most: 0 };
+  const hold = defineTool({
+    name: "probe.hold",
+    description: "a call that is in flight for a moment, so two can overlap",
+    authority: "reversible",
+    writes: false,
+    parse: () => ({}),
+    run: async () => {
+      inFlight.now += 1;
+      inFlight.most = Math.max(inFlight.most, inFlight.now);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      inFlight.now -= 1;
+      return { held: true };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, hold] });
+  await agent.start();
+
+  onCall = (system) =>
+    isDecision(system)
+      ? { rule: id, facts: {} }
+      : {
+          calls: [
+            { name: "probe.hold", arguments: {} },
+            { name: "probe.hold", arguments: {} },
+          ],
+        };
+  await deliver("a change that wants two calls at once");
+  await agent.pass();
+
+  assert.equal(
+    inFlight.most,
+    2,
+    "both calls of one answer were in flight at once; a loop that ran them one after another would reach 1",
+  );
+});
+
+test("a refused call in a batch leaves its siblings' steps on the record", async () => {
+  const id = "intake-partial";
+  await putRule(id);
+  const ran: string[] = [];
+  // One act a person must authorise, beside an act the agent may take alone.
+  const remove = defineTool({
+    name: "mail.remove",
+    description: "Destroy a message; a person must authorise it.",
+    authority: "destructive",
+    writes: true,
+    spend: { steps: 1 },
+    act: (args: { id: string }) => ({ target: args.id, content: null }),
+    parse: (raw: unknown) => raw as { id: string },
+    run: async (_call, args: { id: string }) => {
+      ran.push(args.id);
+      return { id: args.id };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, remove] });
+  await agent.start();
+
+  answerWith({ rule: id, facts: {} });
+  answerWith({
+    calls: [
+      { name: "mail.remove", arguments: { id: "m-1" } },
+      { name: "chat.say", arguments: { text: "I could not remove it, so I left it" } },
+    ],
+  });
+  answerWith({ done: "left it where it is" });
+  await deliver("do not destroy me");
+  await agent.pass();
+
+  assert.deepEqual(ran, [], "the act the run carries no authority for did not run");
+  const run = await runOf(id);
+  assert.equal(run.plan.length, 2, "both calls of the answer are on the record");
+  assert.equal(run.plan[0]?.state, "failed", "the refused call is a failed step");
+  assert.match(
+    run.plan[0]?.outcome ?? "",
+    /needs_authority|not the agent's to decide/,
+    "which says what the run could not do",
+  );
+  assert.equal(run.plan[1]?.state, "done", "and its sibling ran and is a done step");
+  assert.match(run.plan[1]?.what ?? "", /^chat\.say /);
+});
+
+test("a wait in a batch is honoured after it, with the other calls on the record", async () => {
+  const id = "intake-batch-wait";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rule: id, facts: {} });
+  answerWith({
+    calls: [
+      { name: "chat.say", arguments: { text: "I filed the message" } },
+      { name: "chat.ask", arguments: { text: "which folder should this go in?" } },
+    ],
+  });
+  await deliver("a message with a question of its own");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.plan.length, 2, "the write and the question both ran");
+  assert.equal(run.plan[0]?.state, "done", "the report was said");
+  assert.match(run.plan[0]?.outcome ?? "", /"id"/, "with what it answered");
+  assert.equal(run.plan[1]?.state, "done", "and the question was asked");
+  assert.equal(
+    run.state,
+    "blocked",
+    "the run parks on the person's answer after the batch",
+  );
+  assert.equal(run.waiting?.what, "which folder should this go in?");
+  assert.equal(run.waiting?.until, null, "with no date: a person answers when they do");
+  assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
 });

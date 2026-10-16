@@ -141,10 +141,12 @@ turn** — given one change in a group's own account and the rules that watch it
 which rule applies and what the facts are, looking the group's own state up first
 with the **reading tools** when it needs to — and the **choosing turn**, which is
 handed the catalogue as the catalogue describes itself and the run so far, and
-answers with one tool and its arguments or that the work is finished. An answer
-is facts and nothing else — one that carries an authorisation, or names a tool
-that writes, is refused — and an installation that has chosen no model has no
-agent.
+answers with a **batch**: one or more calls, each a tool and its arguments, or
+that the work is finished. The calls of one answer are made together, so what a
+run needs in several parts is one turn; each is its own step with its own outcome
+and its own spend. An answer is facts and nothing else — one that carries an
+authorisation, or names a tool that writes, is refused — and an installation that
+has chosen no model has no agent.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
@@ -166,11 +168,12 @@ whole catalogue is exercised against the mock Stalwart.
 pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change no
 rule watches costs no model call and no step; a rule that applies opens a run
-naming the change that woke it, and the choosing turn works it — one tool at a
-time, its result written on the run as a step, until the model says done, a step
-parks the run on a person's answer, or the run's **budget** (steps, model calls
-and time) is spent, which the record states. A model that chooses the same step
-twice is a stall the record shows rather than an endless turn. The agent process
+naming the change that woke it, and the choosing turn works it — **a batch of one
+or more calls made together**, each its own step with its own outcome and its own
+spend, until the model says done, a call parks the run on a person's answer, or
+the run's **budget** (steps, model calls and time) is spent, which the record
+states. A model that chooses the same batch twice is a stall the record shows
+rather than an endless turn. The agent process
 (`server/src/agent/agent.ts`, `npm run agent`) asks the loop for a pass every
 thirty seconds.
 

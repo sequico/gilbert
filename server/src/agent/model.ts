@@ -33,13 +33,16 @@
  *
  * **The choosing turn** (`chooseStep`) works a run (ADR 0031): it is handed the
  * catalogue as the catalogue describes itself — one definition, never a second
- * prose copy — and the run so far, and answers with **one** tool and its
- * arguments, or that the run is done. It is handed the whole catalogue rather
- * than the write-free half, because it may always propose an act; whether the
- * act runs is the authority guard's answer (`runTool`, ADR 0032) and never the
- * model's. An answer of any other shape, or one naming a tool the catalogue does
- * not hold, is refused — never guessed at, never bent into the nearest valid
- * step — and the caller records the refusal on the run.
+ * prose copy — and the run so far, and answers with a **batch**: a list of one
+ * or more calls, each a tool and its arguments, or that the run is done. The
+ * calls of one answer are made together, so what a run needs in several parts is
+ * one turn rather than one call per turn. It is handed the whole catalogue
+ * rather than the write-free half, because it may always propose an act; whether
+ * the act runs is the authority guard's answer (`runTool`, ADR 0032) and never
+ * the model's. An answer of any other shape — a tool the catalogue does not
+ * hold, an entry that is not a call, arguments a tool cannot use, any key this
+ * build does not know — refuses the whole answer, never guessed at, and the
+ * caller records the refusal on the run.
  *
  * The loop that works a run is `agent/loop.ts`, and it asks both turns here; the
  * loop that carries a person's instruction out — a sentence in the chat or the
@@ -48,14 +51,20 @@
 
 import { randomUUID } from "node:crypto";
 import { hostAddresses, isPrivateAddress } from "../imageproxy.js";
-import { CodedError } from "../shared/errors.js";
+import { CodedError, errorMessage } from "../shared/errors.js";
 import type { InstallationDocument, InstallationModel } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
 import type { RunStep } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
-import { type AnyTool, READING_TOOLS, runTool, type ToolCall } from "./tools.js";
+import {
+  type AnyTool,
+  READING_TOOLS,
+  runTool,
+  type ToolCall,
+  validatedTool,
+} from "./tools.js";
 
 /** How long one model call may take before it counts as unreachable. */
 export const MODEL_TIMEOUT_MS = 60_000;
@@ -672,20 +681,31 @@ export function boundedText(value: unknown): string {
 }
 
 /**
+ * One call of a batch: a tool of the catalogue and the arguments it is given
+ * (ADR 0031). A step of a run is one of these, and a batch is a list of them: a
+ * tool may be called once or several times in one answer.
+ */
+export interface StepCall {
+  name: string;
+  args: unknown;
+}
+
+/**
  * What one choosing call answered (ADR 0031).
  *
- * A **call** is one tool and its arguments: the model acts, is shown what came
- * back, and chooses again. **Done** is the run's work being finished, said in
- * the model's own words, which are what the run's ending is written with. There
- * is nothing else an answer can be, and asking a person is not a third shape: it
- * is `chat.ask`, one of the tools, which leaves the run waiting on the answer.
+ * A **batch** is one or more calls: the model decides what the change needs —
+ * one thing, several, one tool twice — and the loop makes them together.
+ * **Done** is the run's work being finished, said in the model's own words,
+ * which are what the run's ending is written with. There is nothing else an
+ * answer can be, and asking a person is not a third shape: it is `chat.ask`, one
+ * of the calls, which leaves the run waiting on the answer.
  *
- * What the answer carries is a tool and its arguments and nothing beside them: it
+ * What a call carries is a tool and its arguments and nothing beside them: it
  * grants no authority and names no capability, because what may be done is the
  * authority classes (ADR 0032) and never the model's.
  */
 export type StepChoice =
-  | { kind: "call"; name: string; args: unknown }
+  | { kind: "batch"; calls: StepCall[] }
   | { kind: "done"; why: string };
 
 /**
@@ -711,25 +731,25 @@ export interface StepQuestion {
 /**
  * Read one choosing answer, or say what is wrong with it.
  *
- * Strict: an object, exactly the fields of one of the two shapes, and nothing
- * else. A key this build does not know is **refused**, not ignored, so an answer
- * that adds an authority, a capability or a list of actions is answered with a
- * refusal rather than with an effect. Whether the tool it names exists, and
- * whether its arguments are usable, is the catalogue's and the tool's own
- * question, asked where the tool is run (`runTool`), and a refusal from there is
- * the caller's to record.
+ * Strict: an object, exactly one of the two shapes, and nothing else. A batch is
+ * a **non-empty** list of calls, each an object naming a tool and its arguments
+ * and nothing beside them; a key this build does not know, an entry that is not
+ * a call, or a list with nothing in it refuses the **whole answer**. Whether the
+ * named tool is in the catalogue, and whether its arguments are usable, is the
+ * catalogue's own question too — asked by `chooseStep` before anything runs, so
+ * it too refuses the whole answer rather than making a call the model cannot use.
  */
 export function parseStepAnswerDetailed(
   raw: unknown,
 ): { choice: StepChoice } | { problem: string } {
   if (!isRecord(raw)) return { problem: "The answer must be a JSON object." };
   const keys = Object.keys(raw);
-  const hasTool = keys.includes("tool");
+  const hasCalls = keys.includes("calls");
   const hasDone = keys.includes("done");
-  if (hasTool === hasDone)
+  if (hasCalls === hasDone)
     return {
       problem:
-        'The answer must name one "tool" and its "arguments" to take a step, or "done" when the work is finished — and never both.',
+        'The answer must carry "calls" — a list of one or more tools to call — or "done" when the work is finished, and never both.',
     };
   if (hasDone) {
     const unknown = keys.filter((key) => key !== "done");
@@ -741,22 +761,44 @@ export function parseStepAnswerDetailed(
       return { problem: '"done" must say what is finished.' };
     return { choice: { kind: "done", why: raw.done.trim() } };
   }
-  const unknown = keys.filter((key) => key !== "tool" && key !== "arguments");
+  const unknown = keys.filter((key) => key !== "calls");
   if (unknown.length)
     return {
       problem:
-        `A step carries a "tool" and its "arguments" and nothing else, and it carries ${unknown.join(", ")}: ` +
+        `A batch carries a "calls" list and nothing else, and it carries ${unknown.join(", ")}: ` +
         "what may be done is never the model's to say.",
     };
-  if (typeof raw.tool !== "string" || !raw.tool.trim())
-    return { problem: '"tool" must name one of the tools you are given.' };
-  return {
-    choice: { kind: "call", name: raw.tool.trim(), args: raw.arguments ?? {} },
-  };
+  const list = raw.calls;
+  if (!Array.isArray(list) || !list.length)
+    return { problem: '"calls" must be a list of at least one call.' };
+  const calls: StepCall[] = [];
+  for (const entry of list) {
+    if (!isRecord(entry))
+      return { problem: 'Every call in "calls" must be a JSON object.' };
+    const extra = Object.keys(entry).filter(
+      (key) => key !== "name" && key !== "arguments",
+    );
+    if (extra.length)
+      return {
+        problem:
+          `A call carries a "name" and its "arguments" and nothing else, and one carries ${extra.join(", ")}: ` +
+          "what may be done is never the model's to say.",
+      };
+    if (typeof entry.name !== "string" || !entry.name.trim())
+      return { problem: 'Every call names one of the tools you are given in "name".' };
+    const args = entry.arguments;
+    if (args !== undefined && args !== null && !isRecord(args))
+      return {
+        problem: `The arguments of the call to "${entry.name.trim()}" must be an object.`,
+      };
+    calls.push({ name: entry.name.trim(), args: args ?? {} });
+  }
+  return { choice: { kind: "batch", calls } };
 }
 
 /**
- * One choosing turn: given the run so far, the next step or the end.
+ * One choosing turn: given the run so far, the batch of calls to make or the
+ * end of the work.
  *
  * The catalogue is handed to the model **as it describes itself** — the same
  * `name` and `description` every reader of it reads, so what the model is told
@@ -766,9 +808,10 @@ export function parseStepAnswerDetailed(
  * stay in the write-free half.
  *
  * The answer is validated before it is returned: a malformed one is refused
- * rather than guessed at, and a tool the catalogue does not hold, or arguments
- * it cannot use, are refused where the tool is run, never coerced into the
- * nearest step that would work.
+ * rather than guessed at, and every call of a batch is checked against the
+ * catalogue — a name it does not hold, or arguments its tool cannot use, refuses
+ * the **whole answer** rather than the call alone, so a batch is never half
+ * made and never bent into the nearest call that would work.
  */
 export async function chooseStep(
   catalogue: readonly AnyTool[],
@@ -780,8 +823,9 @@ export async function chooseStep(
   const system = [
     DATA_NOT_INSTRUCTIONS,
     "You are the agent of one group, working one run in that group's own account.",
-    'Answer with one JSON object and nothing else: {"tool": {"name": "<one of the tools below>", "arguments": {...}}} to take one step, or {"done": "<what is finished>"} when the work of this run is finished.',
-    "One step at a time: choose one tool, and you are asked again with what it answered. The tools below say what each one is for and what arguments it takes.",
+    'Answer with one JSON object and nothing else: {"calls": [{"name": "<one of the tools below>", "arguments": {...}}, ...]} to take one or more steps, or {"done": "<what is finished>"} when the work of this run is finished.',
+    "Decide what this change needs and ask for it in one answer: one tool, several tools, or the same tool twice. The calls of one answer are made together, and each is shown to you before you are asked again; a call that needs what another answered belongs in the answer after it.",
+    "The tools below say what each one is for and what arguments it takes.",
     "You never decide what may be done: an act a person must authorise is refused rather than run, and an answer that carries an authority, a capability or a list of actions is refused.",
     "The tools you may take a step with:",
     ...catalogue.map((tool) => `- ${tool.name}: ${tool.description}`),
@@ -797,6 +841,25 @@ export async function chooseStep(
   });
   const parsed = parseStepAnswerDetailed(answer);
   if ("problem" in parsed) throw new ModelError("model_answer_malformed", parsed.problem);
+  if (parsed.choice.kind === "batch") {
+    /*
+     * Every call is put to the catalogue's own door before any of them runs: a
+     * name the catalogue does not hold, or arguments its tool cannot use, is the
+     * whole answer's refusal (ADR 0031), never a batch with the bad call quietly
+     * left out. The arguments are validated again where the call runs (`runTool`
+     * does it too), and one definition of that lives in `tools.ts`.
+     */
+    for (const call of parsed.choice.calls) {
+      try {
+        validatedTool(catalogue, call.name, call.args);
+      } catch (err) {
+        throw new ModelError(
+          "model_answer_malformed",
+          `One of the calls in the answer cannot be made: ${errorMessage(err)}`,
+        );
+      }
+    }
+  }
   return parsed.choice;
 }
 
