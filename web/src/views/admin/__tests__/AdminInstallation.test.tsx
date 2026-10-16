@@ -21,6 +21,25 @@ import { AdminInstallation } from "../AdminInstallation";
 const LOCATION = "gilbert/installation.json in account a1";
 const MASTER = "gilbert@example.com";
 const DOCUMENT = JSON.stringify({ branding: { appName: "Gilbert" } }, null, 2);
+/** The model the installation runs on (ADR 0031), as a document names it. */
+const MODEL = {
+  provider: "openai",
+  model: "gpt-5",
+  baseUrl: "https://api.openai.com/v1",
+};
+/**
+ * A document that names a model, in the shape the server's read hands back: the
+ * key is taken out (`installationAdmin.ts`), so it is absent here.
+ */
+const MODEL_DOCUMENT = JSON.stringify(
+  {
+    agent: { provider: MODEL },
+    branding: { appName: "Gilbert" },
+    secret: "a-secret-long-enough-to-seal-a-session-with",
+  },
+  null,
+  2,
+);
 
 describe("the installation document surface", () => {
   let host: HTMLDivElement;
@@ -97,6 +116,95 @@ describe("the installation document surface", () => {
     );
     if (!found) throw new Error(`no button: ${label}`);
     return found;
+  }
+
+  /** One of the model's fields, by the id the surface gives it. */
+  function input(id: string): HTMLInputElement {
+    const field = host.querySelector<HTMLInputElement>(`#${id}`);
+    if (!field) throw new Error(`no input: ${id}`);
+    return field;
+  }
+
+  /** An edit to one input, as React sees one (the same tracker problem as `type`). */
+  async function fill(id: string, value: string) {
+    await act(async () => {
+      const field = input(id);
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(field, value);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  /** The switch an administrator turns on to say the provider needs no key. */
+  async function needsNoKey() {
+    await act(async () => {
+      const sw = host.querySelector<HTMLButtonElement>(".switch");
+      if (!sw) throw new Error("the provider-needs-no-key switch is not rendered");
+      sw.click();
+    });
+  }
+
+  /**
+   * The document a read hands back, standing in for the server: the model's key
+   * is taken out of every answer that carries document text
+   * (`installationAdmin.ts`), so the text a surface holds states nothing about
+   * the key — which is what leaves the stored one alone when it is published
+   * back.
+   */
+  function withoutKey(text: string): string {
+    const whole = JSON.parse(text) as {
+      agent?: { provider?: Record<string, unknown> };
+    };
+    if (whole.agent?.provider) delete whole.agent.provider.apiKey;
+    return JSON.stringify(whole, null, 2);
+  }
+
+  /**
+   * A stub that reads one document and echoes whatever a publish sent, in the
+   * shape the route answers with (`InstallationView`, `InstallationPublished`).
+   */
+  function stubServer(document: string) {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? answer({
+            outcome: {
+              account: "a1",
+              master: MASTER,
+              location: LOCATION,
+              document: withoutKey(String(init.body)),
+              epoch: 2,
+              applies: "next-boot",
+              message: "Written.",
+            },
+          })
+        : answer({
+            installation: {
+              present: true,
+              document,
+              problem: null,
+              account: "a1",
+              master: MASTER,
+              location: LOCATION,
+            },
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  /** The model's provider, as the last publish stated it. */
+  function sentProvider(fetchMock: ReturnType<typeof vi.fn>) {
+    const posted = fetchMock.mock.calls.find(
+      (call: unknown[]) => (call[1] as RequestInit | undefined)?.method === "POST",
+    );
+    if (!posted) throw new Error("the surface made no publish");
+    const body = JSON.parse(String((posted[1] as RequestInit).body)) as {
+      agent: { provider: Record<string, unknown> };
+    };
+    return body.agent.provider;
   }
 
   it("shows the document the account holds, where it lives, and what a boot would refuse", async () => {
@@ -251,5 +359,85 @@ describe("the installation document surface", () => {
 
     expect(host.textContent ?? "").toContain(refusal);
     expect(editor().value).toBe('{"server": {"port": 0}}');
+  });
+
+  /*
+   * The installation's model (ADR 0031): the one part of the document an
+   * administrator chooses rather than looks up, so it has fields of its own. The
+   * fields write `agent.provider` in the text the editor holds — one home for
+   * the model, and the document is it — and the key is the one thing they never
+   * hold: a write-only field, whose three states the document itself tells
+   * apart.
+   */
+  it("shows the model the document names, and never fills the key field", async () => {
+    stubServer(MODEL_DOCUMENT);
+
+    await render();
+
+    expect(input("model-provider").value).toBe(MODEL.provider);
+    expect(input("model-name").value).toBe(MODEL.model);
+    expect(input("model-base-url").value).toBe(MODEL.baseUrl);
+    // No read hands the key back, so the field it would be stated in is empty.
+    expect(input("model-key").value).toBe("");
+    // The document is where the model lives: the fields read it and write it,
+    // rather than the surface keeping a second copy of its own.
+    expect(editor().value).toBe(MODEL_DOCUMENT);
+  });
+
+  it("writes an edited field into the document, stating nothing about the key", async () => {
+    const fetchMock = stubServer(MODEL_DOCUMENT);
+
+    await render();
+    await fill("model-name", "gpt-5-mini");
+    expect(editor().value).toContain("gpt-5-mini");
+
+    await click("Publish document");
+
+    const provider = sentProvider(fetchMock);
+    expect(provider.provider).toBe(MODEL.provider);
+    expect(provider.model).toBe("gpt-5-mini");
+    // The key field was never touched, so the save states nothing about the key
+    // and the stored one stands. Writing an empty one here would clear it.
+    expect("apiKey" in provider).toBe(false);
+  });
+
+  it("states the key an administrator types, and never in the document", async () => {
+    const fetchMock = stubServer(MODEL_DOCUMENT);
+    const key = "sk-a-key-the-document-never-holds";
+
+    await render();
+    await fill("model-key", key);
+
+    // The key is never part of the text this surface holds: what it shows is the
+    // document, and the key is stated only as the publish is sent.
+    expect(editor().value).not.toContain(key);
+
+    await click("Publish document");
+
+    expect(sentProvider(fetchMock).apiKey).toBe(key);
+    // And what the surface holds afterwards is what the server stored, which
+    // carries no key at all.
+    expect(editor().value).not.toContain(key);
+  });
+
+  it("clears the stored key when an administrator says the provider needs none", async () => {
+    const fetchMock = stubServer(MODEL_DOCUMENT);
+
+    await render();
+    await needsNoKey();
+    await click("Publish document");
+
+    // An empty `apiKey` is the third thing a save can say: the provider needs
+    // none, which clears the stored one rather than keeping it.
+    expect(sentProvider(fetchMock).apiKey).toBe("");
+  });
+
+  it("says the installation has no agent when the document names no model", async () => {
+    stubServer(DOCUMENT);
+
+    await render();
+
+    expect(input("model-provider").value).toBe("");
+    expect(host.textContent ?? "").toContain("has no agent");
   });
 });
