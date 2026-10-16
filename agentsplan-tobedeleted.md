@@ -57,25 +57,19 @@ reaching a run, and any surface that shows what the agent did.
 - **Proof:** two rules over one change produce two runs, and removing one of them
   from the answer leaves the other running.
 
-### 2.2 A plan carries order and conditions
+### 2.2 A plan carries order and conditions — **built** (`ec8a066`)
 
-- **The record:** 0034, whose decision now says a plan may say what waits on what
-  and what follows from an outcome, and whose `Implementation` line says the plan
-  cannot carry it yet.
-- **Today:** the calls of one answer run together, and a dependent step waits for
-  the model's next turn.
-- **To do:** the model's answer may name order and conditionals — this call first,
-  then that one; if that call filed the message do this, if it was refused do
-  that — reasoned from the group's KB, its checklists and its workorders. The loop
-  runs what is ready, reads each outcome, and takes the branch the outcome names.
-- **Decided, by the owner:** **the model writes the order and the conditions**,
-  from the rules the group's KB and checklists carry, or by inferring them, or by
-  asking a person for instruction. The loop executes what is ready, reads each
-  outcome, and takes the branch the outcome names; it invents no semantics of its
-  own.
-- **Proof:** a two-step plan whose second step differs by the first's outcome runs
-  both branches in two runs; a plan whose first step is refused does not run the
-  step that depends on it landing.
+- **The record:** 0034, whose decision says a plan may say what waits on what and
+  what follows from an outcome, and whose `Implementation` line says the tree
+  carries it.
+- **Built:** the choosing turn's answer is a plan whose steps may name an earlier
+  step and the outcome they need; the loop runs the steps whose dependencies have
+  ended together, reads each outcome and takes the branch that outcome names, and
+  leaves a step no branch reaches unrun with the record naming which step and
+  which outcome left it.
+- **Proof:** a plan whose two later steps wait on the first, one per outcome, runs
+  the branch its outcome names in two runs; a step whose dependency was refused is
+  left unrun, and the record names the step and the outcome.
 
 ### 2.3 The mail channel — the conversation's other half (0033)
 
