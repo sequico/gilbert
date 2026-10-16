@@ -352,9 +352,9 @@ export const MessageView = memo(function MessageView({
     [e.attachments],
   );
   const unsubscribe = e["header:List-Unsubscribe:asText"];
-  /* The agent's processing state on this message, and only on this message
-     (ADR 0003 resolution 9): the group's catalog names it, the keyword says
-     whether this one carries it. */
+  /* The agent's processing state on this message, and only on this message:
+     the group's catalog names it, the keyword says whether this one carries
+     it. */
   const agentLabels = useEffectiveLabels().filter(
     (label) => isAgentLabel(label.keyword) && e.keywords[label.keyword],
   );

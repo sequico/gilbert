@@ -41,7 +41,7 @@ import {
 } from "./installation.js";
 import { sleep as defaultSleep } from "./shared/async.js";
 import { errorMessage } from "./shared/errors.js";
-import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
+import type { InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /**
@@ -238,14 +238,13 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
 }
 
 /**
- * The agent's configuration, in the names `config.ts` already uses.
+ * The installation's own account, in the names `config.ts` already uses.
  *
  * The address and the password are the handshake's: the installation's own
- * account **is** the agent (ADR 0003 — one structure agent per installation),
- * so the Master's credential is the fleet's credential and there is no second
- * secret to keep in step.
+ * account **is** the Master, so the deployment's credential is the Master's
+ * credential and there is no second secret to keep in step.
  *
- * The one agent field this deliberately does not carry is
+ * The one agent-shaped switch this deliberately does not carry is
  * `allowPrivateProvider`: whether the installation's model may sit inside the
  * deployment's own network is the **operator's** statement, read from the
  * environment (`configuration.ts`), and an installation must not grant itself
@@ -255,25 +254,15 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
 export interface InstallationAgentConfiguration {
   address: string;
   password: string;
-  pollMs: number;
-  heartbeatMs: number;
-  leaseMs: number;
-  maxChainHops: number;
-  maxPages: number;
-  thinking: boolean;
-  vision: boolean;
-  authoringMonthlyMax: number;
-  healthPort: number;
-  inprocess: boolean;
 }
 
 /**
  * The installation's configuration, resolved — the shape `config.ts` holds.
  *
  * Every name here is a name `config.ts` already uses for the same value, so
- * the wiring is a translation and not a redesign: `config.agent.pollMs` is
- * `agent.poll` in the document, `config.sessionTtl` is `sessions.ttl`, and so
- * on. Three things are not the document's: `host` and `port` come from the
+ * the wiring is a translation and not a redesign: `config.sessionTtl` is
+ * `sessions.ttl`, `config.agent.address` is the handshake's Master, and so on.
+ * Three things are not the document's: `host` and `port` come from the
  * container when it states them (`ContainerFacts`) and from the document
  * otherwise, and the agent's `allowPrivateProvider` is the operator's, so it is
  * not here at all and the environment's value is the one a served process runs
@@ -328,7 +317,6 @@ export function configurationFrom(
   facts: ContainerFacts,
   handshake: Handshake,
 ): InstallationConfiguration {
-  const agent: InstallationAgent = document.agent;
   return {
     appName: document.branding.appName,
     appSecret: document.secret,
@@ -359,16 +347,6 @@ export function configurationFrom(
     agent: {
       address: handshake.masterAddress,
       password: handshake.masterPassword,
-      pollMs: agent.poll,
-      heartbeatMs: agent.heartbeat,
-      leaseMs: agent.lease,
-      maxChainHops: agent.chainHops,
-      maxPages: agent.pages,
-      thinking: agent.thinking,
-      vision: agent.vision,
-      authoringMonthlyMax: agent.authoringMaxPerMonth,
-      healthPort: agent.healthPort,
-      inprocess: agent.inProcess,
     },
   };
 }
@@ -477,9 +455,9 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
         ...installation,
         /*
          * The agent is the one section both paths own fields of, so it is
-         * merged field by field rather than replaced: the document's timers and
-         * bounds, and `allowPrivateProvider`, which a document may not decide
-         * (see `InstallationAgentConfiguration`).
+         * merged field by field rather than replaced: the handshake's Master,
+         * and `allowPrivateProvider`, which a document may not decide (see
+         * `InstallationAgentConfiguration`).
          */
         agent: { ...fromEnvironment.agent, ...installation.agent },
       },

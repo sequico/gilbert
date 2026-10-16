@@ -4,8 +4,7 @@
  *
  * The composer appends a signature when a message is written; the agent
  * appends the group's own signature when it prepares a draft or sends on the
- * group's behalf (ADR 0003 resolutions 2 and 13: "applies its text/HTML
- * signature exactly as the UI composer does"). Those are the same rule, so
+ * group's behalf. Those are the same rule, so
  * they are the same function: a group's footer must not depend on which of
  * the two wrote the mail.
  *

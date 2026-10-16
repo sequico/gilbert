@@ -306,3 +306,12 @@ is, not what a user sees.
   nothing. A run ends done, blocked on a person, or out of budget — written down.
   There is no separate audit ledger, and a person can read a run and undo by hand
   what can be undone. **Not built.**
+- **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
+  document in the group's own account, saying **what it watches** — the account's
+  activity, mail in and out, Files, chat, the writes to its own workorders — and
+  **in prose what should happen**; nothing is compiled, and a rule carries **no
+  list of permitted actions**. A rule may **declare that it sends**, written in
+  the rule itself. The prose that reaches the model has three levels, outermost
+  first: the installation's line, the group's standing instruction, the rule's own
+  — one builder for every caller. A member reads the rules and may change them, as
+  with the KB. **Not built.**

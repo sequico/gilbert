@@ -371,9 +371,9 @@ export function ThreadView({
   const finalFolders = finalFoldersOf(mailboxes);
   const threadDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
   const deleteIsOffered = folderDeleteOffered(mailboxId, finalFolders, mayEnd);
-  /* `G-` labels describe one message, not the conversation (ADR 0003
-     resolution 9), so the thread row shows the group's own labels and the
-     agent's state stays on the message it was written on. */
+  /* `G-` labels describe one message, not the conversation, so the thread
+     row shows the group's own labels and the agent's state stays on the
+     message it was written on. */
   const threadLabels = labels.filter(
     (l) => !isAgentLabel(l.keyword) && messages.some((m) => m.keywords[l.keyword]),
   );

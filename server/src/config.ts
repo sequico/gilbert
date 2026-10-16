@@ -102,14 +102,15 @@ export function assertImmutable(root: string): void {
 if (config.immutable) assertImmutable(fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
- * The address this installation's agent is known by (ADR 0003).
+ * The address of the installation's own account — the Master (ADR 0011).
  *
  * The deployment names it — `GILBERT_AGENT_ADDRESS`, beside the password that
- * account signs in with, in the environment of whoever starts the server and
- * the agent. Nothing in the product names it and nothing falls back to
- * anything else: one place names the agent, and every surface reads it here.
+ * account signs in with, in the environment of whoever starts the server. That
+ * spelling is the operator's own (`GILBERT_AGENT_*`), and it is the Master the
+ * address stands for: nothing in the product names it and nothing falls back to
+ * anything else, so every surface reads it here.
  */
 
-export function agentAddress(): string {
+export function masterAddress(): string {
   return config.agent.address.trim().toLowerCase();
 }

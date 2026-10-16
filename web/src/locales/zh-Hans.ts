@@ -45,9 +45,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "知识",
     "Mention a member": "提及成员",
     "Go to folder…": "转到文件夹…",
     "Set for everyone here. You cannot change this.": "已为此处所有人设定，您无法更改。",
@@ -1516,11 +1513,6 @@ export const catalog: Catalog = {
       "如果此地址之后的邮件由他人签名，Gilbert 会提醒您。",
     "itself, or an issuer it does not name": "其自身，或一个未具名的颁发者",
     "no address": "无地址",
-    // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "只有该群组的管理员才能更改它的指令和自动化规则；每位成员都可以在这里查看。",
-    "No standing instruction has been written for this group.":
-      "该群组尚未写入常设指令。",
     "{name} — shared by {owner}": "{name} — 由 {owner} 共享",
     "{name} — from {owner}": "{name} — 来自 {owner}",
     "Remove {email}": "移除 {email}",
@@ -1546,12 +1538,8 @@ export const catalog: Catalog = {
     Policy: "策略",
     Installation: "安装",
     "Force passwords": "强制密码",
-    Master: "Master",
-    "Group Agents": "群组代理",
-    Approvals: "审批",
     "System Sieve": "系统 Sieve",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert Assistant": "Gilbert Assistant",
     Stalwart: "Stalwart",
     "Nothing here yet.": "这里还没有任何内容。",
     Help: "帮助",
@@ -1641,8 +1629,6 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "“结束”必须晚于“开始”。",
     "Auto-reply is on": "自动回复已开启",
     "Auto-reply saved": "自动回复已保存",
-    Missed: "未接",
-    Failed: "失败",
     "Actions for {email}": "{email} 的操作",
     "Invitation accepted": "已接受邀请",
     "Invitation declined": "已拒绝邀请",
@@ -1722,7 +1708,6 @@ export const catalog: Catalog = {
     "https://…": "https://…",
     Chat: "聊天",
     "No longer in this group": "已不在此群组",
-    "The group's agent": "群组的代理",
     "Search messages": "搜索邮件",
     Conversations: "会话",
     "Search in this chat": "在此聊天中搜索",
@@ -1737,24 +1722,6 @@ export const catalog: Catalog = {
     "Replying to {who}": "回复 {who}",
     "Cancel reply": "取消回复",
     "Message {group}": "邮件 {group}",
-    "No agent is registered for this installation.": "此安装没有注册任何代理。",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "没有代理在此群组工作：它在这里未被授权，因此不携带任何指令，也不做任何事。授权在邮件服务器自己的管理端进行，而非在本产品中。",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "在此群组以 {address} 身份活动。只读：它所遵循的内容在管理端编写，您在聊天中回复它。",
-    "Standing instruction": "常驻指令",
-    "Who its runs stop for": "其运行会为谁停止",
-    "What it follows": "它所遵循的内容",
-    "No automation is set up for this group.": "此群组未设置任何自动化。",
-    "Still open": "仍未关闭",
-    "Nothing is running and nothing is waiting.": "没有任何运行，也没有任何等待。",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "当其中一项等待某人时，代理会在此聊天中询问 — 您就在那里回复。",
-    "What it has done": "它做过什么",
-    "It has not done anything yet.": "它还没有做任何事。",
-    "Last written by {who} on {when}.": "最后由 {who} 于 {when} 写入。",
-    "an administrator": "管理员",
-    Disabled: "已停用",
     "{message} for this date": "此日期的 {message}",
     "Occurrence deleted": "重复项已删除",
     "Event deleted": "事件已删除",
@@ -1770,93 +1737,8 @@ export const catalog: Catalog = {
     "https://meet.example.com/…": "https://meet.example.com/…",
     "{duration} before": "{duration}前",
     "Fewer options": "更少选项",
-    "An email arrives": "有新邮件到达",
-    "A file or folder changes": "文件或文件夹发生变化",
-    "Someone writes in the chat": "有人在聊天中发言",
-    "On a schedule": "按计划",
-    "Every run stops here for a person to answer before anything happens.":
-      "每次运行都在此停止，等待某人回复后才会发生任何事。",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "达到或高于置信度的运行无人值守进行；低于则等待某人。",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "没有等待某人的项 — 但无法撤销的操作仍会询问，离开群组的操作也会询问，除非同意门槛已提高。",
-    "Always ask a person first": "始终先询问某人",
-    "Ask a person below a confidence threshold": "低于置信度阈值时询问某人",
-    "Never ask — run it unattended": "从不询问 — 无人值守运行",
-    "Waiting to start": "等待开始",
     Running: "运行中",
-    "Waiting for a person": "等待某人",
-    Ran: "已运行",
-    Finished: "已完成",
-    "Asked for approval": "已请求审批",
-    Rejected: "已驳回",
-    Refused: "已拒绝",
-    unknown: "未知",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs} 次运行 · 从缓存读取 {hit} 个 token，重新读取 {miss} 个，写入 {out} 个",
-    "{n} of them reported no usage": "其中 {n} 次未报告用量",
-    "This installation has spent: {meter}": "此安装已花费：{meter}",
-    "{agent}: {meter}": "{agent}：{meter}",
-    "no agent named": "未指定代理",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "无法读取 {groups} 的审计，因此此合计只是下限：它们的运行在这里不计入任何统计。",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "此安装无法列出群组成员：Master 可能无法读取账户注册表。为它授予 sysAccountGet 和 sysAccountQuery 权限 — 这是按账户的授权，而非管理员角色 — 聊天中的 @ 就会提供群组成员；在此之前，它提供已经发言过的人。",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "账户注册表未响应，因此无法列出群组成员，聊天中的 @ 会提供已经发言过的人。",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "没有注册任何代理，因此没有东西能读取群组成员：聊天中的 @ 会提供已经发言过的人。",
-    "every {minutes} minutes": "每 {minutes} 分钟",
-    "sending outside the group allowed without a person": "允许无人在场时向群组外发送",
-    "sending outside the group always waits for a person": "向群组外发送始终等待某人",
-    "Nobody has written here yet.": "这里还没有人发言。",
-    Identity: "发件身份",
-    Model: "模型",
-    Groups: "群组",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Gilbert 自己的代理在邮件和文件存储内活动：它处理 Stalwart 事件和按时间的计划，在已获授权的群组中进行。此安装运行一个代理 — 这里可以看到它、哪个模型为它服务，以及它在哪些群组中工作。它在群组内做什么，位于“群组代理”。",
-    "Master sections": "Master 的各个区段",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "处处适用的内容：代理带入每个群组每次调用的规则，先于群组或单个自动化的任何具体内容。在此写入一次，而非在每组的指令中重复，并作为数据读取 — 一次运行的权限是它自己的能力清单，此处所写的内容不会扩大它。",
-    "How this installation's agent works": "此安装的代理如何工作",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "始终用邮件所用的语言回复，且绝无人在场时向群组外发送任何内容。",
-    "the installation's own rules": "安装自身的规则",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "此区段检查代理的授权，从不写入它：群组成员资格在 Stalwart 自己的管理端、账户旁边授予，与授予一个人相同。",
-    "The Master": "Master",
-    Operational: "运行中",
-    "Not operational": "未运行",
-    "Agent address": "代理地址",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "部署为代理命名，而这里读回它：GILBERT_AGENT_ADDRESS 和 GILBERT_AGENT_PASSWORD 位于启动服务器及其代理之人的环境中，因此只有一个来源。此处不生成、不读回、也不存储任何密钥。",
-    "What the fleet has spent": "整个代理群的支出",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "代理工作的群组从 Stalwart 读取：当群组出现在这里时，它正是该群组的成员，此列表自动跟随目录。要给它一个群组，请在 Stalwart 自己的管理端把该群组添加到 Gilbert 用户。",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "代理不在此安装可见的任何群组中。在 Stalwart 自己的管理端把群组添加到 Gilbert 用户，它就会出现在这里。",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "打开此群组的自动化、常驻指令、记忆和审计",
-    "Open in Group Agents": "在“群组代理”中打开",
     Pending: "待处理",
-    Audit: "审计",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "等待某人的内容，以及整个代理群做过的事，涵盖代理持有的每个群组 — 只读监督。操作员在群组自己的聊天中回复暂停的运行，绝不在此处。",
-    "Approvals sections": "审批的各个区段",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "每个已授权群组的审计，合并并按最新在前排序。群组在“群组代理”中自己的“审计”标签读取同一文档，并有自己的导出。",
-    "The agent is not in a group this installation can see.":
-      "代理不在此安装可见的任何群组中。",
-    "Every group": "每个群组",
-    Outcome: "结果",
-    "Every outcome": "所有结果",
-    "Reading every group's trail…": "正在读取每个群组的记录…",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "无法读取 {groups} 的审计，因此它不在此列表中。",
-    "Nothing matches here yet.": "这里还没有匹配项。",
-    Automation: "自动化",
-    By: "操作者",
-    Detail: "详情",
     "Installation document": "安装文档",
     "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
       "此安装所运行的配置：Master 自己文件中的一个 JSON 文档 — 此安装登录所用的账户，服务器在启动时读取一次。您在此发布的内容就是下次启动所运行的内容，而当前运行的进程保留其启动时的内容。",
@@ -1918,48 +1800,6 @@ export const catalog: Catalog = {
     "Forcing…": "正在强制…",
     "Force password change": "强制更改密码",
     "Releasing…": "正在解除…",
-    Behaviour: "行为",
-    Automations: "自动化",
-    Memory: "记忆",
-    Activity: "活动",
-    "The agent in this group": "此群组中的代理",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "代理在此群组眼中的样子：它如何行事、遵循什么、记住什么，以及做过什么。整个安装只有一个代理 — 它持有哪些群组、运行在哪个模型上，以及处处适用的规则，都位于 Master。",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "代理不在此会话可见的任何群组中，因此这里没有群组可选。在 Stalwart 自己的管理端给它一个群组：下面的标签针对一个群组作答，它们读取的代理群是安装自己的。",
-    "Working in this group as {address}.": "在此群组以 {address} 身份工作。",
-    "Group agent sections": "群组代理的各个区段",
-    "{enabled} of {total} automations enabled": "{total} 个自动化中已启用 {enabled} 个",
-    "{n} waiting for a person in this group": "{n} 项在此群组中等待某人",
-    "Nothing waiting for a person here": "这里没有等待某人的项",
-    "{n} agents serving this group": "{n} 个代理为此群组服务",
-    "No agent is serving this group right now": "目前没有代理为此群组服务",
-    "Added: {labels}": "已添加：{labels}",
-    "This group's label catalogue already has every reserved label.":
-      "此群组的标签目录已包含所有保留标签。",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "此群组的代理用四个保留标签标记它对邮件做过的事。",
-    "Checking…": "正在检查…",
-    "Make sure they exist": "确保它们存在",
-    "No group is picked, so there is no group's agents to read here.":
-      "未选择群组，因此这里没有群组代理可读。",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "此安装的 {count} 个代理正在报告，且没有一个持有 {group}：目前没有东西为此群组服务。",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "没有代理报告。代理在运行时留下心跳，因此空列表意味着没有东西为此安装服务。",
-    "Agents serving this group": "为此群组服务的代理",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "代理是它自己的进程，而非 Web 层的副本：它通过租约声明所服务的账户，并在运行时写入心跳。此处不会启动或停止任何代理 — 代理在部署安装的地方声明。",
-    Agent: "代理",
-    "Last heartbeat": "最后心跳",
-    Version: "版本",
-    State: "状态",
-    "Not this server's to say": "这并非此服务器所能说明",
-    Alive: "存活",
-    "Not reporting": "未报告",
-    "Grants withdrawn": "授权已撤回",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "代理于 {when} 失去了对“{group}”的授权：自巡检发现以来，没有东西为该群组服务。",
     "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
       "无法读取此成员自己的账户 — Stalwart 拒绝了模拟 — 因此要写入其发件身份的姓名未知。仍可通过输入姓名来为其写入发件身份。",
     "Delete this identity so the member sends as the group":
@@ -2149,149 +1989,6 @@ export const catalog: Catalog = {
     "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
       "此账户是否被强制未知：无法读取其锁定。在它响应之前，“强制”和“解除”保持关闭。",
     Enforced: "已强制",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "暂停的自动化会在其群组的聊天中发布它提议的内容，成员在那里用文字回复。因此审批发生在聊天中，而非此处 — 此队列是跨每个群组的监督，也是查看其中任何一个一直在等待什么的方式。",
-    "Nothing is waiting for a person.": "没有等待某人的项。",
-    "What it proposes": "它提议的内容",
-    Confidence: "置信度",
-    Raised: "已提高",
-    "Open {group} and its chat": "打开 {group} 及其聊天",
-    "Open the group's mailbox": "打开群组邮箱",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "此安装每个自动化所运行的模型：一个提供商、一个模型、一个密钥。没有它的安装就没有自动化 — 运行没有可据以决定的东西。",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "此安装还没有注册代理，因此模型没有可运行的对象。",
-    "Ceiling on one answer (tokens)": "单个答复的上限（token）",
-    "What a single model answer may cost. 1 to {max}.":
-      "单次模型答复最多可花费多少。1 到 {max}。",
-    "Hops a chain of automations may run": "自动化链可运行的跳数",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "一项工作可在自动化之间传递多远，超过之后的运行会被拒绝并告知群组。",
-    "Pages one run may hand the model": "一次运行可交给模型的页数",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "没有文字层的页面以图像传输，每页会消耗输入 token。",
-    "Model saved": "模型已保存",
-    "Remove the model?": "移除模型？",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "在保存另一个模型之前，此安装不运行任何自动化，已存储的 API 密钥也随之被移除。",
-    "Model removed": "模型已移除",
-    "The installation's model": "安装的模型",
-    "A key is stored": "已存储密钥",
-    "No key stored": "未存储密钥",
-    Provider: "提供商",
-    openai: "openai",
-    "A model name": "模型名称",
-    "Base URL": "基础 URL",
-    "https://api.example.com/v1": "https://api.example.com/v1",
-    "API key": "API 密钥",
-    "Paste a new key here": "在此粘贴新密钥",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "只写：已存储的密钥不会再显示，将此字段留空会保留您已有的密钥。",
-    "An installation that sets none gets {n}.": "不设置任何密钥的安装会得到 {n}。",
-    "Remove the model": "移除模型",
-    "Reading…": "正在读取…",
-    "Ask the model to read it": "让模型读取它",
-    "What the model said about this draft:": "模型对这份草稿的看法：",
-    "Audit trail": "审计",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "此群组代理做过的事，最新在前 — 其成员在聊天旁读取的同一文档。保留十二个月，每次修剪一个月。",
-    "No group is picked, so there is no audit trail to read here.":
-      "未选择群组，因此这里没有可读的审计。",
-    "Download every retained month of this group's audit trail as JSON":
-      "将此群组审计中每个保留的月份下载为 JSON",
-    "Copying…": "正在复制…",
-    "Download every retained month as JSON": "将每个保留的月份下载为 JSON",
-    "This group's audit trail could not be read.": "无法读取此群组的审计。",
-    "This group's agent has not done anything yet.": "此群组的代理还没有做任何事。",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "显示 {total} 项中最近的 {shown} 项。其余请在上方下载每个保留的月份。",
-    "No group is picked, so there is no standing instruction to read here.":
-      "未选择群组，因此这里没有可读的常驻指令。",
-    "How this group's agent works": "此群组的代理如何工作",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "用群组自己的语言写给群组，并始终引用发票号。",
-    "the group's standing instruction": "群组的常驻指令",
-    "Memory saved": "记忆已保存",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "群组代理在每次调用时保留的内容：关于此群组、其自动化永远不必重复的事实。每一行都作为数据读取 — 它引导，且绝不扩大自动化被允许做的事。",
-    "No group is picked, so there is no memory to read here.":
-      "未选择群组，因此这里没有可读的记忆。",
-    "This group's memory has not been read yet.": "此群组的记忆尚未读取。",
-    "Read it": "读取",
-    "This group's agent is holding nothing yet.": "此群组的代理还没有保留任何内容。",
-    "Fact {n}": "事实 {n}",
-    "Remove this fact": "移除此事实",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "来自 Ada 的发票按客户名称归档，而非发件人名称。",
-    "Add a fact": "添加事实",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "一条事实最多 {n} 个字符，一个笔记本可容纳 {m} 条。",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "此群组的运行会为谁停止，以及它们是否可以在无人时到达群组之外。整个群组一个策略：其自动化是同一团队在同一通信上的工作。",
-    "No group is picked, so there is no policy to read here.":
-      "未选择群组，因此这里没有可读的策略。",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "此群组未编写策略，因此模型有信心时运行会继续，没有信心时为某人停止。离开群组或无法撤销的操作总是询问。",
-    "When a person has to agree": "何时必须由某人同意",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "允许无人时向群组外发送 — 这会提高外部发送的同意门槛。",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "关闭时，到达群组之外的操作总是等待某人，无论策略怎么说。无法撤销的操作无论任一设置怎么说都会询问。",
-    "An empty text removes it. At most {max} characters.":
-      "空文本会移除它。最多 {max} 个字符。",
-    "At most {max} characters.": "最多 {max} 个字符。",
-    "This automation cannot run as it stands: {reason}":
-      "此自动化无法按现状运行：{reason}",
-    "Automation saved": "自动化已保存",
-    "Delete the {name}?": "删除 {name}？",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "自动化文档会从群组自己的文件中移除。已在运行的作业保留其启动时的版本。",
-    "Automation deleted": "自动化已删除",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "代理在群组中做什么：何时反应，以及针对所发现的内容被要求做什么。自动化存储在群组自己的账户中，因此每个成员都能读取它。",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "每个触发条件一个自动化：代理会对触发条件上每个已启用的自动化运行该触发条件产生的一切，因此同一触发条件上的第二个会对同一事件应答两次。一种情况与另一种情况之间的分支属于指令。",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "代理不在此群组中，因此这里没有可编写的内容：没有自动化运行，也没有人能在群组聊天中提到它。在 Stalwart 自己的管理端给它该群组，然后回来。",
-    "This group's automation document could not be read.": "无法读取此群组的自动化文档。",
-    "Cannot be saved yet: {reason}": "尚无法保存：{reason}",
-    "No automation in this group yet.": "此群组还没有自动化。",
-    "Every trigger already has an automation in this group.":
-      "此群组中每个触发条件都已有自动化。",
-    "New automation": "新建自动化",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "此群组中每个触发条件都已有自动化。删除或停用一个，以编写另一种。",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name} 无法按现状保存：{reason}",
-    "Run this automation now, on the newest message in the group's inbox":
-      "立即运行此自动化，针对群组收件箱中最新的邮件",
-    "Asking…": "正在请求…",
-    "Run now": "立即运行",
-    "Delete automation": "删除自动化",
-    "Next due: {when}": "下次到期：{when}",
-    "Not scheduled while disabled.": "停用时不会排定。",
-    "Asked for: a run is open ({state}).": "已请求：有运行处于打开状态（{state}）。",
-    "the automation “{name}”": "自动化“{name}”",
-    "Enabled — the agent reacts to this automation": "已启用 — 代理对此自动化做出反应",
-    Trigger: "触发条件",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "每个触发条件一个自动化：代理会对触发条件上每个已启用的自动化运行该触发条件产生的一切，因此两个会对同一事件应答两次。",
-    "How often": "频率",
-    "Every {minutes} minutes": "每 {minutes} 分钟",
-    Instruction: "指令",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "阅读邮件并说明它应如何处理。有用的上下文，用平实的语言。",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "这段文字就是一次运行被要求的全部内容：每次运行都把它交给安装的模型，模型用它下方领域中的操作作答。",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "它作为数据被读取，而非被服从：要求模型做某事的邮件仍然只是一封邮件。",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "按情况出现时编写：一种邮件与另一种之间的分支属于这里，而非第二个自动化。",
-    "What it may do": "它可以做什么",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "允许清单：此自动化唯一可以运行的操作。模型只会被提供这些，别的一概没有，超出它们的答复会被拒绝。",
-    external: "外部",
-    irreversible: "不可逆",
     "That is not valid JSON — fix the document and publish again.":
       "这不是有效的 JSON — 请修正文档并重新发布。",
     "(untitled)": "（无标题）",
@@ -2310,14 +2007,8 @@ export const catalog: Catalog = {
       "只有安装管理员可以清空群组的“已删除邮件”或“垃圾邮件”。将邮件归入那里仍然可行，将其移出也同样可行。",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "在群组中无法删除装有邮件的文件夹，因为邮件会随之而去。请先将邮件移出，或询问安装管理员。",
-    "This reading was not counted toward this month's authoring.":
-      "此读取未计入本月的撰写量。",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "访问群组的 {need} 以安装的代理身份进行，而该代理不是此群组的成员：文档位于群组自己的账户中，只有成员才能访问 — 因此请在邮件服务器的目录中把代理加入该群组。",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbert 无法就此群组的 {need} 询问邮件服务器，因此无法说明该代理是否能访问它：没有更改任何内容，也没有读取任何内容。请重试，若它一直这样作答，则该检查邮件服务器。",
     "Your settings could not be saved: {error}": "您的设置无法保存：{error}",
     "List-Id": "List-Id",
     "X-Spam-Status": "X-Spam-Status",
@@ -2327,7 +2018,6 @@ export const catalog: Catalog = {
     "Empty folder": "清空文件夹",
     "the server closed the live-updates stream": "服务器关闭了实时更新流",
     "the server could not be reached": "无法到达服务器",
-    "Timed out": "已超时",
     "Group identities": "群组发件身份",
     "User identities": "用户发件身份",
     "Your settings were not reset: this installation's policy could not be read. Try again.":
@@ -2499,9 +2189,6 @@ export const catalog: Catalog = {
     },
     "{n} accounts were not written to:": {
       other: "未写入 {n} 个账户：",
-    },
-    "{n} automations": {
-      other: "{n} 个自动化",
     },
     "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
       {

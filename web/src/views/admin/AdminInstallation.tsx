@@ -12,7 +12,7 @@ import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { LoadState } from "@/ui/LoadState";
 
 /**
- * The installation's own document (ADR 0003 — the installation is configured
+ * The installation's own document (ADR 0011 — the installation is configured
  * once, and its configuration is a document in the account's own Files rather
  * than a container's environment).
  *

@@ -423,8 +423,8 @@ function EventForm({
   // Filing an event under a shared or group calendar is filing it under a
   // different account, and "you" attending it is that account's own address,
   // not the reader's personal one -- the same rule ADR 0005 states for a
-  // group's other documents. `session.accounts[id].name` is what the agent
-  // fleet already reads as a group's own address (`groupNameOf`), so the same
+  // group's other documents. `session.accounts[id].name` already reads as a
+  // group's own address (`groupNameOf`), so the same
   // field stands in here rather than fetching that account's own Identity
   // objects just to find the one thing this form needs from them.
   const targetAccountId = parseCalOptionKey(calendarKey)?.accountId ?? ownAccountId;

@@ -43,9 +43,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "Kennis",
     "Mention a member": "Lid vermelden",
     "Go to folder…": "Ga naar map…",
     "Set for everyone here. You cannot change this.":
@@ -1559,11 +1556,6 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name":
       "zichzelf, of een uitgever die het niet noemt",
     "no address": "geen adres",
-    // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "Alleen een beheerder van deze groep wijzigt de instructie en de automatiseringen; elk lid leest ze hier.",
-    "No standing instruction has been written for this group.":
-      "Voor deze groep is nog geen blijvende instructie geschreven.",
     "{name} — shared by {owner}": "{name} — gedeeld door {owner}",
     "{name} — from {owner}": "{name} — van {owner}",
     "Remove {email}": "{email} verwijderen",
@@ -1589,12 +1581,8 @@ export const catalog: Catalog = {
     Policy: "Beleid",
     Installation: "Installatie",
     "Force passwords": "Wachtwoorden forceren",
-    Master: "Master",
-    "Group Agents": "Groepsagenten",
-    Approvals: "Goedkeuringen",
     "System Sieve": "Systeem-Sieve",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert Assistant": "Gilbert Assistant",
     Stalwart: "Stalwart",
     "Nothing here yet.": "Hier is nog niets.",
     Help: "Help",
@@ -1687,8 +1675,6 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "‘Einde’ moet na ‘Begin’ liggen.",
     "Auto-reply is on": "Automatisch antwoord staat aan",
     "Auto-reply saved": "Automatisch antwoord opgeslagen",
-    Missed: "Gemist",
-    Failed: "Mislukt",
     "Actions for {email}": "Acties voor {email}",
     "Invitation accepted": "Uitnodiging geaccepteerd",
     "Invitation declined": "Uitnodiging geweigerd",
@@ -1770,7 +1756,6 @@ export const catalog: Catalog = {
     "https://…": "https://…",
     Chat: "Chat",
     "No longer in this group": "Niet meer in deze groep",
-    "The group's agent": "De agent van de groep",
     "Search messages": "Berichten zoeken",
     Conversations: "Gesprekken",
     "Search in this chat": "In deze chat zoeken",
@@ -1785,26 +1770,6 @@ export const catalog: Catalog = {
     "Replying to {who}": "Antwoord aan {who}",
     "Cancel reply": "Antwoord annuleren",
     "Message {group}": "Bericht {group}",
-    "No agent is registered for this installation.":
-      "Er is geen agent geregistreerd voor deze installatie.",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "Er werkt geen agent in deze groep: die is hier niet gemachtigd, dus draagt geen instructies en doet niets. Die machtiging wordt gegeven in de administratie van de mailserver, niet in het product.",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "Actief in deze groep als {address}. Alleen-lezen: wat hij volgt wordt in de administratie opgesteld, en u antwoordt hem in deze chat.",
-    "Standing instruction": "Vaste instructie",
-    "Who its runs stop for": "Voor wie zijn runs stoppen",
-    "What it follows": "Wat hij volgt",
-    "No automation is set up for this group.":
-      "Er is geen automatisering ingesteld voor deze groep.",
-    "Still open": "Nog open",
-    "Nothing is running and nothing is waiting.": "Er draait niets en er wacht niets.",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "Wanneer een van deze op een persoon wacht, vraagt de agent het hier in de chat — daar antwoordt u.",
-    "What it has done": "Wat hij heeft gedaan",
-    "It has not done anything yet.": "Hij heeft nog niets gedaan.",
-    "Last written by {who} on {when}.": "Laatst geschreven door {who} op {when}.",
-    "an administrator": "een beheerder",
-    Disabled: "Uitgeschakeld",
     "{message} for this date": "{message} voor deze datum",
     "Occurrence deleted": "Herhaling verwijderd",
     "Event deleted": "Afspraak verwijderd",
@@ -1820,96 +1785,8 @@ export const catalog: Catalog = {
     "https://meet.example.com/…": "https://meet.example.com/…",
     "{duration} before": "{duration} ervoor",
     "Fewer options": "Minder opties",
-    "An email arrives": "Er komt een e-mail binnen",
-    "A file or folder changes": "Een bestand of map verandert",
-    "Someone writes in the chat": "Iemand schrijft in de chat",
-    "On a schedule": "Volgens een schema",
-    "Every run stops here for a person to answer before anything happens.":
-      "Elke run stopt hier voor een persoon om te antwoorden voordat er iets gebeurt.",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "Een run op of boven het vertrouwen draait onbeheerd; eronder wacht hij op een persoon.",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "Niets wacht op een persoon — hoewel een actie die niet ongedaan kan worden gemaakt nog steeds vraagt, en een die de groep verlaat vraagt tenzij de toestemmingsdrempel is verhoogd.",
-    "Always ask a person first": "Altijd eerst een persoon vragen",
-    "Ask a person below a confidence threshold":
-      "Een persoon vragen onder een vertrouwensdrempel",
-    "Never ask — run it unattended": "Nooit vragen — onbeheerd uitvoeren",
-    "Waiting to start": "Wacht om te starten",
     Running: "Draait",
-    "Waiting for a person": "Wacht op een persoon",
-    Ran: "Gedraaid",
-    Finished: "Voltooid",
-    "Asked for approval": "Goedkeuring gevraagd",
-    Rejected: "Afgewezen",
-    Refused: "Geweigerd",
-    unknown: "onbekend",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs} runs · {hit} tokens uit cache gelezen, {miss} vers gelezen, {out} geschreven",
-    "{n} of them reported no usage": "{n} ervan meldden geen gebruik",
-    "This installation has spent: {meter}": "Deze installatie heeft besteed: {meter}",
-    "{agent}: {meter}": "{agent}: {meter}",
-    "no agent named": "geen agent genoemd",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "De audit van {groups} kon niet worden gelezen, dus dit totaal is een ondergrens: hun runs tellen hier nergens mee.",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "Deze installatie kan de leden van een groep niet opsommen: de Master mag het accountregister niet lezen. Geef hem de machtigingen sysAccountGet en sysAccountQuery — een machtiging per account, geen beheerdersrol — en de @ in de chat biedt de leden van de groep; tot dan biedt hij de mensen die al hebben geschreven.",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "Het accountregister antwoordde niet, dus de leden van een groep kunnen niet worden opgesomd en de @ in de chat biedt de mensen die al hebben geschreven.",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "Er is geen agent geregistreerd, dus niets kan de leden van een groep lezen: de @ in de chat biedt de mensen die al hebben geschreven.",
-    "every {minutes} minutes": "elke {minutes} minuten",
-    "sending outside the group allowed without a person":
-      "verzenden buiten de groep toegestaan zonder een persoon",
-    "sending outside the group always waits for a person":
-      "verzenden buiten de groep wacht altijd op een persoon",
-    "Nobody has written here yet.": "Hier heeft nog niemand geschreven.",
-    Identity: "Identiteit",
-    Model: "Model",
-    Groups: "Groepen",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Gilberts eigen agent handelt binnen mail- en bestandsopslag: hij werkt op Stalwart-gebeurtenissen en volgens tijdschema's, in de groepen waarvoor hij gemachtigd is. Deze installatie draait één agent — zo ziet u hem, welk model hem bedient en in welke groepen hij werkt. Wat hij binnen een groep doet, staat in Groepsagenten.",
-    "Master sections": "Master-secties",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "Wat overal geldt: de regels die de agent meeneemt in elke aanroep van elke groep, voordat iets waar is van een groep of van één automatisering. Hier één keer geschreven in plaats van herhaald in de instructie van elke groep, en als gegevens gelezen — de machtiging van een run is zijn eigen capaciteitenlijst, en niets hier geschreven verruimt die.",
-    "How this installation's agent works": "Hoe de agent van deze installatie werkt",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "Antwoord altijd in de taal waarin het bericht is geschreven, en verzend nooit iets buiten de groep zonder een persoon.",
-    "the installation's own rules": "de eigen regels van de installatie",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "Deze sectie controleert de machtiging van de agent, hij schrijft die nooit: lidmaatschap van een groep wordt gegeven in Stalwarts eigen administratie, naast de accounts, op dezelfde manier als dat van een persoon.",
-    "The Master": "De Master",
-    Operational: "Operationeel",
-    "Not operational": "Niet operationeel",
-    "Agent address": "Agentadres",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "De deployment geeft de agent een naam en dit leest die terug: GILBERT_AGENT_ADDRESS en GILBERT_AGENT_PASSWORD staan in de omgeving van wie de server en zijn agent start, dus ze komen uit één plek. Niets hier maakt een geheim aan, leest er een terug of bewaart er een.",
-    "What the fleet has spent": "Wat de vloot heeft besteed",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "De groepen waarin de agent werkt, uit Stalwart gelezen: hij is precies dan lid van een groep wanneer de groep hier verschijnt, en deze lijst volgt de map vanzelf. Geef hem een groep door de groep toe te voegen aan de Gilbert-gebruiker in Stalwarts eigen administratie.",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "De agent zit in geen groep die deze installatie kan zien. Voeg een groep toe aan de Gilbert-gebruiker in Stalwarts eigen administratie en die verschijnt hier.",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "Open de automatiseringen, vaste instructie, het geheugen en de audit van deze groep",
-    "Open in Group Agents": "Openen in Groepsagenten",
     Pending: "In behandeling",
-    Audit: "Audit",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "Wat op een persoon wacht, en wat de vloot heeft gedaan, over elke groep die de agent bezit — alleen-lezen toezicht. Een beheerder beantwoordt een gepauzeerde run in de chat van de groep zelf, nooit hier.",
-    "Approvals sections": "Secties van goedkeuringen",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "De audit van elke gemachtigde groep, samengevoegd en op nieuwste gesorteerd. Het eigen tabblad Audit van een groep in Groepsagenten leest hetzelfde document met een eigen export.",
-    "The agent is not in a group this installation can see.":
-      "De agent zit in geen groep die deze installatie kan zien.",
-    "Every group": "Elke groep",
-    Outcome: "Uitkomst",
-    "Every outcome": "Elke uitkomst",
-    "Reading every group's trail…": "De administratie van elke groep lezen…",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "De audit van {groups} kon niet worden gelezen, dus ontbreekt in deze lijst.",
-    "Nothing matches here yet.": "Hier komt nog niets mee overeen.",
-    Automation: "Automatisering",
-    By: "Door",
-    Detail: "Detail",
     "Installation document": "Installatiedocument",
     "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
       "De configuratie waarop deze installatie draait: één JSON-document in de eigen Bestanden van de Master — het account waarmee deze installatie aanmeldt, dat de server eenmalig bij het opstarten leest. Wat u hier publiceert is waarop de volgende start draait, en het nu draaiende proces houdt wat het bij het opstarten had.",
@@ -1972,49 +1849,6 @@ export const catalog: Catalog = {
     "Forcing…": "Forceren…",
     "Force password change": "Wachtwoordwijziging forceren",
     "Releasing…": "Vrijgeven…",
-    Behaviour: "Gedrag",
-    Automations: "Automatiseringen",
-    Memory: "Geheugen",
-    Activity: "Activiteit",
-    "The agent in this group": "De agent in deze groep",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "De agent, zoals deze groep hem ziet: hoe hij zich gedraagt, wat hij volgt, wat hij onthoudt en wat hij heeft gedaan. Het is één agent voor de hele installatie — welke groepen hij bezit, op welk model hij draait en de regels die overal gelden staan in Master.",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "De agent zit in geen groep die deze sessie kan zien, dus er is hier geen groep te kiezen. Geef hem een groep in Stalwarts eigen administratie: de tabbladen hieronder antwoorden over één groep, en de vloot die ze lezen is die van de installatie zelf.",
-    "Working in this group as {address}.": "Werkt in deze groep als {address}.",
-    "Group agent sections": "Secties van de groepsagent",
-    "{enabled} of {total} automations enabled":
-      "{enabled} van {total} automatiseringen ingeschakeld",
-    "{n} waiting for a person in this group": "{n} wachten in deze groep op een persoon",
-    "Nothing waiting for a person here": "Hier wacht niets op een persoon",
-    "{n} agents serving this group": "{n} agenten bedienen deze groep",
-    "No agent is serving this group right now": "Er bedient nu geen agent deze groep",
-    "Added: {labels}": "Toegevoegd: {labels}",
-    "This group's label catalogue already has every reserved label.":
-      "De labelcatalogus van deze groep heeft al elk gereserveerd label.",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "De agent van deze groep markeert met vier gereserveerde labels wat hij met een bericht heeft gedaan.",
-    "Checking…": "Controleren…",
-    "Make sure they exist": "Zorg dat ze bestaan",
-    "No group is picked, so there is no group's agents to read here.":
-      "Er is geen groep gekozen, dus er zijn hier geen groepsagenten te lezen.",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "De {count} agenten van de installatie rapporteren en geen van hen bezit {group}: er bedient nu niets deze groep.",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "Geen agent heeft gerapporteerd. Een agent laat een hartslag achter terwijl hij draait, dus een lege lijst betekent dat niets deze installatie bedient.",
-    "Agents serving this group": "Agenten die deze groep bedienen",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "Een agent is een eigen proces, geen kopie van de weblaag: hij claimt het account dat hij bedient via een lease en schrijft een hartslag terwijl hij draait. Niets hier start of stopt er een — agenten worden gedeclareerd waar de installatie is uitgerold.",
-    Agent: "Agent",
-    "Last heartbeat": "Laatste hartslag",
-    Version: "Versie",
-    State: "Status",
-    "Not this server's to say": "Dat kan deze server niet zeggen",
-    Alive: "Actief",
-    "Not reporting": "Rapporteert niet",
-    "Grants withdrawn": "Machtigingen ingetrokken",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "De agent verloor zijn machtiging op ‘{group}’ op {when}: sinds de ronde het opmerkte, heeft niets die groep bediend.",
     "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
       "Het eigen account van dit lid kan niet worden gelezen — Stalwart weigerde de imitatie — dus de naam om op zijn identiteit te schrijven is onbekend. Er kan alsnog een identiteit voor hem worden geschreven door een naam te typen.",
     "Delete this identity so the member sends as the group":
@@ -2221,157 +2055,6 @@ export const catalog: Catalog = {
     "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
       "Of dit account geforceerd is, is onbekend: de vergrendeling kon niet worden gelezen. Forceren en Vrijgeven blijven uit tot het antwoordt.",
     Enforced: "Geforceerd",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "Een automatisering die pauzeert, plaatst wat ze voorstelt in de chat van haar groep, en een lid antwoordt daar in woorden. Goedkeuren gebeurt dus in de chat, niet hier — deze wachtrij is het toezicht over elke groep, en de manier om te zien wat in een van hen heeft gewacht.",
-    "Nothing is waiting for a person.": "Niets wacht op een persoon.",
-    "What it proposes": "Wat ze voorstelt",
-    Confidence: "Vertrouwen",
-    Raised: "Verhoogd",
-    "Open {group} and its chat": "{group} en de chat openen",
-    "Open the group's mailbox": "Het postvak van de groep openen",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "Het model waarop elke automatisering van deze installatie draait: één provider, één model, één sleutel. Een installatie zonder heeft geen automatiseringen — een run heeft niets om mee te beslissen.",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "Er is nog geen agent geregistreerd voor deze installatie, dus er is niets waarop het model kan draaien.",
-    "Ceiling on one answer (tokens)": "Plafond op één antwoord (tokens)",
-    "What a single model answer may cost. 1 to {max}.":
-      "Wat één modelantwoord mag kosten. 1 tot {max}.",
-    "Hops a chain of automations may run":
-      "Sprongen die een keten van automatiseringen mag maken",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "Hoe ver één stuk werk van automatisering naar automatisering mag gaan voordat de run daarna wordt geweigerd en de groep het hoort.",
-    "Pages one run may hand the model": "Pagina's die een run aan het model mag geven",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "Een pagina zonder tekstlaag reist als afbeelding, wat invoertokens per pagina kost.",
-    "Model saved": "Model opgeslagen",
-    "Remove the model?": "Het model verwijderen?",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "Deze installatie draait geen automatisering tot een ander model is opgeslagen, en de bewaarde API-sleutel wordt ermee verwijderd.",
-    "Model removed": "Model verwijderd",
-    "The installation's model": "Het model van de installatie",
-    "A key is stored": "Er is een sleutel opgeslagen",
-    "No key stored": "Geen sleutel opgeslagen",
-    Provider: "Provider",
-    openai: "openai",
-    "A model name": "Een modelnaam",
-    "Base URL": "Basis-URL",
-    "https://api.example.com/v1": "https://api.example.com/v1",
-    "API key": "API-sleutel",
-    "Paste a new key here": "Plak hier een nieuwe sleutel",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "Alleen schrijven: de opgeslagen sleutel wordt nooit meer getoond, en dit veld leeg laten behoudt de sleutel die u al hebt.",
-    "An installation that sets none gets {n}.":
-      "Een installatie die er geen instelt, krijgt {n}.",
-    "Remove the model": "Het model verwijderen",
-    "Reading…": "Lezen…",
-    "Ask the model to read it": "Het model vragen het te lezen",
-    "What the model said about this draft:": "Wat het model over dit concept zei:",
-    "Audit trail": "Audit",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "Wat de agent van deze groep heeft gedaan, nieuwste eerst — hetzelfde document dat de eigen leden naast de chat lezen. Twaalf maanden bewaard, per maand uitgedund.",
-    "No group is picked, so there is no audit trail to read here.":
-      "Er is geen groep gekozen, dus er is hier geen audit te lezen.",
-    "Download every retained month of this group's audit trail as JSON":
-      "Elke bewaarde maand van de audit van deze groep als JSON downloaden",
-    "Copying…": "Kopiëren…",
-    "Download every retained month as JSON": "Elke bewaarde maand als JSON downloaden",
-    "This group's audit trail could not be read.":
-      "De audit van deze groep kon niet worden gelezen.",
-    "This group's agent has not done anything yet.":
-      "De agent van deze groep heeft nog niets gedaan.",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "De meest recente {shown} van {total} worden getoond. Download hierboven elke bewaarde maand voor de rest.",
-    "No group is picked, so there is no standing instruction to read here.":
-      "Er is geen groep gekozen, dus er is hier geen vaste instructie te lezen.",
-    "How this group's agent works": "Hoe de agent van deze groep werkt",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "Schrijf naar de groep in haar eigen taal, en vermeld altijd het factuurnummer.",
-    "the group's standing instruction": "de vaste instructie van de groep",
-    "Memory saved": "Geheugen opgeslagen",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "Wat de agent van de groep bij elke aanroep vasthoudt: de feiten over deze groep die haar automatiseringen nooit zouden moeten herhalen. Elke regel wordt als gegevens gelezen — ze stuurt, en verruimt nooit wat een automatisering mag doen.",
-    "No group is picked, so there is no memory to read here.":
-      "Er is geen groep gekozen, dus er is hier geen geheugen te lezen.",
-    "This group's memory has not been read yet.":
-      "Het geheugen van deze groep is nog niet gelezen.",
-    "Read it": "Lees het",
-    "This group's agent is holding nothing yet.":
-      "De agent van deze groep houdt nog niets vast.",
-    "Fact {n}": "Feit {n}",
-    "Remove this fact": "Dit feit verwijderen",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "Facturen van Ada worden onder de naam van de klant opgeborgen, niet die van de afzender.",
-    "Add a fact": "Een feit toevoegen",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "Een feit is hoogstens {n} tekens, en een notitieboek houdt er {m}.",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "Voor wie de runs van deze groep stoppen, en of ze buiten de groep mogen komen zonder een persoon. Eén beleid voor de hele groep: haar automatiseringen zijn het werk van hetzelfde team aan dezelfde correspondentie.",
-    "No group is picked, so there is no policy to read here.":
-      "Er is geen groep gekozen, dus er is hier geen beleid te lezen.",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "Deze groep heeft geen beleid geschreven, dus een run gaat door wanneer het model zeker is en stopt voor een persoon wanneer het dat niet is. Een actie die de groep verlaat of niet ongedaan kan worden gemaakt, vraagt altijd.",
-    "When a person has to agree": "Wanneer een persoon moet instemmen",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "Verzenden buiten de groep zonder een persoon toestaan — dit verhoogt de toestemmingsdrempel voor extern verzenden.",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "Uit: een actie die buiten de groep komt, wacht altijd op een persoon, wat het beleid ook zegt. Een actie die niet ongedaan kan worden gemaakt, vraagt wat beide instellingen ook zeggen.",
-    "An empty text removes it. At most {max} characters.":
-      "Een lege tekst verwijdert het. Hoogstens {max} tekens.",
-    "At most {max} characters.": "Hoogstens {max} tekens.",
-    "This automation cannot run as it stands: {reason}":
-      "Deze automatisering kan zo niet draaien: {reason}",
-    "Automation saved": "Automatisering opgeslagen",
-    "Delete the {name}?": "{name} verwijderen?",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "Het automatiseringsdocument wordt uit de eigen bestanden van de groep verwijderd. Een al draaiende taak behoudt de versie waarmee die is begonnen.",
-    "Automation deleted": "Automatisering verwijderd",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "Wat de agent in een groep doet: wanneer hij reageert, en wat hem wordt gevraagd te doen met wat hij vindt. De automatisering wordt in het eigen account van de groep bewaard, zodat elk lid haar kan lezen.",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "Eén automatisering per trigger: de agent voert elke ingeschakelde automatisering op een trigger uit tegen alles wat die trigger oplevert, dus een tweede op dezelfde trigger beantwoordt dezelfde gebeurtenis twee keer. De vertakking tussen het ene en het andere geval hoort in de instructie.",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "De agent zit niet in deze groep, dus er is hier niets te schrijven: er draait geen automatisering, en niemand kan hem in de chat van de groep vermelden. Geef hem de groep in Stalwarts eigen administratie en kom terug.",
-    "This group's automation document could not be read.":
-      "Het automatiseringsdocument van deze groep kon niet worden gelezen.",
-    "Cannot be saved yet: {reason}": "Nog niet op te slaan: {reason}",
-    "No automation in this group yet.": "Nog geen automatisering in deze groep.",
-    "Every trigger already has an automation in this group.":
-      "Elke trigger heeft al een automatisering in deze groep.",
-    "New automation": "Nieuwe automatisering",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "Elke trigger heeft al een automatisering in deze groep. Verwijder of schakel er een uit om een ander soort te schrijven.",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name} kan zo niet worden opgeslagen: {reason}",
-    "Run this automation now, on the newest message in the group's inbox":
-      "Deze automatisering nu uitvoeren, op het nieuwste bericht in het Postvak IN van de groep",
-    "Asking…": "Vragen…",
-    "Run now": "Nu uitvoeren",
-    "Delete automation": "Automatisering verwijderen",
-    "Next due: {when}": "Volgende keer: {when}",
-    "Not scheduled while disabled.": "Niet gepland zolang uitgeschakeld.",
-    "Asked for: a run is open ({state}).": "Gevraagd: er is een run open ({state}).",
-    "the automation “{name}”": "de automatisering ‘{name}’",
-    "Enabled — the agent reacts to this automation":
-      "Ingeschakeld — de agent reageert op deze automatisering",
-    Trigger: "Trigger",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "Eén automatisering per trigger: de agent voert elke ingeschakelde automatisering op een trigger uit tegen alles wat die trigger oplevert, dus twee ervan zouden dezelfde gebeurtenis twee keer beantwoorden.",
-    "How often": "Hoe vaak",
-    "Every {minutes} minutes": "Elke {minutes} minuten",
-    Instruction: "Instructie",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "Lees het bericht en zeg wat ermee moet gebeuren. Nuttige context, in gewone woorden.",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "Deze tekst is alles wat een run wordt gevraagd: elke run geeft hem aan het model van de installatie, dat antwoordt met acties uit de gebieden hieronder.",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "Hij wordt als gegevens gelezen, niet gehoorzaamd: een bericht dat het model vraagt iets te doen, is nog steeds alleen een bericht.",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "Schrijf hem voor de gevallen zoals ze binnenkomen: de vertakking tussen het ene soort mail en het andere hoort hier, niet in een tweede automatisering.",
-    "What it may do": "Wat ze mag doen",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "De toelatingslijst: de enige acties die deze automatisering mag uitvoeren. Het model krijgt deze en niets anders aangeboden, en een antwoord daarbuiten wordt geweigerd.",
-    external: "extern",
-    irreversible: "onomkeerbaar",
     "That is not valid JSON — fix the document and publish again.":
       "Dat is geen geldige JSON — herstel het document en publiceer opnieuw.",
     "(untitled)": "(zonder titel)",
@@ -2391,14 +2074,8 @@ export const catalog: Catalog = {
       "Alleen een installatiebeheerder kan de Prullenbak of Spam van een groep leegmaken. Mail daar opbergen werkt nog steeds, en het er weer uithalen ook.",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "Een map met mail kan in een groep niet worden verwijderd, omdat de mail mee zou gaan. Verplaats de mail eerst naar buiten, of vraag een installatiebeheerder.",
-    "This reading was not counted toward this month's authoring.":
-      "Deze keer lezen is niet meegeteld voor het schrijven van deze maand.",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "Bij {need} van een groep komen gebeurt als de agent van de installatie, en die agent is geen lid van deze groep: de documenten staan in het eigen account van de groep, en alleen een lid bereikt ze — voeg de agent dus toe aan de groep in de map van de mailserver.",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbert kon de mailserver niet vragen naar {need} van deze groep, dus het kan niet zeggen of die agent erbij komt: er is niets gewijzigd en niets gelezen. Probeer het opnieuw, en als het zo blijft antwoorden, is de mailserver degene om naar te kijken.",
     "Your settings could not be saved: {error}":
       "Uw instellingen konden niet worden opgeslagen: {error}",
     "List-Id": "List-Id",
@@ -2410,7 +2087,6 @@ export const catalog: Catalog = {
     "the server closed the live-updates stream":
       "de server sloot de livestream met updates",
     "the server could not be reached": "de server kon niet worden bereikt",
-    "Timed out": "Time-out",
     "Group identities": "Groepsidentiteiten",
     "User identities": "Gebruikersidentiteiten",
     "Your settings were not reset: this installation's policy could not be read. Try again.":
@@ -2681,10 +2357,6 @@ export const catalog: Catalog = {
     "{n} accounts were not written to:": {
       one: "Er is niet naar {n} account geschreven:",
       other: "Er is niet naar {n} accounts geschreven:",
-    },
-    "{n} automations": {
-      one: "{n} automatisering",
-      other: "{n} automatiseringen",
     },
     "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
       {

@@ -28,7 +28,6 @@ import {
   openMasterSession,
   stateRefuser,
 } from "./adminSession.js";
-import { memberGroupAccess } from "./agentAdmin.js";
 import {
   appFolderState,
   type Ctx,
@@ -45,6 +44,7 @@ import {
   updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
+import { memberGroupAccess } from "./groupAccess.js";
 import { groupAccountId } from "./identityAdmin.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
@@ -156,9 +156,7 @@ export async function ensureKnowledge(ctx: Ctx, accountId: string): Promise<void
  * The company tier: the Master's own account and its KB folder.
  *
  * The Master's session comes from the shared admin-session door, with the KB's
- * own sentence and error (`adminSession.ts`). The agent reaches the same account
- * from the other side — already inside the Master's session — in
- * `companyAccountOf` (`agent/actions.ts`).
+ * own sentence and error (`adminSession.ts`).
  */
 export async function companyKnowledgeAccount(
   admin: LiveSession,

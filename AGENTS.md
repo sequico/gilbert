@@ -6,16 +6,15 @@ npm workspaces: the root coordinates, the two packages hold the code.
 
 - `web/` — `@gilbert/web`, the React 19 + TypeScript SPA (Vite): `web/src/jmap`
   (client, push, types), `store/` (zustand, one per feature: session, mail,
-  compose, contacts, calendar, files, sieve, settings, mdn, scheduled, agents,
+  compose, contacts, calendar, files, sieve, settings, mdn, scheduled,
   chat, groupLabels), `lib/`, `views/`, `ui/`, `locales/`. Entry:
   `web/src/main.tsx`.
 - `server/` — `@gilbert/server`, Node + Hono: `server/src/index.ts` serves the
   SPA and `/api/*`, assembled by `server/src/app.ts` and answered by the route
-  groups under `server/src/routes/`; `server/src/agent/agent.ts` is the agent
-  fleet's entrypoint; `server/src/mock/` is the in-memory fake Stalwart;
-  `server/src/shared/` is the tree both tiers read.
+  groups under `server/src/routes/`; `server/src/mock/` is the in-memory fake
+  Stalwart; `server/src/shared/` is the tree both tiers read.
 - **One definition, two readers.** The client imports the server's shared tree
-  as `@gilbert/shared/*` (and `@gilbert/agent/*`), aliased in
+  as `@gilbert/shared/*`, aliased in
   `web/tsconfig.json` and `web/vite.config.ts`. Never copy a shape or helper
   into `web/`; import it.
 - `scripts/` — the checks `prepush` runs (`adr-owed`, `adr-cite`, `config:dead`,
@@ -67,15 +66,12 @@ palette id. Only the upstream-name exceptions above may stay.
 The agent vocabulary is three words and they are not synonyms. One **Master**
 is the principal everything belongs to: the account in Stalwart
 (`gilbert@…`), its address, its password, its grants, and the model it uses. Its
-**agents** — **Group Agents** where the surface lists them for one group — are
-the processes that act as it: what a deployment starts, what claims a group's
-account by lease and runs its automations, and what the administration counts
-and shows. **Worker** is kept for what is technically one: the browser's
-service worker. So prose and UI say "agent" where they used to say "worker",
-and an unqualified "worker" means the browser's.
+**agent** is the process that acts as it, and it runs inside `gilbertserver`.
+**Worker** is kept for what is technically one: the browser's service worker —
+an unqualified "worker" is that, and never the agent.
 
-**The identifiers follow the same three words, in a sweep listed where the work
-is read (`ROADMAP.md`)** — the file, the types and the functions on one side, and
+**The identifiers follow the same three words** — the file, the types and the
+functions on one side, and
 on the other the things that are contracts rather than names: a field in a
 document an installation has already written, a refusal code a client composes a
 sentence from, an environment variable an operator set. Each moves with every
@@ -136,7 +132,6 @@ Dependabot bump.
 
 ```bash
 npm run dev:mock        # full stack, mock Stalwart, demo@example.com / demo
-npm run dev:mock:agent  # the same, with an agent process
 npm run dev             # a real Stalwart (STALWART_URL in .env)
 npm run typecheck       # tsc, both packages
 npm test                # vitest (web) + node:test (server)

@@ -49,9 +49,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "Знания",
     "Mention a member": "Упомянуть участника",
     "Go to folder…": "Перейти к папке…",
     "Set for everyone here. You cannot change this.":
@@ -1557,11 +1554,6 @@ export const catalog: Catalog = {
       "Gilbert сообщит, если следующее письмо с этого адреса подпишет кто-то другой.",
     "itself, or an issuer it does not name": "самим собой или неназванным издателем",
     "no address": "нет адреса",
-    // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "Только администратор этой группы меняет её инструкцию и автоматизации; каждый участник читает их здесь.",
-    "No standing instruction has been written for this group.":
-      "Для этой группы постоянная инструкция не написана.",
     "{name} — shared by {owner}": "{name} — предоставлен {owner}",
     "{name} — from {owner}": "{name} — от {owner}",
     "Remove {email}": "Удалить {email}",
@@ -1587,12 +1579,8 @@ export const catalog: Catalog = {
     Policy: "Политика",
     Installation: "Установка",
     "Force passwords": "Принудительная смена паролей",
-    Master: "Master",
-    "Group Agents": "Агенты групп",
-    Approvals: "Согласования",
     "System Sieve": "Системный Sieve",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert Assistant": "Gilbert Assistant",
     Stalwart: "Stalwart",
     "Nothing here yet.": "Здесь пока ничего нет.",
     Help: "Справка",
@@ -1685,8 +1673,6 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "«Конец» должен быть позже «Начала».",
     "Auto-reply is on": "Автоответ включён",
     "Auto-reply saved": "Автоответ сохранён",
-    Missed: "Пропущенные",
-    Failed: "Неудачные",
     "Actions for {email}": "Действия для {email}",
     "Invitation accepted": "Приглашение принято",
     "Invitation declined": "Приглашение отклонено",
@@ -1767,7 +1753,6 @@ export const catalog: Catalog = {
     "https://…": "https://…",
     Chat: "Чат",
     "No longer in this group": "Больше не в этой группе",
-    "The group's agent": "Агент группы",
     "Search messages": "Искать письма",
     Conversations: "Цепочки",
     "Search in this chat": "Искать в этом чате",
@@ -1782,27 +1767,6 @@ export const catalog: Catalog = {
     "Replying to {who}": "Ответ для {who}",
     "Cancel reply": "Отменить ответ",
     "Message {group}": "Сообщение {group}",
-    "No agent is registered for this installation.":
-      "Для этой установки не зарегистрирован ни один агент.",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "В этой группе не работает ни один агент: ему здесь не дано разрешение, поэтому он не несёт инструкций и ничего не делает. Разрешение выдаётся в самой администрации почтового сервера, а не в продукте.",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "Работает в этой группе как {address}. Только чтение: то, чему он следует, задаётся в администрации, а вы отвечаете ему в этом чате.",
-    "Standing instruction": "Постоянная инструкция",
-    "Who its runs stop for": "Для кого останавливаются его запуски",
-    "What it follows": "Чему он следует",
-    "No automation is set up for this group.":
-      "Для этой группы не настроено ни одной автоматизации.",
-    "Still open": "Ещё открыто",
-    "Nothing is running and nothing is waiting.":
-      "Ничего не выполняется и ничего не ждёт.",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "Когда одна из них ждёт человека, агент спрашивает здесь в чате — там вы и отвечаете.",
-    "What it has done": "Что он сделал",
-    "It has not done anything yet.": "Он пока ничего не сделал.",
-    "Last written by {who} on {when}.": "Последняя запись: {who}, {when}.",
-    "an administrator": "администратор",
-    Disabled: "Отключено",
     "{message} for this date": "{message} на эту дату",
     "Occurrence deleted": "Повтор удалён",
     "Event deleted": "Событие удалено",
@@ -1818,96 +1782,8 @@ export const catalog: Catalog = {
     "https://meet.example.com/…": "https://meet.example.com/…",
     "{duration} before": "{duration} до",
     "Fewer options": "Меньше параметров",
-    "An email arrives": "Приходит письмо",
-    "A file or folder changes": "Файл или папка меняется",
-    "Someone writes in the chat": "Кто-то пишет в чате",
-    "On a schedule": "По расписанию",
-    "Every run stops here for a person to answer before anything happens.":
-      "Каждый запуск останавливается здесь, чтобы человек ответил, прежде чем что-либо произойдёт.",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "Запуск на уровне уверенности или выше идёт без присмотра; ниже — ждёт человека.",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "Ничто не ждёт человека — но действие, которое нельзя отменить, всё равно спрашивает, а действие, выходящее за пределы группы, спрашивает, если порог согласия не поднят.",
-    "Always ask a person first": "Всегда сначала спрашивать человека",
-    "Ask a person below a confidence threshold":
-      "Спрашивать человека ниже порога уверенности",
-    "Never ask — run it unattended": "Никогда не спрашивать — выполнять без присмотра",
-    "Waiting to start": "Ожидание запуска",
     Running: "Выполняется",
-    "Waiting for a person": "Ожидание человека",
-    Ran: "Выполнено",
-    Finished: "Завершено",
-    "Asked for approval": "Запрошено согласование",
-    Rejected: "Отклонено",
-    Refused: "Отказано",
-    unknown: "неизвестно",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs} запусков · {hit} токенов из кэша, {miss} прочитано заново, {out} записано",
-    "{n} of them reported no usage": "{n} из них не сообщили о расходе",
-    "This installation has spent: {meter}": "Эта установка потратила: {meter}",
-    "{agent}: {meter}": "{agent}: {meter}",
-    "no agent named": "агент не указан",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "Аудит {groups} не удалось прочитать, поэтому эта сумма — нижняя граница: их запуски здесь нигде не учтены.",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "Эта установка не может перечислить участников группы: Master не может читать реестр учётных записей. Дайте ему разрешения sysAccountGet и sysAccountQuery — разрешение на учётную запись, а не роль администратора — и @ в чате предложит участников группы; до тех пор он предлагает тех, кто уже писал.",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "Реестр учётных записей не ответил, поэтому участников группы нельзя перечислить и @ в чате предлагает тех, кто уже писал.",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "Ни один агент не зарегистрирован, поэтому ничто не может прочитать участников группы: @ в чате предлагает тех, кто уже писал.",
-    "every {minutes} minutes": "каждые {minutes} минут",
-    "sending outside the group allowed without a person":
-      "отправка за пределы группы разрешена без человека",
-    "sending outside the group always waits for a person":
-      "отправка за пределы группы всегда ждёт человека",
-    "Nobody has written here yet.": "Здесь пока никто не писал.",
-    Identity: "Профиль отправителя",
-    Model: "Модель",
-    Groups: "Группы",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Собственный агент Gilbert действует внутри почты и файлового хранилища: он работает с событиями Stalwart и по расписанию, в группах, которым дано разрешение. Эта установка запускает одного агента — вот как его увидеть, какая модель его обслуживает и в каких группах он работает. Что он делает внутри группы, описано в «Агентах групп».",
-    "Master sections": "Разделы Master",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "То, что действует всюду: правила, которые агент несёт в каждый вызов каждой группы, прежде чем что-либо станет верным для группы или отдельной автоматизации. Записаны здесь один раз вместо повторения в инструкции каждой группы и читаются как данные — разрешение запуска — это его собственный список возможностей, и ничто записанное здесь его не расширяет.",
-    "How this installation's agent works": "Как работает агент этой установки",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "Всегда отвечайте на языке, на котором написано письмо, и никогда не отправляйте ничего за пределы группы без человека.",
-    "the installation's own rules": "собственные правила установки",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "Этот раздел проверяет разрешение агента и никогда его не выдаёт: членство в группе даётся в собственной администрации Stalwart, рядом с учётными записями, так же как человеку.",
-    "The Master": "Master",
-    Operational: "Работает",
-    "Not operational": "Не работает",
-    "Agent address": "Адрес агента",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "Развёртывание даёт агенту имя, и это читает его обратно: GILBERT_AGENT_ADDRESS и GILBERT_AGENT_PASSWORD находятся в окружении того, кто запускает сервер и его агента, поэтому берутся из одного места. Здесь ничто не создаёт секрет, не читает его обратно и не хранит.",
-    "What the fleet has spent": "Что потратил флот",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "Группы, в которых работает агент, читаются из Stalwart: он член группы ровно тогда, когда группа появляется здесь, и этот список следует за каталогом сам. Чтобы дать ему группу, добавьте группу пользователю Gilbert в собственной администрации Stalwart.",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "Агент не состоит ни в одной группе, которую видит эта установка. Добавьте группу пользователю Gilbert в собственной администрации Stalwart, и она появится здесь.",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "Открыть автоматизации, постоянную инструкцию, память и аудит этой группы",
-    "Open in Group Agents": "Открыть в «Агентах групп»",
     Pending: "Ожидает",
-    Audit: "Аудит",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "Что ждёт человека и что сделал флот, по всем группам, которые держит агент — надзор только для чтения. Оператор отвечает на приостановленный запуск в чате самой группы, никогда здесь.",
-    "Approvals sections": "Разделы согласований",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "Аудит каждой группы с разрешением, объединённый и отсортированный от новейшего. Собственная вкладка «Аудит» группы в «Агентах групп» читает тот же документ со своим экспортом.",
-    "The agent is not in a group this installation can see.":
-      "Агент не состоит ни в одной группе, которую видит эта установка.",
-    "Every group": "Каждая группа",
-    Outcome: "Результат",
-    "Every outcome": "Все результаты",
-    "Reading every group's trail…": "Чтение аудита каждой группы…",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "Аудит {groups} не удалось прочитать, поэтому он отсутствует в этом списке.",
-    "Nothing matches here yet.": "Здесь пока ничего не совпадает.",
-    Automation: "Автоматизация",
-    By: "Кем",
-    Detail: "Подробно",
     "Installation document": "Документ установки",
     "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
       "Конфигурация, на которой работает эта установка: один документ JSON в собственных Файлах Master — учётной записи, под которой входит эта установка и которую сервер читает один раз при запуске. То, что вы публикуете здесь, — это то, на чём пройдёт следующий запуск, а текущий процесс сохраняет то, с чем стартовал.",
@@ -1970,50 +1846,6 @@ export const catalog: Catalog = {
     "Forcing…": "Принуждение…",
     "Force password change": "Принудить к смене пароля",
     "Releasing…": "Снятие…",
-    Behaviour: "Поведение",
-    Automations: "Автоматизации",
-    Memory: "Память",
-    Activity: "Активность",
-    "The agent in this group": "Агент в этой группе",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "Агент, каким его видит эта группа: как он себя ведёт, чему следует, что помнит и что сделал. Это один агент на всю установку — какие группы он держит, на какой модели работает и какие правила действуют всюду, описано в Master.",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "Агент не состоит ни в одной группе, которую видит этот сеанс, поэтому здесь нечего выбирать. Дайте ему группу в собственной администрации Stalwart: вкладки ниже отвечают про одну группу, а флот, который они читают, — собственный флот установки.",
-    "Working in this group as {address}.": "Работает в этой группе как {address}.",
-    "Group agent sections": "Разделы агента группы",
-    "{enabled} of {total} automations enabled":
-      "{enabled} из {total} автоматизаций включено",
-    "{n} waiting for a person in this group": "{n} ждут человека в этой группе",
-    "Nothing waiting for a person here": "Здесь ничто не ждёт человека",
-    "{n} agents serving this group": "{n} агентов обслуживают эту группу",
-    "No agent is serving this group right now":
-      "Сейчас эту группу не обслуживает ни один агент",
-    "Added: {labels}": "Добавлено: {labels}",
-    "This group's label catalogue already has every reserved label.":
-      "В каталоге ярлыков этой группы уже есть все зарезервированные ярлыки.",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "Агент этой группы отмечает четырьмя зарезервированными ярлыками то, что он сделал с письмом.",
-    "Checking…": "Проверка…",
-    "Make sure they exist": "Убедиться, что они есть",
-    "No group is picked, so there is no group's agents to read here.":
-      "Группа не выбрана, поэтому здесь нет агентов группы для чтения.",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "Все {count} агентов установки сообщают, и ни один из них не держит {group}: сейчас эту группу ничто не обслуживает.",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "Ни один агент не отчитался. Агент оставляет сигнал, пока работает, поэтому пустой список означает, что эту установку никто не обслуживает.",
-    "Agents serving this group": "Агенты, обслуживающие эту группу",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "Агент — это собственный процесс, а не копия веб-слоя: он заявляет обслуживаемую учётную запись через аренду и пишет сигнал, пока работает. Здесь ничто его не запускает и не останавливает — агенты объявляются там, где развёрнута установка.",
-    Agent: "Агент",
-    "Last heartbeat": "Последний сигнал",
-    Version: "Версия",
-    State: "Состояние",
-    "Not this server's to say": "Не этому серверу решать",
-    Alive: "Работает",
-    "Not reporting": "Не сообщает",
-    "Grants withdrawn": "Разрешения отозваны",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "Агент потерял разрешение на «{group}» {when}: с тех пор, как проход это заметил, эту группу ничто не обслуживало.",
     "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
       "Собственную учётную запись этого участника не удаётся прочитать — Stalwart отклонил имперсонацию — поэтому имя для его профиля неизвестно. Профиль всё же можно ему записать, введя имя.",
     "Delete this identity so the member sends as the group":
@@ -2221,156 +2053,6 @@ export const catalog: Catalog = {
     "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
       "Принудительна ли эта учётная запись, неизвестно: её фиксацию не удалось прочитать. «Принудить» и «Снять» остаются выключенными, пока она не ответит.",
     Enforced: "Принудительно",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "Автоматизация, которая приостанавливается, публикует то, что предлагает, в чате своей группы, и участник отвечает там словами. Поэтому одобрение происходит в чате, а не здесь — эта очередь и есть надзор по всем группам и способ увидеть, что ждало в любой из них.",
-    "Nothing is waiting for a person.": "Ничто не ждёт человека.",
-    "What it proposes": "Что она предлагает",
-    Confidence: "Уверенность",
-    Raised: "Поднята",
-    "Open {group} and its chat": "Открыть {group} и её чат",
-    "Open the group's mailbox": "Открыть ящик группы",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "Модель, на которой работает каждая автоматизация этой установки: один провайдер, одна модель, один ключ. Установка без неё не имеет автоматизаций — запуску нечем решать.",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "Для этой установки пока не зарегистрирован агент, поэтому модели не на чем работать.",
-    "Ceiling on one answer (tokens)": "Потолок на один ответ (токены)",
-    "What a single model answer may cost. 1 to {max}.":
-      "Сколько может стоить один ответ модели. От 1 до {max}.",
-    "Hops a chain of automations may run":
-      "Сколько переходов может сделать цепочка автоматизаций",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "Как далеко одна единица работы может пройти от автоматизации к автоматизации, прежде чем запуск за её пределами будет отклонён и группе сообщат.",
-    "Pages one run may hand the model": "Сколько страниц запуск может передать модели",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "Страница без текстового слоя передаётся как изображение, что стоит входных токенов на страницу.",
-    "Model saved": "Модель сохранена",
-    "Remove the model?": "Удалить модель?",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "Эта установка не выполняет ни одной автоматизации, пока не сохранена другая модель, и сохранённый ключ API удаляется вместе с ней.",
-    "Model removed": "Модель удалена",
-    "The installation's model": "Модель установки",
-    "A key is stored": "Ключ сохранён",
-    "No key stored": "Ключ не сохранён",
-    Provider: "Провайдер",
-    openai: "openai",
-    "A model name": "Название модели",
-    "Base URL": "Базовый URL",
-    "https://api.example.com/v1": "https://api.example.com/v1",
-    "API key": "Ключ API",
-    "Paste a new key here": "Вставьте новый ключ здесь",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "Только запись: сохранённый ключ больше никогда не показывается, а пустое это поле сохраняет ключ, который у вас уже есть.",
-    "An installation that sets none gets {n}.":
-      "Установка, которая не задаёт ни одного, получает {n}.",
-    "Remove the model": "Удалить модель",
-    "Reading…": "Чтение…",
-    "Ask the model to read it": "Попросить модель прочитать",
-    "What the model said about this draft:": "Что модель сказала об этом черновике:",
-    "Audit trail": "Аудит",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "Что сделал агент этой группы, начиная с новейшего — тот же документ, который её участники читают рядом с чатом. Хранится двенадцать месяцев, обрезается по месяцу.",
-    "No group is picked, so there is no audit trail to read here.":
-      "Группа не выбрана, поэтому здесь нет аудита для чтения.",
-    "Download every retained month of this group's audit trail as JSON":
-      "Скачать каждый сохранённый месяц аудита этой группы как JSON",
-    "Copying…": "Копирование…",
-    "Download every retained month as JSON": "Скачать каждый сохранённый месяц как JSON",
-    "This group's audit trail could not be read.":
-      "Аудит этой группы не удалось прочитать.",
-    "This group's agent has not done anything yet.":
-      "Агент этой группы пока ничего не сделал.",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "Показаны последние {shown} из {total}. Скачайте выше каждый сохранённый месяц для остального.",
-    "No group is picked, so there is no standing instruction to read here.":
-      "Группа не выбрана, поэтому здесь нет постоянной инструкции для чтения.",
-    "How this group's agent works": "Как работает агент этой группы",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "Пишите группе на её языке и всегда указывайте номер счёта.",
-    "the group's standing instruction": "постоянная инструкция группы",
-    "Memory saved": "Память сохранена",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "Что агент группы держит при каждом вызове: факты об этой группе, которые её автоматизациям никогда не нужно повторять. Каждая строка читается как данные — она направляет и никогда не расширяет то, что автоматизации разрешено.",
-    "No group is picked, so there is no memory to read here.":
-      "Группа не выбрана, поэтому здесь нет памяти для чтения.",
-    "This group's memory has not been read yet.": "Память этой группы ещё не прочитана.",
-    "Read it": "Прочитать",
-    "This group's agent is holding nothing yet.":
-      "Агент этой группы пока ничего не держит.",
-    "Fact {n}": "Факт {n}",
-    "Remove this fact": "Удалить этот факт",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "Счета от Ada подшиваются под именем клиента, а не отправителя.",
-    "Add a fact": "Добавить факт",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "Факт — не более {n} символов, а блокнот вмещает {m}.",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "Для кого останавливаются запуски этой группы и могут ли они выходить за её пределы без человека. Одна политика на всю группу: её автоматизации — работа одной команды над одной перепиской.",
-    "No group is picked, so there is no policy to read here.":
-      "Группа не выбрана, поэтому здесь нет политики для чтения.",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "Эта группа не написала политику, поэтому запуск идёт, когда модель уверена, и останавливается для человека, когда нет. Действие, выходящее из группы или необратимое, спрашивает всегда.",
-    "When a person has to agree": "Когда человек должен согласиться",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "Разрешить отправку за пределы группы без человека — это поднимает порог согласия для внешней отправки.",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "Выключено — действие, выходящее за пределы группы, всегда ждёт человека, что бы ни говорила политика. Действие, которое нельзя отменить, спрашивает, что бы ни говорила любая из настроек.",
-    "An empty text removes it. At most {max} characters.":
-      "Пустой текст удаляет его. Не более {max} символов.",
-    "At most {max} characters.": "Не более {max} символов.",
-    "This automation cannot run as it stands: {reason}":
-      "Эту автоматизацию нельзя запустить как есть: {reason}",
-    "Automation saved": "Автоматизация сохранена",
-    "Delete the {name}?": "Удалить {name}?",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "Документ автоматизации удаляется из собственных файлов группы. Уже выполняющаяся задача сохраняет версию, с которой начала.",
-    "Automation deleted": "Автоматизация удалена",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "Что агент делает в группе: когда реагирует и что ему поручено делать с тем, что он находит. Автоматизация хранится в собственной учётной записи группы, поэтому её может прочитать каждый участник.",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "Одна автоматизация на триггер: агент выполняет каждую включённую автоматизацию на триггер против всего, что этот триггер производит, поэтому вторая на том же триггере ответит на одно событие дважды. Ветвление между одним случаем и другим — в инструкции.",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "Агент не в этой группе, поэтому здесь нечего писать: ни одна автоматизация не выполняется, и никто не может упомянуть его в чате группы. Дайте ему группу в собственной администрации Stalwart и возвращайтесь.",
-    "This group's automation document could not be read.":
-      "Документ автоматизаций этой группы не удалось прочитать.",
-    "Cannot be saved yet: {reason}": "Пока нельзя сохранить: {reason}",
-    "No automation in this group yet.": "В этой группе пока нет автоматизаций.",
-    "Every trigger already has an automation in this group.":
-      "У каждого триггера в этой группе уже есть автоматизация.",
-    "New automation": "Новая автоматизация",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "У каждого триггера в этой группе уже есть автоматизация. Удалите или отключите одну, чтобы написать другой вид.",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name} нельзя сохранить как есть: {reason}",
-    "Run this automation now, on the newest message in the group's inbox":
-      "Запустить эту автоматизацию сейчас, на новейшем письме в папке «Входящие» группы",
-    "Asking…": "Запрос…",
-    "Run now": "Запустить сейчас",
-    "Delete automation": "Удалить автоматизацию",
-    "Next due: {when}": "Следующий запуск: {when}",
-    "Not scheduled while disabled.": "Не запланирована, пока отключена.",
-    "Asked for: a run is open ({state}).": "Запрошена: запуск открыт ({state}).",
-    "the automation “{name}”": "автоматизация «{name}»",
-    "Enabled — the agent reacts to this automation":
-      "Включена — агент реагирует на эту автоматизацию",
-    Trigger: "Триггер",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "Одна автоматизация на триггер: агент выполняет каждую включённую автоматизацию на триггер против всего, что этот триггер производит, поэтому две из них ответили бы на одно событие дважды.",
-    "How often": "Как часто",
-    "Every {minutes} minutes": "Каждые {minutes} минут",
-    Instruction: "Инструкция",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "Прочитайте письмо и скажите, что с ним должно произойти. Полезный контекст, простыми словами.",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "Этот текст — всё, что поручается запуску: каждый запуск передаёт его модели установки, а она отвечает действиями из разделов ниже.",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "Он читается как данные, а не исполняется: письмо, просящее модель что-то сделать, остаётся всего лишь письмом.",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "Пишите его для случаев по мере поступления: ветвление между одним видом почты и другим — здесь, а не во второй автоматизации.",
-    "What it may do": "Что она может делать",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "Список разрешённого: единственные действия, которые может выполнять эта автоматизация. Модели предлагаются только они, и ответ за их пределами отклоняется.",
-    external: "внешнее",
-    irreversible: "необратимое",
     "That is not valid JSON — fix the document and publish again.":
       "Это не корректный JSON — исправьте документ и опубликуйте снова.",
     "(untitled)": "(без названия)",
@@ -2389,14 +2071,8 @@ export const catalog: Catalog = {
       "Только администратор установки может очистить «Корзину» или «Спам» группы. Класть туда почту по-прежнему можно, как и вынимать её обратно.",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "Папку с почтой нельзя удалить в группе, потому что почта уйдёт вместе с ней. Сначала выньте почту, или спросите администратора установки.",
-    "This reading was not counted toward this month's authoring.":
-      "Это чтение не засчитано в написание за этот месяц.",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "Доступ к {need} группы происходит как у агента установки, а этот агент не участник этой группы: документы лежат в собственной учётной записи группы, и добраться до них может только участник — поэтому добавьте агента в группу в каталоге почтового сервера.",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbert не смог спросить почтовый сервер о {need} этой группы, поэтому не может сказать, добирается ли до неё тот агент: ничего не изменено и ничего не прочитано. Попробуйте снова, и если он продолжит так отвечать, смотреть нужно на почтовый сервер.",
     "Your settings could not be saved: {error}":
       "Ваши настройки не удалось сохранить: {error}",
     "List-Id": "List-Id",
@@ -2407,7 +2083,6 @@ export const catalog: Catalog = {
     "Empty folder": "Очистить папку",
     "the server closed the live-updates stream": "сервер закрыл поток живых обновлений",
     "the server could not be reached": "не удалось достичь сервера",
-    "Timed out": "Время истекло",
     "Group identities": "Профили группы",
     "User identities": "Профили пользователей",
     "Your settings were not reset: this installation's policy could not be read. Try again.":
@@ -2862,12 +2537,6 @@ export const catalog: Catalog = {
       few: "Не записано в {n} учётные записи:",
       many: "Не записано в {n} учётных записей:",
       other: "Не записано в {n} учётные записи:",
-    },
-    "{n} automations": {
-      one: "{n} автоматизация",
-      few: "{n} автоматизации",
-      many: "{n} автоматизаций",
-      other: "{n} автоматизации",
     },
     "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
       {

@@ -11,7 +11,7 @@ import { INSTALLATION_VERSION } from "./shared/installation.js";
 
 /**
  * The boot: the handshake, the sign-in, the installation's own document
- * (ADR 0001, ADR 0003).
+ * (ADR 0001, ADR 0011).
  *
  * Three values come from the environment and nothing else, because they are
  * how Stalwart is reached at all; everything the installation decides lives in
@@ -115,21 +115,21 @@ test("the first boot writes the document, and the next one reads the same docume
 test("a value changed in the document changes what this process runs on", async () => {
   const store = memoryStore();
   const first = await boot(store);
-  assert.equal(first.configuration.agent.pollMs, first.installation.agent.poll);
   assert.equal(first.configuration.port, first.installation.server.port);
+  assert.equal(first.configuration.sessionTtl, first.installation.sessions.ttl);
 
   const edited = structuredClone(first.installation);
-  edited.agent.poll = 9000;
   edited.server.port = 9090;
+  edited.sessions.ttl = 9000;
   store.set(edited);
 
   const after = await boot(store);
-  assert.equal(after.configuration.agent.pollMs, 9000);
   assert.equal(
     after.configuration.port,
     9090,
     "the document decides when the container is silent",
   );
+  assert.equal(after.configuration.sessionTtl, 9000);
   assert.equal(after.created, false, "and an edited document is still a document");
 });
 

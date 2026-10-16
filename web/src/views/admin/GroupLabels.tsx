@@ -3,7 +3,6 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
-import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import type { Label } from "@/store/settings";
@@ -101,9 +100,6 @@ export function GroupLabels() {
         {t(
           "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.",
         )}
-      </p>
-      <p className="hint" style={{ marginBottom: 12 }}>
-        {groupAccessSentence("labels")}
       </p>
       {loadError && (
         <DirectoryLoadError loadError={loadError} reload={directory.reload} />

@@ -14,8 +14,7 @@ each, is [.env.example](.env.example); the host installer's own story is in
 
 - **A Stalwart 0.16 server or newer**, and an account for the installation — the
   **Master** (`gilbert@…`) — with its own password, added to the groups it
-  should work in. Creating it and turning the agents on is *Turning the agents
-  on* below.
+  should work in. Creating it is *The Master account* below.
 - **A TLS reverse proxy** in front of the app:
   [Caddyfile.example](Caddyfile.example) or
   [nginx.example.conf](nginx.example.conf).
@@ -44,7 +43,7 @@ environment and nowhere else, because an installation must not grant itself that
 right). A production process that states no `BASE_PATH` prefix refuses to serve.
 
 Everything else the *installation* decides (its name, proxy posture, rate
-limits, push mode, session lifetimes, the fleet's timers and bounds) is a field
+limits, push mode, session lifetimes) is a field
 of the installation document in Stalwart, edited after the first boot at
 **Administration → Installation**.
 
@@ -79,33 +78,21 @@ The application listens on `127.0.0.1:8080`; put a TLS reverse proxy in front
 ([Caddyfile.example](Caddyfile.example) or
 [nginx.example.conf](nginx.example.conf)) and it is ready.
 
-## Turning the agents on
+## The Master account
 
-> **Not functional yet.** The agent part is designed and present in the tree but
-> does not work, and a refactor is planned — see
-> [KNOWN-ISSUES.md](KNOWN-ISSUES.md). The steps below are how it is meant to be
-> turned on.
+An installation's own account — the **Master** — is a Stalwart account, and its
+grant is group membership: there is no second switch in the product. The whole
+of it is:
 
-An agent is a Stalwart account, and its grant is group membership — there is no
-second switch in the product. The whole of it is:
-
-1. In **Stalwart's own administration**, create an account for the agent
+1. In **Stalwart's own administration**, create the account
    (`gilbert@example.com`) and **add it to the groups it should work in**.
-2. Give the deployment that account's **own password** — not an app password:
-   the agent signs in as itself — in `GILBERT_AGENT_ADDRESS` and
-   `GILBERT_AGENT_PASSWORD`.
-3. Start Gilbert. The server runs an agent beside the web tier in its own
-   process (ADR 0003); a deployment that wants the fleet apart runs
-   `node server/dist/agent/agent.js` instead, with `agent.inProcess` false in the
-   installation document.
+2. Give the deployment that account's **own password** — not an app password —
+   in `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD`.
 
-**Administration → Master** then shows the groups the agent can see and holds the
-rules that apply in every one of them; **Group Agents** is where each group's
-automations are written, beside its standing instruction and review policy. A
-group the agent belongs to that has never heard from it gets one message
-(*"Hi all! Gilbert here, at your service."*) when the agent takes the group up,
-which is the proof it is working there. Users sign in with their Stalwart
-mailbox credentials; **an account with two-factor authentication needs an app
+The server signs in as it at boot: that account's own `gilbert` app folder holds
+the installation's document (ADR 0011), so the environment names the Master and
+the document carries the rest. Users sign in with their Stalwart mailbox
+credentials; **an account with two-factor authentication needs an app
 password**, because Stalwart accepts a TOTP code only through an OAuth flow and
 offers no password grant.
 
@@ -323,10 +310,7 @@ Run **one** server process per installation — the compose file does. Sessions 
 the credential rate limits are per process: a session document is read at boot, so
 a revocation ("sign out my other sessions", or the kick that follows writing a
 policy) lands on the process that handled it and on the others at their next
-restart, and a limit of twenty attempts is twenty per replica. The agent may run
-beside the server or in a container of its own (`agent.inProcess`, ADR 0003); that
-is a second process serving the same installation, not a second server, and it is
-what the compose file's `agent` profile does.
+restart, and a limit of twenty attempts is twenty per replica.
 
 Scaling the server out would need those two shared first. Nothing else in Gilbert
 does: every durable byte is in Stalwart, so a replica holds no state that a

@@ -3,10 +3,8 @@
  *
  * Every durable document Gilbert keeps in Stalwart's own storage lives here:
  * the synced settings, the forced-password-change directive, a group's label
- * catalog, the chat folders, and (ADR 0003) the agent's rules, jobs,
- * decisions, claims, schedule and audit. One implementation, because all of
- * them need the same things and each one of them would get them subtly
- * differently.
+ * catalog and the chat folders. One implementation, because all of them need
+ * the same things and each one of them would get them subtly differently.
  *
  * Facts this module encodes, all of them live-verified against Stalwart 0.16
  * (see gilbert-stalwart):
@@ -624,9 +622,8 @@ async function holdsSameDocument(
  * (JMAP offers no blob removal), so a write whose bytes are already stored is
  * pure loss: it buys the same document again and pushes the account towards the
  * quota at which *every* write in it fails. Gilbert rewrites the same documents
- * constantly (a job at every stage of a run, a notebook on every fact, a claim
- * on every tick), so "write what is already there" is the common case, not the
- * exceptional one.
+ * constantly (a settings save, a label edit, a workorder step), so "write what
+ * is already there" is the common case, not the exceptional one.
  *
  * The order is what keeps the check cheap where it matters:
  *
@@ -969,11 +966,11 @@ export async function readVisibleFileAt(
  *
  * The primitive the readers of the visible tree are built on, because bytes
  * are what a file is: text is a decode of them, and a PDF, a `.docx` or an
- * image is nothing else (ADR 0003: the document family works on the blob).
+ * image is nothing else.
  *
- * `maxBytes` bounds what is held: the agent's own readers pass their ceiling
- * (`AGENT_DOCUMENT_BYTES_MAX`) and answer `BlobTooLargeError` in words, so a
- * file nobody should read whole is never buffered whole to find that out.
+ * `maxBytes` bounds what is held: a caller with its own ceiling passes it and
+ * answers `BlobTooLargeError` in words, so a file nobody should read whole is
+ * never buffered whole to find that out.
  */
 export async function readVisibleFileBytes(
   ctx: Ctx,
@@ -1045,9 +1042,9 @@ export async function findVisibleFile(
 /**
  * A name in a visible folder that nothing is using yet.
  *
- * A file a person filed is theirs: an automation that saves under a name
- * already taken there adds a numbered one beside it instead of replacing what
- * they have. `note.txt`, `2-note.txt`, `3-note.txt` — the same shape the
+ * A file a person filed is theirs: a save under a name already taken there
+ * adds a numbered one beside it instead of replacing what they have.
+ * `note.txt`, `2-note.txt`, `3-note.txt` — the same shape the
  * extract action uses for two attachments that arrive with one name.
  *
  * The folder is read **once**, and the first free candidate is picked from that
@@ -1141,7 +1138,7 @@ function visibleSegments(path: string): string[] {
  *
  * `ifInState` makes the removal conditional on the account state it was
  * decided against, which is what a writer that must not remove a node somebody
- * else has since replaced needs — an agent releasing a claim, above all.
+ * else has since replaced needs.
  */
 export async function destroyAppNode(
   ctx: Ctx,

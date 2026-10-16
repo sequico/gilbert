@@ -27,11 +27,11 @@ services:
       - no-new-privileges:true
     environment:
       # The handshake: the one thing this container has to be told. Where
-      # Stalwart is, and, when a deployment runs an agent here, the account it
-      # signs in as. Everything else the installation decides lives in its own
+      # Stalwart is, and the installation's own account -- the Master -- it signs
+      # in as. Everything else the installation decides lives in its own
       # document, in Stalwart -- the app name, the proxy posture, the rate
-      # limits, the live-update mode, the agent's timers -- and is published
-      # from Administration > Installation.
+      # limits, the live-update mode -- and is published from Administration >
+      # Installation.
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
       GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
@@ -41,65 +41,7 @@ services:
       BASE_PATH: ${BASE_PATH:-}
       # Left unset, the server's own default stands (`.env.example` names it).
       SOURCE_URL: ${SOURCE_URL:-}
-      # The operator's own statement: may the agent reach a model endpoint
-      # inside this network. Not the installation's to decide (ADR 0003).
+      # The operator's own statement: may the installation's model reach a model
+      # endpoint inside this network. Not the installation's to decide (ADR 0031).
       GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
-  # The agent in a container of its own: the same image, a second
-  # process, no port and no writable path of its own -- everything it knows
-  # lives in Stalwart, so a replacement picks the work up from the documents
-  # (ADR 0003). Whether the server runs an agent beside itself or a deployment
-  # puts it in a container of its own is the installation's own decision
-  # (`agent.inProcess` in its document, ADR 0003), so this profile is for a
-  # deployment that wants the two apart: bring this service up and leave the
-  # server's own agent out of its document.
-  #
-  # The pair is read from the environment and is not required to bring the stack
-  # up: the server service above starts without it, and Admin > Agents names the
-  # state (`agent_not_configured`) beside how to set the two. An agent started
-  # without the pair serves nothing, warns once and keeps its health endpoint
-  # up -- so leaving the profile out is how a deployment runs with no agent at
-  # all.
-  gilbert-agent:
-    profiles: ["agent"]
-    # The image the server service above builds, not a second build of it: the
-    # agent is the same image with a different command, so `BASE_PATH` and the
-    # build arguments are set once, there. Nothing builds it here, so build it
-    # first -- bring the stack up (`docker compose up -d`) or build the image
-    # alone (`docker compose build gilbert`) -- or `docker compose --profile
-    # agent up` on a machine with no image has nothing to run.
-    image: gilbert:2
-    restart: unless-stopped
-    command: ["node", "server/dist/agent/agent.js"]
-    environment:
-      STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
-      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
-      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
-      GILBERT_AGENT_HEALTH_PORT: "8081"
-      IMMUTABLE: "1"
-    # The same posture as the server above: nothing to write, nothing to gain
-    # and no way to gain it.
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    # What the restart policy asks: is this agent serving what it claimed.
-    # `restart: unless-stopped` restarts a dead process; this catches one that
-    # is up and holding nothing. The probe is the app's own
-    # (`scripts/healthcheck.mjs`, already in the image) rather than a second
-    # spelling of it in YAML; `interval` is the image's own HEALTHCHECK, and the
-    # five-second `timeout` is written out so this probe states its own bound
-    # rather than leaning on Compose to inherit one. The agent's health
-    # server is not the app's route, so its endpoint is named rather than
-    # derived from `BASE_PATH` and `PORT` -- and `$$` leaves the shell to read
-    # `GILBERT_AGENT_HEALTH_PORT`, so the URL is written from the one variable
-    # the health server reads instead of the port being spelled twice.
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - HEALTH_URL=http://127.0.0.1:$${GILBERT_AGENT_HEALTH_PORT}/health node scripts/healthcheck.mjs
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+

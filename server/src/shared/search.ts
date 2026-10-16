@@ -9,7 +9,7 @@
  *
  * This is a **control** surface and not a permission one: the filter it builds
  * is handed to `Email/query` inside the session that asked, so a query can only
- * narrow what that session could already read (ADR 0003, ADR 0020).
+ * narrow what that session could already read.
  */
 
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "./labels.js";
@@ -75,7 +75,7 @@ export type SearchFilter = SearchFilterCondition | SearchFilterOperator;
  *
  * A prompt that offered a syntax this module does not parse would be a promise
  * the server refuses, so the sentence a model is given is written here, beside
- * the parser that keeps it true (ADR 0020).
+ * the parser that keeps it true (ADR 0031).
  */
 export const SEARCH_GRAMMAR =
   'the mail search grammar: bare words match text, and "from:", "to:", "cc:", ' +

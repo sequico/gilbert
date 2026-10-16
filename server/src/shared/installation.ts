@@ -136,42 +136,6 @@ export interface InstallationPush {
   rawRelay: boolean;
 }
 
-/**
- * The agent (ADR 0003): the installation's own fleet.
- *
- * One switch that would fit here is deliberately not here: whether the model
- * may sit inside the deployment's own network.
- * `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` is the **operator's** statement, read
- * from the environment in `configuration.ts` and nowhere else, because an
- * installation must not grant itself the right to aim its model at the network
- * the deployment runs in. A document that still carries
- * `agent.allowPrivateProvider` is read as though it did not -- see
- * `parseInstallationDocumentDetailed` -- so the retired key neither decides
- * anything nor makes the document unreadable.
- */
-export interface InstallationAgent {
-  /** `GILBERT_AGENT_POLL_MS` (default `60000`): the fallback after a lost push stream. */
-  poll: number;
-  /** `GILBERT_AGENT_HEARTBEAT_MS` (default `30000`). */
-  heartbeat: number;
-  /** `GILBERT_AGENT_LEASE_MS` (default `180000`): how long a claim may go un-renewed. */
-  lease: number;
-  /** `GILBERT_AGENT_MAX_CHAIN_HOPS` (default `5`): hops before an automation chain is refused. */
-  chainHops: number;
-  /** `GILBERT_AGENT_MAX_PAGES` (default `8`, `AGENT_MAX_PAGES_DEFAULT`). */
-  pages: number;
-  /** `GILBERT_AGENT_THINKING` (default `true`): whether a run pays for the model's reasoning. */
-  thinking: boolean;
-  /** `GILBERT_AGENT_VISION` (default `true`): whether the installation's model reads images. */
-  vision: boolean;
-  /** `GILBERT_AGENT_AUTHORING_MAX_PER_MONTH` (default `200`) readings a month. */
-  authoringMaxPerMonth: number;
-  /** `GILBERT_AGENT_HEALTH_PORT` (default `0` = no endpoint). */
-  healthPort: number;
-  /** `GILBERT_AGENT_INPROCESS` (default `true`): whether the server starts the fleet itself. */
-  inProcess: boolean;
-}
-
 /** What the installation calls itself. */
 export interface InstallationBranding {
   /** `APP_NAME` (default `"Gilbert"`). */
@@ -203,18 +167,10 @@ export interface InstallationDocument {
    * base URL. Empty means one server, `STALWART_URL`.
    */
   upstreams: Record<string, string>;
-  agent: InstallationAgent;
   branding: InstallationBranding;
   /** `APP_SECRET`. Generated on the first boot; see the note above. */
   secret: string;
 }
-
-/**
- * How many pages of a rasterised document one run may read, by default: the one
- * definition, used by the document's own defaults and by
- * `AGENT_MAX_PAGES_DEFAULT` in `server/src/agent/documents.ts`.
- */
-export const AGENT_PAGES_DEFAULT = 8;
 
 /**
  * The defaults: the values the code uses today, and the variable each replaces.
@@ -255,18 +211,6 @@ export function installationDefaults(): InstallationDocument {
       rawRelay: true, // RAW_PUSH_RELAY (`"0"` turned it off)
     },
     upstreams: {},
-    agent: {
-      poll: 60_000, // GILBERT_AGENT_POLL_MS
-      heartbeat: 30_000, // GILBERT_AGENT_HEARTBEAT_MS
-      lease: 180_000, // GILBERT_AGENT_LEASE_MS
-      chainHops: 5, // GILBERT_AGENT_MAX_CHAIN_HOPS (floored at 1)
-      pages: AGENT_PAGES_DEFAULT, // GILBERT_AGENT_MAX_PAGES (floored at 1)
-      thinking: true, // GILBERT_AGENT_THINKING
-      vision: true, // GILBERT_AGENT_VISION
-      authoringMaxPerMonth: 200, // GILBERT_AGENT_AUTHORING_MAX_PER_MONTH
-      healthPort: 0, // GILBERT_AGENT_HEALTH_PORT
-      inProcess: true, // GILBERT_AGENT_INPROCESS
-    },
     branding: {
       appName: "Gilbert", // APP_NAME
     },
@@ -331,10 +275,12 @@ function readUpstreams(
  * became 8080 is how an installation ends up answering somewhere nobody
  * expects. Unknown keys are ignored, as every other document reader here
  * ignores them: a key this build does not know -- one a newer build added, or a
- * retired one such as `agent.allowPrivateProvider`, which is the operator's and
- * is read from the environment -- decides nothing and does not refuse the
- * document, so an installation that still carries one keeps booting and a later
- * publish drops it.
+ * retired one such as the `agent` section, which this build does not read --
+ * decides nothing and does not refuse the document, so an installation that
+ * still carries one keeps booting and a later publish drops it. The operator's
+ * own switch over which model may be reached
+ * (`GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is absent here for the same reason:
+ * it is read from the environment and nowhere else.
  *
  * A `version` this build does not know is refused. That is what the field is
  * for: a document written by a newer Gilbert may carry a field whose meaning
@@ -402,15 +348,11 @@ export function parseInstallationDocumentDetailed(
     }
     return n;
   };
-  /** A bound floored at 1: a document that says 0 says nothing useful. */
-  const readBound = (where: string, v: unknown, fallback: number): number =>
-    readAtLeast(where, v, fallback, 1);
 
   const server = readSection("server", whole.server);
   const limits = readSection("limits", whole.limits);
   const sessions = readSection("sessions", whole.sessions);
   const push = readSection("push", whole.push);
-  const agent = readSection("agent", whole.agent);
   const branding = readSection("branding", whole.branding);
 
   const version = readInt("version", whole.version, INSTALLATION_VERSION);
@@ -421,14 +363,6 @@ export function parseInstallationDocumentDetailed(
   const port = readInt("server.port", server.port, defaults.server.port);
   if (port < 1 || port > 65535)
     problems.push(`"server.port" must be between 1 and 65535 (it is ${port}).`);
-  const healthPort = readAtLeast(
-    "agent.healthPort",
-    agent.healthPort,
-    defaults.agent.healthPort,
-    0,
-  );
-  if (healthPort > 65535)
-    problems.push(`"agent.healthPort" must be at most 65535 (it is ${healthPort}).`);
   const mode = readText("push.mode", push.mode, defaults.push.mode);
   if (mode !== "relay" && mode !== "subscribe")
     problems.push(`"push.mode" must be "relay" or "subscribe".`);
@@ -538,28 +472,6 @@ export function parseInstallationDocumentDetailed(
       rawRelay: readBool("push.rawRelay", push.rawRelay, defaults.push.rawRelay),
     },
     upstreams: readUpstreams("upstreams", whole.upstreams, defaults.upstreams, problems),
-    agent: {
-      poll: readAtLeast("agent.poll", agent.poll, defaults.agent.poll, 1),
-      heartbeat: readAtLeast(
-        "agent.heartbeat",
-        agent.heartbeat,
-        defaults.agent.heartbeat,
-        1,
-      ),
-      lease: readAtLeast("agent.lease", agent.lease, defaults.agent.lease, 1),
-      chainHops: readBound("agent.chainHops", agent.chainHops, defaults.agent.chainHops),
-      pages: readBound("agent.pages", agent.pages, defaults.agent.pages),
-      thinking: readBool("agent.thinking", agent.thinking, defaults.agent.thinking),
-      vision: readBool("agent.vision", agent.vision, defaults.agent.vision),
-      authoringMaxPerMonth: readAtLeast(
-        "agent.authoringMaxPerMonth",
-        agent.authoringMaxPerMonth,
-        defaults.agent.authoringMaxPerMonth,
-        0,
-      ),
-      healthPort,
-      inProcess: readBool("agent.inProcess", agent.inProcess, defaults.agent.inProcess),
-    },
     branding: { appName },
     secret: readText("secret", whole.secret, defaults.secret),
   };

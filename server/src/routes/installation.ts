@@ -20,9 +20,9 @@ import {
   saveSystemSieveScript,
   setSystemSieveScriptActive,
 } from "../adminSieve.js";
-import { impersonateAs } from "../agentAdmin.js";
 import type { Ctx } from "../appFolder.js";
-import { agentAddress } from "../config.js";
+import { masterAddress } from "../config.js";
+import { impersonateAs } from "../groupAccess.js";
 import {
   type InstallationRefused,
   publishInstallation,
@@ -55,7 +55,7 @@ export function registerInstallationRoutes(api: Hono<Env>): void {
   const installationMaster = async (
     session: LiveSession,
   ): Promise<{ ctx: Ctx } | { refused: InstallationRefused }> => {
-    const master = agentAddress();
+    const master = masterAddress();
     if (!master)
       return {
         refused: {

@@ -55,9 +55,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "Wissen",
     "Mention a member": "Mitglied erwähnen",
     "Go to folder…": "Zu Ordner springen…",
     "Set for everyone here. You cannot change this.":
@@ -190,10 +187,6 @@ export const catalog: Catalog = {
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
     "Has the words": "Enthält die Wörter",
-    // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
-    // carries, the row a grouped filter's condition sits in, and the rotation
-    // of the agent's own app password.
-    "Timed out": "Zeitüberschreitung",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
@@ -1605,10 +1598,6 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name":
       "sich selbst, oder einem nicht genannten Aussteller",
     "no address": "keine Adresse",
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "Nur ein Administrator dieser Gruppe ändert ihre Daueranweisung und ihre Automatisierungen; jedes Mitglied liest sie hier.",
-    "No standing instruction has been written for this group.":
-      "Für diese Gruppe wurde keine Daueranweisung hinterlegt.",
     // The two tabs Identities and SIP Phone is split into.
     "User identities": "Benutzeridentitäten",
     "Group identities": "Gruppenidentitäten",
@@ -1638,12 +1627,8 @@ export const catalog: Catalog = {
     Policy: "Richtlinie",
     Installation: "Installation",
     "Force passwords": "Passwörter erzwingen",
-    Master: "Master",
-    "Group Agents": "Gruppen-Agenten",
-    Approvals: "Genehmigungen",
     "System Sieve": "System-Sieve",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert Assistant": "Gilbert Assistant",
     Stalwart: "Stalwart",
     "Nothing here yet.": "Hier ist noch nichts.",
     Help: "Hilfe",
@@ -1739,8 +1724,6 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "„Ende“ muss nach „Beginn“ liegen.",
     "Auto-reply is on": "Abwesenheitsantwort ist an",
     "Auto-reply saved": "Abwesenheitsantwort gespeichert",
-    Missed: "Verpasst",
-    Failed: "Fehlgeschlagen",
     "Actions for {email}": "Aktionen für {email}",
     "Invitation accepted": "Einladung angenommen",
     "Invitation declined": "Einladung abgelehnt",
@@ -1823,7 +1806,6 @@ export const catalog: Catalog = {
     "https://…": "https://…",
     Chat: "Chat",
     "No longer in this group": "Nicht mehr in dieser Gruppe",
-    "The group's agent": "Der Agent der Gruppe",
     "Search messages": "Nachrichten durchsuchen",
     Conversations: "Konversationen",
     "Search in this chat": "In diesem Chat suchen",
@@ -1838,26 +1820,6 @@ export const catalog: Catalog = {
     "Replying to {who}": "Antwort an {who}",
     "Cancel reply": "Antwort abbrechen",
     "Message {group}": "Nachricht {group}",
-    "No agent is registered for this installation.":
-      "Für diese Installation ist kein Agent registriert.",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "Kein Agent arbeitet in dieser Gruppe: er ist hier nicht berechtigt, trägt daher keine Anweisungen und tut nichts. Diese Berechtigung wird in der Administration des Mailservers erteilt, nicht im Produkt.",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "In dieser Gruppe aktiv als {address}. Schreibgeschützt: was er befolgt, wird in der Administration verfasst, und Sie antworten ihm in diesem Chat.",
-    "Standing instruction": "Daueranweisung",
-    "Who its runs stop for": "Für wen seine Läufe anhalten",
-    "What it follows": "Was er befolgt",
-    "No automation is set up for this group.":
-      "Für diese Gruppe ist keine Automatisierung eingerichtet.",
-    "Still open": "Noch offen",
-    "Nothing is running and nothing is waiting.": "Nichts läuft und nichts wartet.",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "Wenn eine davon auf eine Person wartet, fragt der Agent hier im Chat — dort antworten Sie.",
-    "What it has done": "Was er getan hat",
-    "It has not done anything yet.": "Er hat noch nichts getan.",
-    "Last written by {who} on {when}.": "Zuletzt geschrieben von {who} am {when}.",
-    "an administrator": "ein Administrator",
-    Disabled: "Deaktiviert",
     "{message} for this date": "{message} für dieses Datum",
     "Occurrence deleted": "Vorkommen gelöscht",
     "Event deleted": "Termin gelöscht",
@@ -1873,96 +1835,8 @@ export const catalog: Catalog = {
     "https://meet.example.com/…": "https://meet.example.com/…",
     "{duration} before": "{duration} vorher",
     "Fewer options": "Weniger Optionen",
-    "An email arrives": "Eine E-Mail kommt an",
-    "A file or folder changes": "Eine Datei oder ein Ordner ändert sich",
-    "Someone writes in the chat": "Jemand schreibt im Chat",
-    "On a schedule": "Nach Zeitplan",
-    "Every run stops here for a person to answer before anything happens.":
-      "Jeder Lauf hält hier an, damit eine Person antwortet, bevor etwas geschieht.",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "Ein Lauf ab der Konfidenzschwelle läuft unbeaufsichtigt; darunter wartet er auf eine Person.",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "Nichts wartet auf eine Person — doch eine Aktion, die nicht rückgängig gemacht werden kann, fragt dennoch, und eine, die die Gruppe verlässt, fragt, sofern die Zustimmungsschwelle nicht angehoben ist.",
-    "Always ask a person first": "Immer zuerst eine Person fragen",
-    "Ask a person below a confidence threshold":
-      "Eine Person unterhalb einer Konfidenzschwelle fragen",
-    "Never ask — run it unattended": "Nie fragen — unbeaufsichtigt ausführen",
-    "Waiting to start": "Wartet auf Start",
     Running: "Läuft",
-    "Waiting for a person": "Wartet auf eine Person",
-    Ran: "Gelaufen",
-    Finished: "Abgeschlossen",
-    "Asked for approval": "Genehmigung angefragt",
-    Rejected: "Abgelehnt",
-    Refused: "Verweigert",
-    unknown: "unbekannt",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs} Läufe · {hit} Tokens aus dem Cache gelesen, {miss} frisch gelesen, {out} geschrieben",
-    "{n} of them reported no usage": "{n} davon meldeten keine Nutzung",
-    "This installation has spent: {meter}": "Diese Installation hat ausgegeben: {meter}",
-    "{agent}: {meter}": "{agent}: {meter}",
-    "no agent named": "kein Agent genannt",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "Der Audit von {groups} konnte nicht gelesen werden, daher ist diese Summe ein Mindestwert: ihre Läufe gehen in keine Zählung hier ein.",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "Diese Installation kann die Mitglieder einer Gruppe nicht auflisten: Der Master darf die Kontoregistrierung nicht lesen. Geben Sie ihm die Berechtigungen sysAccountGet und sysAccountQuery — eine Berechtigung pro Konto, keine Administratorrolle — und das @ im Chat bietet die Mitglieder der Gruppe an; bis dahin bietet es die Personen an, die bereits geschrieben haben.",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "Die Kontoregistrierung hat nicht geantwortet, daher können die Mitglieder einer Gruppe nicht aufgelistet werden und das @ im Chat bietet die Personen an, die bereits geschrieben haben.",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "Es ist kein Agent registriert, daher kann nichts die Mitglieder einer Gruppe lesen: das @ im Chat bietet die Personen an, die bereits geschrieben haben.",
-    "every {minutes} minutes": "alle {minutes} Minuten",
-    "sending outside the group allowed without a person":
-      "Senden außerhalb der Gruppe ohne eine Person erlaubt",
-    "sending outside the group always waits for a person":
-      "Senden außerhalb der Gruppe wartet immer auf eine Person",
-    "Nobody has written here yet.": "Hier hat noch niemand geschrieben.",
-    Identity: "Identität",
-    Model: "Modell",
-    Groups: "Gruppen",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Gilberts eigener Agent handelt innerhalb von Mail- und Dateispeicher: Er arbeitet mit Stalwart-Ereignissen und nach Zeitplänen, in den Gruppen, für die er berechtigt ist. Diese Installation betreibt einen Agenten — hier sehen Sie ihn, welches Modell ihn bedient und in welchen Gruppen er arbeitet. Was er innerhalb einer Gruppe tut, steht in Gruppen-Agenten.",
-    "Master sections": "Master-Bereiche",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "Was überall gilt: die Regeln, die der Agent in jeden Aufruf jeder Gruppe trägt, bevor etwas über eine Gruppe oder eine einzelne Automatisierung gilt. Einmal hier geschrieben statt in jeder Gruppenanweisung wiederholt, und als Daten gelesen — die Berechtigung eines Laufs ist seine eigene Fähigkeitsliste, und nichts hier Geschriebenes erweitert sie.",
-    "How this installation's agent works": "Wie der Agent dieser Installation arbeitet",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "Antworten Sie immer in der Sprache, in der die Nachricht geschrieben wurde, und senden Sie niemals etwas außerhalb der Gruppe ohne eine Person.",
-    "the installation's own rules": "die eigenen Regeln der Installation",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "Dieser Bereich prüft die Berechtigung des Agenten, er schreibt sie nie: Die Mitgliedschaft in einer Gruppe wird in Stalwarts eigener Administration erteilt, neben den Konten, so wie die einer Person.",
-    "The Master": "Der Master",
-    Operational: "Betriebsbereit",
-    "Not operational": "Nicht betriebsbereit",
-    "Agent address": "Agent-Adresse",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "Das Deployment benennt den Agenten und dies liest es zurück: GILBERT_AGENT_ADDRESS und GILBERT_AGENT_PASSWORD liegen in der Umgebung dessen, der den Server und seinen Agenten startet, daher stammen sie aus einer einzigen Quelle. Nichts hier erzeugt ein Geheimnis, liest eines zurück oder speichert eines.",
-    "What the fleet has spent": "Was die Flotte ausgegeben hat",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "Die Gruppen, in denen der Agent arbeitet, aus Stalwart gelesen: Er ist genau dann Mitglied einer Gruppe, wenn die Gruppe hier erscheint, und diese Liste folgt dem Verzeichnis von selbst. Um ihm eine Gruppe zu geben, fügen Sie die Gruppe dem Gilbert-Benutzer in Stalwarts eigener Administration hinzu.",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "Der Agent ist in keiner Gruppe, die diese Installation sehen kann. Fügen Sie dem Gilbert-Benutzer in Stalwarts eigener Administration eine Gruppe hinzu, und sie erscheint hier.",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "Automatisierungen, Daueranweisung, Gedächtnis und Audit dieser Gruppe öffnen",
-    "Open in Group Agents": "In Gruppen-Agenten öffnen",
     Pending: "Ausstehend",
-    Audit: "Audit",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "Was auf eine Person wartet und was die Flotte getan hat, über jede Gruppe hinweg, die der Agent hält — schreibgeschützte Aufsicht. Ein Bediener beantwortet einen pausierten Lauf im Chat der Gruppe selbst, nie hier.",
-    "Approvals sections": "Bereiche der Genehmigungen",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "Der Audit jeder berechtigten Gruppe, zusammengeführt und nach Neuestem zuerst sortiert. Der eigene Audit-Tab einer Gruppe in Gruppen-Agenten liest dasselbe Dokument mit eigenem Export.",
-    "The agent is not in a group this installation can see.":
-      "Der Agent ist in keiner Gruppe, die diese Installation sehen kann.",
-    "Every group": "Jede Gruppe",
-    Outcome: "Ergebnis",
-    "Every outcome": "Jedes Ergebnis",
-    "Reading every group's trail…": "Audit jeder Gruppe wird gelesen…",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "Der Audit von {groups} konnte nicht gelesen werden, daher fehlt er in dieser Liste.",
-    "Nothing matches here yet.": "Hier passt noch nichts.",
-    Automation: "Automatisierung",
-    By: "Von",
-    Detail: "Details",
     "Installation document": "Installationsdokument",
     "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
       "Die Konfiguration, auf der diese Installation läuft: ein JSON-Dokument in den eigenen Dateien des Masters — das Konto, mit dem sich diese Installation anmeldet, das der Server beim Start einmal liest. Was Sie hier veröffentlichen, ist das, worauf der nächste Start läuft, und der jetzt laufende Prozess behält, womit er gestartet wurde.",
@@ -2026,50 +1900,6 @@ export const catalog: Catalog = {
     "Forcing…": "Wird erzwungen…",
     "Force password change": "Passwortänderung erzwingen",
     "Releasing…": "Wird freigegeben…",
-    Behaviour: "Verhalten",
-    Automations: "Automatisierungen",
-    Memory: "Gedächtnis",
-    Activity: "Aktivität",
-    "The agent in this group": "Der Agent in dieser Gruppe",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "Der Agent, wie diese Gruppe ihn sieht: wie er sich verhält, was er befolgt, was er sich merkt und was er getan hat. Es ist ein Agent für die gesamte Installation — welche Gruppen er hält, auf welchem Modell er läuft und die Regeln, die überall gelten, stehen im Master.",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "Der Agent ist in keiner Gruppe, die diese Sitzung sehen kann, daher gibt es hier keine Gruppe zum Auswählen. Geben Sie ihm eine Gruppe in Stalwarts eigener Administration: Die Tabs unten beantworten Fragen zu einer Gruppe, und die Flotte, die sie lesen, ist die eigene der Installation.",
-    "Working in this group as {address}.": "Arbeitet in dieser Gruppe als {address}.",
-    "Group agent sections": "Bereiche des Gruppen-Agenten",
-    "{enabled} of {total} automations enabled":
-      "{enabled} von {total} Automatisierungen aktiviert",
-    "{n} waiting for a person in this group":
-      "{n} warten in dieser Gruppe auf eine Person",
-    "Nothing waiting for a person here": "Hier wartet nichts auf eine Person",
-    "{n} agents serving this group": "{n} Agenten bedienen diese Gruppe",
-    "No agent is serving this group right now": "Derzeit bedient kein Agent diese Gruppe",
-    "Added: {labels}": "Hinzugefügt: {labels}",
-    "This group's label catalogue already has every reserved label.":
-      "Der Label-Katalog dieser Gruppe enthält bereits jedes reservierte Label.",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "Der Agent dieser Gruppe markiert mit vier reservierten Labels, was er mit einer Nachricht getan hat.",
-    "Checking…": "Wird geprüft…",
-    "Make sure they exist": "Sicherstellen, dass sie existieren",
-    "No group is picked, so there is no group's agents to read here.":
-      "Es ist keine Gruppe ausgewählt, daher gibt es hier keine Gruppen-Agenten zu lesen.",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "Die {count} Agenten der Installation melden sich, und keiner von ihnen hält {group}: Derzeit bedient nichts diese Gruppe.",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "Kein Agent hat sich gemeldet. Ein Agent hinterlässt einen Herzschlag, während er läuft, daher bedeutet eine leere Liste, dass keiner diese Installation bedient.",
-    "Agents serving this group": "Agenten, die diese Gruppe bedienen",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "Ein Agent ist ein eigener Prozess, keine Kopie der Web-Schicht: Er beansprucht das Konto, das er bedient, per Lease und schreibt einen Herzschlag, während er läuft. Nichts hier startet oder stoppt einen — Agenten werden dort deklariert, wo die Installation bereitgestellt wird.",
-    Agent: "Agent",
-    "Last heartbeat": "Letzter Herzschlag",
-    Version: "Version",
-    State: "Zustand",
-    "Not this server's to say": "Das kann dieser Server nicht sagen",
-    Alive: "Aktiv",
-    "Not reporting": "Meldet sich nicht",
-    "Grants withdrawn": "Berechtigungen entzogen",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "Der Agent hat seine Berechtigung für „{group}“ am {when} verloren: Seit der Durchlauf es bemerkt hat, hat nichts diese Gruppe bedient.",
     "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
       "Das eigene Konto dieses Mitglieds kann nicht gelesen werden — Stalwart hat die Identitätsübernahme abgelehnt — daher ist der Name, der auf seine Identität zu schreiben ist, unbekannt. Eine Identität kann dennoch für es geschrieben werden, indem ein Name eingegeben wird.",
     "Delete this identity so the member sends as the group":
@@ -2280,159 +2110,6 @@ export const catalog: Catalog = {
     "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
       "Ob dieses Konto erzwungen ist, ist unbekannt: Seine Sperre konnte nicht gelesen werden. Erzwingen und Freigeben bleiben aus, bis es antwortet.",
     Enforced: "Erzwungen",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "Eine Automatisierung, die pausiert, veröffentlicht, was sie vorschlägt, im Chat ihrer Gruppe, und ein Mitglied antwortet dort mit Worten. Die Genehmigung geschieht daher im Chat, nicht hier — diese Warteschlange ist die Aufsicht über jede Gruppe und der Weg zu sehen, was in einer von ihnen gewartet hat.",
-    "Nothing is waiting for a person.": "Nichts wartet auf eine Person.",
-    "What it proposes": "Was sie vorschlägt",
-    Confidence: "Konfidenz",
-    Raised: "Angehoben",
-    "Open {group} and its chat": "{group} und den zugehörigen Chat öffnen",
-    "Open the group's mailbox": "Das Postfach der Gruppe öffnen",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "Das Modell, auf dem jede Automatisierung dieser Installation läuft: ein Anbieter, ein Modell, ein Schlüssel. Eine Installation ohne eines hat keine Automatisierungen — ein Lauf hat nichts, womit er entscheiden könnte.",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "Für diese Installation ist noch kein Agent registriert, daher gibt es nichts, worauf das Modell laufen könnte.",
-    "Ceiling on one answer (tokens)": "Obergrenze für eine Antwort (Tokens)",
-    "What a single model answer may cost. 1 to {max}.":
-      "Was eine einzelne Modellantwort kosten darf. 1 bis {max}.",
-    "Hops a chain of automations may run":
-      "Sprünge, die eine Kette von Automatisierungen ausführen darf",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "Wie weit eine Arbeit von Automatisierung zu Automatisierung wandern darf, bevor der Lauf darüber hinaus abgelehnt und die Gruppe informiert wird.",
-    "Pages one run may hand the model": "Seiten, die ein Lauf dem Modell übergeben darf",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "Eine Seite ohne Textebene reist als Bild, was Eingabe-Tokens pro Seite kostet.",
-    "Model saved": "Modell gespeichert",
-    "Remove the model?": "Das Modell entfernen?",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "Diese Installation führt keine Automatisierung aus, bis ein anderes Modell gespeichert ist, und der gespeicherte API-Schlüssel wird mit ihm entfernt.",
-    "Model removed": "Modell entfernt",
-    "The installation's model": "Das Modell der Installation",
-    "A key is stored": "Ein Schlüssel ist gespeichert",
-    "No key stored": "Kein Schlüssel gespeichert",
-    Provider: "Anbieter",
-    openai: "openai",
-    "A model name": "Ein Modellname",
-    "Base URL": "Basis-URL",
-    "https://api.example.com/v1": "https://api.example.com/v1",
-    "API key": "API-Schlüssel",
-    "Paste a new key here": "Hier einen neuen Schlüssel einfügen",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "Nur schreibbar: Der gespeicherte Schlüssel wird nie wieder angezeigt, und bleibt dieses Feld leer, behalten Sie den Schlüssel, den Sie bereits haben.",
-    "An installation that sets none gets {n}.":
-      "Eine Installation, die keinen festlegt, erhält {n}.",
-    "Remove the model": "Das Modell entfernen",
-    "Reading…": "Wird gelesen…",
-    "Ask the model to read it": "Das Modell bitten, es zu lesen",
-    "What the model said about this draft:":
-      "Was das Modell zu diesem Entwurf gesagt hat:",
-    "Audit trail": "Audit",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "Was der Agent dieser Gruppe getan hat, Neuestes zuerst — dasselbe Dokument, das ihre Mitglieder neben dem Chat lesen. Zwölf Monate aufbewahrt, jeweils ein Monat beschnitten.",
-    "No group is picked, so there is no audit trail to read here.":
-      "Es ist keine Gruppe ausgewählt, daher gibt es hier keinen Audit zu lesen.",
-    "Download every retained month of this group's audit trail as JSON":
-      "Jeden aufbewahrten Monat des Audits dieser Gruppe als JSON herunterladen",
-    "Copying…": "Wird kopiert…",
-    "Download every retained month as JSON":
-      "Jeden aufbewahrten Monat als JSON herunterladen",
-    "This group's audit trail could not be read.":
-      "Der Audit dieser Gruppe konnte nicht gelesen werden.",
-    "This group's agent has not done anything yet.":
-      "Der Agent dieser Gruppe hat noch nichts getan.",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "Die neuesten {shown} von {total} werden angezeigt. Laden Sie oben jeden aufbewahrten Monat für den Rest herunter.",
-    "No group is picked, so there is no standing instruction to read here.":
-      "Es ist keine Gruppe ausgewählt, daher gibt es hier keine Daueranweisung zu lesen.",
-    "How this group's agent works": "Wie der Agent dieser Gruppe arbeitet",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "Schreiben Sie an die Gruppe in ihrer eigenen Sprache und nennen Sie immer die Rechnungsnummer.",
-    "the group's standing instruction": "die Daueranweisung der Gruppe",
-    "Memory saved": "Gedächtnis gespeichert",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "Was der Agent der Gruppe bei jedem Aufruf hält: die Fakten über diese Gruppe, die ihre Automatisierungen nie wiederholen sollten. Jede Zeile wird als Daten gelesen — sie steuert und erweitert nie, was eine Automatisierung tun darf.",
-    "No group is picked, so there is no memory to read here.":
-      "Es ist keine Gruppe ausgewählt, daher gibt es hier kein Gedächtnis zu lesen.",
-    "This group's memory has not been read yet.":
-      "Das Gedächtnis dieser Gruppe wurde noch nicht gelesen.",
-    "Read it": "Lesen",
-    "This group's agent is holding nothing yet.":
-      "Der Agent dieser Gruppe hält noch nichts.",
-    "Fact {n}": "Fakt {n}",
-    "Remove this fact": "Diesen Fakt entfernen",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "Rechnungen von Ada werden unter dem Namen des Kunden abgelegt, nicht dem des Absenders.",
-    "Add a fact": "Einen Fakt hinzufügen",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "Ein Fakt hat höchstens {n} Zeichen, und ein Notizbuch hält {m}.",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "Für wen die Läufe dieser Gruppe anhalten und ob sie ohne eine Person nach außerhalb der Gruppe reichen dürfen. Eine Richtlinie für die gesamte Gruppe: Ihre Automatisierungen sind die Arbeit desselben Teams an derselben Korrespondenz.",
-    "No group is picked, so there is no policy to read here.":
-      "Es ist keine Gruppe ausgewählt, daher gibt es hier keine Richtlinie zu lesen.",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "Diese Gruppe hat keine Richtlinie geschrieben, daher läuft ein Lauf weiter, wenn das Modell zuversichtlich ist, und hält für eine Person an, wenn nicht. Eine Aktion, die die Gruppe verlässt oder nicht rückgängig gemacht werden kann, fragt immer.",
-    "When a person has to agree": "Wann eine Person zustimmen muss",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "Senden außerhalb der Gruppe ohne eine Person erlauben — dies hebt die Zustimmungsschwelle für externes Senden an.",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "Aus: Eine Aktion, die nach außerhalb der Gruppe reicht, wartet immer auf eine Person, was auch immer die Richtlinie sagt. Eine Aktion, die nicht rückgängig gemacht werden kann, fragt, was auch immer die eine oder andere Einstellung sagt.",
-    "An empty text removes it. At most {max} characters.":
-      "Ein leerer Text entfernt ihn. Höchstens {max} Zeichen.",
-    "At most {max} characters.": "Höchstens {max} Zeichen.",
-    "This automation cannot run as it stands: {reason}":
-      "Diese Automatisierung kann so nicht laufen: {reason}",
-    "Automation saved": "Automatisierung gespeichert",
-    "Delete the {name}?": "{name} löschen?",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "Das Automatisierungsdokument wird aus den eigenen Dateien der Gruppe entfernt. Ein bereits laufender Job behält die Version, mit der er gestartet ist.",
-    "Automation deleted": "Automatisierung gelöscht",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "Was der Agent in einer Gruppe tut: wann er reagiert und was er angesichts dessen, was er findet, tun soll. Die Automatisierung wird im eigenen Konto der Gruppe gespeichert, damit jedes Mitglied sie lesen kann.",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "Eine Automatisierung pro Auslöser: Der Agent führt jede aktivierte Automatisierung zu einem Auslöser gegen alles aus, was dieser Auslöser hervorbringt, daher beantwortet eine zweite zum selben Auslöser dasselbe Ereignis zweimal. Die Verzweigung zwischen einem Fall und einem anderen gehört in die Anweisung.",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "Der Agent ist nicht in dieser Gruppe, daher gibt es hier nichts zu verfassen: keine Automatisierung läuft, und niemand kann ihn im Chat der Gruppe erwähnen. Geben Sie ihm die Gruppe in Stalwarts eigener Administration und kommen Sie dann zurück.",
-    "This group's automation document could not be read.":
-      "Das Automatisierungsdokument dieser Gruppe konnte nicht gelesen werden.",
-    "Cannot be saved yet: {reason}": "Noch nicht speicherbar: {reason}",
-    "No automation in this group yet.": "Noch keine Automatisierung in dieser Gruppe.",
-    "Every trigger already has an automation in this group.":
-      "Jeder Auslöser hat in dieser Gruppe bereits eine Automatisierung.",
-    "New automation": "Neue Automatisierung",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "Jeder Auslöser hat in dieser Gruppe bereits eine Automatisierung. Löschen oder deaktivieren Sie eine, um eine andere Art zu schreiben.",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name} kann so nicht gespeichert werden: {reason}",
-    "Run this automation now, on the newest message in the group's inbox":
-      "Diese Automatisierung jetzt ausführen, auf der neuesten Nachricht im Posteingang der Gruppe",
-    "Asking…": "Wird angefragt…",
-    "Run now": "Jetzt ausführen",
-    "Delete automation": "Automatisierung löschen",
-    "Next due: {when}": "Nächste Fälligkeit: {when}",
-    "Not scheduled while disabled.": "Nicht geplant, solange deaktiviert.",
-    "Asked for: a run is open ({state}).": "Angefragt: Ein Lauf ist offen ({state}).",
-    "the automation “{name}”": "die Automatisierung „{name}“",
-    "Enabled — the agent reacts to this automation":
-      "Aktiviert — der Agent reagiert auf diese Automatisierung",
-    Trigger: "Auslöser",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "Eine Automatisierung pro Auslöser: Der Agent führt jede aktivierte Automatisierung zu einem Auslöser gegen alles aus, was dieser Auslöser hervorbringt, daher würden zwei von ihnen dasselbe Ereignis zweimal beantworten.",
-    "How often": "Wie oft",
-    "Every {minutes} minutes": "Alle {minutes} Minuten",
-    Instruction: "Anweisung",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "Lesen Sie die Nachricht und sagen Sie, was damit geschehen soll. Nützlicher Kontext, in klaren Worten.",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "Dieser Text ist alles, wozu ein Lauf aufgefordert wird: Jeder Lauf übergibt ihn dem Modell der Installation, das mit Aktionen aus den Bereichen unten antwortet.",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "Er wird als Daten gelesen, nicht befolgt: Eine Nachricht, die das Modell bittet, etwas zu tun, ist immer noch nur eine Nachricht.",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "Schreiben Sie ihn für die Fälle, wie sie eintreffen: Die Verzweigung zwischen einer Art Mail und einer anderen gehört hierher, nicht in eine zweite Automatisierung.",
-    "What it may do": "Was sie tun darf",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "Die Zulassungsliste: die einzigen Aktionen, die diese Automatisierung ausführen darf. Dem Modell werden diese und nichts anderes angeboten, und eine Antwort außerhalb davon wird abgelehnt.",
-    external: "extern",
-    irreversible: "unumkehrbar",
     "That is not valid JSON — fix the document and publish again.":
       "Das ist kein gültiges JSON — korrigieren Sie das Dokument und veröffentlichen Sie erneut.",
     "(untitled)": "(ohne Titel)",
@@ -2452,14 +2129,8 @@ export const catalog: Catalog = {
       "Nur ein Installationsadministrator kann den Papierkorb oder den Spam einer Gruppe leeren. Mail dorthin abzulegen, funktioniert weiterhin, und sie wieder herauszuholen ebenso.",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "Ein Ordner mit Mail kann in einer Gruppe nicht gelöscht werden, weil seine Mail mit ihm ginge. Verschieben Sie die Mail zuerst heraus, oder fragen Sie einen Installationsadministrator.",
-    "This reading was not counted toward this month's authoring.":
-      "Dieses Lesen wurde nicht auf die Verfassung dieses Monats angerechnet.",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "Zugriff auf {need} einer Gruppe geschieht als Agent der Installation, und dieser Agent ist kein Mitglied dieser Gruppe: Die Dokumente liegen im eigenen Konto der Gruppe, und nur ein Mitglied erreicht sie — fügen Sie den Agenten also im Verzeichnis des Mailservers der Gruppe hinzu.",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbert konnte den Mailserver nicht zu {need} dieser Gruppe befragen, daher kann es nicht sagen, ob dieser Agent darauf zugreift: nichts wurde geändert und nichts gelesen. Versuchen Sie es erneut, und wenn er weiter so antwortet, ist der Mailserver derjenige, den es zu prüfen gilt.",
     "Your settings could not be saved: {error}":
       "Ihre Einstellungen konnten nicht gespeichert werden: {error}",
     "List-Id": "List-Id",
@@ -2743,10 +2414,6 @@ export const catalog: Catalog = {
     "{n} accounts were not written to:": {
       one: "In {n} Konto wurde nicht geschrieben:",
       other: "In {n} Konten wurde nicht geschrieben:",
-    },
-    "{n} automations": {
-      one: "{n} Automatisierung",
-      other: "{n} Automatisierungen",
     },
     "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
       {

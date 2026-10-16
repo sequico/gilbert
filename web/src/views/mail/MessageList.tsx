@@ -1229,7 +1229,7 @@ export const Row = memo(function Row({
     return sent && src.length ? `To: ${summary}` : summary;
   }, [scope, isSent, isDrafts, count]);
   // Same rule as the conversation header: the agent's `G-` state is per
-  // message and never aggregated onto a row (ADR 0003 resolution 9).
+  // message and never aggregated onto a row.
   const rowLabels = labels.filter(
     (l) => !isAgentLabel(l.keyword) && scope.some((x) => x.keywords[l.keyword]),
   );

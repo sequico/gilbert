@@ -73,30 +73,6 @@ function readInt(
 }
 
 /**
- * A TCP port, where the installation may also state that there is none.
- *
- * A value outside the range is a refused boot rather than a `listen()` that
- * fails later with less to say; `allowZero` is what separates an endpoint that
- * may be switched off from one that may not. The range is stated in the
- * refusal, because this is the whole of what a developer sees: the
- * configuration is built at the import of `config.ts`.
- */
-function readPort(
-  environment: InstallationEnvironment,
-  name: string,
-  fallback: number,
-  allowZero = false,
-): number {
-  const value = readInt(environment, name, fallback);
-  const least = allowZero ? 0 : 1;
-  if (value < least || value > 65535)
-    throw new Error(
-      `Invalid port for ${name}: ${value} is not between ${least} and 65535${allowZero ? " (0 switches it off)" : ""}`,
-    );
-  return value;
-}
-
-/**
  * An integer with a floor, where a value below it is a refused boot.
  *
  * The installation's own document refuses a duration below its minimum rather
@@ -219,14 +195,14 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
    * forgetting `--read-only` is the easy mistake, and an instance that believed
    * it would look healthy while keeping whatever it wrote where the next image
    * will not find it. Nothing Gilbert holds durably lives on this filesystem any
-   * more — the sessions, the policy, the lock and the agent's records are all
-   * documents in Stalwart — so what is left to check is the property itself.
+   * more — the sessions, the policy and the lock are all documents in Stalwart
+   * — so what is left to check is the property itself.
    */
   const immutable = readBool(environment, "IMMUTABLE", false);
 
   interface AgentBootstrap {
     address: string;
-    /** The account password the agent signs in with. Empty = no agent named. */
+    /** The account password the Master signs in with. Empty = no Master named. */
     password: string;
   }
 
@@ -237,161 +213,32 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
   }
 
   /**
-   * The agent agent's timing and health: the environment is what carries them,
-   * and the environment cannot change under a running process, so they are read
-   * once.
+   * The installation's own account — the Master — plus the operator's own
+   * switch. Both are read-only configuration: the environment cannot change
+   * under a running process, so they are resolved once and never re-read.
    */
-  const agentSettings = {
-    /*
-     * How often a agent re-reads an account it could not be pushed about.
-     * Push is the wake-up and polling is the fallback after a lost stream, so
-     * this is deliberately unhurried: a minute of latency on a lost stream is
-     * far cheaper than a minute of hammering Stalwart.
-     *
-     * A value below one is refused, like the installation's own bound
-     * (`readBound`, `shared/installation.ts`): a stated zero would otherwise be
-     * a timer that fires at once and for ever.
-     */
-    pollMs: readIntAtLeast(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll, 1),
-    /* How often a working agent says it is alive, in its claims and heartbeat. */
-    heartbeatMs: readIntAtLeast(
-      environment,
-      "GILBERT_AGENT_HEARTBEAT_MS",
-      defaults.agent.heartbeat,
-      1,
-    ),
-    /*
-     * How long a claim may go un-renewed before another agent takes it over.
-     * Longer than a few heartbeats on purpose: an agent's work can sit in a
-     * model call or wait on a person, and a takeover that fires during a
-     * legitimate pause would run the same job twice.
-     *
-     * Refused below one for the same reason as the poll: a negative lifetime
-     * makes every claim stale the instant it is written, which is a takeover
-     * storm rather than a lifetime.
-     */
-    leaseMs: readIntAtLeast(
-      environment,
-      "GILBERT_AGENT_LEASE_MS",
-      defaults.agent.lease,
-      1,
-    ),
-    /*
-     * Where the agent answers a health probe, or 0 for no endpoint at all.
-     * A deployment with a restart policy wants this (ADR 0003 resolution 8);
-     * a agent nobody asks anything needs no listening socket.
-     *
-     * Held to the port range the installation's own document is held to
-     * (`shared/installation.ts`), so a value that is not a port is a refused
-     * boot rather than a `listen()` that fails later with less to say.
-     */
-    healthPort: readPort(
-      environment,
-      "GILBERT_AGENT_HEALTH_PORT",
-      defaults.agent.healthPort,
-      true,
-    ),
-    /*
-     * Whether the server starts a fleet of its own beside the web tier, which is
-     * what makes `node server/dist/index.js` an installation that also works
-     * (ADR 0003). A deployment that wants the fleet isolated — its own container,
-     * its own restart policy — says `GILBERT_AGENT_INPROCESS=0` and runs
-     * `node server/dist/agent/agent.js` itself.
-     */
-    inprocess: readBool(environment, "GILBERT_AGENT_INPROCESS", defaults.agent.inProcess),
-    /*
-     * Whether a run pays for the model's chain of thought. The provider reasons
-     * by default; a run that wants a cheaper, faster answer says so here, and an
-     * agent that wants the careful one keeps the default. It is a parameter of
-     * the agent rather than of a rule because a group is held by one agent at a
-     * time — and every run records the setting it used beside the tokens it
-     * spent, so a behaviour that changed with the machine that ran it is
-     * readable rather than inferred (ADR 0003).
-     */
-    thinking: readBool(environment, "GILBERT_AGENT_THINKING", defaults.agent.thinking),
+  const agent = {
+    ...resolveAgentBootstrap(),
     /**
      * Whether this deployment may point the installation's model at an address
      * inside its own network — a model running on the same host, say.
      *
      * Off by default, and it is the **operator's** statement rather than the
      * installation's: the provider an installation writes is refused when it
-     * names a private host (`assertUsableProvider`, ADR 0003), and this is what
-     * says the deployment meant one. It is read here, from the environment, and
-     * nowhere else — never from the installation's document, which an
-     * installation could otherwise use to grant itself the right to aim its
-     * model at the network the deployment runs in. The boot does not override
-     * it either: the document's agent is spread beside the environment's in
-     * `bootstrap.ts`, so this value is the one a served process runs on.
+     * names a private host (`assertUsableProvider`), and this is what says the
+     * deployment meant one. It is read here, from the environment, and nowhere
+     * else — never from the installation's document, which an installation
+     * could otherwise use to grant itself the right to aim its model at the
+     * network the deployment runs in. The boot does not override it either:
+     * `bootstrap.ts` merges this over the environment's own, so this value is
+     * the one a served process runs on.
      */
     allowPrivateProvider: readBool(
       environment,
       "GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER",
       false,
     ),
-    /**
-     * Whether the installation's model can read an image.
-     *
-     * True is the common case and the default; a deployment running a
-     * text-only model says so, and then a run handed a page with no text layer is
-     * told that the page could not be read rather than being told an image was
-     * handed over (ADR 0003).
-     */
-    vision: readBool(environment, "GILBERT_AGENT_VISION", defaults.agent.vision),
-    /**
-     * How many readings one installation may ask for in a month.
-     *
-     * A reading is a call the installation pays for and it is not a run, so no
-     * job's ceiling bounds it: this is the bound, counted from the authoring
-     * document of the month, and a reading past it is refused before it is made
-     * (ADR 0003).
-     */
-    authoringMonthlyMax: readInt(
-      environment,
-      "GILBERT_AGENT_AUTHORING_MAX_PER_MONTH",
-      defaults.agent.authoringMaxPerMonth,
-    ),
-    /*
-     * How many pages one run may hand the model as images (ADR 0003). A page
-     * whose own text layer is empty is rasterised in the process and read by the
-     * model, and a document is as long as whoever sent it made it — so the count
-     * is a bound the installation sets rather than one the file decides. The run
-     * is told the number in its own prompt.
-     */
-    // Floored at one the same way the installation's own stored bound is
-    // (`isAgentBound`): a deployment that sets this to 0 or a negative number
-    // must not have every run refused as though it were over its chain bound
-    // instead of under its page one — the two validators disagreeing was a
-    // business logic review finding.
-    maxPages: Math.max(
-      1,
-      readInt(environment, "GILBERT_AGENT_MAX_PAGES", defaults.agent.pages),
-    ),
-    /*
-     * How many hops a chain of automations runs before the next one is refused
-     * (ADR 0003). Hop one is the trigger that wakes a rule by itself, and a run
-     * woken by another run's effect is one more; a cycle of automations that wake
-     * each other ends here. The number is carried in the installation's
-     * configuration rather than compiled in, so a deployment with a legitimately
-     * longer pipeline raises it instead of waiting for a release.
-     */
-    // Floored at one the same way the installation's own stored bound is: a
-    // deployment that sets this to 0 or a negative number would otherwise
-    // refuse every run, even an unchained hop-one trigger, as though it were a
-    // runaway chain (a business logic review finding).
-    maxChainHops: Math.max(
-      1,
-      readInt(environment, "GILBERT_AGENT_MAX_CHAIN_HOPS", defaults.agent.chainHops),
-    ),
   };
-
-  /**
-   * The installation's agent, as the running process holds it (ADR 0003).
-   *
-   * The environment cannot change under a running process, so this is resolved
-   * once and never re-read: an operator who names a different agent, or gives it
-   * a different secret, says so in the deployment and restarts it.
-   */
-  const agent = { ...resolveAgentBootstrap(), ...agentSettings };
   return {
     production,
     appName: readEnv(environment, "APP_NAME", defaults.branding.appName),
@@ -538,9 +385,8 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * stays on the relay.
      */
     /*
-     * The agent agent (ADR 0003). Everything here is read-only configuration:
-     * the documents the fleet works from live in Stalwart, in the agent's own
-     * account and in each group's.
+     * The installation's own account — the Master — and the operator's switch
+     * over which model may be reached. Read-only configuration, resolved once.
      */
     agent,
     pushMode: (environment.PUSH_MODE === "relay" ? "relay" : defaults.push.mode) as

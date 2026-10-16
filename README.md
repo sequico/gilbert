@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/banner.png" alt="Gilbert — the mail suite with AI agents inside" width="880">
+  <img src="docs/media/banner.png" alt="Gilbert — company mail and operations" width="880">
 </p>
 
 <p align="center">
@@ -25,16 +25,15 @@
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.
 
-Gilbert is **company mail and operations with AI agents inside** — self-hosted
-mail, calendar, contacts and files, a knowledge base and the procedures a job
-follows. Agents read incoming mail and files, file documents into the right
-folder, read the document inside them, draft replies and report what they did in
-the group's chat. What they may do is a capability list an administrator writes
-and code enforces; every effect is recorded before it happens; and anything that
-leaves the group waits for a person to approve it, in words.
+Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
+and files, a knowledge base and the procedures a job follows. Its agent is
+designed and not built: it will read incoming mail and files, file documents into
+the right folder, read the document inside them, draft replies and report what it
+did in the group's chat — inside the group's own account, everything recorded,
+and anything that leaves the group waiting for a person to say so, in words.
 
-> **The agent part (`gilbertagents`) is designed but not yet functional, and is
-> being reworked** — see [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+> **The agent part (`gilbertagents`) is designed and not built.** Its decisions
+> are ADR 0031–0035; nothing in the tree serves a group's work today.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -66,9 +65,8 @@ other:
   and the Sieve editor. This is the block that came from upstream.
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
-  proxies. The agent fleet runs inside it.
-- **gilbertagents** — the agents: the Master principal, the agent fleet, the
-  automations, the approvals and the audit.
+  proxies.
+- **gilbertagents** — the agent: designed and not built, by ADR 0031–0035.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
@@ -86,13 +84,11 @@ the boundary, is [ADR 0002](docs/adr/0002-upstream-contribution-model.md).
 
 The short version; [FEATURES.md](FEATURES.md) is the inventory.
 
-- **Agents for mail and files.** An agent is a Stalwart account of its own
-  (`gilbert@…`) granted on a group like any colleague. An **automation** is a
-  trigger (mail, chat, a file, the clock), an instruction in prose and a
-  **capability allowlist**. The allowlist is checked in code on every answer, so
-  neither the model nor a cleverly worded instruction can widen it. A group's
-  review policy can pause a run for a person; a send outside the group always
-  asks first.
+- **Agents for mail and files.** The agent acts for a group, inside that group's
+  own account, as the Master principal (`gilbert@…`). It reads the company's
+  written policy and the group's own rules, does the reversible work of the
+  account, records what it did and why, and asks a person for anything that
+  leaves the account — or for anything the policy forbids (ADR 0031–0035).
 - **A receipt for everything.** Every run is recorded, one line written before
   the effect, in a monthly document per group kept twelve months and readable by
   every member.
@@ -128,8 +124,7 @@ browser  ──(same-origin /api/*)──►  Gilbert server (Node + Hono)  ─�
 - `web/` — React 19 + TypeScript SPA (Vite): JMAP client, zustand stores, views.
 - `server/` — Node + Hono: authenticates against Stalwart's JMAP session
   endpoint, seals the credentials, proxies JMAP/blob/SSE and serves the SPA under
-  a strict CSP. `src/mock/` is an in-memory fake Stalwart for development;
-  `src/agent/` is the fleet.
+  a strict CSP. `src/mock/` is an in-memory fake Stalwart for development.
 
 JMAP only, to Stalwart; no own database; every durable byte lives in Stalwart.
 Features degrade gracefully by JMAP capability. The architecture decisions are
@@ -165,8 +160,7 @@ npm run dev:mock        # complete Gilbert against an in-memory mock Stalwart
 ```
 
 Then open http://localhost:5173 and sign in with `demo@example.com` / `demo`.
-`npm run dev:mock:agent` is the same stack with an agent process running. The full
-install and operation guide is [INSTALL.md](INSTALL.md).
+The full install and operation guide is [INSTALL.md](INSTALL.md).
 
 ## Where to read more
 

@@ -12,9 +12,9 @@
  * per probed group mailbox, the contact sidebar's own arrangement.
  *
  * Search is Orama in-process over the articles' `text`, rebuilt lazily per
- * search (ADR 0024 Q14), so the human box shares a corpus with the fleet's
- * lookup — which reads the same `text` without Orama — without a second service
- * and without a cached index to go stale.
+ * search (ADR 0024 Q14), so the human box shares a corpus with the server's
+ * own lookup — which reads the same `text` without Orama — without a second
+ * service and without a cached index to go stale.
  */
 
 import { errorMessage } from "@gilbert/shared/errors";

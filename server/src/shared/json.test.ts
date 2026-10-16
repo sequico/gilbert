@@ -26,9 +26,8 @@ test("a scalar, null or undefined is not", () => {
 });
 
 test("a string map is a record whose values are all strings", () => {
-  // The shape behind the `{ by, at }` stamps, the agent claim's `states`, and a
-  // workorder checklist's `variants` — three documents that two readers used to
-  // accept differently.
+  // The shape behind the `{ by, at }` stamps and a workorder checklist's
+  // `variants`, shared so every reader accepts the same documents.
   assert.equal(isStringMap({}), true, "a document with nothing stamped yet");
   assert.equal(isStringMap({ a: "", b: "x" }), true);
   assert.equal(isStringMap({ a: 1 }), false);

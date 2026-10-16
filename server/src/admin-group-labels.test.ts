@@ -41,7 +41,7 @@ const call = jsonCall(app, HEADERS);
 
 before(async () => {
   // The installation's agent: read once, at boot, like every other deployment
-  // value (ADR 0003).
+  // value.
   config.agent.address = mock.AGENT_ADDRESS;
   config.agent.password = "";
   const res = await call("/api/auth/login", {

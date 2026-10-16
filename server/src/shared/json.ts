@@ -26,12 +26,10 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
 /**
  * Whether a value is a map whose every value is a string.
  *
- * The shape behind the `{ by, at }` stamps two document families carry, the
- * claim's `states` and the instants beside them, and a workorder checklist's
- * `variants`. Each had its own two-line copy — one in the agent's claim
- * validator, one in the workorder's — so a claim the workorder reader accepted
- * and the agent reader refused was a difference in the validators rather than in
- * the claim, which is the opposite of what two readers of one document want.
+ * The shape behind the `{ by, at }` stamps the document families carry and the
+ * instants beside them, and a workorder checklist's `variants`. One definition
+ * for every reader, so a document one reader accepts is a document every reader
+ * accepts.
  *
  * `isStringArray` is its sibling for the other half of what these documents
  * hold, and an empty map is a map: a document with nothing stamped yet is one

@@ -1,23 +1,20 @@
 /**
  * A debounced re-read, keyed by whatever the caller groups its events by.
  *
- * Two stores follow a FileNode they do not own — a group's agent documents
- * (`store/agents.ts`) and a group's label catalog (`store/groupLabels.ts`) —
- * and both hear about a change the same way: a push `StateChange` names an
- * account and a type and nothing else, so a burst of events cannot be told
- * apart from one, and every event for the same key costs the same read. The
- * wait is per key, cleared and reset on every event, so a burst settles into
- * one read `RELOAD_DEBOUNCE_MS` after the last of it — one window for the two
- * readers of the same push rail.
+ * A store that follows a FileNode it does not own — a group's label catalog
+ * (`store/groupLabels.ts`) — hears about a change this way: a push
+ * `StateChange` names an account and a type and nothing else, so a burst of
+ * events cannot be told apart from one, and every event for the same key costs
+ * the same read. The wait is per key, cleared and reset on every event, so a
+ * burst settles into one read `RELOAD_DEBOUNCE_MS` after the last of it.
  *
  * **Not the same mechanism as the `StateChange` dispatch in `web/src/App.tsx`,
  * and the difference is not cosmetic.** That one collects *every* account and
  * type of a burst into a single pass, because the stores it feeds each route
  * the accounts they hold, and it fires from the first event of the burst. This
- * one is per key and fires from the last, because each of its two readers
- * re-reads exactly one thing: the group that is open, the account whose
- * catalog it is holding. They share the window (`RELOAD_DEBOUNCE_MS`), not
- * the shape.
+ * one is per key and fires from the last, because its reader re-reads exactly
+ * one thing: the account whose catalog it is holding. They share the window
+ * (`RELOAD_DEBOUNCE_MS`), not the shape.
  */
 
 /**

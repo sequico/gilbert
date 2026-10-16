@@ -12,9 +12,8 @@
  *    ("3 (5)") and which decides whether a label set to "while unread" is
  *    drawn at all (`visibleLabels`).
  *
- * The `G-` state the agent writes (ADR 0003 resolution 9) is deliberately not
- * among the counted keywords: it is per-message processing state, never a row
- * in the sidebar.
+ * The reserved `G-` state is deliberately not among the counted keywords: it
+ * is per-message processing state, never a row in the sidebar.
  *
  * **A count is taken over the row, not the message.** A conversation counted
  * once while its messages each counted once is not a detail: the number would
@@ -28,8 +27,8 @@ import { type Label, settings } from "@/store/settings";
 
 /*
  * The two system keywords this module counts are defined once, in the shared
- * label vocabulary the server reads too — a run's own lookup reads `$flagged`
- * from there (ADR 0020) — and re-exported here so a web import keeps its home.
+ * label vocabulary the server reads too, and re-exported here so a web import
+ * keeps its home.
  */
 export { SEEN_KEYWORD, STARRED_KEYWORD };
 

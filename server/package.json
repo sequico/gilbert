@@ -13,8 +13,7 @@
     "test": "tsx --test src/*.test.ts src/**/*.test.ts",
     "mock": "tsx src/mock/index.ts",
     "mock:no-future-release": "MOCK_NO_FUTURE_RELEASE=1 tsx src/mock/index.ts",
-    "mock:no-keyword-sort": "MOCK_NO_KEYWORD_SORT=1 tsx src/mock/index.ts",
-    "agent": "tsx src/agent/agent.ts"
+    "mock:no-keyword-sort": "MOCK_NO_KEYWORD_SORT=1 tsx src/mock/index.ts"
   },
   "dependencies": {
     "@cfworker/json-schema": "^4.1.1",

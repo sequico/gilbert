@@ -23,9 +23,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "Bilgi",
     "": "",
     " and {count} more": " ve {count} tane daha",
     "(new event)": "(yeni etkinlik)",
@@ -62,37 +59,27 @@ export const catalog: Catalog = {
       "Kişi kartlarınızdaki doğum günlerinden türetilen özel bir takvim. Hiçbir yere bir şey yazılmaz — tarihler kartlarda kalır ve kişi silindiğinde veya doğum günü temizlendiğinde etkinlik kaybolur. Buradan kapatılmadan da takvimin kendi kenar çubuğundan gizlenebilir.",
     "A calendar published at a URL — a timetable, a rota, a public holiday list. It is read-only, refreshed when you open the calendar, and never stored: the events are fetched and kept only for as long as this tab is open.":
       "Bir URL'de yayımlanan bir takvim — bir ders programı, nöbet çizelgesi veya resmi tatil listesi. Salt okunurdur, takvimi açtığınızda yenilenir ve asla saklanmaz: etkinlikler yalnızca bu sekme açık olduğu sürece getirilir ve tutulur.",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "Bir bilgi en fazla {n} karakterdir ve bir defter {m} tanesini tutar.",
     "A fast, friendly, open-source webmail for {server}, built on JMAP.":
       "JMAP üzerine inşa edilmiş, {server} için hızlı, samimi ve açık kaynaklı bir web posta.",
     "A file called “{name}” is already here.": "“{name}” adlı bir dosya zaten burada.",
-    "A file or folder changes": "Bir dosya veya klasör değişir",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "Posta barındıran bir klasör bir grupta silinemez, çünkü postası onunla birlikte gider. Önce postayı dışarı taşıyın ya da bir kurulum yöneticisine sorun.",
     "A group holds one identity per member: the group's own address, carrying each member's own display name and signature. An identity reaches mail composed in Gilbert — by a member in the composer, or by the group's agent. A Bcc on one copies every message that identity sends, which for a group's mail is everything written as the group.":
       "Bir grup, üye başına bir kimlik tutar: grubun kendi adresi, her üyenin kendi görünen adını ve imzasını taşır. Bir kimlik, Gilbert'te yazılan postaya ulaşır — besteci içinde bir üye ya da grubun ajanı tarafından. Birindeki Bcc, o kimliğin gönderdiği her iletiyi kopyalar; bir grubun postasında bu, grup olarak yazılan her şey demektir.",
     "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.":
       "Bir grubun postası bir kurulum yöneticisi tarafından sonlandırılır. Bir iletiyi grubun Çöp Kutusu'na koymak yine de çalışır; onu geri çıkarmak da öyle.",
-    "A key is stored": "Bir anahtar saklanır",
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "Metninde bir etki alanı adı yazan ancak hedefi başka bir etki alanı olan bağlantılar, hedef güvenilir olsa bile her zaman işaretlenir — güvenilir olmak metnin iddia ettiği yer olmakla aynı şey değildir.",
-    "A model name": "Bir model adı",
     "A newer version is on the server.": "Sunucuda daha yeni bir sürüm var.",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "Metin katmanı olmayan bir sayfa görüntü olarak gider ve sayfa başına giriş tokenı harcar.",
     "A read receipt was already sent for this message.":
       "Bu ileti için zaten bir okundu bildirimi gönderildi.",
     "A receipt tells whoever asked that this address is live and when the message was read, and the sender chooses where it goes — so there is no automatic option. Bulk mail, mailing lists and anything marked auto-submitted are never offered one at all.":
       "Okundu bilgisi, talep eden kişiye bu adresin aktif olduğunu ve iletinin ne zaman okunduğunu bildirir ve gönderen nereye gideceğini seçer — bu nedenle otomatik bir seçenek yoktur. Toplu e-postalar, posta listeleri ve otomatik gönderildi olarak işaretlenen hiçbir şeye bu seçenek sunulmaz.",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "Güven eşiğinde veya üzerindeki bir çalıştırma gözetimsiz ilerler; altındaysa birini bekler.",
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.":
       "Bir posta uygulaması veya cihazı için tek başına iptal edebileceğiniz ayrı bir şifre. Uygulama şifreleri iki adımlı kodları atlar, bu sayede kod isteyemeyen uygulamalarda çalışmaya devam eder.",
     "A to Z": "A'dan Z'ye",
     "AGPL-3.0 source": "AGPL-3.0 kaynak kodu",
     "AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
-    "API key": "API anahtarı",
     About: "Hakkında",
     "About Gilbert": "Gilbert Hakkında",
     "Accent color": "Vurgu rengi",
@@ -102,17 +89,13 @@ export const catalog: Catalog = {
     Actions: "Eylemler",
     "Actions for {email}": "{email} için eylemler",
     Activate: "Etkinleştir",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "Bu grupta {address} olarak etkin. Salt okunur: izlediği şey yönetimde yazılır ve siz ona bu sohbette yanıt verirsiniz.",
     "Active webmail sessions": "Aktif webmail oturumları",
-    Activity: "Hareketler",
     Add: "Ekle",
     "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.":
       "Gilbert'i Safari'de Ana Ekranınıza ekleyin ve oradan açın: iOS bildirimleri yalnızca bu şekilde kurulmuş bir web uygulamasına sunar.",
     "Add Gilbert to your Home Screen.": "Gilbert'i Ana Ekranınıza ekleyin.",
     "Add a contact or import a vCard file.":
       "Bir kişi ekleyin veya bir vCard dosyası içe aktarın.",
-    "Add a fact": "Bir bilgi ekle",
     "Add a person or group…": "Kişi veya grup ekle…",
     "Add action": "Eylem ekle",
     "Add address": "Adres ekle",
@@ -137,7 +120,6 @@ export const catalog: Catalog = {
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Buradan veya bir bağlantı açıldığında iletişim kutusundan eklendi. Bir etki alanı alt etki alanlarını da kapsar.",
     "Added to your calendar": "Takviminize eklendi",
-    "Added: {labels}": "Eklendi: {labels}",
     Address: "Adres",
     "Address book": "Adres defteri",
     "Address book options": "Adres defteri seçenekleri",
@@ -157,12 +139,8 @@ export const catalog: Catalog = {
     Agenda: "Gündem",
     "Agenda from {date}": "{date} tarihinden itibaren gündem",
     "Agenda view": "Ajanda görünümü",
-    Agent: "Ajan",
-    "Agent address": "Ajan adresi",
-    "Agents serving this group": "Bu gruba hizmet eden ajanlar",
     "Align left": "Sola hizala",
     "Align right": "Sağa hizala",
-    Alive: "Canlı",
     "All address books": "Tüm adres defterleri",
     "All contacts": "Tüm kişiler",
     "All day": "Tüm gün",
@@ -176,15 +154,10 @@ export const catalog: Catalog = {
       "Üçü de başlangıçta kapalıdır. Sürekli kesintilerle başlayan bir istemcide kullanıcılar uyarıları okumadan geçmeyi alışkanlık haline getirir ve okunmadan geçilen bir uyarı dikkati dağıtmanın ötesinde bir işe yaramaz.",
     "All {n} in {folder} are selected.": "{folder} içindeki tüm {n} öğe seçildi.",
     "All {n} on this page are selected.": "Bu sayfadaki tüm {n} öğe seçildi.",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "Bir kişi olmadan grubun dışına göndermeye izin ver — bu, dışa gönderim onay tabanını yükseltir.",
     "Also apply to existing messages in": "Şuradaki mevcut iletilere de uygula:",
     "Also count these domains as inside": "Bu etki alanlarını da dâhilî say",
     Always: "Her zaman",
     "Always (all messages)": "Her zaman (tüm iletiler)",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "Her zaman iletinin yazıldığı dilde yanıtla ve bir kişi olmadan grubun dışına hiçbir şey gönderme.",
-    "Always ask a person first": "Her zaman önce bir kişiye sor",
     "Always from {email}": "Her zaman {email} adresinden göster",
     "Always request read receipts": "Her zaman okundu bilgisi iste",
     "Always show": "Her zaman göster",
@@ -192,21 +165,12 @@ export const catalog: Catalog = {
     "Always showing images from": "Şu adresten gelen görselleri her zaman gösteriyor:",
     "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.":
       "Bu kişiyi başka bir hesap sizinle paylaştığı bir adres defteri tutuyor, dolayısıyla düzenleme ve silme o hesabın iznine bağlı — ikisi de burada sunulmaz.",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "Bir ajan kendi sürecidir, web katmanının bir kopyası değil: hizmet ettiği hesabı kiralama (lease) ile sahiplenir ve çalışırken bir kalp atışı yazar. Burada hiçbir şey bir ajanı başlatmaz veya durdurmaz — ajanlar kurulumun dağıtıldığı yerde tanımlanır.",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "Duraklayan bir otomasyon, önerdiğini grubunun sohbetinde paylaşır ve bir üye orada sözcüklerle yanıtlar. Bu yüzden onaylama burada değil, sohbette olur — bu kuyruk tüm gruplar üzerindeki gözetimdir ve herhangi birinde neyin beklediğini görmenin yoludur.",
-    "An email arrives": "Bir e-posta gelir",
-    "An empty text removes it. At most {max} characters.":
-      "Boş bir metin onu kaldırır. En fazla {max} karakter.",
     "An enforced account is offered no Identity & signatures section at all, and no signature of its own. A Bcc set on one of its identities is one the person cannot take off, which is worth weighing before the last identity is locked: the address copies every message that identity sends in Gilbert. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.":
       "Zorunlu bir hesaba hiç Kimlik ve imzalar bölümü sunulmaz ve kendine ait imzası olmaz. Kimliklerinden birine konan bir Bcc, kişinin kaldıramayacağı bir şeydir; son kimlik kilitlenmeden önce bunu tartmakta yarar var: adres, o kimliğin Gilbert'te gönderdiği her iletiyi kopyalar. Kilit, bu ürünün yüzeyine dair bir kuraldır, bir sınır değil: Stalwart'ta bir kimlik üzerinde alan başına izin yoktur, dolayısıyla doğrudan JMAP konuşan bir istemci yine de bir tane yazabilir.",
     "An identity reaches mail composed in Gilbert. Mail written in another client carries that client's own signature.":
       "Bir kimlik, Gilbert'te yazılan postaya ulaşır. Başka bir istemcide yazılan posta o istemcinin kendi imzasını taşır.",
     "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by Gilbert's own server rather than the browser, so the sender learns none of those.":
       "Gönderenin sunucusundan yüklenen bir görüntü, ona iletinin açıldığını, ne zaman ve yaklaşık nereden açıldığını söyler. Onaylanan görüntüler tarayıcı yerine Gilbert'in kendi sunucusu tarafından getirilir, böylece gönderen bunların hiçbirini öğrenmez.",
-    "An installation that sets none gets {n}.":
-      "Bunlardan hiçbirini ayarlamayan bir kurulum {n} alır.",
     "An occurrence cannot be moved to another calendar on its own":
       "Bir yineleme tek başına başka bir takvime taşınamaz",
     "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
@@ -227,8 +191,6 @@ export const catalog: Catalog = {
     "Apply the theme to messages too": "Temayı iletilere de uygula",
     "Apply to series": "Diziye uygula",
     "Applying filter to existing messages…": "Filtre mevcut iletilere uygulanıyor…",
-    Approvals: "Onaylar",
-    "Approvals sections": "Onay bölümleri",
     Archive: "Arşivle",
     "Archive (e)": "Arşivle (e)",
     "Archive and next": "Arşivle ve sonraki",
@@ -237,7 +199,6 @@ export const catalog: Catalog = {
     "Archive failed: {error}": "Arşivleme başarısız: {error}",
     "Archive the original when replying to it.": "Yanıtlarken özgün iletiyi arşivle.",
     "Archive to {folder}": "{folder} klasörüne arşivle",
-    "Ask a person below a confidence threshold": "Güven eşiğinin altında bir kişiye sor",
     "Ask again": "Yeniden sor",
     "Ask before deleting.": "Silmeden önce sor.",
     "Ask before opening a link in a message": "İletideki bir bağlantıyı açmadan önce sor",
@@ -246,12 +207,7 @@ export const catalog: Catalog = {
     "Ask before showing": "Göstermeden önce sor",
     "Ask me on each message": "Her iletide bana sor",
     "Ask senders for a read receipt.": "Gönderenlerden okundu bildirimi iste.",
-    "Ask the model to read it": "Modelden okumasını iste",
-    "Asked for approval": "Onay istendi",
-    "Asked for: a run is open ({state}).": "İstenen: bir çalıştırma açık ({state}).",
-    "Asking…": "Soruluyor…",
     "Assign identity": "Kimlik ata",
-    "At most {max} characters.": "En fazla {max} karakter.",
     "At time of event": "Etkinlik anında",
     Attach: "Ekle",
     "Attach files": "Dosya ekle",
@@ -259,8 +215,6 @@ export const catalog: Catalog = {
     "Attach {n} files": "{n} dosya ekle",
     "Attachment reminder": "Ek anımsatıcısı",
     "Attachments are still uploading": "Ekler hâlâ yükleniyor",
-    Audit: "Denetim",
-    "Audit trail": "Denetim izi",
     "Auto-reply enabled": "Otomatik yanıt etkin",
     "Auto-reply is on": "Otomatik yanıt açık",
     "Auto-reply saved": "Otomatik yanıt kaydedildi",
@@ -269,10 +223,6 @@ export const catalog: Catalog = {
     "Automatic ({locale})": "Otomatik ({locale})",
     "Automatically reply to people who email you while you're away. Each sender gets at most one reply.":
       "Siz uzaktayken size e-posta gönderen kişileri otomatik olarak yanıtlayın. Her gönderene en fazla bir yanıt iletilir.",
-    Automation: "Otomasyon",
-    "Automation deleted": "Otomasyon silindi",
-    "Automation saved": "Otomasyon kaydedildi",
-    Automations: "Otomasyonlar",
     "Available to add": "Eklenmeye uygun",
     Back: "Geri",
     "Back (u)": "Geri (u)",
@@ -286,13 +236,11 @@ export const catalog: Catalog = {
     Backup: "Yedekleme",
     "Banner when a sender is outside the account's domains.":
       "Gönderen hesabın alan adlarının dışındayken banner.",
-    "Base URL": "Temel URL",
     Bcc: "Gizli (Bcc)",
     "Bcc (optional)": "Bcc (isteğe bağlı)",
     "Bcc: {addresses}": "Bcc: {addresses}",
     Before: "Önce",
     "Before it happens": "Gerçekleşmeden önce",
-    Behaviour: "Davranış",
     "Below the list": "Listenin altında",
     Birthday: "Doğum günü",
     Birthdays: "Doğum Günleri",
@@ -302,7 +250,6 @@ export const catalog: Catalog = {
     "Browser default ({zone})": "Tarayıcı varsayılanı ({zone})",
     "Bulleted list": "Madde işaretli liste",
     Busy: "Meşgul",
-    By: "Yazan",
     "By sender": "Gönderene göre",
     "By subject": "Konuya göre",
     Calendar: "Takvim",
@@ -319,12 +266,10 @@ export const catalog: Catalog = {
     Cancelled: "İptal edildi",
     "Canned responses you can insert into any message from the composer's template button.":
       "İleti yazma penceresindeki şablon butonundan herhangi bir iletiye ekleyebileceğiniz hazır yanıtlar.",
-    "Cannot be saved yet: {reason}": "Henüz kaydedilemez: {reason}",
     "Categorised as {name}": "{name} olarak kategorilendi",
     Category: "Kategori",
     "Category cleared": "Kategori temizlendi",
     Cc: "Bilgi (Cc)",
-    "Ceiling on one answer (tokens)": "Tek bir yanıt üst sınırı (token)",
     Center: "Ortala",
     "Certificate covers": "Sertifikanın kapsadığı:",
     "Change password": "Parolayı değiştir",
@@ -337,7 +282,6 @@ export const catalog: Catalog = {
     Chat: "Sohbet",
     "Check for new shares": "Yeni paylaşımları kontrol et",
     "Checking for updates…": "Güncellemeler denetleniyor…",
-    "Checking…": "Denetleniyor…",
     "Choose a calendar": "Bir takvim seçin",
     "Choose a date": "Bir tarih seçin",
     "Choose a date and time": "Bir tarih ve saat seçin",
@@ -377,7 +321,6 @@ export const catalog: Catalog = {
     "Compose templates the account saved.": "Hesabın kaydettiği beste şablonları.",
     Composing: "İleti Yazma",
     "Composing and sending": "Yazma ve gönderme",
-    Confidence: "Güven",
     "Confirm before deleting": "Silmeden önce onayla",
     "Confirm new password": "Yeni şifreyi onayla",
     "Confirm when a recipient is outside the account's domains.":
@@ -400,7 +343,6 @@ export const catalog: Catalog = {
     "Copy email address": "E-posta adresini kopyala",
     "Copy it into {name} now — it isn't shown again.":
       "Şimdi {name} içine kopyalayın — tekrar gösterilmeyecektir.",
-    "Copying…": "Kopyalanıyor…",
     "Could not attach": "Eklenemedi",
     "Could not be read": "Okunamadı",
     "Could not cancel: {error}": "İptal edilemedi: {error}",
@@ -495,7 +437,6 @@ export const catalog: Catalog = {
     "Delete all spam": "Tüm spami sil",
     "Delete all spam in “{name}”?": "“{name}” içindeki tüm spam silinsin mi?",
     "Delete all spam now": "Tüm spam'i şimdi sil",
-    "Delete automation": "Otomasyonu sil",
     "Delete category": "Kategoriyi sil",
     "Delete failed: {error}": "Silme başarısız: {error}",
     "Delete folder": "Klasörü sil",
@@ -507,7 +448,6 @@ export const catalog: Catalog = {
     "Delete script": "Betiği sil",
     "Delete script “{name}”?": "“{name}” betiği silinsin mi?",
     "Delete template": "Şablonu sil",
-    "Delete the {name}?": "{name} silinsin mi?",
     "Delete them": "Onları sil",
     "Delete this event?": "Bu etkinlik silinsin mi?",
     "Delete this identity so the member sends as the group":
@@ -530,11 +470,9 @@ export const catalog: Catalog = {
       "Yeni posta için masaüstü bildirimleri (cihaza özel).",
     "Desktop notifications while Gilbert is open":
       "Gilbert açıkken masaüstü bildirimleri",
-    Detail: "Ayrıntı",
     Details: "Ayrıntılar",
     Device: "Cihaz",
     "Did you forget the attachment?": "Eki unuttunuz mu?",
-    Disabled: "Devre dışı",
     Discard: "Sil",
     "Discard changes": "Değişiklikleri iptal et",
     "Discard draft": "Taslağı sil",
@@ -551,9 +489,6 @@ export const catalog: Catalog = {
     "Download (.eml)": "İndir (.eml)",
     "Download all": "Tümünü indir",
     "Download all to Files": "Tümünü Dosyalar'a indir",
-    "Download every retained month as JSON": "Saklanan her ayı JSON olarak indir",
-    "Download every retained month of this group's audit trail as JSON":
-      "Bu grubun denetim izinin saklanan her ayını JSON olarak indir",
     "Download latest as .eml": "En sonuncuyu .eml olarak indir",
     "Dr.": "Dr.",
     Draft: "Taslak",
@@ -603,8 +538,6 @@ export const catalog: Catalog = {
     "Empty “{name}”?": "“{name}” boşaltılsın mı?",
     "Emptying folder…": "Klasör boşaltılıyor…",
     Enabled: "Etkin",
-    "Enabled — the agent reacts to this automation":
-      "Etkin — ajan bu otomasyona tepki verir",
     "End must be after start": "Bitiş başlangıçtan sonra olmalıdır",
     Ends: "Bitiş",
     "Ends (optional)": "Bitiş (isteğe bağlı)",
@@ -620,24 +553,13 @@ export const catalog: Catalog = {
     "Event duplicated": "Etkinlik yinelendi",
     "Event updated": "Etkinlik güncellendi",
     "Every folder": "Her klasör",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "İzin verilen her grubun denetim izi, birleştirilmiş ve en yeniden eskiye sıralanmış. Bir grubun Grup Ajanları içindeki kendi Denetim sekmesi aynı belgeyi kendi dışa aktarımıyla okur.",
-    "Every group": "Her grup",
     "Every identity of this group is assigned to a member.":
       "Bu grubun her kimliği bir üyeye atanmış.",
     "Every message composed or replied to from this identity is copied here. The address is put in the Bcc field of the draft, where the sender sees it and can take it off for one message.":
       "Bu kimlikten yazılan veya yanıtlanan her ileti buraya kopyalanır. Adres, taslağın Bcc alanına konur; gönderen orada görür ve tek bir ileti için kaldırabilir.",
-    "Every outcome": "Her sonuç",
-    "Every run stops here for a person to answer before anything happens.":
-      "Her çalıştırma, bir şey olmadan önce birinin yanıtlaması için burada durur.",
     "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.":
       "Bu hesabın her ayarı varsayılanlarına döner — şablonlar, etiketler, güvenilen imzalayıcılar, takvim abonelikleri, gizli kimlikler — ve sunucuda saklanan kopya değiştirilir. Bu geri alınamaz.",
-    "Every trigger already has an automation in this group.":
-      "Her tetikleyicinin bu grupta zaten bir otomasyonu var.",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "Her tetikleyicinin bu grupta zaten bir otomasyonu var. Başka bir tür yazmak için birini silin veya devre dışı bırakın.",
     "Every weekday": "Hafta içi her gün",
-    "Every {minutes} minutes": "Her {minutes} dakika",
     "Every {n} {frequency}": "Her {n} {frequency}",
     "Everyone addressed will receive this.": "Adreslenen herkes bunu alacaktır.",
     "Everything inside it goes too.": "İçindeki her şey de silinecektir.",
@@ -648,8 +570,6 @@ export const catalog: Catalog = {
     "Export all contacts": "Tüm kişileri dışa aktar",
     "Export iCAL file": "iCAL dosyasını dışa aktar",
     "Export settings": "Ayarları dışa aktar",
-    "Fact {n}": "Bilgi {n}",
-    Failed: "Başarısız",
     "Fewer options": "Daha az seçenek",
     "File contents": "Dosya içeriği",
     "File storage is not available": "Dosya depolama alanı kullanılamıyor",
@@ -670,7 +590,6 @@ export const catalog: Catalog = {
     "Filters saved": "Filtreler kaydedildi",
     "Filters unavailable": "Filtreler kullanılamıyor",
     Fingerprint: "Parmak izi",
-    Finished: "Tamamlandı",
     "First day of the week: 0 Sunday, 1 Monday, 6 Saturday.":
       "Haftanın ilk günü: 0 Pazar, 1 Pazartesi, 6 Cumartesi.",
     "First name": "Ad",
@@ -715,10 +634,7 @@ export const catalog: Catalog = {
     "From: {sender}": "Kimden: {sender}",
     "Full screen": "Tam ekran",
     General: "Genel",
-    "Gilbert Assistant": "Gilbert Asistanı",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbert, posta sunucusuna bu grubun {need} konusunu soramadı, dolayısıyla o ajanın ona ulaşıp ulaşmadığını söyleyemez: hiçbir şey değiştirilmedi ve hiçbir şey okunmadı. Yeniden deneyin; böyle yanıtlamayı sürdürürse bakılacak olan posta sunucusudur.",
     "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
       "Gilbert bu cihazda zaten kurulu. Uygulamayı kullanmak için Ana Ekranınızdaki simgesinden açın.",
     "Gilbert is installed on this device.": "Gilbert bu cihazda kurulu.",
@@ -728,8 +644,6 @@ export const catalog: Catalog = {
     "Gilbert test": "Gilbert testi",
     "Gilbert will tell you if a later message from this address is signed by anybody else.":
       "Bu adresten sonra gelen bir ileti başka biri tarafından imzalanırsa Gilbert size söyler.",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Gilbert'in kendi ajanı posta ve dosya depolama içinde işlem yapar: izin verilen gruplarda Stalwart olayları ve zaman çizelgeleri üzerinde çalışır. Bu kurulum bir ajan çalıştırır — onu burada görürsünüz, hangi modelin hizmet ettiğini ve hangi gruplarda çalıştığını. Bir grup içinde ne yaptığı Grup Ajanları'nda yaşar.",
     "Give the address to forward to.": "İletilecek adresi girin.",
     "Give the rule a name before it can be saved.":
       "Kural kaydedilmeden önce ona bir ad verin.",
@@ -753,10 +667,7 @@ export const catalog: Catalog = {
     "Go to week": "Haftaya git",
     "Going to: {where}": "Gidiliyor: {where}",
     "Going?": "Katılıyor musunuz?",
-    "Grants withdrawn": "İzinler geri alındı",
     Group: "Grup",
-    "Group Agents": "Grup Ajanları",
-    "Group agent sections": "Grup ajanı bölümleri",
     "Group calendars": "Grup takvimleri",
     "Group contacts": "Grup kişileri",
     "Group identities": "Grup kimlikleri",
@@ -765,7 +676,6 @@ export const catalog: Catalog = {
     "Group messages from the same thread together.":
       "Aynı konudaki iletileri birlikte gruplandırın.",
     "Group name": "Grup adı",
-    Groups: "Gruplar",
     Guests: "Konuklar",
     "Hand to the server, held until {when} (Ctrl+Enter)":
       "Sunucuya teslim edildi, {when} zamanına kadar bekletilecek (Ctrl+Enter)",
@@ -786,8 +696,6 @@ export const catalog: Catalog = {
     Highlight: "Vurgula",
     "Holding a message selects it, and holding a folder opens its menu. Pull the top of the message list down to check for new mail.":
       "Bir iletiyi basılı tutmak onu seçer ve bir klasörü basılı tutmak menüsünü açar. Yeni postaları kontrol etmek için ileti listesinin üst kısmını aşağı çekin.",
-    "Hops a chain of automations may run":
-      "Bir otomasyon zincirinin çalışabileceği atlama sayısı",
     "Hour the working day ends (calendar grid).":
       "İş gününün bittiği saat (takvim ızgarası).",
     "Hour the working day starts (calendar grid).":
@@ -795,13 +703,8 @@ export const catalog: Catalog = {
     How: "Nasıl",
     "How dates are written; auto follows the locale.":
       "Tarihlerin nasıl yazıldığı; otomatik, yerel ayarı izler.",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "Bir işin, onu aşan çalıştırma reddedilip gruba bildirilmeden önce bir otomasyondan diğerine kaç kez geçebileceği.",
     "How much fits on screen: comfortable, cozy or compact.":
       "Ekrana ne kadar sığdığı: rahat, dar veya kompakt.",
-    "How often": "Ne sıklıkla",
-    "How this group's agent works": "Bu grubun ajanı nasıl çalışır",
-    "How this installation's agent works": "Bu kurulumun ajanı nasıl çalışır",
     Huge: "Çok büyük",
     IP: "IP",
     Identities: "Kimlikler",
@@ -810,7 +713,6 @@ export const catalog: Catalog = {
       "Besteci seçicisinden gizlenen kimlikler.",
     "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.":
       "Hiçbir üyeye atanmayan kimlikler. Grubun kendisi de bunların arasındadır ve kendi kimliği olmayan bir üyenin gönderirken kullandığıdır — ajanın gönderdiği kimliğin aynısı; böylece kimsenin atanmadığı bir grup yine de birinin adı altında değil, grup olarak yazar.",
-    Identity: "Kimlik",
     "Identity active — mail sent as this group carries what is set here.":
       "Kimlik etkin — bu grup olarak gönderilen posta burada ayarlananları taşır.",
     "Identity active — the account sends with what is set here.":
@@ -846,7 +748,6 @@ export const catalog: Catalog = {
     Installation: "Kurulum",
     "Installation document": "Kurulum belgesi",
     "Installation-wide policy": "Kurulum geneli ilke",
-    Instruction: "Talimat",
     "Interface language": "Arayüz dili",
     "Interface text size: small, medium or large (device-local).":
       "Arayüz yazı boyutu: küçük, orta veya büyük (cihaza özel).",
@@ -855,14 +756,9 @@ export const catalog: Catalog = {
     "Invalid username or password.": "Geçersiz kullanıcı adı veya şifre.",
     "Invitation accepted": "Davet kabul edildi",
     "Invitation declined": "Davet reddedildi",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "Ada'dan gelen faturalar gönderenin değil, müşterinin adı altında dosyalanır.",
     "Issued by": "Veren kuruluş",
     "It belongs to a change that was applied to this and all later occurrences, which the server will only edit as a whole. Apply to the entire series instead?":
       "Bu ve sonraki tüm yinelemelere uygulanan bir değişikliğe aittir ve sunucu bunu yalnızca bir bütün olarak düzenler. Bunun yerine tüm diziye uygulansın mı?",
-    "It has not done anything yet.": "Henüz hiçbir şey yapmadı.",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "Veri olarak okunur, itaat edilmez: modelden bir şey yapmasını isteyen bir ileti yine de yalnızca bir iletidir.",
     "It is signed with OpenPGP, and Gilbert has no way to fetch the sender's public key.":
       "OpenPGP ile imzalanmış ve Gilbert'in gönderenin genel anahtarını getirme yolu yok.",
     "It reads {shown} but goes to {actual}.":
@@ -906,9 +802,7 @@ export const catalog: Catalog = {
     "Larger than {size} MB limit": "{size} MB sınırından büyük",
     "Largest first": "Önce en büyük",
     "Last active": "Son etkinlik",
-    "Last heartbeat": "Son kalp atışı",
     "Last name": "Soyad",
-    "Last written by {who} on {when}.": "Son yazan: {who}, {when}.",
     Later: "Daha sonra",
     "Later today": "Bugün daha sonra",
     "Let messages follow the app's theme instead of white.":
@@ -942,7 +836,6 @@ export const catalog: Catalog = {
     "Make Gilbert the default mail app": "Gilbert'i varsayılan posta uygulaması yap",
     "Make Gilbert yours.": "Gilbert'i kendinize ait yapın.",
     "Make default": "Varsayılan yap",
-    "Make sure they exist": "Var olduklarından emin olun",
     "Manage categories…": "Kategorileri yönet…",
     "Manage labels": "Etiketleri yönet",
     "Mark all as read": "Tümünü okundu olarak işaretle",
@@ -957,8 +850,6 @@ export const catalog: Catalog = {
     "Mark read": "Okundu olarak işaretle",
     "Marked as spam": "Spam olarak işaretlendi",
     "Marked as tentative": "Geçici olarak işaretlendi",
-    Master: "Master",
-    "Master sections": "Master bölümleri",
     "Match system": "Sistemle eşle",
     "Max upload": "Maksimum yükleme",
     Maximize: "Ekranı kapla",
@@ -967,8 +858,6 @@ export const catalog: Catalog = {
     "Meeting link": "Toplantı bağlantısı",
     Members: "Üyeler",
     "Members ({count})": "Üyeler ({count})",
-    Memory: "Bellek",
-    "Memory saved": "Bellek kaydedildi",
     "Mention a member": "Bir üyeden söz et",
     Menu: "Menü",
     Merge: "Birleştir",
@@ -997,11 +886,7 @@ export const catalog: Catalog = {
     "Messages per page in the list.": "Listede sayfa başına ileti.",
     "Middle name": "İkinci ad",
     Minimize: "Simge durumuna küçült",
-    Missed: "Kaçırıldı",
     "Mobile app": "Mobil uygulama",
-    Model: "Model",
-    "Model removed": "Model kaldırıldı",
-    "Model saved": "Model kaydedildi",
     Modified: "Değiştirildi",
     Monday: "Pazartesi",
     "Monday morning": "Pazartesi sabahı",
@@ -1046,14 +931,12 @@ export const catalog: Catalog = {
       "Ağ hatası. Lütfen bağlantınızı kontrol edin.",
     Never: "Asla",
     "Never ask": "Asla sorma",
-    "Never ask — run it unattended": "Hiç sorma — gözetimsiz çalıştır",
     "Never automatically": "Asla otomatik olarak işaretleme",
     "Never send one": "Asla gönderme",
     "New address book": "Yeni adres defteri",
     "New all-day event": "Yeni tüm gün etkinliği",
     "New all-day event on {date}": "{date} tarihinde tüm gün sürecek yeni etkinlik",
     "New app password for": "Şunun için yeni uygulama şifresi:",
-    "New automation": "Yeni otomasyon",
     "New calendar": "Yeni takvim",
     "New category": "Yeni kategori",
     "New contact": "Yeni kişi",
@@ -1078,7 +961,6 @@ export const catalog: Catalog = {
     "Newest first": "Önce en yeni",
     Next: "İleri",
     "Next conversation": "Sonraki yazışma",
-    "Next due: {when}": "Sonraki zaman: {when}",
     "Next message in conversation": "Yazışmadaki sonraki ileti",
     "Next month": "Sonraki ay",
     "Next period": "Sonraki dönem",
@@ -1087,20 +969,6 @@ export const catalog: Catalog = {
     "No Archive folder is set yet.": "Henüz bir Arşiv klasörü ayarlanmadı.",
     "No accounts found.": "Hesap bulunamadı.",
     "No address books yet.": "Henüz adres defteri yok.",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "Hiçbir ajan bildirimde bulunmadı. Bir ajan çalışırken kalp atışı bırakır, dolayısıyla boş bir liste bu kuruluma hiçbirinin hizmet etmediği anlamına gelir.",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "Bu kurulum için henüz bir ajan kayıtlı değil, dolayısıyla modelin çalışacağı bir şey yok.",
-    "No agent is registered for this installation.":
-      "Bu kurulum için kayıtlı bir ajan yok.",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "Kayıtlı bir ajan yok, dolayısıyla bir grubun üyelerini hiçbir şey okuyamaz: sohbetin @ özelliği yalnızca zaten yazmış kişileri sunar.",
-    "No agent is serving this group right now":
-      "Şu anda bu gruba hizmet eden bir ajan yok",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "Bu grupta hiçbir ajan çalışmaz: burada izin verilmemiş, dolayısıyla hiçbir talimat taşımaz ve hiçbir şey yapmaz. Bu izin üründe değil, posta sunucusunun kendi yönetiminde verilir.",
-    "No automation in this group yet.": "Bu grupta henüz otomasyon yok.",
-    "No automation is set up for this group.": "Bu grup için kurulmuş bir otomasyon yok.",
     "No availability information for {who}": "{who} için uygunluk bilgisi yok",
     "No category": "Kategori yok",
     "No contacts": "Kişi yok",
@@ -1114,21 +982,10 @@ export const catalog: Catalog = {
       "İçinde dosya yok — yalnızca iletinin biçimlendirilmiş kopyasını taşır.",
     "No filters yet": "Henüz filtre yok",
     "No folders yet.": "Henüz klasör yok.",
-    "No group is picked, so there is no audit trail to read here.":
-      "Hiçbir grup seçilmedi, dolayısıyla burada okunacak bir denetim izi yok.",
-    "No group is picked, so there is no group's agents to read here.":
-      "Hiçbir grup seçilmedi, dolayısıyla burada okunacak bir grup ajanı yok.",
-    "No group is picked, so there is no memory to read here.":
-      "Hiçbir grup seçilmedi, dolayısıyla burada okunacak bir bellek yok.",
-    "No group is picked, so there is no policy to read here.":
-      "Hiçbir grup seçilmedi, dolayısıyla burada okunacak bir ilke yok.",
-    "No group is picked, so there is no standing instruction to read here.":
-      "Hiçbir grup seçilmedi, dolayısıyla burada okunacak bir sürekli talimat yok.",
     "No identity is assigned to this member yet, so they send as the group itself.":
       "Bu üyeye henüz bir kimlik atanmadı, dolayısıyla grubun kendisi olarak gönderir.",
     "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.":
       "Bu grubun size atanmış bir kimliği yok, dolayısıyla bu posta kutusundan gönderdiğiniz posta grubun kendisi olarak çıkar.",
-    "No key stored": "Saklanan anahtar yok",
     "No labels yet.": "Henüz etiket yok.",
     "No longer in this group": "Artık bu grupta değil",
     "No longer shared": "Artık paylaşılmıyor",
@@ -1147,12 +1004,9 @@ export const catalog: Catalog = {
     "(undisclosed recipients)": "(gizli alıcılar)",
     "No results": "Sonuç yok",
     "No sending identity available": "Kullanılabilir gönderici kimliği yok",
-    "No standing instruction has been written for this group.":
-      "Bu grup için sürekli bir talimat yazılmadı.",
     "No subfolders here.": "Burada alt klasör yok.",
     "No system scripts yet": "Henüz sistem betiği yok",
     "No verdict recorded": "Kayıtlı karar yok",
-    "Nobody has written here yet.": "Buraya henüz kimse yazmadı.",
     "Nobody here has free/busy on this server, so none of these rows can say whether anyone is free.":
       "Bu sunucuda buradaki kimsenin uygunluk/meşguliyet bilgisi yok, bu nedenle bu satırların hiçbiri birinin uygun olup olmadığını belirtemez.",
     "Nobody matches that.": "Bununla eşleşen kimse yok.",
@@ -1163,14 +1017,10 @@ export const catalog: Catalog = {
     "Not forced": "Zorlanmadı",
     "Not offered when composing. It still receives mail, and you can still send from it by showing it again.":
       "İleti oluştururken sunulmaz. Yine de posta almaya devam eder ve yeniden göstererek bu adresten gönderebilirsiniz.",
-    "Not operational": "Çalışmıyor",
-    "Not reporting": "Bildirmiyor",
-    "Not scheduled while disabled.": "Devre dışıyken zamanlanmaz.",
     "Not shared with anyone yet.": "Henüz kimseyle paylaşılmadı.",
     "Not signed in": "Oturum açılmadı",
     "Not spam": "Spam değil",
     "Not supported in this browser.": "Bu tarayıcıda desteklenmiyor.",
-    "Not this server's to say": "Bunu söylemek bu sunucuya düşmez",
     "Not this time": "Bu sefer değil",
     Notes: "Notlar",
     Nothing: "Hiçbiri",
@@ -1180,17 +1030,10 @@ export const catalog: Catalog = {
     "Nothing added yet.": "Henüz hiçbir şey eklenmedi.",
     "Nothing here": "Burada hiçbir şey yok",
     "Nothing here yet.": "Burada henüz hiçbir şey yok.",
-    "Nothing is running and nothing is waiting.":
-      "Hiçbir şey çalışmıyor ve hiçbir şey beklemiyor.",
     "Nothing is shared with you.": "Sizinle paylaşılan hiçbir şey yok.",
-    "Nothing is waiting for a person.": "Bir kişiyi bekleyen bir şey yok.",
-    "Nothing matches here yet.": "Burada henüz eşleşen bir şey yok.",
     "Nothing scheduled": "Zamanlanmış bir şey yok",
     "Nothing shared here.": "Burada paylaşılan bir şey yok.",
     "Nothing unread here": "Burada okunmamış bir şey yok",
-    "Nothing waiting for a person here": "Burada bir kişiyi bekleyen bir şey yok",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "Hiçbir şey bir kişiyi beklemez — ancak geri alınamayan bir eylem yine de sorar ve gruptan dışarı çıkan bir eylem, onay tabanı yükseltilmedikçe sorar.",
     "Nothing was deleted": "Hiçbir şey silinmedi",
     Notifications: "Bildirimler",
     "Notifications are blocked for this site in your browser's settings.":
@@ -1203,25 +1046,16 @@ export const catalog: Catalog = {
     "Numbered list": "Numaralı liste",
     "Occurrence deleted": "Yinelenen etkinlik silindi",
     "Off (open messages full width)": "Kapalı (iletileri tam genişlikte aç)",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "Kapalıyken, grubun dışına uzanan bir eylem, ilke ne derse desin her zaman bir kişiyi bekler. Geri alınamayan bir eylem, iki ayardan hangisi olursa olsun sorar.",
     "Older (j)": "Daha eski (j)",
     "Oldest first": "Önce en eski",
-    "On a schedule": "Bir zamanlamayla",
     "On a touchscreen, drag a message sideways to act on it. Each direction can do one thing, or nothing. These follow your account, so a phone and a tablet agree; a mouse ignores them and keeps dragging messages into folders instead.":
       "Dokunmatik ekranda bir ileti üzerinde işlem yapmak için yana doğru kaydırın. Her yön bir işlem gerçekleştirebilir veya hiçbir şey yapmayabilir. Bunlar hesabınızı takip eder, bu sayede telefon ve tablet uyumlu olur; fare bunları yok sayar ve iletileri klasörlere sürüklemeye devam eder.",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "Tetikleyici başına bir otomasyon: ajan, bir tetikleyicideki her etkin otomasyonu o tetikleyicinin ürettiği her şeye karşı çalıştırır, dolayısıyla aynı tetikleyicideki ikinci bir otomasyon aynı olaya iki kez yanıt verir. Bir durumla diğeri arasındaki dallanma talimata aittir.",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "Tetikleyici başına bir otomasyon: ajan, bir tetikleyicideki her etkin otomasyonu o tetikleyicinin ürettiği her şeye karşı çalıştırır, dolayısıyla iki tanesi aynı olaya iki kez yanıt verir.",
     "One per line.": "Her satıra bir tane.",
     "One per line. The phone calls the preferred one.":
       "Her satıra bir tane. Telefon tercih edileni arar.",
     Online: "Çevrimiçi",
     "Only Deleted Items and Junk Mail can be emptied.":
       "Yalnızca Silinmiş Öğeler ve Gereksiz klasörleri boşaltılabilir.",
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "Bu grubun talimatını ve otomasyonlarını yalnızca bir yöneticisi değiştirir; her üye onları burada okur.",
     "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.":
       "Bir grubun Çöp Kutusu'nu veya Gereksiz postasını yalnızca bir kurulum yöneticisi boşaltabilir. Oraya posta koymak yine de çalışır; geri çıkarmak da öyle.",
     "Only events I'm attending": "Yalnızca katıldığım etkinlikler",
@@ -1237,7 +1071,6 @@ export const catalog: Catalog = {
     "Open a link to {domain}?": "{domain} bağlantısı açılsın mı?",
     "Open conversation": "Yazışmayı aç",
     "Open draft": "Taslağı aç",
-    "Open in Group Agents": "Grup Ajanları'nda aç",
     "Open in calendar": "Takvimde aç",
     "Open in new tab": "Yeni sekmede aç",
     "Open it": "Aç",
@@ -1246,19 +1079,14 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "{name} alt klasörlerini aç",
     "Open the Mail view to see all shortcuts.":
       "Tüm kısayolları görmek için Posta görünümünü açın.",
-    "Open the group's mailbox": "Grubun posta kutusunu aç",
     "Open the next (older) conversation": "Sonraki (daha eski) yazışmayı aç",
     "Open the previous (newer) conversation": "Önceki (daha yeni) yazışmayı aç",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "Bu grubun otomasyonlarını, sürekli talimatını, belleğini ve denetim izini aç",
     "Open to read their own display name and what they send as.":
       "Kendi görünen adını ve ne olarak gönderdiğini okumak için açın.",
-    "Open {group} and its chat": "{group} grubunu ve sohbetini aç",
     "Open {scheme} links — in web pages, documents and other apps — in Gilbert instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
       "{scheme} bağlantılarını — web sayfalarında, belgelerde ve diğer uygulamalarda — masaüstü posta istemcisi yerine Gilbert'te aç. Tarayıcınız onaylamanızı isteyecek; bunu daha sonra kendi ayarlarından değiştirebilirsiniz (Chrome: Ayarlar › Gizlilik ve güvenlik › Site ayarları › Protokol işleyicileri; Firefox: Ayarlar › Genel › Uygulamalar).",
     "Open, and stop asking about {domain}": "Aç ve {domain} hakkında bir daha sorma",
     "Opening…": "Açılıyor…",
-    Operational: "Çalışıyor",
     Options: "Seçenekler",
     "Or type an address": "Ya da bir adres yazın",
     "Ordered by the server over the whole folder, not just the messages loaded so far. Ties always fall back to newest first, so the order never shuffles between two looks at the same folder.":
@@ -1269,21 +1097,17 @@ export const catalog: Catalog = {
     "Original message": "Orijinal ileti",
     "Other header…": "Diğer üstbilgi…",
     "Out of office": "Ofis Dışında (Otomatik Yanıt)",
-    Outcome: "Sonuç",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Sağ tıklama menüsünden veya etkinlik düzenleyiciden etkinliklere atayabileceğiniz Outlook tarzı kategoriler. Kategori adı etkinlik üzerinde saklanır, böylece diğer istemcilerle eşitlenir.",
     "Outlook-style colour categories for calendar events.":
       "Takvim etkinlikleri için Outlook tarzı renk kategorileri.",
     "Outside domains whose links open without warning.":
       "Bağlantıları uyarı olmadan açılan dış alan adları.",
-    "Pages one run may hand the model":
-      "Bir çalıştırmanın modele verebileceği sayfa sayısı",
     "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
       "Başka bir projenin adını taşıyan paletler o projenin işidir ve kendi lisansı altında kullanılır; yayımlanmış renkleri arasındaki tonlar türetilmiştir ve her biri kontrast açısından denetlenir. Aşağıdaki vurgu rengi yine de hepsinin üzerine uygulanır.",
     Password: "Şifre",
     "Password change forced": "Parola değişikliği zorlandı",
     "Password changed": "Parola değiştirildi",
-    "Paste a new key here": "Yeni anahtarı buraya yapıştırın",
     Pending: "Beklemede",
     "People on a message before Reply-all asks; 0 is off.":
       "Tümünü yanıtla sormadan önce iletideki kişi sayısı; 0 kapalıdır.",
@@ -1330,7 +1154,6 @@ export const catalog: Catalog = {
     "Privacy & safety": "Gizlilik ve güvenlik",
     Private: "Özel",
     "Private props": "Özel özellikler",
-    Provider: "Sağlayıcı",
     "Publish document": "Belgeyi yayımla",
     "Publish policy": "İlkeyi yayımla",
     "Publishing…": "Yayımlanıyor…",
@@ -1340,28 +1163,19 @@ export const catalog: Catalog = {
     "Quote original message in replies": "Yanıtlarda orijinal iletiyi alıntıla",
     "Quote the original message when replying.": "Yanıtlarken özgün iletiyi alıntıla.",
     RSVP: "Yanıtla",
-    Raised: "Yükseltildi",
-    Ran: "Çalıştı",
     "Re-read from the server. What you were editing is still open.":
       "Sunucudan yeniden okundu. Düzenlemekte olduğunuz şey hâlâ açık.",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "Bir grubun {need} konusuna ulaşmak, kurulumun ajanı olarak gerçekleşir ve o ajan bu grubun üyesi değildir: belgeler grubun kendi hesabında yaşar ve onlara yalnızca bir üye ulaşır — bu yüzden ajanı posta sunucusunun dizininde gruba ekleyin.",
     Read: "Oku",
     "Read events": "Etkinlikleri oku",
     "Read first": "Önce okunmuşlar",
-    "Read it": "Oku",
     "Read receipt requested": "Okundu bilgisi istendi",
     "Read receipt sent": "Okundu bilgisi gönderildi",
     "Read receipts": "Okundu bilgileri",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "İletiyi oku ve ona ne olması gerektiğini söyle. Yalın sözcüklerle yararlı bağlam.",
     Reading: "Okuma",
-    "Reading every group's trail…": "Her grubun izi okunuyor…",
     "Reading pane": "Okuma bölmesi",
     "Reading this member's own account…": "Bu üyenin kendi hesabı okunuyor…",
     "Reading, sending, and how dates and times are shown. What reaches a sender lives in Privacy & safety.":
       "Okuma, gönderme ve tarih ile saatlerin nasıl gösterileceği. Gönderene nelerin ulaşacağı Gizlilik ve güvenlik bölümündedir.",
-    "Reading…": "Okunuyor…",
     Reason: "Neden",
     Receipt: "Okundu Bilgisi",
     Received: "Alındı",
@@ -1369,11 +1183,9 @@ export const catalog: Catalog = {
     Redo: "Yinele",
     References: "References",
     Refresh: "Yenile",
-    Refused: "Reddedildi",
     "Registering for {scheme} links requires a secure (HTTPS) connection.":
       "{scheme} bağlantıları için kayıt olmak güvenli bir (HTTPS) bağlantı gerektirir.",
     "Reject with message": "Şu iletiyle reddet:",
-    Rejected: "Reddedildi",
     Release: "Serbest bırak",
     "Released — the account can set its own identities again.":
       "Serbest bırakıldı — hesap kendi kimliklerini yeniden ayarlayabilir.",
@@ -1403,9 +1215,6 @@ export const catalog: Catalog = {
     "Remove reminder": "Anımsatıcıyı kaldır",
     "Remove star": "Yıldızı kaldır",
     "Remove subscription": "Aboneliği kaldır",
-    "Remove the model": "Modeli kaldır",
-    "Remove the model?": "Model kaldırılsın mı?",
-    "Remove this fact": "Bu bilgiyi kaldır",
     "Remove {domain}": "{domain} kaldır",
     "Remove {email}": "{email} kaldır",
     "Removed from calendar": "Takvimden kaldırıldı",
@@ -1461,9 +1270,6 @@ export const catalog: Catalog = {
     Role: "Rol",
     "Rule name": "Kural adı",
     Rules: "Kurallar",
-    "Run now": "Şimdi çalıştır",
-    "Run this automation now, on the newest message in the group's inbox":
-      "Bu otomasyonu şimdi, grubun gelen kutusundaki en yeni ileti üzerinde çalıştır",
     Running: "Çalışıyor",
     "S/MIME signers pinned per address (fingerprint → name).":
       "Adres başına sabitlenmiş S/MIME imzalayıcıları (parmak izi → ad).",
@@ -1611,8 +1417,6 @@ export const catalog: Catalog = {
     "Show unsubscribed (hidden) folders":
       "Aboneliği kaldırılmış (gizli) klasörleri göster",
     "Show when composing": "İleti yazarken göster",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "En yeni {total} kaydın {shown} tanesi gösteriliyor. Geri kalanı için yukarıdan saklanan her ayı indirin.",
     "Shows a system notification when new mail arrives in your Inbox while the tab is in the background.":
       "Sekme arka plandayken Gelen Kutunuza yeni bir e-posta ulaştığında bir sistem bildirimi gösterir.",
     Sidebar: "Kenar çubuğu",
@@ -1642,7 +1446,6 @@ export const catalog: Catalog = {
     "Some could not be deleted: {error}": "Bazıları silinemedi: {error}",
     "Somebody else saved this file while it was open. Copy your changes, close it, and start again.":
       "Bu dosya açıkken başka biri tarafından kaydedildi. Değişikliklerinizi kopyalayın, dosyayı kapatın ve yeniden başlayın.",
-    "Someone writes in the chat": "Sohbete biri yazar",
     "Something was shared with Gilbert. Nothing is sent until you choose Send. If you did not just share this, discard it.":
       "Gilbert ile bir şey paylaşıldı. Siz Gönder'i seçene kadar hiçbir şey gönderilmez. Bunu az önce siz paylaşmadıysanız, atın.",
     "Sort by, in order": "Sıralama ölçütü, sırasıyla",
@@ -1652,7 +1455,6 @@ export const catalog: Catalog = {
     "Spellcheck the composer.": "Besteciyi yazım denetiminden geçir.",
     Stalwart: "Stalwart",
     "Stalwart Mail Server": "Stalwart Mail Server",
-    "Standing instruction": "Sürekli talimat",
     Star: "Yıldız ekle",
     "Star / unstar": "Yıldız ekle / kaldır",
     Starred: "Yıldızlı",
@@ -1664,13 +1466,11 @@ export const catalog: Catalog = {
     "Start with rules": "Kurallarla başlayın",
     Starts: "Başlangıç",
     "Starts (optional)": "Başlangıç (isteğe bağlı)",
-    State: "Durum",
     "State / Region": "Eyalet / Bölge",
     Status: "Durum",
     "Stay here": "Burada kal",
     "Stay signed in, and keep settings and recent addresses on this computer.":
       "Oturumu açık tut ve ayarları ve son adresleri bu bilgisayarda sakla.",
-    "Still open": "Hâlâ açık",
     "Stop processing more rules": "Daha fazla kural işlemeyi durdur",
     "Stop sharing": "Paylaşımı durdur",
     "Stop sharing “{name}”?": "“{name}” paylaşımı durdurulsun mu?",
@@ -1727,37 +1527,13 @@ export const catalog: Catalog = {
     "That was publish {id}, started {when} by {who}.":
       "Bu, {who} tarafından {when} başlatılan {id} yayımıydı.",
     "The Inbox only": "Yalnızca Gelen Kutusu",
-    "The Master": "Master",
     "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.":
       "Master bu grubun üyesi değil, dolayısıyla burada hiçbir şey onun kimliğini yazamaz. Ajana o grup üzerinde izin verin — grubun içinde çalışmasını sağlayan iznin aynısı — ve yeniden bakın.",
     "The accent colour that sits on top of any palette.":
       "Her paletin üzerine oturan vurgu rengi.",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "Hesap kaydı yanıt vermedi, dolayısıyla bir grubun üyeleri listelenemez ve sohbetin @ özelliği zaten yazmış kişileri sunar.",
     "The account's labels.": "Hesabın etiketleri.",
     "The account's whole list is shown, and every entry is editable: nothing is left behind as an identity the composer still offers.":
       "Hesabın tüm listesi gösterilir ve her giriş düzenlenebilir: bestecinin hâlâ sunduğu bir kimlik olarak geride hiçbir şey kalmaz.",
-    "The agent in this group": "Bu gruptaki ajan",
-    "The agent is not in a group this installation can see.":
-      "Ajan, bu kurulumun görebildiği bir grupta değil.",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "Ajan, bu kurulumun görebildiği bir grupta değil. Stalwart'ın kendi yönetiminde Gilbert kullanıcısına bir grup ekleyin, burada görünür.",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "Ajan, bu oturumun görebildiği bir grupta değil, dolayısıyla burada seçilecek bir grup yok. Ona Stalwart'ın kendi yönetiminde bir grup verin: aşağıdaki sekmeler tek bir grup hakkında yanıt verir ve okudukları filo kurulumun kendisine aittir.",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "Ajan bu grupta değil, dolayısıyla burada yazılacak bir şey yok: hiçbir otomasyon çalışmaz ve kimse onu grubun sohbetinde anamaz. Ona grubu Stalwart'ın kendi yönetiminde verin, sonra geri dönün.",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "Ajan, {when} tarihinde “{group}” üzerindeki iznini kaybetti: tur bunu fark ettiğinden beri o gruba hiçbir şey hizmet etmedi.",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "Ajan, bu grubun gördüğü haliyle: nasıl davrandığı, neyi izlediği, neyi hatırladığı ve ne yaptığı. Tüm kurulum için tek bir ajandır — hangi grupları tuttuğu, üzerinde çalıştığı model ve her yerde geçerli kurallar Master'da yaşar.",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "İzin listesi: bu otomasyonun çalıştırabileceği tek eylemler. Modele bunlar sunulur, başka bir şey sunulmaz ve bunların dışındaki bir yanıt reddedilir.",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "{groups} denetimi okunamadı, dolayısıyla bu listede eksik.",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "{groups} denetimi okunamadı, dolayısıyla bu toplam bir alt sınırdır: onların çalıştırmaları burada hiçbir sayıma girmez.",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "Otomasyon belgesi grubun kendi dosyalarından kaldırılır. Başlamış bir iş, başladığı sürümü korur.",
     "The calendar time zone; null means the browser's.":
       "Takvim saat dilimi; null tarayıcınınki anlamına gelir.",
     "The calendar view a new open starts on.":
@@ -1771,23 +1547,15 @@ export const catalog: Catalog = {
     "The contacts in it go too.": "İçindeki kişiler de silinecektir.",
     "The default identity is always offered when composing":
       "İleti oluştururken varsayılan kimlik her zaman sunulur",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "Dağıtım ajanı adlandırır ve bu onu geri okur: GILBERT_AGENT_ADDRESS ve GILBERT_AGENT_PASSWORD, sunucuyu ve ajanını başlatan kişinin ortamında yaşar, dolayısıyla geldikleri tek bir yer vardır. Burada hiçbir şey bir sır üretmez, geri okumaz veya saklamaz.",
     "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
       "Dizin listelenemedi, dolayısıyla yayımcının kendi hesabının ötesinde yayımlanacak bir topluluk yoktu.",
     "The folder could not be read: the server answered the same page twice.":
       "Klasör okunamadı: sunucu aynı sayfayı iki kez yanıtladı.",
     "The full address is {href}.": "Tam adres: {href}.",
-    "The group's agent": "Grubun ajanı",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "Ajanın çalıştığı gruplar, Stalwart'tan okunur: bir grubun üyesi olması, tam olarak o grubun burada görünmesi demektir ve bu liste dizini kendiliğinden izler. Ona bir grup vermek için Stalwart'ın kendi yönetiminde Gilbert kullanıcısına grubu ekleyin.",
-    "The installation's model": "Kurulumun modeli",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "Kurulumun kendi hesabı henüz bir belge tutmuyor, dolayısıyla düzenleyici kurulumun varsayılanlarından ve yeni üretilmiş bir uygulama sırrından başlar. Olduğu gibi yayımlayın ya da önce düzenleyin.",
     "The installation's shared directory: every account reads it, and only an administrator writes it here.":
       "Kurulumun paylaşılan dizini: her hesap onu okur ve buraya yalnızca bir yönetici yazar.",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "Kurulumun {count} ajanı bildirimde bulunuyor ve hiçbiri {group} grubunu tutmuyor: şu anda bu gruba hizmet eden bir şey yok.",
     "The interface language; empty means English.":
       "Arayüz dili; boş, İngilizce anlamına gelir.",
     "The mail-server locale; empty means follow the server.":
@@ -1796,8 +1564,6 @@ export const catalog: Catalog = {
       "İleti imzalanan içerikle eşleşmiyor — imzalandıktan sonra değiştirilmiş veya yolda bozulmuş.",
     "The message waits on the server, so it goes out whether or not Gilbert is open.":
       "İleti sunucuda bekler, dolayısıyla Gilbert açık olsun ya da olmasın gönderilir.",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "Bu kurulumun her otomasyonunun üzerinde çalıştığı model: tek sağlayıcı, tek model, tek anahtar. Bunsuz bir kurulumun otomasyonu olmaz — bir çalıştırmanın karar verecek hiçbir şeyi yoktur.",
     "The name on the identity you are sending as": "Gönderim yaptığınız kimlikteki ad",
     "The new passwords don't match": "Yeni şifreler eşleşmiyor",
     "The policy was not published everywhere.": "İlke her yere yayımlanmadı.",
@@ -1827,8 +1593,6 @@ export const catalog: Catalog = {
       "Görsel kural düzenleyici yalnızca kendi oluşturduğu betikleri yönetir. Betiği {tab} sekmesinde düzenleyebilir veya kurallarla baştan başlayabilirsiniz (mevcut betik saklanır ancak devre dışı bırakılır).",
     "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.":
       "{field} alanı, saklanan her oturumun mühürlendiği uygulama sırrıdır: bu sayfayı okuyabilen herkes onu okuyabilir ve onu kaybeden bir yayım herkesin oturumunu kapatır. Onu ait olduğu belgede tutun.",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name} olduğu gibi kaydedilemez: {reason}",
     "Their address": "Adresleri",
     "Their first name alone": "Yalnızca ilk adları",
     Theme: "Tema",
@@ -1844,8 +1608,6 @@ export const catalog: Catalog = {
     "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
       "Bu hesapta iki adımlı doğrulama açık. Gilbert sizi henüz bir kodla oturum açtıramaz, dolayısıyla başka bir cihazda oturum açmak bir uygulama parolası gerektirir — ya da iki adımlı doğrulamayı burada kapatabilirsiniz.",
     "This account holds no identity yet.": "Bu hesap henüz bir kimlik tutmuyor.",
-    "This automation cannot run as it stands: {reason}":
-      "Bu otomasyon olduğu gibi çalışamaz: {reason}",
     "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make Gilbert the default from your operating system if you install it as an app.":
       "Bu tarayıcı {scheme} bağlantıları için uygulama kaydedemez. Özellikle Safari'de böyle bir API yok — Gilbert'i bir uygulama olarak kurarsanız yine de işletim sisteminizden varsayılan yapabilirsiniz.",
     "This browser cannot show notifications.": "Bu tarayıcı bildirimleri gösteremez.",
@@ -1867,36 +1629,17 @@ export const catalog: Catalog = {
     "This folder is empty": "Bu klasör boş",
     "This folder is empty.": "Bu klasör boş.",
     "This goes to {recipients}{rest}.": "Bu ileti şunlara gidecek: {recipients}{rest}.",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "Bu grup bir ilke yazmadı, dolayısıyla bir çalıştırma model kendinden eminken ilerler, emin değilken bir kişi için durur. Gruptan dışarı çıkan ya da geri alınamayan bir eylem her zaman sorar.",
     "This group holds no identity yet, so nothing can be sent from its mailbox.":
       "Bu grup henüz bir kimlik tutmuyor, dolayısıyla posta kutusundan hiçbir şey gönderilemez.",
     "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.":
       "Bu grup henüz bir kimlik tutmuyor, dolayısıyla gönderilecek bir şey yok. Bir yönetici grubun kimliklerinde bir tane ayarlar.",
     "This group keeps no address books.": "Bu grup adres defteri tutmaz.",
-    "This group's agent has not done anything yet.":
-      "Bu grubun ajanı henüz hiçbir şey yapmadı.",
-    "This group's agent is holding nothing yet.":
-      "Bu grubun ajanı henüz bir şey tutmuyor.",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "Bu grubun ajanı, yaptığını bir iletiyi dört ayrılmış etiketle işaretleyerek gösterir.",
-    "This group's audit trail could not be read.": "Bu grubun denetim izi okunamadı.",
-    "This group's automation document could not be read.":
-      "Bu grubun otomasyon belgesi okunamadı.",
-    "This group's label catalogue already has every reserved label.":
-      "Bu grubun etiket kataloğunda zaten tüm ayrılmış etiketler var.",
     "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.":
       "Bu grubun posta kutusu, üye başına bir kimlik tutar; hepsi grubun adresini taşır. Onları yönetim atar, dolayısıyla burada salt okunurdur.",
-    "This group's memory has not been read yet.": "Bu grubun belleği henüz okunmadı.",
     "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.":
       "Bu grubun üye listesi okunamadı, dolayısıyla her kimliğin hangi üyeye ait olduğu gösterilemez. Kimlikler kendi başlarına listelenir ve kayıt yeniden okunana kadar bir atama yapılamaz — kimin ne olarak gönderdiğinin tüm düzeni ona bağlıdır.",
     "This group's roster is empty: there is no member to assign an identity to.":
       "Bu grubun üye listesi boş: kimlik atanacak bir üye yok.",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "Bu kurulum bir grubun üyelerini listeleyemez: Master hesap kaydını okuyamıyor olabilir. Ona sysAccountGet ve sysAccountQuery izinlerini verin — yönetici rolü değil, hesap başına bir izin — ve sohbetin @ özelliği grubun üyelerini sunar; o zamana kadar zaten yazmış kişileri sunar.",
-    "This installation has spent: {meter}": "Bu kurulum harcadı: {meter}",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "Bu kurulum, başka bir model kaydedilene kadar hiçbir otomasyon çalıştırmaz ve saklanan API anahtarı da onunla birlikte kaldırılır.",
     "This is a recurring event — changes apply to the whole series.":
       "Bu yinelenen bir etkinlik — değişiklikler tüm diziye uygulanır.",
     "This is bulk or list mail; read receipts for it only confirm the address is live.":
@@ -1922,16 +1665,10 @@ export const catalog: Catalog = {
       "Bu ileti otomatik gönderildi, dolayısıyla okundu bildirimi sunulmaz.",
     "This occurrence": "Bu yineleme",
     "This occurrence updated": "Bu yinelenen etkinlik güncellendi",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "Bu metin, bir çalıştırmadan istenen her şeydir: her çalıştırma onu kurulumun modeline verir ve model aşağıdaki alanlardan eylemlerle yanıtlar.",
     "This publish could not be recorded in your account, so reopening this page will not show it.":
       "Bu yayım hesabınıza kaydedilemedi, dolayısıyla bu sayfayı yeniden açmak onu göstermez.",
-    "This reading was not counted toward this month's authoring.":
-      "Bu okuma, bu ayın yazımına sayılmadı.",
     "This screen has no touchscreen, so nothing here changes what it does. Your phone or tablet will pick these up.":
       "Bu ekranda dokunmatik özellik yoktur, bu nedenle buradaki hiçbir şey davranışını değiştirmez. Telefonunuz veya tabletiniz bu ayarları alacaktır.",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "Bu bölüm ajanın iznini denetler, asla yazmaz: bir gruba üyelik, Stalwart'ın kendi yönetiminde, hesapların yanında, bir kişininkiyle aynı şekilde verilir.",
     "This server holds a message for up to {span}.":
       "Bu sunucu bir iletiyi {span} süresine kadar bekletir.",
     "This server will not hold a message longer than {span}.":
@@ -1949,7 +1686,6 @@ export const catalog: Catalog = {
     Time: "Saat",
     "Time format": "Saat biçimi",
     "Time zone": "Saat dilimi",
-    "Timed out": "Zaman aşımı",
     "Tip: press {key} on a conversation to apply labels. Search with {operator}.":
       "İpucu: etiket uygulamak için bir yazışmada {key} tuşuna basın. {operator} ile arama yapın.",
     To: "Kime",
@@ -1961,7 +1697,6 @@ export const catalog: Catalog = {
     "Too many attempts. Please wait a few minutes and try again.":
       "Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar deneyin.",
     "Top level": "En üst düzey",
-    Trigger: "Tetikleyici",
     "Trusted, server-wide Sieve scripts Stalwart runs for the whole installation — not a person's own filters. More than one can be active at once; each is invoked by name from Stalwart's own configuration.":
       "Stalwart'ın tüm kurulum için çalıştırdığı, güvenilen, sunucu geneli Sieve betikleri — bir kişinin kendi süzgeçleri değil. Aynı anda birden fazlası etkin olabilir; her biri Stalwart'ın kendi yapılandırmasından adıyla çağrılır.",
     "Try another search.": "Başka bir arama deneyin.",
@@ -2011,14 +1746,11 @@ export const catalog: Catalog = {
       "Bu hesap için ofis dışı / tatil yanıtları kullanılamıyor.",
     "Valid until": "Geçerlilik süresi",
     Validate: "Doğrula",
-    Version: "Sürüm",
     "View as": "Farklı görüntüle:",
     Viewer: "Görüntüleyici",
     Visibility: "Görünürlük",
-    "Waiting for a person": "Bir kişi bekleniyor",
     "Waiting on the server — goes out {when}.":
       "Sunucuda bekliyor — {when} gönderilecek.",
-    "Waiting to start": "Başlamayı bekliyor",
     "Warn before opening links to outside domains.":
       "Dış alan adlarına bağlantıları açmadan önce uyar.",
     "Warn when a message mentions an attachment but has none.":
@@ -2035,35 +1767,14 @@ export const catalog: Catalog = {
     "Weekly on {weekday}": "Her hafta {weekday}",
     "What a left swipe does in the list.": "Listede sola kaydırmanın yaptığı şey.",
     "What a right swipe does in the list.": "Listede sağa kaydırmanın yaptığı şey.",
-    "What a single model answer may cost. 1 to {max}.":
-      "Tek bir model yanıtının maliyeti ne olabilir. 1 ile {max} arası.",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "Her yerde geçerli olanlar: ajanın, bir grupla ya da tek bir otomasyonla ilgili hiçbir şey geçerli olmadan önce her grubun her çağrısına taşıdığı kurallar. Her grubun talimatında yinelenmek yerine burada bir kez yazılır ve veri olarak okunur — bir çalıştırmanın izni kendi yetenek listesidir ve burada yazılan hiçbir şey onu genişletmez.",
     "What is it called?": "Adı nedir?",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "Ajanın tuttuğu her grupta bir kişiyi neyin beklediği ve filonun ne yaptığı — salt okunur gözetim. Bir operatör, duraklayan bir çalıştırmayı grubun kendi sohbetinde yanıtlar, asla burada değil.",
     "What it does": "Neler yapar",
-    "What it follows": "Neyi izler",
-    "What it has done": "Neler yaptı",
-    "What it may do": "Neler yapabilir",
-    "What it proposes": "Ne önerir",
     "What reaches a sender, and what asks before it happens.":
       "Gönderene nelerin ulaştığı ve gerçekleşmeden önce nelerin sorulacağı.",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "Ajanın bir grupta ne yaptığı: ne zaman tepki verdiği ve bulduğu şey hakkında ne yapmasının istendiği. Otomasyon grubun kendi hesabında saklanır, böylece her üye onu okuyabilir.",
-    "What the fleet has spent": "Filonun harcadığı",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "Grubun ajanının her çağrıda tuttuğu şeyler: otomasyonlarının asla yinelemek zorunda kalmaması gereken, bu gruba dair olgular. Her satır veri olarak okunur — yönlendirir ve bir otomasyonun yapmasına izin verileni asla genişletmez.",
-    "What the model said about this draft:": "Modelin bu taslak hakkında söyledikleri:",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "Bu grubun ajanının yaptıkları, en yeniden eskiye — kendi üyelerinin sohbetin yanında okuduğu aynı belge. On iki ay saklanır, her seferinde bir ay budanır.",
     "What you changed here will be lost.": "Burada değiştirdiğiniz şeyler kaybolacak.",
     When: "Ne zaman",
-    "When a person has to agree": "Bir kişinin ne zaman onaylaması gerektiği",
     "When a receipt is asked for: ask each time, or never.":
       "Bildirim ne zaman istenir: her seferinde sor ya da hiç sorma.",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "Bunlardan biri bir kişiyi beklediğinde ajan burada, sohbette sorar — yanıtladığınız yer orasıdır.",
     "When someone requests a read receipt": "Biri okundu bilgisi istediğinde",
     "Where the list moves after acting: newer, older, or back to the list.":
       "İşlemden sonra listenin nereye gittiği: daha yeni, daha eski veya listeye dön.",
@@ -2079,26 +1790,16 @@ export const catalog: Catalog = {
       "Hangi klasör adını korusun? Diğerinin içeriği ona taşınır ve o silinir.",
     "Which folders the sort covers: inbox only, or all.":
       "Sıralamanın hangi klasörleri kapsadığı: yalnızca gelen kutusu ya da tümü.",
-    "Who its runs stop for": "Çalıştırmalarının kimin için durduğu",
     "Who sends as what": "Kimin ne olarak gönderdiği",
     "Who the message is addressed to": "İletinin kime gönderildiği",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "Bu grubun çalıştırmalarının kimin için durduğu ve bir kişi olmadan grubun dışına ulaşıp ulaşamayacakları. Tüm grup için tek ilke: otomasyonları, aynı yazışma üzerinde aynı ekibin işidir.",
     Work: "İş",
     "Working hours": "Çalışma saatleri",
     "Working hours end": "Çalışma saatleri bitişi",
     "Working hours start": "Çalışma saatleri başlangıcı",
-    "Working in this group as {address}.": "Bu grupta {address} olarak çalışıyor.",
     "Working out what is selected…": "Nelerin seçildiği belirleniyor…",
     "Working…": "Çalışıyor…",
     Write: "Yaz",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "Gelen durumlara göre yazın: bir tür postayla diğeri arasındaki dallanma buraya aittir, ikinci bir otomasyona değil.",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "Gruba kendi dilinde yaz ve her zaman fatura numarasını belirt.",
     "Write your message…": "İletinizi yazın…",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "Yalnızca yazma: saklanan anahtar bir daha gösterilmez ve bu alanı boş bırakmak zaten sahip olduğunuz anahtarı korur.",
     "X-Spam-Status": "X-Spam-Status",
     "Year-Month-Day (ISO 8601)": "Yıl-Ay-Gün (ISO 8601)",
     Yearly: "Yıllık",
@@ -2167,7 +1868,6 @@ export const catalog: Catalog = {
     "all of the following match": "aşağıdakilerin tümü eşleştiğinde",
     "all-day": "tüm gün",
     always: "her zaman",
-    "an administrator": "bir yönetici",
     "an unnamed signer": "adsız bir imzalayan",
     "any of the following match": "aşağıdakilerden herhangi biri eşleştiğinde",
     "applied on every load and cannot be changed in Settings — the controls stay visible and go dead.":
@@ -2190,10 +1890,8 @@ export const catalog: Catalog = {
     "does not match": "eşleşmez",
     "does not match regex": "düzenli ifade (regex) ile eşleşmez",
     enabled: "etkinleştirildi",
-    "every {minutes} minutes": "her {minutes} dakika",
     "example.com": "example.com",
     exists: "mevcut",
-    external: "harici",
     fifth: "beşinci",
     file: "dosya",
     first: "birinci",
@@ -2211,10 +1909,8 @@ export const catalog: Catalog = {
     fourth: "dördüncü",
     hidden: "gizli",
     "https://": "https://",
-    "https://api.example.com/v1": "https://api.example.com/v1",
     "https://meet.example.com/…": "https://meet.example.com/…",
     "https://…": "https://…",
-    irreversible: "geri alınamaz",
     is: "şudur",
     "is larger than": "şundan büyüktür",
     "is not": "şu değildir",
@@ -2234,11 +1930,9 @@ export const catalog: Catalog = {
     "name@example.com": "name@example.com",
     never: "asla",
     "no address": "adres yok",
-    "no agent named": "adlandırılmış ajan yok",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
     "on date": "belirli tarihte",
-    openai: "openai",
     optional: "isteğe bağlı",
     organizer: "düzenleyen",
     "reconnecting…": "yeniden bağlanıyor…",
@@ -2252,10 +1946,6 @@ export const catalog: Catalog = {
     second: "ikinci",
     "seed accounts that have never had settings of their own; readers can change them afterwards.":
       "kendi ayarları hiç olmamış başlangıç hesapları; okuyucular sonradan onları değiştirebilir.",
-    "sending outside the group allowed without a person":
-      "grubun dışına gönderme, bir kişi olmadan izinli",
-    "sending outside the group always waits for a person":
-      "grubun dışına gönderme her zaman bir kişiyi bekler",
     "share sheet\u0004Share": "Paylaş",
     "share sheet\u0004Share…": "Paylaş…",
     "size is over {n} KB": "boyut {n} KB üzerinde",
@@ -2269,10 +1959,7 @@ export const catalog: Catalog = {
       "ilke yazılırken hesap değişti, dolayısıyla ona hiçbir şey yazılmadı",
     "the account has no Files account to hold the policy":
       "hesabın ilkeyi tutacak bir Dosyalar hesabı yok",
-    "the automation “{name}”": "“{name}” otomasyonu",
     "the directory would not list it": "dizin onu listelemedi",
-    "the group's standing instruction": "grubun sürekli talimatı",
-    "the installation's own rules": "kurulumun kendi kuralları",
     "the server closed the live-updates stream":
       "sunucu canlı güncelleme akışını kapattı",
     "the server could not be reached": "sunucuya ulaşılamadı",
@@ -2285,18 +1972,14 @@ export const catalog: Catalog = {
     "this view": "bu görünüm",
     to: "kime",
     "to {recipients}": "alıcı: {recipients}",
-    unknown: "bilinmiyor",
     "user@example.com": "user@example.com",
     vCard: "vCard",
     "vCard attachment": "vCard eki",
     "week(s)": "hafta",
     "year(s)": "yıl",
-    "{agent}: {meter}": "{agent}: {meter}",
     "{count} folders": "{count} klasör",
     "{duration} before": "{duration} önce",
     "{email} is now your default identity": "{email} artık varsayılan kimliğiniz",
-    "{enabled} of {total} automations enabled":
-      "{total} otomasyondan {enabled} tanesi etkin",
     '{header} address {op} "{value}"': '{header} adresi {op} "{value}"',
     '{header} {op} "{value}"': '{header} {op} "{value}"',
     "{label} (date)": "{label} (tarih)",
@@ -2310,13 +1993,8 @@ export const catalog: Catalog = {
     "{name} — shared with everyone": "{name} — herkesle paylaşıldı",
     "{name}’s birthday": "{name} doğum günü",
     "{name}’s birthday ({age})": "{name} doğum günü ({age})",
-    "{n} agents serving this group": "bu gruba hizmet eden {n} ajan",
-    "{n} of them reported no usage": "bunlardan {n} tanesi kullanım bildirmedi",
-    "{n} waiting for a person in this group": "bu grupta bir kişiyi bekleyen {n}",
     "{own} here, {unread} in subfolders": "burada {own}, alt klasörlerde {unread}",
     "{rule}, until {date}": "{rule}, {date} tarihine kadar",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs} çalıştırma · önbellekten {hit} token okundu, {miss} yeni okundu, {out} yazıldı",
     "{size} MB": "{size} MB",
     "{tests} → {actions}": "{tests} → {actions}",
     "{used} of {total}": "{total} üzerinden {used}",
@@ -2545,10 +2223,6 @@ export const catalog: Catalog = {
     "{n} attendees": {
       one: "{n} katılımcı",
       other: "{n} katılımcı",
-    },
-    "{n} automations": {
-      one: "{n} otomasyon",
-      other: "{n} otomasyon",
     },
     "{n} contacts will be deleted. This cannot be undone.": {
       one: "{n} kişi silinecek. Bu işlem geri alınamaz.",

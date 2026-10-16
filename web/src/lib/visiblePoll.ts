@@ -5,9 +5,8 @@
  * A hidden page is not being read, and browsers throttle or freeze its timers,
  * so a poll that fired regardless would spend requests nobody sees and drift
  * from the cadence it claims. This is the one definition of that policy: the
- * build watch (`staleBuild.ts`), the admin fleet's status read
- * (`views/admin/AdminAgents.tsx`) and the service worker's update ask
- * (`serviceWorkerUpdate.ts`) all run through it.
+ * build watch (`staleBuild.ts`) and the service worker's update ask
+ * (`serviceWorkerUpdate.ts`) both run through it.
  *
  * Returns a disposer that stops the timer and drops the listener.
  */

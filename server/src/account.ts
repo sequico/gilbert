@@ -417,8 +417,8 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
  * that is there but that the validator refuses. Read as `entries | null`, the
  * third one becomes "nothing stored" and a writer overwrites whatever a person
  * put there. Its entries are checked through `isLabelCatalog` rather than
- * returned as they were found: this is the document the agent's keyword guard
- * reads, and a keyword nobody can render is a label nobody sees.
+ * returned as they were found: a keyword nobody can render is a label nobody
+ * sees.
  */
 export type GroupLabelsRead =
   | { state: "absent" }

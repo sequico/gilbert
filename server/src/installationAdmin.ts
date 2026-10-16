@@ -21,7 +21,7 @@
  *
  * - **Where** it lives. `account` is the Files account the document was read
  *   from or written to, `master` is the address that account belongs to — the
- *   one the installation signs in as at boot (ADR 0003) — and `location` says
+ *   one the installation signs in as at boot — and `location` says
  *   it in words. There is no longer a case in which this is *not* the
  *   installation's own document: a deployment with no Master to read from is
  *   refused before anything is read or written.
@@ -197,8 +197,7 @@ export async function readInstallationForAdmin(
  * The write is conditional on the account's own FileNode state, read after the
  * app folder is known to exist (creating that folder is itself a write, and a
  * token read before it would make this publish lose a race with its own folder
- * creation — the reason `AgentStore.provision` runs before an agent's first
- * conditional write, and why the policy publish reads its token there too). A
+ * creation, and why the policy publish reads its token there too). A
  * document that moved after that read is refused with its own code, and the
  * stored document keeps every byte and every epoch it had: nothing is
  * overwritten silently. An account that will not state its state at all is

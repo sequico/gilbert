@@ -72,7 +72,7 @@ const login = loginWith(call);
 /**
  * What this deployment names as its Master.
  *
- * The address is read from the configuration at request time (`agentAddress`),
+ * The address is read from the configuration at request time (`masterAddress`),
  * which is the same value a boot hands over, so a test can ask for the two
  * states a deployment can be in — one Master, or none — without a second
  * process.
@@ -138,7 +138,6 @@ const VALID = JSON.stringify(
     server: { port: 8443, basePath: "/mail" },
     branding: { appName: "Gilbert Test" },
     upstreams: { "example.com": "https://mail.example.com" },
-    agent: { pages: 4 },
     secret: "an-installation-secret-long-enough-to-seal-a-session-with",
   },
   null,
@@ -326,12 +325,10 @@ test("a valid publish is what the next read returns, and the answer names when i
     epoch: number;
     server: { port: number; basePath: string };
     branding: { appName: string };
-    agent: { pages: number };
     secret: string;
   };
   assert.equal(written.server.port, 9443, "the published value is what was stored");
   assert.equal(written.branding.appName, "Gilbert Test");
-  assert.equal(written.agent.pages, 4);
   assert.equal(
     written.secret,
     "an-installation-secret-long-enough-to-seal-a-session-with",

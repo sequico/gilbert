@@ -9,7 +9,7 @@ import {
 import { file } from "../../scripts/lib/repoFile.mjs";
 
 /**
- * The owed debt, kept in one place (ADR 0003 "Owed").
+ * The owed debt, kept in one place.
  *
  * An ADR that declares a debt with a code site and the code that carries the
  * debt are two halves of one sentence. This is the check that keeps them from

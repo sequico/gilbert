@@ -55,9 +55,9 @@ const NO_FUTURE_RELEASE = process.env.MOCK_NO_FUTURE_RELEASE === "1";
  * every two minutes so a push has something to announce, and a chat message per
  * group every thirty seconds so the chat rail has traffic. Both are for
  * `dev:mock`, and neither is something a server does -- which is why a test
- * that measures what an *agent* writes into an account sets `MOCK_NO_DEMO=1`:
- * an interval landing in the account while the measurement runs is traffic from
- * outside the thing under test, and it is read as the agent's own write.
+ * that measures a write into an account sets `MOCK_NO_DEMO=1`: an interval
+ * landing in the account while the measurement runs is traffic from outside the
+ * thing under test.
  */
 const NO_DEMO = process.env.MOCK_NO_DEMO === "1";
 /** What the session advertises, matching Stalwart's own 30 days. */
@@ -70,8 +70,7 @@ const MAX_DELAYED_SEND = 86400 * 30;
  * the mock makes -- a node's `created`/`modified`, a message's `receivedAt`,
  * a submission's `sendAt` and the deadline behind its `undoStatus`, the `at`
  * of a chat document -- comes from here, so a test can put a schedule in the
- * past without waiting a minute for it (ADR 0003: the agent's time
- * triggers) and can watch a queued send become final.
+ * past without waiting a minute for it, and watch a queued send become final.
  *
  * It is an offset against real time, not a frozen instant: with no override
  * the offset is zero, so nothing about the mock's timing differs from a plain
@@ -102,22 +101,22 @@ const TARGET_ACCOUNT = "b1";
 const TARGET_USER = process.env.MOCK_TARGET_USER ?? "bob@example.com";
 const TARGET_PASS = process.env.MOCK_TARGET_PASS ?? "bob-password";
 /**
- * The agent principal (ADR 0003).
+ * The Master.
  *
- * A real installation has one agent account with its own address, its own app
- * password and a grant on each group it works -- so its session shows the
- * group's account with `isPersonal: false`, exactly like a member's, and its
- * `myRights` on the group's mailboxes include `maySubmit` (live-verified on
- * 0.16.21, 2026-09-10, resolutions 12 and 14 of the ADR). The mock reproduces
- * both, because the agent's whole reach is derived from them: a fixture that
- * forgot the grant would leave every agent test passing against nothing.
+ * A real installation names one Master account with its own address, its own
+ * app password and a grant on each group it works in -- so its session shows
+ * the group's account with `isPersonal: false`, exactly like a member's, and
+ * its `myRights` on the group's mailboxes include `maySubmit` (live-verified on
+ * 0.16.21, 2026-09-10). The mock reproduces both, because what the installation
+ * writes on a group's behalf is derived from them: a fixture that forgot the
+ * grant would leave every such write passing against nothing.
  *
- * `MOCK_AGENT_ADDRESS` and `MOCK_AGENT_PASSWORD` name the principal; its app
+ * `MOCK_AGENT_ADDRESS` and `MOCK_AGENT_PASSWORD` name the account; its app
  * passwords are minted through `x:AppPassword/set` like anybody's.
  */
 export const AGENT_ADDRESS = process.env.MOCK_AGENT_ADDRESS ?? "gilbert@example.com";
 export const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
-/** The agent's own account: its configuration documents live here (ADR 0003). */
+/** The Master's account: its configuration documents live here. */
 const AGENT_ACCOUNT = "ag1";
 
 const SHARED_CAPS: Obj = {
@@ -255,7 +254,7 @@ export const targetAccount = {
   otpUrl: null as string | null,
   appPasswords: [] as Obj[],
 };
-/** The agent principal's credential state; see `account`. */
+/** The Master's credential state; see `account`. */
 export const agentAccount = {
   password: AGENT_PASS,
   otpUrl: null as string | null,
@@ -278,12 +277,6 @@ const state = { n: 1 };
  * `FileNode/get` hand back two unrelated tokens, a client watching mail never
  * sees its `Email` state move because somebody uploaded a file, and a write in
  * one account does not move the token another account of the same type reads.
- * Both dimensions matter -- the agent design's reconcile walks `Email/changes`
- * and `FileNode/changes` from separate recorded states and writes back against
- * the state it read (ADR 0003 and §6), and its claims live in the group's
- * account while its own stream claim lives in the agent's own account, so a
- * mock that pooled the two accounts would refuse conditional writes a real
- * server accepts.
  */
 const typeStates = new Map<string, number>();
 /** The account a request's state tokens are read and written under. */
@@ -1341,16 +1334,14 @@ const group2Identities: Obj[] = [
   },
 ];
 /*
- * The agent principal's own account (ADR 0003).
+ * The Master's own account.
  *
  * A real account of the directory ships its own mailbox tree and its own
- * identity, so the mock gives it both: mail addressed to the agent is ordinary
- * mail that lands in the agent's inbox and wakes it like any other state
- * change. What it deliberately does NOT ship is another account's data: its
- * calendars, address books, cards and Files start empty, because a group agent
- * works in the group's own account, and because the mock seeds nothing the
- * code under test is supposed to create itself -- the `gilbert/agent` folder
- * appears when the store writes its first document through `FileNode/set`.
+ * identity, so the mock gives it both. What it deliberately does NOT ship is
+ * another account's data: its calendars, address books, cards and Files start
+ * empty, because the mock seeds nothing the code under test is supposed to
+ * create itself -- its `gilbert` folders appear when a write makes them through
+ * `FileNode/set`.
  */
 const agentMailboxes: Obj[] = [
   mb("inbox", "Inbox", "inbox"),
@@ -1979,7 +1970,7 @@ if (REFUSED_USER)
 // the demo session below); `design@example.org` is the agent's own group, which
 // the demo is not a member of and still administers through the agent's grant;
 // `legal@example.org` is a group neither holds, for the surfaces that must
-// refuse (ADR 0005, ADR 0003 "Admin surfaces").
+// refuse (ADR 0005).
 principals.push(
   {
     id: "pr-team",
@@ -2000,7 +1991,7 @@ principals.push(
 );
 // The agent principal, a directory account like any other: it can be found in
 // the directory, mentioned in a group chat and impersonated by an admin who
-// manages it (ADR 0003 and the v1 scope).
+// manages it.
 principals.push({
   id: "pr-agent",
   type: "individual",
@@ -2174,10 +2165,10 @@ const group2FileNodes: Obj[] = [];
 const targetFileNodes: Obj[] = [];
 
 /**
- * The agent's own Files (ADR 0003): where its configuration documents live. A
- * write makes the `gilbert/agent` folders on demand; the demo seed below puts
- * the company KB and the workorder registry in the same `gilbert` folder, so the
- * mock shows the product's own features rather than only what a test creates.
+ * The Master's own Files: where the installation's documents live. The demo
+ * seed below puts the company KB and the workorder registry in its `gilbert`
+ * folder, so the mock shows the product's own features rather than only what a
+ * test creates.
  */
 const agentFileNodes: Obj[] = [];
 
@@ -2505,10 +2496,9 @@ export function resetCalls(): void {
  * than the objects in it.
  *
  * Not checked against a live server: the error *type* is the RFC's, not a
- * string quoted from 0.16. The behaviour it stands for is the one the agent
- * design rests on -- documents plus conditional writes, no lock anywhere
- * (ADR 0003, §6) -- so a mock that ignored `ifInState` would leave every
- * lease and every job update untested.
+ * string quoted from 0.16. The behaviour it stands for is one the product
+ * relies on -- documents plus conditional writes, no lock anywhere -- so a
+ * mock that ignored `ifInState` would leave every conditional write untested.
  *
  * Asked of a real Stalwart 0.16 instance on 2026-09-11 (on credentials the
  * owner supplies, by `scripts/probe-conditional-writes.mjs`), and this
@@ -3280,8 +3270,7 @@ const handlers: Record<string, Handler> = {
    */
   "Email/changes": (a) => {
     /* One account's changes, not the mock's whole log: a real server answers
-       per account, and the agent reconciling a group's mail must not be handed
-       the demo user's. */
+       per account, and one account's rail must not carry another's mail. */
     const accountId = String(a.accountId ?? ACCOUNT);
     const relevant = emailChanges.since(accountId, a.sinceState);
     if (!relevant) throw cannotCalculateChanges("Email");
@@ -3420,12 +3409,12 @@ const handlers: Record<string, Handler> = {
    * A real 0.16 server parses that blob into the Email object: subject,
    * addresses, size, preview and the body a `text`/`body` filter matches all
    * come from the message itself, never from the request. A stub object with
-   * none of them leaves an agent's rule with nothing to match incoming mail
-   * on, so the mock reads the same fields out of a small subset of RFC 5322
+   * none of them leaves a mail filter with nothing to match incoming mail on,
+   * so the mock reads the same fields out of a small subset of RFC 5322
    * (see `parseRawMessage`, which says what it does not decode), and it
    * announces the arrival the way a delivery would: a change log entry and a
-   * state change. Mail that lands silently is mail no agent reconciling from
-   * a recorded state ever sees (ADR 0003).
+   * state change. Mail that lands silently is mail no reader of
+   * `Email/changes` ever sees.
    */
   "Email/import": (a) => {
     const created: Obj = {};
@@ -3985,10 +3974,10 @@ const handlers: Record<string, Handler> = {
      * The send moved the email itself — out of Drafts, `$draft` cleared,
      * `$seen` set — through `onSuccessUpdateEmail`, and a mutation of an Email
      * is only real to a reader if the Email state moves with it. `Email/set`
-     * announces its own writes the same way, and for the same reason: the
-     * agent's reconcile rail (ADR 0003) and a second session both read
-     * `Email/changes`, and a message whose state never changed stays an unsent
-     * draft in the group's account until something else happens to touch it.
+     * announces its own writes the same way, and for the same reason: a change
+     * watcher and a second session both read `Email/changes`, and a message
+     * whose state never changed stays an unsent draft in the group's account
+     * until something else happens to touch it.
      */
     if (patchedEmails.length) {
       const account = String(a.accountId ?? ACCOUNT);
@@ -4660,9 +4649,9 @@ const handlers: Record<string, Handler> = {
     // reports what changed (verified live 2026-09-07, see the Stalwart skill);
     // the mock answers the same way from its own change log. The log holds
     // creates, updates and destroys and all three are answered here: chat is
-    // append-only (ADR 0005), but the agent's documents are rewritten in place
-    // and removed again (a job that finishes, a claim that is released), and a
-    // watcher told about creates alone would never see either.
+    // append-only (ADR 0005), but the documents an account rewrites in place
+    // and removes again carry both, and a watcher told about creates alone
+    // would never see either.
     //
     // `newState` is the account's current FileNode state, so a caller that
     // stored it can ask again from there; `hasMoreChanges` is false because
@@ -4861,8 +4850,8 @@ const handlers: Record<string, Handler> = {
     const updated = Object.keys(res.updated ?? {});
     const destroyed = (res.destroyed as string[] | undefined) ?? [];
     if (created.length || updated.length || destroyed.length) {
-      /* All three, not just the creates: a job document rewritten in place and
-         a lease released are both invisible to a client that only ever hears
+      /* All three, not just the creates: a document rewritten in place and one
+         removed again are both invisible to a client that only ever hears
          about creates. The change is recorded at the state the set left
          (`newState`), which is the token its readers are handed. */
       fileNodeChanges.record(
@@ -4938,7 +4927,7 @@ const knownPrincipal = (username: string) =>
   username !== REFUSED_USER &&
   (username === USER ||
     username === TARGET_USER ||
-    // The agent principal is a real account in the directory (ADR 0003), so it
+    // The agent principal is a real account in the directory, so it
     // authenticates by itself and an admin may also impersonate it to manage it.
     username === AGENT_ADDRESS ||
     // The impersonation probe acts on a real account from the directory, the
@@ -5106,7 +5095,7 @@ const personalCapabilities = (): Obj => ({
  *
  * The mock knows three principals: the demo user, whose session also lists
  * the account somebody shared with them and the two group mailboxes (ADR
- * 0005); the agent principal (ADR 0003), whose session lists the group
+ * 0005); the agent principal, whose session lists the group
  * accounts it was granted and nothing else of anybody's; and the target
  * principal of the impersonation flows (ADR 0001), whose session is a single
  * fresh personal account. Admin state is not a
@@ -5135,7 +5124,7 @@ const sessionFor = (identity: Identity) => ({
   capabilities: sessionCapabilities,
   accounts: {
     /* A share is a person's business, a group is a membership. The agent is
-       granted on the groups (ADR 0003), so it is handed those accounts --
+       granted on the groups, so it is handed those accounts --
        and never the account somebody shared with the demo user. */
     ...(identity.username === USER
       ? {
@@ -5217,8 +5206,8 @@ type ChangeLogEntry = {
  * A change log for one data type, per account.
  *
  * Each entry records the account it happened in -- a real server answers
- * `/changes` per account, and one shared log would hand a group's agent the
- * demo user's mail -- and the state the change is visible at, which is what a
+ * `/changes` per account, and one shared log would hand one account another's
+ * mail -- and the state the change is visible at, which is what a
  * client asking from a recorded state is matched against. Those states are the
  * mock's own counters, so the comparison is numeric where a real server's state
  * strings are opaque.
@@ -5281,10 +5270,9 @@ const emailChanges = changeLog();
  * The FileNode changes. Group chat (ADR 0005) rides this rail: a message is a
  * node created in the group account's `gilbert/chat` folder, and another
  * member's client re-syncs by asking what changed since the state it last saw
- * -- the same shape Email/changes gives the mail stores. The agent's documents
- * ride it too, and there an update counts as much as a create: a job document
- * is rewritten in place and a lease is released by removing one, so a client
- * told about creates alone would never see either.
+ * -- the same shape Email/changes gives the mail stores. An update counts as
+ * much as a create: a document rewritten in place and one removed again are
+ * both unseen by a client told about creates alone.
  */
 const fileNodeChanges = changeLog();
 /**
@@ -5524,10 +5512,9 @@ export const server = createServer(async (req, res) => {
      * whether a real 0.16 server agrees. It matters because
      * the production write path uploads the blob **after** reading the token
      * and before the conditional write (`writeAppFileIn`), so a server that
-     * moved the token on upload would refuse every conditional write the agent
-     * makes — it would never claim a unit and never append an audit entry. The
-     * choice is pinned by `compare-and-set.test.ts` so a change here is noticed
-     * rather than inherited.
+     * moved the token on upload would refuse every conditional write that path
+     * makes. The choice is pinned by `compare-and-set.test.ts` so a change here
+     * is noticed rather than inherited.
      */
     /* The account in the upload URL is the account the bytes belong to, which
        is the one an upload answer names and the one a download must ask for. */
@@ -5629,8 +5616,8 @@ export const server = createServer(async (req, res) => {
 
 // Periodically inject a new inbox email to demo push
 setInterval(() => {
-  /* Demo traffic, and `MOCK_NO_DEMO=1` is what a test that measures what an
-     agent writes sets: an interval writing into the account is traffic from
+  /* Demo traffic, and `MOCK_NO_DEMO=1` is what a test that measures a write
+     into the account sets: an interval writing into the account is traffic from
      outside the thing under test. */
   if (NO_DEMO) return;
   /* `randomInt`, not `Math.random`: the pick becomes the `From:` of a message,

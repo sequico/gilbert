@@ -64,10 +64,10 @@ feature, which is why the mock reproduces the per-account shape.
 Gilbert is a product built on Stalwart rather than a mail client with extras
 bolted on. The **group** is the unit everything else is built around: a group
 mailbox is an account of its own, and what it owns — its chat, its label catalog,
-its calendars and files, its agent's documents — lives in that account and
+its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
-**Chat** is one conversation per group. **Agents** is the largest part: a fleet
-that acts inside mail and file storage on a group's behalf.
+**Chat** is one conversation per group. **Agents** is designed and not built
+(ADR 0031–0035 below).
 
 The one thing a member cannot do with group-owned mail is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
@@ -78,251 +78,21 @@ else a member does to move mail around still works.
 
 # Agents
 
-> **Not functional yet.** This part is designed and present in the tree but does
-> not work; a refactor is planned. See [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+> **Not built.** Gilbert's agent is designed and not built: nothing in the tree
+> serves a group's work today. Its decisions are
+> [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
+> described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
+> (what it decides and what only a person decides),
+> [0033](docs/adr/0033-the-conversation-runs-in-chat-and-mail.md) (one
+> conversation in chat and mail), [0034](docs/adr/0034-a-run-is-a-document-and-the-record-is-the-product.md)
+> (a run is a document, and the record is the product) and
+> [0035](docs/adr/0035-a-groups-engagement-is-a-rule-in-prose.md) (a group's
+> engagement is a rule in prose).
 
-Gilbert's own agents: a Stalwart account of its own — a *structure agent*, e.g.
-`gilbert@…` — that acts inside mail and file storage for the groups the operator
-has granted it (ADR 0003). For the full design, see
-[docs/adr/0003-agent-fleet.md](docs/adr/0003-agent-fleet.md); the inventory is:
-
-- **The agent is a mailbox**, an ordinary Stalwart account created by the operator
-  and **granted** on a group like any principal. Membership is the grant: no
-  in-product activation switch, so a visible group is one it works for. The admin
-  surface reads that membership from the Master's session and shows it; it never
-  writes one.
-- **The agent's address and password are the deployment's**:
-  `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` (the account's own
-  password, never an app password), in the environment of whoever starts the
-  server and the agent. The pair lives only in the deployment; neither process
-  records it. Absent or incomplete, the boot names the missing variable and exits.
-  **Admin → Master** reports the state it finds; an agent started with nothing
-  named warns once, keeps running and serves nothing.
-- **What the fleet serves, per group**: the accounts Stalwart lists the agent as
-  a member of, and nothing else. A claim is per account, so an agent names the
-  groups it holds in its heartbeat and the surface reads one group's agents off
-  that.
-- **Run now** runs one automation on the newest message of the group's own inbox.
-  The ask writes a job, and the agent holding the group runs it on the
-  automation's own terms — allowlist and review policy still decide, and the audit
-  line says it was asked for. An unarmed automation, one not about mail, a group
-  with no message and a group nobody holds are four different sentences, none
-  written into the audit.
-- **A withdrawn grant is reported and the group stops being served.** The agent
-  re-reads its session at most once per poll interval — a minute, a third of a
-  lease. An account the session no longer lists is a withdrawal: from that pass
-  the group is not served, and the agent writes the loss once into its **own**
-  account (group name, account it held, when it noticed), shown on the admin
-  surface. Nothing is written or deleted in the withdrawn group; the claim lapses
-  with its lease.
-- **Three levels of prose, none of which grants anything** (ADR 0019): the
-  **installation's rules** (Admin → Master, in the Master's account, carried into
-  every call of every group), a **group's standing instruction**, and the
-  **automation's own instruction**. Each says how to work; none widens what a run
-  may do, because the grant is the automation's capability list, checked on every
-  answer. All three sit in the prompt's stable head, so carrying them costs a
-  cache hit.
-- **The group's standing instruction** is one text per group, written in the admin
-  surface (which reaches a group's own files as the installation's agent, so it
-  needs the agent's grant, not the administrator's membership) and handed to the
-  model on **every** call, after the installation rules and the notebook and
-  before the automation instruction and the message. It steers and cannot grant;
-  an empty text removes it.
-- **A group sets who its runs stop for, once**: one document per group, with two
-  choices — **when a person has to agree** (every run, below a confidence, or
-  never) and whether a run may **reach outside the group without a person** (off
-  until turned on). One policy per group, not per automation. The threshold is a
-  behaviour, not a field: "run unattended when confident" is one constant.
-  Neither choice can lower a floor in code: an irreversible action always asks,
-  and a reach outside the group asks unless the group said otherwise. A group
-  with no policy runs on the confident reading.
-- **The bootstrap secret** is `GILBERT_AGENT_ADDRESS` / `GILBERT_AGENT_PASSWORD`;
-  the session is re-established at every start, so nothing durable is on disk and
-  `IMMUTABLE=1` holds. The product neither mints nor rotates a credential.
-  Rotating it is the operator's act in Stalwart; a restart carries the new value.
-- **Nothing is watched at runtime**: address and password are read once at boot;
-  membership is the one thing re-read while running, at most once per poll
-  interval.
-- **Three admin surfaces (ADR 0003).** **Master** configures the installation
-  once: identity, the one model and its bounds, the rules that hold in every
-  group, the granted groups. **Group Agents** is the agent in one group, behind a
-  picker; its header names the agent serving the group and how much is armed, and
-  its four sections are **Behaviour** (standing instruction and review policy),
-  **Automations** (one rule per trigger), **Memory** (the notebook) and
-  **Activity** (audit trail and agents serving the group), beside a control that
-  ensures the reserved label catalogue. Up to four automations — email, file,
-  chat, schedule — each with its own instruction and allowlist, pinned by
-  `ruleId`/`ruleVersion` on the jobs and audit that reference it, each readable
-  by group members. **Approvals** is cross-group oversight of what is waiting and
-  what the fleet has done, read-only by construction; an operator answers a paused
-  run in the group's own chat. Master also says whether it may read a group's
-  roster (`sysAccountGet`, `sysAccountQuery`), which decides whether the chat's
-  `@` offers a group's members or the people who have already written (ADR 0005).
-- **An automation document this build cannot read is replaced automatically.** A
-  group whose `agent/rules.json` is valid JSON but not this build's shape is not
-  shown as a group with no automation and does not take its surface down: the
-  administration's read (and `/admin/groups/:name/agent/rules`) replaces it with a
-  fresh empty one, conditionally on the state just read, and says so once. The
-  member door reports and never writes. The executor still refuses to run a
-  document it cannot read and records the refusal.
-- **An automation is three choices and a paragraph**: **when** it reacts (one of
-  four triggers), **what it does** (prose, which carries the branching between
-  cases), and **what it may do** (three areas — mail, chat, files and documents —
-  plus sending, and the company knowledge base as its own standalone grant). It
-  is named by its trigger, carries no filter, and a scheduled one takes a preset
-  cadence. **Sending** is its own entry because every area excludes anything the
-  catalogue marks external or irreversible, computed from those flags, so ticking
-  "mail" can never grant sending, and the **company knowledge base** is its own
-  because writing it reaches the Master's account rather than the group's.
-  **Doing nothing** is granted to every automation. The document is validated
-  against a published JSON Schema (ADR 0003), the same validator and schema on both
-  sides. No new rule language, no hand-typed JSON; Sieve keeps the delivery-time
-  boundary.
-- **One enabled automation per trigger.** The executor runs every enabled
-  automation on a trigger against every item it produces; two on one trigger is
-  refused by the server, prevented by the form (it offers only unheld triggers),
-  and reported once by the executor if a document carries one anyway. A disabled
-  automation is a draft and may sit beside the enabled one.
-- **A time-triggered rule is armed on a cadence**: its next run is stored as a UTC
-  instant in the group's scheduler document, so a restart, deploy or crash costs
-  the wait and not the schedule, and a replacement agent re-plans from Stalwart.
-  Each agent fires the entries of the accounts it holds; vanished runs (rule off,
-  rule gone) are recorded as missed.
-- **One shape, and the model decides.** Every run hands the instruction to the
-  installation's model, which answers with actions from the capability catalogue;
-  an answer naming an action the automation was not granted is refused. One model
-  is configured once (provider, model, base URL, write-only key) and serves every
-  automation. Installation bounds: the ceiling on one answer is a constant, while
-  `agent.chainHops` and `agent.pages` are the document's; both are held to fifty
-  whatever the document or environment asks, and the panel shows the number a run
-  obeys. A file larger than the byte ceiling is not read; one split writes at most
-  a hundred pages; an oversized page is rendered smaller, noted in the run. A
-  deployment whose model cannot read an image says so (`agent.vision` false) and
-  no page is rendered for it.
-- **A group has a memory.** The agent carries a **notebook**: facts no automation
-  should repeat — how mail is filed, what clients are called, the working
-  language, written exceptions. It is a document in the group's own account,
-  shown as a list an administrator can add to, correct and remove one fact at a
-  time, and it sits in the prompt's stable head. A run writes it too:
-  **`notebook.write`** adds a fact, corrects one by id, or removes one by writing
-  it with no text, gated and fenced like `file.write`. It steers and never widens.
-- **A run can look the group's state up (ADR 0020).** The deciding call may answer
-  with a lookup instead of actions, read in the group's own account before
-  deciding. The catalogue is the whole group: its **mail** and **chat** by the
-  client's own search grammar (`is:starred`, `is:unread`, `from:`, `in:`,
-  `label:`, `has:attachment`, dates, sizes, quoted words), one **message** by a
-  listed id, its **folders**, its **labels**, its visible **Files** (one level, or
-  the whole tree under a folder, filtered by name) and one **file** by a path. The
-  grammar is one definition in `server/src/shared/search.ts`, read by client and
-  agent alike. Listings hand over names, ids and headers; reads hand over one
-  item's text, each capped. The system message is byte-identical on every call;
-  the lookups a run made ride its job and audit line.
-- **Ask the model to read it** sends the draft and what it is about, the
-  installation rules, the group's instruction and its notebook to the model, which
-  answers in words about the gaps. It is not a run — no compilation, nothing
-  stored, no job, no claim; a call with a timeout, thinking off — and its tokens
-  are counted in the **Master's account** as authoring. Refusals travel as codes
-  and the answer is model prose. Its monthly spend is
-  `agent.authoringMaxPerMonth`, counted from the authoring document and refused
-  before the call; two simultaneous readings can both pass it, and a reading the
-  month could not record says so.
-- **Documents, read by the model that has eyes.** A run can split a PDF into
-  pages, merge them, extract one, and *read* a PDF text layer, a `.docx`, a
-  workbook (`.xls`, `.xlsx`, sheet by sheet — one sheet is one page), a text file
-  (`.csv`, `.txt` and the other plain-text types, read as they stand: no delimiter
-  parsed, no column named), or an image (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`).
-  A reading longer than 200 000 characters — a PDF's text layer as much as text or
-  a workbook — is handed over as its beginning, told so; a `.docx` or `.xlsx`
-  whose own archive unpacks past 256 MiB is refused before it is expanded. A page with no text layer is **rasterised** by a WASM PDF engine (no
-  canvas, no native build, no child process) and rides the call as volatile
-  content in the tail; an image rides the same way as its own bytes, sniffed
-  against the formats' magic numbers. A vision request carries images, not
-  documents. `agent.pages` (eight by default) bounds how many pages one run hands
-  over, and a longer document is read as its first pages, told so. No OCR engine
-  and no `.docx` writer. Everything happens in memory.
-- **What the work costs, in counts.** Every run records tokens read from cache,
-  read fresh, written, and whether it paid for the model's chain of thought. A run
-  whose provider reported nothing is **uncounted**, never zero. A group view shows
-  that group's use; a fleet view shows the installation total split per agent. The
-  counts are tokens, never money, and a total is a floor whenever a group's audit
-  could not be read, which the surface says.
-- **One automation's work can wake another, and a chain is bounded.** A file
-  written into the group's Files wakes a file rule; a decision answered in chat
-  closes the run waiting on it. Every run records the job that woke it; a chain
-  runs **five hops** (`agent.chainHops`) and the sixth is **refused loudly**: no
-  job, an audit entry with outcome `refused`, and a chat line naming the
-  automation and the bound.
-- **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
-  `G-rejected` mark processing state on the individual message; the catalogue is
-  created from the Group Agents workspace once the grant exists, idempotently.
-  State is per message: a reply arriving in a processed thread starts unlabelled,
-  is shown on that message, never aggregated onto a thread or list row and never
-  offered in the manual label picker. Moving a message is a separate,
-  content-driven action.
-- **What it saves, a person can find.** Extracted attachments go into the group's
-  own Files — the folder the automation named, else the one the model chose, else
-  `Needs attention` rather than loose in the root. A name already taken is that
-  person's file: the run writes `2-note.txt` beside it and reports the name.
-  One run takes what it can hold and says so for the rest: a message carrying
-  more attachments than one extraction takes, or an attachment larger than one
-  run reads, is refused in words rather than paid for in memory.
-  Gilbert's own documents (automations, jobs, decisions, audit) stay in the hidden
-  `gilbert` folder, which the Files view does not look into; a path naming it is
-  refused as a destination.
-- **A run is bounded by what it was granted.** An agent that loses its unit
-  mid-run stops before anything leaves the process; an approval is consumed
-  exactly once; a run executes the version of its automation it was created from,
-  and one whose version is no longer current is recorded as a failure rather than
-  run. The audit records what a run was about to do before it does it.
-- **Approvals happen in the group's chat.** A run the policy stops for pauses,
-  writes a decision, prepares the draft in the group's own Drafts (kept unread)
-  and posts the proposal in the chat. Any member may answer in words. A send
-  reaches outside the group, so it always needs explicit consent, whatever the
-  policy says.
-- **The agent is its own process.** Same image and codebase, second entrypoint
-  (`node server/dist/agent/agent.js`), never a replica of the web tier. It holds
-  the Master's event stream, wakes on it and reconciles from the last state it
-  recorded; polling is the fallback. Work claims live in the documents, so no
-  coordinator exists: one process per account, several accounts per agent, and a
-  crashed agent's claims are re-taken by whoever runs, with the work it left
-  mid-run. A run nobody comes back for is recorded as a timeout. It answers a
-  health probe when `agent.healthPort` is named, reporting the accounts it holds.
-  **The server starts one beside itself** when the deployment names an agent
-  (ADR 0003); `agent.inProcess` false keeps the fleet in its own process.
-- **Members see, never change.** An indicator beside the group's chat opens the
-  group's agent surface: which agent works for the group, what instructions it
-  carries, what it has done. Everything read lives in the group's own account, so
-  a member added later sees all of it; nothing is editable.
-- **Every member reads what the agent is told and does.** The panel reads the
-  group's own documents through the member's own session: the standing instruction
-  as text (who last wrote it, when) and each automation as a short block — name,
-  trigger, how it is reviewed, on or off, its instruction in words. A group with
-  no instruction says so; one sentence states that only an administrator changes
-  either. Members read automations without the allowlist and the authorship
-  stamps; nothing on that path writes.
-- **The agent says hello once**: "Hi all! Gilbert here, at your service." posted
-  when an agent takes the group's claim, itself proof an agent works in the group.
-- **Where the documents live.** Rules, jobs, decisions, claims, the schedule and
-  the audit trail are documents in the group's own `gilbert` app folder. The
-  agent's own account holds its configuration, the provider keys and the
-  heartbeats, each naming the groups its agent holds. No database, no volume.
-- **Failures are loud.** An unreachable provider, a refused key or a malformed
-  answer is recorded in the audit, the message lands in `G-needattention`, and the
-  chat is told which automation could not finish. The audit is one document per
-  month per group, kept twelve months and pruned a month at a time, in the group's
-  hidden `gilbert` folder. A member reads them through the agent panel; an
-  administrator reads the same trail in the group's Activity section (or merged in
-  Approvals' Audit tab) and can export every retained month as JSON.
-- **A refusal reads in the reader's language.** The admin surface answers a
-  refusal as a code and its parameters, and the client composes the sentence from
-  the loaded catalogue; a language whose catalogue lacks it reads the English. An
-  unknown code is read as the prose the answer carried. Text quoted from the
-  server that refused travels beside the code as a diagnostic.
-- **Not in this layer**: agents for individual users (group agents only), external
-  agent fleets (a future decision; A2A stays the recorded candidate), and mail
-  notifications — the group's chat is the one channel.
-
----
+The agent acts for one group, inside that group's own account. It reads the
+company's written policy and the group's own rules, it does the reversible work
+of the account, it records what it did and why, and it asks a person for anything
+that leaves the account — or for anything the policy forbids.
 
 # Administration
 
@@ -407,10 +177,10 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   gets.
 - **Group label catalog**: an administrator defines the label catalog of a group
   mailbox (ADR 0005). The catalog is **the group's** and lives in the group's own
-  `gilbert` app folder. The write is made **as the installation's agent**, the
-  principal that reaches a group's own files (the deployment's credential where
-  there is one, impersonation otherwise), so the requirement is the agent's grant
-  on the group, not the administrator's membership. Stalwart 0.16 refuses to mint
+  `gilbert` app folder. The write is made **as the Master**, the principal that
+  reaches a group's own files (the deployment's credential where there is one,
+  impersonation otherwise), so the requirement is the Master's grant on the
+  group, not the administrator's membership. Stalwart 0.16 refuses to mint
   a session for an impersonated group account (live-verified 2026-09-09), so the
   door is never the group's own mailbox.
 - **What counts as a group** (ADR 0005): an account that answers as a **mail
@@ -450,7 +220,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   assigned and offers to assign one; it reads that member's display name on demand,
   one impersonation when the row is opened. Unassigned identities are listed
   beneath the roster, **the group's own among them** — that one is what an
-  unassigned member sends as, the same identity the group's agent sends as. The
+  unassigned member sends as, the identity the group's own mail goes out as. The
   write is always **as the Master** (Stalwart refuses to impersonate a group
   mailbox). Where the Master is not granted, the surface names the missing grant;
   where the roster cannot be read, identities are listed alone and the surface
@@ -467,7 +237,7 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   per group mailbox they belong to, marking **which identity is theirs** or saying
   their mail goes out as the group itself.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
-  the group's agent go through one signature function. Mail written elsewhere
+  the group's own correspondence go through one signature function. Mail written elsewhere
   carries that client's own body and signature; there is no server-side footer
   (ADR 0007).
 - **An identity's Bcc** (ADR 0007): addresses every message sent from the identity
@@ -496,9 +266,8 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   is dimmed until there is something to apply, measured against what the surface
   last read back; a creating form asks whether there is enough to create.
 - **Nav grouping**: Gilbert Mailer (policy, the installation document, forced
-  passwords, group label catalogs, Identities), Gilbert Assistant (the agent fleet
-  and what it does per group), Stalwart (System Sieve), and About ungrouped at the
-  tail.
+  passwords, group label catalogs, Identities), Stalwart (System Sieve), and About
+  ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
   account's hidden `gilbert` app folder; the per-user policy layer (values and
   enforced flags per user, named profiles, publishing per user or per group) is
@@ -520,11 +289,9 @@ the session holds group mailboxes.
   reply; the composer shows the message being answered, and the reply stores the
   original's id.
 - **Mentions**: typing `@` names a member and the message records the addresses it
-  named. The list offered is the **group's roster** — read for the installation as
-  the Master, asked once per conversation on `/api/agent/group/:name/members` and
-  held for a minute — so every member is offered whether or not they have written,
-  and somebody who has left is not. With no roster, the participants of the loaded
-  transcript stand in. A mention of somebody the roster no longer lists renders
+  named. The list offered is the participants of the loaded transcript, so somebody
+  who has written is offered and somebody who has not yet is not. A mention of
+  somebody the transcript no longer lists renders
   **greyed**.
 - **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
   written by that member's own session — make **unread = newer than my marker**. A
@@ -588,7 +355,7 @@ Search looks across the pages' text. A reference to a page points at the page's
 ## One shared draft, an administrator's approval
 
 A page holds one **draft** at a time, and everyone who can read it edits that same
-draft — people and agents together; there are no competing drafts to merge.
+draft — there are no competing drafts to merge.
 
 - **Only an administrator creates, renames, moves, reorders and deletes pages and
   folders.** The shape of the tree is the installation's.
@@ -627,18 +394,6 @@ none, since retiring a page is the next move for whoever reads it. A workorder
 that starts from it keeps only the check state and the
 signature, so a template can be approved and versioned without disturbing a
 running workorder.
-
-## For the agents
-
-> **Not functional yet.** The agent part is designed and present in the tree but
-> does not work; a refactor is planned. See
-> [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
-
-The installation's agents read the company KB and the groups' ones, and write
-**drafts**: a page they propose to change, a consistency review across pages, or a
-multi-page plan that names the revision each page was read from, so a page changed
-since the plan was made is refused rather than overwritten. Approval stays with an
-administrator; an agent never approves.
 
 ## What the KB is not
 

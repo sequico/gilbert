@@ -31,13 +31,6 @@
 
 import { isAddress } from "./adminPolicy.js";
 import { groupNotGrantedRefuser, stateRefuser } from "./adminSession.js";
-import type { GroupAccessDenied } from "./agent/views.js";
-import {
-  groupMembers,
-  impersonateAs,
-  memberGroupAccess,
-  openAgentSession,
-} from "./agentAdmin.js";
 import {
   appFolderState,
   type Ctx,
@@ -49,7 +42,14 @@ import {
   writeAppBytesAt,
   writeAppFile,
 } from "./appFolder.js";
-import { agentAddress } from "./config.js";
+import { masterAddress } from "./config.js";
+import {
+  type GroupAccessDenied,
+  groupMembers,
+  impersonateAs,
+  memberGroupAccess,
+  openAgentSession,
+} from "./groupAccess.js";
 import {
   JMAP_SUBMISSION,
   JmapClient,
@@ -228,10 +228,9 @@ async function readAssignments(
  * first: creating it moves the account's FileNode state, so a token read while
  * the folder was still missing would be refused for a reason that has nothing
  * to do with this document — and the first assignment a group ever gets would
- * never land. The state is then read **before** the list, as `agent/store.ts`
- * reads every document it owns: a state newer than the data lets a conditional
- * write land while the data it carries is already stale, which is the silent
- * overwrite this is here to prevent.
+ * never land. The state is then read **before** the list: a state newer than
+ * the data lets a conditional write land while the data it carries is already
+ * stale, which is the silent overwrite this is here to prevent.
  */
 async function writeAssignmentDoc(
   ctx: Ctx,
@@ -827,7 +826,7 @@ export async function removePersonIdentity(
  * and an account that answers nothing are two different things to go and fix.
  */
 export async function agentSession(admin: LiveSession): Promise<Ctx> {
-  const address = agentAddress();
+  const address = masterAddress();
   if (!address)
     throw new IdentityAdminError(
       "agent_not_configured",

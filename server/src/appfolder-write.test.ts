@@ -9,10 +9,10 @@ import { freePort, waitForPort } from "./testkit.js";
  * Every durable document Gilbert keeps is written by uploading a blob and
  * pointing a `FileNode` at it, and Stalwart charges the account for every blob
  * while nothing ever reclaims one (JMAP offers no blob removal). Gilbert
- * rewrites the same documents constantly — a job at every stage of a run, a
- * notebook on every fact, a claim on every tick — so the account drifts into
+ * rewrites the same documents constantly — a settings save, a label edit, a
+ * workorder step — so the account drifts into
  * the upload quota (1000 files or 50000000 bytes) and then *every* write in it
- * fails, a person saving a group's standing instruction included.
+ * fails, a person saving a document included.
  *
  * `writeFile` (`server/src/appFolder.ts`) is the one place that decides a write
  * whose bytes are already stored needs neither an upload nor a `FileNode/set`,

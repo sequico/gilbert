@@ -39,7 +39,7 @@ const DEMO = "demo@example.com";
 const mock = await import("./mock/index.js");
 const { createApp, useDurableSessions } = await import("./app.js");
 const { signInAsMaster } = await import("./bootstrap.js");
-const { groupAccountsDetailed } = await import("./agent/actions.js");
+const { groupAccountsDetailed } = await import("./groupAccess.js");
 const {
   destroyAppNode,
   ensureFolderPath,
@@ -1152,10 +1152,10 @@ test("a member reaches a workorder whose group part document has gone missing", 
   /*
    * Visibility is **competence**: the template assigns a section to a group the
    * caller is in, so the workorder is theirs (ADR 0028, ADR 0030). A part whose
-   * document is gone is a finding the fleet reconciles and is simply not there
-   * in the view — it is never a reason the whole workorder, and with it the
-   * global checklist the member is entitled to read, disappears. Fails if
-   * visibility goes back to reading the part's presence.
+   * document is gone is simply not there in the view — it is never a reason the
+   * whole workorder, and with it the global checklist the member is entitled to
+   * read, disappears. Fails if visibility goes back to reading the part's
+   * presence.
    */
   assert.ok(firstGroup, "the mock has a group the Master holds");
   const [groupName, groupAccount] = firstGroup;

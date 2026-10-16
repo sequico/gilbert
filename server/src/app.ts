@@ -15,8 +15,8 @@ import { config } from "./config.js";
 import { MAX_PUSH_BODY_BYTES, receive as pushReceive } from "./push.js";
 import { registerAccountRoutes } from "./routes/account.js";
 import { registerAdminRoutes } from "./routes/admin.js";
-import { registerAgentRoutes } from "./routes/agents.js";
 import { registerContactRoutes } from "./routes/contacts.js";
+import { registerGroupLabelRoutes } from "./routes/groupLabels.js";
 import { registerIdentityRoutes } from "./routes/identities.js";
 import { registerInstallationRoutes } from "./routes/installation.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.js";
@@ -105,7 +105,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   registerAccountRoutes(api);
   registerAdminRoutes(api);
-  registerAgentRoutes(api);
+  registerGroupLabelRoutes(api);
   registerIdentityRoutes(api);
   registerContactRoutes(api);
   registerKnowledgeRoutes(api);

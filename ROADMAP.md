@@ -7,25 +7,22 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **`gilbertagents` is not functional, and a refactor is planned.** The whole
-  agent part — the Master principal, the fleet, the automations, the approvals
-  and the audit — is present in the tree but does not work, and it is being
-  reworked. Everything below about chains of agents, claims, heartbeats and
-  automation limits is therefore not yet reachable in a running installation;
-  see [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+- **The agent is not built.** `gilbertagents` — the Master's agent, its tools, the
+  conversations it holds in chat and mail, and the runs it records — is designed
+  and not built: ADR 0031 (its tools), 0032 (what it decides and what only a
+  person decides), 0033 (the conversation, in chat and mail), 0034 (a run is a
+  document, and the record is the product) and 0035 (a group's engagement is a
+  rule in prose). Nothing in a running installation serves a group's work.
 
-- **The agent vocabulary, and the one name that does not follow it.** The three
-  words are Master, agent and worker, and `worker` is the browser's service
-  worker alone — never the agent. The identifiers follow them: the files, the
-  types, the functions, the ADRs, the compose file and the tests say **agent**
-  where they meant the agent, and prose does too. What deliberately does not
-  move is the one thing that is a contract rather than a name: the `workers`
-  directory inside an account's app folder, which an installation has already
-  written and whose only reader is the code that removes it
-  (`server/src/agent/store.ts`). `GILBERT_AGENT_*` was already the operators'
-  spelling and stays. Anything that gains the agent's vocabulary later follows
-  the same rule: it moves with every reader and writer of it in one change, or
-  it does not move.
+- **The `workers` directory an installation has already written is left where it
+  is.** It is one folder inside an account's app folder, created by an earlier
+  design and named by a client that spoke a different vocabulary; nothing in the
+  tree reads or removes it today, and it costs an installation nothing but a
+  hidden folder. `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` are the
+  Master's own handshake and stay as they are: they are an operator's spelling,
+  and the installation's document is read with them (ADR 0011). Anything that
+  gains the agent's vocabulary later follows the same rule — it moves with every
+  reader and writer of it in one change, or it does not move.
 
 - **A scheduling view of its own.** The grid is built in the event editor — a row
   per participant, steppable, clickable to place the event — but there is no

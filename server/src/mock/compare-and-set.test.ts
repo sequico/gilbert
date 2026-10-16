@@ -5,14 +5,12 @@ import { freePort, jmapCall, type MethodCall, responseOf } from "../testkit.js";
 /**
  * The mock's compare-and-set, its FileNode change log and its clock.
  *
- * ADR 0003 gives the agent design no lock to take: every write that must not
- * lose a race carries the state it read as `ifInState` -- the lease on a
- * document, the expected-owner patch on a job -- so a mock that accepted any
- * token would leave every one of those paths untested. These pin the mock
- * behaviours the design rests on: a stale `ifInState` is refused with the
- * RFC's `stateMismatch`, each data type carries its own state, `FileNode/
- * changes` reports updates and destroys as well as creates, and the clock can
- * be moved by a test instead of being waited for.
+ * A write that must not lose a race carries the state it read as `ifInState`,
+ * so a mock that accepted any token would leave every conditional write
+ * untested. These pin the mock behaviours the design rests on: a stale
+ * `ifInState` is refused with the RFC's `stateMismatch`, each data type carries
+ * its own state, `FileNode/changes` reports updates and destroys as well as
+ * creates, and the clock can be moved by a test instead of being waited for.
  *
  * `MOCK_NOW` is set before the mock is imported, so the boot override is
  * exercised too.
@@ -395,10 +393,9 @@ test("an upload does not move the FileNode state the mock hands out", async () =
 
 /*
  * The two dimensions of the state a set is judged against: the account as well
- * as the type. A real server scopes its token to `(account, type)`, and the
- * agent design leans on it -- a claim lives in the group's account while the
- * agent's own stream claim lives in its own account -- so a mock that pooled
- * the accounts would refuse a conditional write a real server accepts.
+ * as the type. A real server scopes its token to `(account, type)`, so a mock
+ * that pooled the accounts would refuse a conditional write a real server
+ * accepts.
  */
 test("a write in one account leaves another account's state where it was", async () => {
   // One request, so no timer injection can move the group's state between the

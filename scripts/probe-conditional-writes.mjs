@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * The live probe of conditional writes (ADR 0003 resolution 19).
+ * The live probe of conditional writes.
  *
- * Everything the fleet's coordination rests on assumes Stalwart honours
+ * Everything that rests on conditional writes assumes Stalwart honours
  * `ifInState` on `FileNode/set`: that the mismatch arrives as `stateMismatch`,
  * that it is not masked as `invalidArguments`, that the FileNode state token
  * advances on the writes that matter, and whether a blob upload — which writes
@@ -214,7 +214,7 @@ const run = async () => {
   }
 
   return report({
-    where: "in ADR 0003 resolution 19 and in the mock's note beside `checkIfInState`",
+    where: "in the mock's note beside `checkIfInState`",
   });
 };
 

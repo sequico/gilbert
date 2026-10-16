@@ -1,14 +1,13 @@
 /**
  * The one JSON writer for the documents Gilbert keeps in an account's app
  * folder — the synced settings, a group's label catalog, a chat transcript,
- * the agent's rules, schedule, claims, jobs and audit.
+ * the company knowledge base and the workorder registry.
  *
  * Both tiers write those documents: the browser through `writeAppJson`
  * (`web/src/lib/appFolder.ts`), the server through `uploadJsonBlob` and the
- * writers built on it (`server/src/appFolder.ts`). Each tier also reads what
- * the other wrote — the settings document a browser saves is read by the
- * administration (ADR 0007), and the agent's documents are written by an agent
- * and shown by the administration surface — so "the document" has to mean one
+ * writers built on it (`server/src/appFolder.ts`). Each tier also reads what the
+ * other wrote — the settings document a browser saves is read by the
+ * administration (ADR 0007) — so "the document" has to mean one
  * sequence of bytes rather than two spellings that happen to parse alike. Two
  * spellings would make the same value look like a change to anything comparing
  * blobs, and leave neither tier able to say what a document looks like.
@@ -26,9 +25,9 @@
  * call site happened to write the file.
  *
  * The value is fixed, so the same value is always the same bytes. That is what
- * a writer re-applying a change after it lost a compare-and-set needs (ADR
- * 0003, *Coordination: leases, claims and fencing*): the retry writes the
- * document it meant to write, not a differently shaped copy of it.
+ * a writer re-applying a change after it lost a compare-and-set needs: the
+ * retry writes the document it meant to write, not a differently shaped copy
+ * of it.
  */
 export function appDocumentJson(value: unknown): string {
   return JSON.stringify(value, null, 2);

@@ -32,7 +32,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { isTrustedProxy, resolveClientIp } from "../clientip.js";
-import { agentAddress, config } from "../config.js";
+import { config, masterAddress } from "../config.js";
 import { safeEqual } from "../crypto.js";
 import { agentSession, identityLockedForSession } from "../identityAdmin.js";
 import { attachRelay as pushAttachRelay } from "../push.js";
@@ -131,7 +131,7 @@ export function bound(): SessionBackend {
  */
 export function bindSessions(): void {
   if (durable) return;
-  if (agentAddress())
+  if (masterAddress())
     throw new Error(
       "This process names a Master (GILBERT_AGENT_ADDRESS), so this installation's sessions live in " +
         "that account's own document -- but no durable session store was installed, and an app that " +
@@ -1259,7 +1259,7 @@ export interface InstallationAccount {
 export async function resolveInstallationAccount(
   session: LiveSession,
 ): Promise<InstallationAccount | null> {
-  const address = agentAddress();
+  const address = masterAddress();
   if (!address) return null;
   if (installationAccount?.address === address) return installationAccount.account;
   try {

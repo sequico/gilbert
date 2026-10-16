@@ -22,11 +22,6 @@
  * `PushSubscription/set`, which leaves that account on the relay rather than
  * breaking anything, since the relay is the fallback. See
  * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
- *
- * The agent's wake-up set is a different thing and deliberately
- * narrower: `RECONCILED_TYPES` in `server/src/agent/agent.ts` says which types
- * a reconciliation pass reads, and it acts on mail and files only. This list is
- * what a browser keeps live, not what an agent wakes for.
  */
 export const PUSH_STATE_TYPES = [
   // Mail, and the quota bar over it.
@@ -37,7 +32,7 @@ export const PUSH_STATE_TYPES = [
   "EmailSubmission",
   "VacationResponse",
   "Quota",
-  // Files, which carry chat and the agent documents too.
+  // Files, which carry chat and the app documents too.
   "FileNode",
   // Calendars.
   "Calendar",

@@ -7,7 +7,7 @@ import { AdminInstallation } from "../AdminInstallation";
 
 /**
  * The installation's own document as an administrator reads and publishes it
- * (ADR 0003): what the Master's account holds, what a boot would refuse, that a
+ * (ADR 0011): what the Master's account holds, what a boot would refuse, that a
  * publish says when it applies rather than reporting a save as though the
  * running process had changed, and that a refusal — a deployment that names no
  * Master included — is what the screen shows.

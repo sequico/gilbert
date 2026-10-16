@@ -39,11 +39,10 @@ const RETRY_DEBOUNCE_MS = 15_000;
  * How many times one save re-reads the file and re-applies its change.
  *
  * The server's own appends answer a lost compare-and-set the same way — read
- * again rather than write the stale copy harder (`AUDIT_CAS_ATTEMPTS`,
- * `server/src/agent/store.ts`) — and the number is small because a save that
- * loses this many races in a row is a save against an account somebody or
- * something is writing continuously, which the caller's own retry
- * (`flushSettingsPush`) is the better answer for.
+ * again rather than write the stale copy harder — and the number is small
+ * because a save that loses this many races in a row is a save against an
+ * account somebody or something is writing continuously, which the caller's own
+ * retry (`flushSettingsPush`) is the better answer for.
  */
 const CAS_ATTEMPTS = 3;
 

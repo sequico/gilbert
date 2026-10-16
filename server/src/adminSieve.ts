@@ -12,9 +12,9 @@
  *
  * Every read hands back the type's own `state`, and every write that follows
  * a read (update, activate/deactivate, destroy) carries it as `ifInState` —
- * the same compare-and-set guard `FileNode/set` already relies on elsewhere
- * (ADR 0003, "Coordination: claims and fencing") — so a plain "Save" from a stale editor cannot silently
- * overwrite a change made from the list in between; it is refused instead.
+ * the same compare-and-set guard `FileNode/set` already relies on elsewhere —
+ * so a plain "Save" from a stale editor cannot silently overwrite a change made
+ * from the list in between; it is refused instead.
  */
 
 import { accountId, type Ctx } from "./account.js";

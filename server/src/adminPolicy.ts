@@ -231,15 +231,14 @@ export async function readAccountPolicy(
  * Write the published policy into one account's own app folder.
  *
  * `ifInState` makes the write conditional on the FileNode state read from this
- * same account, which is the compare-and-set JMAP offers in place of a lock
- * (ADR 0003): a publish that read an account and then had the account move
- * under it is refused rather than overwriting a document it never saw.
+ * same account, which is the compare-and-set JMAP offers in place of a lock:
+ * a publish that read an account and then had the account move under it is
+ * refused rather than overwriting a document it never saw.
  *
  * The caller reads that state **after** the app folder is known to exist: an
  * account whose folder this write has to create pays one write for the folder,
  * which moves the account's state, and a token read before it would make the
- * conditional write lose a race with its own call (the reason
- * `AgentStore.provision` runs before an agent's first conditional write).
+ * conditional write lose a race with its own call.
  */
 export async function writeAccountPolicy(
   ctx: Ctx,

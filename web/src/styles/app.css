@@ -2783,44 +2783,6 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .chat-input-rich .chat-emoji-img { vertical-align: -0.2em; }
 
-/* Chat: the group's agent (ADR 0003 "Members see, never change"). The panel is
-   read-only by construction — the group's own folder is writable by a member,
-   so the restraint is the panel's, not the server's — and it renders instead
-   of the transcript, the way the search results do. */
-.chat-agent { display: block; padding: 2px 2px 8px; }
-.chat-agent-head {
-  display: flex; align-items: center; gap: 6px;
-  padding-bottom: 6px; margin-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-}
-.chat-agent-title {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-weight: 700; font-size: .8em;
-}
-.chat-agent-head .icon-btn { margin-left: auto; }
-.chat-agent h4 {
-  margin: 10px 0 4px; font-size: .74em; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .04em; color: var(--fg-muted);
-}
-.chat-agent p { margin: 0 0 4px; font-size: .82em; line-height: 1.35; }
-.chat-agent-rule {
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
-}
-/* The group's standing instruction, read-only at the head of the same panel:
-   the text itself, so its line breaks survive, in the same box the automations
-   use. */
-.chat-agent-instruction {
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
-}
-.agent-readonly-text { white-space: pre-wrap; }
-
-/* Agents in the administration (ADR 0003 "Admin surfaces"). */
-.agent-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .8em; white-space: nowrap; }
-.agent-state::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
-.agent-state.ok { color: var(--success); }
-.agent-state.off { color: var(--warn); }
 /* A card's verifiers: one status per fact, so a reader scans the row instead
    of parsing a sentence to find out what still needs doing. */
 .agent-verifier-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; }
@@ -2858,12 +2820,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .agent-tabs { margin-bottom: 16px; max-width: 100%; overflow-x: auto; }
 .agent-tabs button { height: 34px; }
 
-/* The automation list's own toolbar: the count and the one action above the
-   cards rather than buried after them. */
 .agent-list-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; }
 
-/* The editor card: the form and its save/cancel in one frame, titled by the
-   automation's own derived name. */
 .agent-editor { padding: 14px; }
 .agent-editor .card-head { margin-bottom: 8px; }
 

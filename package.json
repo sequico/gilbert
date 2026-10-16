@@ -37,9 +37,7 @@
     "config:dead": "node scripts/dead-config-check.mjs",
     "workflow:pin": "node scripts/workflow-pin-check.mjs",
     "dev:mock:no-keyword-sort": "concurrently -n mock,server,web -c yellow,blue,magenta \"npm run mock:no-keyword-sort -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run dev -w server\" \"npm run dev -w web\"",
-    "preinstall": "node scripts/check-package-manager.mjs",
-    "agent": "npm run agent -w server",
-    "dev:mock:agent": "concurrently -n mock,server,agent,web -c yellow,blue,green,magenta \"MOCK_AGENT_ADDRESS=gilbert@example.com MOCK_AGENT_PASSWORD=gilbert-password npm run mock -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run dev -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run agent -w server\" \"npm run dev -w web\""
+    "preinstall": "node scripts/check-package-manager.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

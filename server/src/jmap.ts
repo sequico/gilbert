@@ -118,9 +118,8 @@ export class JmapResult {
  * The store's compare-and-set refusal, as one predicate.
  *
  * A conditional write that lost the race answers `stateMismatch`; everything
- * that writes conditionally — the document store, the lease, the executor —
- * has to recognise it. One definition, in the shared tree, because the client
- * tier recognises the same refusal the same way.
+ * that writes conditionally has to recognise it. One definition, in the shared
+ * tree, because the client tier recognises the same refusal the same way.
  */
 import { isStateMismatch } from "./shared/errors.js";
 
@@ -135,21 +134,6 @@ export { isStateMismatch };
  * rather than retried a third time.
  */
 export const WRITE_ATTEMPTS = 2;
-
-/**
- * How many times a claim's compare-and-set is attempted before it is given up,
- * and why it is not `WRITE_ATTEMPTS`.
- *
- * A claim is a fence (`agent/lease.ts`): it is the document that says which
- * agent serves a unit, and a fence taken by two agents serves it twice. An
- * ordinary write can afford one retry because the caller re-reads and asks
- * again — nobody is waiting on it being the one that landed. A claim that gave
- * up early would be taken by whichever agent passed next, so this bound is
- * where contention is read as ownership: the attempts cover the ordinary race
- * (another agent taking the same free unit between the read and the write), and
- * a longer fight means somebody else owns the unit now.
- */
-export const CLAIM_CAS_ATTEMPTS = 4;
 
 /**
  * What a conditional write's failure means, decided here so that every door
@@ -209,12 +193,9 @@ async function refusalDetail(res: Response): Promise<string> {
 /**
  * The last time a mail server told us it was, from its own `Date` header.
  *
- * Leases are compared against a clock, and two processes comparing their own
- * clocks is how one of them decides a live lease has expired. Every JMAP
- * response carries the server's date; this keeps the most recent one, so the
- * answer to "has this lease lapsed" comes from the machine both agents already
- * agree on rather than from whichever laptop has the wrong time. It is the
- * anchor `serverNow()` hands out, and it is only as fresh as the last call.
+ * Every JMAP response carries the server's date; this keeps the most recent
+ * one, which is the clock `serverNow()` hands out. It is only as fresh as the
+ * last call.
  */
 let serverDateMs: number | null = null;
 
@@ -228,8 +209,8 @@ export function noteServerDate(res: Response): void {
 
 /**
  * Now, as the mail server last told us. Falls back to this process's clock
- * before anything has been asked of the server (an agent's first pass), which
- * is the one window where no server time exists yet.
+ * before anything has been asked of the server, which is the one window where
+ * no server time exists yet.
  */
 export function serverNow(): Date {
   return serverDateMs === null ? new Date() : new Date(serverDateMs);
@@ -255,10 +236,9 @@ export interface SessionSource {
  *
  * A download is streamed and stopped the moment it passes this, so a server
  * that answers with more than the caller bargained for cannot put however many
- * megabytes into the process. It is a backstop rather than a policy: an agent's
- * readers pass their own, much smaller ceiling (`AGENT_DOCUMENT_BYTES_MAX`) and
- * answer the refusal in their own words, and what is left here are the reads
- * that have no ceiling of their own.
+ * megabytes into the process. It is a backstop rather than a policy: a caller
+ * with its own, much smaller ceiling passes it and answers the refusal in its
+ * own words; what is left here are the reads that have no ceiling of their own.
  */
 export const BLOB_READ_MAX = 256 * 1024 * 1024;
 
@@ -422,9 +402,8 @@ export class JmapClient {
    * caller bargained for cannot put however many megabytes into the process —
    * which is the difference between this and `arrayBuffer()` on a body of
    * unknown size. The default is a backstop above every read this tier makes; a
-   * caller that knows its own, smaller ceiling (an agent's file reader passes
-   * `AGENT_DOCUMENT_BYTES_MAX`) passes it and answers the refusal in its own
-   * words.
+   * caller that knows its own, smaller ceiling passes it and answers the refusal
+   * in its own words.
    */
   async downloadBlob(
     accountId: string,

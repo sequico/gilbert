@@ -605,8 +605,8 @@ export function MailboxTree() {
          *
          * The Manage link goes only where the client manages labels. A group's
          * catalog is not that: it lives in the group's own app folder and the
-         * agent writes it (ADR 0003, resolution 9), so the pencil would open a
-         * surface that edits the reader's personal labels instead.
+         * agent writes it, so the pencil would open a surface that edits the
+         * reader's personal labels instead.
          */}
         {!drill && labelsSidebar && (
           <>

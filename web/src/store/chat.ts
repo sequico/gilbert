@@ -45,7 +45,6 @@ import { EVENTS } from "@/lib/events";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { playNewMailSound, showNotification } from "@/lib/notify";
-import { agentViewKey, useAgents } from "@/store/agents";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
@@ -498,24 +497,10 @@ export const useChat = create<ChatState>((set, get) => {
         const me = get().me();
         if (!me) return;
         const body = text.slice(0, CHAT_MAX_TEXT);
-        /* The group's agent is a participant before it has ever posted (ADR
-           0003 resolution 11): the picker offers it, so a mention of it has to
-           reach the document too — otherwise the mention lives in the text and
-           in nothing else. It is offered exactly when the group's view says it
-           is granted, which is the picker's own rule; a view this panel has not
-           loaded leaves the mention unnamed, which the transcript still
-           delivers. The member door is the one read here: the chat is every
-           member's, and a member's session cannot open the admin route. */
-        const agentView = useAgents.getState().memberViews[agentViewKey(conv.name)];
-        const agent = agentView?.granted ? agentView.agentAddress : null;
         /* The same list the picker offered (ADR 0005): the roster when one was
-           read, the transcript otherwise, so a mention the writer could pick
-           is a mention the document records. */
-        const participants = mentionablesOf(
-          participantsOf(conv.nodes, me),
-          useAgents.getState().groupMembers[agentViewKey(conv.name)] ?? null,
-          [me, agent ?? ""],
-        );
+           read, the transcript otherwise, so a mention the writer could pick is
+           a mention the document records. */
+        const participants = mentionablesOf(participantsOf(conv.nodes, me), null, [me]);
         const doc = messageDoc(
           me,
           body,

@@ -4,10 +4,10 @@
  * A chat message is a JSON document in the group account's own JMAP Files:
  * `gilbert/chat` holds one node per message, `gilbert/chat-state` holds one
  * read marker per member (ADR 0005; the folder layout is the group-ownership
- * law). Both the web client and the agent read and write those
- * documents, so the shape, the validators and the pure text helpers live here
- * rather than twice — the client keeps what needs its JMAP client, the agent
- * keeps what needs its own (`web/src/lib/chat.ts`, `server/src/agent/chat.ts`).
+ * law). The web client reads and writes those documents, so the shape, the
+ * validators and the pure text helpers live here rather than beside it — what
+ * needs the browser's JMAP client stays in the client's own half
+ * (`web/src/lib/chat.ts`).
  *
  * Nothing here touches the network, the filesystem or a runtime API beyond
  * `crypto.randomUUID`, which both Node and the browser provide.
@@ -168,7 +168,7 @@ export function participantsOf(
  * messages — so on its own it offers somebody who no longer has a session on
  * the group, and withholds a member who has never written. A roster in hand
  * answers both: it is the group's own list (ADR 0005, read for the
- * installation as the Master, ADR 0003), and it replaces the transcript as the
+ * installation as the Master), and it replaces the transcript as the
  * source rather than filtering it. `null` is a roster nobody could read, and
  * the answer is then the transcript as it stands rather than a refusal to
  * offer anyone.
@@ -217,8 +217,8 @@ export function mentionsFromText(
 /**
  * Whether `text` addresses `address` by mention.
  *
- * The rule the agent's deterministic pre-filter needs (ADR 0003 resolution
- * 11) and the one the client writes: an `@` immediately followed by the full
+ * The rule the agent's deterministic pre-filter needs and the one the client
+ * writes: an `@` immediately followed by the full
  * address, as `mentionsFromText` finds it. A bare `@gilbert` without the
  * domain is not a mention of anybody, which is why the match is exact.
  */
@@ -232,8 +232,8 @@ export function mentionsAddress(text: string, address: string): boolean {
  *
  * The client writes a mention as the full address (a chip serialises back to
  * `@sam@example.org`), but a person typing `@gilbert` by hand and never
- * picking from the picker leaves exactly that. ADR 0003 resolution 11 says an
- * `@gilbert` mention addresses the agent, so the loose form is the agent's
+ * picking from the picker leaves exactly that. An `@gilbert` mention addresses
+ * the agent, so the loose form is the agent's
  * pre-filter and the strict one stays the client's mention contract.
  */
 export function mentionsName(text: string, address: string): boolean {
@@ -250,8 +250,8 @@ export function mentionsName(text: string, address: string): boolean {
 /**
  * Whether a reply answers one of `addresses`' messages.
  *
- * A reply counts only when its direct parent is the agent's message (ADR 0003
- * resolution 11) — `parentId` is the reply's own `replyTo`, and `parent` the
+ * A reply counts only when its direct parent is the agent's message —
+ * `parentId` is the reply's own `replyTo`, and `parent` the
  * message it names. Anything deeper in the thread is not an address.
  */
 export function repliesToAuthor(

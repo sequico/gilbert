@@ -22,7 +22,7 @@ import {
 
 /**
  * The configuration this process runs on: the claims it makes, and who refuses
- * what (ADR 0001, ADR 0003).
+ * what (ADR 0001).
  *
  * `IMMUTABLE` is a claim about the filesystem the process is really on; the app
  * secret is a claim about where the installation's key material came from; the
@@ -131,8 +131,8 @@ function servedConfiguration(
  * forgetting `--read-only` is the easy mistake and an instance that believed
  * it would look healthy while writing where the next image will not look.
  * Nothing Gilbert holds durably is on this filesystem any more — sessions, the
- * policy, the lock and the agent's records are documents in Stalwart — so what
- * is left to check is the property itself.
+ * policy and the lock are documents in Stalwart — so what is left to check is
+ * the property itself.
  */
 
 function tempRoot(): string {
@@ -231,17 +231,17 @@ test("adopting a configuration with no app secret at all is refused", () => {
  * Whether the installation's model may sit inside the deployment's own network
  * is a security decision the deployment makes, so it is read from the
  * environment and never from the document. The document is a whole-JSON file an
- * administrator can hand-edit, and one that still carries the field — written
- * by a build that had it — is read as though it did not: unknown keys are
- * ignored by the validator rather than refused, so the retired key neither
- * decides anything nor keeps the installation from booting.
+ * administrator can hand-edit, and one that still carries the retired `agent`
+ * section — written by a build that had it — is read as though it did not:
+ * unknown keys are ignored by the validator rather than refused, so the section
+ * neither decides anything nor keeps the installation from booting.
  */
-test("a document that still carries the retired provider switch loads, and does not decide it", () => {
+test("a document that still carries the retired agent section loads, and does not decide the switch", () => {
   const saysYes = documentFromJson({ agent: { allowPrivateProvider: true } });
   assert.equal(
-    "allowPrivateProvider" in saysYes.agent,
+    "agent" in saysYes,
     false,
-    "the document has no such field: the switch is the operator's",
+    "the retired section is not part of the document this build reads",
   );
 
   const served = servedConfiguration(HANDSHAKE_ENV, saysYes);
@@ -377,7 +377,7 @@ test("a boot runs on the document's values, and never on the document's provider
     JSON.stringify({
       server: { cookieName: "gilbert_session" },
       limits: { apiRateLimit: 321 },
-      agent: { allowPrivateProvider: true, pages: 4 },
+      agent: { allowPrivateProvider: true },
       secret: A_SECRET,
     }),
   );
@@ -389,14 +389,9 @@ test("a boot runs on the document's values, and never on the document's provider
   );
   assert.equal(configuration.apiRateLimit, 321, "and the budget");
   assert.equal(
-    configuration.agent.maxPages,
-    4,
-    "the agent's own fields are the document's too",
-  );
-  assert.equal(
     configuration.agent.allowPrivateProvider,
     false,
-    "the retired key in that document grants nothing: the switch is the environment's",
+    "the retired section in that document grants nothing: the switch is the environment's",
   );
   assert.equal(configuration.appSecretSource, "document");
   assert.doesNotThrow(
@@ -412,7 +407,7 @@ test("a boot runs on the document's values, and never on the document's provider
  * throw, or a rate limiter refuse every request, the moment a boot read the
  * document.
  */
-test("a duration, lease or limit that is present and negative is refused", () => {
+test("a duration or limit that is present and negative is refused", () => {
   for (const parts of [
     { epoch: -1 },
     { limits: { upstreamTimeout: -1 } },
@@ -421,11 +416,6 @@ test("a duration, lease or limit that is present and negative is refused", () =>
     { limits: { apiRateLimit: -1 } },
     { sessions: { ttl: -1 } },
     { sessions: { rememberTtl: -1 } },
-    { agent: { poll: -1 } },
-    { agent: { heartbeat: -1 } },
-    { agent: { lease: -1 } },
-    { agent: { authoringMaxPerMonth: -1 } },
-    { agent: { healthPort: -1 } },
   ]) {
     const parsed = parseInstallationDocumentDetailed(
       JSON.stringify({ ...parts, secret: A_SECRET }),
@@ -435,18 +425,15 @@ test("a duration, lease or limit that is present and negative is refused", () =>
 });
 
 test("zero is a statement where it is one, and a port stays in range", () => {
-  // The data path's rate limiter and the monthly reading budget both read 0 as
-  // "off", and healthPort 0 as "no endpoint": those zeros are kept, not floored.
+  // The data path's rate limiter reads 0 as "off", and that zero is kept, not
+  // floored; a port in the document is held to its range.
   const off = documentFromJson({
     limits: { apiRateLimit: 0 },
-    agent: { authoringMaxPerMonth: 0, healthPort: 0 },
   });
   assert.equal(off.limits.apiRateLimit, 0);
-  assert.equal(off.agent.authoringMaxPerMonth, 0);
-  assert.equal(off.agent.healthPort, 0);
 
   const tooHigh = parseInstallationDocumentDetailed(
-    JSON.stringify({ agent: { healthPort: 70000 }, secret: A_SECRET }),
+    JSON.stringify({ server: { port: 70000 }, secret: A_SECRET }),
   );
   assert.ok("problem" in tooHigh, "a port above 65535 is not a port");
 });
@@ -504,16 +491,6 @@ test("a silent environment resolves to the document's own defaults", () => {
   assert.equal(c.apiRateLimit, d.limits.apiRateLimit);
   assert.equal(c.pushMode, d.push.mode);
   assert.equal(c.rawPushRelay, d.push.rawRelay);
-  assert.equal(c.agent.pollMs, d.agent.poll);
-  assert.equal(c.agent.heartbeatMs, d.agent.heartbeat);
-  assert.equal(c.agent.leaseMs, d.agent.lease);
-  assert.equal(c.agent.maxChainHops, d.agent.chainHops);
-  assert.equal(c.agent.maxPages, d.agent.pages);
-  assert.equal(c.agent.thinking, d.agent.thinking);
-  assert.equal(c.agent.vision, d.agent.vision);
-  assert.equal(c.agent.authoringMonthlyMax, d.agent.authoringMaxPerMonth);
-  assert.equal(c.agent.healthPort, d.agent.healthPort);
-  assert.equal(c.agent.inprocess, d.agent.inProcess);
 });
 
 test("a production process refuses to serve a prefix nobody stated", () => {

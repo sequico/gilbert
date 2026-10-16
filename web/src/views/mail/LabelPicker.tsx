@@ -31,7 +31,7 @@ export function LabelPicker({
 
   const has = (kw: string) => ids.every((id) => emails[id]?.keywords[kw]);
   const some = (kw: string) => ids.some((id) => emails[id]?.keywords[kw]);
-  /* `G-` is the agent's processing state (ADR 0003 resolution 9): it describes
+  /* `G-` is the agent's processing state: it describes
      one message rather than organising anybody's mail, so it is never offered
      here. The create path below still writes the reader's own label list, which
      is why only the offered list is filtered and not `labels` itself. */

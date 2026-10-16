@@ -34,7 +34,7 @@ APP="${GILBERT_APP:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
 # the checkout); fall back to a system account this script creates if needed.
 USER_NAME="${GILBERT_USER:-${SUDO_USER:-gilbert}}"
 # The environment file the application reads at boot: the handshake (the
-# Stalwart URL, and the Master when this deployment runs an agent) and anything
+# Stalwart URL, and the Master's own address and password) and anything
 # else this deployment states. See `.env.example`.
 ENV_FILE="${GILBERT_ENV:-/etc/gilbert.env}"
 UNIT_DIR="${GILBERT_UNIT_DIR:-/etc/systemd/system}"

@@ -1,53 +1,33 @@
-import {
-  Bell,
-  Bot,
-  Code,
-  Info,
-  KeyRound,
-  ServerCog,
-  ShieldCheck,
-  Tag,
-  UserCog,
-  Users,
-} from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { Code, Info, KeyRound, ServerCog, ShieldCheck, Tag, UserCog } from "lucide-react";
+import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
-import { useAgents } from "@/store/agents";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
-import { AdminAgents } from "@/views/admin/AdminAgents";
-import { AdminApprovals } from "@/views/admin/AdminApprovals";
 import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
-import { GroupAgents } from "@/views/admin/GroupAgents";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { Identities } from "@/views/admin/Identities";
 import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
-type AdminOwner = "mailer" | "assistant" | "stalwart" | null;
+type AdminOwner = "mailer" | "stalwart" | null;
 type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
 
 /**
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the
- * installation's own document (ADR 0003's Master, configured once), the group
+ * installation's own document (ADR 0011), the group
  * label catalogs, forced password changes, and **Identities**,
  * one section holding a person's and a group's behind two tabs (ADR 0007) —
- * the surfaces ADR 0001/0003/0005 cover, which stand without an agent.
- * "Assistant" is everything ADR 0003
- * covers,
- * restructured by ADR 0003 into three sections: **Master** (the installation,
- * configured once), **Group Agents** (one group's automations, standing
- * instruction, memory, audit and fleet, behind a single picker) and
- * **Approvals** (cross-group oversight, read-only by construction). "Stalwart"
+ * the surfaces ADR 0001/0005 cover.
+ * "Stalwart"
  * is the mail server's own records, written over JMAP: **System Sieve**, its
  * trusted, server-wide Sieve scripts (ADR 0008). The
  * split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
-function sections(pendingApprovals: number): AdminSection[] {
+function sections(): AdminSection[] {
   return [
     {
       id: "policy",
@@ -85,45 +65,6 @@ function sections(pendingApprovals: number): AdminSection[] {
       owner: "mailer",
     },
     {
-      id: "agents",
-      label: "Master",
-      icon: <Bot size={18} />,
-      el: <AdminAgents />,
-      owner: "assistant",
-    },
-    {
-      id: "group-agents",
-      label: t("Group Agents"),
-      icon: <Users size={18} />,
-      el: <GroupAgents />,
-      owner: "assistant",
-    },
-    {
-      id: "approvals",
-      label: t("Approvals"),
-      icon: (
-        <span style={{ position: "relative", display: "inline-flex" }}>
-          <Bell size={18} />
-          {pendingApprovals > 0 && (
-            <span
-              className="badge"
-              style={{
-                position: "absolute",
-                top: -6,
-                right: -8,
-                minWidth: 15,
-                height: 15,
-              }}
-            >
-              {pendingApprovals}
-            </span>
-          )}
-        </span>
-      ),
-      el: <AdminApprovals />,
-      owner: "assistant",
-    },
-    {
       id: "system-sieve",
       label: t("System Sieve"),
       icon: <Code size={18} />,
@@ -148,26 +89,12 @@ function sections(pendingApprovals: number): AdminSection[] {
  * "Gilbert Mailer" for the mail server's own administration (policy, the
  * installation document, forced passwords, group label catalogs, and the
  * identities an administrator sets as one section with a tab per kind of
- * principal, ADR 0007), "Gilbert
- * Assistant" for the agent fleet (ADR 0003) — Master, Group Agents and
- * Approvals — and "Stalwart"
+ * principal, ADR 0007), and "Stalwart"
  * for the mail server's own records — its trusted,
  * server-wide Sieve scripts (ADR 0008) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
-  const loadStatus = useAgents((s) => s.loadStatus);
-  const loadApprovals = useAgents((s) => s.loadApprovals);
-  const pendingApprovals = useAgents((s) => s.approvals.length);
-
-  // Read once whenever the administration is open, whatever section is
-  // active: the Approvals badge above needs the count before that section is
-  // ever visited, and the fleet status is cheap enough to read here too.
-  useEffect(() => {
-    void loadStatus();
-    void loadApprovals();
-  }, [loadStatus, loadApprovals]);
-
-  const adminSections = sections(pendingApprovals);
+  const adminSections = sections();
   const current = adminSections.find((s) => s.id === section);
   const byOwner = (owner: AdminSection["owner"]) =>
     adminSections
@@ -179,7 +106,6 @@ export function AdminView({ section }: { section?: string }) {
       }));
   const groups: SectionGroup[] = [
     { label: t("Gilbert Mailer"), items: byOwner("mailer") },
-    { label: t("Gilbert Assistant"), items: byOwner("assistant") },
     {
       label: "Stalwart",
       emptyLabel: t("Nothing here yet."),

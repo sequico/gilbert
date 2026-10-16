@@ -8,7 +8,7 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
-import { Bot, CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
+import { CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import {
@@ -25,11 +25,9 @@ import { COMMON_EMOJI, emojiAsset, graphemes } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
-import { agentViewKey, useAgents } from "@/store/agents";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
-import { GroupAgentPanel } from "./GroupAgentPanel";
 
 interface ChatPanelProps {
   accounts: MailAccountInfo[];
@@ -191,58 +189,14 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
   /*
-   * The group's own agent documents (ADR 0003), read through the agents store's
-   * member door. The chat is open to every member, so the read a member's
-   * session can actually make is the one this panel uses: the admin route needs
-   * Stalwart administration, and a member who is not one would read nothing.
-   * The store keeps one entry per group, keyed by the group's lower-cased
-   * address — the form the server stores a group's name in.
+   * Who the transcript knows about: the participants it has seen. A group's
+   * roster is not read here, so a member who has never written is not offered
+   * and a mention of one is left to the text.
    */
-  const memberViews = useAgents((s) => s.memberViews);
-  const loadMemberView = useAgents((s) => s.loadMemberView);
-  const loadGroupMembers = useAgents((s) => s.loadGroupMembers);
-  const groupMembers = useAgents((s) => s.groupMembers);
-  const groupName = open?.name ?? null;
-  const agentView = groupName ? memberViews[agentViewKey(groupName)] : undefined;
-  const [agentOpen, setAgentOpen] = useState(false);
-
-  // Loaded with the conversation rather than with the panel: the `@` picker
-  // owes the agent's address as soon as the composer is on screen, whether or
-  // not anyone has opened the panel (ADR 0003 resolution 11).
-  useEffect(() => {
-    if (!groupName) return;
-    void loadMemberView(groupName);
-    // The roster rides the same open, and for the same reason: the picker
-    // offers its members and the transcript greys a mention of somebody who is
-    // no longer one, so it is asked once per conversation rather than on every
-    // message or at the first `@`. The store answers a second ask with the
-    // copy it holds.
-    void loadGroupMembers(groupName);
-  }, [groupName, loadMemberView, loadGroupMembers]);
-
-  const agentAddress = agentView?.granted ? agentView.agentAddress : null;
-  /** The group's members, or null while nobody has read them (and if nobody can). */
-  const members = groupName ? (groupMembers[agentViewKey(groupName)] ?? null) : null;
-  /*
-   * Who the `@` picker offers. The client knows only the participants it has
-   * seen in the transcript, so a freshly granted agent that has never posted
-   * cannot be mentioned at all; the group's own agent association is the
-   * picker's second source, and the agent is offered exactly when it is
-   * granted — membership is presence.
-   *
-   * The transcript is then cut to the group's members when a roster was read
-   * (`mentionablesOf`, ADR 0005): somebody who has left keeps their messages
-   * and stops being offered, and a member who has never written becomes
-   * offerable. With no roster in hand the transcript stands, which is what
-   * this picker offered before there was one.
-   */
+  const members = null;
   const mentionables = useMemo(
-    () =>
-      mentionablesOf(open ? participantsOf(open.nodes, me) : [], members, [
-        me,
-        agentAddress ?? "",
-      ]),
-    [open, me, agentAddress, members],
+    () => mentionablesOf(open ? participantsOf(open.nodes, me) : [], members, [me]),
+    [open, me, members],
   );
   const threadRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -307,8 +261,6 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setResults(null);
     setSearching(false);
     setEmojiOpen(false);
-    // A different group has a different agent: the panel is not carried over.
-    setAgentOpen(false);
   }, [openAccountId]);
 
   useEffect(() => {
@@ -442,26 +394,10 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           {open && (
             <button
               type="button"
-              className={`icon-btn xs ${agentOpen ? "active" : ""}`}
-              aria-label={t("The group's agent")}
-              title={t("The group's agent")}
-              aria-expanded={agentOpen}
-              onClick={() => {
-                setSearchOpen(false);
-                setAgentOpen((v) => !v);
-              }}
-            >
-              <Bot size={15} />
-            </button>
-          )}
-          {open && (
-            <button
-              type="button"
               className={`icon-btn xs ${searchOpen ? "active" : ""}`}
               aria-label={t("Search messages")}
               title={t("Search messages")}
               onClick={() => {
-                setAgentOpen(false);
                 setSearchOpen((v) => !v);
               }}
             >
@@ -560,8 +496,6 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           ) : (
             <div className="chat-empty">{t("Search messages")}</div>
           )
-        ) : agentOpen && open ? (
-          <GroupAgentPanel name={open.name} onClose={() => setAgentOpen(false)} />
         ) : open ? (
           open.loading && open.nodes.length === 0 ? (
             <div className="chat-empty">{t("Loading…")}</div>
@@ -609,7 +543,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           <div className="chat-empty">{t("Pick a conversation")}</div>
         )}
       </div>
-      {open && !searchOpen && !agentOpen && (
+      {open && !searchOpen && (
         <div className="chat-composer">
           {open.replyTo && (
             <div className="chat-replybar">

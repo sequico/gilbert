@@ -28,8 +28,6 @@ import {
   openMasterAccount,
   stateRefuser,
 } from "./adminSession.js";
-import { groupAccountsDetailed } from "./agent/actions.js";
-import { memberReach } from "./agentAdmin.js";
 import {
   appFolderState,
   type Ctx,
@@ -44,6 +42,7 @@ import {
   updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
+import { groupAccountsDetailed, memberReach } from "./groupAccess.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "./jmap.js";
 import { findArticleById } from "./knowledgeAdmin.js";
 import type { LiveSession } from "./sessions.js";
@@ -664,9 +663,9 @@ function checklistChoices(
  *
  * A member sees only their own groups' parts; an administrator sees every part
  * the Master holds, because the route reads them as the Master. A part whose
- * document is gone is omitted — a finding the fleet reconciles, never an empty
- * part. Whether the workorder is the reader's at all is `maySee`'s answer, which
- * competence decides and not this view.
+ * document is gone is omitted, never answered as an empty part. Whether the
+ * workorder is the reader's at all is `maySee`'s answer, which competence
+ * decides and not this view.
  */
 async function summaryOf(
   reach: WorkorderReach,
@@ -803,12 +802,12 @@ async function summaryOf(
  *
  * Either answer is read from the template, not from the accident of whether a
  * group's part document can be read right now: a part whose document is gone is
- * a finding the fleet reconciles and is simply not there in the view, never a
- * reason the workorder — and with it the global checklist its readers are
- * entitled to — disappears. A template whose rules cannot be read falls back to
- * what the documents themselves say: the root **is** the global checklist, so a
- * root carrying steps answers for a workorder with a global section, and one
- * carrying none leaves it to the part a group already holds.
+ * simply not there in the view, never a reason the workorder — and with it the
+ * global checklist its readers are entitled to — disappears. A template whose
+ * rules cannot be read falls back to what the documents themselves say: the root
+ * **is** the global checklist, so a root carrying steps answers for a workorder
+ * with a global section, and one carrying none leaves it to the part a group
+ * already holds.
  *
  * The reference the root carries names the revision whose assignments decide
  * this, so the answer is read from the root and its template alone — a hidden

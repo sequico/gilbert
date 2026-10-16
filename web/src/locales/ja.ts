@@ -46,9 +46,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    // A constant label translated where it renders (the GroupAgents tab strip):
-    // the English is the catalogue key, as its siblings are.
-    Knowledge: "ナレッジ",
     "Mention a member": "メンバーをメンション",
     "Go to folder…": "フォルダーへ移動…",
     "Set for everyone here. You cannot change this.":
@@ -1562,11 +1559,6 @@ export const catalog: Catalog = {
       "このアドレスからの以降のメールが別の人の署名だった場合、Gilbert がお知らせします。",
     "itself, or an issuer it does not name": "自分自身、または名前のない発行者",
     "no address": "アドレスなし",
-    // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
-      "このグループの指示と自動化を変更できるのはグループの管理者だけです。メンバーはここで読むことができます。",
-    "No standing instruction has been written for this group.":
-      "このグループには常設の指示がまだ書き込まれていません。",
     "{name} — shared by {owner}": "{name} — {owner} が共有",
     "{name} — from {owner}": "{name} — {owner} から",
     "Remove {email}": "{email} を削除",
@@ -1592,12 +1584,8 @@ export const catalog: Catalog = {
     Policy: "ポリシー",
     Installation: "インストール",
     "Force passwords": "パスワードを強制",
-    Master: "Master",
-    "Group Agents": "グループエージェント",
-    Approvals: "承認",
     "System Sieve": "システムSieve",
     "Gilbert Mailer": "Gilbert Mailer",
-    "Gilbert Assistant": "Gilbert Assistant",
     Stalwart: "Stalwart",
     "Nothing here yet.": "ここにはまだ何もありません。",
     Help: "ヘルプ",
@@ -1690,8 +1678,6 @@ export const catalog: Catalog = {
     "“Ends” must be after “Starts”.": "「終了」は「開始」より後でなければなりません。",
     "Auto-reply is on": "自動返信はオンです",
     "Auto-reply saved": "自動返信を保存しました",
-    Missed: "不在",
-    Failed: "失敗",
     "Actions for {email}": "{email}の操作",
     "Invitation accepted": "招待を承諾しました",
     "Invitation declined": "招待を辞退しました",
@@ -1772,7 +1758,6 @@ export const catalog: Catalog = {
     "https://…": "https://…",
     Chat: "チャット",
     "No longer in this group": "このグループにはいません",
-    "The group's agent": "グループのエージェント",
     "Search messages": "メールを検索",
     Conversations: "スレッド",
     "Search in this chat": "このチャット内を検索",
@@ -1787,27 +1772,6 @@ export const catalog: Catalog = {
     "Replying to {who}": "{who}への返信",
     "Cancel reply": "返信をキャンセル",
     "Message {group}": "メッセージ {group}",
-    "No agent is registered for this installation.":
-      "このインストールにはエージェントが登録されていません。",
-    "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.":
-      "このグループで動くエージェントはありません。ここで権限が付与されていないため、指示を持たず何もしません。その付与は製品ではなくメールサーバー自身の管理側で行います。",
-    "Active in this group as {address}. Read-only: what it follows is authored in the administration, and you answer it in this chat.":
-      "このグループで{address}として活動しています。読み取り専用です。従う内容は管理側で作成され、あなたはこのチャットで応答します。",
-    "Standing instruction": "常設の指示",
-    "Who its runs stop for": "実行が誰のために止まるか",
-    "What it follows": "従う内容",
-    "No automation is set up for this group.":
-      "このグループには自動化が設定されていません。",
-    "Still open": "まだ未解決",
-    "Nothing is running and nothing is waiting.":
-      "実行中のものも、待機中のものもありません。",
-    "When one of these waits for a person, the agent asks here in the chat — that is where you answer.":
-      "これらのいずれかが人の応答を待つとき、エージェントはここチャットで尋ねます — 応答するのはそこです。",
-    "What it has done": "行ったこと",
-    "It has not done anything yet.": "まだ何も行っていません。",
-    "Last written by {who} on {when}.": "最終書き込み: {who}、{when}。",
-    "an administrator": "管理者",
-    Disabled: "無効",
     "{message} for this date": "この日付の{message}",
     "Occurrence deleted": "繰り返しを削除しました",
     "Event deleted": "予定を削除しました",
@@ -1823,96 +1787,8 @@ export const catalog: Catalog = {
     "https://meet.example.com/…": "https://meet.example.com/…",
     "{duration} before": "{duration}前",
     "Fewer options": "オプションを減らす",
-    "An email arrives": "メールが届いたとき",
-    "A file or folder changes": "ファイルまたはフォルダーが変わったとき",
-    "Someone writes in the chat": "誰かがチャットに書き込んだとき",
-    "On a schedule": "スケジュールで",
-    "Every run stops here for a person to answer before anything happens.":
-      "すべての実行はここで止まり、何かが起きる前に人が応答します。",
-    "A run at or above the confidence runs unattended; below it, it waits for a person.":
-      "信頼度以上の実行は無監督で進みます。それ未満では人を待ちます。",
-    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.":
-      "人の応答を待つものはありません — ただし元に戻せない操作はそれでも確認し、グループを離れる操作は同意の下限が引き上げられていない限り確認します。",
-    "Always ask a person first": "常に最初に人へ確認する",
-    "Ask a person below a confidence threshold":
-      "信頼度のしきい値を下回るときに人へ確認する",
-    "Never ask — run it unattended": "決して確認しない — 無監督で実行する",
-    "Waiting to start": "開始待ち",
     Running: "実行中",
-    "Waiting for a person": "人の応答待ち",
-    Ran: "実行済み",
-    Finished: "完了",
-    "Asked for approval": "承認を求めた",
-    Rejected: "却下",
-    Refused: "拒否",
-    unknown: "不明",
-    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written":
-      "{runs}回の実行 · キャッシュから{hit}トークン、新規に{miss}トークン読み取り、{out}書き込み",
-    "{n} of them reported no usage": "このうち{n}件は使用量を報告しませんでした",
-    "This installation has spent: {meter}": "このインストールの支出: {meter}",
-    "{agent}: {meter}": "{agent}: {meter}",
-    "no agent named": "エージェント名なし",
-    "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.":
-      "{groups}の監査を読み取れなかったため、この合計は下限です。それらの実行はここでは一切数えられていません。",
-    "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.":
-      "このインストールはグループのメンバーを一覧できません。Masterがアカウント登録を読むことを許可されていないためです。sysAccountGetとsysAccountQueryの権限 — アカウント単位の付与であり、管理者ロールではありません — を与えると、チャットの@がグループのメンバーを提示します。それまでは、すでに書き込んだ人を提示します。",
-    "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.":
-      "アカウント登録が応答しなかったため、グループのメンバーを一覧できず、チャットの@はすでに書き込んだ人を提示します。",
-    "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.":
-      "エージェントが登録されていないため、グループのメンバーを読むものがありません。チャットの@はすでに書き込んだ人を提示します。",
-    "every {minutes} minutes": "{minutes}分ごと",
-    "sending outside the group allowed without a person":
-      "グループ外への送信を人なしで許可",
-    "sending outside the group always waits for a person":
-      "グループ外への送信は常に人を待つ",
-    "Nobody has written here yet.": "ここにはまだ誰も書き込んでいません。",
-    Identity: "差出人",
-    Model: "モデル",
-    Groups: "グループ",
-    "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.":
-      "Gilbert自身のエージェントはメールとファイルストレージの中で行動します。Stalwartのイベントと時間スケジュールで、権限を与えられたグループの中で働きます。このインストールは1つのエージェントを実行します — その見方、どのモデルが担うか、どのグループで働くかがここです。グループ内で何をするかはグループエージェントにあります。",
-    "Master sections": "Masterのセクション",
-    "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.":
-      "どこでも通用するもの: エージェントがすべてのグループのすべての呼び出しに持ち込むルールで、グループや1つの自動化について何かが真になる前に適用されます。各グループの指示で繰り返さずここに一度書き、データとして読みます — 実行の権限はそれ自身の能力リストであり、ここに書かれたものはそれを広げません。",
-    "How this installation's agent works": "このインストールのエージェントの働き",
-    "Always answer in the language the message was written in, and never send anything outside the group without a person.":
-      "メッセージが書かれた言語で常に応答し、人なしでグループ外へ何も送信しないでください。",
-    "the installation's own rules": "インストール自身のルール",
-    "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.":
-      "このセクションはエージェントの権限を確認するだけで、決して書き込みません。グループのメンバーシップはStalwart自身の管理側で、アカウントの隣で、人と同じように付与されます。",
-    "The Master": "Master",
-    Operational: "稼働中",
-    "Not operational": "稼働していない",
-    "Agent address": "エージェントのアドレス",
-    "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.":
-      "デプロイがエージェントに名前を与え、ここはそれを読み戻します。GILBERT_AGENT_ADDRESSとGILBERT_AGENT_PASSWORDはサーバーとそのエージェントを起動する人の環境にあり、出所は1か所です。ここでは秘密を生成も、読み戻しも、保存もしません。",
-    "What the fleet has spent": "フリートの支出",
-    "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.":
-      "エージェントが働くグループをStalwartから読み取ります。グループがここに表示されるとき、ちょうどそのときエージェントはそのグループのメンバーであり、この一覧はディレクトリに自動的に従います。グループを与えるには、Stalwart自身の管理側でGilbertユーザーにグループを追加してください。",
-    "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.":
-      "エージェントはこのインストールが見られるグループにいません。Stalwart自身の管理側でGilbertユーザーにグループを追加すると、ここに表示されます。",
-    "Open this group's automations, standing instruction, memory and audit trail":
-      "このグループの自動化、常設の指示、メモリー、監査を開く",
-    "Open in Group Agents": "グループエージェントで開く",
     Pending: "保留中",
-    Audit: "監査",
-    "What is waiting for a person, and what the fleet has done, across every group the agent holds — read-only oversight. An operator answers a paused run in the group's own chat, never here.":
-      "人の応答を待っているものと、フリートが行ったこと、エージェントが持つすべてのグループにわたって — 読み取り専用の監督です。一時停止した実行への応答はグループ自身のチャットで行い、ここでは決して行いません。",
-    "Approvals sections": "承認のセクション",
-    "Every granted group's audit trail, merged and sorted newest first. A group's own Audit tab in Group Agents reads the same document with its own export.":
-      "権限を与えられた各グループの監査を、最新順に結合したもの。グループエージェントの各グループの監査タブは同じドキュメントを独自のエクスポートで読みます。",
-    "The agent is not in a group this installation can see.":
-      "エージェントはこのインストールが見られるグループにいません。",
-    "Every group": "すべてのグループ",
-    Outcome: "結果",
-    "Every outcome": "すべての結果",
-    "Reading every group's trail…": "各グループの記録を読み取っています…",
-    "The audit of {groups} could not be read, so it is missing from this list.":
-      "{groups}の監査を読み取れなかったため、この一覧から欠けています。",
-    "Nothing matches here yet.": "ここに一致するものはまだありません。",
-    Automation: "自動化",
-    By: "実行者",
-    Detail: "詳細",
     "Installation document": "インストールドキュメント",
     "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
       "このインストールが動く構成: Master自身のファイルにある1つのJSONドキュメント — このインストールがサインインするアカウントで、サーバーが起動時に一度読みます。ここで公開したものが次回起動で動くもので、現在動いているプロセスは起動時のものを保ちます。",
@@ -1976,50 +1852,6 @@ export const catalog: Catalog = {
     "Forcing…": "強制しています…",
     "Force password change": "パスワード変更を強制",
     "Releasing…": "解除しています…",
-    Behaviour: "動作",
-    Automations: "自動化",
-    Memory: "メモリー",
-    Activity: "アクティビティ",
-    "The agent in this group": "このグループのエージェント",
-    "The agent, as this group sees it: how it behaves, what it follows, what it remembers, and what it has done. It is one agent for the whole installation — which groups it holds, the model it runs on and the rules that hold everywhere live in Master.":
-      "このグループから見たエージェント: どう振る舞い、何に従い、何を記憶し、何を行ったか。インストール全体で1つのエージェントです — どのグループを持ち、どのモデルで動き、どこでも通用するルールはMasterにあります。",
-    "The agent is not in a group this session can see, so there is no group to pick here. Give it a group in Stalwart's own administration: the tabs below answer about one group, and the fleet they read is the installation's own.":
-      "エージェントはこのセッションが見られるグループにいないため、ここで選べるグループがありません。Stalwart自身の管理側でグループを与えてください。下のタブは1つのグループについて答え、読むフリートはインストール自身のものです。",
-    "Working in this group as {address}.": "このグループで{address}として働いています。",
-    "Group agent sections": "グループエージェントのセクション",
-    "{enabled} of {total} automations enabled": "{total}件中{enabled}件の自動化が有効",
-    "{n} waiting for a person in this group":
-      "このグループで{n}件が人の応答を待っています",
-    "Nothing waiting for a person here": "ここで人を待っているものはありません",
-    "{n} agents serving this group": "このグループを担当する{n}体のエージェント",
-    "No agent is serving this group right now":
-      "現在このグループを担当するエージェントはいません",
-    "Added: {labels}": "追加: {labels}",
-    "This group's label catalogue already has every reserved label.":
-      "このグループのラベルカタログには予約ラベルがすべてそろっています。",
-    "This group's agent marks what it has done with a message using four reserved labels.":
-      "このグループのエージェントは4つの予約ラベルで、メールに対して行ったことを示します。",
-    "Checking…": "確認しています…",
-    "Make sure they exist": "存在を確認",
-    "No group is picked, so there is no group's agents to read here.":
-      "グループが選ばれていないため、ここで読むグループのエージェントがありません。",
-    "The installation's {count} agents are reporting and none of them holds {group}: nothing is serving this group right now.":
-      "インストールの{count}体のエージェントが報告中で、そのどれも{group}を持っていません。現在このグループを担当するものはありません。",
-    "No agent has reported in. An agent leaves a heartbeat while it runs, so an empty list means none is serving this installation.":
-      "報告したエージェントはありません。エージェントは実行中にハートビートを残すため、空の一覧はこのインストールを担当するものがないことを意味します。",
-    "Agents serving this group": "このグループを担当するエージェント",
-    "An agent is its own process, not a copy of the web tier: it claims the account it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — agents are declared where the installation is deployed.":
-      "エージェントは独自のプロセスであり、Web層のコピーではありません。リースで担当するアカウントを取得し、実行中にハートビートを書き込みます。ここで開始や停止はできません — エージェントはインストールがデプロイされる場所で宣言されます。",
-    Agent: "エージェント",
-    "Last heartbeat": "最終ハートビート",
-    Version: "バージョン",
-    State: "状態",
-    "Not this server's to say": "このサーバーが言うことではない",
-    Alive: "稼働中",
-    "Not reporting": "報告なし",
-    "Grants withdrawn": "権限を取り消し",
-    "The agent lost its grant on “{group}” on {when}: nothing has served that group since the pass noticed.":
-      "エージェントは{when}に「{group}」の権限を失いました。パスが気づいてから、そのグループを担当するものはありません。",
     "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.":
       "このメンバー自身のアカウントを読み取れません — Stalwartが成り代わりを拒否しました — そのため差出人に書く名前が不明です。名前を入力すれば差出人は書けます。",
     "Delete this identity so the member sends as the group":
@@ -2221,156 +2053,6 @@ export const catalog: Catalog = {
     "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.":
       "このアカウントが強制されているかは不明です。そのロックを読み取れませんでした。応答するまで強制と解除はオフのままです。",
     Enforced: "強制",
-    "An automation that pauses posts what it proposes in its group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight across every group, and the way to see what has been waiting in any of them.":
-      "一時停止した自動化は、提案する内容をグループのチャットに投稿し、メンバーがそこで言葉で応答します。したがって承認はここではなくチャットで行われます — このキューはすべてのグループにわたる監督であり、いずれかで何が待ってきたかを見る方法です。",
-    "Nothing is waiting for a person.": "人を待っているものはありません。",
-    "What it proposes": "提案する内容",
-    Confidence: "信頼度",
-    Raised: "引き上げ",
-    "Open {group} and its chat": "{group}とそのチャットを開く",
-    "Open the group's mailbox": "グループのメールボックスを開く",
-    "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.":
-      "このインストールのすべての自動化が動くモデル: 1つのプロバイダー、1つのモデル、1つのキー。それのないインストールには自動化がありません — 実行には判断する材料がありません。",
-    "No agent is registered for this installation yet, so there is nothing for the model to run on.":
-      "このインストールにはまだエージェントが登録されていないため、モデルを動かす対象がありません。",
-    "Ceiling on one answer (tokens)": "1つの応答の上限 (トークン)",
-    "What a single model answer may cost. 1 to {max}.":
-      "1回のモデル応答にかけられる上限。1〜{max}。",
-    "Hops a chain of automations may run": "自動化の連鎖が実行できるホップ数",
-    "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.":
-      "ある作業が自動化から自動化へどこまで渡れるか。それを超える実行は拒否され、グループに伝えられます。",
-    "Pages one run may hand the model": "1回の実行がモデルに渡せるページ数",
-    "A page with no text layer travels as an image, which costs input tokens per page.":
-      "テキスト層のないページは画像として扱われ、1ページあたり入力トークンがかかります。",
-    "Model saved": "モデルを保存しました",
-    "Remove the model?": "モデルを削除しますか？",
-    "This installation runs no automation until another model is saved, and the stored API key is removed with it.":
-      "このインストールは別のモデルが保存されるまで自動化を実行せず、保存されたAPIキーもそれとともに削除されます。",
-    "Model removed": "モデルを削除しました",
-    "The installation's model": "インストールのモデル",
-    "A key is stored": "キーが保存されています",
-    "No key stored": "キーは保存されていません",
-    Provider: "プロバイダー",
-    openai: "openai",
-    "A model name": "モデル名",
-    "Base URL": "ベースURL",
-    "https://api.example.com/v1": "https://api.example.com/v1",
-    "API key": "APIキー",
-    "Paste a new key here": "ここに新しいキーを貼り付け",
-    "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.":
-      "書き込み専用: 保存されたキーは二度と表示されず、このフィールドを空のままにすると既存のキーが保たれます。",
-    "An installation that sets none gets {n}.":
-      "何も設定しないインストールは{n}を得ます。",
-    "Remove the model": "モデルを削除",
-    "Reading…": "読み取っています…",
-    "Ask the model to read it": "モデルに読ませる",
-    "What the model said about this draft:": "この下書きについてモデルが述べたこと:",
-    "Audit trail": "監査",
-    "What this group's agent has done, newest first — the same document its own members read beside the chat. Kept twelve months, pruned a month at a time.":
-      "このグループのエージェントが行ったこと、最新順 — チャットの隣でメンバー自身が読むのと同じドキュメント。12か月保持し、1か月ずつ間引きます。",
-    "No group is picked, so there is no audit trail to read here.":
-      "グループが選ばれていないため、ここで読む監査がありません。",
-    "Download every retained month of this group's audit trail as JSON":
-      "このグループの監査の保持された各月をJSONでダウンロード",
-    "Copying…": "コピーしています…",
-    "Download every retained month as JSON": "保持された各月をJSONでダウンロード",
-    "This group's audit trail could not be read.":
-      "このグループの監査を読み取れませんでした。",
-    "This group's agent has not done anything yet.":
-      "このグループのエージェントはまだ何も行っていません。",
-    "Showing the most recent {shown} of {total}. Download every retained month above for the rest.":
-      "最新の{shown}件を{total}件中表示しています。残りは上で保持された各月をダウンロードしてください。",
-    "No group is picked, so there is no standing instruction to read here.":
-      "グループが選ばれていないため、ここで読む常設の指示がありません。",
-    "How this group's agent works": "このグループのエージェントの働き",
-    "Write to the group in its own language, and always cite the invoice number.":
-      "グループの言語で書き、常に請求書番号を引用してください。",
-    "the group's standing instruction": "グループの常設の指示",
-    "Memory saved": "メモリーを保存しました",
-    "What the group's agent holds in every call: the facts about this group that its automations should never have to repeat. Each line is read as data — it steers, and it never widens what an automation is allowed to do.":
-      "グループのエージェントが呼び出しのたびに保持するもの: その自動化が決して繰り返さなくてよい、このグループに関する事実。各行はデータとして読まれ — 方向づけますが、自動化が許されることを決して広げません。",
-    "No group is picked, so there is no memory to read here.":
-      "グループが選ばれていないため、ここで読むメモリーがありません。",
-    "This group's memory has not been read yet.":
-      "このグループのメモリーはまだ読まれていません。",
-    "Read it": "読む",
-    "This group's agent is holding nothing yet.":
-      "このグループのエージェントはまだ何も保持していません。",
-    "Fact {n}": "事実 {n}",
-    "Remove this fact": "この事実を削除",
-    "Invoices from Ada are filed under the client's name, not the sender's.":
-      "Adaからの請求書は、送信者ではなく顧客の名前で保管されます。",
-    "Add a fact": "事実を追加",
-    "A fact is at most {n} characters, and a notebook holds {m}.":
-      "事実は最大{n}文字で、ノートは{m}件まで保持します。",
-    "Who this group's runs stop for, and whether they may reach outside the group without a person. One policy for the whole group: its automations are the same team's work on the same correspondence.":
-      "このグループの実行が誰のために止まるか、そして人なしでグループ外に届いてよいか。グループ全体で1つのポリシーです — その自動化は同じチームの同じやり取りに対する仕事です。",
-    "No group is picked, so there is no policy to read here.":
-      "グループが選ばれていないため、ここで読むポリシーがありません。",
-    "This group has not written a policy, so a run goes ahead when the model is confident and stops for a person when it is not. An action that leaves the group or cannot be undone always asks.":
-      "このグループはポリシーを書いていないため、モデルが確信しているときは実行が進み、そうでないときは人を待ちます。グループを離れる操作、または元に戻せない操作は常に確認します。",
-    "When a person has to agree": "人が同意しなければならないとき",
-    "Allow sending outside the group without a person — this raises the external-send consent floor.":
-      "グループ外への送信を人なしで許可する — これは外部送信の同意の下限を引き上げます。",
-    "Off, an action that reaches outside the group always waits for a person, whatever the policy says. An action that cannot be undone asks whatever either setting says.":
-      "オフのとき、グループ外に届く操作はポリシーが何と言おうと常に人を待ちます。元に戻せない操作はどちらの設定が何と言おうと確認します。",
-    "An empty text removes it. At most {max} characters.":
-      "空のテキストはそれを削除します。最大{max}文字。",
-    "At most {max} characters.": "最大{max}文字。",
-    "This automation cannot run as it stands: {reason}":
-      "この自動化はこのままでは実行できません: {reason}",
-    "Automation saved": "自動化を保存しました",
-    "Delete the {name}?": "{name}を削除しますか？",
-    "The automation document is removed from the group's own files. A job already running keeps the version it started on.":
-      "自動化ドキュメントはグループ自身のファイルから削除されます。すでに実行中のジョブは、開始したバージョンを保ちます。",
-    "Automation deleted": "自動化を削除しました",
-    "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.":
-      "エージェントがグループで行うこと: いつ反応し、見つけたものに対して何をするよう求められるか。自動化はグループ自身のアカウントに保存されるため、すべてのメンバーが読めます。",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.":
-      "トリガーごとに1つの自動化: エージェントはトリガー上の有効なすべての自動化を、そのトリガーが生み出すすべてに対して実行するため、同じトリガーにもう1つあると同じイベントに二度応答します。あるケースと別のケースの分岐は指示に属します。",
-    "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.":
-      "エージェントはこのグループにいないため、ここに書くものがありません。自動化は実行されず、グループのチャットで誰もそれをメンションできません。Stalwart自身の管理側でグループを与えてから、戻ってください。",
-    "This group's automation document could not be read.":
-      "このグループの自動化ドキュメントを読み取れませんでした。",
-    "Cannot be saved yet: {reason}": "まだ保存できません: {reason}",
-    "No automation in this group yet.": "このグループにはまだ自動化がありません。",
-    "Every trigger already has an automation in this group.":
-      "すべてのトリガーには、このグループにすでに自動化があります。",
-    "New automation": "新しい自動化",
-    "Every trigger already has an automation in this group. Delete or disable one to write another kind.":
-      "すべてのトリガーには、このグループにすでに自動化があります。1つを削除または無効にして、別の種類を書いてください。",
-    "The {name} cannot be saved as it stands: {reason}":
-      "{name}はこのままでは保存できません: {reason}",
-    "Run this automation now, on the newest message in the group's inbox":
-      "この自動化を今すぐ実行、グループの受信トレイの最新メールに対して",
-    "Asking…": "要求しています…",
-    "Run now": "今すぐ実行",
-    "Delete automation": "自動化を削除",
-    "Next due: {when}": "次回予定: {when}",
-    "Not scheduled while disabled.": "無効の間は予定されません。",
-    "Asked for: a run is open ({state}).": "要求済み: 実行が開いています ({state})。",
-    "the automation “{name}”": "自動化「{name}」",
-    "Enabled — the agent reacts to this automation":
-      "有効 — エージェントがこの自動化に反応します",
-    Trigger: "トリガー",
-    "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.":
-      "トリガーごとに1つの自動化: エージェントはトリガー上の有効なすべての自動化を、そのトリガーが生み出すすべてに対して実行するため、2つあると同じイベントに二度応答します。",
-    "How often": "頻度",
-    "Every {minutes} minutes": "{minutes}分ごと",
-    Instruction: "指示",
-    "Read the message and say what should happen to it. Useful context, in plain words.":
-      "メールを読み、それに何が起きるべきかを述べてください。平易な言葉での有用な文脈です。",
-    "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.":
-      "この文章が、実行に求められるすべてです。すべての実行がこれをインストールのモデルへ渡し、モデルは下の領域からの操作で応答します。",
-    "It is read as data, not obeyed: a message that asks the model to do something is still just a message.":
-      "これはデータとして読まれ、従われません。モデルに何かをさせるよう求めるメールも、依然としてただのメールです。",
-    "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.":
-      "届くケースごとに書いてください。ある種のメールと別の種の分岐はここに属し、2つ目の自動化には属しません。",
-    "What it may do": "何をしてよいか",
-    "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.":
-      "許可リスト: この自動化が実行してよい唯一の操作。モデルにはこれらだけが提示され、それ以外の応答は拒否されます。",
-    external: "外部",
-    irreversible: "不可逆",
     "That is not valid JSON — fix the document and publish again.":
       "これは有効なJSONではありません — ドキュメントを修正して再公開してください。",
     "(untitled)": "（無題）",
@@ -2390,14 +2072,8 @@ export const catalog: Catalog = {
       "グループのゴミ箱や迷惑メールを空にできるのはインストール管理者だけです。そこにメールを保管するのは引き続き機能し、戻すのも同様です。",
     "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.":
       "メールを含むフォルダーはグループでは削除できません。メールも一緒に失われるためです。先にメールを外へ移すか、インストール管理者に依頼してください。",
-    "This reading was not counted toward this month's authoring.":
-      "この読み取りは今月の作成には数えられませんでした。",
     "no-bytes": "no-bytes",
     "no-right": "no-right",
-    "Reaching a group's {need} happens as the installation's agent, and that agent is not a member of this group: the documents live in the group's own account, and only a member reaches them — so add the agent to the group in the mail server's directory.":
-      "グループの{need}に到達するのはインストールのエージェントとして行われ、そのエージェントはこのグループのメンバーではありません。ドキュメントはグループ自身のアカウントにあり、メンバーだけが到達します — メールサーバーのディレクトリでエージェントをグループに追加してください。",
-    "Gilbert could not ask the mail server about this group's {need}, so it cannot say whether that agent reaches it: nothing was changed and nothing was read. Try again, and if it keeps answering this way the mail server is the one to look at.":
-      "Gilbertはこのグループの{need}についてメールサーバーに尋ねられず、そのエージェントが到達するかどうかを述べられません。何も変更されず、何も読み取られませんでした。もう一度試し、それでもこう答えるならメールサーバーを見るべきです。",
     "Your settings could not be saved: {error}": "設定を保存できませんでした: {error}",
     "List-Id": "List-Id",
     "X-Spam-Status": "X-Spam-Status",
@@ -2408,7 +2084,6 @@ export const catalog: Catalog = {
     "the server closed the live-updates stream":
       "サーバーがライブ更新のストリームを閉じました",
     "the server could not be reached": "サーバーに到達できませんでした",
-    "Timed out": "タイムアウト",
     "Group identities": "グループの差出人",
     "User identities": "ユーザーの差出人",
     "Your settings were not reset: this installation's policy could not be read. Try again.":
@@ -2596,9 +2271,6 @@ export const catalog: Catalog = {
     },
     "{n} accounts were not written to:": {
       other: "{n}件のアカウントに書き込まれませんでした:",
-    },
-    "{n} automations": {
-      other: "{n}件の自動化",
     },
     "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.":
       {

@@ -99,38 +99,27 @@ expect a peer's writes in the same checkout to cost a read-only child its
 
 Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or policy-shaped loads `gilbert-settings`; Global contacts loads `gilbert-global-contacts`.
 
-## 3b. The agent vocabulary and what an automation is
+## 3b. The agent vocabulary and what the agent is
 
 - **Three words, and they are not synonyms.** One **Master** is the principal
 everything belongs to: the account in Stalwart (`gilbert@…`), its address, its
-password, its grants and the model it runs on. Its **agents** are the processes
-that act as it — what a deployment starts, what claims a group's account by
-lease and runs its automations, and what the administration counts. The
-group-facing surface calls them **Group Agents**; **automations** are the rules,
-one document per group. An unqualified **"worker"** means the browser's service
-worker and nothing else.
-- **An automation is one shape (ADR 0003).** A trigger, an **instruction** in
-prose, a **capability allowlist** and a **review policy** — and nothing else.
-There is no tier, no category, no compiled plan: every run hands the instruction
-to the model, and the model's answer is checked against the rule's own
-allowlist before anything runs. **One model serves the installation** — provider,
-model, base URL and a write-only key — so nothing asks an administrator which
-model a kind of work deserves; an installation with no model has no automations.
-The determinism that matters is the JSON answer plus the allowlist, never the
-temperature: a provider reasoning in thinking mode accepts the sampling
-parameters and ignores them.
-- **Identifiers follow those words**, in the sweep listed in `ROADMAP.md`. Two
-halves: the names (`agent.ts`, `AgentHandle`, …) and the things that are
-contracts rather than names — a field in a document an installation has already
-written, a refusal code a client composes a sentence from, an environment
+password, its grants and the model it uses. Its **agent** is the process that
+acts as it, and it runs inside `gilbertserver`. An unqualified **"worker"** means
+the browser's service worker and nothing else.
+- **The agent is designed and not built.** Its decisions are **ADR 0031** (a
+described catalogue of tools, and one model per installation chosen in
+Administration), **0032** (what it decides and what only a person decides,
+an override being an administrator's), **0033** (one conversation in chat and
+mail, in words), **0034** (a run is a document, and the record is the product)
+and **0035** (a group's engagement is a rule in prose). Nothing in the tree
+serves a group's work, and no document, comment or surface may describe it as if
+one did.
+- **Identifiers follow those words.** Two halves: the names, and the things that
+are contracts rather than names — a field in a document an installation has
+already written, a refusal code a client composes a sentence from, an environment
 variable an operator set. A contract moves with every reader and writer of it in
-one change, or it does not move at all; the agent environment variables
-(`GILBERT_AGENT_*`) stay as they are.
-- The tier vocabulary is gone from the product: what still spells it is two
-test fixtures that fill a retired parameter
-(`server/src/agent/scheduler.test.ts`, `web/src/lib/__tests__/agentErrors.test.ts`),
-the record of what it was (ADR 0003) and in German words like
-"exportiert".
+one change, or it does not move at all: `GILBERT_AGENT_*` is the Master's
+handshake and the operators' spelling, and it stays.
 
 ## 5. Change workflow
 
