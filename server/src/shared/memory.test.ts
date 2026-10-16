@@ -289,20 +289,30 @@ test("both ceilings bound what a call carries", () => {
 test("one fact that does not fit does not empty the whole selection", () => {
   /*
    * The ceilings are the writer's bound, not the parser's: a sheet already
-   * written is read whatever it holds, so one very long fact is possible. It is
-   * **skipped** and the facts after it are carried — a selection that stopped at
-   * it would hand every call of the installation an empty memory, with no error
-   * and nothing in the log to show it.
+   * written is read whatever it holds, so one very long fact is possible — and a
+   * standing one is the worst case, because it is taken first and would be the
+   * end of the selection for every call of the installation. It is **skipped**
+   * and the facts after it are carried, with no error and nothing in a log to
+   * say the memory had gone quiet.
    */
   const huge = sheet({
     id: "f-huge",
     subject: "a very long one",
     fact: "x".repeat(RECALL_CHARS_MAX),
+    standing: true,
   });
   const small = sheet({ id: "f-small", subject: "Maersk" });
   assert.deepEqual(
     recallFacts([huge, small], "shipper: Maersk", GROUP).map((fact) => fact.id),
     ["f-small"],
     "the fact that cannot fit is skipped, and what follows it is still carried",
+  );
+  const smaller = sheet({ id: "f-smaller", subject: "ACME" });
+  assert.deepEqual(
+    recallFacts([huge, small, smaller], "shipper: Maersk\nclient: ACME", GROUP).map(
+      (fact) => fact.id,
+    ),
+    ["f-small", "f-smaller"],
+    "and every fact after it that fits is carried, not just the next one",
   );
 });

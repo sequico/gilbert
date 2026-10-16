@@ -1232,7 +1232,10 @@ test("a fact a pass writes is visible to the next pass, not to the pass that wro
     call.user.includes("from the installation's memory");
   let wrote = false;
   onCall = (system, user) => {
-    if (isDecision(system)) return { rules: [id], facts: {} };
+    // The change is found to be about the shipper, so its own words name the
+    // subject the fact is about: the only reason a call of this pass could carry
+    // it is a reading taken after the write.
+    if (isDecision(system)) return { rules: [id], facts: { shipper: "Maersk" } };
     if (user.includes(first) && !wrote) {
       wrote = true;
       return {
