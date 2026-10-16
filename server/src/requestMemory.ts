@@ -2,12 +2,12 @@
  * What one unit of work remembers.
  *
  * The unit is a request or a pass, and both are an object: `accountCtx` builds a
- * fresh `Ctx` per HTTP call and it is gone with the answer, and the agent builds
- * one per run and empties it at each pass (`forgetRememberedFor`, `agent.ts`).
- * A memory hung on that object cannot be seen by another request and is keyed by
- * no user. The reader is `appFolder.ts`, which remembers the levels it lists: a
- * unit that resolves several documents walks the same folders over and over, and
- * every walk is a round trip the person waiting on the answer pays for.
+ * fresh `Ctx` per HTTP call and it is gone with the answer, and the server's
+ * agent holds one for the process's life. A memory hung on that object cannot be
+ * seen by another request and is keyed by no user. The reader is `appFolder.ts`,
+ * which remembers the levels it lists: a unit that resolves several documents
+ * walks the same folders over and over, and every walk is a round trip the person
+ * waiting on the answer pays for.
  *
  * A memory is wrong the moment something is written, and every write this
  * process *sends* forgets them: `JmapClient` whenever a `FILENODE_SET` goes
@@ -20,14 +20,14 @@
  * process: a suite that caches a level the mock's own traffic then changes reads
  * it as old until the next write or the unit ends.
  *
- * shortcut: a write from another process -- an agent started apart (the
- * deployment's `agent` profile), a second replica -- is not seen when it lands,
- * so a level it changed is served from the memory for the rest of the unit: one
- * request, or one pass of an agent, which is as long as the work it is doing. A
+ * shortcut: a write from another process -- a second replica of the server -- is
+ * not seen when it lands, so a level it changed is served from the memory until
+ * this process writes something of its own: one request, or the agent's next
+ * listing, which is as long as the work it is doing. A
  * name-creating write (`freeChildFolderName`, `unusedVisibleName`) decides
  * against such a listing. Keying a memory on the account's FileNode state
  * instead would catch those too, at a read per lookup, if a deployment ever runs
- * the agent apart and reads the levels it writes in the same breath.
+ * a replica whose writes this one has to see at once.
  */
 let memories = new WeakMap<object, Map<string, unknown>>();
 

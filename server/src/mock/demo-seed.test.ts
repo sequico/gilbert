@@ -262,11 +262,11 @@ test("the demo's workorders are running and completed, with their steps' states"
 
 test("the demo carries an installation with a model, which is what an agent needs", async () => {
   /*
-   * `dev:mock:agent` runs the agent process against this stack, and an
-   * installation with no model has no agent (ADR 0031): the seed therefore
-   * holds the installation's own document (ADR 0011) naming one. Pinned here,
-   * next to the simulation, because a seed that lost it would leave the agent
-   * process exiting with nothing to work and every unit test green.
+   * The server starts the agent with itself, and an installation with no model
+   * has no agent (ADR 0031): the seed therefore holds the installation's own
+   * document (ADR 0011) naming one. Pinned here, next to the simulation, because
+   * a seed that lost it would leave every `dev:mock` server running without an
+   * agent and every unit test green.
    */
   const master = await signInAsMaster({
     stalwartUrl: `http://127.0.0.1:${PORT}`,

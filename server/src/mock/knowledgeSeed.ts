@@ -323,12 +323,13 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
     dir("kb-app", null, APP_FOLDER_NAME),
     /*
      * The installation's own document, which a boot reads from this folder and
-     * creates when it is absent (ADR 0011). The demo carries one so the stack
-     * `dev:mock:agent` starts has an agent: an installation with no model has
-     * none (ADR 0031), and the model is the document's field rather than an
-     * environment variable. The address is a placeholder because the demo ships
-     * no rules, so no pass ever calls the model; a developer who wants a turn
-     * points it at their own provider in Administration → Installation.
+     * creates when it is absent (ADR 0011). The demo carries one so the server
+     * that starts the agent with itself (`dev:mock`) has one to run: an
+     * installation with no model has none (ADR 0031), and the model is the
+     * document's field rather than an environment variable. The address is a
+     * placeholder because the demo ships no rules, so a pass never calls the
+     * model; a developer who wants a turn points it at their own provider in
+     * Administration → Installation.
      */
     json("kb-installation", "kb-app", INSTALLATION_FILE, installationSeed(), master),
     dir("kb-know", "kb-app", KNOWLEDGE_FOLDER),

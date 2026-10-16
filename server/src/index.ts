@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { startAgent } from "./agent/supervisor.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
@@ -106,6 +107,21 @@ async function main() {
       rememberTtlSeconds: boot.configuration.sessionRememberTtl,
     },
   );
+  /*
+   * The installation's agent (ADR 0031): part of this process, started here with
+   * the installation this boot just read, so launching Gilbert is what makes it
+   * exist — nothing for an operator to start or remember. It asks the loop for a
+   * pass every `AGENT_PASS_INTERVAL_MS` and claims the installation, which is
+   * what keeps a second copy of this process (a rolling restart, an operator's
+   * mistake) out of the same runs (ADR 0036).
+   *
+   * It never takes the process down: an installation with no model, one whose
+   * principal works no group, and anything else it cannot resolve is one line on
+   * the log and an idle agent (`supervisor.ts`), never a boot that fails.
+   */
+  const agent = await startAgent(boot, {
+    log: (line: string) => console.log(line),
+  });
   const app = createApp();
   const server = serve(
     {
@@ -130,12 +146,13 @@ async function main() {
   );
 
   /*
-   * The server's shutdown stops what it started: the sessions, and the push
-   * subscriptions a live credential is needed to release.
+   * The server's shutdown stops what it started: the agent's schedule, the
+   * sessions, and the push subscriptions a live credential is needed to release.
    */
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
+    agent?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,
        and what is left behind otherwise holds one of the account's fifteen
        slots for as long as it lives. A deploy is a shutdown. */

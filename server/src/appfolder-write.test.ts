@@ -647,9 +647,9 @@ test("a level is listed once however often one request reads it", async () => {
  * A write is what makes a listing wrong, and a reader cannot see who writes.
  *
  * The memory is dropped by every write in the process, not only by the writer's
- * own: a request, a suite's fixture and the agent beside the server all write
- * through the same mail client, and a reader served a listing from before a
- * write it never made would read a folder as it was.
+ * own: a request, a suite's fixture and the agent all write through the same mail
+ * client, and a reader served a listing from before a write it never made would
+ * read a folder as it was.
  */
 test("a level read before a write is read again after it", async () => {
   const folderId = await ensureFolderPath(ctx, accountId, "levels/written-into");

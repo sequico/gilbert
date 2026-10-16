@@ -3,10 +3,11 @@
  *
  * `agent/loop.ts` works a run — it claims the installation, re-arms the waits it
  * finds, reads each account's changes and answers each one a rule covers — and a
- * pass is the caller's to ask for. This module is that caller: the **agent
- * process** boots with the deployment's own handshake exactly as the server does
- * (`agent.ts`), resolves the installation's model and the groups the Master
- * works, and puts one question to the loop on an interval.
+ * pass is the caller's to ask for. This module is that caller, and the **server's
+ * own boot is what starts it** (`index.ts`): the agent is part of the product, so
+ * launching Gilbert is what makes it exist. It runs on the installation the boot
+ * just read — the model the installation has chosen and the groups its principal
+ * works — and asks the loop for a pass on an interval.
  *
  * **The interval is the whole of its policy.** The loop already knows what is
  * due — the dated waits and each account's change log — so there is no schedule
@@ -44,9 +45,7 @@
 
 import { hostname } from "node:os";
 import type { Ctx } from "../appFolder.js";
-import { type BootConfiguration, type BootDeps, bootInstallation } from "../bootstrap.js";
-import { useConfiguration } from "../config.js";
-import type { InstallationEnvironment } from "../configuration.js";
+import type { BootConfiguration } from "../bootstrap.js";
 import { groupAccountsDetailed } from "../groupAccess.js";
 import { errorMessage } from "../shared/errors.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
@@ -157,16 +156,10 @@ export function supervise(options: SupervisorOptions): AgentProcess {
   };
 }
 
-/** What the agent process reads: the environment a boot reads, and where its lines go. */
-export interface AgentDeps {
-  /** The environment a boot reads; this process's own unless a test hands over one. */
-  env?: InstallationEnvironment;
+/** Where the agent's lines go, and the two things a test may shorten. */
+export interface AgentStartOptions {
   /** One line per event worth reading. */
   log?: (line: string) => void;
-  /** How a failed boot ends the process. `process.exit` unless a test says otherwise. */
-  exit?: (code: number) => never;
-  /** The boot, `bootInstallation` unless a test hands over its own. */
-  boot?: (deps: BootDeps) => Promise<BootConfiguration>;
   /** `AGENT_PASS_INTERVAL_MS` unless a test needs the question asked sooner. */
   intervalMs?: number;
   /** Who holds the installation's claim. This process, unless a test names it. */
@@ -174,58 +167,86 @@ export interface AgentDeps {
 }
 
 /**
- * Boot as the Master, and supervise the loop for the installation, or answer
- * null because this installation has no agent.
+ * Start the installation's agent on this process, or answer null because it has
+ * nothing to run on.
  *
- * The boot is the server's own, unchanged: the handshake, the Master's sign-in,
- * the installation's document, the configuration (`bootstrap.ts`). A process
- * whose handshake is missing stops there, exactly as every process does today —
- * nothing is added before it, so a deployment that has switched nothing on sees
- * no line, no error and no route from this module.
+ * **The server's boot is where this is called** (`server/src/index.ts`), with the
+ * installation that boot just read: the agent is part of the product rather than
+ * a second thing an operator has to remember, so launching Gilbert is what makes
+ * it exist. The installation's configuration is the one this process already
+ * runs on (`config.ts`'s `useConfiguration`, called by that boot), which is what
+ * makes the model, the groups and the waits the same ones a served request sees.
  *
- * **An installation with no model has no agent** (ADR 0031). The model is the
- * administration's choice and lives in the installation's own document, so a
- * document that states none is answered with one line and no process: the
- * installation is complete without an agent, and the alternative — a default
- * provider nobody chose — is the one thing the record forbids. The model a
- * process runs on is the one the document stated at this boot, because that is
- * when the installation's configuration is in force (ADR 0011).
+ * **A condition that is missing leaves the agent idle, never the process down.**
+ * Everything the agent needs is resolved here, and each absence is one line on
+ * the log and `null` — the server goes on serving exactly as it would without an
+ * agent, and `exit` stays the server's own fatal boot's business:
  *
- * The accounts a pass works are the installation's **groups** — the accounts the
- * one classifier for that question names (`groupAccess.ts`) — resolved once,
- * here: a grant withdrawn in Stalwart is read at the next boot, which is when
- * every other installation decision moves too. A group nobody could ask about is
- * not worked, and `groupAccountsDetailed` says so to whoever shows a person a
- * list; a pass over the accounts it named carries on.
+ * - **A model** `boot.installation.agent.provider`, the installation's own
+ *   document (ADR 0011, ADR 0031), together with the operator's statement about
+ *   where it may sit (`boot.configuration.agent.allowPrivateProvider`,
+ *   `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` in the environment). An installation
+ *   with no model has no agent: a default provider nobody chose is the one thing
+ *   the record forbids. Which document a booted process runs on is fixed at the
+ *   boot, so a model chosen afterwards is in force at the next one.
+ * - **A group to work**, from the one classifier for that question
+ *   (`groupAccess.ts`'s `groupAccountsDetailed`): the accounts this principal
+ *   works are its groups' own. A Master in no group has nothing to work, and
+ *   that is one line rather than a loop that asks every thirty seconds for
+ *   nothing.
+ *
+ * **A model it may not reach is not one of those.** Whether the provider's
+ * address may be used is asked on every call (`model.ts`'s `assertUsableProvider`)
+ * because that is where the installation's key would leave, so a provider that
+ * is unreachable or refused is a **pass** that fails loudly and the next pass
+ * tries again (`supervise` below).
+ *
+ * **And anything else that goes wrong here is a line too.** The conditions are
+ * resolved inside a guard, so an unexpected failure — a session that is not what
+ * it was, a document whose shape has moved — leaves the installation without an
+ * agent rather than with a boot that fell over: the server is what a deployment
+ * needs, and no agent is a degraded feature of it.
  */
-export async function startAgent(deps: AgentDeps = {}): Promise<AgentProcess | null> {
-  const log = deps.log ?? ((line: string) => console.log(line));
-  const boot = await (deps.boot ?? bootInstallation)({
-    env: deps.env,
-    log,
-    exit: deps.exit,
-  });
-  useConfiguration(boot.configuration);
+export async function startAgent(
+  boot: BootConfiguration,
+  options: AgentStartOptions = {},
+): Promise<AgentProcess | null> {
+  const log = options.log ?? ((line: string) => console.log(line));
   const ctx: Ctx = {
     authorization: boot.master.authorization,
     session: boot.master.session,
     username: boot.master.address,
   };
-  const access = modelAccess(
-    boot.installation,
-    boot.configuration.agent.allowPrivateProvider,
-  );
-  if (!access) {
-    log("[gilbert] agent: this installation has chosen no model, so it has no agent");
+  try {
+    const access = modelAccess(
+      boot.installation,
+      boot.configuration.agent.allowPrivateProvider,
+    );
+    if (!access) {
+      log(
+        "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
+      );
+      return null;
+    }
+    const accounts = [...(await groupAccountsDetailed(ctx)).groups.values()];
+    if (!accounts.length) {
+      log(
+        "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
+      );
+      return null;
+    }
+    const loop = new AgentLoop(ctx, {
+      holder: options.holder ?? holderName(),
+      accounts,
+      access,
+    });
+    return supervise({ loop, intervalMs: options.intervalMs, log });
+  } catch (err) {
+    log(
+      `[gilbert] agent: it could not be started, so this installation runs without one: ${errorMessage(err)}`,
+    );
     return null;
   }
-  const accounts = [...(await groupAccountsDetailed(ctx)).groups.values()];
-  const loop = new AgentLoop(ctx, {
-    holder: deps.holder ?? holderName(),
-    accounts,
-    access,
-  });
-  return supervise({ loop, intervalMs: deps.intervalMs, log });
 }
 
 /** Who holds the claim, as a name the claim's own document can be read with. */

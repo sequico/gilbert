@@ -7,7 +7,8 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **A deployment does not bring the agent up yet.** The Master's agent is
+- **The agent does not write on two of its five surfaces, and its mail channel is
+  not built.** The Master's agent is
   designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
@@ -18,18 +19,19 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),
   the installation's one model and its two turns of decision
   (`server/src/agent/model.ts`), the claim that holds the installation's one agent
-  (`server/src/agent/claim.ts`), **the loop that works a run**
-  (`server/src/agent/loop.ts`): a pass claims
+  (`server/src/agent/claim.ts`), the loop that works a run
+  (`server/src/agent/loop.ts`) — a pass claims
   the installation, re-arms the waits it finds, reads each account's changes, and
   works a run from the model's own choices with the budget, the guard and the
-  record — and **the process that asks it for a pass**
-  (`server/src/agent/agent.ts` with `server/src/agent/supervisor.ts`): it boots
-  as the Master on the deployment's own handshake, takes the installation's model
-  and the groups the Master works, and asks again every thirty seconds, with the
-  claim keeping an installation to one agent when a second copy runs. What is
-  missing is the deployment's own shape: `docker-compose.yml` and the host
-  installer bring up the server alone, so an installation works no group's runs
-  until its operator starts the agent process beside it.
+  record — and **the supervisor the server's own boot starts with itself**
+  (`server/src/agent/supervisor.ts`, started in `server/src/index.ts`): it runs on
+  the installation's model and the groups its principal works and asks for a pass
+  every thirty seconds, with the claim keeping an installation to one agent when a
+  second copy of the server runs. What is not built is a tool that settles a step
+  of a workorder and one that proposes a change to a KB page (ADR 0032, ADR 0024)
+  — the agent reads those two surfaces and settles nothing on them — and the
+  conversation in **mail** (ADR 0033), which is not built: the group's chat is
+  what it has so far.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

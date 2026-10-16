@@ -91,10 +91,13 @@ of it is:
 
 The server signs in as it at boot: that account's own `gilbert` app folder holds
 the installation's document (ADR 0011), so the environment names the Master and
-the document carries the rest. Users sign in with their Stalwart mailbox
-credentials; **an account with two-factor authentication needs an app
-password**, because Stalwart accepts a TOTP code only through an OAuth flow and
-offers no password grant.
+the document carries the rest. **The agent is part of that process** — there is
+nothing to start, no second service and no command to remember: the server starts
+it at boot and it stays idle, saying so in the log, until the installation has
+chosen a model at **Administration → Installation**. Users sign in with their
+Stalwart mailbox credentials; **an account with two-factor authentication needs an
+app password**, because Stalwart accepts a TOTP code only through an OAuth flow
+and offers no password grant.
 
 ## Container images
 

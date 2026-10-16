@@ -1,13 +1,13 @@
 /**
- * The process that asks the loop for a pass (ADR 0031, 0034, 0036).
+ * The agent the server's boot starts (ADR 0031, 0034, 0036).
  *
  * What is pinned here is the supervisor's own contract, one mechanism per test,
  * and each of them is a mechanism rather than a run of the code:
  *
- * - a handshake that is missing stops at the boot, exactly as it does without
- *   this module, and no agent is started or announced;
- * - an installation that has chosen no model has no agent — the process answers
- *   null rather than running one on a provider nobody chose;
+ * - an installation that has chosen no model leaves the agent idle with one line
+ *   — the process answers null rather than running on a provider nobody chose;
+ * - a Master that works no group leaves it idle the same way;
+ * - anything else the agent cannot resolve is a line too, never a failed boot;
  * - a pass is asked on the interval, and one at a time;
  * - a pass that throws is logged and the next one still runs;
  * - a claim a peer holds is waited out, not fought for, and not reported as a
@@ -16,7 +16,8 @@
  *
  * The loop is a stand-in: what the supervisor owes a caller is when it asks and
  * what it does with the answer, and the loop's own work is pinned in
- * `loop.test.ts`. Nothing here needs a model, a provider or a mail server.
+ * `loop.test.ts`. Nothing here needs a model, a provider or a mail server — the
+ * boot has already happened (`agent.test.ts` runs the real one against the mock).
  */
 
 import assert from "node:assert/strict";
@@ -106,14 +107,16 @@ const failuresIn = (lines: readonly string[]): string[] =>
   lines.filter((line) => line.includes("the pass failed"));
 
 /* ------------------------------------------------------------------ */
-/* The boot, and the installation it resolves                          */
+/* The boot, and the installation the agent resolves itself against     */
 /* ------------------------------------------------------------------ */
 
 /**
- * The session a boot hands over when nothing asks it anything.
+ * The session a boot hands over.
  *
- * The gate on the model answers before any account is read, so a stand-in boot
- * that states no provider never gets a session it could use.
+ * `apiUrl`/`baseUrl` are a port nothing listens on: the session is only ever a
+ * stand-in for a boot that has happened (`startAgent` never signs in — the
+ * server's boot did), and a test that wants the group probe to fail gets its
+ * failure for free.
  */
 const SESSION = {
   capabilities: {},
@@ -128,22 +131,33 @@ const SESSION = {
   baseUrl: "http://127.0.0.1:1",
 } satisfies UpstreamSession;
 
-/** A boot that resolved, as the supervisor sees it. */
-function bootState(withModel: boolean): BootConfiguration {
+/** The one account every stand-in session starts with: a group nobody can probe. */
+const GROUP_ACCOUNT = { name: "team@example.org", isPersonal: false };
+
+interface BootOptions {
+  /** A model in the installation's document. On unless a test says otherwise. */
+  model?: boolean;
+  /** The session's accounts. A group-shaped one by default, which the probe refuses. */
+  accounts?: Record<string, unknown>;
+}
+
+/** A boot that resolved, as the agent sees it. */
+function bootState(options: BootOptions = {}): BootConfiguration {
   return {
     installation: {
       ...installationDefaults(),
       secret: "an-installation-secret-long-enough-to-seal-a-session-with",
-      agent: withModel
-        ? {
-            provider: {
-              provider: "example",
-              model: "a-model",
-              baseUrl: "https://models.example.com/v1",
-              apiKey: "a-key",
+      agent:
+        options.model === false
+          ? {}
+          : {
+              provider: {
+                provider: "example",
+                model: "a-model",
+                baseUrl: "https://models.example.com/v1",
+                apiKey: "a-key",
+              },
             },
-          }
-        : {},
     },
     configuration: environmentConfiguration({
       APP_SECRET: "test-secret-for-the-agent-supervisor",
@@ -151,7 +165,10 @@ function bootState(withModel: boolean): BootConfiguration {
     master: {
       address: "gilbert@example.com",
       authorization: "Basic dGVzdA==",
-      session: SESSION,
+      session: {
+        ...SESSION,
+        accounts: options.accounts ?? { ag1: GROUP_ACCOUNT },
+      },
     },
     accountId: "ag1",
     created: false,
@@ -161,39 +178,43 @@ function bootState(withModel: boolean): BootConfiguration {
 
 /* ------------------------------------------------------------------ */
 
-test("a handshake that is missing stops at the boot, and no agent is started", async () => {
+test("an installation that has chosen no model leaves the agent idle, with one line", async () => {
   const { lines, log } = collector();
-  await assert.rejects(
-    startAgent({
-      // No handshake at all: the boot these two share is what refuses it.
-      env: {},
-      log,
-      exit: (code: number): never => {
-        throw new Error(`the boot would have exited ${code}`);
-      },
-    }),
-    /would have exited 1/,
-    "the boot's own refusal is what a process without the handshake gets",
-  );
-  assert.equal(lines.length, 1, "one line, the boot's own");
-  assert.match(lines[0] ?? "", /STALWART_URL is not set/);
-  assert.equal(
-    lines.some((line) => line.includes("agent:")),
-    false,
-    "and no agent line, which is what a deployment nobody switched on sees",
-  );
-});
-
-test("an installation that has chosen no model has no agent", async () => {
-  const { lines, log } = collector();
-  const agent = await startAgent({
-    boot: async () => bootState(false),
-    log,
-  });
+  const agent = await startAgent(bootState({ model: false }), { log });
   assert.equal(agent, null, "there is no agent to supervise");
   assert.deepEqual(lines, [
-    "[gilbert] agent: this installation has chosen no model, so it has no agent",
+    "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
   ]);
+});
+
+test("a Master that works no group leaves the agent idle, with one line", async () => {
+  /*
+   * The account is group-shaped (`isGroupAccountRecord`) and the mail store does
+   * not answer about it, so the one classifier for "which accounts are groups"
+   * proves none: nothing to work, said once, and the process goes on.
+   */
+  const { lines, log } = collector();
+  const agent = await startAgent(bootState(), { log });
+  assert.equal(agent, null, "there is no group to work, so there is no agent");
+  assert.deepEqual(lines, [
+    "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
+  ]);
+});
+
+test("an agent whose conditions cannot be resolved is a line, not a failed boot", async () => {
+  /*
+   * The guard's own shape: a document this build cannot read at all. It cannot
+   * come from a boot of a build this one is (the parser is stricter), which is
+   * the point — whatever else goes wrong while the agent resolves itself is one
+   * line and an idle agent, never a server that fell over.
+   */
+  const { lines, log } = collector();
+  const broken = bootState();
+  (broken.installation as { agent?: unknown }).agent = undefined;
+  const agent = await startAgent(broken, { log });
+  assert.equal(agent, null, "no agent");
+  assert.equal(lines.length, 1, "one line");
+  assert.match(lines[0] ?? "", /it could not be started/);
 });
 
 test("a pass is asked on the interval, one at a time", async (t) => {
