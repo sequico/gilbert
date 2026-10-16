@@ -151,6 +151,11 @@ export interface InstallationPush {
  * the read returns, and a publish that states none keeps the stored one). An
  * empty key is a provider that needs none — a model on the deployment's own
  * network, say — and is not the same as no provider at all.
+ *
+ * A publish of the document states which of the three it means: an absent or
+ * empty key says nothing about the stored one and keeps it, `null` asks for a
+ * provider that needs none and the door stores it empty, and a value is the key
+ * to write. A reader of the document is never handed the key.
  */
 export interface InstallationModel {
   /** A free name for the surface: "openai", "openrouter", "ollama", … */

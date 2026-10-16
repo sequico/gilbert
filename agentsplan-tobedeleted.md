@@ -101,13 +101,21 @@ reaching a run, and any surface that shows what the agent did.
   carrying out the act on the next pass; and an authorisation for one act that
   does not license another.
 
-### 2.5 The surfaces — the run visible, and the model chosen (0031, 0034)
+### 2.5 The surfaces — the run visible (partly built)
 
-- **To do:** the administration surface where the installation's model is chosen
-  — today it is a field in the installation document, read at boot — the surface
-  where an installation administrator sees the agent, the claim and the runs it
-  has worked, with each run's plan and outcomes readable; the workorder panel's
-  attribution of a step the agent settled (ADR 0028).
+- **Built** (`bc2198a`, `5802abd`, `2e041df`): the installation's model is chosen
+  from Administration → Installation over the document the surface already
+  publishes — provider, model, base URL and a write-only key whose states are
+  told apart by the request itself: absent or empty keeps the stored one, the
+  switch clears it, a value writes it — with the private-address switch left
+  where it belongs, in the operator's
+  environment, and the surface saying plainly that an installation with no model
+  has no agent.
+- **To do** (the rest of the item): the surface where an installation
+  administrator sees the agent, the claim and the runs it has worked, with each
+  run's plan, dependencies, branches, outcomes and what it recalled readable from
+  the surface alone; and the workorder panel's attribution of a step the agent
+  settled (ADR 0028).
 - **Then:** `FEATURES.md` and the public docs, in the same change as each.
 - **Proof:** a run worked in the mock is readable from the surface alone, and
   choosing a model there takes effect at the next boot (ADR 0011).
