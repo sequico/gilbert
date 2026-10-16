@@ -70,8 +70,8 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0031–0036 and partly built, the
-  loop that works a run being what the tree does not carry.
+- **gilbertagents** — the agent: designed by ADR 0031–0036 and built as far as
+  the loop that works a run, which nothing starts yet.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.
