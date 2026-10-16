@@ -6,13 +6,16 @@ Implementation: Partly built. The catalogue is `server/src/agent/tools.ts` —
 each tool names its arguments, its authority class and what it spends, the
 arguments are validated before its executor runs, and the half a reading caller
 is handed (`readingTools`) is the one that cannot write. The installation's one
-model is `server/src/agent/model.ts`: the key is write-only in the installation's
-own document (`shared/installation.ts`, `installationAdmin.ts`), the call is one
-OpenAI-compatible chat completion with the zero-retention opt-out and the
-operator's private-address switch, the **decision turn** answers which rules
-apply and what the facts are over the reading tools, and the **choosing turn**
-(`chooseStep`) answers a plan of one or more steps — each a call and what it
-waits on — over the whole catalogue. The loop that
+model is `server/src/agent/model.ts`, and it is chosen at Administration →
+Installation (`web/src/views/admin/AdminInstallation.tsx`, whose fields write
+the document's `agent.provider`): the key is write-only in the installation's
+own document (`shared/installation.ts`, `installationAdmin.ts`) — a save that
+states no key keeps the stored one and a save that states an empty one clears it
+— the call is one OpenAI-compatible chat completion with the zero-retention
+opt-out and the operator's private-address switch, the **decision turn** answers
+which rules apply and what the facts are over the reading tools, and the
+**choosing turn** (`chooseStep`) answers a plan of one or more steps — each a
+call and what it waits on — over the whole catalogue. The loop that
 works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that
 reaches one ends `out-of-budget` saying so. The agent is started by the server's
