@@ -15,10 +15,13 @@
  * data type. A change is therefore reported once and the next read resumes
  * after it — there is no window, no timestamp and no overlap to reconcile.
  * Asking for a change that is behind the server's own log is refused rather
- * than answered as "nothing changed", and that refusal is the one end this
- * reading has: the changes between the cursor and the log the server still
- * holds are gone, so the caller starts again from a fresh anchor and they are
- * lost. The refusal says so (`readChanges`).
+ * than answered as "nothing changed", and a refusal of either log ends the
+ * reading: half an answer cannot advance the cursor without re-reporting the
+ * other half. What the reading does with it is a **gap** (`readAccountEvents`):
+ * the pages already read are kept — they are real changes and no reader would
+ * see them again — the cursor is anchored afresh at the state the server holds
+ * now, so the next read is valid and none of it is reported twice, and the loss
+ * in between is named rather than left to look like silence.
  *
  * **A log is read in pages, to its end.** The server answers a bounded window —
  * the `maxChanges` this asks for — and says whether it holds more; the reading
@@ -111,6 +114,16 @@ export interface EventCursor {
 export interface AccountEvents {
   events: AccountEvent[];
   cursor: EventCursor;
+  /**
+   * What the reading could not cover, or null when it covered it all.
+   *
+   * A refusal that cuts a read short — the log no longer reaching back to the
+   * cursor — leaves the changes in between unreadable. The reading hands over
+   * the events it did read, anchors the cursor afresh at the state the server
+   * holds now, and says what was lost here: the caller acts on what it was
+   * given, and never reads a gap as "nothing happened".
+   */
+  gap: string | null;
 }
 
 /**
@@ -186,10 +199,17 @@ export function readChangeSet(args: Record<string, unknown>, type: string): Chan
  * paged until the server says it holds no more, so a burst larger than one
  * window is read whole rather than refused.
  *
- * A refusal of either log is a refusal of the reading: half an answer cannot
- * advance the cursor without re-reporting the other half, which is the one
- * thing this must never do. A `cannotCalculateChanges` is turned into the one
- * sentence that says what it costs.
+ * A refusal of either log ends the loop: half an answer cannot advance the
+ * cursor without re-reporting the other half, which is the one thing this must
+ * never do. A `cannotCalculateChanges` — the cursor fell further behind than
+ * the log the server still holds — is answered as a **gap**: the pages read
+ * before it are kept, because they are real changes and no reader would see
+ * them again, the cursor is anchored afresh at the state the server holds now,
+ * and the loss is named rather than thrown away with them.
+ *
+ * A page that leaves its log's state where the one before it began, while the
+ * server says it holds more, cannot be paged past: asking again would ask the
+ * same window for ever and grow the answer without end. That is refused.
  */
 export async function readAccountEvents(
   ctx: Ctx,
@@ -201,17 +221,39 @@ export async function readAccountEvents(
   let seen = cursor.seen;
   const events: AccountEvent[] = [];
   for (;;) {
-    const { mail: mailed, files: filed } = await readChanges(ctx, accountId, mail, files);
+    let page: { mail: ChangeSet; files: ChangeSet };
+    try {
+      page = await readChanges(ctx, accountId, mail, files);
+    } catch (err) {
+      if (err instanceof JmapError && err.type === "cannotCalculateChanges")
+        return {
+          events,
+          cursor: await anchorEvents(ctx, accountId),
+          gap: "The mail server no longer holds the changes this account's reading asks for: what it missed in between is lost, and the reading resumes from the state the server holds now.",
+        };
+      throw err;
+    }
+
+    if (page.mail.hasMoreChanges && page.mail.newState === mail)
+      throw new Error(
+        "The mail server says the Email change log holds more but answered the state it was asked from: the reading cannot go on.",
+      );
+    if (page.files.hasMoreChanges && page.files.newState === files)
+      throw new Error(
+        "The mail server says the FileNode change log holds more but answered the state it was asked from: the reading cannot go on.",
+      );
+
     const paths = await nodePaths(ctx, accountId, [
-      ...filed.created,
-      ...filed.updated,
-      ...filed.destroyed,
+      ...page.files.created,
+      ...page.files.updated,
+      ...page.files.destroyed,
     ]);
     seen = rememberPaths(seen, paths);
 
     for (const change of ["created", "updated", "destroyed"] as const) {
-      for (const id of mailed[change]) events.push({ source: "mail", change, where: id });
-      for (const id of filed[change]) {
+      for (const id of page.mail[change])
+        events.push({ source: "mail", change, where: id });
+      for (const id of page.files[change]) {
         // The path the server still answers for the node, or the one this
         // process read while the node was there: a removal named by the surface
         // its former path belonged to, and by its id only when neither is known.
@@ -224,23 +266,22 @@ export async function readAccountEvents(
       }
     }
 
-    mail = mailed.newState;
-    files = filed.newState;
-    if (!mailed.hasMoreChanges && !filed.hasMoreChanges) break;
+    mail = page.mail.newState;
+    files = page.files.newState;
+    if (!page.mail.hasMoreChanges && !page.files.hasMoreChanges) break;
   }
-  return { events, cursor: { mail, files, seen } };
+  return { events, cursor: { mail, files, seen }, gap: null };
 }
 
 /**
- * One page of both logs, with the one refusal this reading has turned into its
- * own sentence.
+ * One page of both logs.
  *
- * `cannotCalculateChanges` means the cursor fell further behind than the log the
- * server still holds, so the changes in between cannot be read at all: keeping
- * the cursor would refuse every later read for the same reason, and the honest
- * answer is the refusal with its cost named. It is a method-level error inside
- * an otherwise successful response, so it arrives where the answer is read
- * rather than where the call is made.
+ * A method-level error inside an otherwise successful response arrives where
+ * the answer is read rather than where the call is made, and it is left to the
+ * caller (`readAccountEvents`): a `cannotCalculateChanges` is one of the two
+ * logs refusing a cursor it can no longer reach, and what the reading does
+ * about it — keep the pages it read, anchor afresh, name the gap — is the
+ * reading's answer, not this call's.
  */
 async function readChanges(
   ctx: Ctx,
@@ -248,33 +289,25 @@ async function readChanges(
   mail: string,
   files: string,
 ): Promise<{ mail: ChangeSet; files: ChangeSet }> {
-  try {
-    const answered: JmapResult = await clientOf(ctx).chain(
+  const answered: JmapResult = await clientOf(ctx).chain(
+    [
       [
-        [
-          "Email/changes",
-          { accountId, sinceState: mail, maxChanges: MAX_CHANGES_PER_READ },
-          "mail",
-        ],
-        [
-          FILENODE_CHANGES,
-          { accountId, sinceState: files, maxChanges: MAX_CHANGES_PER_READ },
-          "files",
-        ],
+        "Email/changes",
+        { accountId, sinceState: mail, maxChanges: MAX_CHANGES_PER_READ },
+        "mail",
       ],
-      [CAPABILITIES.mail, FILENODE_CAP],
-    );
-    return {
-      mail: readChangeSet(answered.args("mail"), "Email"),
-      files: readChangeSet(answered.args("files"), "FileNode"),
-    };
-  } catch (err) {
-    if (err instanceof JmapError && err.type === "cannotCalculateChanges")
-      throw new Error(
-        "The mail server no longer holds the changes this account's reading asks for: the changes it missed are lost, and the reading has to begin again from the state the server holds now.",
-      );
-    throw err;
-  }
+      [
+        FILENODE_CHANGES,
+        { accountId, sinceState: files, maxChanges: MAX_CHANGES_PER_READ },
+        "files",
+      ],
+    ],
+    [CAPABILITIES.mail, FILENODE_CAP],
+  );
+  return {
+    mail: readChangeSet(answered.args("mail"), "Email"),
+    files: readChangeSet(answered.args("files"), "FileNode"),
+  };
 }
 
 /** The same paths, with this page's reads remembered and the oldest dropped. */

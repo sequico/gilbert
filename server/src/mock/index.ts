@@ -5271,17 +5271,18 @@ function cannotCalculateChanges(type: string): MethodError {
 /**
  * One page of a change log, as the server pages it.
  *
- * A caller asks for a page with `maxChanges`, and a real server answers at most
- * that many changes and says `hasMoreChanges` when it held more, with
- * `newState` **an intermediate state**: the point the rest resumes from, not the
- * account's current one. What a real server does with the argument is
- * `min(maxChanges, changes_max_results)` -- it caps the page at its own bound as
- * well, so an answer may be shorter than the caller asked for -- and
- * `has_more_changes` is what turns `new_state` into `State::new_intermediate`
- * (`crates/jmap/src/changes/get.rs`, v0.16.26). Without `maxChanges` the whole
- * window is answered, which is what a caller that does not page asks for. A mock
- * that always answered the whole window left every paging loop unexercised
- * here.
+ * A caller asks for a page with `maxChanges`, and the mock answers at most that
+ * many changes and says `hasMoreChanges` when it held more, with `newState` an
+ * intermediate state: the point the rest resumes from, not the account's current
+ * one. What it does **not** model is the server's own ceiling on the page — a
+ * real server answers `min(maxChanges, changes_max_results)`, so a page may be
+ * shorter than the caller asked for (`crates/jmap/src/changes/get.rs`,
+ * v0.16.26). Nothing here rests on that ceiling: the reading loops on
+ * `hasMoreChanges` and never on the page being the size it asked for
+ * (`agent/events.ts`), so a mock that honours the caller's page is the paging
+ * loop's whole exercise, and a mock that always answered the whole window would
+ * leave every loop unexercised here. Without `maxChanges` the whole window is
+ * answered, which is what a caller that does not page asks for.
  */
 function pageChanges(
   accountId: string,

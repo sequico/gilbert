@@ -6,8 +6,9 @@
  * `server/src/agent/runs.ts`. It is the whole of the agent's durable state —
  * which rule or which instruction started it, the plan and how each step ended,
  * the objects it touched, what it waits for, where it asked a person and until
- * when, every authorisation with the sentence it arrived in and the authority
- * that was given, the evidence behind what it claims, the budget it has spent,
+ * when, every authorisation with the sentence it arrived in, the authority that
+ * was given and the act it is for, the evidence behind what it claims, the
+ * budget it has spent,
  * and the state it is in. A **wait is a date in this document** (or no date at
  * all, when what it waits for is a person's answer), not a timer in a process,
  * so the agent re-arms the waits it finds when it starts and a container that
@@ -26,8 +27,12 @@ import { errorDetail } from "./errors.js";
 import { isRecord } from "./json.js";
 import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 
-/** The schema this build writes and reads. A document of another version is refused. */
-export const RUN_VERSION = 1;
+/**
+ * The schema this build writes and reads. A document of another version is
+ * refused, so a field of the shape below moves this with it — the version is
+ * how the change reaches a run an installation has already written.
+ */
+export const RUN_VERSION = 2;
 
 /** A step's state: `open` until it ends, and the two ways it can end. */
 export type RunStepState = "open" | RunStepOutcome;
@@ -90,16 +95,37 @@ export interface RunWait {
 }
 
 /**
+ * The act an authority is given for (ADR 0032), read from what the act reaches
+ * and what it carries.
+ *
+ * The bound ADR 0032 draws: "an instruction that asks for a send authorises
+ * **that send and no other**". A class is not an act — a run that carried one
+ * outward authority would otherwise send to anybody, once, and the record could
+ * not tell one send from the next. So the authority a person gave names the act
+ * it is for, and the guard compares the act a tool is about to take against it.
+ */
+export interface RunAuthorityAct {
+  /** What the act reaches: the address a send goes to, or the object it acts on. */
+  target: string;
+  /** What the act carries outward, when it carries anything: the text of a send. */
+  content: string | null;
+}
+
+/**
  * One authorisation, with the sentence it arrived in (ADR 0032, 0033).
  *
  * `authority` is what a reader audits by: a class-3 send and a class-4 override
- * are told apart by this field and never by reading `what` for prose.
+ * are told apart by this field and never by reading `what` for prose. `act` is
+ * what the guard compares: the authorisation answers for the act it names and
+ * for no other, so one send does not authorise the next.
  */
 export interface RunAuthorisation {
-  /** What was authorised. */
+  /** What was authorised, in the words it was read in. */
   what: string;
   /** Which authority of ADR 0032 was given. */
   authority: RunAuthority;
+  /** The act the authority is for. */
+  act: RunAuthorityAct;
   /** Who said it. */
   by: string;
   /** When it arrived. */
@@ -156,7 +182,7 @@ export interface RunEnd {
  */
 export interface RunDoc {
   /** The schema version; `RUN_VERSION` today. */
-  v: 1;
+  v: 2;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
   startedBy: RunStart;
@@ -243,12 +269,23 @@ function isAuthority(x: unknown): x is RunAuthority {
   return x === "destructive" || x === "outward" || x === "override";
 }
 
+/** Whether a value names the act an authorisation is for. */
+function isAuthorityAct(x: unknown): x is RunAuthorityAct {
+  return (
+    isRecord(x) &&
+    typeof x.target === "string" &&
+    !!x.target &&
+    (x.content === null || typeof x.content === "string")
+  );
+}
+
 function isAuthorisation(x: unknown): x is RunAuthorisation {
   return (
     isRecord(x) &&
     typeof x.what === "string" &&
     !!x.what &&
     isAuthority(x.authority) &&
+    isAuthorityAct(x.act) &&
     typeof x.by === "string" &&
     !!x.by &&
     isInstant(x.at) &&

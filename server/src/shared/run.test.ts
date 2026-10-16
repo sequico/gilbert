@@ -5,7 +5,8 @@
  * of three ways and says which, a step's outcome is recorded where it belongs,
  * the plan grows with the step the model chose, what the run touched and what it
  * spent are written by a transition each, an authorisation carries the sentence
- * it arrived in and the authority that was given, and the wait is a date in the
+ * it arrived in, the authority that was given and the act it is for, and the
+ * wait is a date in the
  * document — or no date at all, when what it waits for is a person. The
  * parser's half is the other side of the same contract: a run this build did not
  * write is reported rather than read as an empty one, and a field it does not
@@ -203,12 +204,13 @@ test("the evidence behind a claim is recorded on the run", () => {
   assert.deepEqual(stored.run.evidence, supported.evidence);
 });
 
-test("an authorisation says which authority it is", () => {
+test("an authorisation says which authority it is, and which act it is for", () => {
   const run = startRun({ id: "r11", startedBy: START });
 
   const sent = takeAuthorisation(run, {
     what: "send the confirmation",
     authority: "outward",
+    act: { target: "shipper@example.com", content: "the booking is confirmed" },
     by: "sam@example.com",
     at: AT,
     from: { channel: "mail", id: "m-42" },
@@ -216,6 +218,7 @@ test("an authorisation says which authority it is", () => {
   const overridden = takeAuthorisation(sent, {
     what: "file it outside the policy",
     authority: "override",
+    act: { target: "wo-1", content: null },
     by: "admin@example.com",
     at: AT,
     from: { channel: "chat", id: "node-9" },
@@ -225,6 +228,11 @@ test("an authorisation says which authority it is", () => {
     overridden.authorisations.map((authorisation) => authorisation.authority),
     ["outward", "override"],
     "a send and an override are told apart by the field, never by reading the prose",
+  );
+  assert.deepEqual(
+    overridden.authorisations[0]?.act,
+    { target: "shipper@example.com", content: "the booking is confirmed" },
+    "and each names the act it is for, which is what the guard compares",
   );
   assert.equal(
     overridden.authorisations[0]?.from.id,
@@ -237,11 +245,25 @@ test("an authorisation says which authority it is", () => {
       takeAuthorisation(run, {
         what: "something",
         authority: "allowed" as never,
+        act: { target: "a@example.com", content: null },
         by: "sam@example.com",
         at: AT,
         from: { channel: "mail", id: "m-1" },
       }),
     /cannot take that authorisation/,
+  );
+  assert.throws(
+    () =>
+      takeAuthorisation(run, {
+        what: "a send that names nothing to send to",
+        authority: "outward",
+        act: { target: "", content: null },
+        by: "sam@example.com",
+        at: AT,
+        from: { channel: "mail", id: "m-1" },
+      }),
+    /cannot take that authorisation/,
+    "an authority for no act would authorise every act of its class",
   );
 });
 
@@ -365,10 +387,10 @@ test("a run this build cannot read is reported, with what was wrong", () => {
   const bad = [
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
-    ['{"v":2,"id":"r6"}', /this build reads version 1/],
-    ['{"v":1,"id":"","startedBy":{"rule":"a","instruction":null}}', /"id" must be/],
+    ['{"v":3,"id":"r6"}', /this build reads version 2/],
+    ['{"v":2,"id":"","startedBy":{"rule":"a","instruction":null}}', /"id" must be/],
     [
-      '{"v":1,"id":"r6","startedBy":{"rule":"a","instruction":null}}',
+      '{"v":2,"id":"r6","startedBy":{"rule":"a","instruction":null}}',
       /"plan" must be a list of steps/,
     ],
     [JSON.stringify({ ...whole, touched: [{ kind: "nope" }] }), /"touched" must be/],
@@ -384,6 +406,17 @@ test("a run this build cannot read is reported, with what was wrong", () => {
       JSON.stringify({
         ...whole,
         authorisations: [{ what: "send", by: "s", at: AT, from: ASKED }],
+      }),
+      /"authorisations" must be a list of authorisations/,
+    ],
+    [
+      JSON.stringify({
+        ...whole,
+        // An authority the document does not bind to an act is the class-only
+        // authority ADR 0032 refuses: it would authorise every act of its class.
+        authorisations: [
+          { what: "send", authority: "outward", by: "s", at: AT, from: ASKED },
+        ],
       }),
       /"authorisations" must be a list of authorisations/,
     ],

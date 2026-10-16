@@ -8,20 +8,21 @@
  * thing are a defect — they make the choice a lottery — and a tool that answers
  * with more context than the caller needs is one too.
  *
- * **What defines a tool** is five things beside its executor: its **name**, its
+ * **What defines a tool** is six things beside its executor: its **name**, its
  * **description** (the product's interface to the model, written as prose a
  * person's agent should reach for), its **arguments** (validated before the
  * executor runs, never inside it), the **authority class it exercises** (ADR
- * 0032), and what it **spends** of the run's budget (ADR 0031) — which the loop
- * applies with `spendRun`, and which for a read is nothing.
+ * 0032), the **act** that class is about when the class asks a person, and what
+ * it **spends** of the run's budget (ADR 0031) — which the loop applies with
+ * `spendRun`, and which for a read is nothing.
  *
- * **This is the reading half, and it cannot change anything.** Reading before
- * acting is what makes these the tools a run opens with, and every tool here
- * declares `writes: false`: the catalogue's write-free half is what a caller
- * gets (`readingTools`), so a tool that writes is unreachable through it. The
- * writing tools, the model and the loop that chooses them are the units after
- * this one — shipping the half inert is the decision ADR 0034 records, so
- * nothing in the tree calls a tool yet.
+ * **The reading half cannot change anything.** Reading before acting is what
+ * makes these the tools a run opens with, and every one of them declares
+ * `writes: false`: the catalogue's write-free half is what a reading caller gets
+ * (`readingTools`), so a tool that writes is unreachable through it. A tool
+ * whose act leaves the run waiting answers with the wait it left, and the loop
+ * applies it with `waitUntil` — the run document is the loop's to write, exactly
+ * as the tally is.
  *
  * Every tool acts in the account its run lives in — the group's own (ADR 0035)
  * — and reads it through the same doors the surfaces use, so the agent sees the
@@ -39,13 +40,14 @@ import {
   readAppJsonAt,
   readVisibleFileAt,
 } from "../appFolder.js";
+import { findChatMessages, readChatMessage } from "../chat.js";
 import { readArticle } from "../knowledgeAdmin.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { queryThenGet } from "../shared/jmapQuery.js";
 import { isRecord } from "../shared/json.js";
 import { KNOWLEDGE_FOLDER, knowledgeFolderName } from "../shared/knowledge.js";
-import type { RunAuthority, RunDoc, RunSpent } from "../shared/run.js";
+import type { RunAuthority, RunAuthorityAct, RunDoc, RunSpent } from "../shared/run.js";
 import {
   buildFilter,
   parseQuery,
@@ -117,6 +119,16 @@ export interface AnyTool {
   readonly writes: boolean;
   /** What a call to it spends of the run's budget (ADR 0031). */
   readonly spend: Partial<RunSpent>;
+  /**
+   * The act this call is, read from the arguments the model gave (ADR 0032).
+   *
+   * A class is not an act: an authority a person gave names one act and no
+   * other, so a tool whose class needs one answers here what its act reaches and
+   * what it carries, and the guard compares that against the run's
+   * authorisations. A class that asks nobody answers null, which is every
+   * reading tool and every reversible one.
+   */
+  readonly act: (args: unknown) => RunAuthorityAct | null;
   /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
   readonly parse: (raw: unknown) => unknown;
   /** The task itself, with arguments already validated. */
@@ -130,6 +142,7 @@ interface ToolSpec<Args> {
   authority: ToolAuthority;
   writes: boolean;
   spend?: Partial<RunSpent>;
+  act?: (args: Args) => RunAuthorityAct | null;
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
@@ -142,6 +155,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     authority: spec.authority,
     writes: spec.writes,
     spend: spec.spend ?? {},
+    act: spec.act ? (args) => spec.act!(args as Args) : () => null,
     parse: spec.parse,
     run: (call, args) => spec.run(call, args as Args),
   };
@@ -173,19 +187,29 @@ export function authorityNeeded(
 }
 
 /**
- * Whether a run may take a tool's action, read from the class the tool declares.
+ * Whether a run may take a tool's action, read from the class the tool declares
+ * and the act it is about.
  *
  * The guard is here and nowhere else: `reversible` is the agent's own decision
  * and asks nobody; the three that need one are answered by the run's recorded
- * authorisations, each naming the authority a person gave; and `intent` is
+ * authorisations, each naming the authority a person gave **and the act it is
+ * for** — an authorisation answers for that act and no other (ADR 0032), so a
+ * send a person authorised does not authorise the next one; and `intent` is
  * never answered at all, because which policy is right is not a thing a run can
  * be authorised to decide.
  */
-export function mayRun(tool: AnyTool, run: RunDoc): boolean {
+export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
   const needed = authorityNeeded(tool.authority);
   if (needed === "alone") return true;
   if (needed === "never") return false;
-  return run.authorisations.some((one) => one.authority === needed);
+  const act = tool.act(args);
+  if (!act) return false;
+  return run.authorisations.some(
+    (one) =>
+      one.authority === needed &&
+      one.act.target === act.target &&
+      one.act.content === act.content,
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -330,6 +354,45 @@ const findMessages = defineTool({
     );
     return { messages: answer.list<Record<string, unknown>>("g") };
   },
+});
+
+/** How many chat messages one search answers with, whatever the model asks for. */
+const CHAT_FIND_MAX = 50;
+
+const readChat = defineTool({
+  name: "chat.read",
+  description:
+    "Read one message of this group's own conversation, by the id a search or " +
+    "an event answered with: who posted it, when, its text, and the message it " +
+    "answers.",
+  authority: "reversible",
+  writes: false,
+  parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
+  run: async ({ ctx, accountId }, { id }) => {
+    const message = await readChatMessage(ctx, accountId, id);
+    if (!message) throw notFound(`chat message "${id}" in this account`);
+    return { message };
+  },
+});
+
+const findChat = defineTool({
+  name: "chat.find",
+  description:
+    "Find messages of this group's recent conversation whose text contains the " +
+    "given words — who was asked something, what was answered. The answer names " +
+    "the messages it found, newest first; read one with chat.read.",
+  authority: "reversible",
+  writes: false,
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      query: textArg(args, "query"),
+      limit: countArg(args, "limit", CHAT_FIND_MAX) ?? CHAT_FIND_MAX,
+    };
+  },
+  run: async ({ ctx, accountId }, { query, limit }) => ({
+    messages: await findChatMessages(ctx, accountId, query, limit),
+  }),
 });
 
 const readMessage = defineTool({
@@ -506,6 +569,8 @@ export const TOOLS: readonly AnyTool[] = [
   findMessages,
   readMessage,
   listMailboxes,
+  readChat,
+  findChat,
   listFiles,
   readNode,
   readWorkorder,
@@ -545,7 +610,7 @@ export async function runTool(
   const tool = catalogue.find((one) => one.name === name);
   if (!tool) throw new ToolError("unknown_tool", `There is no tool named "${name}".`);
   const args = tool.parse(raw);
-  if (!mayRun(tool, call.run))
+  if (!mayRun(tool, call.run, args))
     throw new ToolError(
       "needs_authority",
       `"${tool.name}" is not the agent's to decide, and this run carries no authority for it.`,

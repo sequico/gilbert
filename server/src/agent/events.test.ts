@@ -9,13 +9,19 @@
  * arrival would answer one message twice. The third is what a removal is: a
  * destroyed node cannot be read again, so the surface it happened on is the one
  * its former path was read at, and a log bigger than one page is drained rather
- * than refused.
+ * than refused. Two answers of the server's own are pinned against a stand-in:
+ * a page that says it holds more without moving the state it resumes from is
+ * refused rather than paged for ever, and a refusal arriving mid-read keeps the
+ * pages already read and names the gap.
  */
 
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import type { Ctx } from "../appFolder.js";
 import { freePort, waitForPort } from "../testkit.js";
+import type { UpstreamSession } from "../upstream.js";
 
 const PORT = await freePort();
 process.env.MOCK_PORT = String(PORT);
@@ -200,16 +206,154 @@ test("a log larger than one page is read to its end", async () => {
   );
 });
 
-test("a cursor the log no longer reaches is refused, and the refusal says what it costs", async () => {
+test("a cursor the log no longer reaches is named as a gap, and the reading goes on", async () => {
   const anchor = await anchorEvents(ctx, accountId);
   // Past the window the log still holds, so what it can answer no longer
   // reaches back to where the reading stands.
   for (let i = 0; i < 201; i++) await deliver(`gap ${i}`);
-  await assert.rejects(
-    () => readAccountEvents(ctx, accountId, anchor),
-    /no longer holds the changes this account's reading asks for/,
-    "the changes in between are lost, and the reading has to begin again",
+  const refused = await readAccountEvents(ctx, accountId, anchor);
+  assert.deepEqual(
+    refused.events,
+    [],
+    "the refusal arrived on the first page, so no page had been read",
   );
+  assert.match(
+    String(refused.gap),
+    /no longer holds the changes this account's reading asks for/,
+    "and the loss is named rather than shrugged off",
+  );
+
+  const after = await readAccountEvents(ctx, accountId, refused.cursor);
+  assert.equal(after.gap, null, "the reading anchors at the state the server holds now");
+});
+
+/**
+ * One page of both logs, as a stand-in server is told to answer them.
+ *
+ * `refuse` is a `cannotCalculateChanges` for that log, which is what a real
+ * server answers a `sinceState` older than the window it keeps.
+ */
+interface ScriptedPage {
+  mail?: {
+    newState?: string;
+    hasMoreChanges?: boolean;
+    created?: string[];
+    refuse?: boolean;
+  };
+  files?: {
+    newState?: string;
+    hasMoreChanges?: boolean;
+    created?: string[];
+    refuse?: boolean;
+  };
+}
+
+/**
+ * A stand-in mail server that answers a scripted sequence of change pages.
+ *
+ * Two answers the mock cannot be made to produce are pinned through it: a log
+ * that says it holds more without moving the state its page resumes from, and a
+ * refusal that arrives on a page **after** one already read. Both are answers
+ * about the server, so the fake is the server and the reading under test is the
+ * one that ships.
+ */
+async function scriptedUpstream(
+  pages: ScriptedPage[],
+): Promise<{ ctx: Ctx; close: () => void }> {
+  let answered = 0;
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString()) as {
+        methodCalls: Array<[string, Record<string, unknown>, string]>;
+      };
+      const page = pages[Math.min(answered++, pages.length - 1)] ?? {};
+      const methodResponses = body.methodCalls.map(([name, , id]) => {
+        if (name === "Email/changes" || name === "FileNode/changes") {
+          const side = name === "Email/changes" ? page.mail : page.files;
+          if (side?.refuse)
+            return ["error", { type: "cannotCalculateChanges", description: "gone" }, id];
+          return [
+            name,
+            {
+              accountId: "a1",
+              oldState: "s0",
+              newState: side?.newState ?? "s1",
+              hasMoreChanges: side?.hasMoreChanges ?? false,
+              created: side?.created ?? [],
+              updated: [],
+              destroyed: [],
+            },
+            id,
+          ];
+        }
+        // Everything else is a `/get` for a state or a node's path: the state
+        // the reading anchors at, and no objects.
+        return [name, { accountId: "a1", state: "s9", list: [] }, id];
+      });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ methodResponses }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address() as AddressInfo;
+  const ctx: Ctx = {
+    authorization: "Basic presented",
+    username: "demo@example.com",
+    session: {
+      apiUrl: "/jmap",
+      baseUrl: `http://127.0.0.1:${port}`,
+      capabilities: {},
+    } as unknown as UpstreamSession,
+  };
+  return { ctx, close: () => server.close() };
+}
+
+test("a log that says it holds more without moving its state is refused", async () => {
+  const { ctx: fake, close } = await scriptedUpstream([
+    { mail: { newState: "s0", hasMoreChanges: true, created: ["m1"] } },
+    { mail: { newState: "s1" } },
+  ]);
+  try {
+    await assert.rejects(
+      () => readAccountEvents(fake, "a1", { mail: "s0", files: "f0", seen: {} }),
+      /holds more but answered the state it was asked from/,
+      "a page that does not move the reading forward cannot be paged past",
+    );
+  } finally {
+    close();
+  }
+});
+
+test("a refusal mid-read keeps the pages already read, and names the gap", async () => {
+  const { ctx: fake, close } = await scriptedUpstream([
+    {
+      mail: { newState: "s1", hasMoreChanges: true, created: ["m1"] },
+      files: { newState: "f1" },
+    },
+    { mail: { refuse: true } },
+  ]);
+  try {
+    const read = await readAccountEvents(fake, "a1", {
+      mail: "s0",
+      files: "f0",
+      seen: {},
+    });
+    assert.deepEqual(
+      read.events,
+      [{ source: "mail", change: "created", where: "m1" }],
+      "the page read before the refusal is kept: it is a real change nobody would see again",
+    );
+    assert.ok(read.gap, "and the loss in between is named");
+    assert.equal(
+      read.cursor.mail,
+      "s9",
+      "the cursor anchors at the state the server holds now, so nothing is reported twice",
+    );
+  } finally {
+    close();
+  }
 });
 
 test("a removal is reported on the surface its former path was read at", async () => {

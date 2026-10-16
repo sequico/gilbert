@@ -29,9 +29,8 @@ process.env.APP_SECRET = "test-secret-for-tools";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, writeAppFileAt, writeBytesIntoVisibleFolder } = await import(
-  "../appFolder.js"
-);
+const { filesAccountId, readAppFileAt, writeAppFileAt, writeBytesIntoVisibleFolder } =
+  await import("../appFolder.js");
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
 const { blocksFromText, buildDraft, knowledgeFolderName } = await import(
@@ -95,16 +94,21 @@ function countingTool(spec: {
   authority: "reversible" | "destructive" | "outward" | "beyond-policy" | "intent";
   writes: boolean;
   calls: number[];
+  act?: (args: { ok: boolean; to?: string; text?: string }) => {
+    target: string;
+    content: string | null;
+  } | null;
 }) {
   return defineTool({
     name: spec.name,
     description: "a tool that does nothing, for a test",
     authority: spec.authority,
     writes: spec.writes,
+    act: spec.act,
     parse: (raw: unknown) => {
       if (!(raw && typeof raw === "object" && "ok" in raw))
         throw new Error("the arguments are not this tool's");
-      return raw as { ok: boolean };
+      return raw as { ok: boolean; to?: string; text?: string };
     },
     run: async () => {
       spec.calls.push(1);
@@ -171,12 +175,13 @@ test("the guard asks the authority class the tool declares", async () => {
     authority: "outward",
     writes: true,
     calls,
+    act: (args) => ({ target: args.to ?? "", content: args.text ?? null }),
   });
   const run = plainRun();
   const call = fixtureCall(run);
 
   await assert.rejects(
-    () => runTool([outward], call, outward.name, { ok: true }),
+    () => runTool([outward], call, outward.name, { ok: true, to: "shipper@example.com" }),
     /carries no authority/,
     "an act a person must authorise is refused while the run carries none",
   );
@@ -185,12 +190,45 @@ test("the guard asks the authority class the tool declares", async () => {
   const authorised = takeAuthorisation(run, {
     what: "answer the shipper",
     authority: "outward",
+    act: { target: "shipper@example.com", content: "the booking is confirmed" },
     by: "a@example.com",
     at: "2026-10-16T10:00:00.000Z",
     from: { channel: "mail", id: "m-1" },
   });
-  await runTool([outward], fixtureCall(authorised), outward.name, { ok: true });
-  assert.equal(calls.length, 1, "with the authority the run carries, it runs");
+  await runTool([outward], fixtureCall(authorised), outward.name, {
+    ok: true,
+    to: "shipper@example.com",
+    text: "the booking is confirmed",
+  });
+  assert.equal(
+    calls.length,
+    1,
+    "with the authority the run carries, the act it named runs",
+  );
+
+  // The same class, and the same person's word, for an act nobody authorised:
+  // "an instruction that asks for a send authorises that send and no other".
+  await assert.rejects(
+    () =>
+      runTool([outward], fixtureCall(authorised), outward.name, {
+        ok: true,
+        to: "somebody-else@example.com",
+        text: "the booking is confirmed",
+      }),
+    /carries no authority/,
+    "the authorisation does not reach another person",
+  );
+  await assert.rejects(
+    () =>
+      runTool([outward], fixtureCall(authorised), outward.name, {
+        ok: true,
+        to: "shipper@example.com",
+        text: "something else entirely",
+      }),
+    /carries no authority/,
+    "nor the same person with something else to say",
+  );
+  assert.equal(calls.length, 1, "and neither ran");
 
   // The same call, with the tool declaring the agent's own class: the class the
   // tool declares is what the guard answered, not the tool's name.
@@ -216,17 +254,50 @@ test("the guard asks the authority class the tool declares", async () => {
     "a class no run can be authorised to decide",
   );
   assert.equal(calls.length, 2);
+
+  // An act a person must authorise, with no act to compare: the guard cannot
+  // match it against anything, so it refuses rather than reaching for the class.
+  const unscoped = countingTool({
+    name: "mail.send",
+    authority: "outward",
+    writes: true,
+    calls,
+  });
+  await assert.rejects(
+    () => runTool([unscoped], fixtureCall(authorised), unscoped.name, { ok: true }),
+    /carries no authority/,
+    "a class-only act is what the binding exists to refuse",
+  );
+  assert.equal(calls.length, 2);
 });
 
-test("a read spends nothing of the run's budget", () => {
+test("the reading half this build ships holds no writer, and spends nothing", () => {
   const run = plainRun();
   assert.ok(READING_TOOLS.length > 0, "the reading half has tools");
   for (const tool of READING_TOOLS) {
+    assert.equal(tool.writes, false, `"${tool.name}" is in the reading half and writes`);
     assert.deepEqual(tool.spend, {}, `"${tool.name}" reads and so declares no budget`);
     assert.deepEqual(
       spendRun(run, tool.spend).spent,
       run.spent,
       `and spending it leaves the run's tally where it was`,
+    );
+  }
+});
+
+test("every surface the agent works on has a reading tool that reaches it", () => {
+  const doors: Record<string, readonly string[]> = {
+    chat: ["chat.read", "chat.find"],
+    mail: ["mail.find", "mail.read", "mail.folders"],
+    kb: ["knowledge.read"],
+    workorder: ["workorder.read"],
+    runs: ["run.read"],
+    files: ["files.list", "files.read"],
+  };
+  for (const [surface, names] of Object.entries(doors)) {
+    assert.ok(
+      names.some((name) => READING_TOOLS.some((tool) => tool.name === name)),
+      `the ${surface} surface has a reading tool that reaches it`,
     );
   }
 });
@@ -402,4 +473,29 @@ test("the reading tools answer from the group's account", async () => {
     "the prose a rule is written in is what the tool answers",
   );
   assert.equal(page.revision, null, "a page with no approved revision is the draft");
+
+  // The group's own conversation: a search finds what it holds, and the node a
+  // search answered with reads back as the message it is.
+  await writeAppFileAt(ctx, accountId, "chat/c-1.json", {
+    v: 1,
+    from: "sam@example.com",
+    at,
+    text: "the container has left the port",
+  });
+  const written = await readAppFileAt(ctx, accountId, "chat/c-1.json");
+  assert.ok(written, "the message is in the conversation");
+  const hits = await tool<{ messages: Array<{ id: string; text: string }> }>(
+    "chat.find",
+    {
+      query: "container",
+    },
+  );
+  assert.equal(hits.messages.length, 1, "the conversation is searched where it is kept");
+  assert.equal(hits.messages[0]?.id, String(written.file.id));
+  const chatMessage = await tool<{ message: { id: string; text: string; from: string } }>(
+    "chat.read",
+    { id: String(written.file.id) },
+  );
+  assert.equal(chatMessage.message.text, "the container has left the port");
+  assert.equal(chatMessage.message.from, "sam@example.com");
 });
