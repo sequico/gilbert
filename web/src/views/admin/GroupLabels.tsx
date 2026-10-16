@@ -1,5 +1,6 @@
 import { sameAddress } from "@gilbert/shared/address";
 import { errorMessage } from "@gilbert/shared/errors";
+import { AGENT_LABELS } from "@gilbert/shared/labels";
 import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
@@ -18,6 +19,11 @@ import { DirectoryLoadError, DirectoryNotListed, useGroupDirectory } from "./dir
  * membership of the group to define or change it. Members read and apply it;
  * renaming a label changes only its display name — the keyword that rides on
  * the messages is stable, so nothing in the mailbox is rewritten.
+ *
+ * The surface is two sections: the group's own labels, edited as its catalog,
+ * and the product's reserved `G-` labels beside them, read-only and drawn from
+ * the shared vocabulary (`AGENT_LABELS`) rather than from any catalog — a group
+ * owns its labels, and the reserved namespace is never one of them.
  */
 export function GroupLabels() {
   const directory = useGroupDirectory();
@@ -145,42 +151,76 @@ export function GroupLabels() {
                   )}
                 </div>
               )}
-              {labels.length === 0 ? (
-                <p className="hint">{t("No labels yet.")}</p>
-              ) : (
-                labels.map((l) => (
-                  <LabelRow
-                    key={l.keyword}
-                    labels={labels}
-                    label={l}
-                    onChange={(next) => void save(next)}
-                    onDelete={() =>
-                      void (async () => {
-                        // Persists immediately for the whole group, and any
-                        // message already carrying the keyword loses its
-                        // visible label for every member until it is
-                        // re-added — unlike removing an identity or a rule
-                        // elsewhere in the admin surface, this had no
-                        // confirmation at all.
-                        const ok = await confirmDialog({
-                          title: t("Delete “{name}”?", { name: l.name }),
-                          message: t(
-                            "Messages already carrying this label lose it for everyone in the group.",
-                          ),
-                          confirmLabel: t("Delete"),
-                          danger: true,
-                        });
-                        if (!ok) return;
-                        await save(labels.filter((x) => x.keyword !== l.keyword));
-                      })()
-                    }
-                    editing={editing === l.keyword}
-                    onEdit={setEditing}
-                    busy={busy}
-                  />
-                ))
-              )}
-              <NewLabelButton busy={busy} onClick={() => void add()} />
+              <section>
+                <h2>{t("Labels")}</h2>
+                {labels.length === 0 ? (
+                  <p className="hint">{t("No labels yet.")}</p>
+                ) : (
+                  labels.map((l) => (
+                    <LabelRow
+                      key={l.keyword}
+                      labels={labels}
+                      label={l}
+                      onChange={(next) => void save(next)}
+                      onDelete={() =>
+                        void (async () => {
+                          // Persists immediately for the whole group, and any
+                          // message already carrying the keyword loses its
+                          // visible label for every member until it is
+                          // re-added — unlike removing an identity or a rule
+                          // elsewhere in the admin surface, this had no
+                          // confirmation at all.
+                          const ok = await confirmDialog({
+                            title: t("Delete “{name}”?", { name: l.name }),
+                            message: t(
+                              "Messages already carrying this label lose it for everyone in the group.",
+                            ),
+                            confirmLabel: t("Delete"),
+                            danger: true,
+                          });
+                          if (!ok) return;
+                          await save(labels.filter((x) => x.keyword !== l.keyword));
+                        })()
+                      }
+                      editing={editing === l.keyword}
+                      onEdit={setEditing}
+                      busy={busy}
+                    />
+                  ))
+                )}
+                <NewLabelButton busy={busy} onClick={() => void add()} />
+              </section>
+              {/*
+               * The reserved `G-` namespace is the product's own, so it is
+               * shown beside the group's catalog rather than inside it: the
+               * entries come from the shared vocabulary (`AGENT_LABELS`) and
+               * this section draws no control at all, which is what keeps them
+               * read-only.
+               */}
+              <section style={{ marginTop: 24 }}>
+                <h2>{t("System labels")}</h2>
+                <p className="hint">
+                  {t(
+                    "Gilbert's own labels. Its agent applies them to a message, and they cannot be changed here.",
+                  )}
+                </p>
+                {AGENT_LABELS.map((l) => (
+                  <div className="card" key={l.keyword}>
+                    <div className="card-head">
+                      <span
+                        className="label-dot"
+                        style={{ background: l.color, width: 14, height: 14 }}
+                      />
+                      <h3>
+                        {l.name}{" "}
+                        <span className="hint" style={{ fontWeight: 400 }}>
+                          ({l.keyword})
+                        </span>
+                      </h3>
+                    </div>
+                  </div>
+                ))}
+              </section>
             </>
           )}
         </>

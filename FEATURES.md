@@ -241,7 +241,9 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   impersonation otherwise), so the requirement is the Master's grant on the
   group, not the administrator's membership. Stalwart 0.16 refuses to mint
   a session for an impersonated group account (live-verified 2026-09-09), so the
-  door is never the group's own mailbox.
+  door is never the group's own mailbox. The surface keeps the product's reserved
+  `G-` labels apart from the group's own in a section of their own, read-only:
+  they name the agent's work and are never an entry in a catalog.
 - **What counts as a group** (ADR 0005): an account that answers as a **mail
   store**. The session's list is only candidates — Stalwart advertises the same
   capabilities on every account it lists — and the one classifier is a probe of

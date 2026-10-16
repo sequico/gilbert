@@ -44,6 +44,11 @@ typed arguments, each acting on one of those objects.
   within the authority classes (ADR 0032): an agent that could file mail but not
   read a template, or settle a workorder step but not say so in the chat, would be
   half of the product. They are the objects the catalogue is built over.
+- **The agent works in a group's account and never in a person's.** Every
+  surface above is the group's, and so is everything the agent reads or writes:
+  an installation's agent is what carries a group's work, and a personal account
+  — which no group's work lands in — has none of it, not even the labels that
+  name the agent's acts.
 - **A tool does a task, not a step of the protocol.** No tool mirrors a JMAP
   method: there is one that finds messages by the search grammar the mail client
   already speaks, one that reads a page, one that files a message, one that puts
