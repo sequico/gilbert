@@ -78,6 +78,16 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 - **Chat (ADR 0005)**: one JSON node per message in `gilbert/chat` and one
   read marker per member in `gilbert/chat-state`, both in the group account,
   pushed by FileNode state changes (`lib/chat.ts`, `store/chat.ts`).
+- **Labels (ADR 0005)**: a group's catalog is the group's own file, edited from
+  Administration, and the reserved `G-` states the agent marks a message with are
+  never entries in it — the catalog's write refuses the namespace and a read
+  drops one an older document still carries. Wherever a group's labels are drawn
+  they are two sections, the group's own and the reserved ones read-only: in
+  Administration, and in the mail client's own label block
+  (`views/mail/MailboxTree.tsx`, drawn for a group's account only, as filters
+  carrying the counts the other labels carry). A person's own label surface shows
+  the one section and is not guarded — the agent works in a group's account and
+  never in a person's (ADR 0031).
 - **Deleting the group's mail (ADR 0015)**: the one thing a member may not do.
   A group is reached by membership, so the mail server tells one member's delete
   from another's by nothing and there is no rank inside a group; the rule is the
