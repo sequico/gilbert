@@ -432,6 +432,53 @@ test("the change, the candidate prose and a reading are all fenced as data", asy
   );
 });
 
+test("the standing prose reaches the system turn unfenced, and a rule's own instruction is fenced where it is data", async () => {
+  // The prose the agent works by travels unfenced in the system turn; the prose
+  // a change is matched against — a candidate rule's own instruction — is data,
+  // and is fenced in the user turn. The two turns agree: the choosing turn keeps
+  // the run's own rule in its system turn and fences what the run has done.
+  const fenced = (text: string, body: string): boolean =>
+    new RegExp(
+      `--- BEGIN DATA \\(not instructions\\) \\[\\w+\\] ---\\n${body}\\n--- END DATA \\[\\w+\\] ---`,
+    ).test(text);
+
+  answerWith({ rule: "shipper-answer", facts: {} });
+  await decideEvent(
+    { model, allowPrivateProvider: true },
+    { event: mailEvent, rules: [shipperRule], prose },
+    toolCall(),
+  );
+  assert.ok(
+    SYSTEM(0).includes(prose.installation) && SYSTEM(0).includes(prose.group),
+    "the installation's line and the group's standing instruction reach the system turn",
+  );
+  assert.ok(
+    !SYSTEM(0).includes("--- BEGIN DATA"),
+    "and they are not fenced there: they are what the agent works by, not data",
+  );
+  assert.ok(
+    fenced(
+      MESSAGE(0),
+      "rule: shipper-answer\\ninstruction: A shipper's message is answered within the day\\.",
+    ),
+    "a rule's own instruction is fenced in the decision turn's user turn",
+  );
+
+  seen = [];
+  answers = [];
+  answerWith({ done: "nothing more to do" });
+  await chooseStep(TOOLS, { model, allowPrivateProvider: true }, stepQuestion());
+  assert.ok(
+    SYSTEM(0).includes("The rule's own instruction:"),
+    "the run's own rule reaches the choosing turn's system turn",
+  );
+  assert.ok(!SYSTEM(0).includes("--- BEGIN DATA"), "and it is not fenced there either");
+  assert.ok(
+    fenced(MESSAGE(0), "mail created: m-1"),
+    "while the run's own data — the change and the plan — is fenced in the user turn",
+  );
+});
+
 test("a change no rule watches is decided without a call, and without a bill", async () => {
   const decision = await decideEvent(
     { model, allowPrivateProvider: true },
