@@ -10,7 +10,10 @@ that works a run, and the re-arm of its waits on boot, are
 wait each account's runs carry, works the runs whose wait has come due, and opens
 and works a run for each change a rule covers. The records a run writes next to a
 person's already exist — a workorder step's `state`/`by`/`at`/`note`
-(`server/src/shared/workorder.ts`) and a KB page's revisions (ADR 0024).
+(`server/src/shared/workorder.ts`) and a KB page's revisions (ADR 0024). What the
+plan cannot carry yet is order and conditions: the calls of one answer run
+together, and a step that waits on another's outcome waits for the model's next
+turn.
 
 ## Context
 
@@ -51,6 +54,12 @@ agent's durable state.
   other, so both are asked for at once — and the same turn may ask a person in
   chat about what follows, the acts and the question being one batch, whose wait
   begins once they are done.
+- **A plan carries order and conditions.** The model may ask for a step that
+  waits on an earlier one, and for a later step to depend on how an earlier one
+  ended — if that call filed the message, do this; if it was refused, do that —
+  reasoned from the group's knowledge, its checklists and its workorders, and
+  never compiled at write time. The loop runs what is ready, reads each outcome,
+  and takes the branch that outcome names.
 - **A wait is a date in the run** — or no date at all, when what it waits for is
   a person — not a timer in a process. On boot the agent re-arms the waits it
   finds, so a restart in the middle of a run loses nothing and a container that

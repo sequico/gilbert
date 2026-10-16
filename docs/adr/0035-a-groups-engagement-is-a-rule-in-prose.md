@@ -15,7 +15,10 @@ the rule or the instruction that started it (`server/src/shared/run.ts`,
 applies opens a run named by the change it answered, and the choosing turn works
 it. What the loop is not told yet is the installation's own line and the group's
 standing instruction: no reader for those two documents is built, so a call
-carries the rule's instruction alone.
+carries the rule's instruction alone. What is not built either is this record's
+own answer to a collision: a change is put to the decision turn once and the
+rule that applies opens a run, so several rules over one change do not each run
+yet.
 
 ## Context
 
@@ -50,12 +53,12 @@ happen** when that activity is met.
   account), and the **rule's own instruction** (in the rule). One builder
   produces that order for every caller, so what the agent is told is one thing
   however it was reached.
-- **One change is answered by one rule, and a collision is not an error.**
-  Several rules may watch one surface, and more than one may fit the change the
-  agent was woken by; the model names the one that fits it best, and the others
-  are simply not chosen — a rule that was not named has not failed and stays for
-  the next change, and a change two rules cover is not a fault the agent reports.
-  A change no rule covers is answered with no rule at all.
+- **Several rules may answer one change, and every one that applies runs.** Two
+  rules a group wrote over the same activity are both the group's decision, so
+  neither is set aside for the other: the model names **every** rule that fits
+  the change, and each one opens or continues its own run. A change no rule
+  covers is answered with no rule at all, and that is not an error either — a
+  rule that did not apply has not failed.
 - **A rule belongs to the group that wrote it**, like everything else the group
   owns: a member reads it, and changing it is a member's act, the same as
   editing the KB.
