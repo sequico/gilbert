@@ -1,4 +1,4 @@
-import { AGENT_LABELS } from "@gilbert/shared/labels";
+import { AGENT_LABEL, AGENT_LABELS } from "@gilbert/shared/labels";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -50,7 +50,16 @@ describe("the group-label surface", () => {
         if (url.includes("/labels"))
           return Promise.resolve(
             json({
-              labels: [{ keyword: "work", name: "Work", color: "#123456" }],
+              labels: [
+                { keyword: "work", name: "Work", color: "#123456" },
+                // A reserved entry a document written before the write door
+                // refused it still holds: the editable list must not draw it.
+                {
+                  keyword: AGENT_LABEL.processed,
+                  name: "Reserved",
+                  color: "#000000",
+                },
+              ],
             }),
           );
         return Promise.resolve(json({}));

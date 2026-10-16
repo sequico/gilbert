@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { AGENT_LABEL } from "./shared/labels.js";
 import { freePort, jsonCall } from "./testkit.js";
 
 /**
@@ -98,6 +99,37 @@ test("the group's catalog is read and written as the agent", async () => {
     back.body,
     { labels: [label] },
     "a group the agent holds is administered without the administrator's membership",
+  );
+});
+
+test("the catalog's own write refuses the reserved namespace", async () => {
+  const before = await call(`/api/admin/groups/${TEAM}/labels`);
+  assert.equal(before.status, 200);
+
+  const posted = await call(`/api/admin/groups/${TEAM}/labels`, {
+    method: "POST",
+    body: JSON.stringify({
+      labels: [
+        { keyword: "human", name: "Human", color: "#000000" },
+        { keyword: AGENT_LABEL.processed, name: "Processed", color: "#123456" },
+      ],
+    }),
+  });
+  assert.equal(posted.status, 400, "a reserved keyword is refused at the write");
+
+  const lower = await call(`/api/admin/groups/${TEAM}/labels`, {
+    method: "POST",
+    body: JSON.stringify({
+      labels: [{ keyword: "g-processed", name: "Lower", color: "#000000" }],
+    }),
+  });
+  assert.equal(lower.status, 400, "and the prefix test ignores case");
+
+  const after = await call(`/api/admin/groups/${TEAM}/labels`);
+  assert.deepEqual(
+    after.body,
+    before.body,
+    "nothing entered the group's catalog, and the write that carried a human label beside a reserved one was refused whole",
   );
 });
 

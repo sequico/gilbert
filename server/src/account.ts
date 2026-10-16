@@ -12,7 +12,9 @@ import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
 import type { SecurityState } from "./shared/accountSecurity.js";
 import { errorMessage } from "./shared/errors.js";
 import {
+  G_LABEL_PREFIX,
   GROUP_LABELS_FILE,
+  isAgentLabel,
   isLabelCatalog,
   type LabelCatalogEntry,
 } from "./shared/labels.js";
@@ -418,7 +420,10 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
  * third one becomes "nothing stored" and a writer overwrites whatever a person
  * put there. Its entries are checked through `isLabelCatalog` rather than
  * returned as they were found: a keyword nobody can render is a label nobody
- * sees.
+ * sees. An entry in the reserved `G-` namespace is dropped for the same reason
+ * it is refused on the way in: the namespace is the product's own and never a
+ * catalog entry (ADR 0005), so no reader — the admin surface or the agent's own
+ * `mail.label` — ever sees one, and the next write leaves it out.
  */
 export type GroupLabelsRead =
   | { state: "absent" }
@@ -442,7 +447,10 @@ export async function readGroupLabels(
     );
     const parsed: unknown = JSON.parse(text);
     return isLabelCatalog(parsed)
-      ? { state: "catalog", labels: parsed.labels }
+      ? {
+          state: "catalog",
+          labels: parsed.labels.filter((l) => !isAgentLabel(l.keyword)),
+        }
       : { state: "unreadable" };
   } catch {
     // The node is there and its bytes would not read: that is an unreadable
@@ -452,7 +460,15 @@ export async function readGroupLabels(
   }
 }
 
-/** Write (or replace) a group's label catalog, creating the app folder as needed. */
+/**
+ * Write (or replace) a group's label catalog, creating the app folder as needed.
+ *
+ * The one door every write to this file goes through, and it refuses the
+ * reserved `G-` namespace here rather than trusting a caller: the namespace is
+ * the product's own, so a group's catalog can only ever hold its human labels
+ * (ADR 0005). `mail.label` refuses the namespace before it reaches this too;
+ * this is what makes the claim true of every caller.
+ */
 export async function writeGroupLabels(
   ctx: Ctx,
   accountId: string,
@@ -464,5 +480,14 @@ export async function writeGroupLabels(
       502,
       "upstream",
     );
+  for (const label of labels) {
+    const keyword = (label as { keyword?: unknown } | null)?.keyword;
+    if (typeof keyword === "string" && isAgentLabel(keyword))
+      throw new AccountError(
+        `A label whose keyword begins with "${G_LABEL_PREFIX}" is the product's own (ADR 0005) and cannot go in a group's catalog.`,
+        400,
+        "bad_request",
+      );
+  }
   await writeAppFile(ctx, accountId, GROUP_LABELS_FILE, { labels });
 }

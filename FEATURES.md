@@ -243,7 +243,9 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   a session for an impersonated group account (live-verified 2026-09-09), so the
   door is never the group's own mailbox. The surface keeps the product's reserved
   `G-` labels apart from the group's own in a section of their own, read-only:
-  they name the agent's work and are never an entry in a catalog.
+  they name the agent's work and are never an entry in a catalog — the catalog's
+  own write refuses the reserved namespace, so a group's `labels.json` can only
+  ever hold its human labels.
 - **What counts as a group** (ADR 0005): an account that answers as a **mail
   store**. The session's list is only candidates — Stalwart advertises the same
   capabilities on every account it lists — and the one classifier is a probe of

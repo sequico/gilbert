@@ -1,5 +1,5 @@
 import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
-import { GROUP_LABELS_FILE, isLabelCatalog } from "@gilbert/shared/labels";
+import { GROUP_LABELS_FILE, isAgentLabel, isLabelCatalog } from "@gilbert/shared/labels";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
@@ -96,7 +96,10 @@ useSession.subscribe((s, prev) => {
  * reads through (`isLabelCatalog`), rather than entry by entry: a catalog with
  * one entry the two tiers disagree about is a catalog neither of them has, and
  * rendering the entries this side happens to like is how the surface and the
- * keyword guard come to see different labels.
+ * keyword guard come to see different labels. The reserved `G-` entries are
+ * dropped from what it returns: they are the product's own and never a human
+ * label, so they stay out of the sidebar, the picker and a thread row whatever
+ * a document written before the write door refused them still holds.
  */
 async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
   try {
@@ -105,7 +108,9 @@ async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
     if (!node?.blobId) return null;
     const text = await client.fetchBlobText(accountId, node.blobId, APP_DOCUMENT_TYPE);
     const parsed: unknown = JSON.parse(text);
-    return isLabelCatalog(parsed) ? parsed.labels : null;
+    return isLabelCatalog(parsed)
+      ? parsed.labels.filter((l) => !isAgentLabel(l.keyword))
+      : null;
   } catch {
     // A catalog we cannot read must not cost anyone their mail view.
     return null;

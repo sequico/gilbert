@@ -1,6 +1,6 @@
 import { sameAddress } from "@gilbert/shared/address";
 import { errorMessage } from "@gilbert/shared/errors";
-import { AGENT_LABELS } from "@gilbert/shared/labels";
+import { AGENT_LABELS, isAgentLabel } from "@gilbert/shared/labels";
 import { isGroupAccountRecord } from "@gilbert/shared/sessionAccount";
 import { useRef, useState } from "react";
 import { apiFetch } from "@/jmap/client";
@@ -61,7 +61,14 @@ export function GroupLabels() {
         `/api/admin/groups/${encodeURIComponent(name)}/labels`,
       );
       if (picked.current !== name) return;
-      setLabels(Array.isArray(res.labels) ? res.labels : []);
+      const fetched = Array.isArray(res.labels) ? res.labels : [];
+      /*
+       * The reserved `G-` namespace is the product's own and never a catalog
+       * entry (ADR 0005). An entry a document written before the write door
+       * refused it still holds is left out of the editable list, and out of the
+       * next write, which drops it from the file.
+       */
+      setLabels(fetched.filter((l) => !isAgentLabel(l.keyword)));
     } catch (err) {
       if (picked.current === name) setError(errorMessage(err));
     }

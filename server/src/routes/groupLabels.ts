@@ -8,6 +8,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { readGroupLabels, writeGroupLabels } from "../account.js";
 import { GroupAccessError, resolveGroupAccess } from "../groupAccess.js";
 import {
+  accountFailure,
   type Env,
   readJson,
   requireAdmin,
@@ -59,7 +60,10 @@ export function registerGroupLabelRoutes(api: Hono<Env>): void {
           err.status as ContentfulStatusCode,
         );
       }
-      return upstreamFailure(c, err);
+      /* The door refuses the reserved namespace with an `AccountError`, which
+         is this server's own refusal and is answered as one rather than as an
+         upstream failure. */
+      return accountFailure(c, err);
     }
   });
 }
