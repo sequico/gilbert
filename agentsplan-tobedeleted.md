@@ -145,22 +145,25 @@ reaching a run, and any surface that shows what the agent did.
 - **To do:** say it once when the state begins and once when it changes, the same
   shape the supervisor uses for the claim and for the groups.
 
-### 2.9 The agent's memory — a graph it recalls (ADR 0037)
+### 2.9 The agent's memory — a graph it recalls (ADR 0037, Accepted)
 
-- **The record:** 0037, `Proposed`, with five questions to settle before anything
-  is built.
-- **The decision:** the agent **always** has memory; it is a graph of facts,
-  durable in Stalwart, recalled on **every** model call, written by the agent
-  within its authority classes, and readable and editable by an installation
-  administrator from Administration.
-- **To do:** settle the five questions the record leaves open (whose account owns
-  it; whether it is the knowledge base's own graph or a second store; what a call
-  carries; what one fact is in the document; who else may write, and whose word
-  wins) and then build the store, the recall into both turns, the agent's own
-  writes, and the surface.
+- **The record:** 0037, `Accepted`, built nowhere.
+- **The decision:** the agent **always** has memory; it is a graph of facts in the
+  **Master's own account** — one memory for the installation, so a group reasons
+  with what the whole installation knows — in a **second store**, not the
+  knowledge base; recalled on **every** call as a **selection** (the change's own
+  subjects and their nearest links, plus the group's standing set), inside a
+  ceiling, with what was recalled written into the run's record. A fact is one
+  small thing with a provenance; the agent writes them within its authority
+  classes; an administrator reads and edits them from Administration, and **a
+  person's fact is in force** — the agent proposes against it, never overwrites it.
+- **To do:** the store and its parser; the write the agent makes while working;
+  the recall into both turns and its ceiling; the surface; and the sentence in
+  `FEATURES.md` and the index when the code lands.
 - **Proof:** a fact the agent learned in one run changes what it does in the next,
   and an administrator's correction changes it again — with no restart between
-  them.
+  them; and a fact the agent concluded against one a person wrote is a proposal,
+  not an overwrite.
 
 ---
 
