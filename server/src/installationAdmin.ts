@@ -94,9 +94,11 @@ export interface InstallationView {
   present: boolean;
   /**
    * The document as it is stored, or null when there is none — with the model's
-   * key **emptied**, because the key is write-only: it is stored so a call can
-   * carry it, and no read hands it back (`withoutProviderKey`). An empty
-   * `apiKey` is what a publish states to keep the stored one.
+   * key **taken out**, because the key is write-only: it is stored so a call can
+   * carry it, and no read hands it back (`withoutProviderKey`). A publish that
+   * states no `apiKey` is what keeps the stored one, which is why the field is
+   * absent here rather than empty: a text handed back as it was read states
+   * nothing about the key.
    */
   document: string | null;
   /**
@@ -183,65 +185,93 @@ export async function readInstallationForAdmin(
 }
 
 /**
- * The model's key, as the raw document text carries it: "" when it carries none.
+ * The model's provider as the raw text states it, or null when it states none.
  *
  * Read from the JSON shape rather than through the document's validator, and
  * deliberately so: a stored document that is otherwise unreadable — a hand edit
- * with a typo in it, a half-finished upload — still carries a key, and the two
- * things this module does with one (never hand it back, never erase it on a
- * save that did not state one) must not depend on the rest of the document
- * being readable. Text that is not JSON, or carries no provider, has no key.
+ * with a typo in it, a half-finished upload — still carries a provider and a
+ * key, and the things this module does with them (never hand a key back, never
+ * erase one a save did not state, honour one a save did) must not depend on the
+ * rest of the document being readable.
  */
-function providerKeyOf(text: string): string {
+function providerIn(text: string): Record<string, unknown> | null {
   let whole: unknown;
   try {
     whole = JSON.parse(text);
   } catch {
-    return "";
+    return null;
   }
-  if (!isRecord(whole) || !isRecord(whole.agent) || !isRecord(whole.agent.provider))
-    return "";
-  const apiKey = whole.agent.provider.apiKey;
-  return typeof apiKey === "string" ? apiKey : "";
+  if (!isRecord(whole) || !isRecord(whole.agent)) return null;
+  return isRecord(whole.agent.provider) ? whole.agent.provider : null;
 }
 
 /**
- * The document as the administration reads it: the model's key emptied.
+ * What a text says about the model's key: whether it says anything at all, and
+ * the key it states.
+ *
+ * `stated` is the difference between the two ways a save can leave the stored
+ * key alone and the one way it removes it: an `apiKey` that is **absent** is a
+ * save that never touched the key, and an **empty** one is the provider needing
+ * none — a real choice for a model on the deployment's own network — which
+ * clears it. A text that is not JSON, or carries no provider, says nothing.
+ */
+function providerKeyIn(text: string): { stated: boolean; key: string } {
+  const provider = providerIn(text);
+  if (!provider || !("apiKey" in provider)) return { stated: false, key: "" };
+  const apiKey = provider.apiKey;
+  return { stated: true, key: typeof apiKey === "string" ? apiKey : "" };
+}
+
+/** The key a text stores, or "" when it stores none. */
+function providerKeyOf(text: string): string {
+  return providerKeyIn(text).key;
+}
+
+/**
+ * The document as the administration reads it: the model's key taken out.
  *
  * The key is **write-only** — the surface that chooses the model may set it and
  * nothing reads it back — so every answer that carries document text goes
- * through here. A document that carries no key is handed back byte for byte; one
- * that carries a key is the same document with that one field emptied, and one
- * that is not JSON at all is returned exactly as it is, because that is the case
- * a person comes to this surface to repair and hiding its bytes would take away
- * the only place they are.
+ * through here. The field is **taken out** rather than emptied, so that the text
+ * a surface holds states nothing about the key and publishing it back leaves the
+ * stored one exactly as it is. A document that carries no `apiKey` field at all
+ * is handed back byte for byte; one that is not JSON at all is returned exactly
+ * as it is, because that is the case a person comes to this surface to repair and
+ * hiding its bytes would take away the only place they are.
  */
 function withoutProviderKey(text: string): string {
-  if (!providerKeyOf(text)) return text;
+  const provider = providerIn(text);
+  if (!provider || !("apiKey" in provider)) return text;
   const whole = JSON.parse(text) as Record<string, unknown> & {
     agent: Record<string, unknown> & { provider: Record<string, unknown> };
   };
+  const rest: Record<string, unknown> = { ...provider };
+  delete rest.apiKey;
   return appDocumentJson({
     ...whole,
-    agent: { ...whole.agent, provider: { ...whole.agent.provider, apiKey: "" } },
+    agent: { ...whole.agent, provider: rest },
   });
 }
 
 /**
- * The document a publish means, with the key it did not state.
+ * The document a publish means, with the key the text it sent did not state.
  *
- * An empty `apiKey` on a provider that is there means "keep the stored one":
- * the surface cannot show the key, so a save that did not touch it must not
- * erase it. A provider that is **absent** clears the model and its key with it,
- * which is how an installation stops having an agent. The key is read from the
- * stored **text**, because only this module knows a publish is taking place.
+ * The model's key is written by a save that states one, kept by a save that
+ * states nothing about it, and cleared by a save that states an empty one — the
+ * provider needs none — and the three are told apart by the field itself
+ * (`providerKeyIn`). A provider that is **absent** clears the model and its key
+ * with it, which is how an installation stops having an agent. The key is read
+ * from the stored **text**, because only this module knows a publish is taking
+ * place.
  */
 function withStoredKey(
   doc: InstallationDocument,
   stored: string | null,
+  submitted: string,
 ): InstallationDocument {
   const provider = doc.agent.provider;
-  if (!provider || provider.apiKey) return doc;
+  if (!provider) return doc;
+  if (providerKeyIn(submitted).stated) return doc;
   const storedKey = providerKeyOf(stored ?? "");
   if (!storedKey) return doc;
   return { ...doc, agent: { provider: { ...provider, apiKey: storedKey } } };
@@ -376,8 +406,9 @@ export async function publishInstallation(
   try {
     written = await writeInstallation(
       store,
-      // The stored key stands when the publish stated none (see `withStoredKey`).
-      { ...withStoredKey(parsed.doc, stored), epoch: storedEpoch(stored) },
+      // The stored key stands when the publish stated none, and goes when the
+      // publish stated an empty one (see `withStoredKey`).
+      { ...withStoredKey(parsed.doc, stored, raw), epoch: storedEpoch(stored) },
       { ifInState: state },
     );
   } catch (err) {
@@ -421,7 +452,7 @@ export async function publishInstallation(
       location: where,
       // The bytes the store was handed, which is what a read reads back
       // (`appDocumentJson` is the one JSON writer for an app-folder document),
-      // with the model's key emptied as every answer carrying it is.
+      // with the model's key taken out as every answer carrying it is.
       document: withoutProviderKey(appDocumentJson(written)),
       epoch: written.epoch,
       applies: "next-boot",

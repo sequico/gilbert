@@ -361,14 +361,15 @@ test("a valid publish is what the next read returns, and the answer names when i
   assert.deepEqual(await readView(), view, "and reading it again agrees");
 });
 
-test("the model's key is write-only: no answer hands it back, and a publish that states none keeps it", async () => {
+test("the model's key is write-only: no answer hands it back, none keeps it and an empty one clears it", async () => {
   /*
    * The installation's model lives in its own document (ADR 0011, 0031), and
    * its key is write-only the way an app password is: the surface can set it and
    * nothing reads it back. So the text both halves of this door answer with has
-   * the key emptied — while the document the account holds keeps it, or the
-   * model could never be called — and a save from an editor that never saw the
-   * key (because it cannot) keeps the stored one rather than erasing it.
+   * the key **taken out** — while the document the account holds keeps it, or the
+   * model could never be called — and the three things a save can say about it
+   * are told apart by the field itself: stating none keeps the stored one,
+   * stating a value writes it, and stating an empty one clears it.
    */
   nameMaster(MASTER);
   const key = "sk-a-key-the-surface-never-reads-back";
@@ -393,10 +394,11 @@ test("the model's key is write-only: no answer hands it back, and a publish that
     "the publish's own answer never carries the key",
   );
   assert.equal(
-    (JSON.parse(outcome.document) as { agent: { provider: { apiKey: string } } }).agent
-      .provider.apiKey,
-    "",
-    "the key is emptied in what is handed back",
+    "apiKey" in
+      (JSON.parse(outcome.document) as { agent: { provider: Record<string, unknown> } })
+        .agent.provider,
+    false,
+    "the key is not stated in what is handed back: a text read back as it is states nothing about it",
   );
 
   const master = await masterCtx();
@@ -432,10 +434,53 @@ test("the model's key is write-only: no answer hands it back, and a publish that
     "a publish that states no key keeps the stored one",
   );
 
+  // A save that states an **empty** key is the third thing one can say: the
+  // provider needs none — a model on the deployment's own network — and the
+  // stored key is cleared rather than kept.
+  const cleared = await publish(
+    adminCookie,
+    JSON.stringify(
+      {
+        ...(JSON.parse(VALID) as Record<string, unknown>),
+        agent: {
+          provider: {
+            provider: "ollama",
+            model: "a-small-model",
+            baseUrl: "https://models.example.com/v1",
+            apiKey: "",
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  assert.equal(cleared.status, 200);
+  assert.equal(
+    (
+      JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
+        agent: { provider: { apiKey: string } };
+      }
+    ).agent.provider.apiKey,
+    "",
+    "a save that states an empty key clears the stored one",
+  );
+  const clearedView = await readView();
+  assert.equal(
+    "apiKey" in
+      (
+        JSON.parse(clearedView.document ?? "") as {
+          agent: { provider: Record<string, unknown> };
+        }
+      ).agent.provider,
+    false,
+    "and the text a read hands back says nothing about it, empty or not",
+  );
+
   // A provider that is absent clears the model, and its key with it: that is
   // how an installation stops having an agent.
-  const cleared = await publish(adminCookie, VALID_AGAIN);
-  assert.equal(cleared.status, 200);
+  const clearedProvider = await publish(adminCookie, VALID_AGAIN);
+  assert.equal(clearedProvider.status, 200);
   assert.equal(
     (
       JSON.parse((await documentIn(master, masterAccount)) ?? "") as {
