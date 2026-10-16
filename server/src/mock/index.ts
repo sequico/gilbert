@@ -615,6 +615,12 @@ const STYLED_MARKETING_HTML = `<html><head><style>
   </table>
 </td></tr></table></body></html>`;
 
+/**
+ * The folders mail this account **wrote** sits in: no server received those, so
+ * none of them carries a receiving server's verdict either.
+ */
+const WRITTEN_MAIL = new Set(["sent", "drafts", "g-sent"]);
+
 function addEmail(o: {
   from: [string, string];
   to?: string;
@@ -636,6 +642,7 @@ function addEmail(o: {
 }) {
   const id = `e${counter++}`;
   const account = o.account ?? ACCOUNT;
+  const domain = o.from[1].slice(o.from[1].indexOf("@") + 1);
   const received = new Date(now() - o.daysAgo * 86400_000 - Math.random() * 3600_000 * 5)
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
@@ -808,6 +815,29 @@ function addEmail(o: {
     "header:List-Unsubscribe:asText": o.from[1].includes("newsletter")
       ? "<mailto:unsub@newsletter.example?subject=unsubscribe>, <https://newsletter.example/unsub>"
       : null,
+    /*
+     * How a message arrived, as the receiving server's own record of it: the hop
+     * it wrote last, which the message carries first — a submission accepted over
+     * an authenticated connection from one of this installation's accounts, or a
+     * hand-over by a server that is not this one.
+     *
+     * The verdict below is written for the second case alone, because mail that
+     * never crossed a boundary has no SPF, no DKIM and no DMARC to verify; the
+     * signed fixture (`addSignedEmail`) is built around its blob rather than here
+     * and carries neither.
+     *
+     * Both are a shape and not *the* shape: what a live Stalwart 0.16 writes here
+     * is owed a probe, marked in `server/src/agent/trust.ts`, and
+     * `message-arrival.test.ts` pins that the one reading them reads these.
+     */
+    "header:Received:asText:all": [
+      WRITTEN_MAIL.has(o.mailbox)
+        ? `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id m${id}`
+        : `from ${domain} (${domain} [203.0.113.7]) by mx.example.org with ESMTPS id m${id}`,
+    ],
+    "header:Authentication-Results:asText": WRITTEN_MAIL.has(o.mailbox)
+      ? null
+      : `mx.example.org;\r\n dkim=pass header.d=${domain} (test key; unprotected);\r\n spf=pass smtp.mailfrom=${o.from[1]}`,
     "header:X-Priority:asText": o.subject.startsWith("Security") ? "1 (Highest)" : null,
     // Stalwart's spam filter writes the SpamAssassin-shaped set at delivery, so
     // delivered mail carries it and mail this account wrote does not.

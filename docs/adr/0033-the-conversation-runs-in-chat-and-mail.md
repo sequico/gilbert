@@ -6,8 +6,12 @@ Implementation: Partly built. The chat half is the conversation tools
 (`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
 over the group's own chat (ADR 0005), with `replyTo` as the correlation and a
 question leaving the run waiting on a person's answer with no date. The mail
-channel is not built; its anchor — the authentication result the receiving server
-writes into a message — is one of the headers the client already asks for
+channel is not built; its decision is — `server/src/agent/trust.ts` answers
+whether one received message may be read as a person's word, from the sender and
+the server's own account of how the message arrived, and nothing calls it yet. Its
+anchors — the authentication result the receiving server writes on a message
+another server handed over, and its record of the submission for one of its own
+accounts — are among the headers the client already asks for
 (`web/src/jmap/types.ts`).
 
 ## Context
@@ -35,10 +39,19 @@ where the sentence sits.
 - **Trust is the sender and the receiving server, in that order.** An instruction
   by mail is honoured only when the sender is a principal the installation knows
   — a user, a group mailbox — or is on the installation's own list, **and** the
-  message carries a passing authentication result written by the server that
-  received it. Anything else is information, never an instruction; and a message
-  that reads like an instruction without that trust is answered as such, because
-  a person who meant to instruct it deserves to know why nothing happened.
+  server that received the message vouches for how it arrived. That vouching has
+  two shapes, and they differ by who was watching. A message handed over by
+  another server is trusted only when the receiving server's own authentication
+  result on it passes: that is where a forged `From:` lives, and refusing there is
+  the point. A message the receiving server itself accepted from one of its own
+  accounts — an account of the installation writing to a mailbox of the
+  installation — never crossed a boundary and has no SPF, DKIM or DMARC to verify,
+  so it is trusted on the server's own record of that submission, which is the
+  **stronger** of the two facts and not the weaker one: nobody had to be believed,
+  because the server was there. Anything else is information, never an
+  instruction; and a message that reads like an instruction without that trust is
+  answered as such, because a person who meant to instruct it deserves to know why
+  nothing happened.
 - **The agent signs its own sends.** Every message it sends carries
   `X-Gilbert-Run: <id>`, and a message that returns with that mark is never an
   instruction: the agent's own words cannot drive it, and two runs cannot
@@ -58,9 +71,11 @@ where the sentence sits.
 - The product must be usable entirely in text: an interaction that exists only in
   the UI is a defect, and designing for the mail channel is what keeps the chat
   honest.
-- The mail channel is exactly as trustworthy as the authentication result and not
-  one bit more. What a real Stalwart writes on a received message is owed as a
-  probe before the channel is trusted, not after.
+- The mail channel is exactly as trustworthy as the server's own account of how a
+  message arrived, and not one bit more. What a real Stalwart writes on a message
+  it received, and on one it took from an account of the installation, is owed as
+  a probe before the channel is trusted, not after.
+<!-- owed: arrival-record-shape -->
 - An answer by mail is an authorisation with a message id in it: a person can read
   back what they authorised.
 - Mail from a stranger that asks for something is the ordinary case, and the
