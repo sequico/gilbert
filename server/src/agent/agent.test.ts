@@ -5,15 +5,19 @@
  * than a second process: the installation's **real boot** against the mock
  * Stalwart (`bootInstallation`), handed to the agent's own start
  * (`supervisor.ts`), finds the installation's **model** in the document the
- * Master's account already holds (the demo seed, ADR 0011) and the **groups**
- * that document's principal works, and asks the loop for a pass — the pass is
- * what takes the installation's claim, so the claim document's holder is the
- * proof that a pass was asked.
+ * Master's account already holds (the demo seed, ADR 0011) and asks the loop for
+ * a pass — the pass is what takes the installation's claim, so the claim
+ * document's holder is the proof that a pass was asked.
  *
  * The pass is the **first** one, asked on the way up rather than by an interval:
- * the agent is left on the product's own thirty-second period, and a claim taken
+ * the agent is left on the product's own ten-second period, and a claim taken
  * within the wait below can only be that first pass — a wait that came due while
- * nothing was running is worked at once, not up to half a minute later.
+ * nothing was running is worked at once, not up to ten seconds later.
+ *
+ * The accounts that pass works are the groups the Master holds, read from the
+ * mail server by that pass itself (`supervisor.ts`'s `resolveGroupAccounts`):
+ * the demo seeds the agent into two of them, so the pass works real accounts and
+ * leaves the claim behind it.
  *
  * No model call is made: the demo ships no rules, so no pass reaches a provider
  * and none is stubbed. What a pass does with a rule and a model is `loop.test.ts`,

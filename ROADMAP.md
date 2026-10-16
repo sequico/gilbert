@@ -25,9 +25,11 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   works a run from the model's own choices with the budget, the guard and the
   record — and **the supervisor the server's own boot starts with itself**
   (`server/src/agent/supervisor.ts`, started in `server/src/index.ts`): it runs on
-  the installation's model and the groups its principal works and asks for a pass
-  every thirty seconds, with the claim keeping an installation to one agent when a
-  second copy of the server runs. What is not built is a tool that settles a step
+  the installation's model, reads the Master's groups from the mail server on
+  every pass — so a group added in Stalwart's own directory is worked by the next
+  one, with no restart — and asks for a pass every ten seconds, with the claim
+  keeping an installation to one agent when a second copy of the server runs.
+  What is not built is a tool that settles a step
   of a workorder and one that proposes a change to a KB page (ADR 0032, ADR 0024)
   — the agent reads those two surfaces and settles nothing on them — and the
   conversation in **mail** (ADR 0033), which is not built: the group's chat is

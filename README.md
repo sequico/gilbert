@@ -32,7 +32,9 @@ reads the document inside them and reports what it did in the group's chat —
 inside the group's own account, everything recorded, and anything that leaves the
 group waiting for a person to say so, in words. The loop that works it is part of
 `gilbertserver`: the server starts it with itself, and it is there once the
-installation has chosen a model and the Master works a group.
+installation has chosen a model; the groups it works are read on every pass, so
+one the Master is added to is worked within ten seconds and nothing has to be
+restarted.
 
 > **The agent part (`gilbertagents`) is partly built.** Its decisions
 > are ADR 0031–0036; the tree carries a run's durable state, the catalogue of
@@ -73,7 +75,9 @@ other:
   proxies.
 - **gilbertagents** — the agent: designed by ADR 0031–0036 and built as far as
   the loop that works a run and the supervisor that runs it, started by the
-  server's own boot; what it cannot resolve — no model chosen, no group to work —
+  server's own boot; it asks for a pass every ten seconds and reads the Master's
+  groups from the mail server on each one, so a group added in Stalwart is worked
+  without a restart; what it cannot resolve — no model chosen, no group to work —
   leaves it idle with a line rather than stopping the server.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the

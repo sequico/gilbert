@@ -118,8 +118,9 @@ rather than a summary of the design: read it instead of assuming. The
 catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
 `server/src/agent/rule.ts`, the model's turns are `server/src/agent/model.ts`,
 and the loop that works a run is `server/src/agent/loop.ts`, which the server's
-own boot starts with itself (`server/src/agent/supervisor.ts`, a pass every
-thirty seconds). The mail channel is not in the tree, and no document, comment or
+own boot starts with itself (`server/src/agent/supervisor.ts`, a pass every ten
+seconds over the groups the Master holds, read from the mail server on each
+pass). The mail channel is not in the tree, and no document, comment or
 surface may describe it as if it were.
 - **Identifiers follow those words.** Two halves: the names, and the things that
 are contracts rather than names — a field in a document an installation has

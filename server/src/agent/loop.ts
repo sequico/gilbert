@@ -2,10 +2,13 @@
  * The loop that works a run (ADR 0031, 0032, 0034, 0035, 0036).
  *
  * One pass answers whatever the installation's own accounts have changed and
- * whatever a run was waiting for: it takes the installation's claim, works the
- * runs whose wait has come due, reads each account's changes, and for each change
- * asks the **decision turn** which rule applies. A change no rule watches costs
- * no model call and no step; a rule that applies opens a run, and the run is
+ * whatever a run was waiting for: it takes the installation's claim, resolves the
+ * accounts the Master works — its groups, asked afresh on **every** pass, so one
+ * the Master joins is worked by the next pass and one it leaves stops being
+ * worked, with no restart — then works the runs whose wait has come due, reads
+ * each account's changes, and for each change asks the **decision turn** which
+ * rule applies. A change no rule watches costs no model call and no step; a
+ * rule that applies opens a run, and the run is
  * worked by the **choosing turn** — the model asks for a batch of one or more
  * calls, the loop makes them **together**, writes each as its own step with its
  * own outcome and its own spend on the run, spends the budget, and asks again,
@@ -92,6 +95,14 @@ const CLAIM_RENEW_WITHIN_MS = CLAIM_TTL_MS / 2;
 export interface PassSummary {
   /** Whether this process held the installation's claim and worked at all. */
   claimed: boolean;
+  /**
+   * The accounts this pass resolved and worked: the Master's groups.
+   *
+   * Zero is the Master working no group — the agent has nothing to work and
+   * says so once (`supervisor.ts`) rather than going quiet in a way nobody can
+   * tell from a working one.
+   */
+  accounts: number;
   /** The changes read this pass, across every account. */
   changes: number;
   /** The runs this pass opened for a change. */
@@ -110,8 +121,18 @@ export interface PassSummary {
 export interface AgentLoopOptions {
   /** Who holds the installation's claim: the process's own name. */
   holder: string;
-  /** The accounts the agent works: the installation's groups' own accounts. */
-  accounts: readonly string[];
+  /**
+   * The accounts the agent works: the installation's groups' own accounts.
+   *
+   * Asked afresh on **every pass**, never once at construction: a group the
+   * Master is added to is worked by the next pass and one it leaves stops being
+   * worked, with nothing to restart. A group that appears anchors its own
+   * reading where the account stands then (`events.ts`), so what it did before
+   * the Master held it is not replayed; a run left open on a group the Master
+   * has left is frozen as its document stands, and the first pass that works
+   * the group again picks it up from that document, its wait honoured then.
+   */
+  accounts: () => Promise<readonly string[]>;
   /** The installation's model; an installation without one has no agent. */
   access: ModelAccess;
   /**
@@ -162,12 +183,18 @@ export class AgentLoop {
    * changes.
    *
    * A peer that holds the claim is answered with one read and no work at all —
-   * this process is not the installation's agent while another is — and the
-   * claim is renewed while it works, so a holder that is busy is not taken over.
+   * this process is not the installation's agent while another is, and not even
+   * the accounts are resolved — and the claim is renewed while it works, so a
+   * holder that is busy is not taken over.
+   *
+   * The accounts are resolved **here**, once per pass and after the claim
+   * (ADR 0031): what the Master works is what Stalwart's directory says at this
+   * moment, so a grant added or withdrawn needs no restart.
    */
   async pass(now = new Date()): Promise<PassSummary> {
     const summary: PassSummary = {
       claimed: false,
+      accounts: 0,
       changes: 0,
       runs: 0,
       due: 0,
@@ -179,7 +206,9 @@ export class AgentLoop {
       if (!(await renewClaim(this.ctx, this.opts.holder, now))) return summary;
     }
     summary.claimed = true;
-    for (const accountId of this.opts.accounts) {
+    const accounts = await this.opts.accounts();
+    summary.accounts = accounts.length;
+    for (const accountId of accounts) {
       await this.workDue(accountId, now, summary);
       await this.workChanges(accountId, now, summary);
       /*

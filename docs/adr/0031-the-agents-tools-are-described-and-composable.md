@@ -16,10 +16,12 @@ works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that
 reaches one ends `out-of-budget` saying so. The agent is started by the server's
 own boot (`server/src/index.ts`, `server/src/agent/supervisor.ts`): it runs on
-the installation's model and the groups its principal works, asks
-`AgentLoop.pass()` every thirty seconds, and stays idle — one line, never a
-failed boot — when the installation has chosen no model or its principal works no
-group. What the catalogue does not hold yet is
+the installation's model, asks `AgentLoop.pass()` every ten seconds, and works
+the groups its principal holds —
+**resolved from the mail server on every pass**, so a group the Master is added
+to is worked by the next one with no restart, and a Master who works no group at
+this moment is an idle agent, said once (`supervisor.ts`), rather than one that
+does not exist. What the catalogue does not hold yet is
 a tool that settles a step of a workorder and one that proposes a change to a KB
 page (ADR 0032, ADR 0024).
 

@@ -68,7 +68,7 @@ its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** is built and part of the
 server's own process (ADR 0031–0036 below): the loop that works a run is there,
-and the server asks it for a pass every thirty seconds.
+and the server asks it for a pass every ten seconds.
 
 The one thing a member cannot do with group-owned mail is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
@@ -83,12 +83,16 @@ else a member does to move mail around still works.
 > `server/src/agent/loop.ts`: a pass claims the installation, re-arms the waits
 > it finds, reads each account's changes, asks the decision turn which rule
 > applies, and works a run from the model's own step-by-step choices with the
-> budget, the authority guard and the record. The supervisor that asks it for a
-> pass is `server/src/agent/supervisor.ts`, started by the server's own boot
+> budget, the authority guard and the record. The accounts it works are the
+> groups the Master holds, and it asks the mail server for them on **every
+> pass** — so a group the Master is added to in Stalwart's directory is worked by
+> the next pass and one the Master leaves stops being worked, with nothing to
+> restart. The supervisor that asks it for a pass is
+> `server/src/agent/supervisor.ts`, started by the server's own boot
 > (`server/src/index.ts`) with the installation it has just read, and it asks
-> again every thirty seconds — an installation that has chosen no model, or whose
-> principal works no group, leaves it idle with a line in the console instead. The
-> agent's decisions are
+> again every ten seconds — an installation that has chosen no model, or a
+> Master who works no group, leaves it idle with a line in the console instead
+> (said once, when the state begins). The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -178,7 +182,10 @@ spend, until the model says done, a call parks the run on a person's answer, or
 the run's **budget** (steps, model calls and time) is spent, which the record
 states. A model that chooses the same batch twice is a stall the record shows
 rather than an endless turn. The server starts the loop with itself
-(`server/src/agent/supervisor.ts`) and asks it for a pass every thirty seconds.
+(`server/src/agent/supervisor.ts`) and asks it for a pass every ten seconds, and
+the accounts each pass works — the Master's groups — are read from the mail
+server by that pass rather than decided at the boot, so a group added or
+withdrawn in Stalwart needs no restart.
 
 # Administration
 

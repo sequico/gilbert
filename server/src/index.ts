@@ -111,9 +111,14 @@ async function main() {
    * The installation's agent (ADR 0031): part of this process, started here with
    * the installation this boot just read, so launching Gilbert is what makes it
    * exist — nothing for an operator to start or remember. It asks the loop for a
-   * pass every `AGENT_PASS_INTERVAL_MS` and claims the installation, which is
-   * what keeps a second copy of this process (a rolling restart, an operator's
-   * mistake) out of the same runs (ADR 0036).
+   * pass every `AGENT_PASS_INTERVAL_MS` (ten seconds) and claims the
+   * installation, which is what keeps a second copy of this process (a rolling
+   * restart, an operator's mistake) out of the same runs (ADR 0036).
+   *
+   * Nothing about the Master's groups is decided here: each pass asks which
+   * accounts it works (`supervisor.ts`'s `resolveGroupAccounts`), so a group the
+   * Master is added to in Stalwart's directory is worked by the next pass, with
+   * no restart of this process.
    *
    * It never takes the process down: an installation with no model, one whose
    * principal works no group, and anything else it cannot resolve is one line on

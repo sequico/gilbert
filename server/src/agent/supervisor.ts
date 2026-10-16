@@ -6,18 +6,29 @@
  * pass is the caller's to ask for. This module is that caller, and the **server's
  * own boot is what starts it** (`index.ts`): the agent is part of the product, so
  * launching Gilbert is what makes it exist. It runs on the installation the boot
- * just read — the model the installation has chosen and the groups its principal
- * works — and asks the loop for a pass on an interval.
+ * just read — the model the installation has chosen — and asks the loop for a
+ * pass on an interval. The groups it works are **not** settled at the boot:
+ * every pass reads them from the mail server (`resolveGroupAccounts` below), so
+ * a grant added or withdrawn in Stalwart's own directory needs no restart.
  *
  * **The interval is the whole of its policy.** The loop already knows what is
  * due — the dated waits and each account's change log — so there is no schedule
  * here, no queue and no backlog: a pass is asked, and the loop decides what that
- * pass works. Thirty seconds is sized to the waiting: a run parked on a date is
- * picked up within half a minute of it, a person's answer is not left for
- * minutes, and a pass costs one claim read and one change read per account,
- * which is nothing to repeat at that rate. It is far below the claim's own
- * `CLAIM_TTL_MS` (ten minutes), so a working process's renewals are ordinary
- * rather than a race with its own expiry.
+ * pass works. Ten seconds is sized to the waiting: a run parked on a date is
+ * picked up within ten seconds of it, a person's answer is not left for minutes,
+ * and a group the Master is taken into in Stalwart's own directory is worked by
+ * the very next pass, because nothing about the installation's groups is decided
+ * at the boot (`loop.ts` asks for the accounts on every pass). A pass with
+ * nothing to do is cheap enough to repeat at that rate: it reads the
+ * installation's claim (one read, and no write while it is held — ADR 0036),
+ * resolves the Master's groups (one session read, and the mail-store probe the
+ * one classifier for that question makes per candidate, `groupAccess.ts`), and
+ * reads each group's runs and its change log (a request per page apiece). It
+ * asks the model **only** when a rule covers a change (ADR 0035), so a quiet
+ * installation costs reads and nothing else. Ten seconds is far below the
+ * claim's own `CLAIM_TTL_MS` (ten
+ * minutes), so a working process's renewals are ordinary rather than a race with
+ * its own expiry.
  *
  * **One pass at a time.** A pass slower than the interval is not overtaken:
  * overlapping passes of one process would work the same run twice, which is the
@@ -37,6 +48,13 @@
  * at `CLAIM_TTL_MS` and the next pass takes the installation over, with no
  * document deleted by hand and nothing here to recover.
  *
+ * **A normal pass is not an event.** It writes no line: what a pass worked is
+ * the runs and the change logs, and the record of it is the run document, not a
+ * log. What is said is said **when it changes** — a pass that failed and its
+ * reason, an installation whose Master works no group and the one that picks a
+ * group up again, a claim a peer holds and this process taking it back — and
+ * never once per ten seconds. The line a person reads is one they can act on.
+ *
  * **Nothing is kept.** The loop, its reading cursors and its alarms live in
  * memory, which is disposable by law (`IMMUTABLE=1`, ADR 0031): what outlives
  * the process is the claim, the runs and the waits, all documents in Stalwart.
@@ -48,6 +66,7 @@ import type { Ctx } from "../appFolder.js";
 import type { BootConfiguration } from "../bootstrap.js";
 import { groupAccountsDetailed } from "../groupAccess.js";
 import { errorMessage } from "../shared/errors.js";
+import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
 import { modelAccess } from "./model.js";
 
@@ -56,12 +75,15 @@ import { modelAccess } from "./model.js";
  *
  * A constant rather than a setting: an installation has one model and one
  * agent, and how often the agent asks is not a question the administration is
- * asked. It is short enough that a person's answer is not left waiting minutes
- * and that a dated wait is picked up close to its instant, and long enough that
- * a pass — one claim read and one change read per group — is nothing to repeat
- * (`supervisor.ts` above says what the pass costs).
+ * asked. Ten seconds: short enough that a group the Master is added to is worked
+ * by the next pass, that a dated wait is picked up close to its instant and that
+ * a person's answer is not left waiting minutes, and long enough that a pass
+ * with nothing to do — the claim, the groups, and each group's runs and change
+ * log — is nothing to repeat at that rate (`supervisor.ts` above says what the
+ * pass costs). It is well inside `CLAIM_TTL_MS` (ten minutes), so a working
+ * process's renewals are ordinary and not a race with its own expiry.
  */
-export const AGENT_PASS_INTERVAL_MS = 30_000;
+export const AGENT_PASS_INTERVAL_MS = 10_000;
 
 /**
  * The half of the loop this module uses.
@@ -113,9 +135,16 @@ export function supervise(options: SupervisorOptions): AgentProcess {
    * Whether the last pass found the claim held by a peer, so the line about it
    * is written once per change of state rather than once per pass: a held claim
    * is an installation with its one agent already, not an event to report every
-   * thirty seconds.
+   * ten seconds.
    */
   let heldByPeer = false;
+  /**
+   * Whether the Master works no group, said the same way — once when the agent
+   * goes idle and once when it has something to work again. A Master in no group
+   * is a state of the installation, not an event: the line says the agent is
+   * idle *now*, and the passes after it say nothing.
+   */
+  let idle = false;
 
   async function pass(): Promise<void> {
     if (running || stopped) return;
@@ -126,6 +155,19 @@ export function supervise(options: SupervisorOptions): AgentProcess {
         if (heldByPeer) {
           heldByPeer = false;
           log("[gilbert] agent: the installation's claim is this process's again");
+        }
+        if (summary.accounts === 0) {
+          if (!idle) {
+            idle = true;
+            log(
+              "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
+            );
+          }
+        } else if (idle) {
+          idle = false;
+          log(
+            "[gilbert] agent: the Master works a group again, so the agent is working it",
+          );
         }
       } else if (!heldByPeer) {
         heldByPeer = true;
@@ -152,6 +194,7 @@ export function supervise(options: SupervisorOptions): AgentProcess {
       stopped = true;
       clearInterval(timer);
       options.loop.stop();
+      log("[gilbert] agent: stopping, and the claim lapses on its own (ADR 0036)");
     },
   };
 }
@@ -189,11 +232,13 @@ export interface AgentStartOptions {
  *   with no model has no agent: a default provider nobody chose is the one thing
  *   the record forbids. Which document a booted process runs on is fixed at the
  *   boot, so a model chosen afterwards is in force at the next one.
- * - **A group to work**, from the one classifier for that question
- *   (`groupAccess.ts`'s `groupAccountsDetailed`): the accounts this principal
- *   works are its groups' own. A Master in no group has nothing to work, and
- *   that is one line rather than a loop that asks every thirty seconds for
- *   nothing.
+ *
+ * **The groups are not one of those, and are deliberately not resolved here.**
+ * What the Master works is asked afresh on every pass (`resolveGroupAccounts`)
+ * rather than once at the start, which is what makes a group added in Stalwart's
+ * directory be worked by the next pass — and a Master who works no group at this
+ * moment is an agent that is idle, said once (`supervise` below), never one that
+ * does not exist.
  *
  * **A model it may not reach is not one of those.** Whether the provider's
  * address may be used is asked on every call (`model.ts`'s `assertUsableProvider`)
@@ -228,16 +273,9 @@ export async function startAgent(
       );
       return null;
     }
-    const accounts = [...(await groupAccountsDetailed(ctx)).groups.values()];
-    if (!accounts.length) {
-      log(
-        "[gilbert] agent: the Master works no group, so the agent stays idle until it holds one",
-      );
-      return null;
-    }
     const loop = new AgentLoop(ctx, {
       holder: options.holder ?? holderName(),
-      accounts,
+      accounts: () => resolveGroupAccounts(ctx),
       access,
     });
     return supervise({ loop, intervalMs: options.intervalMs, log });
@@ -247,6 +285,25 @@ export async function startAgent(
     );
     return null;
   }
+}
+
+/**
+ * The accounts one pass works: the Master's groups, read from the server.
+ *
+ * The session a boot signed in with lists the groups the Master held **then**, so
+ * resolving the accounts from it would make a group added in Stalwart's own
+ * directory visible only after a restart. This re-reads the session the boot
+ * signed in with — the same `.well-known/jmap` read (`upstream.ts`) — and puts it
+ * where every later call goes: a `Ctx` carries the session rather than a copy of
+ * it, so the refreshed one is the one the claim, the runs and the change logs are
+ * read through (`jmap.ts`'s `SessionSource`). The groups are then the answer of
+ * the **one** classifier for what a group is (`groupAccess.ts`), which is also
+ * what tells a group mailbox from an account somebody merely shared.
+ */
+export async function resolveGroupAccounts(ctx: Ctx): Promise<readonly string[]> {
+  ctx.session = await fetchUpstreamSession(ctx.authorization, upstreamFor(ctx.username));
+  const { groups } = await groupAccountsDetailed(ctx);
+  return [...groups.values()];
 }
 
 /** Who holds the claim, as a name the claim's own document can be read with. */

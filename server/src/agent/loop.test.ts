@@ -8,6 +8,8 @@
  * - a change a rule watches opens a run, and the record shows the change, the
  *   rule, the step the model chose and the ending;
  * - a change no rule watches costs no model call and no step at all;
+ * - the accounts the pass works are asked for on **every** pass, so a group the
+ *   Master is added to is worked by the next one;
  * - a claim another process holds stops the pass before it works anything;
  * - the budget ends a run that cannot finish, and the record says so;
  * - the authority guard refuses an act the run carries no authority for, and the
@@ -224,7 +226,7 @@ function loop(
   freshCalls();
   return new AgentLoop(ctx, {
     holder,
-    accounts: [accountId],
+    accounts: async () => [accountId],
     access: { model, allowPrivateProvider: true },
     ...extra,
   });
@@ -356,6 +358,42 @@ test("a claim another process holds stops the pass before it works anything", as
     (await listRuns(ctx, accountId)).some((record) => record.run.startedBy.rule === id),
     false,
     "and opens no run",
+  );
+});
+
+test("a group added between two passes is worked by the pass that follows", async () => {
+  const id = "intake-joined";
+  await putRule(id);
+  /*
+   * The Master works no group at first: the passes before the grant resolve no
+   * account, so nothing in this one is read at all — and the reading of a group
+   * that appears anchors where the account stands then, so what it did before
+   * the Master held it is not replayed (`events.ts`).
+   */
+  let accounts: string[] = [];
+  const agent = loop(HOLDER, { accounts: async () => accounts });
+  await agent.start();
+  assert.equal(
+    (await agent.pass()).accounts,
+    0,
+    "a Master in no group has nothing worked for it",
+  );
+
+  // The Master is added to the group, between two passes.
+  accounts = [accountId];
+  await agent.pass();
+  answerWith({ rule: id, facts: {} });
+  answerWith({ done: "the shipper's message is filed" });
+  const message = await deliver("a booking confirmation");
+  const summary = await agent.pass();
+
+  assert.equal(summary.accounts, 1, "the pass that follows works the group");
+  assert.equal(summary.runs, 1, "and answers the change it finds there");
+  const run = await runOf(id);
+  assert.equal(
+    run.startedBy.woke,
+    `mail created: ${message}`,
+    "with the change that woke it, as any other pass would",
   );
 });
 
