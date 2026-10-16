@@ -19,8 +19,8 @@
  * which outcome left it — the loop invents no ordering of its own.
  *
  * **Every call starts from what the installation knows.** The pass reads the
- * memory the Master's account holds once for a change (ADR 0037) and takes the
- * **selection** the change's own words name — with its nearest links and the
+ * memory the Master's account holds **once** (ADR 0037) and takes the
+ * **selection** each change's own words name — with its nearest links and the
  * group's standing set, inside a ceiling — hands it to both turns fenced as
  * data, and records on the run which facts it carried, so a wrong conclusion
  * traces to the fact that carried it. A change with nothing to recall is worked
@@ -50,7 +50,7 @@ import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { errorMessage } from "../shared/errors.js";
 import { isRecord } from "../shared/json.js";
-import { type FactDoc, recallFacts } from "../shared/memory.js";
+import { recallFacts } from "../shared/memory.js";
 import {
   appendStep,
   finishRun,
@@ -68,7 +68,7 @@ import {
 import type { AccountEvent } from "./accountEvent.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
-import { listFacts } from "./memory.js";
+import { listFacts, type MemoryStore } from "./memory.js";
 import {
   boundedText,
   chooseStep,
@@ -178,6 +178,15 @@ export class AgentLoop {
   private readonly cursors = new Map<string, EventCursor>();
   /** The runs the alarms have handed over, worked on the next pass. */
   private readonly pending: DueWait[] = [];
+  /**
+   * The installation's memory as **this** pass read it (ADR 0037).
+   *
+   * Resolved the first time a pass needs it and reused for the rest of that
+   * pass, so the whole store is walked once rather than once per change and once
+   * per remembered fact. The pass clears it as it begins, so every pass reads the
+   * memory afresh and a fact written during one is visible to the next.
+   */
+  private store: Promise<MemoryStore> | null = null;
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -215,6 +224,7 @@ export class AgentLoop {
    * moment, so a grant added or withdrawn needs no restart.
    */
   async pass(now = new Date()): Promise<PassSummary> {
+    this.store = null;
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -312,15 +322,19 @@ export class AgentLoop {
       if (!candidates.length) continue;
       const woke = wokeOf(event);
       /*
-       * The installation's memory, read once for the change and the runs that
-       * answer it (ADR 0037). The decision turn is handed the selection this
-       * change's own words name; each run is handed the one its own words name,
-       * which is the same change beside the facts the decision found.
+       * The installation's memory, read once for the whole pass (ADR 0037) and
+       * handed to the decision turn as the selection this change's own words
+       * name. Each run is handed the one its own words name, which is the same
+       * change beside the facts the decision found.
        */
-      const store = await this.memory();
       const decision = await decideEvent(
         this.opts.access,
-        { event, rules, prose: {}, memory: recallFacts(store, woke) },
+        {
+          event,
+          rules,
+          prose: {},
+          memory: recallFacts((await this.memory()).facts, woke),
+        },
         this.readingCall(accountId, event, candidates),
       );
       if (decision.kind !== "decision") continue;
@@ -335,12 +349,12 @@ export class AgentLoop {
         const held = started.get(key);
         if (held) {
           if (held.state === "running")
-            await this.workRun(accountId, held, now, decision.facts, store);
+            await this.workRun(accountId, held, now, decision.facts);
           continue;
         }
         const run = await this.openRun(accountId, event, rule);
         summary.runs += 1;
-        await this.workRun(accountId, run, now, decision.facts, store);
+        await this.workRun(accountId, run, now, decision.facts);
       }
     }
     // The cursor moves only once the batch is answered: a read that failed
@@ -405,21 +419,20 @@ export class AgentLoop {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
-    store?: readonly FactDoc[],
   ): Promise<void> {
     let current = run;
     /*
-     * What the memory recalls for this run (ADR 0037): the change it answers,
-     * the facts that change was found to be about, and the group's standing set,
-     * against the store the pass read — or a read of its own, for a run taken up
-     * on its own because a wait came due. The selection is recorded on the run,
-     * so a wrong conclusion traces to the fact that carried it, and every turn
-     * of this working is handed it.
+     * What the memory recalls for this run (ADR 0037): the change it answers, the
+     * facts that change was found to be about, and the group's standing set,
+     * against the store the pass read — the same one reading the decision turn
+     * was handed. The selection is recorded on the run, so a wrong conclusion
+     * traces to the fact that carried it, and every turn of this working is
+     * handed it.
      */
-    const memory = recallFacts(store ?? (await this.memory()), memoryWords(run, facts));
+    const selection = recallFacts((await this.memory()).facts, memoryWords(run, facts));
     current = recordRecall(
       current,
-      memory.map((fact) => fact.id),
+      selection.map((fact) => fact.id),
     );
     let previous: string | null = null;
     for (;;) {
@@ -441,7 +454,7 @@ export class AgentLoop {
         plan: current.plan,
         prose,
         ...(facts ? { facts } : {}),
-        memory,
+        memory: selection,
       };
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
@@ -544,11 +557,18 @@ export class AgentLoop {
          * record beside it.
          */
         const ranMs = Date.now();
+        /*
+         * The pass's one reading of the memory goes into every call, so the one
+         * write that reaches it (`memory.remember`) is made against the reading
+         * the selections were made from rather than listing the store again
+         * (ADR 0037).
+         */
+        const store = await this.memory();
         const settled = await Promise.allSettled(
           wave.map(({ call }) =>
             runTool(
               this.catalogue,
-              { ctx: this.ctx, accountId, run: current },
+              { ctx: this.ctx, accountId, run: current, memory: store },
               call.name,
               call.args,
             ),
@@ -606,17 +626,19 @@ export class AgentLoop {
   }
 
   /**
-   * The installation's memory, as the store holds it now (ADR 0037).
+   * The installation's memory, as this pass read it (ADR 0037).
    *
    * Read from the **Master's** own account and never from the group's the run
    * lives in: one memory serves the installation, which is the whole point of it
    * — a group reasons with what the rest of the installation knows. It is read
-   * afresh rather than cached, because the agent's own `memory.remember` step
-   * changes it while a pass is working.
+   * **once per pass** and the one reading answers the selection a call carries
+   * and the write `memory.remember` makes, so a store of many thousands of facts
+   * is not walked again for every change; a fact written during a pass is visible
+   * to the next one, which is the price of that (`agent/memory.ts`).
    */
-  private async memory(): Promise<FactDoc[]> {
-    const records = await listFacts(this.ctx, filesAccountId(this.ctx));
-    return records.map((record) => record.fact);
+  private async memory(): Promise<MemoryStore> {
+    this.store ??= listFacts(this.ctx, filesAccountId(this.ctx));
+    return await this.store;
   }
 
   /** Append a step and record how it ended, in one place for every step. */

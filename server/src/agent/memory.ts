@@ -19,6 +19,12 @@
  * **A sheet this build's parser would refuse is never written**, so the store
  * and its reader cannot disagree about what a fact is.
  *
+ * **One reading answers a whole pass.** The store is read once per pass
+ * (`MemoryStore`, `agent/loop.ts`) and that one reading answers both the
+ * selection a call carries and the write the agent makes, so a large memory is
+ * not walked again for every change; the price is stated where the reading is
+ * handed over.
+ *
  * JMAP offers no lock, so a replace carries the account's FileNode state as
  * `ifInState` (`appFolder.ts`), and the token is read **before** the sheet: a
  * write landing between the two advances the state past the token, so a
@@ -86,6 +92,28 @@ export interface FactRecord {
   state: string;
 }
 
+/**
+ * The installation's memory as one reading of it saw it (ADR 0037).
+ *
+ * `state` is the account's FileNode state at the moment of the read — the token
+ * **every** write of the store carries, so a write that lost the race is refused
+ * rather than overwriting a change its read never saw — and `facts` are the
+ * sheets themselves, in the order the folder listed them.
+ *
+ * The store is read **once per pass**, and that one reading answers both the
+ * selection a call carries and the one write the agent makes
+ * (`agent/loop.ts`), so a store of many thousands of facts is not walked again
+ * for every change in the pass, nor again for every write. What that costs is
+ * written down where it is paid: a fact written during a pass is visible to the
+ * **next** pass and not to the pass that wrote it, and a second write of the same
+ * pass carries the same token, so it loses the compare-and-set and says so on its
+ * step rather than overwriting what the first one wrote.
+ */
+export interface MemoryStore {
+  state: string;
+  facts: FactDoc[];
+}
+
 function unreadable(path: string, why: string): MemoryError {
   return new MemoryError(
     "fact_unreadable",
@@ -132,25 +160,26 @@ export async function readFact(
 }
 
 /**
- * The whole memory, each fact with the token a replace of it needs.
+ * The whole memory, as one reading of it (ADR 0037): the sheets, and the token
+ * a write of the store carries.
  *
- * The selection is made from this list (`recallFacts`), and the write asks it
- * the same question the selection does — is this subject already held — so one
- * read answers both. A sheet that cannot be read is **reported**, never
- * skipped: it is one fact the installation can no longer see, and a listing
- * that hid it would answer "this is what I know" about a store it could not
- * read.
+ * The selection is made from `facts` (`recallFacts`), and the write asks that
+ * same list the questions the selection asks — is this subject already held,
+ * which ids do these subjects name — so one read of the store answers both. A
+ * sheet that cannot be read is **reported**, never skipped: it is one fact the
+ * installation can no longer see, and a listing that hid it would answer "this
+ * is what I know" about a store it could not read.
  */
-export async function listFacts(ctx: Ctx, accountId: string): Promise<FactRecord[]> {
+export async function listFacts(ctx: Ctx, accountId: string): Promise<MemoryStore> {
   const state = await appFolderState(ctx, accountId);
-  const records: FactRecord[] = [];
+  const facts: FactDoc[] = [];
   for (const node of await listAppDir(ctx, accountId, MEMORY_DIR)) {
     if (node.nodeType !== "file" || typeof node.name !== "string") continue;
     if (!node.name.endsWith(".json")) continue;
     const fact = await readFactDoc(ctx, accountId, node.name.slice(0, -".json".length));
-    if (fact) records.push({ fact, state });
+    if (fact) facts.push(fact);
   }
-  return records;
+  return { state, facts };
 }
 
 /** What the agent says while it works, for the one write below (ADR 0037). */
@@ -173,16 +202,19 @@ export interface FactWrite {
  * Write one fact the agent came to hold, replacing its own sheet about the same
  * subject and refusing a person's.
  *
- * The write is conditional on the token the listing read when it is replacing a
- * sheet the agent wrote, so two turns that reached the same conclusion cannot
- * overwrite each other in silence: the second is refused and the caller's own
- * retry, if any, re-reads. A **person's** sheet is not replaced at all — a
- * person's fact is in force (ADR 0037) — and the refusal says so in a code.
+ * The write is made **against a reading of the store** that the caller hands in
+ * — the pass's one reading (ADR 0037) — and both the sheet it replaces and the
+ * token it carries come from that reading, so a write landing since is refused
+ * rather than overwritten: two turns that reached the same conclusion cannot
+ * replace each other in silence, and the one that loses says so on its step. A
+ * **person's** sheet is not replaced at all — a person's fact is in force (ADR
+ * 0037) — and the refusal says so in a code.
  */
 export async function rememberFact(
   ctx: Ctx,
   accountId: string,
   write: FactWrite,
+  store: MemoryStore,
 ): Promise<FactDoc> {
   const subject = write.subject.trim();
   const sentence = write.fact.trim();
@@ -201,22 +233,21 @@ export async function rememberFact(
   if (!isInstant(write.at))
     throw new MemoryError("fact_invalid", `"${write.at}" is not an instant.`, 400);
 
-  const held = await listFacts(ctx, accountId);
-  const same = held.find(({ fact }) => sameSubject(fact.subject, subject));
-  if (same?.fact.origin.by === "person")
+  const same = store.facts.find((fact) => sameSubject(fact.subject, subject));
+  if (same?.origin.by === "person")
     throw new MemoryError(
       "fact_in_force",
-      `A person holds the fact about "${same.fact.subject}", and it is in force: this write leaves it exactly as it is, and what the agent concludes against it is proposed rather than written over.`,
+      `A person holds the fact about "${same.subject}", and it is in force: this write leaves it exactly as it is, and what the agent concludes against it is proposed rather than written over.`,
       409,
     );
   const doc: FactDoc = {
     v: MEMORY_VERSION,
-    id: same?.fact.id ?? randomUUID(),
+    id: same?.id ?? randomUUID(),
     subject,
     fact: sentence,
     origin: { by: "run", run: write.run },
     at: write.at,
-    links: linkIds(held, write.links ?? []),
+    links: linkIds(store.facts, write.links ?? []),
     standing: write.standing === true,
   };
   await writeAppFileAt(
@@ -224,7 +255,7 @@ export async function rememberFact(
     accountId,
     factPath(doc.id),
     doc,
-    same ? { ifInState: same.state } : {},
+    same ? { ifInState: store.state } : {},
   );
   return doc;
 }
@@ -238,17 +269,17 @@ export async function rememberFact(
  * from the graph is a fact the next selection will not find, and nobody would
  * see why.
  */
-function linkIds(held: readonly FactRecord[], subjects: readonly string[]): string[] {
+function linkIds(held: readonly FactDoc[], subjects: readonly string[]): string[] {
   const ids: string[] = [];
   for (const subject of subjects) {
-    const found = held.find(({ fact }) => sameSubject(fact.subject, subject));
+    const found = held.find((fact) => sameSubject(fact.subject, subject));
     if (!found)
       throw new MemoryError(
         "link_unknown",
         `The memory holds no fact about "${subject}", so nothing links to it.`,
         400,
       );
-    if (!ids.includes(found.fact.id)) ids.push(found.fact.id);
+    if (!ids.includes(found.id)) ids.push(found.id);
   }
   return ids;
 }

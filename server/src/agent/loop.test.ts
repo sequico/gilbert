@@ -69,6 +69,7 @@ import type { InstallationModel } from "../shared/installation.js";
 const { modelAccess } = await import("./model.js");
 const { createRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
+const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { createRun, listRuns, readRun } = await import("./runs.js");
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
@@ -146,15 +147,36 @@ assert.ok(chosen, "the document chose a model");
 const model: InstallationModel = chosen;
 
 let ctx: Ctx;
+/**
+ * The account the loop works: a **group** of the Master's session.
+ *
+ * The installation's memory lives in the Master's **own** account (ADR 0037)
+ * and the runs and rules of a worked change live in the group's, and the two are
+ * never one account — a group is a shared account (`isPersonal: false`) while
+ * the Master's own is personal, which is what the classifier reads. The pass
+ * reads the memory once and writes a fact against that reading's token, so a
+ * fixture that made one account hold both would have the run documents it writes
+ * invalidate the memory's token before the fact is written.
+ */
 let accountId: string;
+/** The Master's own account: the installation's memory lives here (ADR 0037). */
+let memoryAccountId: string;
 
 before(async () => {
   await new Promise<void>((resolve) => stub.listen(PROVIDER_PORT, "127.0.0.1", resolve));
   await waitForPort(BASE, AUTH);
   const session = await fetchUpstreamSession(AUTH, BASE);
   ctx = { authorization: AUTH, session, username: "demo@example.com" };
-  accountId = filesAccountId(ctx);
-  assert.ok(accountId, "the demo account owns Files");
+  memoryAccountId = filesAccountId(ctx);
+  assert.ok(memoryAccountId, "the Master's session owns Files");
+  const groups = Object.keys(session.accounts).filter((id) =>
+    isGroupAccountRecord(
+      session.accounts[id] as { name?: unknown; isPersonal?: unknown },
+    ),
+  );
+  const group = groups[0];
+  assert.ok(group, "the Master's session holds a group to work");
+  accountId = group;
 });
 
 after(() => {
@@ -195,9 +217,10 @@ afterEach(async () => {
     if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
   }
   for (const id of remembered.splice(0)) {
-    const found = await readAppFileAt(ctx, accountId, factPath(id));
+    const found = await readAppFileAt(ctx, memoryAccountId, factPath(id));
     const nodeId = found?.file.id;
-    if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
+    if (typeof nodeId === "string")
+      await destroyAppNode(ctx, memoryAccountId, nodeId, {});
   }
 });
 
@@ -1053,8 +1076,8 @@ test("a fact one run learns is handed to the next change's call, and the record 
   await deliver("a booking that names the shipper");
   await agent.pass();
 
-  const learned = (await listFacts(ctx, accountId)).find(
-    ({ fact }) => fact.subject === "Maersk",
+  const learned = (await listFacts(ctx, memoryAccountId)).facts.find(
+    (fact) => fact.subject === "Maersk",
   );
   assert.ok(learned, "the fact is one sheet in the installation's memory");
   remembered.push(learned.fact.id);

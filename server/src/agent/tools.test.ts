@@ -97,8 +97,20 @@ function callTool<T>(name: string, raw: unknown): Promise<T> {
 }
 
 /** Call a tool the agent may write with: the whole catalogue, and this run. */
-function writeTool<T>(name: string, raw: unknown): Promise<T> {
-  return runTool(TOOLS, { ctx, accountId, run: plainRun() }, name, raw) as Promise<T>;
+async function writeTool<T>(name: string, raw: unknown): Promise<T> {
+  // The memory as a pass would hand it over: read once, and handed to the step
+  // (ADR 0037), so the one write that reaches it is against this reading.
+  return (await runTool(
+    TOOLS,
+    {
+      ctx,
+      accountId,
+      run: plainRun(),
+      memory: await listFacts(ctx, accountId),
+    },
+    name,
+    raw,
+  )) as T;
 }
 
 /**
@@ -742,7 +754,7 @@ test("the memory tool records a fact where the installation keeps them", async (
   );
   assert.equal(parsed.fact.standing, true, "and what the group keeps standing");
   assert.ok(
-    (await listFacts(ctx, accountId)).some(({ fact }) => fact.id === recorded.id),
+    (await listFacts(ctx, accountId)).facts.some((fact) => fact.id === recorded.id),
     "the store answers the whole memory, so a selection can be made from it",
   );
 

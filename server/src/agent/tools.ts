@@ -88,7 +88,7 @@ import {
   workorderFileName,
 } from "../shared/workorder.js";
 import { clientOf } from "../util.js";
-import { rememberFact } from "./memory.js";
+import { rememberFact, type MemoryStore } from "./memory.js";
 import { readRun } from "./runs.js";
 
 /* ------------------------------------------------------------------ */
@@ -196,6 +196,17 @@ export interface ToolCall {
   accountId: string;
   /** The run the call is a step of, which is what its authority is read from. */
   run: RunDoc;
+  /**
+   * The installation's memory as the caller's pass read it (ADR 0037).
+   *
+   * The store is read **once per pass** (`agent/loop.ts`) and the one reading is
+   * handed to every step of it, so the write `memory.remember` makes is against
+   * the same reading the pass's selections were made from rather than listing
+   * the memory again for every fact. A caller with no reading of its own — the
+   * decision turn's write-free lookups — passes none, and a tool that needs one
+   * says so.
+   */
+  memory?: MemoryStore;
 }
 
 /** The authority of the run that makes a tool's class the agent's to take. */
@@ -993,17 +1004,31 @@ const rememberFactTool = defineTool({
       throw new ToolError("bad_arguments", '"standing" must be true or false.');
     return { subject, fact, links: textListArg(args, "links"), standing };
   },
-  run: async ({ ctx, run }, { subject, fact, links, standing }) => {
+  run: async ({ ctx, run, memory }, { subject, fact, links, standing }) => {
     // The memory is the installation's, so the account is the principal's own —
-    // the Master's — and never the group's the run lives in (ADR 0037).
-    const written = await rememberFact(ctx, filesAccountId(ctx), {
-      subject,
-      fact,
-      run: run.id,
-      at: new Date().toISOString(),
-      links,
-      standing,
-    });
+    // the Master's — and never the group's the run lives in (ADR 0037). What the
+    // fact is written against is the pass's own reading of that store, handed to
+    // every step of the pass: reading it again here is what would walk the whole
+    // memory once per remembered fact.
+    if (!memory)
+      throw new ToolError(
+        "memory_unread",
+        "The installation's memory has not been read for this call, and a fact is never written against a reading that is not there.",
+        409,
+      );
+    const written = await rememberFact(
+      ctx,
+      filesAccountId(ctx),
+      {
+        subject,
+        fact,
+        run: run.id,
+        at: new Date().toISOString(),
+        links,
+        standing,
+      },
+      memory,
+    );
     return { id: written.id, subject: written.subject };
   },
 });

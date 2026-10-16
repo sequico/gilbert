@@ -6,7 +6,10 @@
  * wrote about a subject is **corrected in place** rather than doubled; and a
  * fact a **person** wrote is in force — the write refuses it, in a code, and
  * leaves it exactly as it is. A sheet this build cannot read is reported with
- * its path and the reason, never read as an empty fact.
+ * its path and the reason, never read as an empty fact. And because a write is
+ * made against a **reading** of the store that carries its own token, a write
+ * whose reading has been overtaken is refused rather than overwriting what
+ * landed since.
  */
 
 import assert from "node:assert/strict";
@@ -27,6 +30,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const { destroyAppNode, filesAccountId, readAppFileAt, writeAppBytesAt, writeAppFileAt } =
   await import("../appFolder.js");
 const { MEMORY_VERSION, recallFacts, sameSubject } = await import("../shared/memory.js");
+const { isStateMismatch } = await import("../shared/errors.js");
 const { factPath, listFacts, MemoryError, readFact, rememberFact } = await import(
   "./memory.js"
 );
@@ -50,6 +54,15 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
+/**
+ * The installation's memory as one reading of it.
+ *
+ * A write is made against a reading and the reading carries the token it uses
+ * (ADR 0037), so every write below is handed the store as the pass would hand
+ * it over.
+ */
+const store = () => listFacts(ctx, accountId);
+
 /** The sheets this test wrote, taken back out with it. */
 const written: string[] = [];
 
@@ -62,13 +75,18 @@ afterEach(async () => {
 });
 
 test("a fact is one sheet in the Master's memory, corrected in place", async () => {
-  const first = await rememberFact(ctx, accountId, {
-    subject: "Maersk",
-    fact: "the usual shipper for container bookings",
-    run: "r-1",
-    at: AT,
-    standing: true,
-  });
+  const first = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Maersk",
+      fact: "the usual shipper for container bookings",
+      run: "r-1",
+      at: AT,
+      standing: true,
+    },
+    await store(),
+  );
   written.push(first.id);
 
   const read = await readFact(ctx, accountId, first.id);
@@ -78,12 +96,17 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
 
   // The same subject again: the agent's own sheet is corrected, keeping its id,
   // so the links that point at it keep pointing at it.
-  const again = await rememberFact(ctx, accountId, {
-    subject: "maersk",
-    fact: "the usual shipper, and only for containers",
-    run: "r-2",
-    at: AT,
-  });
+  const again = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "maersk",
+      fact: "the usual shipper, and only for containers",
+      run: "r-2",
+      at: AT,
+    },
+    await store(),
+  );
   assert.equal(again.id, first.id, "one subject is one sheet");
   assert.equal(again.fact, "the usual shipper, and only for containers");
   assert.deepEqual(
@@ -92,11 +115,54 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
     "and it says who corrected it",
   );
   assert.equal(
-    (await listFacts(ctx, accountId)).filter(({ fact }) =>
-      sameSubject(fact.subject, "Maersk"),
-    ).length,
+    (await store()).facts.filter((fact) => sameSubject(fact.subject, "Maersk")).length,
     1,
     "the memory holds one fact about the subject, not two spellings of it",
+  );
+});
+
+test("a write whose reading has been overtaken is refused, and the sheet is left as it was", async () => {
+  /*
+   * The write is a compare-and-set against the reading it was given (ADR 0037):
+   * the token is the FileNode state that reading saw, so a write landing between
+   * the read and the write makes this one stale. It is refused rather than
+   * correcting a sheet this reading never saw — the mechanism two turns of one
+   * answer rely on when they reach the same subject.
+   */
+  const first = await rememberFact(
+    ctx,
+    accountId,
+    { subject: "Maersk", fact: "the usual shipper", run: "r-1", at: AT },
+    await store(),
+  );
+  written.push(first.id);
+
+  // A reading taken now, and a different fact written afterwards: the writing
+  // moves the account's FileNode state on, so this reading is no longer current.
+  const stale = await store();
+  const other = await rememberFact(
+    ctx,
+    accountId,
+    { subject: "ACME", fact: "the client this account books for", run: "r-1", at: AT },
+    await store(),
+  );
+  written.push(other.id);
+
+  await assert.rejects(
+    () =>
+      rememberFact(
+        ctx,
+        accountId,
+        { subject: "maersk", fact: "the usual shipper, corrected", run: "r-2", at: AT },
+        stale,
+      ),
+    (err: unknown) => isStateMismatch(err),
+    "the write is refused as a lost compare-and-set, not applied",
+  );
+  assert.equal(
+    (await readFact(ctx, accountId, first.id))?.fact.fact,
+    "the usual shipper",
+    "and the sheet the stale write meant to correct is left exactly as it was",
   );
 });
 
@@ -115,12 +181,17 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
 
   await assert.rejects(
     () =>
-      rememberFact(ctx, accountId, {
-        subject: "bologna express",
-        fact: "what the agent concluded instead",
-        run: "r-1",
-        at: AT,
-      }),
+      rememberFact(
+        ctx,
+        accountId,
+        {
+          subject: "bologna express",
+          fact: "what the agent concluded instead",
+          run: "r-1",
+          at: AT,
+        },
+        await store(),
+      ),
     (err: unknown) => err instanceof MemoryError && err.code === "fact_in_force",
     "the refusal is a code a caller composes a sentence from",
   );
@@ -135,20 +206,30 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
 });
 
 test("a link names a subject the memory holds, and one it does not is refused", async () => {
-  const shipper = await rememberFact(ctx, accountId, {
-    subject: "Maersk",
-    fact: "the usual shipper",
-    run: "r-1",
-    at: AT,
-  });
+  const shipper = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Maersk",
+      fact: "the usual shipper",
+      run: "r-1",
+      at: AT,
+    },
+    await store(),
+  );
   written.push(shipper.id);
-  const booking = await rememberFact(ctx, accountId, {
-    subject: "booking 4711",
-    fact: "goes by the usual shipper",
-    run: "r-1",
-    at: AT,
-    links: ["maersk"],
-  });
+  const booking = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "booking 4711",
+      fact: "goes by the usual shipper",
+      run: "r-1",
+      at: AT,
+      links: ["maersk"],
+    },
+    await store(),
+  );
   written.push(booking.id);
   assert.deepEqual(
     booking.links,
@@ -158,7 +239,7 @@ test("a link names a subject the memory holds, and one it does not is refused", 
 
   // What the link is for: a call about the booking is handed the shipper it
   // belongs with, one hop out and no further.
-  const memory = (await listFacts(ctx, accountId)).map(({ fact }) => fact);
+  const memory = (await store()).facts;
   assert.deepEqual(
     recallFacts(memory, "mail created: m-1\nbooking: booking 4711").map(
       (fact) => fact.subject,
@@ -169,13 +250,18 @@ test("a link names a subject the memory holds, and one it does not is refused", 
 
   await assert.rejects(
     () =>
-      rememberFact(ctx, accountId, {
-        subject: "booking 4712",
-        fact: "goes somewhere else",
-        run: "r-1",
-        at: AT,
-        links: ["Nowhere"],
-      }),
+      rememberFact(
+        ctx,
+        accountId,
+        {
+          subject: "booking 4712",
+          fact: "goes somewhere else",
+          run: "r-1",
+          at: AT,
+          links: ["Nowhere"],
+        },
+        await store(),
+      ),
     (err: unknown) => err instanceof MemoryError && err.code === "link_unknown",
     "a link to a subject the memory holds nothing for is refused, never dropped",
   );
