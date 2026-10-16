@@ -231,6 +231,21 @@ test("a run records which facts of the installation's memory it recalled", () =>
   const stored = parseRunDocumentDetailed(JSON.stringify(recalled));
   assert.ok("run" in stored, "and the list is part of the stored contract");
   assert.deepEqual(stored.run.recalled, ["f-1", "f-2"]);
+
+  // The version before this one carries no `recalled` list, because the field
+  // did not exist when it was written: it reads with an empty one rather than
+  // being refused, so an installation that ran the build before this one keeps
+  // working its runs.
+  const { recalled: _none, ...older } = recalled;
+  const readOlder = parseRunDocumentDetailed(JSON.stringify({ ...older, v: 4 }));
+  assert.ok("run" in readOlder, "the version before this one is a run this build reads");
+  assert.deepEqual(readOlder.run.recalled, [], "with nothing recalled");
+  assert.equal(
+    readOlder.run.v,
+    RUN_VERSION,
+    "and it reads as the version this build writes",
+  );
+  assert.equal(readOlder.run.id, "r15", "with the rest of the document untouched");
 });
 
 test("the budget is a tally the run carries, and it only grows", () => {
@@ -473,6 +488,9 @@ test("a run this build cannot read is reported, with what was wrong", () => {
     ["not JSON at all", /Not valid JSON/],
     ["[]", /must be a JSON object/],
     ['{"v":6,"id":"r6"}', /this build reads version 5/],
+    // The one version before this is read (with `recalled` empty); anything
+    // older is a document this build did not write.
+    ['{"v":3,"id":"r3"}', /this build reads version 5/],
     [
       '{"v":5,"id":"","startedBy":{"rule":"a","instruction":null,"woke":"mail created: m-1"}}',
       /"id" must be/,

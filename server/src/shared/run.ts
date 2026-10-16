@@ -38,6 +38,20 @@ import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 export const RUN_VERSION = 5;
 
 /**
+ * The version before this one, which this build reads as well.
+ *
+ * `recalled` is the field this version added (ADR 0037), and a **known** older
+ * version is read with the field it does not carry defaulted — an installation
+ * that ran the build before this one has runs on its accounts, and refusing them
+ * would stop every pass before it worked a change, forever, with no surface to
+ * delete them from: the version exists to carry a change to those runs, never to
+ * orphan them on an upgrade. A version this build does not know stays refused,
+ * because a document written by a newer Gilbert may carry a field whose meaning
+ * changed, and reading it as though it had not is worse than saying so.
+ */
+const RUN_VERSION_WITHOUT_RECALLED = 4;
+
+/**
  * A step's state: `open` until it leaves the plan, and the three ways it can.
  *
  * "skipped" is the one that did not run: a step whose dependency ended in a way
@@ -419,6 +433,11 @@ function isRunState(x: unknown): x is RunState {
  * A `v` this build does not know is refused. That is what the field is for: a
  * document written by a newer Gilbert may carry a field whose meaning changed,
  * and reading it as though it had not is worse than saying so.
+ *
+ * The one version before this is read rather than refused, with the field it
+ * added — `recalled` — defaulted to empty (`RUN_VERSION_WITHOUT_RECALLED`): an
+ * installation that ran the build before it has runs on its accounts, and a
+ * version is how a change reaches those runs rather than how it abandons them.
  */
 export function parseRunDocumentDetailed(
   raw: string,
@@ -430,9 +449,9 @@ export function parseRunDocumentDetailed(
     return { problem: `Not valid JSON${errorDetail(err)}.` };
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
-  if (whole.v !== RUN_VERSION)
+  if (whole.v !== RUN_VERSION && whole.v !== RUN_VERSION_WITHOUT_RECALLED)
     return {
-      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION}.`,
+      problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${RUN_VERSION} and the one before it.`,
     };
   if (typeof whole.id !== "string" || !whole.id)
     return { problem: '"id" must be the run\'s name.' };
@@ -453,10 +472,15 @@ export function parseRunDocumentDetailed(
       problem:
         '"waiting" must be null or what the run waits for, where it asked and until when.',
     };
-  if (
-    !Array.isArray(whole.recalled) ||
-    !whole.recalled.every((id) => typeof id === "string" && !!id)
-  )
+  /*
+   * A version-4 run carries no `recalled` list, because the field did not exist
+   * when it was written: it reads as empty — this run recalled nothing — and the
+   * document is written back as the version this build writes. A version-5 run
+   * missing the field is a document this build did not write, and is refused.
+   */
+  const recalled =
+    whole.recalled ?? (whole.v === RUN_VERSION_WITHOUT_RECALLED ? [] : undefined);
+  if (!Array.isArray(recalled) || !recalled.every((id) => typeof id === "string" && !!id))
     return {
       problem: '"recalled" must be the ids of the facts the run recalled.',
     };
@@ -496,7 +520,7 @@ export function parseRunDocumentDetailed(
       plan: whole.plan,
       touched: whole.touched,
       waiting: whole.waiting,
-      recalled: whole.recalled,
+      recalled,
       authorisations: whole.authorisations,
       evidence: whole.evidence,
       spent: whole.spent,
