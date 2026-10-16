@@ -7,8 +7,8 @@
  * with **no mailboxes**, while a group mailbox answers with a folder tree. The
  * session cannot tell them apart on its own — Stalwart advertises the same
  * capabilities on every account it lists — so the mail store's probe is the
- * classifier, on the server (`server/src/agent/actions.ts`, `groupAccounts`) and
- * in the client alike. The mock simulates the answer (a share in the demo's
+ * classifier, on the server (`server/src/groupAccess.ts`, `groupAccountsDetailed`)
+ * and in the client alike. The mock simulates the answer (a share in the demo's
  * session carries none); until a real instance is asked, the tests prove the
  * client's logic against a simulation and not the server's behaviour.
  *

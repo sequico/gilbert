@@ -10,13 +10,9 @@ validators and the lifecycle arithmetic are one definition
 route (`server/src/index.ts`, `GET /api/knowledge/company/…`); the client reads
 and writes through
 `web/src/lib/knowledge.ts` and `web/src/store/knowledge.ts`; the surface and its
-BlockNote editor are `web/src/views/knowledge/`. The fleet's `knowledge` lookup
-and `knowledge.write`/`knowledge.review` capabilities are **present in the tree
-but the agent part does not work yet; a refactor is planned** (see `ROADMAP.md`):
-the code that records the multi-document plan it applies and a review's findings
-on the run's own job (`knowledge.write`'s `basedOn` refuses a page that moved
-since the plan was read; `knowledge.review` records the prose) lives in
-`server/src/agent/`, in the trail Q23 names. Not
+BlockNote editor are `web/src/views/knowledge/`. The agent's part — a tool that
+reads a page and one that proposes a change (ADR 0031), with approval kept a
+person's (ADR 0032) — is **not built**: nothing in the tree carries it yet. Not
 built: the phases this record defers (co-editing over Yjs/Hocuspocus, Excalidraw
 diagrams). The checklist templates a workorder instantiates are built, with their
 **resolver** and the workorder instance side (ADR 0030, ADR 0028); the builder
@@ -78,17 +74,6 @@ this tree, not a preference.
   query` against the admin group's account answers nothing (`gilbert-stalwart`).
   So an installation-wide document cannot live in the admin group; the Master's
   account is where installation things live.
-- **The agent fleet already has a two-speed memory.** The group's **notebook**
-  (`gilbert/agent/notebook.json`) is the distilled head carried into every call;
-  a **lookup** (`docs/adr/0020`) is the narrow tail a run fetches by name from a
-  closed catalogue — `mail`, `message`, `mailboxes`, `labels`, `files`, `file`,
-  `chat` — at most `AGENT_LOOKUP_ROUNDS` times, bounded in size
-  (`server/src/agent/documents.ts`, `server/src/agent/llm.ts`). A knowledge base
-  is a natural new lookup kind; the notebook is not replaced by it.
-- **The document family already reads real documents.** PDF, `.docx`,
-  `.xlsx`/`.xls`, text and images are read as text and, where a page is pixels,
-  as images handed to the model (`server/src/agent/documentFamily.ts`). A KB
-  that holds files rather than only blocks already has a reader.
 - **The composer's editor is Squire, an email editor.**
   `web/src/views/compose/RichEditor.tsx` wraps Squire (`squire-rte`, MIT), whose
   HTML-is-the-source-of-truth model is what an email body needs and whose
@@ -106,8 +91,8 @@ this tree, not a preference.
   `onDestroyRemoveChildren: true`; `FileNode/set` returns no `blobId` on create
   (`gilbert-stalwart`).
 - **Writes cost and are not given back.** Every blob upload is charged and the
-  server never returns it; the tree has tests against periodic writes for exactly
-  this reason (`docs/adr/0012`, `server/src/agent/no-periodic-writes.test.ts`,
+  server never returns it; the tree has tests against a write that would store
+  what is already there for exactly this reason (`docs/adr/0012`,
   `server/src/appfolder-write.test.ts`). Anything that writes per save, per
   keystroke or per visit must be bounded deliberately.
 - **Push is broad.** A subscription can name `types: ["FileNode"]`, but a JMAP
@@ -199,10 +184,10 @@ aligned are Gilbert's and exist nowhere to import.
 - A QMS/ISO-9001 product — the shelf holds only tiny or unmaintained ones
   (`dromation/open-eqms`, `jonaesantos/odoo-qms-iso9001`), none an embeddable
   library, and each brings its own store. Document control is built on the KB and
-  the agent fleet (below).
+  the agent (below).
 - A workflow/BPMN engine (`vercel/workflow`, `dbos`, Hatchet and the like) — the
-  fleet's own jobs, decisions and approvals (`docs/adr/0003`) are the workflow,
-  and a durable-workflow engine brings a database, which is refused.
+  workorder and the run are the workflow (`docs/adr/0028`, `docs/adr/0034`), and
+  a durable-workflow engine brings a database, which is refused.
 
 One dependency at a time: BlockNote and Orama in v1; Yjs/Hocuspocus and
 Excalidraw only when their phase arrives.
@@ -295,10 +280,10 @@ below.
 - **Gilbert writes in its own right or on behalf of a person.** An agent's write
   is Gilbert's own; a member's is on behalf of that member, and what was written
   on a person's behalf is theirs to see.
-- **Agents review the draft.** The fleet reads the draft and its neighbours and
-  produces the review: inconsistencies, stale references, contradictions with
-  what is in force. A review is a read that yields findings; it is not an
-  approval.
+- **Agents review the draft.** The agent reads the draft and its neighbours and
+  produces the review (ADR 0031): inconsistencies, stale references,
+  contradictions with what is in force. A review is a read that yields findings;
+  it is not an approval.
 - **Only an administrator approves.** Administrators are the single approval
   level. No member, and no agent, ever approves an article. The approver a
   revision records, and the instant of approval, are taken from the session the
@@ -372,20 +357,18 @@ are the alternatives if more control or a different UI system is wanted.
 
 ### Agents
 
-- A new lookup kind (`knowledge`) in the closed catalogue: list/search pages and
-  read one page's text, in the group's own account and in whatever the reader is
-  shared. The notebook stays the distilled head; the KB is a tail read
-  (`docs/adr/0006`, `docs/adr/0020`).
-- A write capability (create/update a page) under the appropriate area, and a
-  **standalone** `knowledge.writeCompany` grant for the company tier: writing the
-  **company** KB from a group agent means acting as the Master, the privileged
-  door again (**Q15**), so `knowledge.write` with `scope: "company"` is refused
-  unless the rule also holds that grant.
+- A tool that reads a page: list/search pages and read one page's text, in the
+  group's own account and in whatever the reader is shared. The KB is read on
+  demand, never carried whole into the model's context (ADR 0031).
+- A tool that proposes a change to a page (ADR 0031). Proposing a change to the
+  **company** KB from a group means acting as the Master, the privileged door
+  again (**Q15**), and the approval that puts a page in force stays a person's
+  (ADR 0032).
 
 ### Search
 
 **Orama** (Apache-2.0), in-process, over the pages' `text`, used by the human
-search box; the fleet's `knowledge` lookup reads the same `text` without Orama,
+search box; the agent's tool reads the same `text` without Orama (ADR 0031),
 so the two share a corpus rather than a ranking. The index is built
 from Stalwart and, because the container is disposable, is either rebuilt lazily
 or cached as a document — **Q14**.
@@ -450,7 +433,7 @@ decided separately because each has a different cost.
    and a record of its own is where to reopen it.
 3. **Published and controlled** — the ISO 9001 sense, and the owner has settled
    it (the lifecycle section): one shared draft, edited by users and agents,
-   reviewed by the fleet, then **approved by an administrator with an effective
+   reviewed by the agent (ADR 0031), then **approved by an administrator with an effective
    date**, which puts it in force (or records it as pending, until a future
    effective instant arrives); the revision it replaces stays in history as
    `superseded`. This is a document-control feature on top of the versioning
@@ -493,16 +476,16 @@ does this is a *document controller*, and it is where the KB earns its keep.
   plan with a person free to accept, amend or drop it; nothing lands in place
   until a person or the policy says so.
 - **Drafting is free; approval is the administrator's.** Users and agents write
-  and modify the one shared draft directly, within the capability allowlist and
-  the review policy; a change to what is in force is never an edit of the issued
+  and modify the one shared draft directly, within the authority classes
+  (ADR 0032); a change to what is in force is never an edit of the issued
   revision but an edit of the draft above it. When the draft is ready, approval is
   what issues it (the lifecycle section), through the same privileged door every
   other administrative write uses (ADR 0023, `docs/adr/0001`).
-- **The catalogue grows, and stays closed.** A `knowledge` **read** (the lookup
-  of the previous section) and **propose/apply** write capabilities, offered and
-  bounded exactly like every existing action: the model chooses a kind and its
-  parameters and never writes a query or a JMAP method (`docs/adr/0020`). "Check
-  for inconsistencies" is such a read; "apply the plan" is such a write.
+- **The catalogue is the agent's tools.** A `knowledge` read and a
+  **propose/apply** write are tools (ADR 0031), offered and bounded exactly like
+  every other: the model chooses a tool and its arguments and never writes a
+  query or a JMAP method. "Check for inconsistencies" is such a read; "apply the
+  plan" is such a write.
 - **The account is the lock.** `ifInState` is whole-account, so a plan is applied
   in small conditional steps and retried, and it names the revisions it was built
   from: a page changed since the plan was made is refused rather than
@@ -577,9 +560,8 @@ The record is **Accepted**.
     agent's company-KB draft write goes through the same door the members' does
     (Q1).
 16. **Does the company KB enter the model's context automatically?** — **Settled:
-    no.** The KB stays a **lookup** — the tail, fetched by name and bounded — and
-    the notebook stays the distilled head; the whole KB is never carried into the
-    prompt (`docs/adr/0006`, `docs/adr/0020`).
+    no.** The KB is read on demand by a tool (ADR 0031), fetched by name and
+    bounded; the whole KB is never carried into the model's context.
 17. **Structure** — **Settled.** A tree for navigation — articles as leaves and
     **topic folders** that group them by subject, the whole tree draggable to
     reorder — plus **tags** for the sets that cut across it; backlinks are a later
@@ -600,10 +582,9 @@ The record is **Accepted**.
     clock? — **Settled: on ask, in v1.** An operator or a rule asks and it runs.
     A pass triggered by a KB change is later work with its own cost, and a
     schedule is a separate decision again (`docs/adr/0012`).
-23. **Where do findings and plans live** — as KB documents or as the fleet's
-    job/decision documents? — **Settled.** In the fleet's **job/decision trail**,
-    for provenance, with the plan text also attached to the review item a person
-    sees.
+23. **Where do findings and plans live** — as KB documents or in the run? —
+    **Settled.** In the **run** (ADR 0034), for provenance, with the plan text
+    also attached to the review item a person sees.
 24. **May one plan touch more than one owner** (the company KB and a group's) in
     a single request? — **Settled: no in v1.** A plan is one owner's: `ifInState`
     is per-account, so a cross-owner plan could not be atomic, and each owner's
@@ -638,9 +619,10 @@ The record is **Accepted**.
   no button, no step nobody asked for (`AGENTS.md`, automatic by default).
 - **A QMS/ISO-9001 product or a workflow engine.** The shelf holds nothing
   embeddable for either, and each brings a database; document control is built on
-  the KB and the fleet.
-- **A second approval system.** A controlled-document change reuses the fleet's
-  jobs, decisions and Approvals surface (`docs/adr/0003`).
+  the KB and the agent (ADR 0031).
+- **A second approval system.** A controlled-document change reuses the KB's own
+  draft-and-approve lifecycle (the lifecycle above) and the authorisations a run
+  records (`docs/adr/0034`).
 - **More than one open draft of an article.** One unapproved draft at a time,
   edited by everyone; a competing change edits that draft rather than opening a
   second.
@@ -657,8 +639,8 @@ The record is **Accepted**.
 - Versioning spends the finite blob budget, so it is bounded by decision, not by
   accident.
 - A publication lifecycle adds state a reader must understand (which revision is
-  in force), and the audit trail precedent (`docs/adr/0003`) is where "who
-  published what, when" would live rather than in a new log.
+  in force), and the run and the workorder are the record (`docs/adr/0034`),
+  which is where "who published what, when" lives rather than in a new log.
 - The company KB is read through a route that reaches every account and exposes
   nothing but `gilbert/knowledge`; a new account needs nothing added, since the
   route answers any authenticated session.
@@ -672,21 +654,20 @@ The record is **Accepted**.
 
 - `docs/adr/0030` — a checklist template branches on data, not on groups
 - `docs/adr/0001` — the administration door and impersonation
-- `docs/adr/0003` — the agent fleet: the notebook, the audit trail, the model
+- `docs/adr/0031` — the agent's tools: a page is read, a change to one proposed
 - `docs/adr/0005` — group chat: app-folder documents, group-owned, pushed
-- `docs/adr/0006` — the two speeds of context (the notebook and the lookup)
+- `docs/adr/0032` — what the agent decides and what only a person decides: the
+  KB's approval is a person's
 - `docs/adr/0012` — a durable write is caused by a change, not by a clock
 - `docs/adr/0013` — a dropped name is written over, in place
 - `docs/adr/0014` — merging two folders is planned before it is written
-- `docs/adr/0019` — the three levels of prose
-- `docs/adr/0020` — a run may look something up
+- `docs/adr/0035` — a group's engagement is a rule in prose: the levels the
+  model reads
+- `docs/adr/0034` — a run is a document, and the record is the product
 - `docs/adr/0023` — Global contacts: the installation-owned, route-served,
   admin-written precedent
 - `server/src/shared/appFolder.ts`, `web/src/lib/appFolder.ts` — the app folder
 - `web/src/lib/chat.ts`, `web/src/store/chat.ts` — the group-document precedent
 - `server/src/globalContactsAdmin.ts` — the Master-owned write door
-- `server/src/agent/documents.ts`, `server/src/agent/llm.ts` — the notebook and
-  the lookup catalogue
-- `server/src/agent/documentFamily.ts` — the existing document reader
 - `.opencode/skills/gilbert-stalwart/SKILL.md` — FileNode quirks and conditional
   writes

@@ -279,7 +279,7 @@ async function run() {
 
   return report({
     where:
-      "in the membership note in the `gilbert-stalwart` skill and in server/src/agentAdmin.ts",
+      "in the membership note in the `gilbert-stalwart` skill and in server/src/groupAccess.ts",
   });
 }
 

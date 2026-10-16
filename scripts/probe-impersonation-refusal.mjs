@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
 
- * The live probe of a refused impersonation (`server/src/agentAdmin.ts`,
+ * The live probe of a refused impersonation (`server/src/groupAccess.ts`,
  * `impersonateAs`, and `server/src/app.ts`'s `/admin/users` acting-check).
  *
  * Everything the admin surfaces do to somebody else's account rests on one
@@ -158,7 +158,7 @@ const run = async () => {
     return report({
       where:
         "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
-        "server/src/agentAdmin.ts",
+        "server/src/groupAccess.ts",
     });
   }
 
@@ -221,7 +221,7 @@ const run = async () => {
   return report({
     where:
       "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
-      "server/src/agentAdmin.ts",
+      "server/src/groupAccess.ts",
   });
 };
 

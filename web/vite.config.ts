@@ -124,7 +124,6 @@ export default defineConfig({
       // The shared tier: one definition, in the server tree, read by both
       // tiers (see the note in web/tsconfig.json).
       "@gilbert/shared": fileURLToPath(new URL("../server/src/shared", import.meta.url)),
-      "@gilbert/agent": fileURLToPath(new URL("../server/src/agent", import.meta.url)),
     },
   },
   server: {

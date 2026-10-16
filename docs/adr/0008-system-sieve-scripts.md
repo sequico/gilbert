@@ -87,7 +87,7 @@ bundled on the client for either surface.
 Every read hands back `x:SieveSystemScript`'s own `state`, and every write
 built on one — an update, an activate/deactivate, a delete — sends it back as
 `ifInState`, the same compare-and-set guard `FileNode/set` already relies on
-for the agent's writes (ADR 0003, "Coordination: claims and fencing"; `gilbert-stalwart` working rule 6). A
+for its writes (ADR 0012; `gilbert-stalwart` working rule 6). A
 write whose `state` has moved since it was read is refused (409, `conflict`)
 rather than applied over whatever changed it — a plain "Save" from an editor
 left open cannot silently undo an activation flipped from the list in the
@@ -95,8 +95,8 @@ meantime, and a stale list-level toggle or delete cannot either. The list
 surface reloads after every activate/deactivate/delete attempt, whether it
 succeeded or was refused, so its own `state` is current for the next one. The
 state is a single token for the whole `SieveSystemScript` type, not one per
-script — the same "whole-account state" shape ADR 0003 already notes for
-`FileNode` — so any write to any system script advances it.
+script — the same "whole-account state" shape `FileNode` has
+(`gilbert-stalwart`) — so any write to any system script advances it.
 
 ## The editor
 

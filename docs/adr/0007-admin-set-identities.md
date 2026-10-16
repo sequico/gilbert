@@ -128,7 +128,7 @@ offers the signature without pictures and says why.
 
 ## Group identities
 
-A group's identity is set through the agent (ADR 0003), which is already a
+A group's identity is set through the agent, which is already a
 member of every group the installation grants it on. The write is always
 made **as the agent** — one actor that exists for this purpose and is named
 in Stalwart's own record — rather than as a member the administrator happens
@@ -263,4 +263,3 @@ wire.
   member-to-identity assignment, written as the agent and read by the composer
   and by the member's own settings block
 - ADR 0001 — impersonation, the identity lock's storage
-- ADR 0003 — the agent's grants and its own session

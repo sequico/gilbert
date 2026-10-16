@@ -17,6 +17,13 @@ import { JMAP_MAIL, JmapClient, STALWART_CAP } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
 import { errorMessage } from "./shared/errors.js";
+import {
+  type CredentialRefusalCode,
+  GROUP_NOT_ACCESSIBLE,
+  GROUP_UNREADABLE,
+  type GroupDeniedCode,
+  type GroupNeed,
+} from "./shared/groupAccess.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import { isGroupAccountRecord } from "./shared/sessionAccount.js";
 import {
@@ -35,9 +42,6 @@ import { basicAuth } from "./util.js";
  * administrator reads the refusal in the language the surface is set to, and a
  * language whose catalogue does not carry it reads the English. `Error.message`
  * is the code, because a log line has room for a code and not for a paragraph.
- *
- * The code travels and the surface shows what it received: the sentences these
- * refusals earned are not in the client today.
  */
 export class GroupAccessError extends Error {
   constructor(
@@ -50,14 +54,8 @@ export class GroupAccessError extends Error {
 }
 
 /**
- * The two ways opening the installation's session fails with a reason of its
- * own: the credential this deployment carries was refused, or the account could
- * not be reached at all. Both travel as a code, and the surface composes the
- * sentence it shows.
+ * Why the door onto a group's account did not open, as the route answers it.
  */
-type CredentialRefusalCode = "agent_credentials_rejected" | "agent_unreachable";
-
-/** Why the door onto a group's account did not open, as the route answers it. */
 type GroupAccessReason =
   | { code: "agent_not_configured" }
   | { code: CredentialRefusalCode; detail: string };
@@ -503,42 +501,8 @@ async function readGroupMembers(
 }
 
 /* ------------------------------------------------------------------ */
-/* The group-access vocabulary                                         */
+/* Why a group's documents are out of reach                            */
 /* ------------------------------------------------------------------ */
-
-/**
- * The section of a group's own documents a surface was standing at.
- *
- * A group the installation does not hold has no path to any of it, but not for
- * the same document, and the refusal a person reads names the section they were
- * standing at. That name travels as this value rather than inside a sentence,
- * so the sentence can be composed in the language the person reads.
- */
-export type GroupNeed =
-  | "labels"
-  | "automations"
-  | "policy"
-  | "standing instruction"
-  | "notebook"
-  | "approvals"
-  | "agent documents"
-  | "knowledge"
-  | "workorders";
-
-/** The code a group the installation does not hold travels as, on every surface. */
-export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";
-
-/**
- * The code a group nobody could ask about travels as.
- *
- * A probe that did not answer is not a group the installation lacks: the
- * surface says what it could not establish, so a person retries or looks at the
- * server rather than editing a grant that was never the problem (ADR 0005).
- */
-export const GROUP_UNREADABLE = "group_unreadable";
-
-/** The two ways a group's documents are out of reach, as codes a client reads. */
-export type GroupDeniedCode = typeof GROUP_NOT_ACCESSIBLE | typeof GROUP_UNREADABLE;
 
 /**
  * Why a group's documents are out of reach: the code, and the parameter that

@@ -50,7 +50,8 @@ path: the server authenticates to Stalwart as the composite
 sealed session, and performs ordinary JMAP operations on the target's own
 Files. The target is always a user account; Stalwart refuses to impersonate a
 group mailbox (403), so a group's own documents are reached as the
-installation's agent instead (ADR 0003), never by impersonating the group.
+installation's own session instead, never by impersonating the group
+(`server/src/groupAccess.ts`).
 
 Impersonation needs Stalwart's `impersonate` permission, bundled into the
 admin role; an operator can also hand a non-admin principal `impersonate`
@@ -154,5 +155,6 @@ an administrator.
 - `server/src/sessions.ts` — sealed session, impersonation authorization,
   `destroyAllForUser`
 - `server/src/config.ts` — the environment bootstrap policy
-- ADR 0003 — the agent as the write door into a group's own documents
+- `server/src/groupAccess.ts` — the installation's own session onto a group's
+  documents
 - ADR 0007 — identity administration

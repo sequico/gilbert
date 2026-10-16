@@ -62,9 +62,6 @@ operator can read which accounts verified and which path each is on.
 - A type added to a store but forgotten in `PUSH_STATE_TYPES` still reaches
   a relayed tab; `server/src/push.test.ts` pins the list against the stores
   that read state changes and fails first.
-- The agent fleet is untouched: `TYPES_BY_AREA` in `server/src/agent/agent.ts`
-  is a separate, deliberately narrower list — which types a reconciliation
-  pass reads, not which types a tab is pushed.
 - Nothing about the callback address is configured. A deployment behind a
   trusted proxy gets fan-out with nothing to set; one reached directly, or
   over plain http, keeps the relay — reconnecting simply is not local.
@@ -79,5 +76,4 @@ operator can read which accounts verified and which path each is on.
 - `server/src/routes/shared.ts` — `pushOrigin()`, `followAccount`'s caller
 - `server/src/configuration.ts` — `TRUSTED_PROXIES`
 - `server/src/push.test.ts` — the list pinned against the stores
-- ADR 0003 — `TYPES_BY_AREA`, the agent's own narrower read
 - ADR 0005 — chat's `FileNode` documents

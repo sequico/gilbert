@@ -191,7 +191,7 @@ Where the integration lives:
     all of it and writes nothing.
 
   Gilbert spends it in one place: the chat's `@` picker reads the group's
-  roster as the Master (`groupMembers` in `server/src/agentAdmin.ts`, cached a
+  roster as the Master (`groupMembers` in `server/src/groupAccess.ts`, cached a
   minute, `null` when it cannot be read) and falls back to the transcript
   (ADR 0005).
 
@@ -290,7 +290,7 @@ carries, in the order of what each costs:
 ### `scripts/probe-impersonation-refusal.mjs` — what a refusal looks like
 
 Confirmed live on 0.16.23 (2026-09-24), for `impersonateAs` in
-`server/src/agentAdmin.ts` (and the acting-check in `/admin/users`), with a
+`server/src/groupAccess.ts` (and the acting-check in `/admin/users`), with a
 positive control: the master's own credential opens a session; a composite
 naming an account the master **may** act as opens a session as it; and a
 composite is refused with **401** for an unknown address and with **403** for a

@@ -1,7 +1,14 @@
 import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { errorMessage } from "@gilbert/shared/errors";
+import {
+  GROUP_NOT_ACCESSIBLE,
+  GROUP_UNREADABLE,
+  type GroupNeed,
+} from "@gilbert/shared/groupAccess";
+import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
 import { DeadlineError, withDeadline } from "@/lib/deadline";
+import { groupAccessSentence, groupUnreadableSentence } from "@/lib/groupAccess";
 import type {
   Id,
   Invocation,
@@ -80,6 +87,8 @@ export interface ApiErrorBody {
   type?: string;
   detail?: string;
   title?: string;
+  /** The section a group-membership refusal names, beside its code. */
+  need?: GroupNeed;
 }
 
 interface Pending {
@@ -221,9 +230,17 @@ export async function apiFetch<T = unknown>(
      * A body that carries a machine-readable refusal gets its sentence composed
      * from the loaded catalogue: the code and its parameters are what travels,
      * so the sentence is the reader's language rather than the server's. A body
-     * that carries prose is read as that prose.
+     * that carries prose is read as that prose, and a code this build does not
+     * know falls through to it rather than being given a sentence of its own.
      */
-    const message = err.message ?? err.detail ?? err.title ?? "request_failed";
+    const composed =
+      err.need && err.error === GROUP_NOT_ACCESSIBLE
+        ? groupAccessSentence(err.need)
+        : err.need && err.error === GROUP_UNREADABLE
+          ? groupUnreadableSentence(err.need)
+          : agentErrorSentence(err as Record<string, unknown>);
+    const message =
+      composed ?? err.message ?? err.detail ?? err.title ?? "request_failed";
     throw new ApiError(status, err.error ?? err.type ?? "error", message);
   }
   if (status === 204) return undefined as T;

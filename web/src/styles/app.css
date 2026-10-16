@@ -2783,53 +2783,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .chat-input-rich .chat-emoji-img { vertical-align: -0.2em; }
 
-/* A card's verifiers: one status per fact, so a reader scans the row instead
-   of parsing a sentence to find out what still needs doing. */
-.agent-verifier-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; }
-.agent-check { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-size: .9em; cursor: pointer; }
-.agent-check input { margin-top: 2px; }
-.agent-tag {
-  margin-left: 6px; padding: 0 5px; border-radius: 999px;
-  background: var(--bg-sunken); color: var(--fg-muted);
-  font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
-}
-/* Four short values to a provider, two to a row, and less air under each: the
-   stacked layout cost a screenful of scrolling to read four lines. */
-.agent-provider .field { margin-bottom: 10px; }
-.agent-form, .agent-provider, .agent-registration { max-width: 620px; }
-.agent-provider-icon { color: var(--fg-muted); flex: 0 0 auto; }
-.agent-form h3 { margin: 16px 0 6px; font-size: .95em; }
-.agent-action {
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--bg); padding: 8px; margin-bottom: 8px;
-}
-.agent-action-head { display: flex; align-items: center; gap: 8px; }
-.agent-action-head .input { flex: 1 1 auto; min-width: 0; }
-.agent-action-tools { display: inline-flex; gap: 2px; margin-left: auto; }
-.agent-action-params { margin-top: 6px; }
-.agent-rule-item .card-head { flex-wrap: wrap; gap: 8px; }
-.agent-rule-item .card-head h3 { flex: 0 1 auto; }
-
-/* The Group Agents workspace: one bar holding the group's own facts (which
-   group, its counts, its one setup step) above a proper tablist, so the group
-   is not a section and the sections below are only the group's documents. */
-.agent-group-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px; padding: 12px 14px; margin-bottom: 16px; }
-.agent-group-bar .field { margin: 0; }
-.agent-glance { display: flex; flex-wrap: wrap; gap: 2px 18px; }
-.agent-label-setup { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+/* The tablist the group surface draws (see `web/src/ui/tabs.tsx`). */
 .agent-tabs { margin-bottom: 16px; max-width: 100%; overflow-x: auto; }
 .agent-tabs button { height: 34px; }
-
-.agent-list-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; }
-
-.agent-editor { padding: 14px; }
-.agent-editor .card-head { margin-bottom: 8px; }
-
-/* A granted area with the actions it expands to named beneath it, so a tick
-   is legible without opening the server's catalogue. */
-.agent-grant-area { margin: 8px 0; }
-.agent-grant-actions { list-style: none; margin: 0 0 0 24px; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; }
-.agent-grant-actions li { font-size: .82em; color: var(--fg-muted); }
 
 /* What arrived from the operating system's share sheet, shown before it is opened. */
 .share-summary { margin: 0 0 8px; padding-left: 1ex; border-left: 2px solid var(--border-strong); color: var(--fg-muted); overflow-wrap: anywhere; }

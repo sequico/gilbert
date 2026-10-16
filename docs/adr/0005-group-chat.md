@@ -37,16 +37,11 @@ marker unchanged.
   for as long as the chat does.
 - **Mentions, and who may be offered one**: a message may name members
   (`"mentions": [{ "kind": "principal", "id": <address> }]`), and the composer
-  offers them after an `@`. Who is offered is the group's own **roster**, read
-  for the installation as the Master (`x:Account`, ADR 0003): asked once per
-  conversation on `/api/agent/group/:name/members`, held for a minute, and
-  every member is offered — whether or not they have ever written. The
-  transcript is what stands in when no roster can be read: the addresses the
-  loaded messages carry, which is what the picker offered before there was
-  one, and the reason somebody who has left could be mentioned at all. A
-  mention whose address the roster no longer lists renders **greyed** in the
-  transcript — the words are what was written, and the style says the person
-  they name is no longer here.
+  offers them after an `@`. Who is offered is the **transcript**: everybody who
+  has posted in this conversation, plus the reader. The group's roster is not
+  read here, so a member who has never written is not offered, and somebody who
+  has left stays offerable for as long as their messages do — the words are
+  what was written, and the transcript is the group's.
 - **Read markers**: one document per member (`read-<member>.json`), written
   by that member's own session, holding the last-read position. A member
   with no marker sees the full transcript and no unread badge; the marker is
@@ -150,9 +145,6 @@ any member.
   offerable set (`mentionablesOf`)
 - `web/src/views/chat/ChatPanel.tsx`, `web/src/store/chat.ts` — the UI and
   store
-- `server/src/agentAdmin.ts` — `memberGroupMembers`, and the roster read
-  behind it (`groupMembers`)
 - `scripts/probe-group-membership.mjs` — the live probe of the registry read
 - `server/src/push.ts` — the per-account push relay this rides
 - ADR 0001 — the admin group and impersonation
-- ADR 0003 — the agent as the write door into a group's own documents

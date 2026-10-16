@@ -12,7 +12,7 @@ Four kinds of value a running Gilbert reads are not the installation's to
 decide: the way Stalwart is reached at all, what the container was given, what
 the image is, and the one statement only the operator may make. Everything else
 is the installation's own configuration — how long a session lives, how large an
-upload may be, which domains sign in where, what the fleet's bounds are, the
+upload may be, which domains sign in where, the
 name the installation shows.
 
 An environment is the wrong home for that. An environment belongs to a process,
@@ -27,9 +27,9 @@ is in force.
 
 **One document, in the Master's own account.** `installation.json`
 (`INSTALLATION_FILE`, `server/src/shared/installation.ts`) in the `gilbert` app
-folder of the account `GILBERT_AGENT_ADDRESS` names — the Master (ADR 0003),
-which is also the account a boot signs in as and the principal the fleet acts
-as. It carries a schema `version` and an `epoch`, and the sections `server`,
+folder of the account `GILBERT_AGENT_ADDRESS` names — the Master, which is
+also the account a boot signs in as. It carries a schema `version` and an
+`epoch`, and the sections `server`,
 `limits`, `sessions`, `push`, `upstreams`, `agent`, `branding` and `secret`. A
 key this build does not know decides nothing and does not refuse the document,
 so an installation that carries one keeps booting and a later publish drops it;
@@ -48,7 +48,7 @@ document: the defaults and a freshly generated app secret, and it reads back
 what the account holds before trusting its own write, because two boots starting
 at once can both create one. A document that is there but unreadable is refused
 and left exactly as it is: booting from the defaults instead would silently
-discard the installation's routing table, its fleet and its secret — the one
+discard the installation's routing table and its secret — the one
 outcome worse than not starting.
 
 **Two things the document may not decide.**
@@ -135,5 +135,4 @@ being asked to believe.
 - `server/src/routes/installation.ts` — `GET`/`POST /api/admin/installation`
 - `.env.example` — the environment's own list, in the words a deployment reads
 - ADR 0001 — administration, impersonation, and the admin permission marker
-- ADR 0003 — the Master, and the agent fleet that acts as it
 - ADR 0010 — the policy publish, the other document the administration writes

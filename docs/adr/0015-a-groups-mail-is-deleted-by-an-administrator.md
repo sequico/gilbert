@@ -126,19 +126,12 @@ which one it is and what still works.**
   that changes nothing about the session — is the debt below; the refresh hangs
   on that signal, and the mock reports it unmoved.
 <!-- owed: session-state-on-a-write -->
-- **The agents hold no delete at all.** The capability catalogue
-  (`AGENT_ACTION_SPECS`) names no action that destroys mail, so what this record
-  grants an administrator is a surface for a person; nothing an automation can
-  be written to do changes with it. An automation's `mail.move` can file a
-  message into the group's Deleted Items, which is the same place a member's
-  delete leaves it and is not a destroy. **The Mail area of ADR 0006 does not
-  change this.** That record groups the five mail actions under one checkbox
-  precisely so a tick cannot be how somebody grants what the catalogue keeps
-  out, and its own rule already covers the case: a destroy added to
-  `AGENT_ACTION_SPECS` later would carry `irreversible` — and `external` too if
-  it ever reached another account — which excludes it from every area and
-  leaves it a checkbox of its own, beside `mail.send` rather than inside
-  *Mail*.
+- **The agent holds no delete at all.** The agent's tools name no act that
+  destroys mail — an irreversible or destructive act is a person's, always
+  (ADR 0032) — so what this record grants an administrator is a surface for a
+  person, and no tool the agent is given changes with it. A tool that files a
+  message can move it into the group's Deleted Items, which is the same place a
+  member's delete leaves it and is not a destroy.
 - **A message Gilbert wrote itself is not in the way.** Discarding a draft, and
   the write that replaces a draft when a message is sent, are the compose
   store's own `Email/set` calls (ADR 0007's sending path), not the mail store's
@@ -206,8 +199,8 @@ with; a group that wants the switch can be given one over it.
   account. Delete is not an identity question.
 - **`gilbertstalwart`.** Nothing is set inside Stalwart for this and no
   capability is required of it: the group's mail is ordinary mail to the server.
-- **`gilbertagents`.** Its catalogue is unchanged, and no automation gains a
-  capability.
+- **`gilbertagents`.** Its tools include nothing that destroys mail (ADR 0031,
+  ADR 0032).
 
 ## Consequences
 

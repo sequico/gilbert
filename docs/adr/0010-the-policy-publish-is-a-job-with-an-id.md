@@ -118,7 +118,7 @@ sign-in reads it. What this record decides is the record of what a publish did.
 - `web/src/views/admin/AdminPolicy.tsx` — `publishNotice`, and the job the
   editor shows
 - ADR 0001 — administration, the per-account policy, impersonation
-- ADR 0003 — *Coordination: leases, claims and fencing*, whose
+- ADR 0012 — a durable write is caused by a change, not by a clock: the
   conditional-write discipline the publish follows
 - `scripts/probe-conditional-writes.mjs` — the live probe that asks whether
   `FileNode/set` honours `ifInState` and what a stale token is refused as

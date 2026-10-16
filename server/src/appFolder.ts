@@ -15,8 +15,9 @@
  *   blob straight after has to ask again.
  * - A blob is uploaded separately and then referenced by a node.
  *
- * The paths below are app-folder-relative: `"agent/jobs/abc.json"` means the
- * file `abc.json` inside `jobs` inside `agent`, all inside `gilbert`. Missing
+ * The paths below are app-folder-relative: `"workorders/closed/abc.json"` means
+ * the file `abc.json` inside `closed` inside `workorders`, all inside
+ * `gilbert`. Missing
  * folders on the way are created on demand, which is what makes a document
  * write a single call at the call site.
  */
@@ -419,7 +420,7 @@ export async function findFolderPath(
 /**
  * The folder a path names, creating every segment on the way.
  *
- * `"agent/jobs"` resolves the two directories under the app folder and
+ * `"workorders/closed"` resolves the two directories under the app folder and
  * returns the id of the last one.
  */
 export async function ensureFolderPath(
@@ -967,16 +968,11 @@ export async function readVisibleFileAt(
  * The primitive the readers of the visible tree are built on, because bytes
  * are what a file is: text is a decode of them, and a PDF, a `.docx` or an
  * image is nothing else.
- *
- * `maxBytes` bounds what is held: a caller with its own ceiling passes it and
- * answers `BlobTooLargeError` in words, so a file nobody should read whole is
- * never buffered whole to find that out.
  */
 export async function readVisibleFileBytes(
   ctx: Ctx,
   accountId: string,
   path: string,
-  maxBytes?: number,
 ): Promise<{ bytes: Uint8Array; file: FileNodeLike; name: string } | null> {
   const found = await findVisibleFile(ctx, accountId, path);
   if (!found) return null;
@@ -989,7 +985,6 @@ export async function readVisibleFileBytes(
     String(found.file.blobId),
     found.name,
     type,
-    maxBytes,
   );
   return { bytes, file: found.file, name: found.name };
 }

@@ -1,9 +1,8 @@
 # Architecture decision records — index
 
-One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner and
-consecutively: a new record takes the number after the highest, so the
-sequence has no gaps. A number is minted for a decision that is new, never for
-a version of one already here.
+One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner: a
+new record takes the number after the highest. A number is minted for a
+decision that is new, never for a version of one already here.
 
 A citation names a record that is a file here, and a section inside it is
 named rather than numbered: the record's own structure is what a code
@@ -37,13 +36,6 @@ is, not what a user sees.
   nothing flows back, and no mirror branch is kept. Hand-taken commits are
   recorded in `docs/upstream.md`, because taking one never makes a release's own
   commit an ancestor of `main`.
-- **0003 — The agent fleet.** One installation-wide agent identity, its own
-  process or embedded in the server, coordinated by lease documents with no
-  supervisor. An automation is a trigger, a prose instruction and a capability
-  allowlist, with the review policy carried once per group (ADR 0006); every
-  run asks a model and the allowlist bounds what it may do. Covers the
-  notebook, chaining, metering, the document tools, and the three-part admin
-  surface (Master, Group Agents, Approvals).
 - **0004 — A contact group is not a recipient.** A group card
   (`kind: "group"`, its `members` named by `uid`, no address of its own) is a
   client-side convenience over addresses: the composer's To/Cc/Bcc
@@ -55,10 +47,6 @@ is, not what a user sees.
   be resolved is skipped and counted; no nesting, and no threshold of its own.
 - **0005 — Group chat and the group label catalog.** Both are layers on the
   group account's own JMAP Files, owned by the group from creation.
-- **0006 — The minimal automation.** One enabled automation per trigger a group
-  uses, grants chosen as areas rather than individual actions, and a cautiousness
-  that is the group's own policy document rather than a field on every
-  automation. The agent part is not functional yet (see `ROADMAP.md`).
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
@@ -95,9 +83,9 @@ is, not what a user sees.
   facts about the process itself. A publish applies from the next boot.
 - **0012 — A durable write is caused by a change, not by a clock.** Stalwart
   charges an account for every blob it uploads and never gives one back, so a
-  write on a clock — a heartbeat, a renewed lease, a session's activity stamp —
+  write on a clock — a session's activity stamp —
   spends a finite budget saying that a process is alive. Liveness and activity
-  are process facts (ADR 0003's claims, the sessions store), a write that would
+  are process facts (the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
 - **0013 — A dropped name is written over, in place.** A drop or a picker
@@ -153,31 +141,6 @@ is, not what a user sees.
   (`moveCardTo`), the surfaces draw the entry from the same answer, and filing a
   new card into a group's book, editing one where it lives and re-filing a card
   inside one account are not moves and are unchanged.
-- **0019 — The three levels of prose.** What an agent is told is written in
-  three places, and they are one shape at three reaches: the **installation's
-  own rules** (a document in the Master's account, written once in Admin →
-  Master, carried into every call of every group), a **group's standing
-  instruction** (the group's own account), and the **automation's own
-  instruction** (a field of the rule, authored with the trigger it belongs to).
-  They reach the model in that order — outermost first, after the capability
-  catalogue and the group's notebook, before anything volatile — and one
-  builder produces that order for both callers, a run's decision and an
-  administrator's reading of a draft. None of them grants anything: the grant is
-  the automation's capability allowlist, checked on every answer. The two
-  documents are one type and one pair of readers, and neither carries a
-  free-text field.
-- **0020 — A run may look something up.** The deciding call may answer with a
-  lookup from a closed catalogue instead of actions: the group's mail and its
-  chat by the **search grammar the mail client already speaks**
-  (`server/src/shared/search.ts`), one message or one file by the id/path a
-  listing gave, its folders, its labels, and its visible Files one level deep or
-  as a whole tree. The run performs the read in the group's own account, appends
-  bounded results to the volatile tail and asks again, at most
-  `AGENT_LOOKUP_ROUNDS` times. A listing is an index and a read is bounded, the
-  system message is byte-identical across the calls so the provider's cache
-  holds, the model writes a query and never a JMAP filter, a lookup writes no
-  state, and the allowlist and the review gate are untouched: it is the named,
-  narrow half of ADR 0006 decision three, with no per-question heuristic.
 - **0021 — A group's folders are subscribed for every member.** A subscription
   is read state kept for one principal, and membership writes none of it: a
   member of a working group holds the whole tree unsubscribed, which is

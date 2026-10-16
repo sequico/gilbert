@@ -2,9 +2,9 @@
  * The server tier's JMAP client: one request shape, one error mapping.
  *
  * Every server-side call to Stalwart goes through here — the account registry
- * (`account.ts`), the app-folder primitives (`appFolder.ts`) and the agent
- * (`agent/`) — so the `using` set, the timeout, the 401/403 mapping and
- * the blob upload/download templates are decided once.
+ * (`account.ts`) and the app-folder primitives (`appFolder.ts`) — so the `using`
+ * set, the timeout, the 401/403 mapping and the blob upload/download templates
+ * are decided once.
  *
  * The web client has its own transport (`web/src/jmap/client.ts`) because it
  * is built to talk through Gilbert's proxy with a browser's error surface;

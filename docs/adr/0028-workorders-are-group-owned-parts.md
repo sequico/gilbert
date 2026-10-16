@@ -19,8 +19,8 @@ large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision, resolves the applicable steps from it
 (`resolveChecklist`, `server/src/shared/knowledge.ts`) and carries the per-path
 steps and their states (ADR 0030). The agent checks a part through the same door
-(ADR 0003), and that agent part is **present in the tree but does not work yet; a
-refactor is planned** (see `ROADMAP.md`).
+the administration uses (`server/src/groupAccess.ts`), acting inside the group's
+own account (ADR 0032); it is **not built** (see `ROADMAP.md`).
 
 ## Context
 
@@ -140,7 +140,7 @@ The `closed/` **directory node** sits among the active
 roots in a listing of `workorders/` and is dropped by node type, so the active
 set is the files that remain. The folder is a **projection of the state, not the
 state**: the `state` field is the truth, a root standing in the wrong folder is a
-**finding** the fleet reconciles, and the move is one write that keeps the id, so
+**finding**, and the move is one write that keeps the id, so
 every reference by uid survives and reopening moves it back.
 
 A group's **part never moves**: the panel is composed by the route and filters a
@@ -161,8 +161,8 @@ model.
 reference names it, never because it sits under another folder: no per-workorder
 folder tree is maintained, and a folder read by several workorders is one
 reference per workorder and nothing special. A reference whose target is gone
-resolves as **not available** — never a broken pane — and is a **finding** the
-fleet reconciles, never a silent divergence.
+resolves as **not available** — never a broken pane — and is a **finding**,
+never a silent divergence.
 
 **One function follows every reference**, for every kind and every surface,
 built on the way the client already moves (`store/mail`'s open thread,
@@ -210,8 +210,8 @@ the workorder's own, and the two halves answer two questions.
 
 Either answer is read from the **template**, never from whether a document
 happens to be readable, so a group's part that cannot be read at this instant is
-not the reason a workorder disappears; a part whose document is gone is a finding
-the fleet reconciles and is omitted from the view. For a part, the Master lists
+not the reason a workorder disappears; a part whose document is gone is a finding,
+and it is omitted from the view. For a part, the Master lists
 `workorders/` in each group the reader is competent for — every group, for an
 administrator — and matches the uid, because the name cannot be asked of the
 server. A root is found in the Master's `workorders/` or in its `closed/`, since
@@ -312,9 +312,9 @@ private to the writer.
 A workorder is created **by the Master** — instructed in chat, or by an
 installation administrator from the workorder surface. Creation is privileged
 because the registry must be complete: it is the only enumeration, so nothing may
-create a workorder the Master's copy does not know. A request made in chat is an
-explicit run of a capability this adds to the fleet's closed catalogue, not a new
-kind of trigger (ADR 0003, ADR 0006). A group's part is written **in that group's own
+create a workorder the Master's copy does not know. A request made in chat is a
+person's instruction to the agent (ADR 0033), carried out in a run (ADR 0034). A
+group's part is written **in that group's own
 account**, so it is the group's; the Master seeds it as a member.
 
 ## Decision
@@ -349,8 +349,8 @@ created.
   an empty part and never a permission error. What the widening means is that the
   installation's own part of a process is not a group's secret: showing the global
   checklist while hiding the workorder that carries it would be one fact told two
-  ways. A part whose document is missing is a **finding the fleet reconciles**,
-  not a workorder that vanishes for its group.
+  ways. A part whose document is missing is a **finding**, not a workorder that
+  vanishes for its group.
 - The Master's membership is load-bearing, and where it does not hold for a group
   the surface says so (ADR 0007) rather than showing an empty part.
 - Because the Master writes for everybody, the document is the only record of a
@@ -386,9 +386,9 @@ created.
 
 - `docs/adr/0024` — the knowledge base: the procedures and the checklist
   templates a workorder instantiates
-- `docs/adr/0003` — the agent fleet (its `job` is a run, not a workorder)
+- `docs/adr/0034` — a run is a document, and the record is the product
 - `docs/adr/0005` — group chat (the panel launcher's shape)
-- `docs/adr/0006` — the minimal automation (one automation per trigger)
+- `docs/adr/0035` — a group's engagement is a rule in prose
 - `docs/adr/0007` — the agent as a member of every group it is granted on
 - `docs/adr/0017` — administration is a door, not a menu
 - `docs/adr/0030` — a checklist template branches on data, not on groups: the
