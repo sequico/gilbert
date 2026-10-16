@@ -1,6 +1,7 @@
 /**
  * The demo data the mock Stalwart serves: an industrial manufacturer's company
- * knowledge base and its workorders (ADR 0024, 0028, 0030).
+ * knowledge base, its workorders (ADR 0024, 0028, 0030) and the installation's
+ * own document (ADR 0011).
  *
  * The demo an installation shows is the mock, so the mock ships the product's
  * own features as data. Everything here is **derived from the shared builders**
@@ -10,7 +11,8 @@
  * model gains appears here by construction rather than by a second definition.
  *
  * The company KB and the workorder registry are the **Master's** (the `gilbert`
- * app folder in its own account, the tier the server ensures at boot). A
+ * app folder in its own account, the tier the server ensures at boot), and the
+ * installation's own document is seeded into that same folder. A
  * template section assigned to a group also gets the group's **part** of that
  * workorder, filed under the group's own `gilbert` folder, so the demo shows the
  * two-tier split the routes serve.
@@ -21,6 +23,11 @@
  * which is why every write here names that account.
  */
 import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "../shared/appFolder.js";
+import {
+  INSTALLATION_FILE,
+  type InstallationDocument,
+  installationDefaults,
+} from "../shared/installation.js";
 import {
   blocksFromText,
   buildDraft,
@@ -94,6 +101,31 @@ export interface DemoSeed {
 const idOf = (key: string): string => `kb-${key}`;
 
 const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * The installation document the demo holds.
+ *
+ * The defaults a first boot writes (ADR 0011), plus a secret this build can seal
+ * a session with and **a model** — the one field an agent needs (ADR 0031). It
+ * is the same shape through the same builder a real first boot uses, so a
+ * section added to the document appears here without a second definition, and
+ * the provider's address is deliberately one nobody serves: the demo carries no
+ * rules, so no pass calls it.
+ */
+function installationSeed(): InstallationDocument {
+  return {
+    ...installationDefaults(),
+    secret: "a-demo-installation-secret-long-enough-to-seal-a-session",
+    agent: {
+      provider: {
+        provider: "example",
+        model: "a-demo-model",
+        baseUrl: "https://models.example.com/v1",
+        apiKey: "a-demo-key",
+      },
+    },
+  };
+}
 
 /** The demo's one node factory, so every seeded node has a mock FileNode's shape. */
 function nodeFactory(putBlob: PutBlob, at: string) {
@@ -289,6 +321,16 @@ export function demoSeedNodes(input: DemoSeedInput): DemoSeed {
   const { dir, json } = nodeFactory(putBlob, at);
   const masterNodes: Obj[] = [
     dir("kb-app", null, APP_FOLDER_NAME),
+    /*
+     * The installation's own document, which a boot reads from this folder and
+     * creates when it is absent (ADR 0011). The demo carries one so the stack
+     * `dev:mock:agent` starts has an agent: an installation with no model has
+     * none (ADR 0031), and the model is the document's field rather than an
+     * environment variable. The address is a placeholder because the demo ships
+     * no rules, so no pass ever calls the model; a developer who wants a turn
+     * points it at their own provider in Administration → Installation.
+     */
+    json("kb-installation", "kb-app", INSTALLATION_FILE, installationSeed(), master),
     dir("kb-know", "kb-app", KNOWLEDGE_FOLDER),
   ];
   const groupNodes: Obj[] = [];

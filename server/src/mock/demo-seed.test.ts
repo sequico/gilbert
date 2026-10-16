@@ -27,6 +27,11 @@ const TEAM_GROUP = "a3";
 
 const mock = await import("./index.js");
 const { createApp, useDurableSessions } = await import("../app.js");
+const { signInAsMaster } = await import("../bootstrap.js");
+const { filesAccountId, readAppFileAt } = await import("../appFolder.js");
+const { INSTALLATION_FILE, parseInstallationDocumentDetailed } = await import(
+  "../shared/installation.js"
+);
 
 await useDurableSessions(
   { read: async () => null, write: async () => {} },
@@ -253,4 +258,31 @@ test("the demo's workorders are running and completed, with their steps' states"
     (section) => section.key,
   );
   assert.deepEqual(monthlyGroups, ["visual", "lubrication", "signoff"]);
+});
+
+test("the demo carries an installation with a model, which is what an agent needs", async () => {
+  /*
+   * `dev:mock:agent` runs the agent process against this stack, and an
+   * installation with no model has no agent (ADR 0031): the seed therefore
+   * holds the installation's own document (ADR 0011) naming one. Pinned here,
+   * next to the simulation, because a seed that lost it would leave the agent
+   * process exiting with nothing to work and every unit test green.
+   */
+  const master = await signInAsMaster({
+    stalwartUrl: `http://127.0.0.1:${PORT}`,
+    masterAddress: "gilbert@example.com",
+    masterPassword: "gilbert-password",
+  });
+  const ctx = {
+    authorization: master.authorization,
+    session: master.session,
+    username: master.address,
+  };
+  const accountId = filesAccountId(ctx);
+  assert.ok(accountId, "the Master's session holds a Files account");
+  const found = await readAppFileAt(ctx, accountId, INSTALLATION_FILE);
+  assert.ok(found, "the Master's app folder carries the installation document");
+  const parsed = parseInstallationDocumentDetailed(found.text);
+  assert.ok("doc" in parsed, "and it is a document this build boots from");
+  assert.ok(parsed.doc.agent.provider, "naming the model an agent runs on");
 });
