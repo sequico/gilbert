@@ -31,12 +31,35 @@ const SCRIPT = join(import.meta.dirname, "..", "..", "scripts", "gate-prepush.sh
 /** Every temp repository this file made, removed when it is done. */
 const made: string[] = [];
 
+/**
+ * The environment git exports to a hook must not reach a fixture. `GIT_DIR`,
+ * `GIT_WORK_TREE` and their kin are set while the pre-push hook runs, and this
+ * file's fixtures are created exactly there: an inherited `GIT_DIR` makes a
+ * fixture's `git init` initialize *this* repository and its commits land on
+ * *this* branch, which is how a push once reset the branch it was gating.
+ */
+const INHERITED = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_COMMON_DIR",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_CEILING_DIRECTORIES",
+];
+
+function gitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const name of INHERITED) delete env[name];
+  return env;
+}
+
 function git(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",
     env: {
-      ...process.env,
+      ...gitEnv(),
       GIT_AUTHOR_NAME: "gilbert-test",
       GIT_AUTHOR_EMAIL: "test@example.com",
       GIT_COMMITTER_NAME: "gilbert-test",
@@ -109,6 +132,25 @@ test("a deletion carries no tree, so it is not refused", () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(marker), true, "the gate still runs, over the checkout");
+});
+
+/**
+ * The invariant the incident taught: a fixture writes nothing into the
+ * repository that runs it. Take the scrubbed environment out of `git()` above
+ * and this goes red — a fixture's two commits land on this branch instead of on
+ * its own, which is exactly how a push once reset the branch it was gating.
+ */
+test("a fixture writes nothing into the repository that runs it", () => {
+  const here = join(import.meta.dirname, "..");
+  const before = git(here, "rev-parse", "HEAD").trim();
+
+  repo();
+
+  assert.equal(
+    git(here, "rev-parse", "HEAD").trim(),
+    before,
+    "the fixture's commits land in its own repository",
+  );
 });
 
 after(() => {
