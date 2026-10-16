@@ -338,6 +338,21 @@ async function mailboxesOf(
 type MailStoreProbe = "mailbox" | "share" | "unreadable";
 
 /**
+ * The accounts the mail store could not be asked about, and the line that is
+ * written for them once.
+ *
+ * The groups are resolved on **every** pass (`agent/supervisor.ts`), so the probe
+ * asks the same question every ten seconds: an account nobody can read is a
+ * state of the installation rather than an event, and a sentence repeated six
+ * times a minute is a sentence nobody reads. The line is therefore written when
+ * that state begins, and the account is forgotten the moment it answers again —
+ * so what a restart costs is one line, and what a genuine change costs is one
+ * more. Process state, like the roster cache below: whether the account is
+ * readable is asked of the server every time, never remembered as a fact.
+ */
+const unreadableAccounts = new Set<string>();
+
+/**
  * What the mail store says about an account: it has one, it has none, or nobody
  * could ask.
  *
@@ -353,14 +368,22 @@ async function probeMailStore(
   accountId: string,
 ): Promise<MailStoreProbe> {
   try {
-    return (await mailboxesOf(client, accountId)).length > 0 ? "mailbox" : "share";
+    const boxes = await mailboxesOf(client, accountId);
+    // The account answers again: whatever was said about it is over, and a later
+    // failure of its own is a new state that is owed a line.
+    unreadableAccounts.delete(accountId);
+    return boxes.length > 0 ? "mailbox" : "share";
   } catch (err) {
     // The reason is said out loud rather than swallowed, so an operator is not
-    // left reading a broken probe as a group that is not granted (ADR 0005).
-    console.warn(
-      `[gilbert] could not probe the account ${accountId} for a mail store:`,
-      errorMessage(err),
-    );
+    // left reading a broken probe as a group that is not granted (ADR 0005) —
+    // once, while the answer is this one.
+    if (!unreadableAccounts.has(accountId)) {
+      unreadableAccounts.add(accountId);
+      console.warn(
+        `[gilbert] could not probe the account ${accountId} for a mail store:`,
+        errorMessage(err),
+      );
+    }
     return "unreadable";
   }
 }
