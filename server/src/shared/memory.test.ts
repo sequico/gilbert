@@ -13,12 +13,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   type FactDoc,
+  MEMORY_SUBJECT_MAX,
+  MEMORY_SUBJECT_MIN,
   MEMORY_VERSION,
   parseFactDocumentDetailed,
   RECALL_CHARS_MAX,
   RECALL_FACTS_MAX,
   recallFacts,
   sameSubject,
+  subjectProblem,
 } from "./memory.js";
 
 const AT = "2026-10-16T10:00:00.000Z";
@@ -112,6 +115,56 @@ test("a sheet this build cannot read is reported, with what was wrong", () => {
 test("a subject is the same subject whatever case it is written in", () => {
   assert.equal(sameSubject(" Maersk ", "maersk"), true);
   assert.equal(sameSubject("Maersk", "Maersk Line"), false);
+});
+
+test("a subject shorter than a few characters is refused where it is written", () => {
+  // One rule, two doors (`subjectProblem`): the catalogue refuses the model's
+  // arguments and the store refuses its own write. Three characters is the
+  // smallest subject that names something rather than turning up inside every
+  // change.
+  assert.equal(MEMORY_SUBJECT_MIN, 3, "the length this build chose");
+  assert.equal(subjectProblem("Maersk"), null, "a name is a subject");
+  assert.match(subjectProblem("id") ?? "", /at least 3 characters/);
+  assert.match(subjectProblem(" a ") ?? "", /at least 3 characters/);
+  assert.match(subjectProblem("   ") ?? "", /must say what the fact is about/);
+  assert.match(
+    subjectProblem("x".repeat(MEMORY_SUBJECT_MAX + 1)) ?? "",
+    /must be at most/,
+  );
+});
+
+test("a subject of a letter or two is not carried by a change that merely contains it", () => {
+  /*
+   * A fact is recalled by the change's own **words**, so a subject has to be
+   * named as a whole word: a one- or two-letter subject is a substring of nearly
+   * every change, and a containment that took it would carry those facts ahead of
+   * the ones the change is about and spend the ceiling on them. Such a subject is
+   * refused where it is written (`subjectProblem`), and the rule holds here too,
+   * because a sheet already written is read whatever it holds.
+   */
+  const short = sheet({ id: "f-short", subject: "id", group: "another-group" });
+  assert.deepEqual(
+    recallFacts([short], "the client's identity is separate", GROUP),
+    [],
+    'the change does not name "id" as a word, though it contains the letters',
+  );
+  assert.deepEqual(
+    recallFacts([short], "the id of the booking", GROUP).map((fact) => fact.id),
+    ["f-short"],
+    "while a change that does name it as a word carries it",
+  );
+
+  const name = sheet({ id: "f-named", subject: "Maersk" });
+  assert.deepEqual(
+    recallFacts([name], "the Maersk Line booking", GROUP).map((fact) => fact.id),
+    ["f-named"],
+    "a subject the change has as a word is carried, wherever the change puts it",
+  );
+  assert.deepEqual(
+    recallFacts([name], "a xmaersk shambles", GROUP),
+    [],
+    "and one the change only has inside a longer word is not",
+  );
 });
 
 test("the selection carries the group's standing set, what the change names and their nearest links", () => {

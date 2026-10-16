@@ -64,6 +64,33 @@ export const MEMORY_FACT_MAX = 400;
 export const MEMORY_SUBJECT_MAX = 200;
 
 /**
+ * The shortest subject this build writes, in characters.
+ *
+ * A change's own words are what recalls a fact (`recallFacts`), so a subject of
+ * one or two letters is one that turns up as a whole word inside nearly every
+ * change — it would be carried ahead of the facts the change is about and spend
+ * the ceiling on nothing. Three is the smallest that names something.
+ */
+export const MEMORY_SUBJECT_MIN = 3;
+
+/**
+ * Why a subject cannot be written, or null when it can.
+ *
+ * One rule, two doors: the catalogue refuses the model's arguments before
+ * anything runs (`agent/tools.ts`), and the store refuses a write of its own
+ * (`agent/memory.ts`), and both say the same thing.
+ */
+export function subjectProblem(subject: string): string | null {
+  const text = subject.trim();
+  if (!text) return '"subject" must say what the fact is about.';
+  if (text.length < MEMORY_SUBJECT_MIN)
+    return `"subject" must be at least ${MEMORY_SUBJECT_MIN} characters: a shorter one names nothing, and nearly every change carries it.`;
+  if (text.length > MEMORY_SUBJECT_MAX)
+    return `"subject" must be at most ${MEMORY_SUBJECT_MAX} characters.`;
+  return null;
+}
+
+/**
  * What a call carries, at most (ADR 0037): facts, and the characters of their
  * subjects and sentences together.
  *
@@ -223,6 +250,34 @@ function fold(text: string): string {
 }
 
 /**
+ * Whether one folded text mentions the other, as a **whole word**.
+ *
+ * A change's own words are what recall a fact (`recallFacts`), and a subject has
+ * to be named as a word for that rather than found inside one: a subject of one
+ * or two letters is a substring of nearly every change, and a containment that
+ * took it would carry those facts ahead of the ones the change is about. Both
+ * texts arrive folded, and the boundary is a character that is not part of a
+ * word on either side of the match.
+ */
+function mentions(haystack: string, needle: string): boolean {
+  if (!needle) return false;
+  for (
+    let at = haystack.indexOf(needle);
+    at >= 0;
+    at = haystack.indexOf(needle, at + 1)
+  ) {
+    if (!isWordChar(haystack[at - 1]) && !isWordChar(haystack[at + needle.length]))
+      return true;
+  }
+  return false;
+}
+
+/** Whether a character of a folded text is part of a word. */
+function isWordChar(char: string | undefined): boolean {
+  return char !== undefined && /[a-z0-9_]/.test(char);
+}
+
+/**
  * Whether two spellings name one subject: the store's own identity.
  *
  * One rule for one question — the write that must find the sheet a subject
@@ -242,11 +297,13 @@ export function sameSubject(a: string, b: string): boolean {
  *    itself and every call of it starts from there. A standing fact of another
  *    group is not carried: a group's conventions are its own;
  * 2. what the **change at hand names**: a fact whose subject the change's own
- *    words carry, whatever group it is about (the surface, the address, the
- *    subjects the decision found — `words` is that text, and the containment is
- *    what makes "Maersk" recall a sheet about it however the sheet spells the
- *    subject around it). One memory serves the installation, so a fact learned
- *    in one group is recalled in another when a change names its subject;
+ *    words carry as a whole word, whatever group it is about (the surface, the
+ *    address, the subjects the decision found — `words` is that text, and the
+ *    match is what makes "Maersk" recall a sheet about it however the sheet
+ *    spells the subject around it, while a subject of one or two letters — which
+ *    nearly every change contains — is not a word the change named). One memory
+ *    serves the installation, so a fact learned in one group is recalled in
+ *    another when a change names its subject;
  * 3. their **nearest links** — one hop, so a fact about a thing brings what it
  *    is linked to and no further.
  *
@@ -283,7 +340,7 @@ export function recallFacts(
   for (const fact of facts) if (fact.standing && fact.group === group) take(fact);
   if (named)
     for (const fact of facts)
-      if (fact.subject && named.includes(fold(fact.subject))) take(fact);
+      if (fact.subject && mentions(named, fold(fact.subject))) take(fact);
   const byId = new Map(facts.map((fact) => [fact.id, fact]));
   for (const fact of [...picked])
     for (const id of fact.links) {

@@ -46,10 +46,10 @@ import { CodedError, errorMessage } from "../shared/errors.js";
 import {
   type FactDoc,
   MEMORY_FACT_MAX,
-  MEMORY_SUBJECT_MAX,
   MEMORY_VERSION,
   parseFactDocumentDetailed,
   sameSubject,
+  subjectProblem,
 } from "../shared/memory.js";
 import { isInstant } from "../shared/run.js";
 
@@ -243,16 +243,18 @@ export async function rememberFact(
 ): Promise<FactDoc> {
   const subject = write.subject.trim();
   const sentence = write.fact.trim();
-  if (!subject || !sentence)
+  const problem = subjectProblem(subject);
+  if (problem) throw new MemoryError("fact_invalid", problem, 400);
+  if (!sentence)
     throw new MemoryError(
       "fact_invalid",
-      "A fact needs the subject it is about and the sentence it holds true.",
+      "A fact needs the sentence it holds true.",
       400,
     );
-  if (subject.length > MEMORY_SUBJECT_MAX || sentence.length > MEMORY_FACT_MAX)
+  if (sentence.length > MEMORY_FACT_MAX)
     throw new MemoryError(
       "fact_invalid",
-      `A fact's subject is at most ${MEMORY_SUBJECT_MAX} characters and its sentence at most ${MEMORY_FACT_MAX}.`,
+      `A fact's sentence is at most ${MEMORY_FACT_MAX} characters.`,
       400,
     );
   if (!isInstant(write.at))

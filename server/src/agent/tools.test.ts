@@ -788,7 +788,8 @@ test("the memory tool records a fact where the installation keeps them", async (
 
   // Arguments the tool cannot use are refused before the memory is touched.
   await assert.rejects(
-    () => writeTool("memory.remember", { subject: "x", fact: "y", standing: "yes" }),
+    () =>
+      writeTool("memory.remember", { subject: "shipper", fact: "y", standing: "yes" }),
     /"standing" must be true or false/,
   );
   await assert.rejects(
@@ -796,9 +797,16 @@ test("the memory tool records a fact where the installation keeps them", async (
     /"subject" must be text/,
   );
   await assert.rejects(
+    // A subject shorter than a few characters is one nearly every change
+    // carries, so the catalogue refuses it where the write is asked for
+    // (`subjectProblem`, ADR 0037).
+    () => writeTool("memory.remember", { subject: "id", fact: "some sentence" }),
+    /"subject" must be at least 3 characters/,
+  );
+  await assert.rejects(
     () =>
       writeTool("memory.remember", {
-        subject: "x",
+        subject: "shipper",
         fact: "y".repeat(MEMORY_FACT_MAX + 1),
       }),
     /"fact" must be at most/,

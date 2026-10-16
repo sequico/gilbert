@@ -67,7 +67,7 @@ import {
   isAgentLabel,
   type LabelCatalogEntry,
 } from "../shared/labels.js";
-import { MEMORY_FACT_MAX, MEMORY_SUBJECT_MAX } from "../shared/memory.js";
+import { MEMORY_FACT_MAX, subjectProblem } from "../shared/memory.js";
 import type {
   RunAuthority,
   RunAuthorityAct,
@@ -991,11 +991,8 @@ const rememberFactTool = defineTool({
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const subject = textArg(args, "subject");
-    if (subject.length > MEMORY_SUBJECT_MAX)
-      throw new ToolError(
-        "bad_arguments",
-        `"subject" must be at most ${MEMORY_SUBJECT_MAX} characters.`,
-      );
+    const problem = subjectProblem(subject);
+    if (problem) throw new ToolError("bad_arguments", problem);
     const fact = textArg(args, "fact");
     if (fact.length > MEMORY_FACT_MAX)
       throw new ToolError(
