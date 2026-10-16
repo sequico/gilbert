@@ -66,8 +66,9 @@ agent's durable state.
   waits on an earlier one, and for a later step to depend on how an earlier one
   ended — if that call filed the message, do this; if it was refused, do that —
   reasoned from the group's knowledge, its checklists and its workorders, and
-  never compiled at write time. A step waits on a step named before it and the
-  outcome it needs, so a plan cannot cycle; the loop runs what is ready, reads
+  never compiled at write time. A step waits on a step named before it **in the
+  same answer**, and on the outcome it needs, so a plan cannot cycle; the loop
+  runs what is ready, reads
   each outcome, and takes the branch that outcome names, and a step no branch
   reaches is left unrun with its record saying which step and which outcome left
   it.
