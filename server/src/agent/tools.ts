@@ -296,24 +296,6 @@ function countArg(
   return Math.min(value, max);
 }
 
-/**
- * One optional list of text fields, each naming something.
- *
- * The list's own reader, so "a list of names" means one thing to every tool
- * that takes one: an entry that is not text, or is empty, is the same refusal
- * as a single field that is.
- */
-function textListArg(raw: Record<string, unknown>, key: string): string[] {
-  const value = raw[key];
-  if (value === undefined || value === null) return [];
-  if (
-    !Array.isArray(value) ||
-    !value.every((one) => typeof one === "string" && Boolean(one.trim()))
-  )
-    throw new ToolError("bad_arguments", `"${key}" must be a list of names.`);
-  return (value as string[]).map((one) => one.trim());
-}
-
 /** A missing object, in the model's own words: not a failure to report as one. */
 function notFound(what: string): ToolError {
   return new ToolError("not_found", `There is no ${what}.`, 404);
@@ -1002,7 +984,19 @@ const rememberFactTool = defineTool({
     const standing = args.standing ?? false;
     if (typeof standing !== "boolean")
       throw new ToolError("bad_arguments", '"standing" must be true or false.');
-    return { subject, fact, links: textListArg(args, "links"), standing };
+    // The subjects the fact belongs with; a list left out is no links at all.
+    const links: unknown = args.links ?? [];
+    if (
+      !Array.isArray(links) ||
+      !links.every((one) => typeof one === "string" && Boolean(one.trim()))
+    )
+      throw new ToolError("bad_arguments", '"links" must be a list of names.');
+    return {
+      subject,
+      fact,
+      links: (links as string[]).map((one) => one.trim()),
+      standing,
+    };
   },
   run: async ({ ctx, accountId, run, memory }, { subject, fact, links, standing }) => {
     // The memory is the installation's, so the account it is **written to** is
