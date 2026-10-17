@@ -1,7 +1,17 @@
-import { Code, Info, KeyRound, ServerCog, ShieldCheck, Tag, UserCog } from "lucide-react";
+import {
+  Bot,
+  Code,
+  Info,
+  KeyRound,
+  ServerCog,
+  ShieldCheck,
+  Tag,
+  UserCog,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
+import { AdminAgent } from "@/views/admin/AdminAgent";
 import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
@@ -17,7 +27,8 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the
- * installation's own document (ADR 0011), the group
+ * installation's own document (ADR 0011), **the installation's agent** (where it
+ * is, the runs its groups have worked, the facts it reasons from), the group
  * label catalogs, forced password changes, and **Identities**,
  * one section holding a person's and a group's behind two tabs (ADR 0007) —
  * the surfaces ADR 0001/0005 cover.
@@ -41,6 +52,13 @@ function sections(): AdminSection[] {
       label: t("Installation"),
       icon: <ServerCog size={18} />,
       el: <AdminInstallation />,
+      owner: "mailer",
+    },
+    {
+      id: "agent",
+      label: t("Agent"),
+      icon: <Bot size={18} />,
+      el: <AdminAgent />,
       owner: "mailer",
     },
     {
@@ -87,7 +105,8 @@ function sections(): AdminSection[] {
  * copy both surfaces render through — so the shield icon in the top bar and
  * these sections stay consistent. The nav groups the surfaces by owner:
  * "Gilbert Mailer" for the mail server's own administration (policy, the
- * installation document, forced passwords, group label catalogs, and the
+ * installation document, the installation's agent, forced passwords, group label
+ * catalogs, and the
  * identities an administrator sets as one section with a tab per kind of
  * principal, ADR 0007), and "Stalwart"
  * for the mail server's own records — its trusted,

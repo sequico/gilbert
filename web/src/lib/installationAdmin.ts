@@ -9,7 +9,15 @@
  * reshaped.
  */
 import { installationDefaults } from "@gilbert/shared/installation";
+import { isRecord } from "@gilbert/shared/json";
 import { apiFetch } from "@/jmap/client";
+
+/** The three fields an installation chooses for its model (ADR 0031). */
+export interface InstallationModel {
+  provider: string;
+  model: string;
+  baseUrl: string;
+}
 
 /** What `GET /api/admin/installation` answers, as the server builds it. */
 export interface InstallationView {
@@ -71,4 +79,37 @@ export function startingInstallationDocument(): string {
   crypto.getRandomValues(bytes);
   const secret = btoa(String.fromCharCode(...bytes));
   return JSON.stringify({ ...installationDefaults(), secret }, null, 2);
+}
+
+/**
+ * What the document text names as the installation's model (ADR 0031).
+ *
+ * The three fields an installation chooses, read **leniently** rather than
+ * through the document's own validator (`@gilbert/shared/installation`): a
+ * half-written document a person is editing should still show the model it
+ * names, and the server validates the whole document on publish. Every field
+ * empty is what "no model is named" reads as — an installation with no model has
+ * no agent.
+ *
+ * One reader for the two surfaces that show it: the section that edits it, whose
+ * fields write `agent.provider` in the text it holds, and the agent's own
+ * section, which **links** to that one rather than keeping a second set of fields.
+ */
+export function installationModel(text: string | null): InstallationModel {
+  const none: InstallationModel = { provider: "", model: "", baseUrl: "" };
+  if (!text) return none;
+  let whole: unknown;
+  try {
+    whole = JSON.parse(text);
+  } catch {
+    return none;
+  }
+  if (!isRecord(whole) || !isRecord(whole.agent) || !isRecord(whole.agent.provider))
+    return none;
+  const provider = whole.agent.provider;
+  return {
+    provider: typeof provider.provider === "string" ? provider.provider : "",
+    model: typeof provider.model === "string" ? provider.model : "",
+    baseUrl: typeof provider.baseUrl === "string" ? provider.baseUrl : "",
+  };
 }

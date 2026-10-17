@@ -5,6 +5,7 @@ import { t, tNode } from "@/lib/i18n";
 import {
   fetchInstallation,
   type InstallationView,
+  installationModel,
   type InstallationPublished as Published,
   publishInstallation,
   startingInstallationDocument,
@@ -12,13 +13,6 @@ import {
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { LoadState } from "@/ui/LoadState";
 import { Switch } from "@/ui/misc";
-
-/** What the document names as the installation's model, for the form's fields. */
-interface ModelDraft {
-  provider: string;
-  model: string;
-  baseUrl: string;
-}
 
 /**
  * The three things a save can say about the model's key, which is never shown.
@@ -42,26 +36,6 @@ function parseObject(text: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-}
-
-/**
- * What the document text names as the model.
- *
- * Read leniently rather than through the document's own validator
- * (`@gilbert/shared/installation`): the text is a draft an administrator is
- * editing, not a document a boot will read, and a half-written one should still
- * show the model it names. The server validates the whole document on publish.
- */
-function modelOf(text: string): ModelDraft {
-  const none: ModelDraft = { provider: "", model: "", baseUrl: "" };
-  const whole = parseObject(text);
-  if (!whole || !isRecord(whole.agent) || !isRecord(whole.agent.provider)) return none;
-  const provider = whole.agent.provider;
-  return {
-    provider: typeof provider.provider === "string" ? provider.provider : "",
-    model: typeof provider.model === "string" ? provider.model : "",
-    baseUrl: typeof provider.baseUrl === "string" ? provider.baseUrl : "",
-  };
 }
 
 /**
@@ -100,7 +74,7 @@ function withModelField(
  */
 function withModelKey(text: string, draft: KeyDraft): string {
   if (draft.kind === "kept") return text;
-  if (!modelOf(text).provider) return text;
+  if (!installationModel(text).provider) return text;
   return withModelField(text, { apiKey: draft.kind === "none" ? null : draft.value });
 }
 
@@ -230,7 +204,7 @@ export function AdminInstallation() {
   const documentProblem = jsonProblem(text);
   /** The fields write into the text, so they need a text that is one object. */
   const editable = !saving && !documentProblem;
-  const model = modelOf(text);
+  const model = installationModel(text);
 
   return (
     <div>

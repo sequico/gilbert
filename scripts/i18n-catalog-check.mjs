@@ -38,8 +38,14 @@ import {
  *
  * 169 -> 170: the calendar's sentence for a subscription that did not answer in
  * time (`store/calendar.ts`), a third-party server's silence rather than ours.
+ *
+ * 170 -> 195: the agent's administration section's batch
+ * (`views/admin/AdminAgent.tsx`) — where the agent is, a run's plan with the
+ * order and the branch each step took, and the facts of the installation's
+ * memory — with the states a step and a run left in, which the record names in
+ * its own words and a reader cannot be left to guess at.
  */
-const MISSING_MAX = 170;
+const MISSING_MAX = 195;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.
