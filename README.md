@@ -101,9 +101,12 @@ The short version; [FEATURES.md](FEATURES.md) is the inventory.
   written policy and the group's own rules, does the reversible work of the
   account, records what it did and why, and asks a person for anything that
   leaves the account — or for anything the policy forbids (ADR 0031–0035).
-- **A receipt for everything.** Every run is recorded, one line written before
-  the effect, in a monthly document per group kept twelve months and readable by
-  every member.
+- **A receipt for everything.** Every run is one document in the group's own
+  account, under `runs/`, where every member can read it: what woke it, the plan
+  with what each step waited on, what each step answered, what it spent and where
+  it parked. The plan and what each step is about to do are written **before** the
+  act, so a container that dies in the middle leaves the account with a record of
+  what the run was doing.
 - **Groups, chat and a shared directory.** A group mailbox is an account owned
   by the group; chat is one conversation per group in that account; **Global
   contacts** is one directory the installation owns and every account reads.

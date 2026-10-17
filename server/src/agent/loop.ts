@@ -10,13 +10,14 @@
  * rules apply. A change no rule watches costs no model call and no step; every
  * rule that applies opens or continues its own run (ADR 0035), and each run is
  * worked by the **choosing turn** — the model asks for a plan of one or more
- * steps, each naming what it waits on, the loop runs the steps whose
- * dependencies have ended **together**, reads each outcome and takes the branch
- * that outcome names, writes each as its own step with its own outcome and its
- * own spend on the run, spends the budget, and asks again, until the model says
- * done, a step parks the run on a person, or the budget ends it. A step no
- * branch of the plan reaches is left unrun, and the record says which step and
- * which outcome left it — the loop invents no ordering of its own.
+ * steps, each naming what it waits on, the loop **writes that plan on the run
+ * before it acts on any of it**, runs the steps whose dependencies have ended
+ * **together**, reads each outcome and takes the branch that outcome names,
+ * writes each outcome and its own spend on the run, spends the budget, and asks
+ * again, until the model says done, a step parks the run on a person, or the
+ * budget ends it. A step no branch of the plan reaches is left unrun, and the
+ * record says which step and which outcome left it — the loop invents no
+ * ordering of its own.
  *
  * **Every call starts from what the installation knows.** The pass reads the
  * memory the Master's account holds **once** (ADR 0037) and takes the
@@ -539,6 +540,15 @@ export class AgentLoop {
           `${call.name} ${boundedText(call.args)}`,
           shiftNeeds(call.needs, base),
         );
+      /*
+       * The document is written **before** the answer is acted on: what the run
+       * is about to do is on the record while it is still to do (ADR 0034). The
+       * process is disposable by law and a container dies between two steps, so a
+       * plan held only in memory would leave the effect in the account with
+       * nothing that says what asked for it. The outcomes are written after the
+       * wave, on the same call, further down.
+       */
+      await this.store(accountId, current);
       let wait: RunWait | null = null;
       for (;;) {
         const { ready, left } = readiness(current.plan, base);
@@ -615,7 +625,7 @@ export class AgentLoop {
             why: `waiting on a person: ${wait.what}`,
           });
       }
-      // The document is written whole, once, after the answer.
+      // The outcomes are written on the document the wave ran against, whole.
       await this.store(accountId, current);
       if (wait) return;
     }

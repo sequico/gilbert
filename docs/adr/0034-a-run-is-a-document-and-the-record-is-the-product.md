@@ -63,11 +63,15 @@ agent's durable state.
   answer — the same tool twice among them — and the calls of one answer that wait
   on nothing are made together. Each call is its own step in the plan, with its
   own outcome and its own spend, and one of them leaving a wait has it honoured
-  after the whole answer. The answer is written once, whole. A message whose
-  attachment must be saved and which must then be filed in a folder is one such
-  turn: neither act waits on the other, so both are asked for at once — and the
-  same turn may ask a person in chat about what follows, the acts and the question
-  being one answer, whose wait begins once they are done.
+  after the whole answer. **The answer is written before it is acted on**: the
+  plan and each step's intent are on the run while the steps are still to run, and
+  each step's outcome is written on the same document after the wave. The process
+  is disposable, so a record held only in memory is a record a container can take
+  with it — leaving an effect in the account with nothing that says what asked for
+  it. A message whose attachment must be saved and which must then be filed in a
+  folder is one such turn: neither act waits on the other, so both are asked for
+  at once — and the same turn may ask a person in chat about what follows, the
+  acts and the question being one answer, whose wait begins once they are done.
 - **A plan carries order and conditions.** The model may ask for a step that
   waits on an earlier one, and for a later step to depend on how an earlier one
   ended — if that call filed the message, do this; if it was refused, do that —

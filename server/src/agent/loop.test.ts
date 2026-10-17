@@ -29,6 +29,8 @@
  * - an answer whose plan cannot be read is refused whole, recorded, and asked
  *   again;
  * - a step that asks a person parks the run on the answer it left;
+ * - **the plan is on the run before the first act of the answer runs**, and each
+ *   outcome on the same document after it;
  * - a run whose wait has come due is picked up again, which is what a restart
  *   loses nothing to.
  * - a fact one run learned is handed to the next change's call, and the run's
@@ -1205,6 +1207,58 @@ test("two memories of one answer leave one sheet, and the refusal is on the run"
     run.recalled.length,
     0,
     "and neither call recalled anything: the memory held nothing about it yet",
+  );
+});
+
+test("the plan is on the run before the first act of the answer runs", async () => {
+  /*
+   * The process is disposable by law, so a plan held only in memory is a plan a
+   * container can take with it: the act lands in the account and nothing says
+   * what asked for it. What pins the order is an act that reads the account's
+   * own runs **while it is running** — the loop may not write what the run is
+   * about to do after the wave.
+   */
+  const id = "intake-receipt";
+  await putRule(id);
+  /** What the account's own document said, read from inside each act. */
+  const whileActing: string[][] = [];
+  const probe = defineTool({
+    name: "probe.record",
+    description: "An act that reads what the run's own document says while it runs.",
+    authority: "reversible",
+    writes: false,
+    spend: { steps: 1 },
+    parse: () => ({}),
+    run: async (call) => {
+      const stored = (await listRuns(ctx, accountId)).find(
+        (record) => record.run.id === call.run.id,
+      );
+      whileActing.push(
+        (stored?.run.plan ?? []).map((step) => `${step.what}: ${step.state}`),
+      );
+      return { read: true };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, probe] });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ calls: [{ name: "probe.record", arguments: {} }] });
+  answerWith({ done: "read the record and done" });
+  await deliver("a change whose act reads the record");
+  await agent.pass();
+
+  assert.deepEqual(
+    whileActing,
+    [["probe.record {}: open"]],
+    "the step the model chose was on the document while it ran, not written after it",
+  );
+  const run = await runOf(id);
+  assert.equal(run.state, "done", "and the run was worked to its ending");
+  assert.deepEqual(
+    run.plan.map((step) => step.state),
+    ["done"],
+    "with the outcome written on the same document afterwards",
   );
 });
 
