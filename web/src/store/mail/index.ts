@@ -1936,10 +1936,7 @@ export const useMail = create<MailState>((set, get) => ({
             ch.updated.forEach((id) => updated.add(id));
             ch.destroyed.forEach((id) => destroyed.add(id));
             since = ch.newState;
-            if (!ch.hasMoreChanges) {
-              more = false;
-              break;
-            }
+            if (!ch.hasMoreChanges) break;
             more = true;
           }
           // The changes were read: whatever was reported while the server was
