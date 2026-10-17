@@ -62,15 +62,13 @@ RUN npm ci --ignore-scripts --omit=dev --workspace server \
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/web/dist ./web/dist
 USER node
-# No `VOLUME ["/data"]`. It reads like documentation for where the session file
-# goes, but Docker acts on it: a container started without `-v` gets an
-# anonymous volume mounted there anyway, and that mount stays writable even
-# under `--read-only`. So the directive quietly put a writable hole in a
-# container meant to be immutable, and left an orphaned volume behind every
-# time one was replaced -- while never persisting anything across a redeploy,
-# since each new container got a fresh empty volume of its own. Deployments
-# that want the sessions to survive say so themselves: docker-compose.yml and
-# deploy.example.sh both mount a *named* volume at /data, which is unaffected.
+# No `VOLUME ["/data"]`. Docker acts on that directive: a container started
+# without `-v` gets an anonymous volume mounted there anyway, and that mount
+# stays writable even under `--read-only` -- a writable hole in a container
+# meant to be immutable, and an orphaned volume left behind every time one is
+# replaced. Nothing here needs one: the app keeps nothing durable on disk, as
+# sessions and every other record live in Stalwart. `deploy.example.sh` mounts a
+# named volume at /data only in its IMMUTABLE=0 branch.
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s CMD ["node", "/app/scripts/healthcheck.mjs"]
 CMD ["node", "server/dist/index.js"]
