@@ -74,3 +74,27 @@ describe("a mail change pass that fails", () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("a mail change pass longer than its page bound", () => {
+  it("takes the token from the server instead of advancing past unread pages", async () => {
+    let pages = 0;
+    let stateAsked = 0;
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/changes") {
+        pages++;
+        return changes({ newState: `s${pages}`, hasMoreChanges: true });
+      }
+      if (method === "Email/get") {
+        stateAsked++;
+        return { state: "fresh", list: [], notFound: [] };
+      }
+      if (method === "Mailbox/get") return { list: [], state: "m1" };
+      return { list: [], state: "s1", notFound: [] };
+    }) as never);
+
+    await useMail.getState().applyChanges(new Set(["Email"]));
+    expect(pages).toBe(10);
+    expect(stateAsked, "the state is re-read once the walk is cut short").toBe(1);
+    expect(useMail.getState().emailState).toBe("fresh");
+  });
+});
