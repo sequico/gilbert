@@ -292,6 +292,40 @@ export function registerAdminRoutes(api: Hono<Env>): void {
     };
     const ownAccountId = filesAccountId(own);
 
+    /*
+     * The job is built before the first copy goes out and written now, empty,
+     * so an abandoned publish leaves the record of what it started with the
+     * same id its copies carry. `reached` and `unreached` are the arrays the
+     * job references, so the final write reflects whatever the run collected.
+     */
+    const job: PublishJob = {
+      v: 1,
+      id,
+      startedAt,
+      by: admin.username,
+      population: { read: 0, complete: false, total: null },
+      reached,
+      unreached,
+      complete: false,
+    };
+    /*
+     * A record that cannot be written is said rather than swallowed, and is
+     * not the publish: the copies are what the installation follows.
+     */
+    const record = async (): Promise<void> => {
+      if (!ownAccountId) return;
+      try {
+        await writePublishJob(own, ownAccountId, job);
+        // A later write that lands lifts an earlier failure's claim.
+        delete job.record;
+        delete job.recordMessage;
+      } catch (err) {
+        job.record = "failed";
+        job.recordMessage = errorMessage(err);
+      }
+    };
+    await record();
+
     /**
      * One account's copy, written conditionally against that account's own
      * folder.
@@ -341,39 +375,47 @@ export function registerAdminRoutes(api: Hono<Env>): void {
       await deliver(admin.username, own, ownAccountId);
     }
 
-    // The rest of the directory, one impersonated write per account. A failure
-    // here does not undo the write just made to the publisher's own account --
-    // there is no shared document for it to be undone against.
+    // The rest of the directory, one impersonated write per account, a few at a
+    // time: each account is its own app folder, so the writes cannot collide,
+    // and a thousand of them in single file would hold one HTTP request open
+    // for minutes. A failure here does not undo the write just made to the
+    // publisher's own account -- there is no shared document for it to be
+    // undone against.
     const directory = await fetchDirectoryUsers(admin.authorization, upstream);
-    let population: PublishJob["population"] = { read: 0, complete: false, total: null };
     let carrying = false;
     let refusal: string | undefined;
     if ("denied" in directory) {
       refusal = directory.denied;
     } else {
-      for (const user of directory.users) {
-        if (normalizeUsername(user.name) === normalizeUsername(admin.username)) continue;
-        const imp = await impersonateAs(admin, user.name);
-        if (!imp.ok) {
-          unreached.push({
-            address: user.name,
-            code: "impersonation-refused",
-            message: imp.message,
-          });
-          continue;
-        }
-        const accountId = filesAccountId(imp.ctx);
-        if (!accountId) {
-          unreached.push({
-            address: user.name,
-            code: "no-files-account",
-            message: "this account has no Files account to hold the policy",
-          });
-          continue;
-        }
-        await deliver(user.name, imp.ctx, accountId);
+      const BATCH = 4;
+      for (let at = 0; at < directory.users.length; at += BATCH) {
+        await Promise.all(
+          directory.users.slice(at, at + BATCH).map(async (user) => {
+            if (normalizeUsername(user.name) === normalizeUsername(admin.username))
+              return;
+            const imp = await impersonateAs(admin, user.name);
+            if (!imp.ok) {
+              unreached.push({
+                address: user.name,
+                code: "impersonation-refused",
+                message: imp.message,
+              });
+              return;
+            }
+            const accountId = filesAccountId(imp.ctx);
+            if (!accountId) {
+              unreached.push({
+                address: user.name,
+                code: "no-files-account",
+                message: "this account has no Files account to hold the policy",
+              });
+              return;
+            }
+            await deliver(user.name, imp.ctx, accountId);
+          }),
+        );
       }
-      population = {
+      job.population = {
         read: directory.users.length,
         complete: directory.complete,
         total: directory.total,
@@ -383,17 +425,8 @@ export function registerAdminRoutes(api: Hono<Env>): void {
       carrying = directory.complete && unreached.length === 0;
     }
 
-    const job: PublishJob = {
-      v: 1,
-      id,
-      startedAt,
-      by: admin.username,
-      population,
-      reached,
-      unreached,
-      complete: carrying,
-      ...(refusal ? { directory: refusal } : {}),
-    };
+    job.complete = carrying;
+    if (refusal) job.directory = refusal;
     /*
      * The record, in the publishing administrator's own app folder. A publish
      * whose record cannot be written fails loudly rather than answering a job
@@ -402,20 +435,7 @@ export function registerAdminRoutes(api: Hono<Env>): void {
      * with no Files account at all has nowhere to keep it, and that is already
      * named in `unreached`.
      */
-    if (ownAccountId) {
-      /*
-       * The record is what makes this answer worth anything later, so a write
-       * that fails is said rather than swallowed -- but it is not the publish:
-       * every copy is already in its account, and the report of what was
-       * reached must not be thrown away because the note about it was.
-       */
-      try {
-        await writePublishJob(own, ownAccountId, job);
-      } catch (err) {
-        job.record = "failed";
-        job.recordMessage = errorMessage(err);
-      }
-    }
+    await record();
     return job;
   }
 
