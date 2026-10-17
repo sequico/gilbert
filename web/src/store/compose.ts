@@ -891,6 +891,16 @@ export const useCompose = create<ComposeState>((set, get) => ({
         saveChains.delete(key);
         toast.show(translate("Draft saved"));
       } catch (err) {
+        /*
+         * The draft left `drafts` before this save ran, so a failure would drop
+         * it from the screen, from Drafts and from anything that could retry.
+         * It goes back where the reader can see it, exactly as a failed send
+         * restores its own.
+         */
+        set((s) => ({
+          drafts: s.drafts.some((x) => x.key === d.key) ? s.drafts : [...s.drafts, d],
+          activeKey: d.key,
+        }));
         toast.error(
           translate("Could not save draft: {error}", { error: errorMessage(err) }),
         );
