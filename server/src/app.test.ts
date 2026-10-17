@@ -67,7 +67,7 @@ test("a member's health answer carries no account names either", async () => {
     ip: "127.0.0.1",
   });
   const res = await app.request("/api/health", {
-    headers: { cookie: "gilbert_session=" + cookie },
+    headers: { cookie: `gilbert_session=${cookie}` },
   });
   const body = (await res.json()) as { push: { failures?: unknown } };
   assert.equal(res.status, 200);
