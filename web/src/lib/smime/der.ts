@@ -143,11 +143,6 @@ export function expect(node: Asn1, tag: number, what: string): Asn1 {
   return node;
 }
 
-/** A context-specific child, e.g. [0] — returns undefined when absent. */
-export function contextChild(nodes: Asn1[], tag: number): Asn1 | undefined {
-  return nodes.find((n) => n.cls === 2 && n.tag === tag);
-}
-
 /** Dotted OID, decoded from the packed base-128 form. */
 export function oid(node: Asn1): string {
   expect(node, TAG.oid, "an object identifier");

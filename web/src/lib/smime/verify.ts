@@ -116,11 +116,6 @@ export function signedFromAddress(part: MimePart): string | null {
   return parseAddressList(raw)[0]?.email?.toLowerCase() ?? null;
 }
 
-/** Whether a raw message even claims to be signed — cheap, for deciding to look further. */
-export function looksSigned(root: MimePart): boolean {
-  return Boolean(findPart(root, (p) => p.contentType === "multipart/signed"));
-}
-
 /**
  * Whether the signed part is the message's content, or only one fragment of it.
  *

@@ -85,26 +85,6 @@ export interface JmapSession {
   };
 }
 
-export interface CoreCapabilities {
-  maxSizeUpload: number;
-  maxConcurrentUpload: number;
-  maxSizeRequest: number;
-  maxConcurrentRequests: number;
-  maxCallsInRequest: number;
-  maxObjectsInGet: number;
-  maxObjectsInSet: number;
-  collationAlgorithms: string[];
-}
-
-export interface MailCapabilities {
-  maxMailboxesPerEmail: number | null;
-  maxMailboxDepth: number | null;
-  maxSizeMailboxName: number;
-  maxSizeAttachmentsPerEmail: number;
-  emailQuerySortOptions: string[];
-  mayCreateTopLevelMailbox: boolean;
-}
-
 /*
  * The protocol shapes, declared once: the server builds a call for every one it
  * makes upstream and this client builds one for every call it makes through the
@@ -204,11 +184,6 @@ export interface Mailbox {
 export interface EmailAddress {
   name: string | null;
   email: string;
-}
-
-export interface EmailAddressGroup {
-  name: string | null;
-  addresses: EmailAddress[];
 }
 
 export interface EmailHeader {
@@ -904,13 +879,4 @@ export interface UploadResponse {
   blobId: Id;
   type: string;
   size: number;
-}
-
-export interface BlobGetResponse {
-  id: Id;
-  "data:asText"?: string | null;
-  "data:asBase64"?: string | null;
-  size?: number;
-  isEncodingProblem?: boolean;
-  isTruncated?: boolean;
 }

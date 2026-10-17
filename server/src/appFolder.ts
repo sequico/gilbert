@@ -1036,22 +1036,15 @@ export async function listAppSheets<T>(
 }
 
 /**
- * A folder at the top of the account's Files — the tree a reader sees.
+ * A folder in the tree a reader sees, for a path of folders under its root:
+ * `"invoices/2026"`.
  *
  * Everything else in this module works inside the hidden `gilbert` app folder,
- * which the client's Files view deliberately does not show. A file that is
- * *for a person* — an attachment extracted out of a message — belongs in the
- * visible tree instead, in a folder the rule or the model named.
+ * which the client's Files view deliberately does not show. A file that is *for
+ * a person* — an attachment extracted out of a message — belongs in the visible
+ * tree instead, in a folder the rule or the model named, which is what this
+ * makes.
  */
-export async function ensureRootFolder(
-  ctx: Ctx,
-  accountId: string,
-  name: string,
-): Promise<string> {
-  return ensureChildFolder(ctx, accountId, null, name);
-}
-
-/** The same, for a path of folders under the visible root: `"invoices/2026"`. */
 export async function ensureRootFolderPath(
   ctx: Ctx,
   accountId: string,

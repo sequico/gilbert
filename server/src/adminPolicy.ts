@@ -101,32 +101,6 @@ export function readPolicySection(
   return `"${name}" must be an object`;
 }
 
-/**
- * Parse and validate one policy document text.
- *
- * Strict JSON; an
- * object at the top; `defaults` and `enforced` optional objects (a JSON null
- * reads as absent, exactly like the boot reader's `?? {}`); `changes` an
- * optional list whose entries each carry a unique non-empty `version` and a
- * plain-object `settings`. Unknown top-level keys are ignored, as the boot
- * reader ignores them.
- *
- * The two sections go through `readPolicySection`, which both readers share: a
- * scalar where an object belongs is refused here and refused at boot, so a
- * hand-written document cannot slip past the editor and corrupt settings on
- * load.
- */
-export function parsePolicyDocument(raw: string): PolicyDocument | null {
-  const result = parsePolicyDocumentDetailed(raw);
-  return "problem" in result ? null : result.doc;
-}
-
-/**
- * Parse and validate, saying exactly what is wrong when it fails.
- *
- * Returns `{ doc }` for a valid document, or `{ problem }` with a message an
- * editor can show the administrator (the endpoint answers 400 with it).
- */
 /** The `changes` array, validated the one way both readers of the document use. */
 function readPolicyChanges(value: unknown): PolicyChangeDocument[] | string {
   if (value === undefined) return [];
@@ -148,6 +122,25 @@ function readPolicyChanges(value: unknown): PolicyChangeDocument[] | string {
   return out;
 }
 
+/**
+ * Parse and validate one policy document text, saying exactly what is wrong when
+ * it fails.
+ *
+ * Returns `{ doc }` for a valid document, or `{ problem }` with a message an
+ * editor can show the administrator (the endpoint answers 400 with it).
+ *
+ * Strict JSON; an
+ * object at the top; `defaults` and `enforced` optional objects (a JSON null
+ * reads as absent, exactly like the boot reader's `?? {}`); `changes` an
+ * optional list whose entries each carry a unique non-empty `version` and a
+ * plain-object `settings`. Unknown top-level keys are ignored, as the boot
+ * reader ignores them.
+ *
+ * The two sections go through `readPolicySection`, which both readers share: a
+ * scalar where an object belongs is refused here and refused at boot, so a
+ * hand-written document cannot slip past the editor and corrupt settings on
+ * load.
+ */
 export function parsePolicyDocumentDetailed(
   raw: string,
 ): { doc: PolicyDocument } | { problem: string } {

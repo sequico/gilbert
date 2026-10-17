@@ -20,10 +20,10 @@
  * process: a suite that caches a level the mock's own traffic then changes reads
  * it as old until the next write or the unit ends.
  *
- * shortcut: a write from another process -- a second replica of the server -- is
- * not seen when it lands, so a level it changed is served from the memory until
- * this process writes something of its own: one request, or the agent's next
- * listing, which is as long as the work it is doing. A
+ * shortcut: a write from another process -- a second replica of the server, or a
+ * client that does not reach it -- is not seen when it lands, so a level it
+ * changed is served from the memory until this process writes something of its
+ * own, however long that takes. A
  * name-creating write (`freeChildFolderName`, `unusedVisibleName`) decides
  * against such a listing. Keying a memory on the account's FileNode state
  * instead would catch those too, at a read per lookup, if a deployment ever runs
@@ -72,16 +72,4 @@ export async function recalled<T>(
  */
 export function forgetRemembered(): void {
   memories = new WeakMap();
-}
-
-/**
- * Forget what one unit remembered, because the unit is over.
- *
- * A request needs nothing here -- its `Ctx` is garbage the moment the answer is
- * written, and the memory with it. A pass does: the agent's `Ctx` lives as long
- * as the process, so the pass that begins clears what the last one read, and the
- * work it is about to do is done on the tree as it is now.
- */
-export function forgetRememberedFor(scope: object): void {
-  memories.delete(scope);
 }

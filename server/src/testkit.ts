@@ -1,27 +1,19 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
-import { PDFDocument } from "pdf-lib";
 
 /**
  * The scaffolding the server's suites share.
  *
  * A suite that runs against the mock boots it, waits for it and then posts JSON
- * at the app it built; several build a PDF, and several read one method's answer
- * out of a JMAP response. Those pieces are the same in every suite that needs
- * them, so they live here once, and a suite imports the one it uses.
+ * at the app it built; several read one method's answer out of a JMAP response.
+ * Those pieces are the same in every suite that needs them, so they live here
+ * once, and a suite imports the one it uses.
  *
  * What stays in a suite is what differs: the fake server it stands up (`fetch`
  * stubs, the mock's own answers) and, where its routes want a signature of their
  * own, its `call` helper. Everything else — the `call` most suites share, a JMAP
  * poster, `postWith` and `loginWith` built on top of `call` — is here.
  */
-
-/** A PDF of `pages` pages, none of which carries a text layer of its own. */
-export async function blankPdf(pages: number): Promise<Uint8Array> {
-  const document = await PDFDocument.create();
-  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
-  return document.save();
-}
 
 /** One JMAP method call as a response carries it: name, arguments, call id. */
 export type MethodCall = [string, Record<string, unknown>, string];

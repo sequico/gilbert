@@ -215,12 +215,6 @@ export interface KnowledgeState {
 
 export type KnowledgeScope = "company" | "group";
 
-/** Where the company KB lives, discovered through the server (Q1's share). */
-export interface KnowledgeCompanyView {
-  accountId: string;
-  folderId: string;
-}
-
 /** One article or one topic folder, as a listing shows it. */
 export interface KnowledgeSummary {
   /** An article has a draft and, once approved, revisions; a folder is a group. */
@@ -305,10 +299,6 @@ export interface KnowledgeTierView {
   /** Whether the caller is an installation administrator (approval's gate). */
   canApprove: boolean;
   articles: KnowledgeSummary[];
-}
-
-export interface KnowledgeTiersView {
-  tiers: KnowledgeTierView[];
 }
 
 /** What a writer sends to create or save an article. */

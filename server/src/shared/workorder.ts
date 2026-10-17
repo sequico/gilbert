@@ -459,14 +459,6 @@ export interface WorkorderSummary {
   canAdminister: boolean;
 }
 
-export interface WorkordersView {
-  workorders: WorkorderSummary[];
-}
-
-export interface WorkorderView {
-  workorder: WorkorderSummary;
-}
-
 /** One item a create names for a repeated section: its key and optional data. */
 export interface WorkorderItemInput {
   key: string;

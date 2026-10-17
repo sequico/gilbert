@@ -166,17 +166,6 @@ export function certCovers(cert: Certificate, address: string): boolean {
   return cert.emails.includes(a);
 }
 
-/** A short, readable name for the human holding the certificate. */
-export function certDisplayName(cert: Certificate): string {
-  return (
-    cert.subject.commonName ||
-    cert.subject.emailAddress ||
-    cert.emails[0] ||
-    cert.subject.organization ||
-    cert.serial
-  );
-}
-
 /** The fingerprint in the grouped form people actually compare by eye. */
 export function formatFingerprint(fp: string): string {
   return (fp.match(/.{2}/g) ?? [fp]).join(":").toUpperCase();

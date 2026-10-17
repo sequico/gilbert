@@ -22,7 +22,6 @@
     "@hyzyla/pdfium": "^2.1.13",
     "hono": "^4.13.12",
     "mammoth": "^1.13.0",
-    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289"
   },
   "devDependencies": {

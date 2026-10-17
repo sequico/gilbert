@@ -44,8 +44,6 @@ export const PUSH_STATE_TYPES = [
   "SieveScript",
 ] as const;
 
-export type PushStateType = (typeof PUSH_STATE_TYPES)[number];
-
 /**
  * The prefix every `deviceClientId` this product sets carries.
  *

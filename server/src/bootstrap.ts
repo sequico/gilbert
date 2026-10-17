@@ -147,13 +147,6 @@ export interface ContainerFacts {
   immutable: boolean;
 }
 
-/** The defaults the container's own facts take. */
-export const CONTAINER_DEFAULTS = Object.freeze({
-  host: "0.0.0.0",
-  port: 8080,
-  immutable: false,
-});
-
 /** Read the container's own facts, with their defaults. */
 export function readContainerFacts(
   env: InstallationEnvironment = process.env,
