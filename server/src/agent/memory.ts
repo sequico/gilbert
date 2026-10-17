@@ -47,8 +47,8 @@ import {
   type Ctx,
   destroyAppNode,
   ensureFolderPath,
-  fileChildren,
   findAppFileAt,
+  listAppSheets,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -182,6 +182,17 @@ export async function readFact(
  * installation can no longer see, and a listing that hid it would answer "this
  * is what I know" about a store it could not read.
  *
+ * The walk is `listAppSheets`, as the runs' is: the store is read once per pass
+ * and a pass every ten seconds, so a sheet whose stamp has not moved is not
+ * downloaded again, and what a pass reads is the sheets that changed since the
+ * last one. **Growth is not bounded here**, and that is what this reader is
+ * honest about: one document per fact and nothing prunes them, and every write
+ * spends a blob JMAP offers no way to reclaim (`appFolder.ts`), so a memory that
+ * grows costs the account's upload quota for good rather than costing a pass. The
+ * ceiling a call carries bounds what is *recalled* (`shared/memory.ts`), not how
+ * many sheets the store holds; pruning is a person's decision, taken from
+ * Administration, and nothing does it on its own.
+ *
  * The folder the sheets live in is **made before the token is read**, and not
  * left to the write that follows. Making it is a write, and one left to the
  * writer would move the account's state on after this reading had taken its
@@ -191,16 +202,29 @@ export async function readFact(
  * caller of `recallFacts` never sees it.
  */
 export async function listFacts(ctx: Ctx, accountId: string): Promise<MemoryStore> {
-  const folderId = await ensureFolderPath(ctx, accountId, MEMORY_DIR);
+  await ensureFolderPath(ctx, accountId, MEMORY_DIR);
   const state = await appFolderState(ctx, accountId);
   const facts: FactDoc[] = [];
-  for (const node of await fileChildren(ctx, accountId, folderId)) {
-    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
-    if (!node.name.endsWith(".json")) continue;
-    const fact = await readFactDoc(ctx, accountId, node.name.slice(0, -".json".length));
-    if (fact) facts.push(fact);
+  for (const row of await listAppSheets(ctx, accountId, MEMORY_DIR, parseFact)) {
+    if (row.problem) throw new MemoryError("fact_unreadable", row.problem);
+    if (row.doc) facts.push(row.doc);
   }
   return { state, facts };
+}
+
+/**
+ * One fact's sheet, from its bytes, or the refusal this build answers with.
+ *
+ * The one place a sheet's bytes become a fact — the same refusal the single read
+ * below carries, so the two readers of the store say the same thing about the
+ * same document.
+ */
+function parseFact(id: string, text: string): FactDoc {
+  const parsed = parseFactDocumentDetailed(text);
+  if ("problem" in parsed) throw unreadable(factPath(id), parsed.problem);
+  if (parsed.fact.id !== id)
+    throw unreadable(factPath(id), `it names the fact "${parsed.fact.id}".`);
+  return parsed.fact;
 }
 
 /**

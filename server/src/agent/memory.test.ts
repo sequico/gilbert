@@ -343,6 +343,64 @@ test("a link names a subject the memory holds, and one it does not is refused", 
   );
 });
 
+test("a sheet whose stamp has not moved is not downloaded a second time", async () => {
+  /*
+   * The store is read once per pass and a pass is asked every ten seconds, so a
+   * memory that has grown is a memory that is walked on every one of them. What
+   * decides whether that costs is whether a sheet that has not moved is read
+   * again — one write lands, one sheet's stamp moves, and the sheets beside it
+   * are what must not be paid for a second time.
+   */
+  const real = globalThis.fetch;
+  const named = ["stamp-fact", "stamp-other"];
+  /** What the walk downloaded, by document. */
+  const downloads: string[] = [];
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const url = String(input);
+    if (named.some((name) => url.includes(`/${name}.json`))) downloads.push(url);
+    return await real(input, init);
+  }) as typeof fetch;
+  try {
+    const sheet = async (id: string, sentence: string): Promise<void> => {
+      await writeAppFileAt(ctx, accountId, factPath(id), {
+        v: MEMORY_VERSION,
+        id,
+        subject: `stamp subject ${id}`,
+        fact: sentence,
+        origin: { by: "run", run: "r-1" },
+        at: AT,
+        links: [],
+        standing: false,
+        group: accountId,
+      });
+      written.push(id);
+    };
+    await sheet("stamp-fact", "the first sentence");
+    await sheet("stamp-other", "a second fact, not the one that will move");
+
+    downloads.length = 0;
+    const first = await store();
+    assert.equal(downloads.length, 2, "the first walk reads both sheets");
+
+    await sheet("stamp-fact", "the second sentence, same subject");
+    downloads.length = 0;
+    const second = await store();
+    assert.equal(downloads.length, 1, "the sheet that moved is read again, and only it");
+    assert.equal(
+      second.facts.find((fact) => fact.id === "stamp-fact")?.fact,
+      "the second sentence, same subject",
+      "and the walk answers with what is stored now",
+    );
+    assert.notEqual(
+      first.facts.find((fact) => fact.id === "stamp-fact")?.fact,
+      second.facts.find((fact) => fact.id === "stamp-fact")?.fact,
+      "so the first walk really did read the earlier sentence",
+    );
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
 test("a sheet this build cannot read is reported, never read as an empty fact", async () => {
   // Bytes that are not a document at all.
   await writeAppBytesAt(
