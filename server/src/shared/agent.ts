@@ -15,8 +15,7 @@
  * code reaches a bundle through this file beyond that check.
  */
 
-import { isRecord } from "./json.js";
-import { isInstant } from "./run.js";
+import { isInstant, isRecord } from "./json.js";
 
 /** The claim's document, in the app folder's own top level. */
 export const CLAIM_FILE = "agent-claim.json";

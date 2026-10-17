@@ -35,6 +35,19 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
  * hold, and an empty map is a map: a document with nothing stamped yet is one
  * this build reads.
  */
+/**
+ * Whether a value is an instant this build can order a document by.
+ *
+ * The one check for the dates a stored document carries — a run's, a fact's,
+ * the installation's claim (ADR 0036) — so "a date" in one document means what
+ * it means in the next. It lives with the other predicates a document is read
+ * through rather than in the run's own module: three documents ask it and none
+ * of them owns it.
+ */
+export function isInstant(x: unknown): x is string {
+  return typeof x === "string" && Number.isFinite(Date.parse(x));
+}
+
 export function isStringMap(v: unknown): v is Record<string, string> {
   return isRecord(v) && Object.values(v).every((value) => typeof value === "string");
 }

@@ -30,8 +30,7 @@
  */
 
 import { errorDetail } from "./errors.js";
-import { isRecord } from "./json.js";
-import { isInstant } from "./run.js";
+import { isInstant, isRecord } from "./json.js";
 
 /**
  * The schema this build writes and reads. A document of another version is

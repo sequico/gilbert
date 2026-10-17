@@ -27,7 +27,7 @@
  */
 
 import { errorDetail } from "./errors.js";
-import { isRecord } from "./json.js";
+import { isInstant, isRecord } from "./json.js";
 import { isWorkorderRef, type WorkorderRef } from "./workorder.js";
 
 /**
@@ -291,17 +291,6 @@ export interface RunListing {
 /* ------------------------------------------------------------------ */
 /* Reading a stored run                                                */
 /* ------------------------------------------------------------------ */
-
-/**
- * Whether a value is an instant this build can order a document by.
- *
- * The one check for the dates a stored document carries — the run's own and the
- * installation's claim (`server/src/agent/claim.ts`, ADR 0036) — so "a date" in
- * one document means what it means in the next.
- */
-export function isInstant(x: unknown): x is string {
-  return typeof x === "string" && Number.isFinite(Date.parse(x));
-}
 
 /** Whether a value is a count the run can carry: a whole tally, never negative. */
 function isCount(x: unknown): x is number {

@@ -55,6 +55,7 @@ import {
 } from "../appFolder.js";
 import { isStateMismatch } from "../jmap.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
+import { isInstant } from "../shared/json.js";
 import {
   type FactDoc,
   isInForce,
@@ -64,7 +65,6 @@ import {
   sameSubject,
   subjectProblem,
 } from "../shared/memory.js";
-import { isInstant } from "../shared/run.js";
 
 /** Where the installation's memory lives under the Master's app folder. */
 export const MEMORY_DIR = "memory";

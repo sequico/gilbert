@@ -255,7 +255,6 @@ someone asks a real server.
   (`Agent`, `Workorders`, `Completed`, `Skipped`, `Set state`, …). It is the
   owner's decision: translate the backlog, or move the pin, and the pin is not
   moved to silence a check.
-- **`isInstant`** lives in `shared/run.ts`; `shared/json.ts` is its natural home.
 - **The vocabulary sweep:** "agent" is used for the Master principal in 0005,
   0007, 0023 and 0024, where the law reserves it for the process.
 - **`CONTRIBUTING.md`** (the owner's file) still names `dev:mock:agent` with
