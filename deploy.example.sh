@@ -44,9 +44,17 @@ APP="${GILBERT_APP:-$HOME/apps/gilbert}"
 # keeps configuration, since the container itself holds nothing durable. Keep it
 # outside the repo's tracked files: it holds APP_SECRET and the upstream URL,
 # and, when the deployment runs an agent, GILBERT_AGENT_ADDRESS and
-# GILBERT_AGENT_PASSWORD, which the server reads at boot (ADR 0003). Never read
-# by this script.
+# GILBERT_AGENT_PASSWORD, which the server reads at boot (ADR 0003). Never
+# sourced; the one name read out of it is BASE_PATH below, with `sed`.
 ENVF="${GILBERT_ENV:-$APP/.env.production}"
+# The subpath the image is built for. It has to match the container's own
+# BASE_PATH -- the web build bakes it into the asset URLs, and the health check
+# has to ask the path the process serves -- so it is read from the environment
+# file, which the container is given, unless the caller exports it.
+BASE_PATH="${BASE_PATH:-$(sed -n 's/^[[:space:]]*BASE_PATH=//p' "$ENVF" 2>/dev/null | tail -n 1)}"
+BASE_PATH="${BASE_PATH%\"}"
+BASE_PATH="${BASE_PATH#\"}"
+BASE_PATH="${BASE_PATH%/}"
 # Commits held back from production, one per line; blank or missing is fine.
 HOLD="${GILBERT_HOLD:-$APP/.deploy-hold}"
 # Container name, and where to publish it. The default binds to loopback only,
@@ -234,6 +242,7 @@ TAG="${VERSION//+/-}"
 echo "==> building $(git log --oneline -1) as v$VERSION"
 docker build \
   --build-arg GILBERT_VERSION="$VERSION" \
+  --build-arg BASE_PATH="$BASE_PATH" \
   -t "$IMAGE_REPO:$TAG" \
   -t "$IMAGE_REPO:current" \
   .
@@ -249,11 +258,14 @@ else
   RUN_ARGS+=(-v "$VOLUME:/data")
   echo "==> restarting container"
 fi
+# Stop, then remove: `rm -f` is a SIGKILL, and the server's own shutdown is
+# what flushes the session document and gives the push subscriptions back.
+docker stop -t 15 "$NAME" >/dev/null 2>&1 || true
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run "${RUN_ARGS[@]}" "$IMAGE_REPO:$TAG" >/dev/null
 
 for _ in $(seq 1 "$HEALTH_TIMEOUT"); do
-  if health=$(curl -sf "http://$BIND/api/health"); then
+  if health=$(curl -sf "http://$BIND$BASE_PATH/api/health"); then
     echo "==> healthy: $health"
     prune_old_images
     exit 0

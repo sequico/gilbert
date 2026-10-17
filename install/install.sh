@@ -52,8 +52,18 @@ command -v npm >/dev/null || die "npm is not installed."
 # Built as root, the path the image builds by; `--ignore-scripts` keeps
 # dependency install scripts out of it. The service runs unprivileged, and the
 # outputs are handed to it below.
+#
+# BASE_PATH is baked into the bundle here, so it comes from this script's own
+# environment and is written into the env file below from the same value: a
+# build that knows a prefix and a process that does not serve the root, which
+# is the blank page `assertServable` exists to refuse.
 say "building Gilbert"
-( cd "$APP" && npm ci --ignore-scripts && npm run build )
+(
+  cd "$APP"
+  export BASE_PATH="${BASE_PATH:-}"
+  npm ci --ignore-scripts
+  npm run build
+)
 
 # --- the service account -----------------------------------------------------
 if ! id "$USER_NAME" >/dev/null 2>&1; then
@@ -89,6 +99,11 @@ if [ ! -f "$ENV_FILE" ]; then
 # Gilbert's environment: the handshake and this deployment's own facts.
 # See the checkout's .env.example for what each name is for. Fill this in,
 # then: systemctl restart gilbert
+NODE_ENV=production
+# The prefix this installation serves on, and the one the bundle was built
+# for: empty is the domain root. Keep the two in step -- rebuild with the same
+# value if this changes.
+BASE_PATH=${BASE_PATH:-}
 STALWART_URL=
 GILBERT_AGENT_ADDRESS=
 GILBERT_AGENT_PASSWORD=
