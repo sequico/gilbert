@@ -53,6 +53,21 @@ import {
   upstreamFailure,
 } from "./shared.js";
 
+/**
+ * Whether the session's own JMAP session holds this account.
+ *
+ * The upload and download routes take an account id from the client and put it
+ * straight into the upstream template. Stalwart checks the permission itself,
+ * but it is the only check there is: every other surface that names another
+ * account is bounded in Gilbert, and this one answers the same way.
+ */
+function sessionHoldsAccount(
+  session: { accounts?: Record<string, unknown> },
+  accountId: string,
+): boolean {
+  return Object.hasOwn(session.accounts ?? {}, accountId);
+}
+
 export function registerMailRoutes(api: Hono<Env>): void {
   // ---------- JMAP API proxy ----------
   api.post("/jmap", requireSession, apiRateLimited, async (c) => {
@@ -168,6 +183,8 @@ export function registerMailRoutes(api: Hono<Env>): void {
       : null;
     try {
       const upstream = await sessionUpstream(session);
+      if (!sessionHoldsAccount(upstream, accountId))
+        return c.json({ error: "not_found" }, 404);
       const url = absoluteUpstream(
         expandTemplate(upstream.uploadUrl, { accountId }),
         upstream.baseUrl,
@@ -202,6 +219,8 @@ export function registerMailRoutes(api: Hono<Env>): void {
     const range = c.req.header("range");
     try {
       const upstream = await sessionUpstream(session);
+      if (!sessionHoldsAccount(upstream, accountId))
+        return c.json({ error: "not_found" }, 404);
       const url = absoluteUpstream(
         expandTemplate(upstream.downloadUrl, { accountId, blobId, name, type: accept }),
         upstream.baseUrl,
