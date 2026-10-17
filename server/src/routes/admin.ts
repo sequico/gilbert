@@ -63,6 +63,17 @@ import {
   upstreamFailure,
 } from "./shared.js";
 
+/**
+ * The roster size the Users surface answers the change-wall question for.
+ *
+ * Answering it costs two upstream calls per account (an impersonated sign-in
+ * and a FileNode read of its app folder), and none of it is indexed anywhere.
+ * At four in flight that is minutes of one HTTP request for a large directory,
+ * so past this many accounts the roster says `null` — unknown — rather than
+ * holding the page open; the surface already draws that state.
+ */
+const FORCED_FLAGS_MAX = 250;
+
 export function registerAdminRoutes(api: Hono<Env>): void {
   // ---------- Administration (ADR 0001, ADR 0017) ----------
 
@@ -474,10 +485,11 @@ export function registerAdminRoutes(api: Hono<Env>): void {
         }
       }
       const flagged =
-        impersonation === "ok" && users.length
+        impersonation === "ok" && users.length && users.length <= FORCED_FLAGS_MAX
           ? await forcedFlagsFor(users, session)
           : /*
-             * Nobody was probed, so nothing is known — and `false` is not
+             * Nobody was probed, or the directory is larger than one request
+             * may ask about, so nothing is known — and `false` is not
              * nothing. An app-password session, or one whose Stalwart
              * `Impersonate` right was withdrawn, cannot ask whether a password
              * change is forced on anybody, and stamping `false` on every row
