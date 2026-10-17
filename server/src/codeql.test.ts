@@ -195,6 +195,16 @@ test("a report counts the results, groups them by rule, and keeps the score", ()
   assert.equal(summarize(sarifWith(0)).total, 0);
 });
 
+test("a report reads every run, not only the first", () => {
+  // One run per language: a clean first run with an alert in the second is the
+  // case that reported "0 result(s)" while CI failed.
+  const sarif = sarifWith(0) as { runs: unknown[] };
+  sarif.runs.push((sarifWith(2) as { runs: unknown[] }).runs[0]);
+  const report = summarize(sarif);
+  assert.equal(report.total, 2);
+  assert.equal(report.byRule[0]?.count, 2);
+});
+
 test("the summary reads as work when there is work, and as nothing when there is none", () => {
   const clean = formatReport(summarize(sarifWith(0)), {
     sarif: "/tmp/o.sarif",

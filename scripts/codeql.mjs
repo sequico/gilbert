@@ -201,26 +201,35 @@ export function analysisRamMb(totalBytes = totalmem()) {
 /**
  * What one analysis reported, in the shape the summary is printed from.
  *
+ * Every run in the document is read: a SARIF may carry one per language, and
+ * the CI half of this gate sums them all (`codeql.yml`), so reading the first
+ * run alone let a local run report "0 result(s)" over an alert CI would fail.
+ *
  * `severity` is the rule's `security-severity` — GitHub's own number, 7.5 for a
  * `js/clear-text-logging` — kept as the string the SARIF carries rather than
  * parsed into something a reader has to convert back.
  */
 export function summarize(sarif) {
-  const run = sarif?.runs?.[0] ?? {};
-  const rules = new Map((run.tool?.driver?.rules ?? []).map((r) => [r.id, r]));
-  const results = (run.results ?? []).map((res) => {
-    const rule = rules.get(res.ruleId) ?? {};
-    const place = res.locations?.[0]?.physicalLocation ?? {};
-    return {
-      rule: res.ruleId ?? "",
-      severity: rule.properties?.["security-severity"] ?? "",
-      description: rule.shortDescription?.text ?? "",
-      level: res.level ?? rule.defaultConfiguration?.level ?? "",
-      file: (place.artifactLocation?.uri ?? "").replace(/^file:\/\//, ""),
-      line: place.region?.startLine ?? 0,
-      message: res.message?.text ?? "",
-    };
-  });
+  const runs = sarif?.runs ?? [];
+  const rules = new Map();
+  for (const run of runs)
+    for (const rule of run.tool?.driver?.rules ?? [])
+      if (!rules.has(rule.id)) rules.set(rule.id, rule);
+  const results = runs.flatMap((run) =>
+    (run.results ?? []).map((res) => {
+      const rule = rules.get(res.ruleId) ?? {};
+      const place = res.locations?.[0]?.physicalLocation ?? {};
+      return {
+        rule: res.ruleId ?? "",
+        severity: rule.properties?.["security-severity"] ?? "",
+        description: rule.shortDescription?.text ?? "",
+        level: res.level ?? rule.defaultConfiguration?.level ?? "",
+        file: (place.artifactLocation?.uri ?? "").replace(/^file:\/\//, ""),
+        line: place.region?.startLine ?? 0,
+        message: res.message?.text ?? "",
+      };
+    }),
+  );
   const byRule = new Map();
   for (const r of results) byRule.set(r.rule, (byRule.get(r.rule) ?? 0) + 1);
   return {
