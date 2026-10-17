@@ -1314,11 +1314,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       inst.key = sharedKey(accountId, e.id);
       if (inst.end > start && inst.start < end) out.push(inst);
     }
+    out.push(...birthdays);
     out.sort(
       (a, b) =>
         a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime(),
     );
-    return [...out, ...birthdays];
+    return out;
   },
 
   async getEvent(id, accountId) {
