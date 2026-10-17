@@ -31,9 +31,10 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   keeping an installation to one agent when a second copy of the server runs.
   What is not built is a tool that settles a step
   of a workorder and one that proposes a change to a KB page (ADR 0032, ADR 0024)
-  — the agent reads those two surfaces and settles nothing on them — and the
-  conversation in **mail** (ADR 0033), which is not built: the group's chat is
-  what it has so far.
+  — the agent reads those two surfaces and settles nothing on them — the path by
+  which what it concludes against a person's fact is proposed for that person to
+  accept rather than written over (ADR 0037), and the conversation in **mail**
+  (ADR 0033), which is not built: the group's chat is what it has so far.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

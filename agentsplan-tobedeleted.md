@@ -111,11 +111,17 @@ reaching a run, and any surface that shows what the agent did.
   where it belongs, in the operator's
   environment, and the surface saying plainly that an installation with no model
   has no agent.
-- **To do** (the rest of the item): the surface where an installation
-  administrator sees the agent, the claim and the runs it has worked, with each
-  run's plan, dependencies, branches, outcomes and what it recalled readable from
-  the surface alone; and the workorder panel's attribution of a step the agent
-  settled (ADR 0028).
+- **Built** (`ca67f92`, `47308b6`, `9587649`): Administration → Agent, where an
+  installation administrator sees the agent as it stands — the claim it holds on
+  the **Master's** account, how long that claim lives, and the model it runs on,
+  answered from the claim document the agent itself writes and linked to the one
+  place the model is chosen — and the runs each group has worked, drawn as the
+  record carries them: the plan, each step's dependencies and the outcome it needs
+  and the outcome it ended with, the branch taken, what the run recalled, and a
+  document that cannot be read said out loud instead of drawn blank.
+- **To do** (the rest of the item): the workorder panel's attribution of a step
+  the agent settled (ADR 0028) — owed on the tool that settles a step, which is
+  item 2.6; nothing in the inventory settles one yet.
 - **Then:** `FEATURES.md` and the public docs, in the same change as each.
 - **Proof:** a run worked in the mock is readable from the surface alone, and
   choosing a model there takes effect at the next boot (ADR 0011).
@@ -169,9 +175,16 @@ reaching a run, and any surface that shows what the agent did.
   with its ceiling of facts and characters, fenced as data, and the facts a run
   carried written into its own record (`recalled`); the `FEATURES.md` paragraph and
   the index line.
-- **To do:** the Administration surface alone — where an administrator reads,
-  corrects and removes a fact, and where what the agent concludes against a
-  person's fact is proposed rather than written over.
+- **Built** (`ca67f92`, `47308b6`, `9587649`): the Administration surface alone —
+  Administration → Agent lists the installation's memory with what each fact is
+  about, what is held true of it and who holds it; an administrator reads a fact,
+  **corrects** it in place (the sheet keeps its id, so every link that pointed at
+  it still does, and the correction stamps the person who made it, which puts it
+  in force against the agent's own `fact_in_force` refusal), or **removes** it —
+  both written against the state the reading saw, so a correction decided against a
+  stale list is refused rather than landing over a fact the writer never saw.
+- **To do:** the path by which what the agent concludes against a person's fact is
+  proposed for that person to accept, rather than written over.
 - **Proof:** a fact the agent learned in one run changes what it does in the next,
   and an administrator's correction changes it again — with no restart between
   them; and a fact the agent concluded against one a person wrote is a proposal,

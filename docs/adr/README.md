@@ -243,13 +243,14 @@ is, not what a user sees.
   are a defect. The catalogue **grows freely** — a new tool is not an architectural
   decision, a new **object** or a change to the authority classes is — and every
   run carries a budget of steps, time and model calls. One model serves the
-  installation, chosen in Administration, in the installation's own document with
-  a write-only key. **Partly built** — the catalogue is `server/src/agent/tools.ts`,
-  both halves and the guard, the installation's one model is
-  `server/src/agent/model.ts` (its two turns — the decision over the reading
-  tools, the choosing over the whole catalogue and answering a plan), and the
-  loop that works a run is `server/src/agent/loop.ts`, started by the server's own
-  boot (`server/src/agent/supervisor.ts`).
+  installation, chosen in Administration → Installation
+  (`web/src/views/admin/AdminInstallation.tsx`), in the installation's own
+  document with a write-only key. **Partly built** — the catalogue is
+  `server/src/agent/tools.ts`, both halves and the guard, the installation's one
+  model is `server/src/agent/model.ts` (its two turns — the decision over the
+  reading tools, the choosing over the whole catalogue and answering a plan), and
+  the loop that works a run is `server/src/agent/loop.ts`, started by the server's
+  own boot (`server/src/agent/supervisor.ts`).
 - **0032 — What the agent decides, and what only a person decides (accepted).**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
@@ -289,8 +290,11 @@ is, not what a user sees.
   ends done, blocked on a person, or out of budget — written down. There is no
   separate audit ledger, and a person can read a run and undo by hand what can be
   undone. **Built** — the run document is `server/src/shared/run.ts`, addressed by
-  `server/src/agent/runs.ts`, and the plan's order and conditions are worked out
-  by `server/src/agent/loop.ts`.
+  `server/src/agent/runs.ts`, the plan's order and conditions are worked out by
+  `server/src/agent/loop.ts`, and an installation administrator reads a group's
+  runs from Administration → Agent, where the record is drawn as it is stored and
+  a document this build cannot read is said rather than guessed at
+  (`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`).
 - **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
   document in the group's own account, saying **what it watches** — the account's
   activity across the five surfaces, its chat, its mail, its KB, its workorders
@@ -326,11 +330,16 @@ is, not what a user sees.
   subjects with their nearest links, plus the group's standing set, inside a
   ceiling — and what was recalled is written into the run's record (ADR 0034). The
   agent writes facts as it works, within the authority classes; an installation
-  administrator reads and edits them, and **a person's fact is in force** — what
-  the agent concludes against one it proposes, never overwrites. **Built**, the
-  Administration surface excepted: the sheet and its selection are
-  `server/src/shared/memory.ts`, the store and the agent's write
-  `server/src/agent/memory.ts` in the Master's `memory/` folder, both turns carry
-  the selection fenced as data (`server/src/agent/model.ts`), the run records what
-  it recalled (`recalled`, `server/src/shared/run.ts`), and `memory.remember` is
-  the tool (`server/src/agent/tools.ts`).
+  administrator reads, corrects and removes them from Administration → Agent, and
+  **a person's fact is in force** — what the agent concludes against one it
+  proposes, never overwrites. **Built**: the sheet and its selection are
+  `server/src/shared/memory.ts`, the store, the agent's write and a person's
+  correction and removal are `server/src/agent/memory.ts` in the Master's
+  `memory/` folder, both turns carry the selection fenced as data
+  (`server/src/agent/model.ts`), the run records what it recalled (`recalled`,
+  `server/src/shared/run.ts`), `memory.remember` is the tool
+  (`server/src/agent/tools.ts`), and the surface is
+  `server/src/routes/agent.ts` and `web/src/views/admin/AdminAgent.tsx`. What is
+  not built is the **proposal** the agent puts up against a person's fact: the
+  write is refused in a code, so nothing is overwritten, but the conclusion itself
+  is a refused step rather than a document waiting for approval.

@@ -19,11 +19,17 @@ facts its calls carried, as references to the sheets (`recalled`,
 behind it. The agent's write is the catalogue's `memory.remember`
 (`server/src/agent/tools.ts`), an act of the class the agent decides alone: it
 records a fact and refuses, in the code `fact_in_force`, to overwrite one a person
-holds. **Not built: the Administration surface** where an installation administrator
-reads, corrects and removes a fact — and with it the path by which what the agent
-concludes against a person's fact is *proposed* rather than written down. The
-knowledge base stays a second store, which is this record's decision and not work
-owed.
+holds. Behind the installation's own door (ADR 0031) an administrator reads those
+sheets and answers for them: a correction replaces one in place, keeping its id so
+every link that pointed at it still does, and stamps the person who made it as its
+origin, which puts the fact back in force against the agent's own refusal — from
+that moment the agent's next conclusion about the subject is a proposal rather than
+a correction — and a removal takes the sheet out entirely, both written against the
+state the reading saw (`server/src/agent/memory.ts`,
+`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`). **Not built:
+the path by which what the agent concludes against a person's fact is
+*proposed*** for that person to accept. The knowledge base stays a second store,
+which is this record's decision and not work owed.
 
 ## Context
 

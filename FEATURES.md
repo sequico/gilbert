@@ -148,8 +148,12 @@ so a wrong conclusion traces to the fact that carried it — while a change the
 memory holds nothing about is worked exactly as it was before the memory existed.
 The agent records a fact with `memory.remember`, within the authority classes, and
 **a fact a person wrote is in force**: the write refuses to overwrite it, in a code,
-rather than correcting it in silence. An installation administrator reads and edits
-the facts from Administration — the surface is not built yet.
+rather than correcting it in silence. An installation administrator reads,
+corrects and removes the facts from **Administration → Agent**, through the
+server's own route as the Master — a correction replaces the sheet in place and
+stamps the person on it, so what the agent concludes about that subject
+afterwards is a proposal rather than a correction, and the next pass reads it
+with no restart.
 
 **A group's engagement is a rule in prose** (ADR 0035): one document in the
 group's own account, under `rules/`, that names the surfaces of that account it
@@ -167,9 +171,11 @@ the other two documents is built, so the loop carries the rule's own instruction
 alone.
 
 **One model serves the installation** (ADR 0031), chosen in Administration and
-stored in the installation's own document with a **write-only** key: a read of
-that document never hands the key back, and a save that states none keeps the
-stored one. `server/src/agent/model.ts` posts one OpenAI-compatible chat
+stored in the installation's own document with a **write-only** key: a read of a
+document this build can parse takes the key out of it, while a document that is
+not JSON is handed back byte for byte so a person can repair it by hand; a save
+that states no key keeps the stored one, and the switch for a provider that
+needs none clears it. `server/src/agent/model.ts` posts one OpenAI-compatible chat
 completion with the zero-retention opt-out on every request, refuses a provider
 whose address is not public unless the **operator** has said the installation's
 model may sit inside the deployment's own network
@@ -220,6 +226,22 @@ rather than an endless turn. The server starts the loop with itself
 the accounts each pass works — the Master's groups — are read from the mail
 server by that pass rather than decided at the boot, so a group added or
 withdrawn in Stalwart needs no restart.
+
+**Where the agent is, and what it did, is in Administration → Agent**
+(`web/src/views/admin/AdminAgent.tsx`): the claim the installation holds — who
+holds it and until when it is believed — with the ten-second pass beside it, and
+the model named with a link to the section that chooses it rather than a second
+set of fields. **Nothing on that page starts or stops the agent**: it is part of
+the server, and the boot starts it. Each group's **runs** are drawn as the record
+carries them, since the record is the product (ADR 0034): the change that woke
+the run, the rule or the instruction that answered, every step with what it waited
+on — *after step 1 if it ended Worked* — the branch that was not taken, what each
+step answered, what the run spent, and where it parked and why. A run written by
+another build is **said** where it would be drawn, never drawn as an empty one.
+The **facts** of the installation's memory are listed with the run or the person
+each came from, and corrected or removed through the server's own route as the
+Master (`GET /api/admin/agent`, `GET /api/admin/groups/<group>/runs`,
+`GET`/`PUT`/`DELETE /api/admin/memory`; `server/src/routes/agent.ts`).
 
 # Administration
 
@@ -290,6 +312,24 @@ Gilbert's own, beyond the upstream client (ADR 0001). See
   Master's credential are not in the document (`GET`/`POST
   /api/admin/installation`; `server/src/installationAdmin.ts`,
   `server/src/shared/installation.ts`).
+- **The agent's own surface** (ADR 0031, 0034, 0036, 0037): the Agent section
+  shows where the installation's agent is — the claim it holds and the ten-second
+  pass — and **starts nothing**: the server's own boot does that, so a control
+  here would promise something no route can keep. The model is **linked** to the
+  Installation section rather than repeated as a second set of fields. A group's
+  **runs** are read from that group's own account as the installation (never as
+  the administrator, who need not be a member) and drawn as the record carries
+  them — the change, the rule, the plan with each step's dependency, the branch
+  taken, every outcome, the spend, and where it parked — with a document this
+  build cannot read **said** rather than dropped or drawn blank. The installation's
+  **memory** is read from the Master's own account and corrected or removed
+  through the server's own route: a correction replaces the sheet in place and
+  stamps the person on it, which is what puts the fact in force against the
+  agent's own write (`fact_in_force`); a fact the agent learned in one pass is in
+  the next one, and an administrator's correction is in the pass after that, with
+  no restart (`GET /api/admin/agent`, `GET /api/admin/groups/<group>/runs`,
+  `GET`/`PUT`/`DELETE /api/admin/memory`; `server/src/routes/agent.ts`,
+  `web/src/views/admin/AdminAgent.tsx`).
 - **Forced password change** (ADR 0001): the directive is a file in the target
   user's hidden `gilbert` app folder; the server door answers 403 on every data
   route until the password changes, and the change clears the directive. The
