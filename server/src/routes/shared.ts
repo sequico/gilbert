@@ -22,7 +22,7 @@ import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 import { getCookie, setCookie } from "hono/cookie";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { AccountError, isPasswordChangeForced } from "../account.js";
+import { AccountError, isOwnRefusal, isPasswordChangeForced } from "../account.js";
 import { administrationAllowed } from "../adminGate.js";
 import {
   AppFolderError,
@@ -994,9 +994,7 @@ export const refundCredentialAttempt = (
   scope = "account",
 ): void => {
   const judged =
-    err instanceof UpstreamError
-      ? err.status === 401
-      : err instanceof AccountError && err.status < 500;
+    isOwnRefusal(err) || (err instanceof UpstreamError && err.status === 401);
   if (!judged) accountLimiter.refund(credentialLimitKey(c, scope));
 };
 

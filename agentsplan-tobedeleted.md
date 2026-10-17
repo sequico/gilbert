@@ -245,9 +245,6 @@ someone asks a real server.
 - **Six dependencies no shipping code imports** (`server/package.json`): the
   audit's only *Must fix*, deferred by the owner to a later pass. Six manifest
   lines, one of them a test-only library to move to `devDependencies`.
-- **`refundCredentialAttempt`** (`server/src/routes/shared.ts`) spells the
-  4xx/5xx test that also exists as `isOwnRefusal` (`server/src/account.ts`): one
-  predicate, two spellings.
 - **The translation ceiling fails the gate** (`scripts/i18n-catalog-check.mjs`):
   `MISSING_MAX` is pinned at 195 and the wanted set is 1944 keys, of which
   **197** have no catalogue entry in each language — so `i18n:check` exits
