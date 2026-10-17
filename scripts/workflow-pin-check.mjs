@@ -50,7 +50,7 @@ const USES_LINE = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*(#.*)?$/;
 const PINNED = /^[^\s@]+@[0-9a-fA-F]{40}$/;
 
 /** A version in the comment beside it, which is what says which release it is. */
-const VERSION_IN_COMMENT = /#\s*v?\d/;
+const VERSION_IN_COMMENT = /#\s*v?\d+\.\d+/;
 
 /** A hardcoded Node line in a workflow; a value with no digit is not one. */
 const NODE_VERSION_LINE = /^\s*(?:-\s*)?node-version:\s*['"]?(\d+)/;
