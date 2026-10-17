@@ -63,6 +63,7 @@ import { isRecord } from "../shared/json.js";
 import { KNOWLEDGE_FOLDER, knowledgeFolderName } from "../shared/knowledge.js";
 import {
   AGENT_LABELS,
+  DRAFT_KEYWORD,
   G_LABEL_PREFIX,
   isAgentLabel,
   type LabelCatalogEntry,
@@ -82,6 +83,7 @@ import {
   SEARCH_GRAMMAR,
   type SearchMailbox,
 } from "../shared/search.js";
+import { replySubject } from "../shared/text.js";
 import {
   isWorkorderDoc,
   WORKORDER_FOLDER,
@@ -745,6 +747,129 @@ const setKeyword = defineTool({
   },
 });
 
+/**
+ * The one address a reply is written to, from a message's address list.
+ *
+ * `replyTo` wins over `from` when the message names one, and the first address
+ * of the list is the one meant: a reply is to a person, and a message naming
+ * several senders is answered to the first.
+ */
+function firstEmail(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  for (const one of value) {
+    if (isRecord(one) && typeof one.email === "string" && one.email) return one.email;
+  }
+  return null;
+}
+
+/**
+ * The address this account's own mail is from: its default sending identity.
+ *
+ * A draft must say who it is from, and the identity is the account's own answer
+ * to that question — the same list the composer reads. An account with no
+ * identity has nobody to draft as, and says so rather than writing a draft no
+ * mail server would send.
+ */
+async function sendingAddress(ctx: Ctx, accountId: string): Promise<string> {
+  const answer = await clientOf(ctx).call<{ list?: Array<{ email?: unknown }> }>(
+    "Identity/get",
+    { accountId, ids: null },
+    [CAPABILITIES.mail, CAPABILITIES.submission],
+  );
+  const email = answer.list?.find((one) => typeof one.email === "string")?.email;
+  if (typeof email !== "string" || !email)
+    throw new ToolError(
+      "no_identity",
+      "This account has no sending identity, so a draft could not say who it is from.",
+      409,
+    );
+  return email;
+}
+
+const draftReply = defineTool({
+  name: "mail.draft",
+  description:
+    "Draft a reply to a message of this account, in the group's own Drafts " +
+    "folder, without sending it: a person reads it, changes what they want and " +
+    "sends it. The reply goes to the message's own reply-to, or to its sender " +
+    "when it names none, carries the thread so it lands in the conversation, and " +
+    `carries "$draft" until somebody sends it.`,
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), text: textArg(args, "text") };
+  },
+  run: async ({ ctx, accountId }, { id, text }) => {
+    const answer = await clientOf(ctx).call<{
+      list?: Array<Record<string, unknown>>;
+    }>(
+      "Email/get",
+      {
+        accountId,
+        ids: [id],
+        properties: ["from", "replyTo", "subject", "messageId", "references"],
+      },
+      [CAPABILITIES.mail],
+    );
+    const original = answer.list?.[0];
+    if (!original) throw notFound(`message "${id}" in this account`);
+    const to = firstEmail(original.replyTo) ?? firstEmail(original.from);
+    if (!to)
+      throw new ToolError(
+        "no_recipient",
+        `The message "${id}" names nobody to reply to.`,
+        422,
+      );
+    const drafts = resolveMailbox("drafts", await mailboxesOf(ctx, accountId));
+    if (!drafts) throw notFound("drafts folder in this account");
+    const from = await sendingAddress(ctx, accountId);
+    const repliedTo = Array.isArray(original.messageId)
+      ? (original.messageId.find((one): one is string => typeof one === "string") ?? null)
+      : null;
+    const references = Array.isArray(original.references)
+      ? original.references.filter((one): one is string => typeof one === "string")
+      : [];
+    if (repliedTo && !references.includes(repliedTo)) references.push(repliedTo);
+    const subject = replySubject(
+      typeof original.subject === "string" ? original.subject : "",
+      "Re",
+    );
+    const res = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+      "Email/set",
+      {
+        accountId,
+        create: {
+          draft: {
+            from: [{ email: from }],
+            to: [{ email: to }],
+            subject,
+            sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            mailboxIds: { [drafts.id]: true },
+            keywords: { [DRAFT_KEYWORD]: true, $seen: true },
+            bodyStructure: { partId: "text", type: "text/plain" },
+            bodyValues: { text: { value: text } },
+            ...(repliedTo ? { inReplyTo: [repliedTo] } : {}),
+            ...(references.length ? { references } : {}),
+          },
+        },
+      },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notCreated?.draft;
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    const draft = res.created?.draft?.id;
+    if (!draft)
+      throw new ToolError(
+        "write_refused",
+        "The draft was not created, and the server said nothing about why.",
+        409,
+      );
+    return { id: draft, to, subject, folder: drafts.name };
+  },
+});
+
 const defineLabel = defineTool({
   name: "mail.label",
   description:
@@ -1056,6 +1181,7 @@ export const TOOLS: readonly AnyTool[] = [
   readRunTool,
   fileMessage,
   setKeyword,
+  draftReply,
   defineLabel,
   createMailFolder,
   createFileFolder,

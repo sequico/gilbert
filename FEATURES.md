@@ -203,7 +203,9 @@ a task over an object. The reading half — the only half a reading caller is ha
 workorder, a run and the group's own conversation. The half that changes the
 group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
-folder in the mailbox or in Files, moves or renames a document, says something in
+folder in the mailbox or in Files, moves or renames a document, **drafts a reply**
+into the group's own Drafts — addressed to the message's sender, carrying the
+thread and marked `$draft`, and sent by nobody but a person — says something in
 the conversation, and asks a person a question — which leaves the run waiting for
 their answer, with no date, and **the answer in that same conversation is what
 picks the run up again**: a message that replies to the question it asked, written

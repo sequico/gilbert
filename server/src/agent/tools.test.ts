@@ -818,3 +818,127 @@ test("the memory tool records a fact where the installation keeps them", async (
     if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
   }
 });
+
+test("a reply is drafted into the group's Drafts, addressed and threaded, and nothing is sent", async () => {
+  /*
+   * Drafting is the one mail write this catalogue takes without a person's word
+   * (ADR 0032, `reversible`): it puts a message where somebody reads it and
+   * sends nothing. Both halves are pinned here — the draft is in the account's
+   * Drafts, marked `$draft`, addressed to the sender and carrying the thread,
+   * and the submission methods were never called.
+   */
+  const delivered = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        c: {
+          subject: "Re: booking 4417",
+          from: [{ email: "ops@shipper.example" }],
+          to: [{ email: "team@example.org" }],
+          messageId: ["original@shipper.example"],
+          references: ["earlier@shipper.example"],
+          mailboxIds: { inbox: true },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const id = delivered.created?.c?.id;
+  assert.ok(id, "the message to reply to is in the account");
+
+  const submissions = mock.methodCalls["EmailSubmission/set"] ?? 0;
+  const draft = await writeTool<{
+    id: string;
+    to: string;
+    subject: string;
+    folder: string;
+  }>("mail.draft", { id, text: "Booked on the 14th; the papers follow." });
+  assert.equal(draft.to, "ops@shipper.example", "addressed to the message's own sender");
+  assert.equal(
+    draft.subject,
+    "Re: booking 4417",
+    "the thread's subject is kept rather than prefixed a second time",
+  );
+  assert.equal(draft.folder, "Drafts", "and it is filed in the account's Drafts");
+  assert.equal(
+    mock.methodCalls["EmailSubmission/set"] ?? 0,
+    submissions,
+    "nothing was sent: a draft is a message a person still has to send",
+  );
+
+  const held = await clientOf(ctx).call<{
+    list?: Array<{
+      mailboxIds?: Record<string, boolean>;
+      keywords?: Record<string, boolean>;
+      inReplyTo?: string[];
+      references?: string[];
+      from?: Array<{ email?: string }>;
+      bodyValues?: Record<string, { value?: string }>;
+    }>;
+  }>(
+    "Email/get",
+    {
+      accountId,
+      ids: [draft.id],
+      properties: [
+        "mailboxIds",
+        "keywords",
+        "inReplyTo",
+        "references",
+        "from",
+        "bodyValues",
+      ],
+    },
+    [CAPABILITIES.mail],
+  );
+  const written = held.list?.[0];
+  assert.ok(written, "the draft is in the account");
+  /*
+   * A message's own id, as the account stores it: JMAP's `messageId` is a list,
+   * and the mock makes it from the node's id, so the test reads it rather than
+   * spelling one the server would not have written.
+   */
+  const answered = await clientOf(ctx).call<{
+    list?: Array<{ messageId?: string[] }>;
+  }>("Email/get", { accountId, ids: [id], properties: ["messageId"] }, [
+    CAPABILITIES.mail,
+  ]);
+  const messageId = answered.list?.[0]?.messageId?.[0];
+  assert.ok(messageId, "the message names itself");
+  assert.deepEqual(written.inReplyTo, [messageId], "carrying the message it answers");
+  assert.deepEqual(
+    written.references,
+    ["earlier@shipper.example", messageId],
+    "and the thread before it",
+  );
+  assert.equal(written.keywords?.$draft, true, "marked a draft, never a sent message");
+  const identity = await clientOf(ctx).call<{ list?: Array<{ email?: string }> }>(
+    "Identity/get",
+    { accountId, ids: null },
+    [CAPABILITIES.mail, CAPABILITIES.submission],
+  );
+  assert.equal(
+    written.from?.[0]?.email,
+    identity.list?.[0]?.email,
+    "from the account's own sending identity",
+  );
+  assert.equal(
+    written.bodyValues?.text?.value,
+    "Booked on the 14th; the papers follow.",
+    "with the words the model wrote",
+  );
+
+  const boxes = await clientOf(ctx).call<{
+    list?: Array<{ id?: string; role?: string }>;
+  }>("Mailbox/get", { accountId, ids: null, properties: ["id", "role"] }, [
+    CAPABILITIES.mail,
+  ]);
+  const drafts = boxes.list?.find((one) => one.role === "drafts")?.id;
+  assert.ok(drafts, "the account has a Drafts folder");
+  assert.deepEqual(
+    written.mailboxIds,
+    { [drafts]: true },
+    "and the draft is in it and nowhere else",
+  );
+});

@@ -6,7 +6,7 @@
  * One definition both tiers read: the client cleans a name and the server
  * writes a header, and both must drop the same set.
  */
-export { withoutBidiControls } from "@gilbert/shared/text";
+export { replySubject, withoutBidiControls } from "@gilbert/shared/text";
 
 export function escapeHtml(s: string): string {
   return s
@@ -229,18 +229,6 @@ export function quoteText(text: string): string {
     .split("\n")
     .map((l) => (l.startsWith(">") ? `>${l}` : `> ${l}`))
     .join("\n");
-}
-
-/** Normalize a subject for reply/forward: strip existing prefixes, add new. */
-export function replySubject(
-  subject: string | null | undefined,
-  prefix: "Re" | "Fwd",
-): string {
-  const s = (subject ?? "").trim();
-  const stripped = s.replace(/^((re|fw|fwd|aw|sv|vs|tr|wg)\s*:\s*)+/i, "");
-  if (prefix === "Re" && /^re\s*:/i.test(s)) return s;
-  if (prefix === "Fwd" && /^(fwd?|fw)\s*:/i.test(s)) return s;
-  return `${prefix}: ${stripped}`;
 }
 
 /** Detect quoted section boundaries (for "show trimmed content"). Returns index in lines or -1. */

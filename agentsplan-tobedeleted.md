@@ -128,9 +128,13 @@ reaching a run, and any surface that shows what the agent did.
 
 ### 2.6 The tools the inventory still lacks
 
-- **Draft a reply.** `README`'s own paragraph promises the agent will draft
-  replies, and no tool does it: a tool that writes a draft into the group's
-  account, within the authority classes.
+- **Draft a reply — built.** `mail.draft` writes a reply into the group's own
+  Drafts: addressed to the message's reply-to (its sender when it names none),
+  carrying the thread (`inReplyTo` and `references`), marked `$draft` and filed
+  in the Drafts folder, from the account's own sending identity. It is
+  `reversible`: it reaches nobody and sends nothing, so a person is the one who
+  sends it. `replySubject` moved to `server/src/shared/text.ts` so the agent's
+  draft and the client's reply cannot disagree about what "Re:" means.
 - **Propose a KB page** (ADR 0024) and **settle a workorder step** (ADR 0028):
   both are named in `ROADMAP.md` as absent.
 - **Then:** the KB and the checklists the plan's conditions are reasoned from are
