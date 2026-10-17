@@ -198,6 +198,19 @@ function FactCard({
                 when: formatFullDate(fact.at),
               })}
         </p>
+        {/* A correction is drawn beside the origin, not in place of it: the
+            sheet still says which run concluded this, and who overruled it. */}
+        {fact.correction && (
+          <p className="hint">
+            {t(
+              "A person ({who}) corrected it on {when} — it is in force, so the agent proposes against it and never overwrites it.",
+              {
+                who: fact.correction.who,
+                when: formatFullDate(fact.correction.at),
+              },
+            )}
+          </p>
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" disabled={busy} onClick={() => setEditing(true)}>
             {t("Edit")}
@@ -501,7 +514,7 @@ export function AdminAgent() {
         <h2>{t("Facts")}</h2>
         <p className="hint">
           {t(
-            "The installation's memory, in the Master's own account: one small fact per sheet, with the run or the person it came from. What a person writes or corrects here is in force — the agent reasons from it and proposes against it rather than overwriting it, and the next pass reads it with no restart.",
+            "The installation's memory, in the Master's own account: one small fact per sheet, with the run or the person it came from and the person who corrected it, if anyone did. What a person writes or corrects here is in force — the agent reasons from it and proposes against it rather than overwriting it, and the next pass reads it with no restart.",
           )}
         </p>
         {factsError && (

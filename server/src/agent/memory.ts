@@ -18,8 +18,9 @@
  *
  * The **person's** two writes are at the foot of this file and are not that one:
  * a correction (`correctFactByPerson`) replaces whatever is there — the agent's
- * sheet or another person's — and stamps the person's own name on it, which is
- * what puts the corrected fact in force from that moment; a removal
+ * sheet or another person's — and records the person's own name beside the
+ * origin the sheet already had, which is what puts the corrected fact in force
+ * from that moment while keeping the run it came from on the sheet; a removal
  * (`forgetFact`) takes a sheet away. Both are the surface's to make, and both go
  * through this module so that addressing a fact, reading its sheet and refusing
  * a name it cannot file stay in one place.
@@ -56,6 +57,7 @@ import { isStateMismatch } from "../jmap.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import {
   type FactDoc,
+  isInForce,
   MEMORY_FACT_MAX,
   MEMORY_VERSION,
   parseFactDocumentDetailed,
@@ -314,7 +316,7 @@ export async function rememberFact(
 ): Promise<FactDoc> {
   const { subject, sentence } = checkedText(write.subject, write.fact, write.at);
   const same = store.facts.find((fact) => sameSubject(fact.subject, subject));
-  if (same?.origin.by === "person")
+  if (same && isInForce(same))
     throw new MemoryError(
       "fact_in_force",
       `A person holds the fact about "${same.subject}", and it is in force: this write leaves it exactly as it is, and what the agent concludes against it is proposed rather than written over.`,
@@ -401,12 +403,16 @@ export interface PersonCorrection {
 /**
  * Correct a fact as a person, in place — and put it in force.
  *
- * The agent's own write is refused against a person's fact (`rememberFact`
- * above, `fact_in_force`), so this is where a correction is made: it replaces
- * whatever is there — the agent's sheet or another person's — keeping the id, so
- * every link that pointed at it still does, and stamps **this** person on it as
- * its origin. From that moment the sheet is a person's fact, and the agent's next
- * conclusion about the subject is a proposal rather than a correction.
+ * The agent's own write is refused against a fact whose word is a person's
+ * (`rememberFact` above, `fact_in_force`), so this is where a correction is
+ * made: it replaces whatever is there — the agent's sheet or another person's —
+ * keeping the id, so every link that pointed at it still does. What the sheet
+ * came from stays on it: a correction records **this** person beside the origin
+ * and instant the sheet already carried, so a sentence a person overruled still
+ * traces to the run that concluded it and that run's date, while the correction
+ * says who overruled it and when. From that moment the fact is in force, and the
+ * agent's next conclusion about the subject is a proposal rather than a
+ * correction.
  *
  * The write is made against the **store's reading**, exactly as the agent's own
  * is: the token that reading carries is the compare-and-set, so a correction
@@ -449,8 +455,9 @@ export async function correctFactByPerson(
     id: held.id,
     subject,
     fact: sentence,
-    origin: { by: "person", who: edit.who },
-    at: edit.at,
+    origin: held.origin,
+    at: held.at,
+    correction: { by: "person", who: edit.who, at: edit.at },
     links: held.links,
     standing: held.standing,
     group: held.group,

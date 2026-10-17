@@ -38,19 +38,18 @@ import { isInstant } from "./run.js";
  * refused, so a field of the shape below moves this with it — the version is
  * how a change reaches a fact an installation has already written.
  */
-export const MEMORY_VERSION = 2;
+export const MEMORY_VERSION = 3;
 
 /**
- * The version before this one, which this build reads as well.
+ * The versions before this one, which this build reads as well.
  *
- * `group` is the field this version added: a fact records the group it is about,
- * and the standing set a call carries is the group being worked. A document of
- * the version before it reads with no group — a fact about no group this build
- * knows, so it stands for none and is recalled by its subject like any other —
- * rather than being refused, because a version is how a change reaches the facts
- * an installation already wrote, not how it abandons them. Anything else this
- * build does not know stays refused.
+ * `group` is the field version 2 added and `correction` the one version 3 added:
+ * a sheet of the version before either reads with the field it did not have —
+ * no group, or no correction — rather than being refused, because a version is
+ * how a change reaches the facts an installation already wrote, not how it
+ * abandons them. Anything else this build does not know stays refused.
  */
+const MEMORY_VERSION_WITHOUT_CORRECTION = 2;
 const MEMORY_VERSION_WITHOUT_GROUP = 1;
 
 /**
@@ -115,6 +114,31 @@ export const RECALL_CHARS_MAX = 4_000;
 export type FactOrigin = { by: "run"; run: string } | { by: "person"; who: string };
 
 /**
+ * A person's correction of a sheet, beside the origin it corrected (ADR 0037).
+ *
+ * The sheet keeps where its conclusion came from and when, and this says who
+ * overruled it and when: the two are not one field, because the trace of a
+ * conclusion and the word that is in force are two facts about the sheet.
+ */
+export interface FactCorrection {
+  by: "person";
+  who: string;
+  at: string;
+}
+
+/**
+ * Whether a person's word is in force on a fact.
+ *
+ * A person's own sheet carries it as its `origin`; a correction also leaves the
+ * origin the sheet had, so the two shapes are one question. It is asked here
+ * because the store's refusal (`fact_in_force`) and the surface's sentence must
+ * answer it the same way.
+ */
+export function isInForce(fact: FactDoc): boolean {
+  return fact.origin.by === "person" || fact.correction !== undefined;
+}
+
+/**
  * One fact, as it is stored.
  *
  * Every field is written when the sheet is, so a document missing one is a
@@ -124,16 +148,32 @@ export type FactOrigin = { by: "run"; run: string } | { by: "person"; who: strin
  */
 export interface FactDoc {
   /** The schema version; `MEMORY_VERSION` today. */
-  v: 2;
+  v: 3;
   /** The fact's identity: its document's name under `memory/`. */
   id: string;
   /** What it is about, in the group's own words. */
   subject: string;
   /** What the agent holds true of it, in one sentence. */
   fact: string;
+  /**
+   * Where the conclusion came from: the run that wrote it, or a person.
+   *
+   * A correction does not replace it — it is recorded beside it (`correction`),
+   * so the sheet stays traceable to the run behind a sentence a person overruled.
+   */
   origin: FactOrigin;
   /** When it was written, ISO 8601. */
   at: string;
+  /**
+   * A person's correction of the sheet, beside the origin it corrected
+   * (ADR 0037).
+   *
+   * A correction keeps the origin and the instant the sheet already had, so a
+   * fact the agent concluded still says which run concluded it and when, while
+   * this says who overruled it. Present means the sheet is in force
+   * (`isInForce`), whatever its origin.
+   */
+  correction?: FactCorrection;
   /** The ids of the facts it is linked to. */
   links: string[];
   /** Whether every call of the group it is about carries it, whatever the change names. */
@@ -164,6 +204,16 @@ function isOrigin(x: unknown): x is FactOrigin {
   return false;
 }
 
+function isCorrection(x: unknown): x is FactCorrection {
+  return (
+    isRecord(x) &&
+    x.by === "person" &&
+    typeof x.who === "string" &&
+    !!x.who &&
+    isInstant(x.at)
+  );
+}
+
 /**
  * Parse one stored sheet.
  *
@@ -177,10 +227,11 @@ function isOrigin(x: unknown): x is FactOrigin {
  * next write of it drops what was unknown.
  *
  * A `v` this build does not know is refused, because a document written by a
- * newer Gilbert may carry a field whose meaning changed. The one version before
- * this is read instead, with the field it added — `group` — defaulted to none
- * (`MEMORY_VERSION_WITHOUT_GROUP`): its facts are about no group this build
- * knows, so they stand for none and stay recalled by their subject.
+ * newer Gilbert may carry a field whose meaning changed. The versions before
+ * this are read instead, with the field each added defaulted to none: a sheet
+ * with no `group` is about no group this build knows, so it stands for none and
+ * stays recalled by its subject, and a sheet with no `correction` was written
+ * before a person could correct one in place.
  */
 export function parseFactDocumentDetailed(
   raw: string,
@@ -193,7 +244,11 @@ export function parseFactDocumentDetailed(
   }
   if (!isRecord(whole)) return { problem: "The document must be a JSON object." };
   const withoutGroup = whole.v === MEMORY_VERSION_WITHOUT_GROUP;
-  if (whole.v !== MEMORY_VERSION && !withoutGroup)
+  const known =
+    whole.v === MEMORY_VERSION ||
+    whole.v === MEMORY_VERSION_WITHOUT_CORRECTION ||
+    withoutGroup;
+  if (!known)
     return {
       problem: `"v" is ${JSON.stringify(whole.v)}; this build reads version ${MEMORY_VERSION}.`,
     };
@@ -209,6 +264,11 @@ export function parseFactDocumentDetailed(
     };
   if (!isInstant(whole.at))
     return { problem: '"at" must be the instant the fact was written.' };
+  const correction = whole.correction;
+  if (correction !== undefined && !isCorrection(correction))
+    return {
+      problem: '"correction" must name the person who corrected the fact, and when.',
+    };
   if (
     !Array.isArray(whole.links) ||
     !whole.links.every((id) => typeof id === "string" && !!id)
@@ -230,6 +290,7 @@ export function parseFactDocumentDetailed(
       fact: whole.fact,
       origin: whole.origin,
       at: whole.at,
+      ...(correction === undefined ? {} : { correction }),
       links: whole.links,
       standing: whole.standing,
       group,

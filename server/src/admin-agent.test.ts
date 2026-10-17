@@ -263,11 +263,8 @@ test("the memory is read, corrected and removed through the administration door"
     "the shipper for containers, and only them",
     "in the Master's memory",
   );
-  assert.deepEqual(
-    held?.origin,
-    { by: "person", who: DEMO },
-    "with the person who corrected it",
-  );
+  assert.equal(held?.origin.by, "run", "the sheet still says the agent concluded it");
+  assert.equal(held?.correction?.who, DEMO, "beside the person whose word is in force");
 
   // And what the correction is for: the agent's own write is refused against it,
   // so the next pass reasons from the person's sentence rather than overwriting it.
