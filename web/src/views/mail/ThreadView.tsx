@@ -265,6 +265,13 @@ export function ThreadView({
   }, [
     messages.map((m) => m.id + (m.keywords.$seen ? "1" : "0")).join(","),
     settings.markReadDelay,
+    /*
+     * The decision above reads `isExpanded`, so a message the reader opens has
+     * to re-arm the timer: without these, expanding the second of five unread
+     * messages left it unread for the whole session.
+     */
+    expanded,
+    allExpanded,
   ]);
 
   /*
