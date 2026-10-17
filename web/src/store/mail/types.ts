@@ -208,7 +208,7 @@ export interface MailState {
   /** Switch the active account to `accountId`, loading its mail and identities. */
   openAccount(accountId: Id): Promise<void>;
   loadMailboxes(): Promise<void>;
-  roleId(role: MailboxRole): Id | null;
+  roleId(role: MailboxRole, accountId?: Id | null): Id | null;
   /**
    * The account whose folder tree holds `mailboxId`, or null when no cached
    * tree does — or when `hint` names an account this session does not have.

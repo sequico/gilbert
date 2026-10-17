@@ -386,8 +386,16 @@ export const useMail = create<MailState>((set, get) => ({
     void get().loadLabelCounts();
   },
 
-  roleId(role) {
-    for (const m of Object.values(get().mailboxes)) if (m.role === role) return m.id;
+  roleId(role, accountId) {
+    const { accountId: active, mailboxes, accountTrees } = get();
+    /*
+     * The account asked for, not always the one on screen: a draft is saved
+     * into the account it was written in, which a mailbox switch does not
+     * change. The tree of an account switched away from is still cached.
+     */
+    const tree =
+      !accountId || accountId === active ? mailboxes : (accountTrees[accountId] ?? {});
+    for (const m of Object.values(tree)) if (m.role === role) return m.id;
     return null;
   },
 

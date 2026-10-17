@@ -10,6 +10,7 @@ import { useMail } from "@/store/mail";
 function draft(over: Partial<Draft> = {}): Draft {
   return {
     key: "k",
+    accountId: "a1",
     draftId: null,
     identityId: "i1",
     to: [{ name: null, email: "ann@example.com" }],
@@ -101,5 +102,28 @@ describe("buildEmailObject", () => {
     expect((await buildEmailObject(draft(), { forSend: false })).mailboxIds).toEqual({
       mb2: true,
     });
+  });
+
+  it("writes a draft into its own account while another is on screen", async () => {
+    useMail.setState({
+      accountId: "b2",
+      identities: [{ id: "ib", name: "Bea", email: "bea@example.org" }] as never,
+      mailboxes: {
+        mbSentB: { id: "mbSentB", role: "sent" },
+        mbDraftsB: { id: "mbDraftsB", role: "drafts" },
+      } as never,
+      identitiesByAccount: {
+        a1: [{ id: "i1", name: "John", email: "john@example.org" }] as never,
+      },
+      accountTrees: {
+        a1: {
+          mb1: { id: "mb1", role: "sent" },
+          mb2: { id: "mb2", role: "drafts" },
+        } as never,
+      },
+    });
+    const obj = await buildEmailObject(draft(), { forSend: false });
+    expect(obj.mailboxIds).toEqual({ mb2: true });
+    expect(obj.from).toEqual({ name: "John", email: "john@example.org" });
   });
 });
