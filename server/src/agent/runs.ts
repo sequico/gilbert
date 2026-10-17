@@ -23,7 +23,7 @@
 import {
   appFolderState,
   type Ctx,
-  listAppDir,
+  listAppSheets,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -73,6 +73,22 @@ function unreadable(path: string, why: string): RunError {
   );
 }
 
+/**
+ * One run's document, from its bytes, or the refusal this build answers with.
+ *
+ * The one place a run's bytes become a run: what a document names, whether it is
+ * the run it is filed as, and whether this build can read it at all — so the
+ * single read and the walk of the folder (`listAppSheets`) refuse a document in
+ * exactly the same words.
+ */
+function parseRun(id: string, text: string): RunDoc {
+  const parsed = parseRunDocumentDetailed(text);
+  if ("problem" in parsed) throw unreadable(runPath(id), parsed.problem);
+  if (parsed.run.id !== id)
+    throw unreadable(runPath(id), `it names the run "${parsed.run.id}".`);
+  return parsed.run;
+}
+
 /** One run's document by id, or null when there is none. */
 async function readRunDoc(
   ctx: Ctx,
@@ -89,11 +105,7 @@ async function readRunDoc(
     throw unreadable(path, errorMessage(err));
   }
   if (!found) return null;
-  const parsed = parseRunDocumentDetailed(found.text);
-  if ("problem" in parsed) throw unreadable(path, parsed.problem);
-  if (parsed.run.id !== id)
-    throw unreadable(path, `it names the run "${parsed.run.id}".`);
-  return parsed.run;
+  return parseRun(id, found.text);
 }
 
 /** A run by id, with the token a replace of it needs, or null when there is none. */
@@ -145,26 +157,17 @@ export async function replaceRun(
  * beside the one it cannot, so a reader is not left with an empty list and no
  * idea that anything is wrong. One walk, two answers, and the sentences are the
  * same ones the refusal above carries.
+ *
+ * The walk is `listAppSheets`: a document whose stamp has not moved since this
+ * unit read it is not downloaded again, which is what a pass that reads a folder
+ * of runs twice — and a folder of runs nothing prunes — needs.
  */
 export async function listRunsForReading(
   ctx: Ctx,
   accountId: string,
 ): Promise<RunListing[]> {
-  const listed: RunListing[] = [];
-  for (const node of await listAppDir(ctx, accountId, RUNS_DIR)) {
-    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
-    if (!node.name.endsWith(".json")) continue;
-    const id = node.name.slice(0, -".json".length);
-    try {
-      // A document that was gone before the read is absent, which is not the
-      // same answer as one that is there and unreadable: it is nothing to show.
-      const run = await readRunDoc(ctx, accountId, id);
-      if (run) listed.push({ id, run, problem: null });
-    } catch (err) {
-      listed.push({ id, run: null, problem: errorMessage(err) });
-    }
-  }
-  return listed;
+  const rows = await listAppSheets(ctx, accountId, RUNS_DIR, parseRun);
+  return rows.map((row) => ({ id: row.id, run: row.doc, problem: row.problem }));
 }
 
 /**

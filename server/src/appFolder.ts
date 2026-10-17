@@ -40,6 +40,7 @@ import {
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { errorMessage } from "./shared/errors.js";
 import { refusalOf, type SetResponse } from "./shared/jmap.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
 import type { UpstreamSession } from "./upstream.js";
@@ -129,6 +130,16 @@ export function nodeStamp(node: FileNodeLike): string {
   if (typeof node.created === "string") return node.created;
   return "";
 }
+
+/**
+ * The FileNode properties `nodeStamp` reads, named once.
+ *
+ * A level that is cut on a node's stamp, or one that decides whether a document
+ * has moved since it was read, has to ask the server for the pair; spelling it
+ * again beside each of them is how the two readers end up asking for different
+ * properties.
+ */
+export const STAMP_PROPS = ["created", "modified"];
 
 /**
  * One level of the Files tree: the top level, or the children of a folder.
@@ -917,6 +928,111 @@ export async function listAppDir(
   const folderId = await findFolderPath(ctx, accountId, path);
   if (!folderId) return [];
   return fileChildren(ctx, accountId, folderId);
+}
+
+/** The nodes a walk of a folder of documents asks for: the file, and its stamp. */
+const SHEET_NODE_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
+
+/** One document of a folder of them: read, or why it could not be read. */
+export interface AppSheet<T> {
+  /** The document's name without its extension: what the directory files it as. */
+  id: string;
+  /** The document, or null when this build cannot read what is there. */
+  doc: T | null;
+  /** Why it cannot be read, in the reader's own words; null when it can. */
+  problem: string | null;
+}
+
+/**
+ * What this unit read of one document, and the stamp it was read at.
+ *
+ * Keyed by the document's own path, so a document rewritten under the same name
+ * replaces what was held rather than growing a second entry beside it.
+ */
+interface SheetRead {
+  stamp: string;
+  doc: unknown;
+}
+
+/**
+ * The documents this unit has read, by account and path.
+ *
+ * Beside the remembered levels (`requestMemory.ts`) and deliberately not in
+ * them: a level is wrong the moment **anything** in the account is written, which
+ * is why any write drops it, while a document is wrong only when its own stamp
+ * has moved — which is what lets a pass that writes one run read the other four
+ * hundred and ninety-nine without downloading them again. The unit is the key,
+ * so a request's reading dies with the request and the agent's lives as long as
+ * the process.
+ *
+ * shortcut: a write from another process -- a second replica of the server, or a
+ * client that is not this server -- does not drop the remembered levels
+ * (`requestMemory.ts`), so a listing is served from this memory and a document
+ * whose stamp that writer did not move is not read again. The level is what a
+ * fresh pass re-reads, and the stamp is what it then compares: a deployment
+ * running a second writer whose writes this one has to see at once is the case to
+ * upgrade, by keying this on the account's FileNode state at a read per lookup.
+ */
+const sheetReads = new WeakMap<Ctx, Map<string, SheetRead>>();
+
+/**
+ * Every `.json` document in a directory of the app folder, each read or each said.
+ *
+ * One walk of the folder, and one answer per document: `read` turns the bytes
+ * into what the caller stores and throws the caller's own refusal for a document
+ * it cannot read, which this carries beside the ones it can — a listing that
+ * skipped a document nobody could read would answer "these are all of them"
+ * about a folder it did not read, so the caller decides what to do with it.
+ *
+ * **A document whose stamp has not moved is not downloaded again.** The walk
+ * asks for each node's own last-write stamp (`nodeStamp`), and a document read
+ * at that stamp by this unit is held rather than fetched: the run folder and the
+ * memory are read on every pass that works anything, and a listing that paid a
+ * download per document made an installation grow a cost with the work it had
+ * already done. What makes the walk itself fresh is the remembered level
+ * (`fileChildren`, `requestMemory.ts`): any write to the tree drops it, so the
+ * stamps compared here are the ones the server holds now.
+ */
+export async function listAppSheets<T>(
+  ctx: Ctx,
+  accountId: string,
+  dir: string,
+  read: (id: string, text: string) => T,
+): Promise<AppSheet<T>[]> {
+  const folderId = await findFolderPath(ctx, accountId, dir);
+  if (!folderId) return [];
+  const rows: AppSheet<T>[] = [];
+  const held = sheetReads.get(ctx) ?? new Map<string, SheetRead>();
+  sheetReads.set(ctx, held);
+  for (const node of await fileChildren(ctx, accountId, folderId, SHEET_NODE_PROPS)) {
+    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
+    if (!node.name.endsWith(".json") || typeof node.blobId !== "string") continue;
+    const id = node.name.slice(0, -".json".length);
+    const path = `${dir}/${node.name}`;
+    const stamp = nodeStamp(node);
+    const remembered = held.get(path);
+    if (remembered?.stamp === stamp) {
+      rows.push({ id, doc: remembered.doc as T, problem: null });
+      continue;
+    }
+    try {
+      const doc = read(
+        id,
+        await downloadBlobText(
+          ctx,
+          accountId,
+          node.blobId,
+          documentType(node),
+          node.name,
+        ),
+      );
+      held.set(path, { stamp, doc });
+      rows.push({ id, doc, problem: null });
+    } catch (err) {
+      rows.push({ id, doc: null, problem: errorMessage(err) });
+    }
+  }
+  return rows;
 }
 
 /**

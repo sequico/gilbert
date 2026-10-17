@@ -30,9 +30,15 @@ const { filesAccountId, writeAppBytesAt, writeAppFileAt } = await import(
 const { isStateMismatch } = await import("../jmap.js");
 const { finishRun, RUN_VERSION, spendRun, startRun, touchObject, waitUntil } =
   await import("../shared/run.js");
-const { createRun, dueRuns, listRuns, readRun, replaceRun, RunError } = await import(
-  "./runs.js"
-);
+const {
+  createRun,
+  dueRuns,
+  listRuns,
+  listRunsForReading,
+  readRun,
+  replaceRun,
+  RunError,
+} = await import("./runs.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -175,8 +181,78 @@ test("a run is created once and replaced under the state it was read at", async 
   );
 });
 
+/**
+ * The documents of the runs named that the process downloaded while a walk ran.
+ *
+ * The walk is the whole cost of a pass on an idle installation, so what it spends
+ * is read off the wire rather than counted out of the reader: a download is a
+ * `GET` on the session's own download path, and it carries the document's name.
+ */
+async function downloadsOf<T>(
+  names: string[],
+  walk: () => Promise<T>,
+): Promise<{ answer: T; downloads: string[] }> {
+  const real = globalThis.fetch;
+  const downloads: string[] = [];
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const url = String(input);
+    if (names.some((name) => url.includes(`/${name}.json`))) downloads.push(url);
+    return await real(input, init);
+  }) as typeof fetch;
+  try {
+    return { answer: await walk(), downloads };
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
+test("a run whose stamp has not moved is not downloaded a second time", async () => {
+  /*
+   * A pass reads a group's runs at least twice and nothing prunes the folder, so
+   * what decides whether an installation that has done a lot of work keeps paying
+   * for it is whether a document that has not moved is read again: one write
+   * lands, one document's stamp moves, and the documents beside it are what must
+   * not be paid for a second time.
+   */
+  const named = ["stamp-a", "stamp-b"];
+  const one = (id: string, why: string) =>
+    finishRun(
+      startRun({
+        id,
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      }),
+      "done",
+      { at: new Date().toISOString(), why },
+    );
+  await createRun(ctx, accountId, one("stamp-a", "the first act"));
+  await createRun(ctx, accountId, one("stamp-b", "the second act"));
+
+  const first = await downloadsOf(named, () => listRunsForReading(ctx, accountId));
+  assert.equal(first.downloads.length, 2, "the first walk reads both documents");
+
+  // One document is written again, which drops the remembered level (`jmap.ts`)
+  // and moves that node's own stamp, and nothing else.
+  await replaceRun(ctx, accountId, one("stamp-a", "the first act, done twice"), {});
+  const second = await downloadsOf(named, () => listRunsForReading(ctx, accountId));
+  assert.equal(
+    second.downloads.length,
+    1,
+    "the document that moved is read again, and the one that did not is not",
+  );
+  const ends = second.answer
+    .filter((row) => named.includes(row.id))
+    .map((row) => [row.id, row.run?.ended?.why]);
+  assert.deepEqual(
+    ends,
+    [
+      ["stamp-a", "the first act, done twice"],
+      ["stamp-b", "the second act"],
+    ],
+    "and the document that did not move is answered from what was read before",
+  );
+});
+
 test("an unreadable run is reported, never guessed at", async () => {
-  // Bytes that are not a document at all.
   await writeAppBytesAt(
     ctx,
     accountId,

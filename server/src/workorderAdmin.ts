@@ -39,6 +39,7 @@ import {
   findFolderPath,
   nodeStamp,
   readAppJsonAt,
+  STAMP_PROPS,
   updateAppNode,
   writeAppFileIn,
 } from "./appFolder.js";
@@ -332,9 +333,9 @@ export const WORKORDER_LIST_MAX = 200;
  *
  * `FILE_PROPS` carries the blob to read; the two stamps are what the page is cut
  * on, and they are the pair the Files view sorts a node by — `modified`, falling
- * back to `created`.
+ * back to `created` (`STAMP_PROPS`).
  */
-const ROOT_NODE_PROPS = [...FILE_PROPS, "created", "modified"];
+const ROOT_NODE_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
 
 /**
  * The newest `WORKORDER_LIST_MAX` roots, and only their documents.
