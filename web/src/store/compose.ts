@@ -1092,10 +1092,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
      */
     const mail = useMail.getState();
     const accountId = found.accountId || mail.accountId;
-    const identities =
-      accountId === mail.accountId
-        ? mail.identities
-        : (mail.identitiesByAccount[accountId] ?? []);
+    const identities = accountId ? identitiesFor(accountId, mail) : [];
     const identity =
       identities.find((i) => i.id === found.identityId) ??
       mail.defaultIdentityFor(accountId);
@@ -1502,6 +1499,22 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const BLOB_URL_PREFIX = `${BASE_PATH}/api/blob/`;
 const BLOB_URL_RE = escapeRe(BLOB_URL_PREFIX);
 
+/**
+ * The identities a draft's account sends with.
+ *
+ * The list on screen when the draft belongs to the account being read, and the
+ * cached list of its own otherwise: a composer outlives a mailbox switch, and
+ * its From list must not become the new account's.
+ */
+function identitiesFor(
+  accountId: Id,
+  mail: ReturnType<typeof useMail.getState>,
+): Identity[] {
+  return accountId === mail.accountId
+    ? mail.identities
+    : (mail.identitiesByAccount[accountId] ?? []);
+}
+
 /** Build the JMAP Email creation object from a draft. */
 export async function buildEmailObject(
   d: Draft,
@@ -1515,10 +1528,7 @@ export async function buildEmailObject(
    * captured when Send was pressed (`SendTarget`).
    */
   const accountId = opts.send?.accountId ?? d.accountId;
-  const identities =
-    accountId === mail.accountId
-      ? mail.identities
-      : (mail.identitiesByAccount[accountId] ?? []);
+  const identities = identitiesFor(accountId, mail);
   const ident =
     opts.send?.identity ??
     identities.find((i) => i.id === d.identityId) ??

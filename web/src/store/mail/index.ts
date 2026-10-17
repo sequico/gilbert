@@ -393,8 +393,8 @@ export const useMail = create<MailState>((set, get) => ({
      * into the account it was written in, which a mailbox switch does not
      * change. The tree of an account switched away from is still cached.
      */
-    const tree =
-      !accountId || accountId === active ? mailboxes : (accountTrees[accountId] ?? {});
+    const tree = accountId && accountId !== active ? accountTrees[accountId] : mailboxes;
+    if (!tree) return null;
     for (const m of Object.values(tree)) if (m.role === role) return m.id;
     return null;
   },
