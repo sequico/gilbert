@@ -52,6 +52,7 @@ import {
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
+import { isStateMismatch } from "../jmap.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
 import {
   type FactDoc,
@@ -358,6 +359,29 @@ function linkIds(held: readonly FactDoc[], subjects: readonly string[]): string[
   return ids;
 }
 
+/**
+ * Run one conditional write of a sheet, and answer a lost compare-and-set as
+ * this store's own refusal.
+ *
+ * `ifInState` is the account's FileNode state the reading carried, so
+ * `stateMismatch` means the memory moved after the list a person decided
+ * against was read: nothing was written, and the answer is the store's own code
+ * at 409 rather than the raw upstream refusal, which names neither the surface
+ * nor the document.
+ */
+async function conditional(write: () => Promise<unknown>): Promise<void> {
+  try {
+    await write();
+  } catch (err) {
+    if (!isStateMismatch(err)) throw err;
+    throw new MemoryError(
+      "fact_moved",
+      "The memory changed after it was read, so nothing was written: read it again and say what you mean to change.",
+      409,
+    );
+  }
+}
+
 /** What a person says a fact is, correcting the sheet that is there. */
 export interface PersonCorrection {
   /** The sheet being corrected, by its id. */
@@ -385,11 +409,13 @@ export interface PersonCorrection {
  * The write is made against the **store's reading**, exactly as the agent's own
  * is: the token that reading carries is the compare-and-set, so a correction
  * made against a stale list is refused rather than landing over a fact the
- * writer never saw. The graph is left as it was — links, the standing mark and
- * the group it is about — because those are the agent's bookkeeping and a person
- * correcting what is held true is not re-deciding where it hangs from; a subject
- * that names a subject already held is refused rather than making the memory hold
- * two spellings of one thing.
+ * writer never saw — and refused in this store's own code, `fact_moved` at 409,
+ * because a person's write has no step to report the raw upstream refusal on.
+ * The graph is left as it was — links, the standing mark and the group it is
+ * about — because those are the agent's bookkeeping and a person correcting what
+ * is held true is not re-deciding where it hangs from; a subject that names a
+ * subject already held is refused rather than making the memory hold two
+ * spellings of one thing.
  */
 export async function correctFactByPerson(
   ctx: Ctx,
@@ -427,7 +453,9 @@ export async function correctFactByPerson(
     standing: held.standing,
     group: held.group,
   };
-  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: store.state });
+  await conditional(() =>
+    writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: store.state }),
+  );
   return doc;
 }
 
@@ -438,9 +466,10 @@ export async function correctFactByPerson(
  * that everybody's next call carries is gone with the sheet, so the caller is the
  * one that asks (the Administration surface, ADR 0037) and it is conditional on
  * the state its reading saw, like every other write here — a removal decided
- * against a stale list is refused rather than taking a fact that was just
- * corrected. A sheet that is not there is a refusal rather than a success: the
- * person was shown it, and "nothing to remove" is not what they were told.
+ * against a stale list is refused (`fact_moved`, 409) rather than taking a fact
+ * that was just corrected. A sheet that is not there is a refusal rather than a
+ * success: the person was shown it, and "nothing to remove" is not what they
+ * were told.
  */
 export async function forgetFact(
   ctx: Ctx,
@@ -455,5 +484,5 @@ export async function forgetFact(
       `The memory holds no fact called "${id}", so there is nothing to remove. It was removed, or it was never there.`,
       404,
     );
-  await destroyAppNode(ctx, accountId, String(file.id), { ifInState });
+  await conditional(() => destroyAppNode(ctx, accountId, String(file.id), { ifInState }));
 }

@@ -31,9 +31,15 @@ const { destroyAppNode, filesAccountId, readAppFileAt, writeAppBytesAt, writeApp
   await import("../appFolder.js");
 const { MEMORY_VERSION, recallFacts, sameSubject } = await import("../shared/memory.js");
 const { isStateMismatch } = await import("../shared/errors.js");
-const { factPath, listFacts, MemoryError, readFact, rememberFact } = await import(
-  "./memory.js"
-);
+const {
+  correctFactByPerson,
+  factPath,
+  forgetFact,
+  listFacts,
+  MemoryError,
+  readFact,
+  rememberFact,
+} = await import("./memory.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -184,6 +190,81 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
     (await readFact(ctx, accountId, first.id))?.fact.fact,
     "the usual shipper",
     "and the sheet the stale write meant to correct is left exactly as it was",
+  );
+});
+
+test("a person's correction and removal are refused when the memory moved under them", async () => {
+  /*
+   * Both of a person's writes carry the token of the reading the surface showed
+   * them (`ifInState`), so a correction or a removal decided against a list that
+   * has moved since is refused rather than landing over what somebody else
+   * wrote. The store here moves between the read and the write, which is the
+   * only case the token decides: a test whose store never moves writes the same
+   * bytes with or without it.
+   */
+  const first = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Oltremare",
+      fact: "the usual shipper for the northern route",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  written.push(first.id);
+
+  // The reading the person's surface holds, and a write that lands after it:
+  // the account's FileNode state has moved past this reading.
+  const stale = await store();
+  const other = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Cargo 88",
+      fact: "the client that books on Fridays",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  written.push(other.id);
+
+  const refused = (err: unknown) => err instanceof MemoryError && err.status === 409;
+  await assert.rejects(
+    () =>
+      correctFactByPerson(
+        ctx,
+        accountId,
+        {
+          id: first.id,
+          subject: "Oltremare",
+          fact: "the shipper for the northern route, as the office reads it",
+          who: "admin@example.com",
+          at: AT,
+        },
+        stale,
+      ),
+    refused,
+    "the correction loses the compare-and-set and is refused, not applied",
+  );
+  assert.equal(
+    (await readFact(ctx, accountId, first.id))?.fact.fact,
+    "the usual shipper for the northern route",
+    "and the sheet the stale correction meant to change is left as it was",
+  );
+
+  await assert.rejects(
+    () => forgetFact(ctx, accountId, first.id, stale.state),
+    refused,
+    "and the removal, decided against the same stale reading, is refused too",
+  );
+  assert.ok(
+    await readFact(ctx, accountId, first.id),
+    "so the fact is still in the memory",
   );
 });
 
