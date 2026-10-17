@@ -48,6 +48,7 @@ export const catalog: Catalog = {
   strings: {
     "Mention a member": "メンバーをメンション",
     "Go to folder…": "フォルダーへ移動…",
+    "Set by the agent on {when}": "エージェントが{when}に設定",
     "Set for everyone here. You cannot change this.":
       "この環境全体で設定されています。変更できません。",
     "Export iCAL file": "iCAL ファイルをエクスポート",

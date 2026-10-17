@@ -62,6 +62,7 @@ export const catalog: Catalog = {
     "Mention a member": "Menziona un membro",
     "Go to folder…": "Vai alla cartella…",
 
+    "Set by the agent on {when}": "Impostato dall'agente il {when}",
     "Set for everyone here. You cannot change this.":
       "Impostato per tutti qui. Non puoi modificarlo.",
 

@@ -49,6 +49,7 @@ export const catalog: Catalog = {
   strings: {
     "Mention a member": "Mencionar a un miembro",
     "Go to folder…": "Ir a la carpeta…",
+    "Set by the agent on {when}": "Establecido por el agente el {when}",
     "Set for everyone here. You cannot change this.":
       "Definido para todos aquí. No puedes cambiarlo.",
     "Export iCAL file": "Exportar archivo iCAL",

@@ -87,3 +87,14 @@ export interface AgentStatus {
  * attribution from spelling the agent two ways.
  */
 export const AGENT_SIGNATURE = "gilbert-agent";
+
+/**
+ * Whether one of a document's signatures is the agent's rather than a person's.
+ *
+ * A surface asks this to say who settled a step — the agent, or the person the
+ * address names — instead of showing the stored value as though it were
+ * somebody's name.
+ */
+export function isAgentSignature(value: string | null | undefined): boolean {
+  return value === AGENT_SIGNATURE;
+}

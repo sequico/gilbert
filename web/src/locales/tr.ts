@@ -1370,6 +1370,7 @@ export const catalog: Catalog = {
     "Set a Reply-To address": "Bir yanıt adresi belirleyin",
     "Set a person's identities — display name, address, Reply-To, Bcc and signature — or take the account's identity over. The write acts as that person from your own session, so it needs Stalwart's Impersonate permission and a password session; app passwords are refused for impersonation.":
       "Bir kişinin kimliklerini ayarlayın — görünen ad, adres, Reply-To, Bcc ve imza — ya da hesabın kimliğini devralın. Bu yazma, sizin oturumunuzdan o kişi olarak işlem yapar, dolayısıyla Stalwart'ın Kimliğe Bürünme iznini ve bir parola oturumunu gerektirir; uygulama parolaları kimliğe bürünme için reddedilir.",
+    "Set by the agent on {when}": "Ajan tarafından {when} tarihinde ayarlandı",
     "Set for everyone here. You cannot change this.":
       "Buradaki herkes için ayarlandı. Bunu değiştiremezsiniz.",
     "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.":

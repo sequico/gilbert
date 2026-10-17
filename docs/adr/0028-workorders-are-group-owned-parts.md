@@ -23,7 +23,9 @@ the administration's check uses (`applyStep`, reached by `settleStepAsAgent` in
 `server/src/workorderAdmin.ts`), acting inside the group's own account
 (ADR 0032) with the same terminal refusal and the same gate latch, and it signs
 the step `gilbert-agent` — the agent, which is not a person
-(`server/src/agent/tools.ts`, `workorder.settle`).
+(`server/src/agent/tools.ts`, `workorder.settle`). The panel reads that
+signature as what it is: a step the agent settled says "Set by the agent on …"
+(`web/src/lib/workorderStamp.ts`), never the stored value as somebody's name.
 
 ## Context
 

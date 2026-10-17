@@ -119,9 +119,11 @@ reaching a run, and any surface that shows what the agent did.
   record carries them: the plan, each step's dependencies and the outcome it needs
   and the outcome it ended with, the branch taken, what the run recalled, and a
   document that cannot be read said out loud instead of drawn blank.
-- **To do** (the rest of the item): the workorder panel's attribution of a step
-  the agent settled (ADR 0028) — owed on the tool that settles a step, which is
-  item 2.6; nothing in the inventory settles one yet.
+- **Built** (`workorder.settle`, then the panel's stamp): a step the agent
+  settled reads in the workorder panel as **"Set by the agent on …"**, not as
+  the stored `gilbert-agent` signature — one predicate
+  (`isAgentSignature`, `shared/agent.ts`) and one sentence choice
+  (`web/src/lib/workorderStamp.ts`), so no surface shows the agent as a name.
 - **Then:** `FEATURES.md` and the public docs, in the same change as each.
 - **Proof:** a run worked in the mock is readable from the surface alone, and
   choosing a model there takes effect at the next boot (ADR 0011).
@@ -246,8 +248,13 @@ someone asks a real server.
 - **`refundCredentialAttempt`** (`server/src/routes/shared.ts`) spells the
   4xx/5xx test that also exists as `isOwnRefusal` (`server/src/account.ts`): one
   predicate, two spellings.
-- **The translation ceiling** (`scripts/i18n-catalog-check.mjs`): `MISSING_MAX`
-  is at the count of the day, 154 strings per language.
+- **The translation ceiling fails the gate** (`scripts/i18n-catalog-check.mjs`):
+  `MISSING_MAX` is pinned at 195 and the wanted set is 1944 keys, of which
+  **197** have no catalogue entry in each language — so `i18n:check` exits
+  non-zero on this tree. The backlog is the agent surfaces' own English strings
+  (`Agent`, `Workorders`, `Completed`, `Skipped`, `Set state`, …). It is the
+  owner's decision: translate the backlog, or move the pin, and the pin is not
+  moved to silence a check.
 - **`moveMailboxPatch`** is spelled in both tiers (`server/src/agent/tools.ts`,
   `web/src/store/mail/mutations.ts`): hoist into `@gilbert/shared` when a unit may
   touch the client.

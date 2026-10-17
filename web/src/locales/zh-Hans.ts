@@ -47,6 +47,7 @@ export const catalog: Catalog = {
   strings: {
     "Mention a member": "提及成员",
     "Go to folder…": "转到文件夹…",
+    "Set by the agent on {when}": "由代理于 {when} 设置",
     "Set for everyone here. You cannot change this.": "已为此处所有人设定，您无法更改。",
     "Export iCAL file": "导出 iCAL 文件",
     "Could not export this calendar: {error}": "无法导出此日历：{error}",

@@ -38,6 +38,7 @@ import {
   type WorkorderStepState,
   type WorkorderStepView,
 } from "@/lib/workorder";
+import { stepStamp } from "@/lib/workorderStamp";
 import { useSession } from "@/store/session";
 import { openWorkorder, useWorkorders } from "@/store/workorder";
 import { registerEscape } from "@/ui/dialog";
@@ -235,10 +236,7 @@ function StepRow({
         )}
         {step.by && step.at && (
           <span className="workorder-stamp">
-            {t("Set by {who} on {when}", {
-              who: step.by,
-              when: formatFullDate(step.at),
-            })}
+            {stepStamp(step.by, formatFullDate(step.at))}
           </span>
         )}
       </span>
