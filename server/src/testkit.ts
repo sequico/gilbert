@@ -13,6 +13,12 @@ import { createServer } from "node:net";
  * stubs, the mock's own answers) and, where its routes want a signature of their
  * own, its `call` helper. Everything else — the `call` most suites share, a JMAP
  * poster, `postWith` and `loginWith` built on top of `call` — is here.
+ *
+ * Nothing here ships: this file is excluded from the build (`tsconfig.json`), so
+ * `dist/` and the image that copies it hold no test scaffolding. A suite resolves
+ * it from source — `tsx --test` runs the files themselves — so the exclusion
+ * costs the typecheck nothing either, which is why `tsconfig.test.json` clears
+ * `exclude` and reads this file as one of its own roots.
  */
 
 /** One JMAP method call as a response carries it: name, arguments, call id. */
