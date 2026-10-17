@@ -1550,6 +1550,7 @@ export const catalog: Catalog = {
       "İleti oluştururken varsayılan kimlik her zaman sunulur",
     "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.":
       "Dizin listelenemedi, dolayısıyla yayımcının kendi hesabının ötesinde yayımlanacak bir topluluk yoktu.",
+    "The agent proposes: {fact}": "Ajan şunu öneriyor: {fact}",
     "The folder could not be read: the server answered the same page twice.":
       "Klasör okunamadı: sunucu aynı sayfayı iki kez yanıtladı.",
     "The full address is {href}.": "Tam adres: {href}.",

@@ -245,6 +245,7 @@ export const catalog: Catalog = {
     "This folder is deleted once its contents have moved.":
       "Deze map wordt verwijderd zodra de inhoud ervan verhuisd is.",
     "Merging takes two folders.": "Samenvoegen vraagt twee mappen.",
+    "The agent proposes: {fact}": "De agent stelt voor: {fact}",
     "The folder could not be read: the server answered the same page twice.":
       "De map kon niet worden gelezen: de server antwoordde tweemaal met dezelfde pagina.",
     "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":

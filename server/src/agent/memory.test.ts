@@ -29,10 +29,13 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { destroyAppNode, filesAccountId, readAppFileAt, writeAppBytesAt, writeAppFileAt } =
   await import("../appFolder.js");
-const { MEMORY_VERSION, recallFacts, sameSubject } = await import("../shared/memory.js");
+const { isInForce, MEMORY_VERSION, recallFacts, sameSubject } = await import(
+  "../shared/memory.js"
+);
 const { isStateMismatch } = await import("../shared/errors.js");
 const {
   correctFactByPerson,
+  dismissProposal,
   factPath,
   forgetFact,
   listFacts,
@@ -316,7 +319,7 @@ test("two writes of one reading cannot make two sheets for one subject", async (
   );
 });
 
-test("a fact a person wrote is in force, and the write refuses it", async () => {
+test("a fact a person wrote is in force, and the agent writes a proposal beside it", async () => {
   await writeAppFileAt(ctx, accountId, factPath("person-1"), {
     v: MEMORY_VERSION,
     id: "person-1",
@@ -331,31 +334,77 @@ test("a fact a person wrote is in force, and the write refuses it", async () => 
   written.push("person-1");
 
   const reading = await store();
-  await assert.rejects(
-    () =>
-      rememberFact(
-        ctx,
-        accountId,
-        {
-          subject: "bologna express",
-          fact: "what the agent concluded instead",
-          run: "r-1",
-          at: AT,
-          group: accountId,
-        },
-        reading,
-      ),
-    (err: unknown) => err instanceof MemoryError && err.code === "fact_in_force",
-    "the refusal is a code a caller composes a sentence from",
+  const proposed = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "bologna express",
+      fact: "what the agent concluded instead",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    reading,
+  );
+  assert.deepEqual(
+    proposed.proposal,
+    { fact: "what the agent concluded instead", run: "r-1", at: AT },
+    "what the agent concluded is written as a proposal beside the person's word",
   );
 
   const held = await readFact(ctx, accountId, "person-1");
   assert.equal(
     held?.fact.fact,
     "the account's own shipper, as the office reads it",
-    "and the sheet a person wrote is left exactly as it is",
+    "and the sheet a person wrote keeps its sentence exactly as it was",
   );
   assert.deepEqual(held?.fact.origin, { by: "person", who: "admin@example.com" });
+  assert.equal(isInForce(held!.fact), true, "so the person's word is still in force");
+
+  // A person accepts the proposal by correcting the sheet with those words —
+  // the one write a person's word takes — and that write clears the proposal.
+  const accepted = await correctFactByPerson(
+    ctx,
+    accountId,
+    {
+      id: "person-1",
+      subject: "Bologna Express",
+      fact: "what the agent concluded instead",
+      who: "admin@example.com",
+      at: AT,
+    },
+    await store(),
+  );
+  assert.equal(accepted.proposal, undefined, "the accepted proposal is gone");
+  assert.equal(accepted.fact, "what the agent concluded instead");
+  assert.deepEqual(accepted.correction, {
+    by: "person",
+    who: "admin@example.com",
+    at: AT,
+  });
+
+  // A dismissal drops the proposal and nothing else.
+  const again = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Bologna Express",
+      fact: "a second conclusion",
+      run: "r-2",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  assert.ok(again.proposal, "a fresh proposal against the corrected sheet");
+  const dismissed = await dismissProposal(ctx, accountId, "person-1", await store());
+  assert.equal(dismissed.proposal, undefined, "dismissing takes the proposal away");
+  assert.equal(
+    dismissed.fact,
+    "what the agent concluded instead",
+    "and leaves the sentence the person's correction put there",
+  );
+  assert.deepEqual(dismissed.correction, accepted.correction, "with its provenance");
 });
 
 test("a link names a subject the memory holds, and one it does not is refused", async () => {

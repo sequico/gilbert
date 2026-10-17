@@ -1276,7 +1276,8 @@ const rememberFactTool = defineTool({
     "every call of this group and of no other; any fact you record is recalled " +
     "by its subject wherever in the installation it is needed. Name the facts " +
     "it belongs with in `links`. A fact a person wrote is in force and this " +
-    "refuses it: what you conclude against one is proposed, never written over.",
+    "is in force and is never written over: what you conclude against it is " +
+    "recorded as a **proposal** beside it, and a person accepts or dismisses it.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
@@ -1336,7 +1337,17 @@ const rememberFactTool = defineTool({
       },
       memory,
     );
-    return { id: written.id, subject: written.subject };
+    // A write against a person's fact is a proposal, and the model is told what
+    // it is and what the person's sentence still is (ADR 0037).
+    const proposal = written.proposal;
+    return proposal?.run === run.id
+      ? {
+          id: written.id,
+          subject: written.subject,
+          proposed: proposal.fact,
+          inForce: written.fact,
+        }
+      : { id: written.id, subject: written.subject };
   },
 });
 

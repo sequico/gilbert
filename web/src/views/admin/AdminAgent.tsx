@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   correctFact,
+  dismissProposal as dismissProposalSheet,
   type FactDoc,
   fetchAgentStatus,
   fetchFacts,
@@ -162,11 +163,13 @@ function FactCard({
   busy,
   onSave,
   onRemove,
+  onDismissProposal,
 }: {
   fact: FactDoc;
   busy: boolean;
   onSave: (id: string, edit: { subject: string; fact: string }) => Promise<void>;
   onRemove: (fact: FactDoc) => Promise<void>;
+  onDismissProposal: (fact: FactDoc) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [subject, setSubject] = useState(fact.subject);
@@ -210,6 +213,35 @@ function FactCard({
               },
             )}
           </p>
+        )}
+        {/* What the agent concluded against the person's word (ADR 0037): a
+            proposal beside it, which a person accepts — making those words their
+            own correction — or dismisses, leaving the sheet as it was. */}
+        {fact.proposal && (
+          <div className="fact-proposal">
+            <p>{t("The agent proposes: {fact}", { fact: fact.proposal.fact })}</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() =>
+                  void onSave(fact.id, {
+                    subject: fact.subject,
+                    fact: fact.proposal?.fact ?? fact.fact,
+                  })
+                }
+              >
+                {t("Accept")}
+              </button>
+              <button
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => void onDismissProposal(fact)}
+              >
+                {t("Dismiss")}
+              </button>
+            </div>
+          </div>
         )}
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" disabled={busy} onClick={() => setEditing(true)}>
@@ -379,6 +411,19 @@ export function AdminAgent() {
     }
   }
 
+  async function dismissProposal(fact: FactDoc) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await dismissProposalSheet(fact.id);
+      await loadFacts();
+    } catch (err) {
+      setFactsError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove(fact: FactDoc) {
     if (busy) return;
     setBusy(true);
@@ -533,6 +578,7 @@ export function AdminAgent() {
               busy={busy}
               onSave={save}
               onRemove={remove}
+              onDismissProposal={dismissProposal}
             />
           ))}
         </div>

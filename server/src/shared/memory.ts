@@ -47,6 +47,11 @@ export const MEMORY_VERSION = 3;
  * no group, or no correction — rather than being refused, because a version is
  * how a change reaches the facts an installation already wrote, not how it
  * abandons them. Anything else this build does not know stays refused.
+ *
+ * `proposal` is a field this version gained **without** moving the version: a
+ * sheet that carries one is still a version-3 sheet, an older build reads it as
+ * a sheet with no proposal rather than refusing a fact it needs, and the field
+ * is dropped by the next write that build makes — a proposal lost, never a fact.
  */
 const MEMORY_VERSION_WITHOUT_CORRECTION = 2;
 const MEMORY_VERSION_WITHOUT_GROUP = 1;
@@ -126,12 +131,33 @@ export interface FactCorrection {
 }
 
 /**
+ * What the agent concluded against a person's fact, kept as a proposal
+ * (ADR 0037).
+ *
+ * The in-force sentence is not written over: the sheet carries the proposal
+ * beside it, a person reads it in Administration, and **accepting it makes the
+ * sentence the person's own** — the same correction path any person's word takes
+ * (`correctFactByPerson`), which is what puts it in force. Dismissing it leaves
+ * the sheet exactly as it was. An agent that could write over a person's fact
+ * would be the store deciding whose word stands.
+ */
+export interface FactProposal {
+  /** The sentence the agent concluded, in the group's own words. */
+  fact: string;
+  /** The run that concluded it. */
+  run: string;
+  /** When it was concluded, ISO 8601. */
+  at: string;
+}
+
+/**
  * Whether a person's word is in force on a fact.
  *
  * A person's own sheet carries it as its `origin`; a correction also leaves the
  * origin the sheet had, so the two shapes are one question. It is asked here
- * because the store's refusal (`fact_in_force`) and the surface's sentence must
- * answer it the same way.
+ * because the store's own write and the surface's sentence must answer it the
+ * same way: against a sheet in force the agent writes a **proposal**, and the
+ * surface is what shows it next to the person's words.
  */
 export function isInForce(fact: FactDoc): boolean {
   return fact.origin.by === "person" || fact.correction !== undefined;
@@ -173,6 +199,11 @@ export interface FactDoc {
    * (`isInForce`), whatever its origin.
    */
   correction?: FactCorrection;
+  /**
+   * The agent's conclusion against this person's fact, awaiting a person
+   * (ADR 0037): written beside the sentence in force, never in place of it.
+   */
+  proposal?: FactProposal;
   /** The ids of the facts it is linked to. */
   links: string[];
   /** Whether every call of the group it is about carries it, whatever the change names. */
@@ -209,6 +240,17 @@ function isCorrection(x: unknown): x is FactCorrection {
     x.by === "person" &&
     typeof x.who === "string" &&
     !!x.who &&
+    isInstant(x.at)
+  );
+}
+
+function isProposal(x: unknown): x is FactProposal {
+  return (
+    isRecord(x) &&
+    typeof x.fact === "string" &&
+    !!x.fact.trim() &&
+    typeof x.run === "string" &&
+    !!x.run &&
     isInstant(x.at)
   );
 }
@@ -263,6 +305,12 @@ export function parseFactDocumentDetailed(
     };
   if (!isInstant(whole.at))
     return { problem: '"at" must be the instant the fact was written.' };
+  const proposal = whole.proposal;
+  if (proposal !== undefined && !isProposal(proposal))
+    return {
+      problem:
+        '"proposal" must be what the agent concluded, the run that concluded it and when.',
+    };
   const correction = whole.correction;
   if (correction !== undefined && !isCorrection(correction))
     return {
@@ -290,6 +338,7 @@ export function parseFactDocumentDetailed(
       origin: whole.origin,
       at: whole.at,
       ...(correction === undefined ? {} : { correction }),
+      ...(proposal === undefined ? {} : { proposal }),
       links: whole.links,
       standing: whole.standing,
       group,

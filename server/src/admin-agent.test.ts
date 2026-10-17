@@ -266,25 +266,60 @@ test("the memory is read, corrected and removed through the administration door"
   assert.equal(held?.origin.by, "run", "the sheet still says the agent concluded it");
   assert.equal(held?.correction?.who, DEMO, "beside the person whose word is in force");
 
-  // And what the correction is for: the agent's own write is refused against it,
-  // so the next pass reasons from the person's sentence rather than overwriting it.
+  /*
+   * And what the correction is for: the agent's own write does not overwrite it.
+   * It is written beside the person's sentence as a **proposal** (ADR 0037), the
+   * surface shows both, and a person dismisses it through the door — which leaves
+   * the sheet exactly as the person's word left it.
+   */
   const afterCorrection = await listFacts(master, memoryAccount);
-  await assert.rejects(
-    () =>
-      rememberFact(
-        master,
-        memoryAccount,
-        {
-          subject: "maersk",
-          fact: "what the agent concluded instead",
-          run: "surface-run",
-          at: new Date().toISOString(),
-          group: memoryAccount,
-        },
-        afterCorrection,
-      ),
-    (err: unknown) => (err as { code?: string }).code === "fact_in_force",
-    "a person's fact is in force (ADR 0037)",
+  const proposed = await rememberFact(
+    master,
+    memoryAccount,
+    {
+      subject: "maersk",
+      fact: "what the agent concluded instead",
+      run: "surface-run",
+      at: new Date().toISOString(),
+      group: memoryAccount,
+    },
+    afterCorrection,
+  );
+  assert.equal(
+    proposed.proposal?.fact,
+    "what the agent concluded instead",
+    "the agent's conclusion is a proposal beside the person's word",
+  );
+
+  const withProposal = await call("/api/admin/memory");
+  const shown2 = (
+    withProposal.body as {
+      facts: Array<{ id: string; fact: string; proposal?: { fact: string } }>;
+    }
+  ).facts.find((fact) => fact.id === learned.id);
+  assert.equal(
+    shown2?.proposal?.fact,
+    "what the agent concluded instead",
+    "the surface shows the proposal",
+  );
+  assert.equal(
+    shown2?.fact,
+    "the shipper for containers, and only them",
+    "beside the sentence a person put in force",
+  );
+
+  const dismissed = await call(`/api/admin/memory/${learned.id}/proposal`, {
+    method: "DELETE",
+  });
+  assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+  const afterDismissal = (await listFacts(master, memoryAccount)).facts.find(
+    (fact) => fact.id === learned.id,
+  );
+  assert.equal(afterDismissal?.proposal, undefined, "dismissing takes the proposal away");
+  assert.equal(
+    afterDismissal?.fact,
+    "the shipper for containers, and only them",
+    "and leaves the person's sentence exactly as it was",
   );
 
   const removed = await call(`/api/admin/memory/${learned.id}`, { method: "DELETE" });

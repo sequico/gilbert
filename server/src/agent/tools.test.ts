@@ -55,7 +55,7 @@ const { MEMORY_FACT_MAX, MEMORY_VERSION, parseFactDocumentDetailed } = await imp
 const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js");
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
-const { factPath, listFacts, MemoryError } = await import("./memory.js");
+const { factPath, listFacts } = await import("./memory.js");
 const { defineTool, READING_TOOLS, readingTools, runTool, TOOLS } = await import(
   "./tools.js"
 );
@@ -763,8 +763,8 @@ test("the memory tool records a fact where the installation keeps them", async (
     "the store answers the whole memory, so a selection can be made from it",
   );
 
-  // A fact a person wrote is in force: the tool refuses it in a code, and the
-  // sheet is left exactly as it was.
+  // A fact a person wrote is in force: the tool writes the agent's conclusion
+  // beside it as a proposal and says so, and the person's sentence is untouched.
   await writeAppFileAt(ctx, accountId, factPath("person-2"), {
     v: MEMORY_VERSION,
     id: "person-2",
@@ -776,15 +776,37 @@ test("the memory tool records a fact where the installation keeps them", async (
     standing: false,
     group: accountId,
   });
-  await assert.rejects(
-    () =>
-      writeTool("memory.remember", {
-        subject: "Maersk",
-        fact: "what the agent concluded instead",
-      }),
-    (err: unknown) => err instanceof MemoryError && err.code === "fact_in_force",
-    "a person's fact is not the agent's to overwrite",
+  const proposed = await writeTool<{
+    proposed?: string;
+    inForce?: string;
+  }>("memory.remember", {
+    subject: "Maersk",
+    fact: "what the agent concluded instead",
+  });
+  assert.equal(
+    proposed.proposed,
+    "what the agent concluded instead",
+    "the model is told its conclusion is a proposal, not a fact",
   );
+  assert.equal(
+    proposed.inForce,
+    "the account's own shipper",
+    "and what the person's word still is",
+  );
+  const personSheet = await readAppFileAt(ctx, accountId, factPath("person-2"));
+  const parsedPerson = parseFactDocumentDetailed(personSheet?.text ?? "");
+  assert.ok("fact" in parsedPerson);
+  assert.equal(
+    parsedPerson.fact.fact,
+    "the account's own shipper",
+    "the sheet keeps its sentence",
+  );
+  assert.equal(
+    parsedPerson.fact.proposal?.fact,
+    "what the agent concluded instead",
+    "with the proposal beside it",
+  );
+  await destroyAppNode(ctx, accountId, String(personSheet?.file.id), {});
 
   // Arguments the tool cannot use are refused before the memory is touched.
   await assert.rejects(

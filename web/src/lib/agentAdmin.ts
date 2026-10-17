@@ -61,6 +61,21 @@ export async function correctFact(
   return res.fact;
 }
 
+/**
+ * Dismiss the agent's proposal against a fact, and get the sheet as it now is.
+ *
+ * Accepting a proposal is the correction the surface already makes — the
+ * proposal's words become the person's own correction, which is what puts them
+ * in force (ADR 0037); dismissing is this, and it writes no sentence at all.
+ */
+export async function dismissProposal(id: string): Promise<FactDoc> {
+  const res = await apiFetch<{ fact: FactDoc }>(
+    `/api/admin/memory/${encodeURIComponent(id)}/proposal`,
+    { method: "DELETE" },
+  );
+  return res.fact;
+}
+
 /** Remove a fact from the installation's memory. */
 export async function forgetFact(id: string): Promise<void> {
   await apiFetch(`/api/admin/memory/${encodeURIComponent(id)}`, { method: "DELETE" });

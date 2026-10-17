@@ -316,12 +316,23 @@ export async function rememberFact(
 ): Promise<FactDoc> {
   const { subject, sentence } = checkedText(write.subject, write.fact, write.at);
   const same = store.facts.find((fact) => sameSubject(fact.subject, subject));
-  if (same && isInForce(same))
-    throw new MemoryError(
-      "fact_in_force",
-      `A person holds the fact about "${same.subject}", and it is in force: this write leaves it exactly as it is, and what the agent concludes against it is proposed rather than written over.`,
-      409,
-    );
+  if (same && isInForce(same)) {
+    /*
+     * A person's word stands: what the agent concluded is written **beside** it
+     * as a proposal (ADR 0037), and the sentence in force is left exactly as it
+     * is. A person reads the proposal in Administration and either accepts it —
+     * which is `correctFactByPerson` with those words, and that write clears the
+     * proposal — or dismisses it, which leaves the sheet as it was.
+     */
+    const proposed: FactDoc = {
+      ...same,
+      proposal: { fact: sentence, run: write.run, at: write.at },
+    };
+    await writeAppFileAt(ctx, accountId, factPath(proposed.id), proposed, {
+      ifInState: store.state,
+    });
+    return proposed;
+  }
   const doc: FactDoc = {
     v: MEMORY_VERSION,
     id: same?.id ?? randomUUID(),
@@ -337,6 +348,36 @@ export async function rememberFact(
     ifInState: store.state,
   });
   return doc;
+}
+
+/**
+ * Drop the agent's proposal against a person's fact, and nothing else.
+ *
+ * Dismissing is a person's answer to a proposal (ADR 0037): the sheet keeps its
+ * sentence, its origin, its correction and its links, and loses only the words
+ * the agent concluded. A sheet that carries no proposal is already what a
+ * dismissal leaves, so the answer is the sheet as it stands rather than a
+ * refusal — a person pressing twice is not an error.
+ */
+export async function dismissProposal(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  store: MemoryStore,
+): Promise<FactDoc> {
+  const held = store.facts.find((fact) => fact.id === id);
+  if (!held)
+    throw new MemoryError(
+      "fact_not_found",
+      `The memory holds no fact called "${id}", so there is no proposal to dismiss. It was removed, or it was never there.`,
+      404,
+    );
+  if (held.proposal === undefined) return held;
+  const { proposal: _dismissed, ...rest } = held;
+  await conditional(() =>
+    writeAppFileAt(ctx, accountId, factPath(held.id), rest, { ifInState: store.state }),
+  );
+  return rest;
 }
 
 /**
@@ -403,10 +444,12 @@ export interface PersonCorrection {
 /**
  * Correct a fact as a person, in place — and put it in force.
  *
- * The agent's own write is refused against a fact whose word is a person's
- * (`rememberFact` above, `fact_in_force`), so this is where a correction is
- * made: it replaces whatever is there — the agent's sheet or another person's —
- * keeping the id, so every link that pointed at it still does. What the sheet
+ * The agent's own write does not touch a fact whose word is a person's — it is
+ * kept as a proposal beside it (`rememberFact` above) — so this is where a
+ * correction is made, and it is also what **accepts** a proposal: it replaces
+ * whatever is there — the agent's sheet or another person's — keeping the id, so
+ * every link that pointed at it still does, and the proposal it answers is
+ * dropped from the sheet it writes. What the sheet
  * came from stays on it: a correction records **this** person beside the origin
  * and instant the sheet already carried, so a sentence a person overruled still
  * traces to the run that concluded it and that run's date, while the correction

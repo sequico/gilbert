@@ -38,11 +38,11 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   `mail.draft` drafts a reply to everyone into the group's Drafts, sent by
   a person and by nobody else; `workorder.settle` settles a step of a workorder
   signed as the agent (ADR 0028); `knowledge.propose` writes a page's draft for a
-  person to approve (ADR 0024). What is not built is the path by
-  which what it concludes against a person's fact is proposed for that person to
-  accept rather than written over (ADR 0037), the path by which a person's
-  authorisation reaches a run (ADR 0032), and the conversation in **mail**
-  (ADR 0033): the group's chat is what it has so far.
+  person to approve (ADR 0024). A conclusion
+  against a person's fact is proposed beside it rather than written over, and
+  Administration accepts or dismisses it (ADR 0037). What is not built is the
+  path by which a person's authorisation reaches a run (ADR 0032), and the
+  conversation in **mail** (ADR 0033): the group's chat is what it has so far.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

@@ -212,8 +212,11 @@ reaching a run, and any surface that shows what the agent did.
   in force against the agent's own `fact_in_force` refusal), or **removes** it —
   both written against the state the reading saw, so a correction decided against a
   stale list is refused rather than landing over a fact the writer never saw.
-- **To do:** the path by which what the agent concludes against a person's fact is
-  proposed for that person to accept, rather than written over.
+- **Built** (the proposal): an agent's conclusion against a person's fact is
+  written **beside** it as `FactProposal` instead of being refused, the model is
+  told what its conclusion is and what the person's sentence still is, and
+  Administration accepts it (the correction path, whose write carries no
+  proposal) or dismisses it (`DELETE /api/admin/memory/:id/proposal`).
 - **Proof:** a fact the agent learned in one run changes what it does in the next,
   and an administrator's correction changes it again — with no restart between
   them; and a fact the agent concluded against one a person wrote is a proposal,

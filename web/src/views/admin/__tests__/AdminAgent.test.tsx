@@ -16,8 +16,10 @@ import { AdminAgent } from "../AdminAgent";
  * what it is told — in particular that it draws the **plan's dependency and the
  * branch it took** rather than a bare list of steps, that it draws **what the run
  * recalled** resolved to the facts behind it, that it says a run it cannot
- * read instead of drawing an empty one, and that the two writes leave the browser
- * for the server route rather than reaching the Master's app folder.
+ * read instead of drawing an empty one, that a proposal the agent recorded
+ * against a person's fact is shown beside it and answered through the server,
+ * and that the writes leave the browser for the server route rather than
+ * reaching the Master's app folder.
  */
 
 const GROUP = "team@example.org";
@@ -285,5 +287,72 @@ describe("the agent's administration surface", () => {
     expect(String((written[1] as RequestInit).body)).toContain("containers");
     // What the route stored is what the screen then shows, in force.
     expect(text()).toContain("in force");
+  });
+
+  it("shows the agent's proposal beside the person's fact, and accepting it is a correction", async () => {
+    const proposed = {
+      ...FACT,
+      proposal: {
+        fact: "the shipper for containers, and only them",
+        run: "surface-run",
+        at: "2026-10-17T09:00:00.000Z",
+      },
+    };
+    const fetchMock = stubServer(undefined, [proposed]);
+    await render();
+
+    expect(text()).toContain("the usual shipper");
+    expect(text()).toContain(
+      "The agent proposes: the shipper for containers, and only them",
+    );
+
+    await act(async () => {
+      button("Accept").click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // Accepting writes no new route: the proposal's words become the person's
+    // own correction, which is what puts them in force (ADR 0037).
+    const written = fetchMock.mock.calls.find(
+      (call) => (call[1] as RequestInit)?.method === "PUT",
+    );
+    if (!written) throw new Error("accepting made no correction");
+    expect(String(written[0])).toBe(`/api/admin/memory/${FACT.id}`);
+    expect(String((written[1] as RequestInit).body)).toContain(
+      "the shipper for containers",
+    );
+  });
+
+  it("dismisses the agent's proposal through its own route and writes nothing", async () => {
+    const proposed = {
+      ...FACT,
+      proposal: {
+        fact: "the shipper for containers, and only them",
+        run: "surface-run",
+        at: "2026-10-17T09:00:00.000Z",
+      },
+    };
+    const fetchMock = stubServer(undefined, [proposed]);
+    await render();
+
+    await act(async () => {
+      button("Dismiss").click();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const dismissed = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith("/proposal"),
+    );
+    if (!dismissed) throw new Error("dismissing made no request");
+    expect(String(dismissed[0])).toBe(`/api/admin/memory/${FACT.id}/proposal`);
+    expect((dismissed[1] as RequestInit).method).toBe("DELETE");
+    expect(
+      fetchMock.mock.calls.some((call) => (call[1] as RequestInit)?.method === "PUT"),
+      "a dismissal writes no sentence",
+    ).toBe(false);
   });
 });

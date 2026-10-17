@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   type FactDoc,
+  isInForce,
   MEMORY_SUBJECT_MAX,
   MEMORY_SUBJECT_MIN,
   MEMORY_VERSION,
@@ -97,6 +98,22 @@ test("a sheet this build cannot read is reported, with what was wrong", () => {
     [JSON.stringify({ ...whole, group: "" }), /"group" must name/],
     [JSON.stringify({ ...whole, group: 7 }), /"group" must name/],
     [JSON.stringify({ ...whole, group: undefined }), /"group" must name/],
+    // The agent's proposal against a person's fact is a field of the sheet, and
+    // one that does not say what was concluded, by which run and when is refused
+    // rather than read as a proposal with nothing in it.
+    [JSON.stringify({ ...whole, proposal: "the shipper is X" }), /"proposal" must/],
+    [
+      JSON.stringify({ ...whole, proposal: { fact: "", run: "r-1", at: AT } }),
+      /"proposal" must/,
+    ],
+    [
+      JSON.stringify({ ...whole, proposal: { fact: "x", run: "", at: AT } }),
+      /"proposal" must/,
+    ],
+    [
+      JSON.stringify({ ...whole, proposal: { fact: "x", run: "r-1", at: "soon" } }),
+      /"proposal" must/,
+    ],
   ] as const;
 
   for (const [text, expectation] of bad) {
@@ -110,6 +127,27 @@ test("a sheet this build cannot read is reported, with what was wrong", () => {
   const parsed = parseFactDocumentDetailed(JSON.stringify({ ...whole, confidence: 0.5 }));
   assert.ok("fact" in parsed, "an extra key decides nothing");
   assert.equal((parsed.fact as unknown as Record<string, unknown>).confidence, undefined);
+});
+
+test("a proposal the agent recorded against a person's fact is carried as it was written", () => {
+  const whole = sheet({
+    origin: { by: "person", who: "admin@example.com" },
+    correction: { by: "person", who: "admin@example.com", at: AT },
+    proposal: {
+      fact: "the shipper for containers, and only them",
+      run: "r-2",
+      at: AT,
+    },
+  });
+  const parsed = parseFactDocumentDetailed(JSON.stringify(whole));
+  assert.ok("fact" in parsed, "a sheet carrying a proposal is readable");
+  assert.deepEqual(parsed.fact.proposal, whole.proposal);
+  assert.equal(
+    isInForce(parsed.fact),
+    true,
+    "and the person's word is still the one in force",
+  );
+  assert.equal(parsed.fact.fact, whole.fact, "the sentence in force is untouched");
 });
 
 test("a subject is the same subject whatever case it is written in", () => {

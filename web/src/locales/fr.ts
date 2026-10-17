@@ -258,6 +258,7 @@ export const catalog: Catalog = {
     "This folder is deleted once its contents have moved.":
       "Ce dossier est supprimé une fois son contenu déplacé.",
     "Merging takes two folders.": "La fusion demande deux dossiers.",
+    "The agent proposes: {fact}": "L'agent propose : {fact}",
     "The folder could not be read: the server answered the same page twice.":
       "Le dossier n'a pas pu être lu : le serveur a renvoyé deux fois la même page.",
     "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":

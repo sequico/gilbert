@@ -19,19 +19,18 @@ facts its calls carried, as references to the sheets (`recalled`,
 behind it — and the surface that draws a run resolves each of those ids to its
 sheet. The agent's write is the catalogue's `memory.remember`
 (`server/src/agent/tools.ts`), an act of the class the agent decides alone: it
-records a fact and refuses, in the code `fact_in_force`, to overwrite one a person
-holds. Behind the installation's own door (ADR 0031) an administrator reads those
-sheets and answers for them: a correction replaces one in place, keeping its id so
-every link that pointed at it still does, and keeping the origin the sheet had —
-where the conclusion came from and when — while recording the person who made the
-correction beside it (`FactCorrection`, `isInForce`), which puts the fact back in
-force against the agent's own refusal — from
-that moment the agent's next conclusion about the subject is a proposal rather than
-a correction — and a removal takes the sheet out entirely, both written against the
-state the reading saw (`server/src/agent/memory.ts`,
-`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`). **Not built:
-the path by which what the agent concludes against a person's fact is
-*proposed*** for that person to accept. The knowledge base stays a second store,
+records a fact, and against one a person holds it writes its conclusion **beside**
+the person's sentence as a proposal (`FactProposal`), never in place of it. Behind
+the installation's own door (ADR 0031) an administrator reads those sheets and
+answers for them: a correction replaces one in place, keeping its id so every link
+that pointed at it still does, and keeping the origin the sheet had — where the
+conclusion came from and when — while recording the person who made the correction
+beside it (`FactCorrection`, `isInForce`), which puts the fact in force and is also
+what **accepts** a proposal, the sheet it writes carrying none; a dismissal drops
+the proposal and leaves everything else as it was; and a removal takes the sheet
+out entirely — all four written against the state the reading saw
+(`server/src/agent/memory.ts`, `server/src/routes/agent.ts`,
+`web/src/views/admin/AdminAgent.tsx`). The knowledge base stays a second store,
 which is this record's decision and not work owed.
 
 ## Context

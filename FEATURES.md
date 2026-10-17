@@ -153,8 +153,9 @@ rather than correcting it in silence. An installation administrator reads,
 corrects and removes the facts from **Administration → Agent**, through the
 server's own route as the Master — a correction replaces the sheet in place and
 stamps the person on it, so what the agent concludes about that subject
-afterwards is a proposal rather than a correction, and the next pass reads it
-with no restart.
+afterwards is a **proposal** kept beside the person's sentence — a person accepts
+it, which makes those words their own correction, or dismisses it, which leaves
+the sheet as it was — and the next pass reads it with no restart.
 
 **A group's engagement is a rule in prose** (ADR 0035): one document in the
 group's own account, under `rules/`, that names the surfaces of that account it

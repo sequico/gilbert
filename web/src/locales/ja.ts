@@ -248,6 +248,7 @@ export const catalog: Catalog = {
     "This folder is deleted once its contents have moved.":
       "このフォルダーは内容の移動が終わりしだい削除されます。",
     "Merging takes two folders.": "統合にはフォルダーが 2 つ必要です。",
+    "The agent proposes: {fact}": "エージェントの提案: {fact}",
     "The folder could not be read: the server answered the same page twice.":
       "フォルダーを読み取れませんでした。サーバーが同じページを 2 回返しました。",
     "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":

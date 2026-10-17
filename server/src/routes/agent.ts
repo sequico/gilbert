@@ -24,15 +24,17 @@
  * not write the Master's app folder itself, so a correction and a removal are
  * made here, in the store, against the reading this request took
  * (`agent/memory.ts`). What a person writes is a **person's fact** from that
- * moment — the agent's own write refuses against it in the code
- * `fact_in_force`, which is what makes a correction something the agent reasons
- * from rather than something it silently corrects on the next pass.
+ * moment: the agent's own write cannot overwrite it, and what it concludes
+ * instead is kept beside it as a **proposal** a person accepts or dismisses
+ * (ADR 0037), which is what makes a correction something the agent reasons from
+ * rather than something it silently corrects on the next pass.
  */
 
 import type { Hono } from "hono";
 import { readClaim } from "../agent/claim.js";
 import {
   correctFactByPerson,
+  dismissProposal,
   forgetFact,
   listFacts,
   MemoryError,
@@ -202,6 +204,30 @@ export function registerAgentRoutes(api: Hono<Env>): void {
           who: session.username,
           at: new Date().toISOString(),
         },
+        await listFacts(ctx, accountId),
+      );
+      return c.json({ fact });
+    } catch (err) {
+      return memoryFailure(c, err);
+    }
+  });
+
+  /**
+   * Dismiss the agent's proposal against a person's fact (ADR 0037).
+   *
+   * The sheet keeps everything it has — its sentence, where it came from, the
+   * person's correction, its links — and loses only the words the agent
+   * concluded. A sheet that carries no proposal is already what a dismissal
+   * leaves, so pressing twice is not an error.
+   */
+  api.delete("/admin/memory/:id/proposal", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await masterCtx(c.get("session"));
+      const accountId = memoryAccount(ctx);
+      const fact = await dismissProposal(
+        ctx,
+        accountId,
+        c.req.param("id") ?? "",
         await listFacts(ctx, accountId),
       );
       return c.json({ fact });
