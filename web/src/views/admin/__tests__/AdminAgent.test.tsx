@@ -14,7 +14,8 @@ import { AdminAgent } from "../AdminAgent";
  * The server's routes are exercised against the mock in
  * `server/src/admin-agent.test.ts`; this file is about what the screen does with
  * what it is told — in particular that it draws the **plan's dependency and the
- * branch it took** rather than a bare list of steps, that it says a run it cannot
+ * branch it took** rather than a bare list of steps, that it draws **what the run
+ * recalled** resolved to the facts behind it, that it says a run it cannot
  * read instead of drawing an empty one, and that the two writes leave the browser
  * for the server route rather than reaching the Master's app folder.
  */
@@ -230,6 +231,9 @@ describe("the agent's administration surface", () => {
     expect(shown).toContain("1 steps, 2 model calls");
     expect(shown).toContain("the shipper's answer");
     expect(shown).toContain("waiting for the shipper's answer");
+    // What the run recalled, each id resolved to the fact that carried it:
+    // traceability is on the screen, not only in the record.
+    expect(shown).toContain("Recalled: Maersk — the usual shipper.");
   });
 
   it("says a run it cannot read instead of drawing an empty one", async () => {

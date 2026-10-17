@@ -43,7 +43,7 @@ const RUN_STATE_LABELS: Record<RunState, string> = {
 };
 
 /** One run, drawn as the record carries it: what woke it, its plan, its tally. */
-function RunCard({ listed }: { listed: RunListing }) {
+function RunCard({ listed, facts }: { listed: RunListing; facts: readonly FactDoc[] }) {
   const { run, problem } = listed;
   if (!run)
     return (
@@ -56,12 +56,25 @@ function RunCard({ listed }: { listed: RunListing }) {
         <div className="error-box">{t("{problem}", { problem: problem ?? "" })}</div>
       </div>
     );
-  return <RunDocument run={run} />;
+  return <RunDocument run={run} facts={facts} />;
+}
+
+/**
+ * One fact the run recalled, as the screen can say it now.
+ *
+ * The record names the sheets by id (ADR 0037) and the surface holds the
+ * memory's own list, so the id is resolved to the sheet that carries it; one
+ * that has since been removed is drawn by its id, because that is all the
+ * record says about it.
+ */
+function recalledFact(id: string, facts: readonly FactDoc[]): string {
+  const fact = facts.find((held) => held.id === id);
+  return fact ? `${fact.subject} — ${fact.fact}` : id;
 }
 
 /** The run itself: the change, the rule, the plan with its order, the tally. */
-function RunDocument({ run }: { run: RunDoc }) {
-  const { startedBy, plan, spent, waiting, ended } = run;
+function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] }) {
+  const { startedBy, plan, spent, waiting, ended, recalled } = run;
   return (
     <div className="card">
       <div className="card-head">
@@ -96,6 +109,13 @@ function RunDocument({ run }: { run: RunDoc }) {
           ms: spent.ms,
         })}
       </p>
+      {recalled.length > 0 && (
+        <p className="hint">
+          {t("Recalled: {facts}.", {
+            facts: recalled.map((id) => recalledFact(id, facts)).join("; "),
+          })}
+        </p>
+      )}
       {waiting && (
         <p className="hint">
           {t("Waiting: {what} — asked in {channel} {id}{until}", {
@@ -470,7 +490,7 @@ export function AdminAgent() {
             )}
             <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
               {runs?.map((row) => (
-                <RunCard key={row.id} listed={row} />
+                <RunCard key={row.id} listed={row} facts={facts} />
               ))}
             </div>
           </>

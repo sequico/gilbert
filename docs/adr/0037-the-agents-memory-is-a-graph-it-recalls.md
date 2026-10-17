@@ -16,7 +16,8 @@ group decided (`server/src/agent/model.ts`), and the loop makes it and reads the
 store from the Master's account (`server/src/agent/loop.ts`). The run records which
 facts its calls carried, as references to the sheets (`recalled`,
 `server/src/shared/run.ts`, version 5), so a conclusion is traceable to the fact
-behind it. The agent's write is the catalogue's `memory.remember`
+behind it — and the surface that draws a run resolves each of those ids to its
+sheet. The agent's write is the catalogue's `memory.remember`
 (`server/src/agent/tools.ts`), an act of the class the agent decides alone: it
 records a fact and refuses, in the code `fact_in_force`, to overwrite one a person
 holds. Behind the installation's own door (ADR 0031) an administrator reads those

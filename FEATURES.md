@@ -144,7 +144,8 @@ what one group learned is the installation's knowledge. **Both turns read it**
 (`server/src/agent/model.ts`), it
 travels fenced as data like every other block of text somebody outside the group
 decided, and **what was recalled is written into the run's record** (`recalled`),
-so a wrong conclusion traces to the fact that carried it — while a change the
+so a wrong conclusion traces to the fact that carried it — the surface resolves
+each of those ids to the fact's subject and sentence — while a change the
 memory holds nothing about is worked exactly as it was before the memory existed.
 The agent records a fact with `memory.remember`, within the authority classes, and
 **a fact a person wrote is in force**: the write refuses to overwrite it, in a code,
@@ -240,7 +241,8 @@ the server, and the boot starts it. Each group's **runs** are drawn as the recor
 carries them, since the record is the product (ADR 0034): the change that woke
 the run, the rule or the instruction that answered, every step with what it waited
 on — *after step 1 if it ended Worked* — the branch that was not taken, what each
-step answered, what the run spent, and where it parked and why. A run written by
+step answered, what the run spent, what it recalled — each fact resolved to its
+subject and sentence — and where it parked and why. A run written by
 another build is **said** where it would be drawn, never drawn as an empty one.
 The **facts** of the installation's memory are listed with the run or the person
 each came from, and corrected or removed through the server's own route as the
