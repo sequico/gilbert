@@ -34,6 +34,7 @@ import {
 import { isTrustedProxy, resolveClientIp } from "../clientip.js";
 import { config, masterAddress } from "../config.js";
 import { safeEqual } from "../crypto.js";
+import { GroupAccessError } from "../groupAccess.js";
 import { agentSession, identityLockedForSession } from "../identityAdmin.js";
 import { attachRelay as pushAttachRelay } from "../push.js";
 import { RateLimiter } from "../ratelimit.js";
@@ -903,6 +904,26 @@ export const accountCtx = async (c: Context<Env>) => {
  */
 export const groupDenial = (c: Context, denied: { error: string; need: string }) =>
   c.json({ error: denied.error, need: denied.need }, 403);
+
+/**
+ * The answer to a **thrown** group-access refusal, or upstream's.
+ *
+ * `groupDenial` above is the door's own *return* — a group the Master is not
+ * granted on, with the section that was asked for. This is the same refusal
+ * thrown rather than returned: the Master could not be reached as the
+ * installation at all, so the reason carries the server's own detail where it
+ * has one. The codes are the client's to speak (`@/lib/groupAccess`,
+ * `@/lib/agentErrors`), never a sentence from here.
+ */
+export const groupAccessFailure = (c: Context, err: unknown) => {
+  if (!(err instanceof GroupAccessError)) return null;
+  const { code } = err.reason;
+  const detail = "detail" in err.reason ? err.reason.detail : undefined;
+  return c.json(
+    detail ? { error: code, detail } : { error: code },
+    err.status as ContentfulStatusCode,
+  );
+};
 
 /**
  * The body and status of a refusal from one of this product's own error classes.

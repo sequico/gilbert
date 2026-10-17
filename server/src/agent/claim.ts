@@ -16,6 +16,11 @@
  *
  * Holding the claim costs one read per pass; a renew or a take costs one write
  * (one upload). Nothing here is on a clock of its own: the caller says when.
+ *
+ * The claim's **document** — its path, its TTL, its shape and the predicate
+ * that reads one — is `shared/agent.ts`, in the same position a run and a fact
+ * are in: a stored contract both tiers read, so the Administration surface
+ * reads the very shape this file writes.
  */
 
 import {
@@ -27,43 +32,10 @@ import {
   writeAppFile,
 } from "../appFolder.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
-import { isRecord } from "../shared/json.js";
-import { isInstant } from "../shared/run.js";
+import { CLAIM_FILE, CLAIM_TTL_MS, type ClaimDoc, isClaimDoc } from "../shared/agent.js";
 
-/** The claim's document, in the app folder's own top level. */
-export const CLAIM_FILE = "agent-claim.json";
-
-/**
- * How long a claim that is not renewed is believed.
- *
- * The one number that says both when a live holder must renew and how long a
- * dead one's claim blocks the next start. Ten minutes is long enough that a
- * working agent's renewals are ordinary and short enough that a crash is
- * noticed by a restart rather than by a person.
- */
-export const CLAIM_TTL_MS = 10 * 60_000;
-
-/** The claim as it is stored. */
-export interface ClaimDoc {
-  v: 1;
-  /** Who holds it. */
-  holder: string;
-  /** When it was taken, or last renewed. */
-  takenAt: string;
-  /** The instant it stops being believed, ISO 8601. */
-  expires: string;
-}
-
-function isClaimDoc(x: unknown): x is ClaimDoc {
-  return (
-    isRecord(x) &&
-    x.v === 1 &&
-    typeof x.holder === "string" &&
-    !!x.holder &&
-    isInstant(x.takenAt) &&
-    isInstant(x.expires)
-  );
-}
+export type { ClaimDoc };
+export { CLAIM_FILE, CLAIM_TTL_MS };
 
 /** The account the claim lives in: the one the agent signs in as. */
 function claimAccountId(ctx: Ctx): string {

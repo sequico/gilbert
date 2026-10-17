@@ -4,12 +4,12 @@
  */
 
 import type { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { isOwnRefusal, readGroupLabels, writeGroupLabels } from "../account.js";
-import { GroupAccessError, resolveGroupAccess } from "../groupAccess.js";
+import { resolveGroupAccess } from "../groupAccess.js";
 import {
   accountFailure,
   type Env,
+  groupAccessFailure,
   readJson,
   requireAdmin,
   requireSession,
@@ -28,15 +28,7 @@ export function registerGroupLabelRoutes(api: Hono<Env>): void {
          what it can render, and a write over one is refused where it is made. */
       return c.json({ labels: labels.state === "catalog" ? labels.labels : [] });
     } catch (err) {
-      if (err instanceof GroupAccessError) {
-        const { code } = err.reason;
-        const detail = "detail" in err.reason ? err.reason.detail : undefined;
-        return c.json(
-          detail ? { error: code, detail } : { error: code },
-          err.status as ContentfulStatusCode,
-        );
-      }
-      return upstreamFailure(c, err);
+      return groupAccessFailure(c, err) ?? upstreamFailure(c, err);
     }
   });
 
@@ -52,14 +44,8 @@ export function registerGroupLabelRoutes(api: Hono<Env>): void {
       await writeGroupLabels(access.ctx, access.accountId, body.labels);
       return c.json({ ok: true });
     } catch (err) {
-      if (err instanceof GroupAccessError) {
-        const { code } = err.reason;
-        const detail = "detail" in err.reason ? err.reason.detail : undefined;
-        return c.json(
-          detail ? { error: code, detail } : { error: code },
-          err.status as ContentfulStatusCode,
-        );
-      }
+      const denied = groupAccessFailure(c, err);
+      if (denied) return denied;
       /* The door refuses the reserved namespace with a 4xx `AccountError`, a
          judgement of this server's own, and that is answered as one; a 5xx is
          the mail server failing, whose sentence `upstreamFailure` fixes and

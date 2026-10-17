@@ -1,0 +1,67 @@
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+import { freePort, jsonCall } from "./testkit.js";
+
+/**
+ * The agent's administration surface behind the same door every other one is
+ * behind (ADR 0001, ADR 0017): the claim and the runs and the memory are the
+ * installation's own records, and a session without the Stalwart admin marker
+ * reaches none of them — **including the write**, which is the one a surface must
+ * not leave open. Separate file on purpose — the mock reads `MOCK_ADMIN` at
+ * import, so the admin and non-admin cases need separate processes (see
+ * `admin-nonadmin.test.ts`).
+ */
+
+const PORT = await freePort();
+process.env.MOCK_PORT = String(PORT);
+process.env.MOCK_USER = "demo@example.com";
+process.env.MOCK_PASS = "demo-password";
+process.env.MOCK_ADMIN = "0";
+process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
+process.env.APP_SECRET = "test-secret-for-agent-surface-nonadmin";
+
+const mock = await import("./mock/index.js");
+const { config } = await import("./config.js");
+const { createApp } = await import("./app.js");
+
+const app = createApp();
+const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
+
+const call = jsonCall(app, HEADERS);
+
+before(async () => {
+  config.agent.address = "gilbert@example.com";
+  config.agent.password = "";
+  const res = await call("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username: "demo@example.com", password: "demo-password" }),
+  });
+  assert.equal(res.status, 200, "login should succeed against the mock");
+});
+
+after(() => {
+  (mock as { server?: { close(): void } }).server?.close();
+});
+
+test("a non-admin cannot read the agent, its runs or its memory", async () => {
+  const agent = await call("/api/admin/agent");
+  assert.equal(agent.status, 403);
+  assert.equal((agent.body as { error?: string }).error, "forbidden");
+
+  const runs = await call("/api/admin/groups/team@example.org/runs");
+  assert.equal(runs.status, 403);
+
+  const memory = await call("/api/admin/memory");
+  assert.equal(memory.status, 403);
+});
+
+test("a non-admin cannot correct or remove a fact", async () => {
+  const correction = await call("/api/admin/memory/whatever", {
+    method: "PUT",
+    body: JSON.stringify({ subject: "Maersk", fact: "not yours to write" }),
+  });
+  assert.equal(correction.status, 403);
+
+  const removal = await call("/api/admin/memory/whatever", { method: "DELETE" });
+  assert.equal(removal.status, 403);
+});

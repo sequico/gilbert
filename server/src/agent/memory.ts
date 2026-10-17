@@ -16,6 +16,14 @@
  * it keep pointing at it and the memory does not fill with a second spelling of
  * one thing.
  *
+ * The **person's** two writes are at the foot of this file and are not that one:
+ * a correction (`correctFactByPerson`) replaces whatever is there — the agent's
+ * sheet or another person's — and stamps the person's own name on it, which is
+ * what puts the corrected fact in force from that moment; a removal
+ * (`forgetFact`) takes a sheet away. Both are the surface's to make, and both go
+ * through this module so that addressing a fact, reading its sheet and refusing
+ * a name it cannot file stay in one place.
+ *
  * **A sheet this build's parser would refuse is never written**, so the store
  * and its reader cannot disagree about what a fact is.
  *
@@ -37,8 +45,10 @@ import { randomUUID } from "node:crypto";
 import {
   appFolderState,
   type Ctx,
+  destroyAppNode,
   ensureFolderPath,
   fileChildren,
+  findAppFileAt,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -193,6 +203,40 @@ export async function listFacts(ctx: Ctx, accountId: string): Promise<MemoryStor
   return { state, facts };
 }
 
+/**
+ * The subject and sentence one write states, trimmed and checked.
+ *
+ * The one answer to "is this something a sheet can hold", shared by the agent's
+ * write and a person's correction: the rules are the document's own
+ * (`shared/memory.ts`'s bounds) and a writer that spelled them out again would
+ * be a second place they could drift.
+ */
+function checkedText(
+  subject: string,
+  sentence: string,
+  at: string,
+): { subject: string; sentence: string } {
+  const trimmed = subject.trim();
+  const held = sentence.trim();
+  const problem = subjectProblem(trimmed);
+  if (problem) throw new MemoryError("fact_invalid", problem, 400);
+  if (!held)
+    throw new MemoryError(
+      "fact_invalid",
+      "A fact needs the sentence it holds true.",
+      400,
+    );
+  if (held.length > MEMORY_FACT_MAX)
+    throw new MemoryError(
+      "fact_invalid",
+      `A fact's sentence is at most ${MEMORY_FACT_MAX} characters.`,
+      400,
+    );
+  if (!isInstant(at))
+    throw new MemoryError("fact_invalid", `"${at}" is not an instant.`, 400);
+  return { subject: trimmed, sentence: held };
+}
+
 /** What the agent says while it works, for the one write below (ADR 0037). */
 export interface FactWrite {
   /** What the fact is about, in the group's own words. */
@@ -241,25 +285,7 @@ export async function rememberFact(
   write: FactWrite,
   store: MemoryStore,
 ): Promise<FactDoc> {
-  const subject = write.subject.trim();
-  const sentence = write.fact.trim();
-  const problem = subjectProblem(subject);
-  if (problem) throw new MemoryError("fact_invalid", problem, 400);
-  if (!sentence)
-    throw new MemoryError(
-      "fact_invalid",
-      "A fact needs the sentence it holds true.",
-      400,
-    );
-  if (sentence.length > MEMORY_FACT_MAX)
-    throw new MemoryError(
-      "fact_invalid",
-      `A fact's sentence is at most ${MEMORY_FACT_MAX} characters.`,
-      400,
-    );
-  if (!isInstant(write.at))
-    throw new MemoryError("fact_invalid", `"${write.at}" is not an instant.`, 400);
-
+  const { subject, sentence } = checkedText(write.subject, write.fact, write.at);
   const same = store.facts.find((fact) => sameSubject(fact.subject, subject));
   if (same?.origin.by === "person")
     throw new MemoryError(
@@ -306,4 +332,104 @@ function linkIds(held: readonly FactDoc[], subjects: readonly string[]): string[
     if (!ids.includes(found.id)) ids.push(found.id);
   }
   return ids;
+}
+
+/** What a person says a fact is, correcting the sheet that is there. */
+export interface PersonCorrection {
+  /** The sheet being corrected, by its id. */
+  id: string;
+  /** What the fact is about, in the person's own words. */
+  subject: string;
+  /** What they hold to be true of it, in one sentence. */
+  fact: string;
+  /** Who corrected it: the account the correction was made as. */
+  who: string;
+  /** When it was corrected, ISO 8601. */
+  at: string;
+}
+
+/**
+ * Correct a fact as a person, in place — and put it in force.
+ *
+ * The agent's own write is refused against a person's fact (`rememberFact`
+ * above, `fact_in_force`), so this is where a correction is made: it replaces
+ * whatever is there — the agent's sheet or another person's — keeping the id, so
+ * every link that pointed at it still does, and stamps **this** person on it as
+ * its origin. From that moment the sheet is a person's fact, and the agent's next
+ * conclusion about the subject is a proposal rather than a correction.
+ *
+ * The write is made against the **store's reading**, exactly as the agent's own
+ * is: the token that reading carries is the compare-and-set, so a correction
+ * made against a stale list is refused rather than landing over a fact the
+ * writer never saw. The graph is left as it was — links, the standing mark and
+ * the group it is about — because those are the agent's bookkeeping and a person
+ * correcting what is held true is not re-deciding where it hangs from; a subject
+ * that names a subject already held is refused rather than making the memory hold
+ * two spellings of one thing.
+ */
+export async function correctFactByPerson(
+  ctx: Ctx,
+  accountId: string,
+  edit: PersonCorrection,
+  store: MemoryStore,
+): Promise<FactDoc> {
+  const held = store.facts.find((fact) => fact.id === edit.id);
+  if (!held)
+    throw new MemoryError(
+      "fact_not_found",
+      `The memory holds no fact called "${edit.id}", so there is nothing to correct. It was removed, or it was never there.`,
+      404,
+    );
+  if (!edit.who.trim())
+    throw new MemoryError("fact_invalid", "A correction says who made it.", 400);
+  const { subject, sentence } = checkedText(edit.subject, edit.fact, edit.at);
+  const clash = store.facts.find(
+    (fact) => fact.id !== held.id && sameSubject(fact.subject, subject),
+  );
+  if (clash)
+    throw new MemoryError(
+      "fact_invalid",
+      `The memory already holds a fact about "${clash.subject}", and one subject is one sheet: remove that one first, or correct this one without renaming it.`,
+      409,
+    );
+  const doc: FactDoc = {
+    v: MEMORY_VERSION,
+    id: held.id,
+    subject,
+    fact: sentence,
+    origin: { by: "person", who: edit.who },
+    at: edit.at,
+    links: held.links,
+    standing: held.standing,
+    group: held.group,
+  };
+  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: store.state });
+  return doc;
+}
+
+/**
+ * Take a fact out of the memory.
+ *
+ * A removal is the one write nothing brings back: a fact the agent learned and
+ * that everybody's next call carries is gone with the sheet, so the caller is the
+ * one that asks (the Administration surface, ADR 0037) and it is conditional on
+ * the state its reading saw, like every other write here — a removal decided
+ * against a stale list is refused rather than taking a fact that was just
+ * corrected. A sheet that is not there is a refusal rather than a success: the
+ * person was shown it, and "nothing to remove" is not what they were told.
+ */
+export async function forgetFact(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  ifInState: string,
+): Promise<void> {
+  const { file } = await findAppFileAt(ctx, accountId, factPath(id));
+  if (!file?.id)
+    throw new MemoryError(
+      "fact_not_found",
+      `The memory holds no fact called "${id}", so there is nothing to remove. It was removed, or it was never there.`,
+      404,
+    );
+  await destroyAppNode(ctx, accountId, String(file.id), { ifInState });
 }
