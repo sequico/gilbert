@@ -319,6 +319,15 @@ export function registerMailRoutes(api: Hono<Env>): void {
         pushAttach(session.username, accountId, session.authorization, out, origin)
       ) {
         /*
+         * Headers before the first await: the tab is already in the fan-out,
+         * and a StateChange (or the sweeper's ping) landing before this write
+         * would send an implicit 200 with no `text/event-stream`, after which
+         * `writeHead` throws and the browser reconnects in a loop.
+         */
+        out.writeHead(200, SSE_HEADERS);
+        out.flushHeaders();
+        out.write(": subscribed\n\n");
+        /*
          * The tab also follows the installation's own account (ADR 0028).
          *
          * A step an administrator checks on the installation's checklist is
@@ -348,9 +357,6 @@ export function registerMailRoutes(api: Hono<Env>): void {
             out,
             origin,
           );
-        out.writeHead(200, SSE_HEADERS);
-        out.flushHeaders();
-        out.write(": subscribed\n\n");
         return RESPONSE_ALREADY_SENT;
       }
       if (config.rawPushRelay)
