@@ -23,6 +23,35 @@ export function isGroupAccountRecord(
 }
 
 /**
+ * The accounts of a session that are group candidates, by id and by the name they
+ * are read under.
+ *
+ * One walk, two readers: the classifier that probes each candidate for a mail
+ * store (`groupAccountsDetailed` on the server) and the pass that asks whether
+ * those answers can have changed since the last one it took (`agent/supervisor.ts`).
+ * A reader that spelled the walk a second time would compare two lists that were
+ * never the same one, and a roster cached against the wrong list is a group that
+ * is worked twice or not at all.
+ *
+ * One candidate per name, in the order the session lists them: a name two
+ * accounts carry is one group, and the first of them is the one the answer comes
+ * from — the same rule the classifier's own map is built by.
+ */
+export function groupCandidates(
+  accounts: Record<string, unknown> | undefined | null,
+): Array<[accountId: string, name: string]> {
+  const out: Array<[string, string]> = [];
+  for (const [accountId, account] of Object.entries(accounts ?? {})) {
+    const record = account as { name?: unknown; isPersonal?: unknown };
+    if (!isGroupAccountRecord(record)) continue;
+    const name = (record.name as string).trim().toLowerCase();
+    if (out.some(([, seen]) => seen === name)) continue;
+    out.push([accountId, name]);
+  }
+  return out;
+}
+
+/**
  * Whether an account is one the reader reaches **other than as their own**: a
  * share somebody made, or a group they are a member of.
  *

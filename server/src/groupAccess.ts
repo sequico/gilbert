@@ -25,7 +25,7 @@ import {
   type GroupNeed,
 } from "./shared/groupAccess.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
-import { isGroupAccountRecord } from "./shared/sessionAccount.js";
+import { groupCandidates } from "./shared/sessionAccount.js";
 import {
   fetchUpstreamSession,
   sessionUpstream,
@@ -410,13 +410,7 @@ export interface GroupReach {
   unreadable: string[];
 }
 export async function groupAccountsDetailed(ctx: Ctx): Promise<GroupReach> {
-  const candidates: Array<[string, string]> = [];
-  for (const [accountId, account] of Object.entries(ctx.session.accounts ?? {})) {
-    const a = account as { name?: unknown; isPersonal?: unknown };
-    if (!isGroupAccountRecord(a)) continue;
-    const name = (a.name as string).trim().toLowerCase();
-    if (!candidates.some(([, seen]) => seen === name)) candidates.push([accountId, name]);
-  }
+  const candidates = groupCandidates(ctx.session.accounts);
   const client = new JmapClient(ctx);
   const probed = await Promise.all(
     candidates.map(async ([accountId, name]) => {

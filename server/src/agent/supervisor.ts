@@ -21,9 +21,11 @@
  * at the boot (`loop.ts` asks for the accounts on every pass). A pass with
  * nothing to do is cheap enough to repeat at that rate: it reads the
  * installation's claim (one read, and no write while it is held — ADR 0036),
- * resolves the Master's groups (one session read, and the mail-store probe the
- * one classifier for that question makes per candidate, `groupAccess.ts`), and
- * reads each group's runs and its change log (a request per page apiece). It
+ * re-reads the session the Master's groups are resolved from (one read, and the
+ * mail-store probe the one classifier for that question makes per candidate only
+ * when the session names a different set of candidates — `groupAccess.ts`), and
+ * reads each group's runs and its change log (a request per page apiece, and a
+ * run document whose stamp has not moved is not downloaded again). It
  * asks the model **only** when a rule covers a change (ADR 0035), so a quiet
  * installation costs reads and nothing else. Ten seconds is far below the
  * claim's own `CLAIM_TTL_MS` (ten
@@ -55,10 +57,11 @@
  * group up again, a claim a peer holds and this process taking it back — and
  * never once per ten seconds. The line a person reads is one they can act on.
  *
- * **Nothing is kept.** The loop, its reading cursors and its alarms live in
- * memory, which is disposable by law (`IMMUTABLE=1`, ADR 0031): what outlives
- * the process is the claim, the runs and the waits, all documents in Stalwart.
- * There is no lock file, no pid file and no state of its own on disk.
+ * **Nothing is kept.** The loop, its reading cursors, the roster the last pass
+ * resolved and its alarms live in memory, which is disposable by law
+ * (`IMMUTABLE=1`, ADR 0031): what outlives the process is the claim, the runs
+ * and the waits, all documents in Stalwart. There is no lock file, no pid file
+ * and no state of its own on disk.
  */
 
 import { hostname } from "node:os";
@@ -66,6 +69,7 @@ import type { Ctx } from "../appFolder.js";
 import type { BootConfiguration } from "../bootstrap.js";
 import { groupAccountsDetailed } from "../groupAccess.js";
 import { errorMessage } from "../shared/errors.js";
+import { groupCandidates } from "../shared/sessionAccount.js";
 import { fetchUpstreamSession, upstreamFor } from "../upstream.js";
 import { AgentLoop, type PassSummary } from "./loop.js";
 import { modelAccess } from "./model.js";
@@ -296,15 +300,47 @@ export async function startAgent(
  * signed in with — the same `.well-known/jmap` read (`upstream.ts`) — and puts it
  * where every later call goes: a `Ctx` carries the session rather than a copy of
  * it, so the refreshed one is the one the claim, the runs and the change logs are
- * read through (`jmap.ts`'s `SessionSource`). The groups are then the answer of
- * the **one** classifier for what a group is (`groupAccess.ts`), which is also
- * what tells a group mailbox from an account somebody merely shared.
+ * read through (`jmap.ts`'s `SessionSource`).
+ *
+ * **The session is read on every pass; the probe is not.** What follows the
+ * session is the **one** classifier for what a group is (`groupAccess.ts`), and
+ * that classifier asks every candidate for a mail store — a round trip per
+ * candidate, ten times a minute, to learn something the last pass learned. So the
+ * roster is held against the list it was resolved from and reused while that list
+ * is the same: the candidates are the pairs the fresh session names (`groupCandidates`,
+ * the walk the classifier itself makes), compared as one string, in the order the
+ * session lists them. A grant added or withdrawn, a group renamed, a candidate
+ * gone: a different list, so the classifier answers again and the roster held is
+ * the new one — which is what keeps "a Master that gains a group is worked by the
+ * next pass" exactly as true as it was. The first pass probes, because it holds
+ * no roster to reuse.
+ *
+ * shortcut: an account that answers the mail-store probe **differently** while
+ * the session still names the same candidates — a share that became a mailbox, an
+ * account that became readable after a failure — is not re-probed, so the roster
+ * follows the session's own list and not the probe's answer. Upgrade by asking
+ * the classifier again on a slow tick (a pass every few minutes), which costs one
+ * probe per candidate and bounds how long an answer can go on being stale.
  */
 export async function resolveGroupAccounts(ctx: Ctx): Promise<readonly string[]> {
   ctx.session = await fetchUpstreamSession(ctx.authorization, upstreamFor(ctx.username));
+  const candidates = JSON.stringify(groupCandidates(ctx.session.accounts));
+  const held = rosters.get(ctx);
+  if (held?.candidates === candidates) return held.roster;
   const { groups } = await groupAccountsDetailed(ctx);
-  return [...groups.values()];
+  const roster = [...groups.values()];
+  rosters.set(ctx, { candidates, roster });
+  return roster;
 }
+
+/**
+ * The roster the last pass resolved, and the candidates it resolved it from.
+ *
+ * Per `Ctx`, which is the agent's own and lives as long as the process: a
+ * restart has no roster and probes for its first one, which is the whole of what a
+ * disposable process needs to know here (ADR 0036).
+ */
+const rosters = new WeakMap<Ctx, { candidates: string; roster: readonly string[] }>();
 
 /** Who holds the claim, as a name the claim's own document can be read with. */
 function holderName(): string {

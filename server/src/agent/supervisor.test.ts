@@ -164,6 +164,8 @@ const passLinesIn = (lines: readonly string[]): string[] =>
  * (`groupAccess.ts`'s probe).
  */
 let groupAccounts: Array<[string, { name: string; isPersonal: boolean }]> = [];
+/** How many mail-store probes the classifier has made, which is what a pass costs. */
+let probes = 0;
 
 const mailServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   const send = (body: unknown): void => {
@@ -184,6 +186,7 @@ const mailServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     });
     return;
   }
+  probes += 1;
   send({
     methodResponses: [
       ["Mailbox/get", { list: [{ id: "inbox", name: "Inbox", role: "inbox" }] }, "r"],
@@ -323,6 +326,51 @@ test("the groups are read from the server on every pass, not from the session th
     ["ag1"],
     "the group added in the directory since is worked by the next read",
   );
+});
+
+test("an unchanged roster is not probed again, and a moved one is", async () => {
+  /*
+   * The session is read on every pass — that is what makes a grant added in
+   * Stalwart's own directory visible without a restart — but the mail-store probe
+   * that follows it is a round trip per candidate, and what it answers cannot have
+   * changed while the session names the same candidates. So the first pass probes
+   * for real, a pass whose candidates are the same as the last one's reuses the
+   * roster, and a candidate added, removed or renamed probes again.
+   */
+  const ctx: Ctx = {
+    authorization: "Basic dGVzdA==",
+    session: { ...SESSION, accounts: {} },
+    username: "gilbert@example.com",
+  };
+  groupAccounts = [["ag1", { name: "team@example.org", isPersonal: false }]];
+  probes = 0;
+
+  assert.deepEqual(await resolveGroupAccounts(ctx), ["ag1"], "the first pass works");
+  assert.equal(probes, 1, "and probes the candidate for a mail store");
+
+  probes = 0;
+  assert.deepEqual(
+    await resolveGroupAccounts(ctx),
+    ["ag1"],
+    "the next pass works it too",
+  );
+  assert.equal(
+    probes,
+    0,
+    "and asks the mail store nothing: the roster cannot have moved",
+  );
+
+  probes = 0;
+  groupAccounts = [
+    ["ag1", { name: "team@example.org", isPersonal: false }],
+    ["ag2", { name: "other@example.org", isPersonal: false }],
+  ];
+  assert.deepEqual(
+    await resolveGroupAccounts(ctx),
+    ["ag1", "ag2"],
+    "a group the Master is added to is worked by the pass that follows",
+  );
+  assert.equal(probes, 2, "and both candidates are probed, the new one among them");
 });
 
 test("an agent whose conditions cannot be resolved is a line, not a failed boot", async () => {
