@@ -835,8 +835,8 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
         c: {
           subject: "Re: booking 4417",
           from: [{ email: "ops@shipper.example" }],
-          to: [{ email: "team@example.org" }],
-          messageId: ["original@shipper.example"],
+          to: [{ email: "demo@example.com" }, { email: "finance@shipper.example" }],
+          cc: [{ email: "ops@shipper.example" }],
           references: ["earlier@shipper.example"],
           mailboxIds: { inbox: true },
         },
@@ -850,11 +850,22 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
   const submissions = mock.methodCalls["EmailSubmission/set"] ?? 0;
   const draft = await writeTool<{
     id: string;
-    to: string;
+    to: string[];
+    cc: string[];
     subject: string;
     folder: string;
   }>("mail.draft", { id, text: "Booked on the 14th; the papers follow." });
-  assert.equal(draft.to, "ops@shipper.example", "addressed to the message's own sender");
+  /*
+   * Reply to all, which is the only reply the agent drafts: the sender answers
+   * in To, and the people the message also reached are in Cc — with the
+   * account's own address taken out of both and the sender not repeated in Cc.
+   */
+  assert.deepEqual(draft.to, ["ops@shipper.example"], "the sender answers in To");
+  assert.deepEqual(
+    draft.cc,
+    ["finance@shipper.example"],
+    "and the other recipient is in Cc, once",
+  );
   assert.equal(
     draft.subject,
     "Re: booking 4417",
@@ -873,6 +884,8 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
       keywords?: Record<string, boolean>;
       inReplyTo?: string[];
       references?: string[];
+      to?: Array<{ email?: string }>;
+      cc?: Array<{ email?: string }>;
       from?: Array<{ email?: string }>;
       bodyValues?: Record<string, { value?: string }>;
     }>;
@@ -887,6 +900,8 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
         "inReplyTo",
         "references",
         "from",
+        "to",
+        "cc",
         "bodyValues",
       ],
     },
@@ -894,6 +909,16 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
   );
   const written = held.list?.[0];
   assert.ok(written, "the draft is in the account");
+  assert.deepEqual(
+    written.to,
+    [{ email: "ops@shipper.example" }],
+    "the draft carries the To it was created with",
+  );
+  assert.deepEqual(
+    written.cc,
+    [{ email: "finance@shipper.example" }],
+    "and the Cc reply-all adds",
+  );
   /*
    * A message's own id, as the account stores it: JMAP's `messageId` is a list,
    * and the mock makes it from the node's id, so the test reads it rather than
@@ -940,5 +965,111 @@ test("a reply is drafted into the group's Drafts, addressed and threaded, and no
     written.mailboxIds,
     { [drafts]: true },
     "and the draft is in it and nowhere else",
+  );
+});
+
+test("the agent settles a step of its group's workorder and signs it as the agent", async () => {
+  /*
+   * A step the agent settles goes through the same writer a person's check does
+   * (`applyStep` in `workorderAdmin.ts`), so the same terminal refusal and the
+   * same gate latch apply; what is different is the signature, which says the
+   * agent did it and not a person (ADR 0028).
+   */
+  const at = new Date().toISOString();
+  const uid = "wo-settle";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `workorders/${uid}.json`,
+    buildWorkorderDoc({
+      uid,
+      name: "Booking 2",
+      state: "running",
+      by: "a@example.com",
+      at,
+      checklist: buildChecklist({
+        template: { accountId, id: "template-1", revision: "rev-1" },
+        variants: {},
+        items: {},
+        stepPaths: ["intake.confirm"],
+      }),
+    }),
+  );
+
+  const settled = await writeTool<{ state: string; by: string }>("workorder.settle", {
+    uid,
+    path: "intake.confirm",
+    state: "done",
+    note: "the booking is confirmed",
+  });
+  assert.equal(settled.state, "done");
+  assert.equal(settled.by, "gilbert-agent", "the step says the agent settled it");
+
+  const stored = JSON.parse(
+    (await readAppFileAt(ctx, accountId, `workorders/${uid}.json`))?.text ?? "{}",
+  ) as {
+    checklist?: {
+      steps?: Array<{ path?: string; state?: string; by?: string; note?: string }>;
+    };
+    updated?: { by?: string };
+  };
+  const step = stored.checklist?.steps?.find((one) => one.path === "intake.confirm");
+  assert.equal(step?.state, "done", "the step is settled on the document");
+  assert.equal(step?.by, "gilbert-agent", "with the agent's own signature");
+  assert.equal(step?.note, "the booking is confirmed", "and the note the model gave");
+  assert.equal(
+    stored.updated?.by,
+    "gilbert-agent",
+    "the document says who last wrote it",
+  );
+
+  // A step that is not there is refused rather than invented.
+  await assert.rejects(
+    () => writeTool("workorder.settle", { uid, path: "intake.unknown", state: "done" }),
+    /no step "intake.unknown"/,
+    "a path the checklist does not hold is a refusal",
+  );
+});
+
+test("the agent proposes a page's change into its draft, and nothing is in force", async () => {
+  /*
+   * A proposal is the draft: the page's own documents keep their tags and
+   * checklist, the words the model wrote become the body, and approval — a
+   * person's, ADR 0024 — is what would put anything in force.
+   */
+  const title = "Our intake";
+  const before = "When a booking arrives, answer within a day.";
+  await writeAppFileAt(
+    ctx,
+    accountId,
+    `knowledge/${knowledgeFolderName(title)}/draft.json`,
+    buildDraft({
+      id: "k-propose",
+      title,
+      tags: ["intake"],
+      blocks: blocksFromText(before),
+      text: before,
+      by: "a@example.com",
+      at: new Date().toISOString(),
+    }),
+  );
+
+  const proposed = await writeTool<{ title: string; revision: number | null }>(
+    "knowledge.propose",
+    { title, text: "Answer within two hours, and name the booking." },
+  );
+  assert.equal(proposed.title, title, "the page keeps its title");
+  assert.equal(proposed.revision, null, "nothing is in force: a proposal is the draft");
+
+  const page = await callTool<{ text: string; tags: string[] }>("knowledge.read", {
+    title,
+  });
+  assert.equal(page.text, "Answer within two hours, and name the booking.");
+  assert.deepEqual(page.tags, ["intake"], "the page's own tags are kept");
+
+  await assert.rejects(
+    () => writeTool("knowledge.propose", { title: "A page nobody wrote", text: "…" }),
+    /no knowledge page titled/,
+    "a page that is not there is not proposed to",
   );
 });

@@ -53,14 +53,20 @@ import {
 } from "../appFolder.js";
 import { findChatMessages, postChatMessage, readChatMessage } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
-import { readArticle } from "../knowledgeAdmin.js";
+import { KnowledgeAdminError, proposeArticle, readArticle } from "../knowledgeAdmin.js";
+import { sameAddress } from "../shared/address.js";
+import { AGENT_SIGNATURE } from "../shared/agent.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_MAX_TEXT } from "../shared/chat.js";
 import { refusalOf, type SetResponse } from "../shared/jmap.js";
 import { queryThenGet } from "../shared/jmapQuery.js";
 import { isRecord } from "../shared/json.js";
-import { KNOWLEDGE_FOLDER, knowledgeFolderName } from "../shared/knowledge.js";
+import {
+  blocksFromText,
+  KNOWLEDGE_FOLDER,
+  knowledgeFolderName,
+} from "../shared/knowledge.js";
 import {
   AGENT_LABELS,
   DRAFT_KEYWORD,
@@ -86,11 +92,14 @@ import {
 import { replySubject } from "../shared/text.js";
 import {
   isWorkorderDoc,
+  isWorkorderStepState,
+  stepOf,
   WORKORDER_FOLDER,
   workorderClosedPath,
   workorderFileName,
 } from "../shared/workorder.js";
 import { clientOf } from "../util.js";
+import { settleStepAsAgent, WorkorderAdminError } from "../workorderAdmin.js";
 import { type MemoryStore, rememberFact } from "./memory.js";
 import { readRun } from "./runs.js";
 
@@ -747,43 +756,71 @@ const setKeyword = defineTool({
   },
 });
 
-/**
- * The one address a reply is written to, from a message's address list.
- *
- * `replyTo` wins over `from` when the message names one, and the first address
- * of the list is the one meant: a reply is to a person, and a message naming
- * several senders is answered to the first.
- */
-function firstEmail(value: unknown): string | null {
-  if (!Array.isArray(value)) return null;
+/** An address as a message carries it, from a JMAP address list. */
+interface MailAddress {
+  email: string;
+  name?: string;
+}
+
+/** One sending identity of the account: its address, its name and its Bcc. */
+interface SendingIdentity extends MailAddress {
+  bcc: MailAddress[];
+}
+
+/** The addresses a JMAP property carries, in order, skipping what is not one. */
+function addressesIn(value: unknown): MailAddress[] {
+  if (!Array.isArray(value)) return [];
+  const out: MailAddress[] = [];
   for (const one of value) {
-    if (isRecord(one) && typeof one.email === "string" && one.email) return one.email;
+    if (!isRecord(one) || typeof one.email !== "string" || !one.email) continue;
+    out.push({
+      email: one.email,
+      ...(typeof one.name === "string" && one.name ? { name: one.name } : {}),
+    });
   }
-  return null;
+  return out;
+}
+
+/** The list with one entry per address, the first spelling of it kept. */
+function onePerAddress(list: MailAddress[]): MailAddress[] {
+  const seen = new Set<string>();
+  return list.filter((one) => {
+    const key = one.email.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**
- * The address this account's own mail is from: its default sending identity.
+ * The addresses this account sends as: the identities configured on the group.
  *
- * A draft must say who it is from, and the identity is the account's own answer
- * to that question — the same list the composer reads. An account with no
- * identity has nobody to draft as, and says so rather than writing a draft no
- * mail server would send.
+ * The group's identities are the account's own list — the same one the composer
+ * offers — so a group with none has nobody to draft as, and says so rather than
+ * writing a draft no mail server would send.
  */
-async function sendingAddress(ctx: Ctx, accountId: string): Promise<string> {
-  const answer = await clientOf(ctx).call<{ list?: Array<{ email?: unknown }> }>(
+async function sendingIdentities(
+  ctx: Ctx,
+  accountId: string,
+): Promise<SendingIdentity[]> {
+  const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
     "Identity/get",
     { accountId, ids: null },
     [CAPABILITIES.mail, CAPABILITIES.submission],
   );
-  const email = answer.list?.find((one) => typeof one.email === "string")?.email;
-  if (typeof email !== "string" || !email)
+  const identities: SendingIdentity[] = [];
+  for (const one of answer.list ?? []) {
+    const [address] = addressesIn([one]);
+    if (!address) continue;
+    identities.push({ ...address, bcc: addressesIn(one.bcc) });
+  }
+  if (!identities.length)
     throw new ToolError(
       "no_identity",
       "This account has no sending identity, so a draft could not say who it is from.",
       409,
     );
-  return email;
+  return identities;
 }
 
 const draftReply = defineTool({
@@ -791,9 +828,10 @@ const draftReply = defineTool({
   description:
     "Draft a reply to a message of this account, in the group's own Drafts " +
     "folder, without sending it: a person reads it, changes what they want and " +
-    "sends it. The reply goes to the message's own reply-to, or to its sender " +
-    "when it names none, carries the thread so it lands in the conversation, and " +
-    `carries "$draft" until somebody sends it.`,
+    "sends it. It is a reply to everyone: the sender — or the address the " +
+    "message says to reply to — in To, and everybody else the message reached " +
+    "in Cc, the account's own addresses left out. It carries the thread so it " +
+    `lands in the conversation, and "${DRAFT_KEYWORD}" until somebody sends it.`,
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
@@ -809,22 +847,52 @@ const draftReply = defineTool({
       {
         accountId,
         ids: [id],
-        properties: ["from", "replyTo", "subject", "messageId", "references"],
+        properties: ["from", "replyTo", "to", "cc", "subject", "messageId", "references"],
       },
       [CAPABILITIES.mail],
     );
     const original = answer.list?.[0];
     if (!original) throw notFound(`message "${id}" in this account`);
-    const to = firstEmail(original.replyTo) ?? firstEmail(original.from);
-    if (!to)
+    const identities = await sendingIdentities(ctx, accountId);
+    const isOwn = (one: MailAddress) =>
+      identities.some((identity) => sameAddress(identity.email, one.email));
+    /*
+     * Reply to all. A person's own addresses are taken out of both lists: a
+     * reply the group addresses to itself is a reply nobody reads, and the
+     * address a message reached is not one it is answered to.
+     */
+    const replyTo = addressesIn(original.replyTo);
+    const senders = onePerAddress(
+      replyTo.length ? replyTo : addressesIn(original.from),
+    ).filter((one) => !isOwn(one));
+    const others = onePerAddress([
+      ...addressesIn(original.to),
+      ...addressesIn(original.cc),
+    ]).filter((one) => !isOwn(one));
+    // A message of the group's own has no sender to answer: the reply goes on
+    // with the people it was written to.
+    const to = senders.length ? senders : others;
+    const cc = senders.length
+      ? others.filter((one) => !to.some((held) => sameAddress(held.email, one.email)))
+      : [];
+    if (!to.length)
       throw new ToolError(
         "no_recipient",
-        `The message "${id}" names nobody to reply to.`,
+        `The message "${id}" reached nobody a reply could answer.`,
         422,
       );
+    // The identity the message was addressed to is the one that answers it; a
+    // group with several addresses does not reply as whichever came first.
+    const reached = [...addressesIn(original.to), ...addressesIn(original.cc)].map(
+      (one) => one.email,
+    );
+    const from =
+      identities.find((identity) =>
+        reached.some((email) => sameAddress(identity.email, email)),
+      ) ?? identities[0];
+    if (!from) throw notFound("sending identity in this account");
     const drafts = resolveMailbox("drafts", await mailboxesOf(ctx, accountId));
     if (!drafts) throw notFound("drafts folder in this account");
-    const from = await sendingAddress(ctx, accountId);
     const repliedTo = Array.isArray(original.messageId)
       ? (original.messageId.find((one): one is string => typeof one === "string") ?? null)
       : null;
@@ -836,14 +904,22 @@ const draftReply = defineTool({
       typeof original.subject === "string" ? original.subject : "",
       "Re",
     );
+    const bcc = onePerAddress(from.bcc).filter(
+      (one) =>
+        !isOwn(one) &&
+        !to.some((held) => sameAddress(held.email, one.email)) &&
+        !cc.some((held) => sameAddress(held.email, one.email)),
+    );
     const res = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
       "Email/set",
       {
         accountId,
         create: {
           draft: {
-            from: [{ email: from }],
-            to: [{ email: to }],
+            from: [{ email: from.email, ...(from.name ? { name: from.name } : {}) }],
+            to,
+            ...(cc.length ? { cc } : {}),
+            ...(bcc.length ? { bcc } : {}),
             subject,
             sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
             mailboxIds: { [drafts.id]: true },
@@ -866,7 +942,117 @@ const draftReply = defineTool({
         "The draft was not created, and the server said nothing about why.",
         409,
       );
-    return { id: draft, to, subject, folder: drafts.name };
+    return {
+      id: draft,
+      to: to.map((one) => one.email),
+      cc: cc.map((one) => one.email),
+      subject,
+      folder: drafts.name,
+    };
+  },
+});
+
+const settleStep = defineTool({
+  name: "workorder.settle",
+  description:
+    "Settle a step of one of this account's workorders: mark it done, skipped or " +
+    "not-applicable, or open it again, with an optional note saying why. The step " +
+    "is signed as the agent, so a reader sees that the agent settled it and not a " +
+    "person. The step is named by its path, as workorder.read answers it.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    const state = args.state ?? "done";
+    if (!isWorkorderStepState(state))
+      throw new ToolError(
+        "bad_arguments",
+        '"state" must be open, done, skipped or not-applicable.',
+      );
+    return {
+      uid: textArg(args, "uid"),
+      path: textArg(args, "path"),
+      state,
+      note: args.note === undefined ? "" : textArg(args, "note"),
+    };
+  },
+  run: async ({ ctx, accountId }, { uid, path, state, note }) => {
+    try {
+      const doc = await settleStepAsAgent({
+        ctx,
+        accountId,
+        uid,
+        path,
+        state,
+        note,
+        by: AGENT_SIGNATURE,
+      });
+      const step = stepOf(doc.checklist, path);
+      return { uid, path, state: step?.state ?? state, by: step?.by ?? AGENT_SIGNATURE };
+    } catch (err) {
+      // The workorder door's refusals are the surface's own codes and sentences;
+      // what the model reads is the same code and the same words.
+      if (err instanceof WorkorderAdminError)
+        throw new ToolError(err.code, err.message, err.status);
+      throw err;
+    }
+  },
+});
+
+const proposePage = defineTool({
+  name: "knowledge.propose",
+  description:
+    "Propose a change to a page of this account's knowledge base, by its title. " +
+    "The words you give become the page's draft: a person reads them and approves " +
+    "the change, and nothing is in force until they do. The page's title, tags " +
+    "and checklist stay as they are.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { title: textArg(args, "title"), text: textArg(args, "text") };
+  },
+  run: async ({ ctx, accountId }, { title, text }) => {
+    const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
+    if (tier === null) throw notFound("knowledge base in this account");
+    const folder = knowledgeFolderName(title);
+    const view = await readArticle(ctx, accountId, tier, folder);
+    if (!view) throw notFound(`knowledge page titled "${title}"`);
+    /*
+     * What the proposal keeps: the draft's own title, tags and checklist, and
+     * the effective revision's when the page has no draft yet. Only the words
+     * are the proposal's — taking the others from a default would quietly clear
+     * a page's tags.
+     */
+    const held = view.draft ?? view.effective;
+    try {
+      const summary = await proposeArticle(
+        ctx,
+        accountId,
+        folder,
+        {
+          title: held?.title ?? view.summary.title,
+          tags: held?.tags ?? [],
+          blocks: blocksFromText(text),
+          text,
+          checklist: held?.checklist ?? null,
+        },
+        AGENT_SIGNATURE,
+      );
+      return {
+        title: summary.title,
+        folder: summary.folder,
+        revision: view.effective?.rev ?? null,
+      };
+    } catch (err) {
+      // A retired page and a write that lost the race are refusals the model
+      // reads as a failed step, with the knowledge door's own code and sentence.
+      if (err instanceof KnowledgeAdminError)
+        throw new ToolError(err.code, err.message, err.status);
+      throw err;
+    }
   },
 });
 
@@ -1182,6 +1368,8 @@ export const TOOLS: readonly AnyTool[] = [
   fileMessage,
   setKeyword,
   draftReply,
+  settleStep,
+  proposePage,
   defineLabel,
   createMailFolder,
   createFileFolder,

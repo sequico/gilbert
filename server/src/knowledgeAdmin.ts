@@ -921,6 +921,46 @@ export async function saveDraft(
   input: KnowledgeArticleInput,
 ): Promise<KnowledgeSummary> {
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
+  return await writeDraft({ ctx, accountId, article, input, by: admin.username });
+}
+
+/**
+ * Write a page's draft as the agent (ADR 0024, ADR 0031).
+ *
+ * A proposal is the draft and nothing more: approval still mints the revision,
+ * and a person is still its author. The write is `writeDraft`'s — the same
+ * merge, the same refusals over a retired page and an unreadable document, and
+ * the same listing update as a person's save — over the account the caller
+ * holds, which for a run is the group's own.
+ */
+export async function proposeArticle(
+  ctx: Ctx,
+  accountId: string,
+  folder: string,
+  input: KnowledgeArticleInput,
+  by: string,
+): Promise<KnowledgeSummary> {
+  const clean = (folder ?? "").trim();
+  if (!clean)
+    throw new KnowledgeAdminError("bad_request", "An article folder is required.");
+  const article = await resolveArticleFolder(
+    ctx,
+    accountId,
+    await knowledgeFolder(ctx, accountId),
+    clean,
+  );
+  return await writeDraft({ ctx, accountId, article, input, by });
+}
+
+/** The one write of an article's draft, signed by whoever the caller says. */
+async function writeDraft(spec: {
+  ctx: Ctx;
+  accountId: string;
+  article: ArticleFolder;
+  input: KnowledgeArticleInput;
+  by: string;
+}): Promise<KnowledgeSummary> {
+  const { ctx, accountId, article, input, by } = spec;
   const articlePath = articlePathOf(article);
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     await ensureFolderPath(ctx, accountId, articlePath);
@@ -965,7 +1005,6 @@ export async function saveDraft(
         502,
       );
     const now = new Date().toISOString();
-    const by = admin.username;
     const id = existingDraft?.id ?? existingState?.id ?? knowledgeId();
     const created = existingDraft?.created ?? existingState?.created ?? { by, at: now };
     // A retired article is kept on record and read-only: editing it would

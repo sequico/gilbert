@@ -129,14 +129,25 @@ reaching a run, and any surface that shows what the agent did.
 ### 2.6 The tools the inventory still lacks
 
 - **Draft a reply — built.** `mail.draft` writes a reply into the group's own
-  Drafts: addressed to the message's reply-to (its sender when it names none),
-  carrying the thread (`inReplyTo` and `references`), marked `$draft` and filed
-  in the Drafts folder, from the account's own sending identity. It is
-  `reversible`: it reaches nobody and sends nothing, so a person is the one who
-  sends it. `replySubject` moved to `server/src/shared/text.ts` so the agent's
-  draft and the client's reply cannot disagree about what "Re:" means.
-- **Propose a KB page** (ADR 0024) and **settle a workorder step** (ADR 0028):
-  both are named in `ROADMAP.md` as absent.
+  Drafts and it is **always a reply to everyone**: the sender (or the message's
+  reply-to) in To, the rest of the message's recipients in Cc, and the group's
+  own addresses out of both. It carries the thread (`inReplyTo` and
+  `references`), is marked `$draft` and filed in the Drafts folder, and its
+  `from` is the **identity the group has configured** for the address the
+  message reached — a group with no identity is refused with `no_identity`
+  rather than written as a draft nobody could send. It is `reversible`: it
+  reaches nobody and sends nothing. `replySubject` moved to
+  `server/src/shared/text.ts` so the agent's draft and the client's reply cannot
+  disagree about what "Re:" means.
+- **Propose a KB page — built.** `knowledge.propose` writes the page's draft in
+  the group's own account through the same writer a person's save uses
+  (`writeDraft`, and `proposeArticle` as the agent's door), keeping the page's
+  title, tags and checklist and replacing the words; approval is still a
+  person's, so nothing is in force.
+- **Settle a workorder step — built.** `workorder.settle` reuses `applyStep` and
+  the gate latch through `settleStepAsAgent`, so a closed workorder is refused
+  and an opened gate is latched exactly as the administration's check does it,
+  and the step is signed `gilbert-agent` (ADR 0028: the agent is not a person).
 - **Then:** the KB and the checklists the plan's conditions are reasoned from are
   read through the reading tools; check that a conditional's evidence is
   reachable before writing the conditional.

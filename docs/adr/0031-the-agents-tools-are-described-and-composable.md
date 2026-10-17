@@ -26,9 +26,13 @@ the groups its principal holds —
 **resolved from the mail server on every pass**, so a group the Master is added
 to is worked by the next one with no restart, and a Master who works no group at
 this moment is an idle agent, said once (`supervisor.ts`), rather than one that
-does not exist. What the catalogue does not hold yet is
-a tool that settles a step of a workorder and one that proposes a change to a KB
-page (ADR 0032, ADR 0024).
+does not exist. The catalogue writes in the group's own
+account and signs its own acts: `mail.draft` drafts a **reply to everyone** into
+the group's Drafts — addressed from the group's own identity, which must exist,
+threaded and marked `$draft`, reaching nobody — `workorder.settle` settles a step
+of a workorder as the agent (`gilbert-agent`, ADR 0028), and
+`knowledge.propose` writes a page's **draft** for a person to approve
+(ADR 0024).
 
 ## Context
 

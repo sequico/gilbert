@@ -76,3 +76,14 @@ export interface AgentStatus {
   /** How often the supervisor asks the loop for a pass, in seconds. */
   passSeconds: number;
 }
+
+/**
+ * The signature a step the agent settles carries (ADR 0028).
+ *
+ * A step's `by` is the actor, and the record says a step the agent checks is
+ * signed as the agent, which is not a person. The value cannot be mistaken for
+ * an address, so no reader composes a name out of it that looks like somebody —
+ * and one constant keeps the workorder's signature and a page's proposal
+ * attribution from spelling the agent two ways.
+ */
+export const AGENT_SIGNATURE = "gilbert-agent";

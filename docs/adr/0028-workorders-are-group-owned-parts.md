@@ -18,9 +18,12 @@ chat's opening a
 large panel (`web/src/views/workorder/`, `web/src/views/AppShell.tsx`). A
 checklist binds to a KB template revision, resolves the applicable steps from it
 (`resolveChecklist`, `server/src/shared/knowledge.ts`) and carries the per-path
-steps and their states (ADR 0030). The agent checks a part through the same door
-the administration uses (`server/src/groupAccess.ts`), acting inside the group's
-own account (ADR 0032); it is **not built** (see `ROADMAP.md`).
+steps and their states (ADR 0030). The agent settles a step of a part through the same writer
+the administration's check uses (`applyStep`, reached by `settleStepAsAgent` in
+`server/src/workorderAdmin.ts`), acting inside the group's own account
+(ADR 0032) with the same terminal refusal and the same gate latch, and it signs
+the step `gilbert-agent` — the agent, which is not a person
+(`server/src/agent/tools.ts`, `workorder.settle`).
 
 ## Context
 

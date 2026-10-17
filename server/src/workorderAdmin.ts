@@ -35,6 +35,7 @@ import {
   ensureFolderPath,
   type FileNodeLike,
   fileChildren,
+  filesAccountId,
   findAppFileAt,
   findFolderPath,
   nodeStamp,
@@ -1361,6 +1362,71 @@ export async function checkStep(
       404,
     );
   return summary;
+}
+
+/**
+ * Settle one step of a group's checklist, as the agent working that group
+ * (ADR 0028, ADR 0031).
+ *
+ * The same writer as the administration's check (`applyStep`), the same refusal
+ * of a closed workorder and the same gate latch; what differs is who is calling:
+ * the agent holds a `Ctx` on the Master's account rather than a person's
+ * session, and it settles the step in the group its run lives in. The signature
+ * is the caller's, so the step says the agent settled it and not a person.
+ */
+export async function settleStepAsAgent(input: {
+  ctx: Ctx;
+  accountId: string;
+  uid: string;
+  path: string;
+  state: WorkorderStepState;
+  note: string;
+  by: string;
+}): Promise<WorkorderDoc> {
+  const master = filesAccountId(input.ctx);
+  if (!master)
+    throw new WorkorderAdminError(
+      "no_workorder_account",
+      "The Master's own account could not be read, so workorders cannot be reached.",
+      502,
+    );
+  const root = await findRoot(input.ctx, master, input.uid);
+  if (!root)
+    throw new WorkorderAdminError(
+      "workorder_not_found",
+      `No workorder "${input.uid}" is there to check.`,
+      404,
+    );
+  const written = await applyStep({
+    ctx: input.ctx,
+    accountId: input.accountId,
+    uid: input.uid,
+    path: input.path,
+    state: input.state,
+    note: input.note,
+    by: input.by,
+  });
+  /*
+   * The latch lives on the Master's root, which this write does not move: a
+   * group's check writes its own part. The reach is built from the account the
+   * agent already holds, and every group the Master is granted on is the set a
+   * part can live in.
+   */
+  await recordOpenedGates(
+    {
+      ctx: input.ctx,
+      accountId: master,
+      admin: false,
+      masterGroups: (await groupAccountsDetailed(input.ctx)).groups,
+      callerGroups: new Map(),
+      own: new Set(),
+      ownAccounts: new Set(),
+      defs: new Map(),
+    },
+    input.uid,
+    root.doc,
+  );
+  return written;
 }
 
 /**
