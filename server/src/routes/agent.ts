@@ -48,6 +48,7 @@ import {
 } from "../groupAccess.js";
 import type { LiveSession } from "../sessions.js";
 import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
+import type { RunListing } from "../shared/run.js";
 import {
   type Env,
   failureFor,
@@ -145,7 +146,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const runs = await listRunsForReading(access.ctx, access.accountId);
+      const runs: RunListing[] = await listRunsForReading(access.ctx, access.accountId);
       return c.json({ group: name, runs });
     } catch (err) {
       return doorFailure(c, err);

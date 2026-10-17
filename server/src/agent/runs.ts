@@ -28,7 +28,12 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { CodedError, errorMessage } from "../shared/errors.js";
-import { isRunDue, parseRunDocumentDetailed, type RunDoc } from "../shared/run.js";
+import {
+  isRunDue,
+  parseRunDocumentDetailed,
+  type RunDoc,
+  type RunListing,
+} from "../shared/run.js";
 
 /** Where a group's runs live under its app folder: the one path constant. */
 export const RUNS_DIR = "runs";
@@ -129,23 +134,6 @@ export async function replaceRun(
   opts: { ifInState?: string } = {},
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, runPath(run.id), run, opts);
-}
-
-/**
- * One document of `runs/`, as a reader draws it.
- *
- * `run` is the run this build reads, and `problem` is why it cannot read what is
- * there — never both, and never neither: a document that is not a run of this
- * build's shape is **said**, which is what a surface shows in its place rather
- * than rendering a step, a spend and a wait it invented.
- */
-export interface RunListing {
-  /** The document's name under `runs/`, without the extension: the run's id. */
-  id: string;
-  /** The run, or null when this build cannot read it. */
-  run: RunDoc | null;
-  /** Why it cannot be read, in the reader's own words; null when it can. */
-  problem: string | null;
 }
 
 /**

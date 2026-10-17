@@ -179,17 +179,14 @@ test("the runs a group worked are drawn as the record carries them", async () =>
     "with the change that woke it",
   );
   assert.equal(listed.run.startedBy.rule, "intake", "and the rule that answered it");
+  const shown = listed.run;
   assert.deepEqual(
-    listed.run.plan[1].needs,
+    shown.plan[1]?.needs,
     { step: 0, when: "done" },
     "and the dependency of the step that waits on the first",
   );
-  assert.equal(
-    listed.run.plan[0].outcome,
-    "read one message",
-    "with what the step answered",
-  );
-  assert.equal(listed.run.spent.calls, 0, "and the tally of what it spent");
+  assert.equal(shown.plan[0]?.outcome, "read one message", "with what the step answered");
+  assert.equal(shown.spent.calls, 0, "and the tally of what it spent");
 
   await writeAppFileAt(master, teamAccount, runPath("future-run"), {
     v: RUN_VERSION + 1,

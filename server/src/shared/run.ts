@@ -266,6 +266,29 @@ export interface RunDoc {
 }
 
 /* ------------------------------------------------------------------ */
+/* The shape over a folder of runs                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One document of a group's `runs/`, as a reader draws it.
+ *
+ * `run` is the run this build reads and `problem` is why it cannot read what is
+ * there — never both, and never neither: a document written by another build is
+ * **said** rather than drawn as a run with no plan and no history, which would
+ * be a record invented where the installation has none. The agent's own listing
+ * refuses such a document instead (`agent/runs.ts`); a surface that must show
+ * the runs beside the one it cannot read takes this.
+ */
+export interface RunListing {
+  /** The document's name under `runs/`, without the extension: the run's id. */
+  id: string;
+  /** The run, or null when this build cannot read it. */
+  run: RunDoc | null;
+  /** Why it cannot be read, in the reader's own words; null when it can. */
+  problem: string | null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Reading a stored run                                                */
 /* ------------------------------------------------------------------ */
 
