@@ -126,7 +126,11 @@ import {
   retryStateMismatch,
   STALWART_CAP,
 } from "./jmap.js";
-import { impersonationAuthorization, type LiveSession } from "./sessions.js";
+import {
+  impersonationAuthorization,
+  isImpersonationTarget,
+  type LiveSession,
+} from "./sessions.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
 import { errorMessage } from "./shared/errors.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
@@ -185,13 +189,25 @@ export async function impersonateAs(
   { ok: true; ctx: Ctx } | { ok: false; status: 403 | 404 | 502; message: string }
 > {
   const targetAuth = impersonationAuthorization(session, target);
-  if (!targetAuth)
+  if (!targetAuth) {
+    /*
+     * A target the composite cannot carry is answered as an unknown account,
+     * the same answer the server gives for an address it does not hold: the
+     * rule is `isImpersonationTarget`'s and this is the door that applies it.
+     */
+    if (!isImpersonationTarget(target))
+      return {
+        ok: false,
+        status: 404,
+        message: "No such account, or it cannot be administered by you.",
+      };
     return {
       ok: false,
       status: 403,
       message:
         "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
     };
+  }
   try {
     const upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
     return {

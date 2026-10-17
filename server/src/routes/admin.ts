@@ -34,6 +34,7 @@ import {
 } from "../appFolder.js";
 import {
   impersonationAuthorization,
+  isImpersonationTarget,
   type LiveSession,
   normalizeUsername,
 } from "../sessions.js";
@@ -93,10 +94,10 @@ export function registerAdminRoutes(api: Hono<Env>): void {
     const body = await readJson<{ target?: string; clear?: boolean }>(c);
     if (!body) return c.json({ error: "bad_request" }, 400);
     const target = (body.target ?? "").trim();
-    // A '%' would change who the composite `{target}%{admin}` names, and a
-    // ':' can confuse the credential parse; both fail closed today, but with
-    // a misleading 404, so they are refused at the boundary instead.
-    if (!target || target.length > 320 || target.includes("%") || target.includes(":"))
+    // `isImpersonationTarget` is the boundary rule every impersonating door
+    // applies; here a bad target is the caller's mistake rather than an
+    // account that does not exist.
+    if (!target || target.length > 320 || !isImpersonationTarget(target))
       return c.json({ error: "bad_request" }, 400);
     const imp = await impersonateAs(admin, target);
     if (!imp.ok) {
