@@ -124,6 +124,6 @@ describe("buildEmailObject", () => {
     });
     const obj = await buildEmailObject(draft(), { forSend: false });
     expect(obj.mailboxIds).toEqual({ mb2: true });
-    expect(obj.from).toEqual({ name: "John", email: "john@example.org" });
+    expect(obj.from).toEqual([{ name: "John", email: "john@example.org" }]);
   });
 });
