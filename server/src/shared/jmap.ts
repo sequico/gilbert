@@ -7,7 +7,10 @@
  * call site, where the two would hold the same three positions in the same
  * order and drift the day one of them gains a name.
  *
- * Type declarations only: no runtime code reaches a bundle through this file.
+ * The shapes are declarations; the two helpers below are runtime, because a
+ * sentence built from a refusal and a move's patch are the same words on both
+ * sides of the wire, and two spellings of either is the drift this file exists
+ * to prevent.
  */
 
 /** One JMAP method call: name, arguments, call id. */
@@ -67,4 +70,20 @@ export function refusalOf(
   const description = typeof entry.description === "string" ? entry.description : "";
   const type = typeof entry.type === "string" ? entry.type : "";
   return description || type || "the mail server refused the change without saying why";
+}
+
+/** One message's move into a folder, as an `Email/set` patch of its mailboxes. */
+export function moveMailboxPatch(
+  mb: Record<Id, boolean>,
+  to: Id,
+  from: Id | null,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (from) {
+    if (from !== to) patch[`mailboxIds/${from}`] = null;
+  } else {
+    for (const f of Object.keys(mb)) if (f !== to) patch[`mailboxIds/${f}`] = null;
+  }
+  patch[`mailboxIds/${to}`] = true;
+  return patch;
 }

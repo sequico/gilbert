@@ -92,20 +92,7 @@ export async function setEmails(
  * — every folder the message is known to sit in is the source, which is the
  * only reading “move” has without one.
  */
-export function moveMailboxPatch(
-  mb: Record<Id, boolean>,
-  to: Id,
-  from: Id | null,
-): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  if (from) {
-    if (from !== to) patch[`mailboxIds/${from}`] = null;
-  } else {
-    for (const f of Object.keys(mb)) if (f !== to) patch[`mailboxIds/${f}`] = null;
-  }
-  patch[`mailboxIds/${to}`] = true;
-  return patch;
-}
+export { moveMailboxPatch } from "@gilbert/shared/jmap";
 
 /** Apply per-folder patch paths to the optimistic copy of an Email. */
 export function patchMailboxIds(

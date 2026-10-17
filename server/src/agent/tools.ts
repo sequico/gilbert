@@ -59,7 +59,7 @@ import { AGENT_SIGNATURE } from "../shared/agent.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { CHAT_MAX_TEXT } from "../shared/chat.js";
-import { refusalOf, type SetResponse } from "../shared/jmap.js";
+import { moveMailboxPatch, refusalOf, type SetResponse } from "../shared/jmap.js";
 import { queryThenGet } from "../shared/jmapQuery.js";
 import { isRecord } from "../shared/json.js";
 import {
@@ -691,18 +691,17 @@ const fileMessage = defineTool({
     if (!message) throw notFound(`message "${id}" in this account`);
     /*
      * The per-folder patch, never a replacement of the whole map: a message can
-     * sit in several folders at once, and a folder it gained since this read —
-     * a server-side rule, another device — is not this move's to take away.
-     *
-     * shortcut: the patch is the same rule the client's move writes
-     * (`web/src/store/mail/mutations.ts` `moveMailboxPatch`), spelled again here
-     * because the server tier cannot import from `web/`; hoist it into
-     * `@gilbert/shared` when a unit may touch the client.
+     * sit in several folders at once, and the folders this move does not come
+     * from are not its to take away. A move with no source folder named is a
+     * move out of every folder the message is known to sit in, which is what
+     * `mail.file` means: the client's optimistic move and this write are one
+     * function (`moveMailboxPatch`).
      */
-    const patch: Record<string, unknown> = { [`mailboxIds/${target.id}`]: true };
-    const held = isRecord(message.mailboxIds) ? message.mailboxIds : {};
-    for (const was of Object.keys(held))
-      if (was !== target.id) patch[`mailboxIds/${was}`] = null;
+    const patch = moveMailboxPatch(
+      isRecord(message.mailboxIds) ? (message.mailboxIds as Record<string, boolean>) : {},
+      target.id,
+      null,
+    );
     const res = await clientOf(ctx).call<SetResponse>(
       "Email/set",
       { accountId, update: { [id]: patch } },
