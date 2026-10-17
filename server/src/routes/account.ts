@@ -67,21 +67,21 @@ import {
 
 export function registerAccountRoutes(api: Hono<Env>): void {
   /*
-   * Liveness, and -- for a caller that holds a session -- what the push fan-out
-   * is doing. The counts are anyone's business; the failure reasons name the
-   * accounts that are not on the fast path, which is an operator's rather than
-   * an anonymous visitor's, so they ride only on a request carrying a live
-   * session. The endpoint stays public because the sign-in page reads it before
-   * anybody has signed in.
+   * Liveness, and the state of the push fan-out. The counts are anyone's
+   * business; the failure reasons name the accounts that are not on the fast
+   * path, which is an administrator's rather than a member's, so they ride only
+   * on a request whose session is a Stalwart admin. The endpoint stays public
+   * because the sign-in page reads it before anybody has signed in.
    */
-  api.get("/health", (c) => {
+  api.get("/health", async (c) => {
     const status = pushStatus();
     const session = c.get("session") ?? sessions.resolve(getCookie(c, config.cookieName));
+    const admin = session ? await resolveAdminState(session) : false;
     return c.json({
       ok: true,
       name: config.appName,
       version: config.version,
-      push: session
+      push: admin
         ? status
         : { mode: status.mode, accounts: status.accounts, tabs: status.tabs },
     });

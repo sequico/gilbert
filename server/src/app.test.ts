@@ -42,8 +42,8 @@ test("health and security headers", async () => {
 
 test("the public health answer carries push counts, not the accounts behind them", async () => {
   // `pushStatus` names an account for each failure ("user@host: reason"), which
-  // is an operator's business and not an anonymous visitor's. The counts are
-  // safe for anyone; the failure reasons are not on this answer at all.
+  // is an administrator's business and not a member's. The counts are safe for
+  // anyone; the failure reasons are not on this answer at all.
   const app = createApp();
   const res = await app.request("/api/health");
   const body = (await res.json()) as {
@@ -54,6 +54,24 @@ test("the public health answer carries push counts, not the accounts behind them
   assert.ok(body.push.mode, "but the mode and counts are still there");
   assert.ok(body.push.accounts);
   assert.ok(body.push.tabs);
+});
+
+test("a member's health answer carries no account names either", async () => {
+  const app = createApp();
+  const { sessions } = await import("./app.js");
+  const { cookie } = sessions.create({
+    username: "member@example.com",
+    password: "pw",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  const res = await app.request("/api/health", {
+    headers: { cookie: "gilbert_session=" + cookie },
+  });
+  const body = (await res.json()) as { push: { failures?: unknown } };
+  assert.equal(res.status, 200);
+  assert.equal(body.push.failures, undefined, "a member is not the operator");
 });
 
 test("image proxy refuses private targets", async () => {
