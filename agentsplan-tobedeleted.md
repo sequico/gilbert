@@ -219,8 +219,6 @@ someone asks a real server.
 - **`refundCredentialAttempt`** (`server/src/routes/shared.ts`) spells the
   4xx/5xx test that also exists as `isOwnRefusal` (`server/src/account.ts`): one
   predicate, two spellings.
-- **`forgetRememberedFor`** (`server/src/requestMemory.ts`) is exported and called
-  by nobody.
 - **The translation ceiling** (`scripts/i18n-catalog-check.mjs`): `MISSING_MAX`
   is at the count of the day, 154 strings per language.
 - **`moveMailboxPatch`** is spelled in both tiers (`server/src/agent/tools.ts`,
