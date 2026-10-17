@@ -36,11 +36,14 @@ installation has chosen a model; the groups it works are read on every pass, so
 one the Master is added to is worked within ten seconds and nothing has to be
 restarted.
 
-> **The agent part (`gilbertagents`) is partly built.** Its decisions
-> are ADR 0031–0036; the tree carries a run's durable state, the catalogue of
-> tools, a group's rules in prose, the installation's one model with its two
-> turns of decision, the loop that works a run, and the supervisor the server's
-> own boot starts with itself (`server/src/agent/supervisor.ts`).
+> **The agent part (`gilbertagents`) is partly built.** Its decisions are
+> ADR 0031–0037; the tree carries a run's durable state, the catalogue of tools
+> — reading, and writing the group's own account — a group's rules in prose and
+> the three levels every call is told, the installation's one model with its two
+> turns of decision, the memory of facts in the Master's own account, the loop
+> that works a run, the supervisor the server's own boot starts with itself
+> (`server/src/agent/supervisor.ts`), and the administration that shows what it
+> did and lets a person correct what it remembers.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -73,7 +76,7 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0031–0036 and built as far as
+- **gilbertagents** — the agent: designed by ADR 0031–0037 and built as far as
   the loop that works a run and the supervisor that runs it, started by the
   server's own boot; it asks for a pass every ten seconds and reads the Master's
   groups from the mail server on each one, so a group added in Stalwart is worked
@@ -99,8 +102,12 @@ The short version; [FEATURES.md](FEATURES.md) is the inventory.
 - **Agents for mail and files.** The agent acts for a group, inside that group's
   own account, as the Master principal (`gilbert@…`). It reads the company's
   written policy and the group's own rules, does the reversible work of the
-  account, records what it did and why, and asks a person for anything that
-  leaves the account — or for anything the policy forbids (ADR 0031–0035).
+  account — filing, labelling, **drafting a reply to everyone** in Drafts to be
+  sent by a person, **settling a step of a workorder**, **proposing a change to a
+  knowledge page** as its draft — remembers what it learns as facts in the
+  Master's own account, records what it did and why, and asks a person for
+  anything that leaves the account — or for anything the policy forbids
+  (ADR 0031–0037).
 - **A receipt for everything.** Every run is one document in the group's own
   account, under `runs/`, where every member can read it: what woke it, the plan
   with what each step waited on, what each step answered, what it spent and where

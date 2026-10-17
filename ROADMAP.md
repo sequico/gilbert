@@ -7,17 +7,21 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **The agent does not write on two of its five surfaces, and its mail channel is
-  not built.** The Master's agent is
+- **The agent's conversation by mail is not built, and a person's authorisation
+  has no path into a run yet.** The Master's agent is
   designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
-  group's engagement is a rule in prose) and 0036 (one installation claims its
-  agent). What the tree carries is a run's durable
+  group's engagement is a rule in prose), 0036 (one installation claims its
+  agent) and 0037 (its memory is a graph of facts it recalls). What the tree
+  carries is a run's durable
   state (`server/src/shared/run.ts`, `server/src/agent/runs.ts`), the catalogue of
   tools a run's steps are taken with (`server/src/agent/tools.ts`), a group's
-  rules and the prose builder (`server/src/agent/rule.ts`, `rules.ts`, `prose.ts`),
-  the installation's one model and its two turns of decision
+  rules and the three levels of prose every call is told
+  (`server/src/agent/rule.ts`, `rules.ts`, `instruction.ts`, `prose.ts`), the
+  installation's memory of facts (`server/src/agent/memory.ts`,
+  `server/src/shared/memory.ts`), the installation's one model and its two turns
+  of decision
   (`server/src/agent/model.ts`), the claim that holds the installation's one agent
   (`server/src/agent/claim.ts`), the loop that works a run
   (`server/src/agent/loop.ts`) — a pass claims
@@ -29,12 +33,16 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   every pass — so a group added in Stalwart's own directory is worked by the next
   one, with no restart — and asks for a pass every ten seconds, with the claim
   keeping an installation to one agent when a second copy of the server runs.
-  What is not built is a tool that settles a step
-  of a workorder and one that proposes a change to a KB page (ADR 0032, ADR 0024)
-  — the agent reads those two surfaces and settles nothing on them — the path by
+  The writing half of the catalogue does the reversible work of the group's own
+  account, and three of its tools are the acts the inventory promises:
+  `mail.draft` drafts a reply to everyone into the group's Drafts, sent by
+  a person and by nobody else; `workorder.settle` settles a step of a workorder
+  signed as the agent (ADR 0028); `knowledge.propose` writes a page's draft for a
+  person to approve (ADR 0024). What is not built is the path by
   which what it concludes against a person's fact is proposed for that person to
-  accept rather than written over (ADR 0037), and the conversation in **mail**
-  (ADR 0033), which is not built: the group's chat is what it has so far.
+  accept rather than written over (ADR 0037), the path by which a person's
+  authorisation reaches a run (ADR 0032), and the conversation in **mail**
+  (ADR 0033): the group's chat is what it has so far.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
