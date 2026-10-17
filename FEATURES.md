@@ -198,7 +198,11 @@ group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, moves or renames a document, says something in
 the conversation, and asks a person a question — which leaves the run waiting for
-their answer, with no date. Every tool declares the **authority class** it
+their answer, with no date, and **the answer in that same conversation is what
+picks the run up again**: a message that replies to the question it asked, written
+by somebody other than the agent, becomes a step of its own on the run that asked
+— naming the message it came in and carrying what the person said — rather than a
+change that opens a run beside it. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision
