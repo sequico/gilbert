@@ -167,9 +167,15 @@ authority classes (ADR 0032) — and it may **declare that it sends**, which is 
 one power it carries of its own. The agent's prose has three
 levels, outermost first: the **installation's own line**, the **group's standing
 instruction** and the **rule's own instruction**, and one builder,
-`server/src/agent/prose.ts`, produces that order for every caller; no reader for
-the other two documents is built, so the loop carries the rule's own instruction
-alone.
+`server/src/agent/prose.ts`, produces that order for every caller. The first is
+`agent.instruction` in the installation's own document, carried into every call
+from the boot; the second is `instruction.json` in the group's own account
+(`server/src/agent/instruction.ts`), read once per pass so an edit is in force at
+the next one; the third is re-read for each turn of the run it started. A level
+that says nothing contributes nothing. No surface writes the two documents yet —
+the installation's is published as the JSON it belongs to, and a group's prose
+awaits the surface that will write its rules and its standing instruction
+together.
 
 **One model serves the installation** (ADR 0031), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a

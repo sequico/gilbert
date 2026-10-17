@@ -27,6 +27,14 @@
  * traces to the fact that carried it. A change with nothing to recall is worked
  * exactly as it was before the memory existed.
  *
+ * **Every call is told the three levels of prose the record names** (ADR 0035),
+ * outermost first: the installation's own line, read from its document at the
+ * boot; the group's standing instruction, one document in the group's account
+ * read once per pass, so an edit is in force at the next one; and the rule's own
+ * instruction, re-read for every turn of the run it started. A level that says
+ * nothing contributes nothing, and the order is the builder's alone
+ * (`prose.ts`), never a caller's.
+ *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
  * 0032) answers, the loop never overrides it, and a refusal — an act beyond what
@@ -73,6 +81,7 @@ import {
 import type { AccountEvent } from "./accountEvent.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
+import { readInstruction } from "./instruction.js";
 import { listFacts, type MemoryStore } from "./memory.js";
 import {
   boundedText,
@@ -81,6 +90,7 @@ import {
   type ModelAccess,
   ModelError,
 } from "./model.js";
+import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules, readRule } from "./rules.js";
 import {
@@ -164,6 +174,12 @@ export interface AgentLoopOptions {
   /** The installation's model; an installation without one has no agent. */
   access: ModelAccess;
   /**
+   * The installation's own line of prose, carried into every call above every
+   * group's (ADR 0035). Read from the installation's document at the boot, like
+   * the model: which document a booted process runs on is fixed at the boot.
+   */
+  installation?: string;
+  /**
    * The tools a run's steps are taken with. The product's catalogue by default;
    * a caller may hand a narrower one, and what it holds is also what the model is
    * offered.
@@ -192,6 +208,17 @@ export class AgentLoop {
    * memory afresh and a fact written during one is visible to the next.
    */
   private reading: Promise<MemoryStore> | null = null;
+  /**
+   * The prose levels above a rule's own, by account, as **this** pass read them
+   * (ADR 0035).
+   *
+   * The installation's line is the boot's own document and costs nothing here;
+   * the group's standing instruction is one document in the group's account, read
+   * once per pass rather than once per call, so a pass that works ten runs of one
+   * group reads it once. Cleared as the pass begins, so an instruction a group
+   * edited is in force at the next pass with no restart.
+   */
+  private readonly above = new Map<string, Partial<Record<ProseLevel, string>>>();
   private readonly timers: WaitTimers;
   private readonly catalogue: readonly AnyTool[];
 
@@ -230,6 +257,7 @@ export class AgentLoop {
    */
   async pass(now = new Date()): Promise<PassSummary> {
     this.reading = null;
+    this.above.clear();
     const summary: PassSummary = {
       claimed: false,
       accounts: 0,
@@ -334,12 +362,18 @@ export class AgentLoop {
        * name. Each run is handed the one its own words name, which is the same
        * change beside the facts the decision found.
        */
+      /*
+       * What the installation holds and the group wrote above the rule: the
+       * installation's own line and the group's standing instruction reach the
+       * decision turn too, because which rules apply is asked of the same agent
+       * (ADR 0035).
+       */
       const decision = await decideEvent(
         this.opts.access,
         {
           event,
           rules,
-          prose: {},
+          prose: await this.proseAbove(accountId),
           memory: recallFacts((await this.memory()).facts, woke, accountId),
         },
         this.readingCall(accountId, event, candidates),
@@ -488,6 +522,7 @@ export class AgentLoop {
      * traces to the fact that carried it, and every turn of this working is
      * handed it.
      */
+    const above = await this.proseAbove(accountId);
     const selection = recallFacts(
       (await this.memory()).facts,
       memoryWords(run, facts),
@@ -510,7 +545,7 @@ export class AgentLoop {
         );
         return;
       }
-      const prose = await this.proseOf(accountId, current);
+      const prose = await this.proseOf(accountId, current, above);
       const startedMs = Date.now();
       const question = {
         woke: current.startedBy.woke ?? "the run was started by an instruction",
@@ -689,12 +724,31 @@ export class AgentLoop {
     }
   }
 
-  /** The rule's own instruction, for the run that rule started. */
-  private async proseOf(accountId: string, run: RunDoc): Promise<{ rule?: string }> {
+  /** The two prose levels above a rule's own, as this pass read them (ADR 0035). */
+  private async proseAbove(
+    accountId: string,
+  ): Promise<Partial<Record<ProseLevel, string>>> {
+    const held = this.above.get(accountId);
+    if (held) return held;
+    const group = await readInstruction(this.ctx, accountId);
+    const levels: Partial<Record<ProseLevel, string>> = {
+      ...(this.opts.installation ? { installation: this.opts.installation } : {}),
+      ...(group ? { group } : {}),
+    };
+    this.above.set(accountId, levels);
+    return levels;
+  }
+
+  /** The prose a run's call carries: the two levels above, then the rule's own. */
+  private async proseOf(
+    accountId: string,
+    run: RunDoc,
+    above: Partial<Record<ProseLevel, string>>,
+  ): Promise<Partial<Record<ProseLevel, string>>> {
     const id = run.startedBy.rule;
-    if (!id) return {};
+    if (!id) return above;
     const record = await readRule(this.ctx, accountId, id);
-    return record ? { rule: record.rule.instruction } : {};
+    return record ? { ...above, rule: record.rule.instruction } : above;
   }
 
   /**

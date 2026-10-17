@@ -36,6 +36,8 @@
  * - a fact one run learned is handed to the next change's call, and the run's
  *   record names what it recalled — while a change the memory holds nothing
  *   about is worked exactly as it was before the memory existed;
+ * - every call is told the installation's line and the group's standing
+ *   instruction, in the record's order, above the rule's own;
  * - two `memory.remember` calls in one answer leave one sheet for the subject,
  *   and the call that lost the compare-and-set is a refused step on the run.
  */
@@ -77,6 +79,9 @@ const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { sameSubject } = await import("../shared/memory.js");
 const { createRun, listRuns, readRun } = await import("./runs.js");
+const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
+  "./instruction.js"
+);
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { defineTool, TOOLS } = await import("./tools.js");
@@ -228,6 +233,11 @@ afterEach(async () => {
     if (typeof nodeId === "string")
       await destroyAppNode(ctx, memoryAccountId, nodeId, {});
   }
+  // A group's standing instruction outlives the test too, and every later call
+  // of this account would carry it.
+  const instruction = await readAppFileAt(ctx, accountId, INSTRUCTION_FILE);
+  if (typeof instruction?.file.id === "string")
+    await destroyAppNode(ctx, accountId, instruction.file.id, {});
 });
 
 /** Every test starts with no call seen and no answer queued. */
@@ -1426,5 +1436,45 @@ test("a fact a pass writes is visible to the next pass, not to the pass that wro
         call.user.includes("Maersk: the shipper this account books with"),
     ),
     "the next pass's calls carry the fact the one before it wrote",
+  );
+});
+
+test("every call is told the installation's line and the group's instruction, in the record's order", async () => {
+  const id = "intake-prose";
+  await putRule(id);
+  const line = "Answer in the group's own words, never in English.";
+  const standing = "Read the shipper's booking before answering.";
+  await writeAppFileAt(ctx, accountId, INSTRUCTION_FILE, {
+    v: INSTRUCTION_VERSION,
+    instruction: standing,
+  });
+  assert.equal(
+    await readInstruction(ctx, accountId),
+    standing,
+    "the fixture wrote the instruction where the loop reads it",
+  );
+  const agent = loop(HOLDER, { installation: line });
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "the change needed nothing else" });
+  await deliver("a booking confirmation");
+  await agent.pass();
+
+  const decision = seen[0]?.system ?? "";
+  const choosing = seen[1]?.system ?? "";
+  const at = (text: string, where: string) => {
+    const found = text.indexOf(where);
+    assert.ok(found >= 0, `the call carries "${where}"`);
+    return found;
+  };
+  assert.ok(
+    at(decision, standing) > at(decision, line),
+    "the decision turn is told the installation's line, then the group's",
+  );
+  assert.ok(
+    at(choosing, standing) > at(choosing, line) &&
+      at(choosing, "Answer the shipper within the day.") > at(choosing, standing),
+    "and the choosing turn adds the rule's own instruction after both",
   );
 });

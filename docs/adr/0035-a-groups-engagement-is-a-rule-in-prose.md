@@ -16,9 +16,15 @@ answers with **every** rule that fits it, and each one opens or continues **its
 own** run named by the change it answered — a run whose `startedBy` already names
 that rule and that change is the change being worked, or the answer it already
 has, so a pass that re-reads a change it did not finish does not work it twice.
-What the loop is not told yet is the installation's own line and the group's
-standing instruction: no reader for those two documents is built, so a call
-carries the rule's instruction alone.
+Every call carries all three levels of prose: the installation's own line is
+`agent.instruction` in the installation's document, read at the boot
+(`InstallationAgentSection`); the group's standing instruction is
+`instruction.json` in the group's own account, whose shape, parser and reader are
+`server/src/agent/instruction.ts`, read once per pass so an edit is in force at
+the next one; the rule's own instruction is re-read for each turn of its run. No
+surface writes the group's prose yet — a rule and a standing instruction are both
+the group's, and the surface that writes them is not built — while the
+installation's line is published as the JSON of the document it belongs to.
 
 ## Context
 

@@ -287,7 +287,10 @@ function withStoredKey(
   if (keyStatementIn(submitted).kind !== "kept") return doc;
   const storedKey = providerKeyOf(stored ?? "");
   if (!storedKey) return doc;
-  return { ...doc, agent: { provider: { ...provider, apiKey: storedKey } } };
+  return {
+    ...doc,
+    agent: { ...doc.agent, provider: { ...provider, apiKey: storedKey } },
+  };
 }
 
 /**

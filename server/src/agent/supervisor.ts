@@ -6,8 +6,9 @@
  * pass is the caller's to ask for. This module is that caller, and the **server's
  * own boot is what starts it** (`index.ts`): the agent is part of the product, so
  * launching Gilbert is what makes it exist. It runs on the installation the boot
- * just read — the model the installation has chosen — and asks the loop for a
- * pass on an interval. The groups it works are **not** settled at the boot:
+ * just read — the model the installation has chosen, and the line of prose its
+ * document carries into every call (ADR 0035) — and asks the loop for a pass on
+ * an interval. The groups it works are **not** settled at the boot:
  * every pass reads them from the mail server (`resolveGroupAccounts` below), so
  * a grant added or withdrawn in Stalwart's own directory needs no restart.
  *
@@ -281,6 +282,9 @@ export async function startAgent(
       holder: options.holder ?? holderName(),
       accounts: () => resolveGroupAccounts(ctx),
       access,
+      ...(boot.installation.agent.instruction
+        ? { installation: boot.installation.agent.instruction }
+        : {}),
     });
     return supervise({ loop, intervalMs: options.intervalMs, log });
   } catch (err) {

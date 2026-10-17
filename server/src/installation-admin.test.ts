@@ -658,3 +658,49 @@ test("an account with no Files account to hold the document is refused, not thro
   assert.equal(write.refused.status, 409);
   assert.match(write.refused.message, /no Files account/);
 });
+
+test("a save that states no key keeps the installation's own line beside the model", async () => {
+  /*
+   * The line of prose the agent carries into every call (ADR 0035) is the second
+   * thing the agent's section holds, and the door that puts a stored key back
+   * rebuilds that section. The line must survive a save that says nothing about
+   * the key — otherwise choosing a model would erase what the installation works
+   * by.
+   */
+  nameMaster(MASTER);
+  const line = "Answer in the installation's own words, in prose.";
+  const key = "sk-a-key-kept-beside-the-line";
+  const document = JSON.stringify({
+    ...(JSON.parse(VALID) as Record<string, unknown>),
+    agent: {
+      provider: {
+        provider: "ollama",
+        model: "a-small-model",
+        baseUrl: "https://models.example.com/v1",
+        apiKey: key,
+      },
+      instruction: line,
+    },
+  });
+  const published = await publish(adminCookie, document);
+  assert.equal(published.status, 200);
+
+  const view = await readView();
+  assert.equal(
+    (JSON.parse(view.document ?? "{}") as { agent?: { instruction?: string } }).agent
+      ?.instruction,
+    line,
+    "the read hands the line back, because it is not a secret",
+  );
+
+  const resaved = await publish(adminCookie, view.document ?? "");
+  assert.equal(resaved.status, 200);
+  const master = await masterCtx();
+  const masterAccount = filesAccountId(master);
+  assert.ok(masterAccount);
+  const stored = JSON.parse((await documentIn(master, masterAccount)) ?? "{}") as {
+    agent?: { provider?: { apiKey?: unknown }; instruction?: string };
+  };
+  assert.equal(stored.agent?.provider?.apiKey, key, "the stored key survives the save");
+  assert.equal(stored.agent?.instruction, line, "and the installation's line with it");
+});

@@ -137,14 +137,26 @@ reaching a run, and any surface that shows what the agent did.
   read through the reading tools; check that a conditional's evidence is
   reachable before writing the conditional.
 
-### 2.7 The two outer levels of prose have no reader
+### 2.7 The two outer levels of prose have no reader — **built**
 
 - **The record:** 0035 — three levels, outermost first: the installation's own
   line, the group's standing instruction, the rule's own.
-- **Today:** the builder exists; nothing reads the first two, so a call carries
-  the rule's instruction alone (said in 0035's `Implementation`).
-- **To do:** the two documents and their readers, in the Master's account and the
-  group's, so every call carries all three.
+- **Built:** the installation's line is `agent.instruction` in the installation's
+  own document, read at the boot and handed to the loop
+  (`supervisor.ts` → `loop.ts`); the group's standing instruction is
+  `instruction.json` in the group's own account (`agent/instruction.ts`), read
+  once per pass and refiled when a group edits it. The decision turn and every
+  choosing turn carry all three, in the builder's order; a level that says nothing
+  contributes nothing.
+- **Proof:** one run's decision turn and choosing turn are read for the
+  installation's line, then the group's instruction, then the rule's own, in that
+  order, and a document the parser refuses fails the pass with its path rather
+  than being read as silence (`agent/loop.test.ts`, `agent/instruction.test.ts`,
+  `installation-admin.test.ts`).
+- **Not built:** no surface writes either document. The installation's is
+  published as the JSON of the document it belongs to; a group's prose awaits the
+  surface that will write its rules and its standing instruction together — the
+  next unit that touches the group's side.
 
 ### 2.8 A quiet log
 

@@ -170,13 +170,21 @@ export interface InstallationModel {
 /**
  * The agent's own section of the installation's document (ADR 0031).
  *
- * One thing lives here today: the model the installation runs on. The section
- * is kept rather than folded into `branding` because the record names it
- * (ADR 0011) and because the agent's configuration is its own subject.
+ * Two things live here: the model the installation runs on, and the line of
+ * prose its agent carries into every call. The section is kept rather than
+ * folded into `branding` because the record names it (ADR 0011) and because the
+ * agent's configuration is its own subject.
  */
 export interface InstallationAgentSection {
   /** The installation's model, or absent when it has none and therefore no agent. */
   provider?: InstallationModel;
+  /**
+   * The installation's own line of prose, carried into every call (ADR 0035):
+   * what whoever runs it wants its agent to work by, above every group's
+   * standing instruction and every rule. Absent says nothing, and a level that
+   * says nothing contributes nothing to the prompt.
+   */
+  instruction?: string;
 }
 
 /** What the installation calls itself. */
@@ -475,6 +483,10 @@ export function parseInstallationDocumentDetailed(
     );
 
   const provider = readProvider(agent.provider);
+  if (agent.instruction !== undefined && typeof agent.instruction !== "string")
+    problems.push(`"agent.instruction" must be text.`);
+  const instruction =
+    typeof agent.instruction === "string" ? agent.instruction.trim() : "";
   const doc: InstallationDocument = {
     version,
     epoch: readAtLeast("epoch", whole.epoch, defaults.epoch, 1),
@@ -558,10 +570,13 @@ export function parseInstallationDocumentDetailed(
       rawRelay: readBool("push.rawRelay", push.rawRelay, defaults.push.rawRelay),
     },
     upstreams: readUpstreams("upstreams", whole.upstreams, defaults.upstreams, problems),
-    // A provider that is there is kept whole; a section with none drops the key
-    // rather than carrying an `undefined` one, so a document read and written
-    // back is the same document.
-    agent: provider ? { provider } : {},
+    // A provider that is there is kept whole, and so is a line of prose; a
+    // section with neither drops the key rather than carrying an `undefined`
+    // one, so a document read and written back is the same document.
+    agent: {
+      ...(provider ? { provider } : {}),
+      ...(instruction ? { instruction } : {}),
+    },
     branding: { appName },
     secret: readText("secret", whole.secret, defaults.secret),
   };
