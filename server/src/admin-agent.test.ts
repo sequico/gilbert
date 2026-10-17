@@ -321,4 +321,15 @@ test("the memory is read, corrected and removed through the administration door"
     (err: unknown) => (err as { code?: string }).code === "fact_not_found",
     "and so is removing one twice",
   );
+
+  // A name the store cannot file is this request's own mistake, not the mail
+  // server failing: the answer is the caller's 400, with the code to compose a
+  // sentence from.
+  const unfilable = await call("/api/admin/memory/not%20a%20name", { method: "DELETE" });
+  assert.equal(unfilable.status, 400);
+  assert.equal(
+    (unfilable.body as { error: string }).error,
+    "fact_id_invalid",
+    "and the refusal names what was wrong with the name",
+  );
 });

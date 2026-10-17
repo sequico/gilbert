@@ -73,13 +73,15 @@ export const MEMORY_DIR = "memory";
  * A fact's id is a file name and nothing else: a link names one, and an id
  * carrying a path separator would file the sheet in a folder of its own rather
  * than beside its siblings. `.` and `..` are refused by the same test, and by
- * `pathSegments` after it.
+ * `pathSegments` after it. A name this store cannot file is the caller's own
+ * mistake, so it is refused as one (400) rather than as a mail-server fault.
  */
 export function factPath(id: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id))
     throw new MemoryError(
       "fact_id_invalid",
       `"${id}" is not a fact name: a fact is named by one plain file name.`,
+      400,
     );
   return `${MEMORY_DIR}/${id}.json`;
 }
