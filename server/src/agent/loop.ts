@@ -48,7 +48,9 @@
 
 import { randomUUID } from "node:crypto";
 import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
+import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
+import { repliesToAuthor } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import { isRecord } from "../shared/json.js";
 import { recallFacts } from "../shared/memory.js";
@@ -57,6 +59,7 @@ import {
   finishRun,
   isRunWait,
   type RunDoc,
+  type RunMessageRef,
   type RunStep,
   type RunStepNeeds,
   type RunWait,
@@ -64,6 +67,7 @@ import {
   recordStep,
   spendRun,
   startRun,
+  takeAnswer,
   waitUntil,
 } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
@@ -296,7 +300,9 @@ export class AgentLoop {
    * answer it is, so a pass that re-reads a change it did not finish cannot work
    * it twice. One change reaches this loop once per read — a node's create and
    * its update are one event (`events.ts`) — so the record is the whole of what
-   * "the same change" is recognised by.
+   * "the same change" is recognised by. A change that **answers** a question this
+   * account is waiting on is neither: the run that asked is continued and no run
+   * of its own is opened (`runAnsweredBy`).
    */
   private async workChanges(
     accountId: string,
@@ -315,7 +321,7 @@ export class AgentLoop {
     if (read.gap) summary.gaps.push(read.gap);
     const rules = (await listRules(this.ctx, accountId)).map((record) => record.rule);
     /** The runs the account already held, asked for once and only when needed. */
-    let started: Map<string, RunDoc> | null = null;
+    let held: RunRecord[] | null = null;
     for (const event of read.events) {
       summary.changes += 1;
       const candidates = rules.filter((rule) => ruleApplies(rule, event));
@@ -339,6 +345,8 @@ export class AgentLoop {
         this.readingCall(accountId, event, candidates),
       );
       if (decision.kind !== "decision") continue;
+      /** The run this change answers, when it answers one: asked for once. */
+      let answer: RunDoc | null | undefined;
       for (const named of decision.rules) {
         const rule = rules.find((candidate) => candidate.id === named);
         if (!rule) continue;
@@ -346,11 +354,24 @@ export class AgentLoop {
         // A run of the account that already names this rule and this change is
         // that change being worked, or the answer it already has: never a second
         // run over it.
-        started ??= runsByStart(await listRuns(this.ctx, accountId));
-        const held = started.get(key);
-        if (held) {
-          if (held.state === "running")
-            await this.workRun(accountId, held, now, decision.facts);
+        held ??= await listRuns(this.ctx, accountId);
+        const open = runsByStart(held).get(key);
+        if (open) {
+          if (open.state === "running")
+            await this.workRun(accountId, open, now, decision.facts);
+          continue;
+        }
+        /*
+         * A change that answers a question the agent asked in this same chat is
+         * that question's answer, not a change of its own: the run it parked on is
+         * continued, and the record carries the message it came in and what the
+         * person said (ADR 0033, 0034). A change nothing of ours is waiting for
+         * is never read twice over.
+         */
+        answer ??= await this.runAnsweredBy(accountId, event, held);
+        if (answer) {
+          summary.due += 1;
+          await this.workRun(accountId, answer, now, decision.facts);
           continue;
         }
         const run = await this.openRun(accountId, event, rule);
@@ -402,6 +423,43 @@ export class AgentLoop {
     });
     await createRun(this.ctx, accountId, run);
     return run;
+  }
+
+  /**
+   * The run a change answers: the one this account parked on this very question.
+   *
+   * A person's answer arrives in the group's own chat as a message of its own,
+   * addressed to nothing the change log can see: what ties it to the run that
+   * asked is the message it replies to — the very sentence the run recorded as
+   * its wait — and the sender being the agent rather than the person. So the
+   * change is the message, the message is read at the path the change names
+   * (`groupChat.ts`), and `repliesToAuthor` (`shared/chat.ts`) answers whether it
+   * is addressed to anything the agent wrote; the run that asked is the one whose
+   * `waiting.asked` is that parent, and the step the record gains names the
+   * message the answer itself came in.
+   *
+   * Nothing else is read: a change on another surface, a removal, a message that
+   * is not one, a message that replies to nobody and a question no run of this
+   * account is parked on all answer null without a single extra read.
+   */
+  private async runAnsweredBy(
+    accountId: string,
+    event: AccountEvent,
+    records: readonly RunRecord[],
+  ): Promise<RunDoc | null> {
+    if (event.source !== "chat" || event.change === "destroyed") return null;
+    const message = await readChatMessageAt(this.ctx, accountId, event.where);
+    if (!message) return null;
+    const question: RunMessageRef = {
+      channel: "chat",
+      id: String(message.replyTo ?? ""),
+    };
+    const parent = await readChatMessage(this.ctx, accountId, question.id);
+    if (!repliesToAuthor(message, parent, this.ctx.username)) return null;
+    const parked = runAwaiting(records, question);
+    return parked
+      ? takeAnswer(parked, question, { channel: "chat", id: message.id }, message.text)
+      : null;
   }
 
   /**
@@ -794,6 +852,24 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
       byStart.set(key, run);
   }
   return byStart;
+}
+
+/**
+ * The run of an account that is parked on this very question.
+ *
+ * A run that ended blocked keeps the sentence it asked in (`finishRun`), which is
+ * what a message coming back can be recognised against (ADR 0033): the question's
+ * own address, matched on the document, rather than anything about the message
+ * that answers it.
+ */
+function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDoc | null {
+  for (const { run } of records) {
+    if (run.state !== "blocked") continue;
+    const waiting = run.waiting?.asked;
+    if (waiting && waiting.channel === asked.channel && waiting.id === asked.id)
+      return run;
+  }
+  return null;
 }
 
 /** The ceiling a run has spent, or null when it has budget left (ADR 0031). */

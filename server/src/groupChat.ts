@@ -101,6 +101,30 @@ export async function readChatMessage(
 }
 
 /**
+ * One message of the conversation by the path the account's change log names it
+ * at, or null when it is not one.
+ *
+ * The change log reports a node by its path in the account's own tree
+ * (`events.ts`) — the app folder's own name in front of the one that is here —
+ * while a reader of this module names a message by its node id. This is the same
+ * door twice over, and it lives here rather than in the reader's caller because
+ * this is the module that knows where the messages are filed.
+ */
+export async function readChatMessageAt(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<ChatMessage | null> {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  if (!name.endsWith(".json")) return null;
+  const folderId = await chatFolderId(ctx, accountId);
+  if (!folderId) return null;
+  const nodes = await fileChildren(ctx, accountId, folderId, messageProps());
+  const node = nodes.find((one) => one.name === name);
+  return node ? await messageOf(ctx, accountId, node) : null;
+}
+
+/**
  * The conversation's messages whose text contains `query`, newest first.
  *
  * The scan is the newest `CHAT_PAGE` messages — the window the client pages the

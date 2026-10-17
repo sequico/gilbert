@@ -5,14 +5,18 @@ Status: Accepted
 Implementation: Partly built. The chat half is the conversation tools
 (`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
 over the group's own chat (ADR 0005), with `replyTo` as the correlation and a
-question leaving the run waiting on a person's answer with no date. The mail
-channel is not built; its decision is — `server/src/agent/trust.ts` answers
-whether one received message may be read as a person's word, from the sender and
-the server's own account of how the message arrived, and nothing calls it yet. Its
-anchors — the authentication result the receiving server writes on a message
-another server handed over, and its record of the submission for one of its own
-accounts — are among the headers the client already asks for
-(`web/src/jmap/types.ts`).
+question leaving the run waiting on a person's answer with no date — and the
+answer **continuing the run that asked for it**: a message that replies to the
+question a run recorded, sent by somebody other than the agent, is that run's
+answer and is worked on as its own next step, rather than a change that opens a
+run of its own (`server/src/agent/loop.ts`, `repliesToAuthor` in
+`server/src/shared/chat.ts`). The mail channel is not built; its decision is —
+`server/src/agent/trust.ts` answers whether one received message may be read as a
+person's word, from the sender and the server's own account of how the message
+arrived, and nothing calls it yet. Its anchors — the authentication result the
+receiving server writes on a message another server handed over, and its record of
+the submission for one of its own accounts — are among the headers the client
+already asks for (`web/src/jmap/types.ts`).
 
 ## Context
 

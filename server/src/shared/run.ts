@@ -777,6 +777,60 @@ export function finishRun(run: RunDoc, ending: RunEnding, end: RunEnd): RunDoc {
 }
 
 /**
+ * Take a person's answer, and go on working the run that asked for it.
+ *
+ * The one transition out of an ending: a run that parked on a question is not
+ * finished, it is waiting, and the answer that comes back **is** the run
+ * carrying on — so the answer is a step of its own, naming the message it
+ * arrived in and carrying what the person said as what it answered, and the run
+ * is running again with no wait on it. A record the model is shown whole is what
+ * lets a run picked up by the next holder continue from the document rather than
+ * from a process's memory (ADR 0034).
+ *
+ * The answer must be the run's **own** question: a run asks in one sentence and
+ * only that sentence's answer continues it, which is what keeps two runs that
+ * asked the same thing apart. Anything but a run that ended blocked on a person
+ * is refused — a run that never asked, or one that has already ended for another
+ * reason, is not continued by a message.
+ *
+ * `question` is the run's own wait and is what is matched; `answer` is the
+ * message the answer came in, which is what the record names, so a reader of the
+ * document can find the sentence in the conversation it was written in.
+ */
+export function takeAnswer(
+  run: RunDoc,
+  question: RunMessageRef,
+  answer: RunMessageRef,
+  said: string,
+): RunDoc {
+  if (run.state !== "blocked")
+    throw new Error(
+      `the run "${run.id}" is not waiting on a person (${run.state}), so nothing answers it.`,
+    );
+  const asked = run.waiting?.asked;
+  if (!asked || asked.channel !== question.channel || asked.id !== question.id)
+    throw new Error(
+      `the answer in ${question.channel} ${question.id} is not the question the run "${run.id}" left.`,
+    );
+  if (!said) throw new Error(`the run "${run.id}" took an answer with nothing in it.`);
+  return {
+    ...run,
+    plan: [
+      ...run.plan,
+      {
+        what: `the answer in ${answer.channel} ${answer.id}`,
+        state: "done",
+        outcome: said,
+        needs: null,
+      },
+    ],
+    waiting: null,
+    state: "running",
+    ended: null,
+  };
+}
+
+/**
  * The instant the run's wait comes due, or null when it has none.
  *
  * The run's own answer to "is it waiting, and until when", and the one place it

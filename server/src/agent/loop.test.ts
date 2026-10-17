@@ -65,12 +65,13 @@ const { filesAccountId, destroyAppNode, readAppFileAt, writeAppFileAt } = await 
 );
 const { clientOf } = await import("../util.js");
 const { CAPABILITIES } = await import("../shared/capabilities.js");
-const { startRun, waitUntil } = await import("../shared/run.js");
+const { finishRun, startRun, waitUntil } = await import("../shared/run.js");
 const { parseInstallationDocumentDetailed } = await import("../shared/installation.js");
 
 import type { InstallationModel } from "../shared/installation.js";
 
 const { modelAccess } = await import("./model.js");
+const { postChatMessage } = await import("../groupChat.js");
 const { createRule, rulePath } = await import("./rules.js");
 const { factPath, listFacts } = await import("./memory.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
@@ -656,6 +657,95 @@ test("a step that asks a person parks the run on the answer it left", async () =
   assert.equal(run.waiting?.asked.channel, "chat", "and where it asked");
   assert.ok(run.waiting?.asked.id, "with the sentence's own id");
   assert.equal(run.plan[0]?.state, "done", "the question was delivered");
+});
+
+test("a person's answer continues the run that asked for it", async () => {
+  /*
+   * A run parked on a person has no alarm and no due date, so the answer is the
+   * only thing that can pick it up — and it arrives in the chat as a message of
+   * its own, which the change log reports at a path of its own, so nothing about
+   * the change names the run. What ties the two together is the question: the
+   * message replies to the sentence the run recorded as its wait, and somebody
+   * other than the agent wrote it (ADR 0033, 0034).
+   */
+  const id = "intake-answer";
+  // The question, and the run that parked on it, are both there before the loop
+  // starts reading: the answer below is then the only change the pass finds.
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "which booking is this?",
+  );
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      waitUntil(
+        startRun({
+          id: "parked-on-a-person",
+          startedBy: {
+            rule: id,
+            instruction: null,
+            woke: "chat created: gilbert/chat/q.json",
+          },
+        }),
+        {
+          what: "which booking is this?",
+          asked: { channel: "chat", id: asked },
+          until: null,
+        },
+      ),
+      "blocked",
+      {
+        at: new Date().toISOString(),
+        why: "waiting on a person: which booking is this?",
+      },
+    ),
+  );
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: { booking: "BK-1" } });
+  answerWith({ done: "the booking is filed under BK-1" });
+  const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
+    replyTo: asked,
+  });
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "the answer opened no run of its own");
+  assert.equal(summary.due, 1, "and picked the parked run up again");
+  const record = await readRun(ctx, accountId, "parked-on-a-person");
+  const answered = record?.run;
+  assert.equal(answered?.state, "done", "the run that asked was worked to its ending");
+  assert.equal(answered?.ended?.why, "the booking is filed under BK-1");
+  assert.equal(answered?.waiting, null, "and it waits for nothing any more");
+  const step = answered?.plan.at(-1);
+  assert.match(
+    step?.what ?? "",
+    new RegExp(`the answer in chat ${reply}`),
+    "and the record names the message the answer came in",
+  );
+  assert.equal(step?.outcome, "it is BK-1", "with what the person said");
+});
+
+test("a change that answers nothing of ours opens a run of its own", async () => {
+  // The same message, with no question of ours behind it: a change a rule watches
+  // is a change the rule answers, and the answer-continuation is not a way for a
+  // chat message to be swallowed.
+  const id = "intake-answer-elsewhere";
+  await putRule(id, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  answerWith({ done: "noted it" });
+  await postChatMessage(ctx, accountId, "sam@example.org", "a message about the berth");
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 1, "a chat change nothing of ours asked for opens a run");
+  assert.equal(summary.due, 0, "and picks up no parked run");
 });
 
 test("a run whose wait has come due is picked up again, from its document", async () => {
