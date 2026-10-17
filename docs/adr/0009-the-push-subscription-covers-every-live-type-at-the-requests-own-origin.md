@@ -48,7 +48,8 @@ re-registers against the address actually in use.
 
 `PUSH_MODE` is the one switch: `relay` never subscribes; `subscribe`, the
 default, uses fan-out wherever an origin can be derived and the relay
-everywhere else. `/api/health` reports `pushStatus` per account, so an
+everywhere else. `/api/health` reports `pushStatus` — the counts to anyone,
+the per-account failures only to an administrator's session — so an
 operator can read which accounts verified and which path each is on.
 
 ## Consequences
