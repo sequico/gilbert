@@ -52,6 +52,7 @@ import {
   updateAppNode,
 } from "../appFolder.js";
 import { documentKind, readDocument } from "../documentText.js";
+import { groupMembers } from "../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessage } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { KnowledgeAdminError, proposeArticle, readArticle } from "../knowledgeAdmin.js";
@@ -877,6 +878,8 @@ interface MailAddress {
 
 /** One sending identity of the account: its address, its name and its Bcc. */
 interface SendingIdentity extends MailAddress {
+  /** The account's own id for it, which a submission names. */
+  id: string;
   bcc: MailAddress[];
 }
 
@@ -925,7 +928,11 @@ async function sendingIdentities(
   for (const one of answer.list ?? []) {
     const [address] = addressesIn([one]);
     if (!address) continue;
-    identities.push({ ...address, bcc: addressesIn(one.bcc) });
+    identities.push({
+      ...address,
+      id: typeof one.id === "string" ? one.id : "",
+      bcc: addressesIn(one.bcc),
+    });
   }
   if (!identities.length)
     throw new ToolError(
@@ -934,6 +941,73 @@ async function sendingIdentities(
       409,
     );
   return identities;
+}
+
+/** One message as a run's answer path reads it (ADR 0033). */
+export async function readMessageForAnswer(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<{
+  from: string | null;
+  thread: string[];
+  text: string;
+  at: string | null;
+} | null> {
+  const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
+    "Email/get",
+    {
+      accountId,
+      ids: [id],
+      properties: [...MESSAGE_PROPS, "inReplyTo", "references", "messageId"],
+      fetchTextBodyValues: true,
+      maxBodyValueBytes: MESSAGE_BODY_MAX,
+    },
+    [CAPABILITIES.mail],
+  );
+  const message = answer.list?.[0];
+  if (!message) return null;
+  const thread: string[] = [];
+  for (const key of ["inReplyTo", "references"] as const) {
+    const held = message[key];
+    if (!Array.isArray(held)) continue;
+    for (const one of held)
+      if (typeof one === "string" && !thread.includes(one)) thread.push(one);
+  }
+  return {
+    from: addressesIn(message.from)[0]?.email ?? null,
+    thread,
+    text: messageTextOf(message),
+    at:
+      typeof message.receivedAt === "string"
+        ? message.receivedAt
+        : typeof message.sentAt === "string"
+          ? message.sentAt
+          : null,
+  };
+}
+
+/** The text a message carries: its first non-empty text part, else its preview. */
+function messageTextOf(message: Record<string, unknown>): string {
+  const values = isRecord(message.bodyValues) ? message.bodyValues : {};
+  const parts = Array.isArray(message.textBody) ? message.textBody : [];
+  for (const part of parts) {
+    if (!isRecord(part) || typeof part.partId !== "string") continue;
+    const held = values[part.partId];
+    const value = isRecord(held) ? held.value : null;
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return typeof message.preview === "string" ? message.preview : "";
+}
+
+/** Whether an address is one this group itself sends as. */
+export async function isGroupAddress(
+  ctx: Ctx,
+  accountId: string,
+  address: string,
+): Promise<boolean> {
+  const identities = await sendingIdentities(ctx, accountId);
+  return identities.some((identity) => sameAddress(identity.email, address));
 }
 
 const draftReply = defineTool({
@@ -1062,6 +1136,99 @@ const draftReply = defineTool({
       subject,
       folder: drafts.name,
     };
+  },
+});
+
+const askByMail = defineTool({
+  name: "mail.ask",
+  description:
+    "Ask one person a question by mail and leave the run waiting on their answer. " +
+    "The question goes from the group's own identity to a principal who has access " +
+    "to this group, and the answer is the message that replies to it. Use it when " +
+    "the person works by mail; chat.ask asks in the group's conversation.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      to: textArg(args, "to"),
+      subject: textArg(args, "subject"),
+      text: textArg(args, "text"),
+    };
+  },
+  run: async ({ ctx, accountId }, { to, subject, text }) => {
+    const members = await groupMembers(ctx, accountId);
+    if (!members)
+      throw new ToolError(
+        "no_roster",
+        "The mail server would not say who has access to this group, so nobody can be asked by mail.",
+        409,
+      );
+    const address = to.trim().toLowerCase();
+    if (!members.includes(address))
+      throw new ToolError(
+        "not_a_member",
+        `"${to}" is not a principal with access to this group, and a question by mail reaches nobody else.`,
+        403,
+      );
+    const identities = await sendingIdentities(ctx, accountId);
+    const from = identities[0];
+    if (!from) throw notFound("sending identity in this account");
+    const boxes = await mailboxesOf(ctx, accountId);
+    const sent = resolveMailbox("sent", boxes) ?? resolveMailbox("inbox", boxes);
+    if (!sent) throw notFound("sent folder in this account");
+    const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+      "Email/set",
+      {
+        accountId,
+        create: {
+          q: {
+            from: [{ email: from.email, ...(from.name ? { name: from.name } : {}) }],
+            to: [{ email: address }],
+            subject,
+            sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            mailboxIds: { [sent.id]: true },
+            keywords: { $seen: true },
+            bodyStructure: { partId: "text", type: "text/plain" },
+            bodyValues: { text: { value: text } },
+          },
+        },
+      },
+      [CAPABILITIES.mail],
+    );
+    const refusedCreate = created.notCreated?.q;
+    if (refusedCreate)
+      throw new ToolError("write_refused", refusalOf(refusedCreate), 409);
+    const emailId = created.created?.q?.id;
+    if (!emailId)
+      throw new ToolError(
+        "write_refused",
+        "The question was not written, and the server said nothing about why.",
+        409,
+      );
+    const submitted = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+      "EmailSubmission/set",
+      {
+        accountId,
+        create: {
+          s: {
+            identityId: from.id,
+            emailId,
+            envelope: { mailFrom: { email: from.email }, rcptTo: [{ email: address }] },
+          },
+        },
+      },
+      [CAPABILITIES.mail, CAPABILITIES.submission],
+    );
+    const refusedSubmit = submitted.notCreated?.s;
+    if (refusedSubmit) throw new ToolError("send_refused", refusalOf(refusedSubmit), 409);
+    const wait: RunWait = {
+      what: text,
+      asked: { channel: "mail", id: emailId },
+      until: null,
+    };
+    return { id: emailId, to: address, subject, wait };
   },
 });
 
@@ -1493,6 +1660,7 @@ export const TOOLS: readonly AnyTool[] = [
   fileMessage,
   setKeyword,
   draftReply,
+  askByMail,
   settleStep,
   proposePage,
   defineLabel,

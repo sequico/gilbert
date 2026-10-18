@@ -10,10 +10,16 @@ answer **continuing the run that asked for it**: a message that replies to the
 question a run recorded, sent by somebody other than the agent, is that run's
 answer and is worked on as its own next step, rather than a change that opens a
 run of its own (`server/src/agent/loop.ts`, `repliesToAuthor` in
-`server/src/shared/chat.ts`). The mail channel is not built; its decision is —
-`server/src/agent/trust.ts` answers whether one received message may be read as a
-person's word, from the sender and the server's own account of how the message
-arrived, and nothing calls it yet. Its anchors — the authentication result the
+`server/src/shared/chat.ts`). **The mail half is built**: `mail.ask` (`server/src/agent/tools.ts`) sends a
+question from the group's own identity to a **principal with access** to the group
+— read from the directory (`groupMembers`), and nobody else, because a question to
+anybody outside is an act outward and asking for it is not this tool's — and parks
+the run on that message with no date. The answer is the message whose thread names
+it (`inReplyTo`, `references`), read by `mailAnsweredBy` in
+`server/src/agent/loop.ts`: the sender must not be the group itself, and the run
+that asked is the one whose question is in that thread. `server/src/agent/trust.ts`
+remains the decision for the **arrival** of a message from outside, and nothing
+calls it yet. Its anchors — the authentication result the
 receiving server writes on a message another server handed over, and its record of
 the submission for one of its own accounts — are among the headers the client
 already asks for (`web/src/jmap/types.ts`).

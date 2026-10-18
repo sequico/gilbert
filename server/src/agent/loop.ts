@@ -65,6 +65,7 @@ import { randomUUID } from "node:crypto";
 import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
+import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
 import { isRecord } from "../shared/json.js";
@@ -86,6 +87,7 @@ import {
   takeAuthorisation,
   waitUntil,
 } from "../shared/run.js";
+import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
@@ -112,7 +114,14 @@ import {
   replaceRun,
 } from "./runs.js";
 import { type DueWait, WaitTimers } from "./timers.js";
-import { type AnyTool, type ImageReader, runTool, TOOLS } from "./tools.js";
+import {
+  type AnyTool,
+  type ImageReader,
+  isGroupAddress,
+  readMessageForAnswer,
+  runTool,
+  TOOLS,
+} from "./tools.js";
 
 /**
  * The ceilings a run's budget is measured against (ADR 0031).
@@ -511,6 +520,8 @@ export class AgentLoop {
     event: AccountEvent,
     records: readonly RunRecord[],
   ): Promise<AnsweredRun | null> {
+    if (event.source === "mail")
+      return await this.mailAnsweredBy(accountId, event, records);
     if (event.source !== "chat" || event.change === "destroyed") return null;
     const message = await readChatMessageAt(this.ctx, accountId, event.where);
     if (!message) return null;
@@ -535,6 +546,63 @@ export class AgentLoop {
       at: message.at,
       message: { channel: "chat", id: message.id },
     };
+  }
+
+  /**
+   * The run a **mail** message answers (ADR 0033).
+   *
+   * Mail is correlated the way mail is: by the thread. A reply carries the message
+   * ids it answers (`inReplyTo`, `references`), and the run that asked is the one
+   * whose question — the message it recorded as its wait — is one of them. Nothing
+   * is read when no run of this account waits on mail; the sender must not be the
+   * group itself, because the question went out from the group's own identity.
+   */
+  private async mailAnsweredBy(
+    accountId: string,
+    event: AccountEvent,
+    records: readonly RunRecord[],
+  ): Promise<AnsweredRun | null> {
+    if (event.change === "destroyed") return null;
+    const parked = records.filter(
+      ({ run }) => run.state === "blocked" && run.waiting?.asked?.channel === "mail",
+    );
+    if (!parked.length) return null;
+    const reply = await readMessageForAnswer(this.ctx, accountId, event.where);
+    if (!reply?.thread.length || !reply.from || !reply.text.trim()) return null;
+    if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
+    for (const record of parked) {
+      const asked = record.run.waiting?.asked;
+      if (!asked) continue;
+      const ids = await this.messageIdsOf(accountId, asked.id);
+      if (!ids.some((id) => reply.thread.includes(id))) continue;
+      return {
+        run: takeAnswer(
+          record.run,
+          asked,
+          { channel: "mail", id: event.where },
+          reply.text,
+        ),
+        asked: record.run.waiting?.what ?? "",
+        said: reply.text,
+        from: reply.from,
+        at: reply.at ?? new Date().toISOString(),
+        message: { channel: "mail", id: event.where },
+      };
+    }
+    return null;
+  }
+
+  /** The Message-IDs a message was filed under, which a reply names in its thread. */
+  private async messageIdsOf(accountId: string, emailId: string): Promise<string[]> {
+    const answer = await clientOf(this.ctx).call<{
+      list?: Array<{ messageId?: unknown }>;
+    }>("Email/get", { accountId, ids: [emailId], properties: ["messageId"] }, [
+      CAPABILITIES.mail,
+    ]);
+    const held = answer.list?.[0]?.messageId;
+    return Array.isArray(held)
+      ? held.filter((one): one is string => typeof one === "string")
+      : [];
   }
 
   /**

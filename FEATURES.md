@@ -226,7 +226,11 @@ change that opens a run beside it. That sentence is also read once for **what it
 authorises** (ADR 0032): an act it names is recorded on the run with the person's
 own words, the class, the act it is for and the message it arrived in, and the
 guard licenses exactly that act and no other. An override is never read from a
-conversation: class 4 is an installation administrator's. Every tool declares the **authority class** it
+conversation: class 4 is an installation administrator's. **The same conversation
+runs by mail**: `mail.ask` sends the question from the group's own identity to a
+principal with access to the group and parks the run on that message, and the
+reply that names it in its thread continues the run — mail's own correlation,
+read by the loop. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision

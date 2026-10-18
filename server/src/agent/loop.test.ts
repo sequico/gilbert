@@ -62,6 +62,7 @@ process.env.APP_SECRET = "test-secret-for-loop";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
+const { groupMembers } = await import("../groupAccess.js");
 const { filesAccountId, destroyAppNode, readAppFileAt, writeAppFileAt } = await import(
   "../appFolder.js"
 );
@@ -879,6 +880,127 @@ test("a person's answer is the word an outward act asks for, recorded for that a
     ["ops@shipper.example"],
     "and the act the word was for is the act that ran",
   );
+});
+
+test("a question asked by mail parks the run, and a reply on its thread continues it", async () => {
+  /*
+   * The conversation's other half (ADR 0033). The question leaves from the group's
+   * own identity to a principal with access, the run waits with no date, and the
+   * answer is the message whose thread names the question — mail's own
+   * correlation, and the same bound as chat: the sender is never the group itself.
+   *
+   * The account is chosen for its **mail**: the shared account these tests work by
+   * default carries none in the mock, so a message created there is a change with
+   * no message behind it.
+   */
+  let mailAccount = "";
+  for (const id of Object.keys(ctx.session.accounts)) {
+    const list = await clientOf(ctx).call<{ list?: unknown[] }>(
+      "Email/get",
+      { accountId: id, ids: null },
+      [CAPABILITIES.mail],
+    );
+    if ((list.list ?? []).length) {
+      mailAccount = id;
+      break;
+    }
+  }
+  assert.ok(mailAccount, "the mock has an account with mail");
+  const members = await groupMembers(ctx, mailAccount);
+  assert.ok(members?.length, "the directory says who has access to it");
+
+  const id = "intake-by-mail";
+  const ruleFor = rule(id, ["mail"]);
+  await createRule(ctx, mailAccount, ruleFor);
+  const agent = loop(HOLDER, { accounts: async () => [mailAccount] });
+  await agent.start();
+
+  const question = "which booking is this?";
+  /* Answered by kind: the question is itself a change on the mail rail, so a later
+     pass makes more calls than the reply alone accounts for. */
+  let planned = false;
+  onCall = (system) => {
+    if (isAuthorisation(system)) return { authorisations: [] };
+    if (isDecision(system)) return { rules: [id], facts: {} };
+    if (!planned) {
+      planned = true;
+      return {
+        calls: [
+          {
+            name: "mail.ask",
+            arguments: { to: members[0], subject: "a question", text: question },
+          },
+        ],
+      };
+    }
+    return { done: "the booking is BK-2" };
+  };
+  await clientOf(ctx).call(
+    "Email/set",
+    {
+      accountId: mailAccount,
+      create: {
+        c: { subject: "a booking needing an answer", mailboxIds: { inbox: true } },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  await agent.pass();
+
+  const parked = (await listRuns(ctx, mailAccount)).find(
+    (record) => record.run.startedBy.rule === id && record.run.state === "blocked",
+  )?.run;
+  assert.ok(parked, "the pass opened a run");
+  assert.equal(parked.state, "blocked", "and the question parked it on a person");
+  assert.equal(parked.waiting?.asked?.channel, "mail", "waiting on a mail answer");
+  const askedId = parked.waiting?.asked?.id;
+  assert.ok(askedId, "the question's own message is what the wait names");
+
+  const sent = await clientOf(ctx).call<{ list?: Array<{ messageId?: string[] }> }>(
+    "Email/get",
+    { accountId: mailAccount, ids: [askedId], properties: ["messageId"] },
+    [CAPABILITIES.mail],
+  );
+  const messageId = sent.list?.[0]?.messageId?.[0];
+  assert.ok(messageId, "and the sent question names itself in the account");
+
+  const delivered = await clientOf(ctx).call<{ created?: { r?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId: mailAccount,
+      create: {
+        r: {
+          subject: "Re: a question",
+          from: [{ email: "sam@example.org" }],
+          to: [{ email: "demo@example.com" }],
+          inReplyTo: [messageId],
+          references: [messageId],
+          mailboxIds: { inbox: true },
+          bodyStructure: { partId: "text", type: "text/plain" },
+          bodyValues: { text: { value: "it is BK-2" } },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const reply = delivered.created?.r?.id;
+  assert.ok(reply, "the reply is in the account");
+
+  const summary = await agent.pass();
+  assert.ok(summary.due >= 1, "the reply picked the parked run up");
+  const answered = (await readRun(ctx, mailAccount, parked.id))?.run;
+  assert.equal(answered?.state, "done", "the run that asked was worked to its ending");
+  const step = answered?.plan.at(-1);
+  assert.match(
+    step?.what ?? "",
+    new RegExp(`the answer in mail ${reply}`),
+    "and the record names the message the answer came in",
+  );
+  assert.equal(step?.outcome, "it is BK-2", "with what the person said");
+
+  const found = await readAppFileAt(ctx, mailAccount, rulePath(id));
+  if (typeof found?.file.id === "string")
+    await destroyAppNode(ctx, mailAccount, found.file.id, {});
 });
 
 test("a change that answers nothing of ours opens a run of its own", async () => {
