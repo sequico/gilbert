@@ -105,6 +105,7 @@ import {
   ModelError,
   readAnswerAuthority,
   readImage,
+  type StepCall,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
@@ -320,7 +321,10 @@ export class AgentLoop {
      * this pass's accounts and nothing else, or a process that runs for weeks
      * carries one entry per fired timer per account it lost.
      */
-    this.pending = this.pending.filter((due) => accounts.includes(due.accountId));
+    for (let at = this.pending.length - 1; at >= 0; at--) {
+      const due = this.pending[at];
+      if (due && !accounts.includes(due.accountId)) this.pending.splice(at, 1);
+    }
     for (const accountId of accounts) {
       await this.workDue(accountId, now, summary);
       await this.workChanges(accountId, now, summary);
@@ -585,7 +589,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | null> {
+  ): Promise<AnsweredRun | "already" | null> {
     if (event.change === "destroyed") return null;
     const parked = records.filter(
       ({ run }) => run.state === "blocked" && run.waiting?.asked?.channel === "mail",

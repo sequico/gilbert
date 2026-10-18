@@ -674,19 +674,6 @@ function turnData(
       `address: ${event.where}`,
     ]),
     ...memoryBlock(token, question.memory),
-    ...(question.authorisations?.length
-      ? [
-          "What a person has authorised for this run:",
-          ...question.authorisations.map((one) =>
-            dataBlock(token, [
-              `authority: ${one.authority}`,
-              `reaches: ${one.act.target}`,
-              `words: ${one.act.content ?? "(nothing)"}`,
-              `said by: ${one.by}`,
-            ]),
-          ),
-        ]
-      : []),
     "The group's rules that watch it. Name every one of them that applies, and an empty list when none does:",
     ...candidates.map((rule) =>
       dataBlock(token, [
@@ -1258,6 +1245,19 @@ function stepData(question: StepQuestion): string {
         ]
       : []),
     ...memoryBlock(token, question.memory),
+    ...(question.authorisations?.length
+      ? [
+          "What a person has authorised for this run:",
+          ...question.authorisations.map((one) =>
+            dataBlock(token, [
+              `authority: ${one.authority}`,
+              `reaches: ${one.act.target}`,
+              `words: ${one.act.content ?? "(nothing)"}`,
+              `said by: ${one.by}`,
+            ]),
+          ),
+        ]
+      : []),
     "What this run has done so far, and what each step answered:",
     ...(done.length ? done : [dataBlock(token, ["(nothing yet)"])]),
   ].join("\n");

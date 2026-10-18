@@ -870,7 +870,7 @@ const trashMessage = defineTool({
   authority: "destructive",
   writes: true,
   spend: { steps: 1 },
-  act: ({ id }) => ({ target: id, content: null }),
+  act: (args: { id: string }) => ({ target: args.id, content: null }),
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "trash"),
 });
@@ -1288,7 +1288,7 @@ const sendOutward = defineTool({
   authority: "outward",
   writes: true,
   spend: { steps: 1 },
-  act: (raw) => {
+  act: (raw: unknown) => {
     const one = isRecord(raw) ? raw : {};
     return {
       target: typeof one.to === "string" ? one.to.trim().toLowerCase() : "",

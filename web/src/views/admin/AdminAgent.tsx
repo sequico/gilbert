@@ -3,6 +3,7 @@ import type { RunDoc, RunState, RunStep, RunStepState } from "@gilbert/shared/ru
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
+  type AgentStatus,
   correctFact,
   dismissProposal as dismissProposalSheet,
   type FactDoc,

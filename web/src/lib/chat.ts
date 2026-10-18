@@ -29,12 +29,7 @@ import {
 } from "@gilbert/shared/chat";
 import { client } from "@/jmap/client";
 import type { FileNode, GetResponse, Id } from "@/jmap/types";
-import {
-  ensureFolder,
-  ensureSubfolder,
-  findInFolder,
-  writeBlobInFolder,
-} from "@/lib/appFolder";
+import { ensureFolder, ensureSubfolder, writeBlobInFolder } from "@/lib/appFolder";
 
 export * from "@gilbert/shared/chat";
 
