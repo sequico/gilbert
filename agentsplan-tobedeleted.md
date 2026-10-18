@@ -197,8 +197,10 @@ remains is in section 2 and in the deferred list.
   the standing instruction's **shape** has moved to `shared/instruction.ts`, so a
   surface reads one definition instead of spelling a second. Pinned by
   `web/src/lib/__tests__/agentShapes.test.ts`, which imports the shape from both
-  trees through the alias. The rule shape needs nothing: `agent/rule.ts` is pure
-  and reads through the same alias.
+  trees through the alias. A rule's **address** is reachable too: `RULES_DIR`,
+  `rulePath` and the refusal a bad name raises are in `shared/rule.ts`
+  (`agent/rules.ts` re-exports them), so the client files a rule where the server
+  looks for it instead of spelling the path a second time.
 
 ### 2.8 A quiet log
 
