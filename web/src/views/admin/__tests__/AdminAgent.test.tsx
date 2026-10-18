@@ -114,7 +114,7 @@ describe("the agent's administration surface", () => {
         return answer({ group: GROUP, runs });
       if (url === "/api/admin/groups")
         return answer({ groups: [{ id: "t1", name: GROUP }], enumeration: true });
-      if (url === "/api/admin/memory") return answer({ facts });
+      if (url === "/api/admin/memory") return answer({ facts, problems: [] });
       if (url === "/api/admin/installation")
         return answer({
           installation: {
