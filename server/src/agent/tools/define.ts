@@ -1,0 +1,200 @@
+/**
+ * What a tool is, once (ADR 0031, ADR 0032).
+ *
+ * The catalogue's own machinery: the authority class a tool exercises, the
+ * refusal a tool answers with, the shape every tool is defined through, the call
+ * a tool is handed, and the guard that asks whether the run may take its act.
+ * The surface modules beside this one define their tools through these, and
+ * `agent/tools.ts` re-exports them, so each has one spelling.
+ */
+
+import type { Ctx } from "../../appFolder.js";
+import type {
+  RunAuthority,
+  RunAuthorityAct,
+  RunDoc,
+  RunSpent,
+} from "../../shared/run.js";
+import type { MemoryStore } from "../memory.js";
+import type { ImageReader } from "./content.js";
+
+export type { ImageReader };
+
+/**
+ * The authority class a tool exercises (ADR 0032).
+ *
+ * The five classes, named by what each one needs before the agent may act:
+ * `reversible` is the agent's own decision; `destructive` (a message, a folder
+ * or a page destroyed, a document overwritten), `outward` (anything that
+ * reaches a person outside the mandate) and `beyond-policy` (an act the written
+ * policy forbids) each need an authority the run carries — a person's word, a
+ * rule that declares it sends, or an installation administrator's override —
+ * and `intent` is never the agent's, whatever the run carries.
+ */
+type ToolAuthority =
+  | "reversible"
+  | "destructive"
+  | "outward"
+  | "beyond-policy"
+  | "intent";
+
+/**
+ * A tool call this build cannot use.
+ *
+ * The code is what a surface composes its own sentence from, as `RunError` is
+ * for runs; a tool refused for its arguments says so in the model's own words.
+ */
+export class ToolError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status = 400,
+  ) {
+    super(message);
+    this.name = "ToolError";
+  }
+}
+
+/**
+ * One tool, with its arguments erased so a catalogue can hold them side by side.
+ *
+ * `parse` is the only reader of the raw arguments the model gave, and `run` is
+ * only ever handed what `parse` returned — which is what makes "validated
+ * before the executor runs" a property of the shape rather than a rule the
+ * executors keep. `defineTool` builds one from a tool that names its own
+ * argument type.
+ */
+export interface AnyTool {
+  readonly name: string;
+  readonly description: string;
+  readonly authority: ToolAuthority;
+  /** Whether the tool can change anything. The reading half's are all false. */
+  readonly writes: boolean;
+  /** Whether one call leaves the run waiting on a person (ADR 0033, 0034). */
+  readonly waits: boolean;
+  /** What a call to it spends of the run's budget (ADR 0031). */
+  readonly spend: Partial<RunSpent>;
+  /**
+   * The act this call is, read from the arguments the model gave (ADR 0032).
+   *
+   * A class is not an act: an authority a person gave names one act and no
+   * other, so a tool whose class needs one answers here what its act reaches and
+   * what it carries, and the guard compares that against the run's
+   * authorisations. A class that asks nobody answers null, which is every
+   * reading tool and every reversible one.
+   */
+  readonly act: (args: unknown) => RunAuthorityAct | null;
+  /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
+  readonly parse: (raw: unknown) => unknown;
+  /** The task itself, with arguments already validated. */
+  readonly run: (call: ToolCall, args: unknown) => Promise<unknown>;
+}
+
+/** One tool's own shape, typed by the arguments it takes. */
+interface ToolSpec<Args> {
+  name: string;
+  description: string;
+  authority: ToolAuthority;
+  writes: boolean;
+  /**
+   * Whether one call leaves the run waiting on a person. A run holds one wait
+   * (ADR 0034), so a plan may carry one such call and no more.
+   */
+  waits?: boolean;
+  spend?: Partial<RunSpent>;
+  act?: (args: Args) => RunAuthorityAct | null;
+  parse: (raw: unknown) => Args;
+  run: (call: ToolCall, args: Args) => Promise<unknown>;
+}
+
+/** The one place a tool is defined, so every field above has one spelling. */
+export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
+  return {
+    name: spec.name,
+    description: spec.description,
+    authority: spec.authority,
+    writes: spec.writes,
+    waits: spec.waits === true,
+    spend: spec.spend ?? {},
+    act: spec.act ? (args) => spec.act!(args as Args) : () => null,
+    parse: spec.parse,
+    run: (call, args) => spec.run(call, args as Args),
+  };
+}
+
+/** What a tool call is given: the session it acts as, and the run it works. */
+export interface ToolCall {
+  ctx: Ctx;
+  /** The account the run belongs to — the group's own (ADR 0035). */
+  accountId: string;
+  /** The run the call is a step of, which is what its authority is read from. */
+  run: RunDoc;
+  /**
+   * The installation's model's eyes, for the one read a function cannot make
+   * (ADR 0031): an image is transcribed by the model, and a caller without this
+   * gets the answer that says so rather than a guess at the picture.
+   *
+   * A function rather than the model's own access, because a catalogue that
+   * imported the model would close a cycle — the model imports the catalogue to
+   * offer its tools. The loop, which holds both, is where the two meet.
+   */
+  readImage?: ImageReader;
+  /**
+   * The installation's memory as the caller's pass read it (ADR 0037).
+   *
+   * The store is read **once per pass** (`agent/loop.ts`) and the one reading is
+   * handed to every step of it, so the write `memory.remember` makes is against
+   * the same reading the pass's selections were made from rather than listing
+   * the memory again for every fact. A caller with no reading of its own — the
+   * decision turn's write-free lookups — passes none, and a tool that needs one
+   * says so.
+   */
+  memory?: MemoryStore;
+}
+
+/** The authority of the run that makes a tool's class the agent's to take. */
+const AUTHORITY_NEEDED: Record<ToolAuthority, RunAuthority | "alone" | "never"> = {
+  reversible: "alone",
+  destructive: "destructive",
+  outward: "outward",
+  "beyond-policy": "override",
+  intent: "never",
+};
+
+/** What a tool's class needs before a run may take it (ADR 0032). */
+function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "never" {
+  return AUTHORITY_NEEDED[authority];
+}
+
+/**
+ * Whether a run may take a tool's action, read from the class the tool declares
+ * and the act it is about.
+ *
+ * The guard is here and nowhere else: `reversible` is the agent's own decision
+ * and asks nobody; the three that need one are answered by the run's recorded
+ * authorisations, each naming the authority a person gave **and the act it is
+ * for** — an authorisation answers for that act and no other (ADR 0032), so a
+ * send a person authorised does not authorise the next one; and `intent` is
+ * never answered at all, because which policy is right is not a thing a run can
+ * be authorised to decide.
+ */
+export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
+  const needed = authorityNeeded(tool.authority);
+  if (needed === "alone") return true;
+  if (needed === "never") return false;
+  const act = tool.act(args);
+  if (!act) return false;
+  /*
+   * A rule that declares that it sends is the authority an outward act asks for
+   * (ADR 0032, 0035): the group wrote that rule, its instruction says what to
+   * send, and the declaration travels on the run its rule opened. It answers for
+   * outward acts and no other class.
+   */
+  if (needed === "outward" && run.startedBy.sends === true) return true;
+  return run.authorisations.some(
+    (one) =>
+      one.authority === needed &&
+      one.act.target === act.target &&
+      one.act.content === act.content,
+  );
+}
