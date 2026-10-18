@@ -17,9 +17,10 @@ true. A reader who wants the version before this commit asks git for it. The
 one exception is the owner asking for otherwise, explicitly: only then does a
 decision get a record beside the existing one instead of a rewrite of it.
 
-Every record names the four blocks — **gilbertmailer**, **gilbertserver**,
-**gilbertagents** and **gilbertstalwart** — the way `README.md` defines
-them, so a decision and the product description use one vocabulary. What
+A record names a block — **gilbertmailer**, **gilbertserver**,
+**gilbertagents**, **gilbertstalwart** — the way `README.md` defines it, and
+redefines none of them: the definitions live there and are not restated here.
+What
 Gilbert *does* is the inventory in `FEATURES.md` and the code itself; a
 record here explains why a piece of the architecture is shaped the way it
 is, not what a user sees.
