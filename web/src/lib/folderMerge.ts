@@ -21,7 +21,7 @@
  * read.
  *
  * Nothing here talks to a server. The one reader of it is `mergeFolders` in
- * `web/src/store/files.ts`, which owns the calls.
+ * `web/src/store/files/slices/folders.ts`, which owns the calls.
  */
 
 import type { FileNode, FilesRights, Id } from "@/jmap/types";
