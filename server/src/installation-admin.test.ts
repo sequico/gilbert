@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import type { InstallationPublished, InstallationView } from "./installationAdmin.js";
+import type { InstallationPublished, InstallationView } from "./shared/installation.js";
 import { freePort, jsonCallAs, loginWith } from "./testkit.js";
 import type { UpstreamSession } from "./upstream.js";
 

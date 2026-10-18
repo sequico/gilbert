@@ -599,3 +599,62 @@ export const PLACEHOLDER_APP_SECRET = "change-me";
 export function isUsableAppSecret(value: unknown): value is string {
   return typeof value === "string" && !!value.trim() && value !== PLACEHOLDER_APP_SECRET;
 }
+
+/**
+ * What the administration's read answers (`routes/installation.ts`).
+ *
+ * The route and its client are one contract, so the shape lives here, beside the
+ * document it describes, rather than being written once on each side.
+ */
+export interface InstallationView {
+  /** Whether the account holds a document at all. */
+  present: boolean;
+  /**
+   * The document as it is stored, or null when there is none — with the model's
+   * key **taken out** of every document this module can read as JSON
+   * (`withoutProviderKey`), because the key is write-only: it is stored so a
+   * call can carry it, and no read hands it back. A document that is not JSON is
+   * the exception, handed back byte for byte so a person can repair it. A
+   * publish that says nothing about the key — the field absent or empty — is
+   * what keeps the stored one, which is why the field is absent here rather than
+   * empty: a text handed back as it was read states nothing about the key.
+   */
+  document: string | null;
+  /**
+   * Why a boot would refuse the stored document, or null when it would not.
+   *
+   * The judgement is the boot's own (`installation.ts`'s reader): the text is
+   * not a document, or it carries no app secret. The text is still handed back
+   * with it — a document that cannot be read is exactly the one a person has
+   * to repair, and hiding it would leave the editor as the only place it
+   * exists.
+   */
+  problem: string | null;
+  /** The Files account whose app folder holds it — the Master's own, reached by impersonation. */
+  account: string;
+  /** The address that account belongs to: the Master whose own document a boot reads. */
+  master: string;
+  /** Where it is, in words: `gilbert/installation.json in account …`. */
+  location: string;
+}
+
+/** What a publish wrote, and when it applies. */
+export interface InstallationPublished {
+  /** The Files account whose app folder now holds the document. */
+  account: string;
+  /** The address that account belongs to: the Master whose own document a boot reads. */
+  master: string;
+  /** Where that is, in words. */
+  location: string;
+  /** The document as it is now stored: byte for byte what the next read returns. */
+  document: string;
+  /** The epoch the stored document carries. Every write takes the next one. */
+  epoch: number;
+  /**
+   * When it takes effect: the document is read at boot, so a publish is never
+   * live in the process that made it.
+   */
+  applies: "next-boot";
+  /** The same answer as one sentence, for the surface to show as it is. */
+  message: string;
+}

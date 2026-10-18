@@ -1,11 +1,13 @@
 import { errorMessage } from "@gilbert/shared/errors";
+import type {
+  InstallationView,
+  InstallationPublished as Published,
+} from "@gilbert/shared/installation";
 import { useEffect, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
 import {
   fetchInstallation,
-  type InstallationView,
   installationModel,
-  type InstallationPublished as Published,
   publishInstallation,
   startingInstallationDocument,
 } from "@/lib/installationAdmin";

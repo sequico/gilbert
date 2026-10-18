@@ -8,7 +8,11 @@
  * document the server can refuse is better than one the editor silently
  * reshaped.
  */
-import { installationDefaults } from "@gilbert/shared/installation";
+import {
+  type InstallationPublished,
+  type InstallationView,
+  installationDefaults,
+} from "@gilbert/shared/installation";
 import { isRecord } from "@gilbert/shared/json";
 import { apiFetch } from "@/jmap/client";
 
@@ -26,36 +30,6 @@ export interface InstallationFields {
   baseUrl: string;
   /** The installation's own line of prose — `agent.instruction`. */
   instruction: string;
-}
-
-/** What `GET /api/admin/installation` answers, as the server builds it. */
-export interface InstallationView {
-  present: boolean;
-  document: string | null;
-  problem: string | null;
-  /** The Files account whose app folder holds it — the Master's own. */
-  account: string;
-  /** The address that account belongs to: the Master the installation signs in as. */
-  master: string;
-  location: string;
-}
-
-/**
- * What a publish wrote, and when it applies.
- *
- * `applies` is a time, not a reassurance: the server reads the document at
- * boot, so a publish lands in the account's Files and the *next* boot runs on
- * it. The running process keeps the configuration it booted with.
- */
-export interface InstallationPublished {
-  account: string;
-  master: string;
-  location: string;
-  /** The document as it is now stored: byte for byte what a read returns. */
-  document: string;
-  epoch: number;
-  applies: "next-boot";
-  message: string;
 }
 
 /** Read the stored document, and what a boot would make of it. */
