@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Built, and partly owed. A fact is one small sheet — the subject it
+Implementation: Built.
 is about, one sentence of what is held true of it, the group it is about, where it
 came from and its links — whose shape, parser and the **selection** a call carries
 are

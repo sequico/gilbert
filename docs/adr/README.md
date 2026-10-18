@@ -115,7 +115,7 @@ is, not what a user sees.
   installation administrator, each refusal saying which one it is and what still
   works. It is a rule the product keeps, not a boundary: another client destroys
   the same mail.
-- **0016 — What notifies a closed Gilbert.** A push subscription belongs to the
+- **0016 — What notifies a closed Gilbert: the permission door, every mailbox, and chat.** A push subscription belongs to the
   principal that registered it and is served for every account that principal is
   a **member** of, so one row covers the reader's own mailbox and each of their
   groups — the group's mail already wakes a closed client today, as a
@@ -169,7 +169,7 @@ is, not what a user sees.
   well as being merged in it; its cards are ordinary cards. A `shareWith` naming
   every account cannot work — Stalwart caps a share at 10 principals per item
   (live-probed, 2026-10-02) — so the route is the door.
-- **0024 — The knowledge base (accepted).** An enterprise knowledge base inside
+- **0024 — The knowledge base.** An enterprise knowledge base inside
   Gilbert, for people and for agents: a company-wide one owned by the Master and
   one per group, over app-folder documents in Stalwart. An article has one shared
   unapproved draft that users and agents both edit, and only an administrator
@@ -199,12 +199,12 @@ is, not what a user sees.
   setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
   same suite on a checkout and `npm run check:release` (`check:ci` then
   `codeql`) is the full local gate. Built.
-- **0028 — Workorders are group-owned parts (accepted).** A workorder is one uid
+- **0028 — Workorders are group-owned parts.** A workorder is one uid
   with a root document in the Master's and a part in each competent group's own
   app folder; nothing is copied and no marker is planted in a work folder. The
   Master does every read and write. A checklist instantiates a KB template in
   force (ADR 0024) and materialises its applicable steps by path (ADR 0030).
-- **0029 — The composer's editor is Squire (accepted, built).** Every surface
+- **0029 — The composer's editor is Squire.** Every surface
   that composes rich HTML — the message composer, templates and identity
   signatures — is driven by Squire (`squire-rte`, MIT), the editor built for
   email, whose HTML is the source of truth so a quote or a forward keeps a third
@@ -220,7 +220,7 @@ is, not what a user sees.
   is taken unmodified — ADR 0002's download-only stance applied to a library —
   and its releases arrive through Dependabot's npm channel. Its MIT notice is in
   `NOTICE`.
-- **0030 — A checklist template branches on data, not on groups (accepted).**
+- **0030 — A checklist template branches on data, not on groups.**
   One generic template per kind of job, in the company KB or a group's, and every
   group instantiates it; a group owns the **instance** and signs it, and is never
   a template of its own. The template is a **process document** — **variants**
@@ -231,7 +231,7 @@ is, not what a user sees.
   are **derived**. The authoring surface is Gilbert's own, not an off-the-shelf
   form builder. The workorder side materialises the applicable steps by **path**,
   with the four step states. **Built.**
-- **0031 — The agent's tools are described and composable (accepted).** The
+- **0031 — The agent's tools are described and composable.** The
   agent's capabilities are a small catalogue of **tools**, each one a task over an
   object Stalwart offers, and the **model chooses** which to call and in what
   order — **one or more in a single answer, together where independent** — never a
@@ -252,7 +252,7 @@ is, not what a user sees.
   reading tools, the choosing over the whole catalogue and answering a plan), and
   the loop that works a run is `server/src/agent/loop.ts`, started by the server's
   own boot (`server/src/agent/supervisor.ts`).
-- **0032 — What the agent decides, and what only a person decides (accepted).**
+- **0032 — What the agent decides, and what only a person decides.**
   The bound on the agent is not a catalogue but five classes: **reversible and
   inside the group** the agent decides; **irreversible or destructive** a person,
   always, and the product's preference is that nothing disappears; **outward** a
@@ -269,7 +269,7 @@ is, not what a user sees.
   outward acts. `mail.trash` is the one destructive act and it **moves** a message
   to Deleted Items, licensed by the message's id; an override is proved by the
   directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
-- **0033 — The conversation runs in chat and mail (accepted).** One
+- **0033 — The conversation runs in chat and mail.** One
   conversation, two channels: a question, an answer, an authorisation and a report
   are the same in the group's chat and in mail, and **everything is in words** —
   no link, no signed token, no form, because a person away from the product has a
@@ -283,7 +283,7 @@ is, not what a user sees.
   (`server/src/agent/trust.ts`) decides whether a message is anybody's word: a
   submission on the account the server authenticated, and an outside message
   refused until the `authserv-id` of a live verdict is probed.
-- **0034 — A run is a document, and the record is the product (accepted).** A run
+- **0034 — A run is a document, and the record is the product.** A run
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
   what it touched, what it waits for and where it asked, every authorisation with
@@ -303,7 +303,7 @@ is, not what a user sees.
   runs from Administration → Agent, where the record is drawn as it is stored and
   a document this build cannot read is said rather than guessed at
   (`server/src/routes/agent.ts`, `web/src/views/admin/AdminAgent.tsx`).
-- **0035 — A group's engagement is a rule in prose (accepted).** One rule is one
+- **0035 — A group's engagement is a rule in prose.** One rule is one
   document in the group's own account, saying **what it watches** — the account's
   activity across the five surfaces, its chat, its mail, its KB, its workorders
   and its Files — and **in prose what should happen**; nothing is compiled, and a
@@ -320,7 +320,7 @@ is, not what a user sees.
   matches an event against the rules and gives every rule that fits it its own run
   is `server/src/agent/loop.ts`,
   started by the server's own boot (`server/src/agent/supervisor.ts`).
-- **0036 — One agent per installation, held by a claim (accepted).** One
+- **0036 — One agent per installation, held by a claim.** One
   `agent-claim.json` in the app folder of the account the agent signs in as — the
   Master's, one per installation and no per-group lease — taken by the
   compare-and-set JMAP offers and renewed while the holder works. It carries who
@@ -331,8 +331,7 @@ is, not what a user sees.
   nobody's claim but its own; and a claim document that cannot be read is no
   claim at all, so a damaged one cannot leave the installation with no agent.
   **Built** (`server/src/agent/claim.ts`).
-- **0037 — The agent's memory is a graph, and it recalls it on every call
-  (accepted).** The agent **always** has memory: a graph of small facts with a
+- **0037 — The agent's memory is a graph, and it recalls it on every call.** The agent **always** has memory: a graph of small facts with a
   provenance, in the **Master's own account**, in a **second store** beside the
   knowledge base — one memory for the installation, so a group reasons with what
   the whole installation knows. A call recalls a **selection** — the change's own

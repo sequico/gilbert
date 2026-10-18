@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Built, with the live provider probe owed.
+Implementation: Built.
 each tool names its arguments, its authority class and what it spends, the
 arguments are validated before its executor runs, and the half a reading caller
 is handed (`readingTools`) is the one that cannot write. The installation's one

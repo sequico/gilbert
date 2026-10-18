@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Built, with the live arrival probe owed.
+Implementation: Built.
 (`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
 over the group's own chat (ADR 0005), with `replyTo` as the correlation and a
 question leaving the run waiting on a person's answer with no date — and the
