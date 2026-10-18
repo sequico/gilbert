@@ -62,13 +62,14 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
+import { appFolderState, type Ctx, filesAccountId, readAppFileAt } from "../appFolder.js";
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
+import { parseInstallationDocumentDetailed } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
 import { recallFacts } from "../shared/memory.js";
 import {
@@ -309,6 +310,7 @@ export class AgentLoop {
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
+    this.installation = await this.readInstallationLine();
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
     /*
@@ -957,6 +959,30 @@ export class AgentLoop {
    */
   private claimExpires: string | null = null;
 
+  /**
+   * The installation's own line, as this pass read it.
+   *
+   * Read from the installation's document at the top of every pass, not taken
+   * once at the boot (owner decision 2026-10-18): an edit is in force at the next
+   * pass, like a group's own instruction. The boot's reading is the fallback for
+   * a document that cannot be read now, so a bad edit does not silence the agent.
+   */
+  private installation: string | undefined;
+
+  private async readInstallationLine(): Promise<string | undefined> {
+    const accountId = filesAccountId(this.ctx);
+    if (!accountId) return this.opts.installation;
+    try {
+      const found = await readAppFileAt(this.ctx, accountId, "installation.json");
+      if (!found?.text) return this.opts.installation;
+      const parsed = parseInstallationDocumentDetailed(found.text);
+      if ("problem" in parsed) return this.opts.installation;
+      return parsed.doc.agent.instruction || undefined;
+    } catch {
+      return this.opts.installation;
+    }
+  }
+
   /** The two prose levels above a rule's own, as this pass read them (ADR 0035). */
   private async proseAbove(
     accountId: string,
@@ -965,7 +991,7 @@ export class AgentLoop {
     if (held) return held;
     const group = await readInstruction(this.ctx, accountId);
     const levels: Partial<Record<ProseLevel, string>> = {
-      ...(this.opts.installation ? { installation: this.opts.installation } : {}),
+      ...(this.installation ? { installation: this.installation } : {}),
       ...(group ? { group } : {}),
     };
     this.above.set(accountId, levels);
