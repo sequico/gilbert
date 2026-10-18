@@ -7,7 +7,7 @@ which answers whether a write is a move between accounts at all
 (`movesBetweenAccounts`), whether this reader may take one
 (`mayMoveBetweenAccounts`), and why one is refused (`contactMoveRefusal`,
 answering the code `contact_move_admin`); the guard sits on the effect —
-`moveCardTo` in `web/src/store/contacts.ts`, which refuses before any call
+`moveCardTo` in `web/src/store/contacts/slices/cards.ts`, which refuses before any call
 leaves the client — and the sentence is composed there from the catalogue, as
 the mail rule's refusals are (`contactMoveSentence`). The surfaces read the same
 answer before drawing anything, through one hook
@@ -122,7 +122,7 @@ rather than claiming a protection.
   one, and which refusal it answers
 - `web/src/lib/useMayMoveContact.ts` — the hook the surfaces read it through, so
   the drawn answer re-renders when the admin flag moves
-- `web/src/store/contacts.ts` — `moveCardTo`'s guard, before any call leaves the
+- `web/src/store/contacts/slices/cards.ts` — `moveCardTo`'s guard, before any call leaves the
   client, and `contactMoveSentence` composing the refusal from the catalogue
 - `web/src/views/contacts/ContactsView.tsx` — the row's right-click menu, and
   `MoveContactDialog` naming each group and the books it owns

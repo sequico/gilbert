@@ -535,7 +535,7 @@ function directoryBatch(session: UpstreamSession): number {
  * surface), when the server lets this session do it.
  *
  * The query is unfiltered, exactly the shape the web client already sends to
- * live servers (web/src/store/contacts.ts); individuals are then selected on
+ * live servers (web/src/store/contacts/slices/directory.ts); individuals are then selected on
  * what Principal/get returns - `type: "individual"` is how Stalwart names a
  * user account (source-checked 2026-09-07, crates/jmap/src/principal/get.rs;
  * re-verify against a live server with a dated comment per repo convention).

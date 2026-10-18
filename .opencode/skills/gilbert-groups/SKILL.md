@@ -58,7 +58,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   deleted — Delete is disabled for a shared calendar, a group's included;
   non-group shared calendars stay in the read-only *Shared with me / Available
   to add* area.
-- **Address books**: same shape — `store/contacts.ts`
+- **Address books**: same shape — `store/contacts/slices/books.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` lists every group's books
   together under **Group contacts**, each naming its group on hover, with the
   same **+** on the section.
@@ -73,7 +73,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 - **Shared/group contacts in the composer**: a group mailbox's books answer
   in the recipient picker, To-field suggestions and "All contacts" **without
   each member adding the book** — membership is the subscription
-  (`store/contacts.ts` `loadShared`, which also loads for group accounts).
+  (`store/contacts/slices/sharing.ts` `loadShared`, which also loads for group accounts).
   Cards load by page up to 5 000 per account; `loadShared` is single-flight.
 - **Chat (ADR 0005)**: one JSON node per message in `gilbert/chat` and one
   read marker per member in `gilbert/chat-state`, both in the group account,

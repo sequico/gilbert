@@ -85,6 +85,6 @@ chosen.** It never reaches the wire, a draft or the reply path as a thing.
 - **The building follows this record.** The resolver — one definition in
   `lib/contacts.ts`, `groupRecipients` — is what the composer's autocomplete,
   the recipient picker and the contact card's own action all call, through
-  `store/contacts.ts` `expandGroup`. What a surface draws (a row marked *group
+  `store/contacts/slices/groups.ts` `expandGroup`. What a surface draws (a row marked *group
   · N members*, a chip per member) is the surface's business; this record fixes
   what a group is once it is addressed.
