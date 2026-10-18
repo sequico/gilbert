@@ -48,9 +48,12 @@ import {
   appFolderState,
   type Ctx,
   destroyAppNode,
+  ensureAppFolder,
   ensureFolderPath,
   filesAccountId,
   findAppFileAt,
+  findAppFolder,
+  findFolderPath,
   writeAppFileAt,
 } from "../appFolder.js";
 import { masterAddress } from "../config.js";
@@ -61,6 +64,7 @@ import {
 } from "../groupAccess.js";
 import type { LiveSession } from "../sessions.js";
 import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
+import { isStateMismatch } from "../shared/errors.js";
 import {
   INSTRUCTION_FILE,
   INSTRUCTION_VERSION,
@@ -122,6 +126,23 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    */
   const doorFailure = (c: Parameters<typeof groupDenial>[0], err: unknown) =>
     groupAccessFailure(c, err) ?? memoryFailure(c, err);
+
+  /**
+   * A write to a group's prose that lost its compare-and-set is the caller's
+   * conflict, answered as 409 so the panel can say so and reload — not the
+   * upstream fault every other refusal would become.
+   */
+  const proseFailure = (c: Parameters<typeof groupDenial>[0], err: unknown) =>
+    isStateMismatch(err)
+      ? c.json(
+          {
+            error: "prose_moved",
+            message:
+              "The group's prose changed while this was being written, so nothing was saved.",
+          },
+          409,
+        )
+      : doorFailure(c, err);
 
   /**
    * Where the installation's agent is.
@@ -203,7 +224,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         state: records[0]?.state ?? (await appFolderState(access.ctx, access.accountId)),
       });
     } catch (err) {
-      return doorFailure(c, err);
+      return proseFailure(c, err);
     }
   });
 
@@ -221,8 +242,17 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         const body = await readJson<{ instruction?: unknown; ifInState?: unknown }>(c);
         const instruction =
           typeof body?.instruction === "string" ? body.instruction.trim() : "";
+        /*
+         * The folder is made before the token is chosen: making it moves the
+         * account's state, so a token the client read **before** the folder
+         * existed cannot match. When the route itself creates the folder, the
+         * token is read fresh; otherwise the client's own read is what the write
+         * is conditioned on.
+         */
+        const hadFolder = await findAppFolder(access.ctx, access.accountId);
+        await ensureAppFolder(access.ctx, access.accountId);
         const state =
-          typeof body?.ifInState === "string"
+          hadFolder && typeof body?.ifInState === "string"
             ? body.ifInState
             : await appFolderState(access.ctx, access.accountId);
         if (!instruction) {
@@ -252,7 +282,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         );
         return c.json({ ok: true, instruction: parsed.instruction.instruction });
       } catch (err) {
-        return doorFailure(c, err);
+        return proseFailure(c, err);
       }
     },
   );
@@ -277,17 +307,20 @@ export function registerAgentRoutes(api: Hono<Env>): void {
             { error: `The rule says "${parsed.rule.id}" but the route files "${id}".` },
             400,
           );
+        // The same rule as the instruction above: a folder this route creates is
+        // its own change, so the token is read after it, not carried from before.
+        const hadFolder = await findFolderPath(access.ctx, access.accountId, RULES_DIR);
+        await ensureFolderPath(access.ctx, access.accountId, RULES_DIR);
         const state =
-          typeof body?.ifInState === "string"
+          hadFolder && typeof body?.ifInState === "string"
             ? body.ifInState
             : await appFolderState(access.ctx, access.accountId);
-        await ensureFolderPath(access.ctx, access.accountId, RULES_DIR);
         await replaceRule(access.ctx, access.accountId, parsed.rule, {
           ifInState: state,
         });
         return c.json({ ok: true, rule: parsed.rule });
       } catch (err) {
-        return doorFailure(c, err);
+        return proseFailure(c, err);
       }
     },
   );
@@ -312,7 +345,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         await deleteRule(access.ctx, access.accountId, id, { ifInState: state });
         return c.json({ ok: true });
       } catch (err) {
-        return doorFailure(c, err);
+        return proseFailure(c, err);
       }
     },
   );
