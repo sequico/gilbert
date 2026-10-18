@@ -192,6 +192,13 @@ remains is in section 2 and in the deferred list.
   published as the JSON of the document it belongs to; a group's prose awaits the
   surface that will write its rules and its standing instruction together — the
   next unit that touches the group's side.
+- **Ready for it** (2026-10-18): `@gilbert/agent/*` is aliased in the client
+  (`web/tsconfig.json`, `web/vite.config.ts`) as `AGENTS.md` already claimed, and
+  the standing instruction's **shape** has moved to `shared/instruction.ts`, so a
+  surface reads one definition instead of spelling a second. Pinned by
+  `web/src/lib/__tests__/agentShapes.test.ts`, which imports the shape from both
+  trees through the alias. The rule shape needs nothing: `agent/rule.ts` is pure
+  and reads through the same alias.
 
 ### 2.8 A quiet log
 

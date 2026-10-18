@@ -24,7 +24,8 @@
       // helpers around them. They live in the server tree because the server is
       // the tier that validates and stores those documents. The client imports
       // them, never a copy (SSOT).
-      "@gilbert/shared/*": ["../server/src/shared/*"]
+      "@gilbert/shared/*": ["../server/src/shared/*"],
+      "@gilbert/agent/*": ["../server/src/agent/*"]
     }
   },
   "include": ["src", "vite.config.ts"]
