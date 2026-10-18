@@ -142,7 +142,7 @@ export function evaluateRule(e: Email, rule: SieveRule, bodyText?: string): bool
     : tests.every((t) => evaluateTest(e, t, bodyText));
 }
 
-export interface ApplyResult {
+interface ApplyResult {
   scanned: number;
   matched: number;
   skippedActions: string[];

@@ -38,7 +38,7 @@ import { type DeleteOutcome, isFinalFolderRole } from "@/lib/mailDelete";
 import { useMail } from "@/store/mail";
 import { confirmDialog } from "@/ui/dialog";
 
-export interface EmptyTarget {
+interface EmptyTarget {
   id: Id;
   name: string;
   role: MailboxRole;

@@ -146,7 +146,7 @@ export function Dialog({
 
 /* ---------- Imperative confirm / prompt ---------- */
 
-export interface DialogChoice {
+interface DialogChoice {
   value: string;
   label: string;
   /** Shown under the label, for the choice that needs the caveat. */

@@ -55,7 +55,7 @@ export function holdUntil(at: Date): string {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
-export interface SchedulePreset {
+interface SchedulePreset {
   id: string;
   label: string;
   at: Date;

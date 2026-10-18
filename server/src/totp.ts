@@ -12,7 +12,7 @@ import { safeEqual } from "./crypto.js";
  * server to store anything.
  */
 
-export interface TotpParams {
+interface TotpParams {
   secret: string;
   algorithm: "SHA1" | "SHA256" | "SHA512";
   digits: number;

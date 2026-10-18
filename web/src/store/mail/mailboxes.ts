@@ -104,7 +104,7 @@ export const subscriptionBackoff = new Map<Id, number>();
  * refusal is asked again only once the back-off above has passed, so a server
  * that keeps refusing is not written to on every read.
  */
-export function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
+function ensureSubscribed(accountId: Id, tree: Record<Id, Mailbox>): void {
   if (subscribing.has(accountId)) return;
   const retryAt = subscriptionBackoff.get(accountId);
   if (retryAt !== undefined && Date.now() < retryAt) return;

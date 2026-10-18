@@ -76,7 +76,7 @@ export type DeleteFailure = DeleteRefusal | "server_refused" | "not_final_folder
 export type DeleteOutcome = { ok: true } | { ok: false; code: DeleteFailure };
 
 /** Which of the three entry points is asking. */
-export type DestroyKind = "final" | "empty" | "folder";
+type DestroyKind = "final" | "empty" | "folder";
 
 const REFUSAL_BY_KIND: Record<DestroyKind, DeleteRefusal> = {
   final: "group_mail_final",
@@ -135,7 +135,7 @@ export function destroyRefusal(
 export const FINAL_FOLDER_ROLES = ["trash", "junk"] as const;
 
 /** One of them. */
-export type FinalFolderRole = (typeof FINAL_FOLDER_ROLES)[number];
+type FinalFolderRole = (typeof FINAL_FOLDER_ROLES)[number];
 
 const FINAL_ROLE_SET: ReadonlySet<string> = new Set(FINAL_FOLDER_ROLES);
 

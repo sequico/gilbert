@@ -81,7 +81,7 @@ export type MergeStep =
  * The codes are the vocabulary; the sentences are composed from them below, so
  * a reason added here without one does not compile.
  */
-export type MergeConflictReason =
+type MergeConflictReason =
   /** One side is a folder and the other is a file: neither can become the other. */
   | "mixed"
   /** The node being merged in carries no content to copy. */

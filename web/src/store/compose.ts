@@ -29,7 +29,7 @@ import { ensureScheduledMailbox, useScheduled } from "./scheduled";
 import { useSession } from "./session";
 import { settings } from "./settings";
 
-export interface ComposeAttachment {
+interface ComposeAttachment {
   id: string;
   name: string;
   type: string;
@@ -262,10 +262,7 @@ function blankDraft(init: Partial<Draft> = {}): Draft {
   };
 }
 
-export function signatureBlock(
-  identity: Identity | undefined,
-  format: "html" | "text",
-): string {
+function signatureBlock(identity: Identity | undefined, format: "html" | "text"): string {
   if (!identity) return "";
   if (format === "text") return textSignatureBlock(identity.textSignature);
   /*
@@ -1825,10 +1822,10 @@ export function buildSubmission(opts: {
  * back, and the server could not be asked afterwards either. Offering a plain
  * "send again" here is how one message is delivered twice.
  */
-export class SendOutcomeUnknown extends Error {}
+class SendOutcomeUnknown extends Error {}
 
 /** A Message-ID for one send, on the sending identity's domain (RFC 5322 §3.6.4). */
-export function newMessageId(fromEmail: string): string {
+function newMessageId(fromEmail: string): string {
   const domain = fromEmail.split("@")[1] || "localhost";
   return `${crypto.randomUUID()}@${domain}`;
 }
@@ -1871,7 +1868,7 @@ async function destroyEmails(accountId: Id, ids: Id[]): Promise<boolean> {
  * still carrying the id is taken as sent: every path that fails a send
  * destroys the copy it created.
  */
-export async function traceSend(
+async function traceSend(
   accountId: Id,
   messageId: string,
   justNow: boolean,

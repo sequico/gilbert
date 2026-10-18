@@ -35,7 +35,7 @@ export function workorderClosedPath(): string {
 /** Every state a workorder reaches. Only the root carries one. */
 export type WorkorderState = "running" | "completed" | "cancelled" | "replaced";
 
-export const WORKORDER_STATES: readonly WorkorderState[] = [
+const WORKORDER_STATES: readonly WorkorderState[] = [
   "running",
   "completed",
   "cancelled",
@@ -43,7 +43,7 @@ export const WORKORDER_STATES: readonly WorkorderState[] = [
 ];
 
 /** The states a workorder does not leave: the root moves to `closed/`. */
-export const WORKORDER_TERMINAL_STATES: readonly WorkorderState[] = [
+const WORKORDER_TERMINAL_STATES: readonly WorkorderState[] = [
   "completed",
   "cancelled",
   "replaced",
@@ -53,7 +53,7 @@ export function isTerminalState(state: WorkorderState): boolean {
   return WORKORDER_TERMINAL_STATES.includes(state);
 }
 
-export interface WorkorderTimes {
+interface WorkorderTimes {
   by: string;
   at: string;
 }
@@ -76,7 +76,7 @@ export interface WorkorderTemplateRef {
  */
 export type WorkorderStepState = "open" | "done" | "skipped" | "not-applicable";
 
-export const WORKORDER_STEP_STATES: readonly WorkorderStepState[] = [
+const WORKORDER_STEP_STATES: readonly WorkorderStepState[] = [
   "open",
   "done",
   "skipped",
@@ -100,7 +100,7 @@ export function isStepCompleteForGate(state: WorkorderStepState): boolean {
 }
 
 /** One step's operational state — never the controlled text, which the KB holds. */
-export interface WorkorderStep {
+interface WorkorderStep {
   /** The step's path in the template, repeats expanded: `section[item].step`. */
   path: string;
   state: WorkorderStepState;
@@ -135,7 +135,7 @@ export interface WorkorderChecklist {
  * another workorder (ADR 0034). One shape and one vocabulary for both
  * documents, so a reference written by one reader means the same to the next.
  */
-export const WORKORDER_REF_KINDS = [
+const WORKORDER_REF_KINDS = [
   "folder",
   "file",
   "kb",
@@ -144,7 +144,7 @@ export const WORKORDER_REF_KINDS = [
   "workorder",
 ] as const;
 
-export type WorkorderRefKind = (typeof WORKORDER_REF_KINDS)[number];
+type WorkorderRefKind = (typeof WORKORDER_REF_KINDS)[number];
 
 export interface WorkorderRef {
   accountId: string;
@@ -238,7 +238,7 @@ function isWorkorderItemMap(x: unknown): x is Record<string, WorkorderItem[]> {
   );
 }
 
-export function isWorkorderChecklist(x: unknown): x is WorkorderChecklist {
+function isWorkorderChecklist(x: unknown): x is WorkorderChecklist {
   return (
     isRecord(x) &&
     isWorkorderTemplateRef(x.template) &&
@@ -387,7 +387,7 @@ export interface WorkorderStepView {
 }
 
 /** One item of a section as a reader sees it (a container, or the section). */
-export interface WorkorderItemView {
+interface WorkorderItemView {
   /** The item's key for a repeated section, or "" when the section is not repeated. */
   key: string;
   /** The item's label. */

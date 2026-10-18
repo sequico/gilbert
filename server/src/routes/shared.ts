@@ -254,7 +254,7 @@ export const loginFloodLimiter = () =>
  * while still bounding a guessing script to the same handful of attempts per
  * 15 minutes it always had.
  */
-export const accountLimiter = new RateLimiter(20, 15 * 60_000);
+const accountLimiter = new RateLimiter(20, 15 * 60_000);
 export let apiLimiterInstance: RateLimiter | null = null;
 /*
  * Built on first use rather than at import: the ceiling comes from the
@@ -262,7 +262,7 @@ export let apiLimiterInstance: RateLimiter | null = null;
  * (`useConfiguration`). A module-scope instance would keep whatever the
  * environment said before anything had been read.
  */
-export const apiLimiter = () =>
+const apiLimiter = () =>
   (apiLimiterInstance ??= new RateLimiter(config.apiRateLimit, 60_000));
 
 /*
@@ -278,7 +278,7 @@ export const apiLimiter = () =>
  */
 export const EVENTS_STREAMS_LIMIT = 8;
 
-export const eventsStreamCounts = new Map<string, number>();
+const eventsStreamCounts = new Map<string, number>();
 
 /**
  * Reserve one of the session's /api/events slots, or return null when the
@@ -319,9 +319,9 @@ export function acquireEventsStreamSlot(sessionId: string): (() => void) | null 
  * because it is the one endpoint that reads a body from somebody not yet
  * signed in — the checks on both fields come after the parse.
  */
-export const MAX_SMALL_BODY = 64 * 1024;
-export const DATA_PATH = /\/api\/(jmap$|upload\/)/;
-export const limitSmallBody = bodyLimit({
+const MAX_SMALL_BODY = 64 * 1024;
+const DATA_PATH = /\/api\/(jmap$|upload\/)/;
+const limitSmallBody = bodyLimit({
   maxSize: MAX_SMALL_BODY,
   onError: (c) => c.json({ error: "too_large" }, 413),
 });
@@ -359,7 +359,7 @@ function upstreamForSession(session: LiveSession): Promise<UpstreamSession> {
   return sessionUpstream(session);
 }
 
-export interface SessionVerdict<T> {
+interface SessionVerdict<T> {
   value: T;
   checkedAt: number;
 }
@@ -372,7 +372,7 @@ export interface SessionVerdict<T> {
  * instance, a direct JMAP write -- takes to land. One window for the same rule
  * in two places.
  */
-export const SESSION_VERDICT_TTL_MS = 30_000;
+const SESSION_VERDICT_TTL_MS = 30_000;
 
 /**
  * A verdict about a session, remembered for the window.
@@ -381,7 +381,7 @@ export const SESSION_VERDICT_TTL_MS = 30_000;
  * otherwise keep one entry per user ever checked for the life of the process,
  * with nothing ever deleting the ones that stop requesting.
  */
-export async function cachedVerdict<T>(
+async function cachedVerdict<T>(
   cache: Map<string, SessionVerdict<T>>,
   key: string,
   read: () => Promise<T>,
@@ -517,13 +517,13 @@ export async function forcedFlagsFor(
  * has a session, and the admin endpoints, which answer for an administrator
  * acting on somebody else's account rather than for the account being forced.
  */
-export function isDoorPath(rel: string): boolean {
+function isDoorPath(rel: string): boolean {
   if (rel.startsWith("/auth/") || rel.startsWith("/admin/")) return false;
   return rel !== "/config" && rel !== "/health" && rel !== "/account/password";
 }
 
 /** The socket's own address -- the one part of a request nobody downstream can forge. */
-export function peerAddress(c: Context): string {
+function peerAddress(c: Context): string {
   try {
     return getConnInfo(c).remote.address ?? "unknown";
   } catch {
@@ -541,7 +541,7 @@ export function clientIp(c: Context): string {
 }
 
 /** The scheme a request arrived on; `X-Forwarded-Proto` is believed only from a proxy we run. */
-export function requestProto(c: Context): "http" | "https" {
+function requestProto(c: Context): "http" | "https" {
   if (config.trustProxy && isTrustedProxy(peerAddress(c), config)) {
     const proto = c.req.header("x-forwarded-proto");
     if (proto)
@@ -550,14 +550,14 @@ export function requestProto(c: Context): "http" | "https" {
   return new URL(c.req.url).protocol === "https:" ? "https" : "http";
 }
 
-export function isSecureRequest(c: Context): boolean {
+function isSecureRequest(c: Context): boolean {
   if (config.secureCookies === "1" || config.secureCookies === "true") return true;
   if (config.secureCookies === "0" || config.secureCookies === "false") return false;
   return requestProto(c) === "https";
 }
 
 /** A host that can go into a URL: a name, IPv4, or a bracketed IPv6, with an optional port. */
-export const PUSH_HOST_RE =
+const PUSH_HOST_RE =
   /^(?:\[[0-9a-fA-F:.]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*)(?::\d{1,5})?$/;
 
 /**
@@ -620,7 +620,7 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
  * type. It is listed anyway, because a future change to that route's type
  * should not quietly start buffering the push stream.
  */
-export const UNCOMPRESSED_ROUTES = [
+const UNCOMPRESSED_ROUTES = [
   "/api/blob/",
   "/api/image",
   "/api/ics",
@@ -753,7 +753,7 @@ export function setSessionCookie(c: Context, value: string, remember: boolean) {
  * mail server's own message: the `error` code says which kind of failure it was
  * and this says it in words, while the detail is logged server-side.
  */
-export function upstreamFailureMessage(error: string): string {
+function upstreamFailureMessage(error: string): string {
   switch (error) {
     case "invalid_credentials":
       return "The mail server rejected these credentials.";
@@ -964,7 +964,7 @@ export const failureFor =
 export const accountFailure = failureFor(AccountError);
 
 /** The limiter key one credential endpoint's attempts are counted under. */
-export const credentialLimitKey = (c: Context<Env>, scope: string) =>
+const credentialLimitKey = (c: Context<Env>, scope: string) =>
   `${scope}|${c.get("session").username.toLowerCase()}`;
 
 /** Guard the endpoints that check a password against brute-forcing. */
@@ -1253,7 +1253,7 @@ let installationAccount: {
 } | null = null;
 
 /** The installation's own account, with the session that reaches it. */
-export interface InstallationAccount {
+interface InstallationAccount {
   id: string;
   /** The Master's own context: the credential the deployment holds. */
   master: Ctx;
@@ -1372,7 +1372,7 @@ export function sessionExtras(
  * denylist: everything else it might set — cookies, auth challenges, CORS
  * grants — would be landing on *our* origin, where it means something else.
  */
-export const PASSTHROUGH_HEADERS = new Set([
+const PASSTHROUGH_HEADERS = new Set([
   "content-type",
   "content-disposition",
   "content-language",
@@ -1545,7 +1545,7 @@ export function sanitizeContentType(ct: string): string {
  * too: if the two disagreed, the type the server served a file as and the type
  * the client previewed it as would come from different evidence.
  */
-export function isGenericType(ct: string): boolean {
+function isGenericType(ct: string): boolean {
   return GENERIC_TYPES.has(mediaType(ct));
 }
 

@@ -92,7 +92,7 @@ export function crossesRecipientThreshold(
   return threshold > 0 && recipientCount >= threshold;
 }
 
-export type LinkVerdict =
+type LinkVerdict =
   | { warn: false }
   | { warn: true; reason: "mismatch"; domain: string; shownDomain: string }
   | { warn: true; reason: "untrusted"; domain: string };

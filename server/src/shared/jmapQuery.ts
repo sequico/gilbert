@@ -28,7 +28,7 @@ import type { Invocation } from "./jmap.js";
  */
 
 /** A JMAP result reference: the call a later one reads its ids from. */
-export interface ResultRef {
+interface ResultRef {
   resultOf: string;
   name: string;
   path: string;
@@ -46,7 +46,7 @@ export function ref(resultOf: string, name: string, path: string): ResultRef {
   return { resultOf, name, path };
 }
 
-export interface QueryThenGet {
+interface QueryThenGet {
   /** The `/query` method, e.g. `FileNode/query`. */
   query: string;
   /** The `/get` method that reads the ids the query answered with. */

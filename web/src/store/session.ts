@@ -14,7 +14,7 @@ import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage";
 import { unsubscribeThisDevice } from "@/lib/webpush";
 
-export type AuthStatus = "loading" | "anonymous" | "authenticated";
+type AuthStatus = "loading" | "anonymous" | "authenticated";
 
 /** A session probe already on its way, so two callers share one request. */
 let bootstrapInFlight: Promise<void> | null = null;

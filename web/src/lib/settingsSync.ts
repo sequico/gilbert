@@ -81,7 +81,7 @@ export function settingsSyncAvailable(): boolean {
  * *not* an empty account, and a writer that treated them as one would replace
  * settings nobody could read with whatever this device happens to hold.
  */
-export type SettingsRead =
+type SettingsRead =
   | { kind: "absent"; state: string }
   | { kind: "ok"; doc: Record<string, unknown>; state: string }
   | { kind: "unreadable"; state: string };

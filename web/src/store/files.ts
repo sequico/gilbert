@@ -317,7 +317,7 @@ export function emptyForAccount(accountId: Id | null) {
  * attachment must not touch a file somebody already keeps under that name, and
  * neither writer may put a file where a **folder** of that name stands.
  */
-export function nameTakenMessage(name: string): string {
+function nameTakenMessage(name: string): string {
   return translate("A file called \u201c{name}\u201d is already here.", { name });
 }
 

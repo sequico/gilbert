@@ -13,7 +13,7 @@ import type { Obj } from "./types.js";
 /** Neither parameter given. */
 export const NO_HOLD = null;
 /** The parameters are contradictory or unparseable; the create must fail. */
-export const BAD_HOLD = NaN;
+const BAD_HOLD = NaN;
 
 /**
  * The shapes Stalwart's RFC 5321 parameter parser accepts: a full RFC 3339

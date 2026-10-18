@@ -18,10 +18,10 @@ import { DEFAULT_UI_LANGUAGE, resolveUiLanguage } from "@/lib/languages";
  * German.
  */
 
-export type Vars = Record<string, string | number>;
+type Vars = Record<string, string | number>;
 
 /** One entry per plural category the language actually uses. */
-export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & {
+type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & {
   other: string;
 };
 

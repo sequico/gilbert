@@ -37,9 +37,9 @@ import { useSession } from "@/store/session";
  */
 export type Theme = "system" | "light" | "dark" | "gilbert";
 export type Density = "comfortable" | "cozy" | "compact";
-export type ReadingPane = "right" | "bottom" | "off";
+type ReadingPane = "right" | "bottom" | "off";
 export type ImagePolicy = "ask" | "always" | "contacts";
-export type ComposeFormat = "html" | "text";
+type ComposeFormat = "html" | "text";
 export type ReadReceiptPolicy = "ask" | "never";
 
 /** How prominent a label is in the sidebar. */
@@ -63,7 +63,7 @@ export interface Label {
 }
 
 /** A calendar subscribed to by URL, read-only and redrawn on every refresh. */
-export interface IcalSubscription {
+interface IcalSubscription {
   id: string;
   url: string;
   name: string;

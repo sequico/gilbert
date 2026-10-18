@@ -9,7 +9,7 @@
 import { t } from "@/lib/i18n";
 import { formatList } from "./datetime";
 
-export type HeaderOp =
+type HeaderOp =
   | "contains"
   | "notcontains"
   | "is"
@@ -145,7 +145,7 @@ export function testToSieve(t: SieveTest): string {
   }
 }
 
-export function actionToSieve(a: SieveAction): string[] {
+function actionToSieve(a: SieveAction): string[] {
   switch (a.type) {
     case "fileinto":
       return [`fileinto${a.copy ? " :copy" : ""} ${sieveString(a.mailbox)};`];
@@ -172,7 +172,7 @@ export function actionToSieve(a: SieveAction): string[] {
   }
 }
 
-export function requiredExtensions(rules: SieveRule[]): string[] {
+function requiredExtensions(rules: SieveRule[]): string[] {
   const req = new Set<string>();
   for (const r of rules) {
     for (const t of r.tests) {
@@ -199,7 +199,7 @@ export function requiredExtensions(rules: SieveRule[]): string[] {
   return [...req].sort();
 }
 
-export const SCRIPT_HEADER =
+const SCRIPT_HEADER =
   "# Gilbert filters v1 - edit with care; rules are stored in the `# rule:` comments";
 
 export function rulesToSieve(rules: SieveRule[]): string {

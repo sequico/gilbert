@@ -117,7 +117,7 @@ export function Empty({
   );
 }
 
-export function useMediaQuery(q: string): boolean {
+function useMediaQuery(q: string): boolean {
   const [m, setM] = useState(() => window.matchMedia(q).matches);
   useEffect(() => {
     const mq = window.matchMedia(q);

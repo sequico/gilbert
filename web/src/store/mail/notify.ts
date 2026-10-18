@@ -9,7 +9,7 @@ import { settings } from "../settings";
 import type { MailState } from "./types";
 
 /** The sender's name for a message, or a generic one when it names none. */
-export function senderName(email: Pick<Email, "from">): string {
+function senderName(email: Pick<Email, "from">): string {
   const from = email.from?.[0];
   return from?.name || from?.email || "New message";
 }
@@ -24,7 +24,7 @@ export function senderName(email: Pick<Email, "from">): string {
  * account also has would resolve against the account on screen and open a
  * conversation that account does not hold.
  */
-export function announceMail(
+function announceMail(
   email: Pick<Email, "id" | "threadId" | "from" | "subject" | "preview">,
   inboxId: Id,
   accountId: Id,
@@ -91,7 +91,7 @@ export async function notifyNewMail(created: Id[], get: () => MailState) {
  * change is the noise the watermark avoids on the closed path; a set of ids
  * keeps one message from being announced twice.
  */
-export const MAIL_OPENED_AT = Date.now();
+const MAIL_OPENED_AT = Date.now();
 
 /**
  * How many announced ids a session remembers before the oldest is forgotten.

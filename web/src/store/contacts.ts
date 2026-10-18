@@ -201,7 +201,7 @@ export interface Suggestion {
  * on CALENDAR_PROPS; address books, calendars and Files all name their
  * properties for the same reason.
  */
-export const ADDRESS_BOOK_PROPS = [
+const ADDRESS_BOOK_PROPS = [
   "id",
   "name",
   "description",
@@ -213,7 +213,7 @@ export const ADDRESS_BOOK_PROPS = [
 ];
 
 /** A book somebody else shared, and the account it lives in. */
-export interface SharedBook {
+interface SharedBook {
   accountId: Id;
   accountName: string;
   book: AddressBook;
@@ -309,7 +309,7 @@ function accountOfBook(
 }
 
 /** Which book the contact list is showing. `accountId` null means the reader's. */
-export interface BookSelection {
+interface BookSelection {
   accountId: Id | null;
   bookId: Id | "all";
 }

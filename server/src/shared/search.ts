@@ -14,7 +14,7 @@
 
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "./labels.js";
 
-export interface ParsedQuery {
+interface ParsedQuery {
   text: string[];
   from?: string;
   to?: string;
@@ -46,7 +46,7 @@ export interface SearchMailbox {
   role?: string | null;
 }
 
-export interface SearchFilterCondition {
+interface SearchFilterCondition {
   inMailbox?: string;
   before?: string;
   after?: string;
@@ -63,7 +63,7 @@ export interface SearchFilterCondition {
   body?: string;
 }
 
-export interface SearchFilterOperator {
+interface SearchFilterOperator {
   operator: "AND" | "OR" | "NOT";
   conditions: SearchFilterCondition[];
 }

@@ -61,16 +61,16 @@ const RUN_VERSION_WITHOUT_RECALLED = 4;
 export type RunStepState = "open" | RunStepOutcome | "skipped";
 
 /** How a step ended: it worked, or it did not. A branch names one of these two. */
-export type RunStepOutcome = "done" | "failed";
+type RunStepOutcome = "done" | "failed";
 
 /** The three ways a run ends (ADR 0034): done, a person is needed, or the budget is spent. */
-export type RunEnding = "done" | "blocked" | "out-of-budget";
+type RunEnding = "done" | "blocked" | "out-of-budget";
 
 /** A run's state: in flight, or one of the three endings. */
 export type RunState = "running" | RunEnding;
 
 /** The channel a sentence sits in (ADR 0033): the group's chat, or mail. */
-export type RunChannel = "chat" | "mail";
+type RunChannel = "chat" | "mail";
 
 /** The sentence an instruction or an authorisation arrived in, per its channel. */
 export interface RunMessageRef {
@@ -92,7 +92,7 @@ export type RunAuthority = "destructive" | "outward" | "override";
  * What started a run (ADR 0031, 0035): a rule the group wrote in advance, or an
  * instruction from a person. Exactly one of the two is named.
  */
-export interface RunStart {
+interface RunStart {
   /** The rule's document name; null when an instruction started the run. */
   rule: string | null;
   /** The sentence the instruction arrived in; null when a rule started the run. */
@@ -194,7 +194,7 @@ export interface RunAuthorisation {
 }
 
 /** One thing a claim of the run rests on (ADR 0032, 0034). */
-export interface RunEvidence {
+interface RunEvidence {
   /** The step the support belongs to, "" when it stands for the run itself. */
   claim: string;
   /** Where the support is: an object's id, or a document's path. */
@@ -221,7 +221,7 @@ export interface RunSpent {
 }
 
 /** How and why a run ended. */
-export interface RunEnd {
+interface RunEnd {
   /** The instant it ended, ISO 8601. */
   at: string;
   /** Why it ended, in words. */

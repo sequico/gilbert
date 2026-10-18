@@ -442,7 +442,7 @@ export async function createSubscription(
  * happens to ask for is how a browser's own row became a deletion candidate on
  * a full quota. One definition, both readers.
  */
-export function isBrowserSubscription(s: JmapPushSubscription): boolean {
+function isBrowserSubscription(s: JmapPushSubscription): boolean {
   return isBrowserDeviceClientId(s.deviceClientId);
 }
 

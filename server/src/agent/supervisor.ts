@@ -108,7 +108,7 @@ export interface PassableLoop {
 }
 
 /** What one supervised process needs. */
-export interface SupervisorOptions {
+interface SupervisorOptions {
   /** The loop each pass is asked of. */
   loop: PassableLoop;
   /** `AGENT_PASS_INTERVAL_MS` unless a test needs the question asked sooner. */
@@ -120,7 +120,7 @@ export interface SupervisorOptions {
 }
 
 /** A running supervisor: the schedule, and the one way to give it up. */
-export interface AgentProcess {
+interface AgentProcess {
   /** Give up the schedule and the loop's alarms. The claim lapses on its own (ADR 0036). */
   stop(): void;
 }
@@ -216,7 +216,7 @@ export function supervise(options: SupervisorOptions): AgentProcess {
 }
 
 /** Where the agent's lines go, and the two things a test may shorten. */
-export interface AgentStartOptions {
+interface AgentStartOptions {
   /** One line per event worth reading. */
   log?: (line: string) => void;
   /** `AGENT_PASS_INTERVAL_MS` unless a test needs the question asked sooner. */

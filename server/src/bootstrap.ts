@@ -67,7 +67,7 @@ export { basicAuthorization };
  * document, and this is the request that fetches it. A boot that hung here
  * would hang before it could read the value that says how long it may hang.
  */
-export const FIRST_REQUEST_TIMEOUT_MS = 30_000;
+const FIRST_REQUEST_TIMEOUT_MS = 30_000;
 
 /** The three values that are how Stalwart is reached. */
 export interface Handshake {
@@ -99,7 +99,7 @@ function missingHandshake(name: HandshakeName): BootstrapError {
 }
 
 /** A boot that cannot go on, with a message meant for whoever reads the log. */
-export class BootstrapError extends Error {
+class BootstrapError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "BootstrapError";
@@ -138,7 +138,7 @@ export function readHandshake(env: InstallationEnvironment = process.env): Hands
  * is a claim the container makes (`config.ts`'s `assertImmutable` is what
  * checks it) and belongs nowhere else.
  */
-export interface ContainerFacts {
+interface ContainerFacts {
   /** `HOST`, when the container states one. */
   host?: string;
   /** `PORT`, when the container states one. */
@@ -148,9 +148,7 @@ export interface ContainerFacts {
 }
 
 /** Read the container's own facts, with their defaults. */
-export function readContainerFacts(
-  env: InstallationEnvironment = process.env,
-): ContainerFacts {
+function readContainerFacts(env: InstallationEnvironment = process.env): ContainerFacts {
   const host = env.HOST?.trim();
   const rawPort = env.PORT?.trim();
   let port: number | undefined;
@@ -170,7 +168,7 @@ export function readContainerFacts(
 }
 
 /** The Master's own session, opened once, at the start of the boot. */
-export interface MasterLogin {
+interface MasterLogin {
   /** The address the handshake named, normalised. */
   address: string;
   /** The Basic header every later call to Stalwart carries. */
@@ -244,7 +242,7 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
  * that right. The boot therefore merges this over the environment's agent
  * rather than replacing it, which is what leaves that switch where it belongs.
  */
-export interface InstallationAgentConfiguration {
+interface InstallationAgentConfiguration {
   address: string;
   password: string;
 }
@@ -261,7 +259,7 @@ export interface InstallationAgentConfiguration {
  * not here at all and the environment's value is the one a served process runs
  * on (see `bootInstallation`).
  */
-export interface InstallationConfiguration {
+interface InstallationConfiguration {
   appName: string;
   appSecret: string;
   /**
@@ -361,7 +359,7 @@ export interface BootConfiguration {
 }
 
 /** What the boot reads the world through; every one of them has a real default. */
-export interface BootDeps {
+interface BootDeps {
   /** The environment. `process.env` unless a test hands over its own. */
   env?: InstallationEnvironment;
   /** One line per event worth reading. */

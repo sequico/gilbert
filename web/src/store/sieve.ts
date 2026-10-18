@@ -5,7 +5,7 @@ import type { GetResponse, Id, SetResponse, SieveScript } from "@/jmap/types";
 import { rulesToSieve, type SieveRule, scriptDamage, sieveToRules } from "@/lib/sieve";
 import { useSession } from "./session";
 
-export const GILBERT_SCRIPT = "gilbert";
+const GILBERT_SCRIPT = "gilbert";
 
 interface SieveState {
   accountId: Id | null;

@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { create } from "zustand";
 import { t as translate } from "@/lib/i18n";
 
-export interface Toast {
+interface Toast {
   id: number;
   message: string;
   kind: "info" | "error" | "success";

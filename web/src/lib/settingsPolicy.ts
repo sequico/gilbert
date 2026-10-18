@@ -56,7 +56,7 @@ const EMPTY: SettingsPolicy = { defaults: {}, enforced: {}, changes: [] };
  * while the first frames of a session are on screen, and the load completion
  * re-applies enforcement over anything written in that window.
  */
-export type PolicyStatus = "unread" | "read" | "unavailable";
+type PolicyStatus = "unread" | "read" | "unavailable";
 
 /**
  * What a read of the installation's policy came back with.
@@ -65,9 +65,7 @@ export type PolicyStatus = "unread" | "read" | "unavailable";
  * `read`, so no caller can take a request that did not answer for an
  * installation that sets nothing.
  */
-export type PolicyRead =
-  | { status: "read"; policy: SettingsPolicy }
-  | { status: "unavailable" };
+type PolicyRead = { status: "read"; policy: SettingsPolicy } | { status: "unavailable" };
 
 let standing: PolicyStatus = "unread";
 /**

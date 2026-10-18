@@ -153,7 +153,7 @@ export function buildName(parts: {
   return { "@type": "Name", components, isOrdered: true, full };
 }
 
-export function primaryEmail(c: ContactCard): string | null {
+function primaryEmail(c: ContactCard): string | null {
   const emails = Object.values(c.emails ?? {});
   if (!emails.length) return null;
   const sorted = [...emails].sort((a, b) => (a.pref ?? 100) - (b.pref ?? 100));

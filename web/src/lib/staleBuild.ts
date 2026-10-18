@@ -138,7 +138,7 @@ export async function updateAvailable(): Promise<boolean | null> {
   return serverVersion === null ? null : serverVersion !== APP_VERSION;
 }
 
-export type UpdateOutcome = "reloading" | "current" | "unknown";
+type UpdateOutcome = "reloading" | "current" | "unknown";
 
 /**
  * Take the newest build now, from a reader's tap.

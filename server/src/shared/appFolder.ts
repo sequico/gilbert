@@ -100,7 +100,7 @@ export const FILE_PROPS: string[] = [
  * `unknown` fields) and the client has them typed (`FileNode`), so the rule
  * takes anything shaped like a node and reads only the three fields it needs.
  */
-export interface AppFolderNodeLike {
+interface AppFolderNodeLike {
   id?: unknown;
   name?: unknown;
   parentId?: unknown;
@@ -134,7 +134,7 @@ export function appFolderCreate(): {
 }
 
 /** One level of Files, as the tier asking for it reads it. */
-export type AppFolderChildren = (
+type AppFolderChildren = (
   parentId: string | null,
 ) => Promise<readonly AppFolderNodeLike[]>;
 

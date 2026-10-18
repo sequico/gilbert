@@ -34,7 +34,7 @@ import type { Id } from "@/jmap/types";
 /** Why a move between accounts is refused. */
 export type ContactMoveRefusal = "contact_move_admin";
 
-export interface ContactMoveContext {
+interface ContactMoveContext {
   /** The account holding the card as it is now. */
   fromAccountId: Id | null;
   /** The account holding the address book it is going to. */
@@ -51,10 +51,7 @@ export interface ContactMoveContext {
  * the card's account has a failure of its own to report, and it is not this
  * rule's.
  */
-export function movesBetweenAccounts(
-  fromAccountId: Id | null,
-  toAccountId: Id | null,
-): boolean {
+function movesBetweenAccounts(fromAccountId: Id | null, toAccountId: Id | null): boolean {
   return Boolean(fromAccountId && toAccountId && fromAccountId !== toAccountId);
 }
 

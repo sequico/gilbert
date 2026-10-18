@@ -59,11 +59,11 @@ export const WORKORDER_CHANGE_WINDOW_MS = 1500;
  * does not carry it: a session that predates the fact follows no installation
  * account rather than guessing one.
  */
-export function installationAccountId(): string | null {
+function installationAccountId(): string | null {
   return useSession.getState().session?.gilbert?.installationAccount ?? null;
 }
 
-export interface WorkorderStore {
+interface WorkorderStore {
   workorders: WorkorderSummary[];
   loaded: boolean;
   loading: boolean;

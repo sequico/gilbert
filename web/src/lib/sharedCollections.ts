@@ -25,7 +25,7 @@ import { useSession } from "@/store/session";
 const THROTTLE_MS = 30_000;
 let lastRefresh = 0;
 
-export async function refreshSessionShares(force = false): Promise<void> {
+async function refreshSessionShares(force = false): Promise<void> {
   const now = Date.now();
   if (!force && now - lastRefresh < THROTTLE_MS) return;
   lastRefresh = now;

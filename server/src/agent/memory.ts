@@ -68,10 +68,10 @@ import {
 } from "../shared/memory.js";
 
 /** Where the installation's memory lives under the Master's app folder. */
-export const MEMORY_DIR = "memory";
+const MEMORY_DIR = "memory";
 
 /** How many fact sheets the installation's memory may hold. */
-export const MEMORY_FACTS_MAX = 5_000;
+const MEMORY_FACTS_MAX = 5_000;
 
 /**
  * A fact's document path, app-folder-relative.
@@ -107,7 +107,7 @@ export class MemoryError extends CodedError {
 }
 
 /** A fact together with the compare-and-set token its read saw. */
-export interface FactRecord {
+interface FactRecord {
   fact: FactDoc;
   /** The FileNode state at read time: pass it as `ifInState` to replace. */
   state: string;
@@ -286,7 +286,7 @@ function checkedText(
 }
 
 /** What the agent says while it works, for the one write below (ADR 0037). */
-export interface FactWrite {
+interface FactWrite {
   /** What the fact is about, in the group's own words. */
   subject: string;
   /** What the agent holds true of it, in one sentence. */
@@ -500,7 +500,7 @@ async function conditional(write: () => Promise<unknown>): Promise<void> {
 }
 
 /** What a person says a fact is, correcting the sheet that is there. */
-export interface PersonCorrection {
+interface PersonCorrection {
   /** The sheet being corrected, by its id. */
   id: string;
   /** What the fact is about, in the person's own words. */

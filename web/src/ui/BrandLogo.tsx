@@ -27,7 +27,7 @@ export const BRAND_LOGO_FILES = {
   mark: { base: "mark.png", inverse: "mark-inverse.png" },
 } as const;
 
-export type BrandLogoKind = keyof typeof BRAND_LOGO_FILES;
+type BrandLogoKind = keyof typeof BRAND_LOGO_FILES;
 
 /** The class each colorway is shown by. `app.css` owns the rule that swaps them. */
 export const BRAND_LOGO_COLORWAY_CLASS = {

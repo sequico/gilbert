@@ -27,9 +27,9 @@ export type PaletteId =
   | "primer";
 export type Mode = "system" | "light" | "dark";
 /** What a mode resolves to once the system has been asked. */
-export type ResolvedMode = "light" | "dark";
+type ResolvedMode = "light" | "dark";
 
-export interface PaletteMeta {
+interface PaletteMeta {
   id: PaletteId;
   name: string;
   /** Shown in Settings and in NOTICE; who to credit and under what. */
@@ -110,7 +110,7 @@ export function effectiveMode(mode: Mode, prefersDark: boolean): ResolvedMode {
   return mode;
 }
 
-export interface ThemeChoice {
+interface ThemeChoice {
   palette: PaletteId;
   mode: Mode;
 }

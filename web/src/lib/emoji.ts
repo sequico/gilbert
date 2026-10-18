@@ -64,7 +64,7 @@ export const COMMON_EMOJI = [
 ] as const;
 
 /** Emoticon → Twemoji asset stem (lowercase hex code points, '-'-joined). */
-export const EMOJI_ASSET: Readonly<Record<string, string>> = {
+const EMOJI_ASSET: Readonly<Record<string, string>> = {
   "😀": "1f600",
   "😄": "1f604",
   "😂": "1f602",

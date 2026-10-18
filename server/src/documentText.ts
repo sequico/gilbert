@@ -37,10 +37,10 @@ import { deflateSync } from "node:zlib";
 export const DOCUMENT_TEXT_MAX = 200_000;
 
 /** What a document's text is, and how it was read, or why it could not be. */
-export type DocumentRead = { text: string; kind: DocumentKind };
+type DocumentRead = { text: string; kind: DocumentKind };
 
 /** The formats this build reads inside. */
-export type DocumentKind = "text" | "pdf" | "docx" | "sheet" | "odf" | "image";
+type DocumentKind = "text" | "pdf" | "docx" | "sheet" | "odf" | "image";
 
 /**
  * **DOCX** — Word's format is a zip of XML parts, and the text is `word/document.xml`.

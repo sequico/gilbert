@@ -903,7 +903,7 @@ export function Composer({ draft }: { draft: Draft }) {
   );
 }
 
-export type FocusTarget = "to" | "subject" | "body";
+type FocusTarget = "to" | "subject" | "body";
 
 /** Which field a freshly opened composer should put the caret in. */
 export function initialFocusTarget(d: Pick<Draft, "to" | "subject">): FocusTarget {

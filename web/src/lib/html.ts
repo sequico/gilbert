@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 import { withBase } from "@/lib/basePath";
 
-export interface SanitizeOptions {
+interface SanitizeOptions {
   /** Map of Content-ID (without angle brackets) → URL for inline images. */
   cidMap?: Record<string, string>;
   /** Whether remote content (http/https images, css urls) may load. */
@@ -22,7 +22,7 @@ export interface SanitizeOptions {
   stripStyleBlocks?: boolean;
 }
 
-export interface SanitizeResult {
+interface SanitizeResult {
   html: string;
   remoteCount: number;
   bodyStyle: string;
@@ -263,7 +263,7 @@ function hardenCss(css: string): string {
   );
 }
 
-export function proxiedImageUrl(url: string): string {
+function proxiedImageUrl(url: string): string {
   return withBase(`/api/image?url=${encodeURIComponent(url)}`);
 }
 

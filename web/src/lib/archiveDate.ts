@@ -45,7 +45,7 @@ export function archivePath(segments: string[]): string {
   return segments.join("/");
 }
 
-export interface ArchiveGroup {
+interface ArchiveGroup {
   segments: string[];
   ids: string[];
 }

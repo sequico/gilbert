@@ -73,7 +73,7 @@ export const LONG_PRESS_MS = 450;
  * a long press almost never fires; much more than this and a slow deliberate
  * drag starts opening a selection instead of moving the row.
  */
-export const PRESS_SLOP = 10;
+const PRESS_SLOP = 10;
 
 /** How far a drag travels before it commits to being horizontal or vertical. */
 export const AXIS_SLOP = 12;
@@ -88,7 +88,7 @@ export const AXIS_SLOP = 12;
  */
 export const SWALLOW_RELEASE_MS = 300;
 
-export type Axis = "x" | "y" | null;
+type Axis = "x" | "y" | null;
 
 /**
  * Which way a drag has committed, once it has moved far enough to tell.
@@ -141,7 +141,7 @@ export function swipeOffset(dx: number, width: number): number {
 /** Pull-to-refresh: how far the list comes down before letting go refreshes. */
 export const PULL_TRIGGER = 64;
 /** Where the list rests while the refresh it asked for is running. */
-export const PULL_REST = 48;
+const PULL_REST = 48;
 /** As far as the list will ever come down, however hard it is pulled. */
 export const PULL_MAX = 110;
 
@@ -176,7 +176,7 @@ export function haptic(pattern: number | number[] = 8): void {
   }
 }
 
-export interface RowGesture {
+interface RowGesture {
   /** Whether to listen at all — false on a mouse, and while a menu is open. */
   enabled: boolean;
   /**
@@ -517,7 +517,7 @@ export function usePullToRefresh(
 }
 
 /** How far in from the left edge a drag must start to count as going back. */
-export const EDGE_ZONE = 28;
+const EDGE_ZONE = 28;
 
 /**
  * Drag in from the left edge to go back, the way every phone does it.

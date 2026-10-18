@@ -51,7 +51,7 @@ import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 
-export interface KnowledgeTierState {
+interface KnowledgeTierState {
   scope: "company" | "group";
   accountId: Id;
   /** The group's own name (address) for a group tier, null for the company. */
@@ -62,7 +62,7 @@ export interface KnowledgeTierState {
 }
 
 /** The open article's unsaved edits, as the editor holds them. */
-export interface KnowledgeEdit {
+interface KnowledgeEdit {
   title: string;
   tags: string[];
   blocks: unknown[];

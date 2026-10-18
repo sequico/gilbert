@@ -570,7 +570,7 @@ function AppPasswords({
  * Shared, so the admin surface and the security settings cannot drift into two
  * slightly different promises about the same kind of value.
  */
-export function CopyableSecret({ value }: { value: string }) {
+function CopyableSecret({ value }: { value: string }) {
   return (
     <div className="row" style={{ gap: 6, alignItems: "center" }}>
       <code

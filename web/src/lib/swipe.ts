@@ -25,7 +25,7 @@ export type SwipeAction =
   | "move"
   | "none";
 
-export interface SwipeContext {
+interface SwipeContext {
   /** The role of the folder on screen, where it has one. */
   role?: string | null;
   /**

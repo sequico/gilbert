@@ -185,7 +185,7 @@ export async function companyKnowledgeAccount(
  * opened; the group must be in it too, or the agent lacks the grant and nothing
  * can be written.
  */
-export async function groupKnowledgeAccount(
+async function groupKnowledgeAccount(
   admin: LiveSession,
   group: string,
 ): Promise<{ ctx: Ctx; accountId: string; folderId: string }> {

@@ -33,7 +33,7 @@ import { parseRuleDocumentDetailed, type RuleDoc } from "./rule.js";
 export { RULES_DIR, RuleError, rulePath } from "../shared/rule.js";
 
 /** A rule together with the compare-and-set token its read saw. */
-export interface RuleRecord {
+interface RuleRecord {
   rule: RuleDoc;
   /** The account's FileNode state at read time: pass it as `ifInState` to replace. */
   state: string;

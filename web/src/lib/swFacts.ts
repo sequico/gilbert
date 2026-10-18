@@ -23,7 +23,7 @@ import { SW_CACHE_NAME } from "./swCache";
 export const FACTS_KEY = "/gilbert-worker-facts";
 
 /** One account the subscription covers, as the worker needs it. */
-export interface WorkerAccountFact {
+interface WorkerAccountFact {
   /** The account the facts are about. */
   accountId: string;
   /** Whether this is the reader's own account rather than a group mailbox. */

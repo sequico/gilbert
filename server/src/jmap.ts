@@ -190,32 +190,6 @@ async function refusalDetail(res: Response): Promise<string> {
 }
 
 /**
- * The last time a mail server told us it was, from its own `Date` header.
- *
- * Every JMAP response carries the server's date; this keeps the most recent
- * one, which is the clock `serverNow()` hands out. It is only as fresh as the
- * last call.
- */
-let serverDateMs: number | null = null;
-
-/** Read the server's `Date` header off a response, when it carries one. */
-export function noteServerDate(res: Response): void {
-  const header = res.headers.get("date");
-  if (!header) return;
-  const at = Date.parse(header);
-  if (Number.isFinite(at)) serverDateMs = at;
-}
-
-/**
- * Now, as the mail server last told us. Falls back to this process's clock
- * before anything has been asked of the server, which is the one window where
- * no server time exists yet.
- */
-export function serverNow(): Date {
-  return serverDateMs === null ? new Date() : new Date(serverDateMs);
-}
-
-/**
  * What a JMAP client needs to reach the server: the credential it speaks with
  * and the session it speaks to.
  *
@@ -239,7 +213,7 @@ export interface SessionSource {
  * with its own, much smaller ceiling passes it and answers the refusal in its
  * own words; what is left here are the reads that have no ceiling of their own.
  */
-export const BLOB_READ_MAX = 256 * 1024 * 1024;
+const BLOB_READ_MAX = 256 * 1024 * 1024;
 
 /** A blob was bigger than the read that asked for it. */
 export class BlobTooLargeError extends Error {
@@ -313,7 +287,6 @@ export class JmapClient {
       }),
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
-    noteServerDate(res);
     if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
     // 403 is a permission, not a password: telling somebody their credentials
     // are wrong sends them to re-enter a password that was never the problem.

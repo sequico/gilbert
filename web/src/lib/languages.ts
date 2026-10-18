@@ -18,7 +18,7 @@
  * that order. RTL languages — Arabic, Hebrew, Persian — need bidi and layout
  * work well beyond strings, so they are not simply a matter of another entry.
  */
-export interface UiLanguage {
+interface UiLanguage {
   /** BCP 47, and what `<html lang>` is set to. */
   tag: string;
   /** The language's name in that language, which is how a picker should read. */

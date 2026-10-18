@@ -339,7 +339,7 @@ export async function disableOtp(
  * filter by `name` — a filter the server does not know fails the whole query
  * (checked on 0.16.19, 2026-08-27; see `web/src/lib/appFolder.ts`).
  */
-export const PASSWORD_CHANGE_DIRECTIVE = "must-change-password.json";
+const PASSWORD_CHANGE_DIRECTIVE = "must-change-password.json";
 
 /**
  * Whether the principal's own account carries a valid directive.
@@ -433,7 +433,7 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
  * catalog entry (ADR 0005), so no reader — the admin surface or the agent's own
  * `mail.label` — ever sees one, and the next write leaves it out.
  */
-export type GroupLabelsRead =
+type GroupLabelsRead =
   | { state: "absent" }
   | { state: "catalog"; labels: LabelCatalogEntry[] }
   | { state: "unreadable" };

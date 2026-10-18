@@ -47,7 +47,7 @@ import {
  * The boot has no HTTP surface and no port yet, so a line here and an exit
  * code are the only channels there are.
  */
-export type InstallationLog = (line: string) => void;
+type InstallationLog = (line: string) => void;
 
 /**
  * Where the installation document is read from and written to.
@@ -131,12 +131,12 @@ export function appFolderInstallationStore(ctx: Ctx): InstallationStore {
  * key sessions are sealed with and the salt is derived from, so it is written
  * into the document and never printed.
  */
-export function generateAppSecret(): string {
+function generateAppSecret(): string {
   return randomBytes(32).toString("base64");
 }
 
 /** The document as it was read, and whether this call is the one that created it. */
-export interface LoadedInstallation {
+interface LoadedInstallation {
   document: InstallationDocument;
   /** True when this boot wrote the document: the first boot of the installation. */
   created: boolean;

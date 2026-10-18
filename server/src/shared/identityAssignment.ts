@@ -26,7 +26,7 @@ import { isRecord } from "./json.js";
 export const GROUP_ASSIGNMENTS_FILE = "identity-assignments.json";
 
 /** The document as it is written, and the only shape a reader accepts. */
-export interface AssignmentDoc {
+interface AssignmentDoc {
   /** Format version: a reader that does not know one reads nothing. */
   v: 1;
   /** Member address (lowercased) to the id of an identity of this account. */

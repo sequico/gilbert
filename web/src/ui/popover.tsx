@@ -189,7 +189,7 @@ export function Popover({
   );
 }
 
-export interface MenuItemProps {
+interface MenuItemProps {
   icon?: ReactNode;
   label: ReactNode;
   onClick?: () => void;
@@ -281,7 +281,7 @@ export function MenuTitle({ children }: { children: ReactNode }) {
  * and Escape, outside-click and the trigger toggle are the ones menus already
  * have.
  */
-export interface MenuSelectOption {
+interface MenuSelectOption {
   /** Handed to `onPick`, and what the trigger shows once chosen. */
   value: string;
   /** How the option reads in the list; defaults to `value`. */
@@ -290,7 +290,7 @@ export interface MenuSelectOption {
   id?: string;
 }
 
-export interface MenuSelectProps {
+interface MenuSelectProps {
   value: string;
   /** Shown in place of `value` while nothing is chosen. */
   placeholder: string;
@@ -394,46 +394,4 @@ export function useMenu() {
     close: () => setMenu(null),
     isOpen: menu !== null,
   };
-}
-
-/** Simple tooltip via title-like hover with delay. */
-export function Tooltip({ text, children }: { text: string; children: ReactNode }) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const timer = useRef<number | null>(null);
-  return (
-    <span
-      style={{ display: "inline-flex" }}
-      onMouseEnter={(e) => {
-        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        timer.current = window.setTimeout(
-          () => setPos({ x: r.left + r.width / 2, y: r.bottom + 6 }),
-          500,
-        );
-      }}
-      onMouseLeave={() => {
-        if (timer.current) window.clearTimeout(timer.current);
-        setPos(null);
-      }}
-      onMouseDown={() => {
-        if (timer.current) window.clearTimeout(timer.current);
-        setPos(null);
-      }}
-    >
-      {children}
-      {pos &&
-        createPortal(
-          <div
-            className="tooltip"
-            style={{
-              left: Math.max(8, Math.min(pos.x, window.innerWidth - 8)),
-              top: pos.y,
-              transform: "translateX(-50%)",
-            }}
-          >
-            {text}
-          </div>,
-          document.body,
-        )}
-    </span>
-  );
 }

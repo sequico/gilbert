@@ -30,7 +30,7 @@ export function snap(minutes: number, slot: number = SNAP_MINUTES): number {
   return Math.sign(minutes) * Math.round(Math.abs(minutes) / slot) * slot;
 }
 
-export interface Span {
+interface Span {
   start: Date;
   end: Date;
 }

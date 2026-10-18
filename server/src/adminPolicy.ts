@@ -34,7 +34,7 @@ export { PUBLISH_JOB_FILE };
  * a restart as the publish that made it answered with.
  */
 
-export interface PolicyChangeDocument {
+interface PolicyChangeDocument {
   version: string;
   settings: Record<string, unknown>;
 }
@@ -92,10 +92,7 @@ export { isEmailAddress as isAddress } from "./shared/address.js";
  * with the reason: a scalar cast into an object loads as settings that are not
  * there, so the document is an error wherever it is read.
  */
-export function readPolicySection(
-  name: string,
-  v: unknown,
-): Record<string, unknown> | string {
+function readPolicySection(name: string, v: unknown): Record<string, unknown> | string {
   if (v == null) return {};
   if (isRecord(v)) return v;
   return `"${name}" must be an object`;
@@ -189,7 +186,7 @@ export function policyDocumentText(policy: PolicyDocument): string {
  * would not survive the account's next settings save (the same reason
  * `must-change-password.json`, `server/src/account.ts`, is its own file).
  */
-export const INSTALLATION_POLICY_FILE = "installation-policy.json";
+const INSTALLATION_POLICY_FILE = "installation-policy.json";
 
 /**
  * This account's own copy of the published policy, or null when publishing

@@ -15,7 +15,7 @@ import { useMail } from "@/store/mail";
 import { Dialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
-export interface RuleDialogProps {
+interface RuleDialogProps {
   rule: SieveRule;
   onClose: () => void;
   /** Called with the rule and whether the user asked to apply it to existing messages now. */

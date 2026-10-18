@@ -52,7 +52,7 @@ export function isPrivateAddress(addr: string): boolean {
   return true;
 }
 
-export class BlockedTarget extends Error {}
+class BlockedTarget extends Error {}
 
 /**
  * Whether a URL is on a port this proxy will reach.
@@ -65,7 +65,7 @@ export class BlockedTarget extends Error {}
  * or a calendar the publisher serves to browsers — while leaving nothing to
  * scan. The default ports are elided from `URL.port`, so they are spelled out.
  */
-export function isAllowedPort(url: URL): boolean {
+function isAllowedPort(url: URL): boolean {
   return url.port === "" || url.port === "80" || url.port === "443";
 }
 
@@ -158,7 +158,7 @@ export function fetchPinned(
  * user-agent from tracking pixels, and blocks SSRF to internal networks.
  */
 /** Why a guarded fetch refused, in the words the handlers answer with. */
-export type SafeFetchError =
+type SafeFetchError =
   | "bad_url"
   | "bad_scheme"
   | "bad_port"
@@ -167,7 +167,7 @@ export type SafeFetchError =
   | "fetch_failed"
   | "bad_redirect";
 
-export interface SafeFetchResult {
+interface SafeFetchResult {
   res: IncomingMessage;
   /** The URL actually fetched, which is not the one asked for if it redirected. */
   url: URL;

@@ -85,7 +85,7 @@ export async function enableWebPush(): Promise<
 }
 
 /** The outcome of the whole "turn notifications on" gesture. */
-export interface NotificationsTurnOn {
+interface NotificationsTurnOn {
   permission: NotificationPermission;
   /** Whether this browser ended up registered for background push. */
   subscribed: boolean;

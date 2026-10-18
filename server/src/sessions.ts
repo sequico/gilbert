@@ -57,7 +57,7 @@ import type { SessionSummary } from "./shared/accountSecurity.js";
 import { errorMessage } from "./shared/errors.js";
 import { isRecord } from "./shared/json.js";
 
-export interface StoredSession {
+interface StoredSession {
   /**
    * sha256 of the session id — the record's identity, and the only form of the
    * id that is ever written down. See the note at the top of this file for why
@@ -116,7 +116,7 @@ export interface LiveSession {
 }
 
 /** What a caller may ask for when a session is created. */
-export interface CreateSessionParams {
+interface CreateSessionParams {
   username: string;
   password: string;
   remember: boolean;
@@ -175,7 +175,7 @@ export const SESSION_DOCUMENT_NAME = "sessions.json";
 export const SESSION_DOCUMENT_VERSION = 1;
 
 /** The document as it lies in the account: `{version, sessions}`. */
-export interface SessionDocumentValue {
+interface SessionDocumentValue {
   version: number;
   sessions: StoredSession[];
 }

@@ -27,7 +27,7 @@
  * it" are two answers the caller can act on differently: the first is worth
  * retrying, the second is not.
  */
-export const DEADLINE_ELAPSED = Symbol("gilbert:deadline");
+const DEADLINE_ELAPSED = Symbol("gilbert:deadline");
 
 /** The rejection a deadline produces, in place of the browser's `AbortError`. */
 export class DeadlineError extends Error {

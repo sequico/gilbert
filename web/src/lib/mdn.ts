@@ -20,14 +20,14 @@ import { stripControls } from "./text";
 /** RFC 3503: set on the original once a receipt has been sent for it. */
 export const MDN_SENT_KEYWORD = "$mdnsent";
 
-export type MdnRefusal =
+type MdnRefusal =
   | "not-requested"
   | "already-sent"
   | "auto-submitted"
   | "bulk"
   | "draft-or-sent";
 
-export interface MdnDecision {
+interface MdnDecision {
   /** Whether to offer the receipt at all. */
   offer: boolean;
   /** Why it is not being offered. */
@@ -180,7 +180,7 @@ function headerLine(name: string, value: string): string {
   return lines.join("\r\n");
 }
 
-export interface MdnOptions {
+interface MdnOptions {
   /** The message being acknowledged. */
   email: Email;
   /** The identity acknowledging it. */

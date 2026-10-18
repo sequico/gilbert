@@ -81,7 +81,7 @@ export function upstreamFor(username: string): string {
   return config.stalwartServers[domain] ?? config.stalwartUrl;
 }
 
-export function wellKnownUrl(base: string = config.stalwartUrl): string {
+function wellKnownUrl(base: string = config.stalwartUrl): string {
   return `${base}/.well-known/jmap`;
 }
 
@@ -384,7 +384,7 @@ function localeOf(
  * attribute, so the same endpoint is also the one place a principal can read
  * its own resolved permission list (ADR 0001).
  */
-export interface AccountIntrospection {
+interface AccountIntrospection {
   /** "oss" | "community" | "enterprise", where the server reports it. */
   edition: string | null;
   /** The account's resolved permission list; empty when the server said none. */
@@ -502,7 +502,7 @@ const DIRECTORY_MAX_PAGES = 100;
  * reports one, and null when it did not: it is what makes `complete`
  * checkable rather than merely claimed.
  */
-export interface DirectoryPrincipals {
+interface DirectoryPrincipals {
   /** The principals of the requested kind, deduplicated, in server order. */
   principals: Array<{ id: string; name: string }>;
   /** Whether every principal the server holds was read. */
@@ -794,7 +794,7 @@ export async function fetchDirectoryGroups(
 }
 
 /** The directory gate closed on this session (see fetchDirectoryUsers). */
-export class DirectoryQueryDenied extends Error {}
+class DirectoryQueryDenied extends Error {}
 
 /**
  * Rewrite the upstream session so the browser talks to our same-origin proxy

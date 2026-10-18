@@ -10,7 +10,7 @@
 import { countOf, type KeywordCounts } from "@/lib/keywordCounts";
 import type { Label, LabelVisibility } from "@/store/settings";
 
-export interface LabelNode {
+interface LabelNode {
   label: Label;
   /** 0 at the top; only ever used to indent. */
   depth: number;

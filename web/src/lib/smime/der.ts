@@ -176,16 +176,6 @@ export function oid(node: Asn1): string {
 }
 
 /** Contents of a BIT STRING, refusing the padded case nothing here should meet. */
-export function bitString(node: Asn1): Uint8Array {
-  expect(node, TAG.bitString, "a bit string");
-  if (node.content.length === 0) throw new DerError("Empty bit string.");
-  const unused = node.content[0]!;
-  if (unused !== 0)
-    throw new DerError(
-      `Bit string with ${unused} unused bits; expected a whole number of bytes.`,
-    );
-  return node.content.subarray(1);
-}
 
 /** An INTEGER as a hex string, since serial numbers overflow a JS number. */
 export function integerHex(node: Asn1): string {

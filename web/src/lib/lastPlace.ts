@@ -20,7 +20,7 @@ import { accountKey, loadJson, saveJson } from "@/lib/storage";
  * by the time it is restored, and each surface checks that against what it
  * actually has before moving.
  */
-export interface LastPlace {
+interface LastPlace {
   /** The mail account whose mailbox tree was on screen. */
   mailAccountId?: string | null;
   /** The address book being read, and the account holding it. */

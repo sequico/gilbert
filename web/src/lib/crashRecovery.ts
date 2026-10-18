@@ -61,7 +61,7 @@ const REARM_MS = 600_000;
 /** Automatic reloads allowed within one `REARM_MS` window. */
 const MAX_AUTO_RELOADS = 2;
 
-export interface CrashRecord {
+interface CrashRecord {
   /** When the crash happened, as an ISO string. */
   at: string;
   /** The address that was showing when it happened. */
@@ -182,7 +182,7 @@ export function shouldAutoReload(): boolean {
 }
 
 /** Remember that an automatic reload was attempted, before the page goes. */
-export function markAutoReload(): void {
+function markAutoReload(): void {
   const now = Date.now();
   writeMarks([...withinWindow(readMarks(), now, REARM_MS), now]);
 }

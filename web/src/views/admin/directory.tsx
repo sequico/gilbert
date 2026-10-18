@@ -1,5 +1,4 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { RotateCw } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
 import {
@@ -188,20 +187,5 @@ export function DirectoryPicker({
         />
       )}
     </div>
-  );
-}
-
-/** The button that reads the chosen account's identities again. */
-export function ReloadIdentitiesButton({
-  disabled,
-  onClick,
-}: {
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button className="btn" disabled={disabled} onClick={onClick}>
-      <RotateCw size={16} /> {t("Reload identities")}
-    </button>
   );
 }

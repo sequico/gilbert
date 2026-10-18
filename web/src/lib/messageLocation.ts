@@ -19,7 +19,7 @@ import type { Id, Mailbox } from "@/jmap/types";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 
 /** The shape this needs of an email: which folders hold it. */
-export interface StoredIn {
+interface StoredIn {
   mailboxIds?: Record<Id, boolean>;
 }
 

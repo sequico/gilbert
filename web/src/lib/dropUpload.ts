@@ -21,7 +21,7 @@
  */
 
 /** One file to upload, and the folder path it sits under relative to the drop. */
-export interface PlannedUpload {
+interface PlannedUpload {
   file: File;
   /** Folder names from the drop target down to the file. Empty means "here". */
   path: string[];

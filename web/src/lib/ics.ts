@@ -27,7 +27,7 @@ import { foldLine, unfoldLines } from "./contentLines";
 import { tzOffsetMs, zonedToDate, zoneFormatter } from "./dates";
 
 /** One `VALARM` an event carries: a `DISPLAY` reminder, and when it fires. */
-export interface IcsAlarm {
+interface IcsAlarm {
   /** Signed seconds from the reference point, as the `TRIGGER` says. */
   offset: number;
   /** What the offset is measured from. */
@@ -173,7 +173,7 @@ export function parseIcsDuration(value: string): number | null {
   return sign === "-" ? -total : total;
 }
 
-export interface ParseResult {
+interface ParseResult {
   events: IcsEvent[];
   /** The calendar's own name, where it gave one. */
   name: string | null;
@@ -708,7 +708,7 @@ function untilValue(
  * derived rule that is subtly wrong moves somebody's meeting, while a list of
  * dates can only be incomplete at the ends -- which is what the window is for.
  */
-export function vtimezone(tzid: string, fromYear: number, toYear: number): string[] {
+function vtimezone(tzid: string, fromYear: number, toYear: number): string[] {
   let offsetAt: (d: Date) => number;
   try {
     offsetAt = offsetFinder(tzid);

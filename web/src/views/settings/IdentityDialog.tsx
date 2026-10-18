@@ -31,7 +31,7 @@ import { Dialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import { RichEditor, type RichEditorHandle } from "../compose/RichEditor";
 
-export interface IdentityAssets {
+interface IdentityAssets {
   /** Upload a pasted/dropped picture for a signature; a same-origin URL back. */
   uploadImage?(file: File): Promise<string>;
   /** Store the full HTML of an over-sized signature; the blob id back. */

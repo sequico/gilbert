@@ -18,7 +18,7 @@
  * act on. Where no threshold is stated, that is said rather than assumed.
  */
 
-export interface SpamRule {
+interface SpamRule {
   /** The rule's own name, as the filter wrote it. */
   name: string;
   /** What it contributed. Negative moves the message towards clean. */

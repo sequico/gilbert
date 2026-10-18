@@ -77,7 +77,7 @@ function parseHeaders(block: string): Map<string, string> {
 }
 
 /** Split `text/plain; charset="utf-8"` into its type and its parameters. */
-export function parseContentType(value: string | undefined): {
+function parseContentType(value: string | undefined): {
   type: string;
   params: Record<string, string>;
 } {

@@ -34,7 +34,7 @@ export const DAY_MS = 86_400_000;
 export type DateFormat = "auto" | "dmy-dot" | "dmy-slash" | "mdy-slash" | "ymd-dash";
 export type TimeFormat = "auto" | "12" | "24";
 
-export interface DateTimePrefs {
+interface DateTimePrefs {
   /** BCP-47 tag, or "" for automatic (server → browser). */
   locale: string;
   dateFormat: DateFormat;
@@ -173,7 +173,7 @@ function num(value: number, digits: number): string {
 }
 
 /** Time-of-day options honouring the 12h/24h preference. */
-export function timeOptions(): Intl.DateTimeFormatOptions {
+function timeOptions(): Intl.DateTimeFormatOptions {
   switch (prefs.timeFormat) {
     case "24":
       return { hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
@@ -198,7 +198,7 @@ export function uses24Hour(): boolean {
   }
 }
 
-export function isAutoDateFormat(): boolean {
+function isAutoDateFormat(): boolean {
   return prefs.dateFormat === "auto";
 }
 
@@ -339,7 +339,7 @@ export function formatFullDateTime(d: Date): string {
  * and fight the keyboard. Parsing is lenient in return: any separator, any
  * digit system, 2- or 4-digit years, and bare ISO is always accepted.
  */
-export interface DatePattern {
+interface DatePattern {
   /** Field order, e.g. ["d", "m", "y"]. */
   order: Array<"d" | "m" | "y">;
   separator: string;
@@ -552,7 +552,7 @@ export function relativeFormat(): Intl.RelativeTimeFormat | null {
 }
 
 /** Locales offered in settings, on top of "Automatic". */
-export interface LocaleOption {
+interface LocaleOption {
   tag: string;
   /** The locale's own name for itself, e.g. "Deutsch (Deutschland)". */
   label: string;

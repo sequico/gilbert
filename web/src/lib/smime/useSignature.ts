@@ -34,7 +34,7 @@ export type SignatureState =
   | { status: "done"; report: SignatureReport };
 
 /** Whether anything in this message's structure claims to be signed. */
-export function structureLooksSigned(part: EmailBodyPart | undefined): boolean {
+function structureLooksSigned(part: EmailBodyPart | undefined): boolean {
   if (!part) return false;
   if (part.type === "multipart/signed") return true;
   return (part.subParts ?? []).some(structureLooksSigned);

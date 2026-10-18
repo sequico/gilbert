@@ -115,7 +115,7 @@ export const RECALL_CHARS_MAX = 4_000;
  * against it rather than overwriting it, and the store's own write is where
  * that is refused (`agent/memory.ts`).
  */
-export type FactOrigin = { by: "run"; run: string } | { by: "person"; who: string };
+type FactOrigin = { by: "run"; run: string } | { by: "person"; who: string };
 
 /**
  * A person's correction of a sheet, beside the origin it corrected (ADR 0037).
@@ -124,7 +124,7 @@ export type FactOrigin = { by: "run"; run: string } | { by: "person"; who: strin
  * overruled it and when: the two are not one field, because the trace of a
  * conclusion and the word that is in force are two facts about the sheet.
  */
-export interface FactCorrection {
+interface FactCorrection {
   by: "person";
   who: string;
   at: string;
@@ -141,7 +141,7 @@ export interface FactCorrection {
  * the sheet exactly as it was. An agent that could write over a person's fact
  * would be the store deciding whose word stands.
  */
-export interface FactProposal {
+interface FactProposal {
   /** The sentence the agent concluded, in the group's own words. */
   fact: string;
   /** The run that concluded it. */

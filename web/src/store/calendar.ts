@@ -372,7 +372,7 @@ export function occurrencePatch(patch: Record<string, unknown>): {
 }
 
 /** A calendar somebody else shared, and the account it lives in. */
-export interface SharedCalendar {
+interface SharedCalendar {
   accountId: Id;
   accountName: string;
   calendar: Calendar;
@@ -2021,7 +2021,7 @@ export function subscriptionCalendarId(subId: string): string {
   return `gilbert-ics:${subId}`;
 }
 
-export function isSubscriptionEvent(id: string | null | undefined): boolean {
+function isSubscriptionEvent(id: string | null | undefined): boolean {
   return Boolean(id?.startsWith("gilbert-ics:"));
 }
 

@@ -23,7 +23,7 @@ const DEFAULT_TRUSTED = [
   "fc00::/7",
 ];
 
-export interface TrustConfig {
+interface TrustConfig {
   trustProxy: boolean;
   /** CIDRs or bare addresses; empty means DEFAULT_TRUSTED. */
   trustedProxies: string[];
@@ -83,7 +83,7 @@ export function isTrustedProxy(addr: string, cfg: TrustConfig): boolean {
   return ranges.some((r) => inRange(addr, r));
 }
 
-export interface ForwardHeaders {
+interface ForwardHeaders {
   forwardedFor?: string;
   realIp?: string;
 }

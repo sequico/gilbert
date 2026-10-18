@@ -43,7 +43,7 @@ export function folderKey(accountId: string | null | undefined, id: string): str
   return `${accountId ?? "anon"}/${id}`;
 }
 
-export interface OpenFolders {
+interface OpenFolders {
   /** The folders that are open. A folder absent from it is shut. */
   open: Record<string, boolean>;
   /** Open or shut one folder, remembering it for the next session. */

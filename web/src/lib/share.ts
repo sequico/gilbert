@@ -21,7 +21,7 @@
  * covers both "this browser cannot" and "this browser could not this time",
  * because to the caller those are the same instruction.
  */
-export type ShareOutcome = "shared" | "dismissed" | "unsupported";
+type ShareOutcome = "shared" | "dismissed" | "unsupported";
 
 /** Whether the browser can share at all. */
 export function canShare(): boolean {

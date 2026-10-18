@@ -16,7 +16,7 @@ import { choiceDialog } from "@/ui/dialog";
  * makes losing the work the easy answer and saving it the one you have to back
  * out and find, when saving is what almost everybody wants.
  */
-export interface UnsavedChanges {
+interface UnsavedChanges {
   /** Whether anything would be lost by leaving right now. */
   dirty: boolean;
   /**

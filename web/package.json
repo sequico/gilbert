@@ -27,7 +27,6 @@
     "dompurify": "^3.4.17",
     "lucide-react": "^1.55.0",
     "marked": "^18.1.1",
-    "qrcode-generator": "^2.0.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "squire-rte": "^2.4.9",

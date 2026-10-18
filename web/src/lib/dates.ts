@@ -45,7 +45,7 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
-export function startOfMonth(d: Date): Date {
+function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
@@ -96,7 +96,7 @@ export function toUTCDate(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export function parseLocalDateTime(
+function parseLocalDateTime(
   s: string,
 ): { y: number; mo: number; d: number; h: number; mi: number; se: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);

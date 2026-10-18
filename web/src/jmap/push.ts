@@ -5,7 +5,7 @@ import { t } from "@/lib/i18n";
 import { API_TIMEOUT_MS, apiFetch } from "./client";
 import type { Id, StateChange } from "./types";
 
-export type PushListener = (accountId: Id, type: string, newState: string) => void;
+type PushListener = (accountId: Id, type: string, newState: string) => void;
 
 /** Connected, trying to connect, or not trying. */
 export type PushState = "connected" | "connecting" | "disconnected";

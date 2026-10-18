@@ -53,7 +53,7 @@ export const INSTALLATION_VERSION = 1;
 export const INSTALLATION_EPOCH_START = 1;
 
 /** Where the app tier answers. `host`/`port` are overridable by the container (see below). */
-export interface InstallationServer {
+interface InstallationServer {
   /** `HOST` (default `0.0.0.0`). */
   host: string;
   /** `PORT` (default `8080`). */
@@ -98,7 +98,7 @@ export interface InstallationServer {
 }
 
 /** The bounds on what one request may cost. */
-export interface InstallationLimits {
+interface InstallationLimits {
   /** `UPSTREAM_TIMEOUT` (default `30000`): ms before a Stalwart request is abandoned. */
   upstreamTimeout: number;
   /** `MAX_UPLOAD_BYTES` (default `52428800`, 50 MiB). */
@@ -117,7 +117,7 @@ export interface InstallationLimits {
 }
 
 /** How long a sealed session lives. */
-export interface InstallationSessions {
+interface InstallationSessions {
   /** `SESSION_TTL` (default `43200`, 12 h). */
   ttl: number;
   /** `SESSION_REMEMBER_TTL` (default `2592000`, 30 days). */
@@ -125,7 +125,7 @@ export interface InstallationSessions {
 }
 
 /** How push reaches the browser. */
-export interface InstallationPush {
+interface InstallationPush {
   /**
    * `PUSH_MODE` (default `"subscribe"`): `"subscribe"` registers one JMAP
    * PushSubscription per account and fans Stalwart's POSTs out to that
@@ -175,7 +175,7 @@ export interface InstallationModel {
  * folded into `branding` because the record names it (ADR 0011) and because the
  * agent's configuration is its own subject.
  */
-export interface InstallationAgentSection {
+interface InstallationAgentSection {
   /** The installation's model, or absent when it has none and therefore no agent. */
   provider?: InstallationModel;
   /**
@@ -188,7 +188,7 @@ export interface InstallationAgentSection {
 }
 
 /** What the installation calls itself. */
-export interface InstallationBranding {
+interface InstallationBranding {
   /** `APP_NAME` (default `"Gilbert"`). */
   appName: string;
 }

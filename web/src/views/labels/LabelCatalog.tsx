@@ -27,7 +27,7 @@ import { ColorSwatches } from "@/ui/misc";
  * list for a group's. That is why a row hands back `labels` rather than a
  * patch.
  */
-export interface LabelRowProps {
+interface LabelRowProps {
   /** The catalogue this row belongs to, as it stands. */
   labels: Label[];
   label: Label;

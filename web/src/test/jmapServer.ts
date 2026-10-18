@@ -39,7 +39,7 @@ import { vi } from "vitest";
  */
 
 /** One call, as the fake saw it. */
-export interface JmapCall {
+interface JmapCall {
   method: string;
   args: Record<string, unknown>;
   id: string;
@@ -52,21 +52,19 @@ export interface JmapCall {
  * A batch is one HTTP request, so the capabilities a suite asserts on are asked
  * for once, over every call the batch holds — not per call.
  */
-export interface JmapRequest {
+interface JmapRequest {
   using: string[];
   calls: JmapCall[];
 }
 
 /** What a handler answers for one call: that method's response object. */
-export type JmapAnswer = (call: JmapCall) => unknown;
+type JmapAnswer = (call: JmapCall) => unknown;
 
 /**
  * The refusal of one call: an error object for the calls to refuse, nothing for
  * the calls to answer normally.
  */
-export type JmapRefusal = (
-  call: JmapCall,
-) => { type: string; description?: string } | undefined;
+type JmapRefusal = (call: JmapCall) => { type: string; description?: string } | undefined;
 
 export interface JmapFake {
   /** Answer every call of `method` with what `answer` returns. */

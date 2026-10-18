@@ -111,13 +111,13 @@ export async function impersonateAs(
 }
 
 /** The session to reach a group's own documents with, and the account holding them. */
-export interface GroupAccess {
+interface GroupAccess {
   ok: true;
   ctx: Ctx;
   accountId: string;
 }
 
-export type GroupAccessResult = GroupAccess | GroupAccessDenied;
+type GroupAccessResult = GroupAccess | GroupAccessDenied;
 
 /**
  * The installation's own session, and the groups it is granted on — the door a
@@ -182,7 +182,7 @@ export async function resolveGroupAccess(
 }
 
 /** A member's own session and the groups it reaches, read live. */
-export interface MemberReach {
+interface MemberReach {
   ctx: Ctx;
   groups: Map<string, string>;
   /** The candidates the mail server would not answer about (ADR 0005). */
@@ -400,7 +400,7 @@ async function probeMailStore(
  * apart. Nothing is cached: a grant withdrawn in Stalwart is read here the next
  * time a surface asks.
  */
-export interface GroupReach {
+interface GroupReach {
   /** The groups, by name, with the account each one answers as. */
   groups: Map<string, string>;
   /**

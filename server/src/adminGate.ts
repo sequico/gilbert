@@ -29,9 +29,7 @@ const SELF_SERVICE = new Set([
   "MaskedEmail",
 ]);
 
-export type GateResult =
-  | { ok: true; body: string }
-  | { ok: false; method: string | null };
+type GateResult = { ok: true; body: string } | { ok: false; method: string | null };
 
 /**
  * Whether a session may administer at all.

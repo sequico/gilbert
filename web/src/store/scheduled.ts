@@ -29,10 +29,10 @@ import { useSession } from "./session";
  * JMAP has no role for this (the IANA attribute registry has no `\Scheduled`),
  * so it is an ordinary folder found by name.
  */
-export const SCHEDULED_MAILBOX = "Scheduled";
+const SCHEDULED_MAILBOX = "Scheduled";
 
 /** What this account's server says about holding a message before sending it. */
-export function submissionCapability(): SubmissionCapability | undefined {
+function submissionCapability(): SubmissionCapability | undefined {
   const accountId = useMail.getState().accountId;
   if (!accountId) return undefined;
   return client.accountCapability<SubmissionCapability>(accountId, CAP.submission);
@@ -110,7 +110,7 @@ export async function ensureScheduledMailbox(accountId?: Id): Promise<Id> {
   return id;
 }
 
-export interface PendingSend {
+interface PendingSend {
   id: Id;
   emailId: Id;
   /** Epoch milliseconds, as the server settled on it. */

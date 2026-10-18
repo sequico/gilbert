@@ -9,7 +9,7 @@ import { pollWhileVisible } from "./visiblePoll";
  * request is tiny and the worker's bytes rarely change, so an hour is often
  * enough and cheap.
  */
-export const SW_UPDATE_MS = 60 * 60 * 1000;
+const SW_UPDATE_MS = 60 * 60 * 1000;
 
 /**
  * Ask a registration for its script on a timer, while the page is visible.

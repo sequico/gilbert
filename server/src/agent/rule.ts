@@ -42,7 +42,7 @@ export const RULE_SURFACES: readonly AccountEventSource[] = [
 ];
 
 /** Whether a value names a surface a rule can watch. */
-export function isRuleSurface(x: unknown): x is AccountEventSource {
+function isRuleSurface(x: unknown): x is AccountEventSource {
   return typeof x === "string" && (RULE_SURFACES as readonly string[]).includes(x);
 }
 

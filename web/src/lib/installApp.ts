@@ -19,7 +19,7 @@
 import { DEVICE_KEYS, deviceKey, storageOf } from "@/lib/storage";
 
 /** The `beforeinstallprompt` event, which the DOM lib does not declare. */
-export interface BeforeInstallPromptEvent extends Event {
+interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
     outcome: "accepted" | "dismissed";
@@ -28,10 +28,10 @@ export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-export type InstallOutcome = "accepted" | "dismissed" | "unavailable";
+type InstallOutcome = "accepted" | "dismissed" | "unavailable";
 
 /** What to tell a reader whose browser has no prompt to show. */
-export type InstallGuide = "ios" | "browser-menu";
+type InstallGuide = "ios" | "browser-menu";
 
 /**
  * iOS, where the Push API and the install both live behind the Home Screen.
@@ -150,7 +150,7 @@ let installedMarker = false;
  */
 let justInstalled = false;
 /** Whether Gilbert is installed on this device but this is a browser tab. */
-export function installedElsewhere(): boolean {
+function installedElsewhere(): boolean {
   return !isInstalledApp() && (installedMarker || readInstalledMarker());
 }
 

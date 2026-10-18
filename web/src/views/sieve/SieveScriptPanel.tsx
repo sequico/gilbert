@@ -22,7 +22,7 @@ import { SieveEditor } from "@/ui/SieveEditor";
  * active: `onSave` is what that surface means by saving (the system list keeps
  * a script's own state), and `onSaveActivate` is the other button.
  */
-export interface SieveScriptForm {
+interface SieveScriptForm {
   name: string;
   setName: (value: string) => void;
   /** True for a script that exists: its name is its address, so it is fixed. */

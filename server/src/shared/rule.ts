@@ -38,7 +38,7 @@ export class RuleError extends CodedError {
  * `pathSegments` after it. A writer that already holds the `rules/` folder names
  * the file with this; a reader of the account walks the path below.
  */
-export function ruleFileName(id: string): string {
+function ruleFileName(id: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id))
     throw new RuleError(
       "rule_id_invalid",

@@ -94,7 +94,7 @@ export interface ReceivedMessage {
  * message nobody vouched for, a sender the installation does not know, and the
  * agent's own words coming back.
  */
-export type TrustRefusal =
+type TrustRefusal =
   /** The server's account of the arrival does not establish that this is anybody's word. */
   | "not_authenticated"
   /** The sender is not an address the installation knows. */
@@ -103,7 +103,7 @@ export type TrustRefusal =
   | "own_send";
 
 /** One message's answer: whether it is a person's word, and why not. */
-export interface WordDecision {
+interface WordDecision {
   /** Whether the agent may take this message as that person's own word. */
   word: boolean;
   /** The code of the refusal, or null when the word may be taken. */

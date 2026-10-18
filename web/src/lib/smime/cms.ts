@@ -27,7 +27,7 @@ import {
 import { OID } from "./oid";
 
 export type Digest = "SHA-256" | "SHA-384" | "SHA-512";
-export type SignatureKind = "rsa-pkcs1" | "rsa-pss" | "ecdsa";
+type SignatureKind = "rsa-pkcs1" | "rsa-pss" | "ecdsa";
 
 export interface SignerInfo {
   digest: Digest;
@@ -162,7 +162,7 @@ function readSigner(node: Asn1): SignerInfo {
  * the identifier octet changes; the length and contents are already correct,
  * which is why this is a single byte and also why it is so easy to miss.
  */
-export function signedAttrsForSigning(attrs: Asn1): Uint8Array {
+function signedAttrsForSigning(attrs: Asn1): Uint8Array {
   const copy = attrs.bytes.slice();
   copy[0] = 0x31;
   return copy;

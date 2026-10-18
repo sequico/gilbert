@@ -60,7 +60,7 @@ export * from "@gilbert/shared/knowledge";
 const ARTICLE_PROPS = [...FOLDER_PROPS, "blobId", "type"];
 
 /** One JSON document's parsed value, straight from its blob. */
-export async function readJsonNode(accountId: Id, blobId: Id): Promise<unknown> {
+async function readJsonNode(accountId: Id, blobId: Id): Promise<unknown> {
   const text = await client.fetchBlobText(accountId, blobId, APP_DOCUMENT_TYPE);
   return JSON.parse(text) as unknown;
 }
@@ -479,7 +479,7 @@ export async function reorderKnowledgeArticles(
  * out of precision: the family is renumbered `1..N` in the order the drop
  * leaves it, and every changed place travels in one request.
  */
-export type SiblingDrop =
+type SiblingDrop =
   | { kind: "order"; folder: string; order: number }
   | { kind: "renumber"; orders: Array<{ folder: string; order: number }> };
 

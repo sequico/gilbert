@@ -49,7 +49,7 @@ export function sortFiles(nodes: FileNode[], sort: FilesSort): FileNode[] {
   });
 }
 
-export interface FilesSortControl {
+interface FilesSortControl {
   sort: FilesSort;
   /** The header a reader just clicked: its column, or that column reversed. */
   toggle(key: FilesSortKey): void;

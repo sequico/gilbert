@@ -14,7 +14,7 @@ export const BODIES_KEPT = 40;
 
 /** Messages held in full, least recently wanted first. */
 export const bodyOrder: Id[] = [];
-export const LIST_KEYS = new Set<string>(LIST_PROPS);
+const LIST_KEYS = new Set<string>(LIST_PROPS);
 
 export function touchBodies(ids: Id[]): void {
   for (const id of ids) {

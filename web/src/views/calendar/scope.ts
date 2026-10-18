@@ -20,7 +20,7 @@ import { choiceDialog, confirmDialog } from "@/ui/dialog";
  * Until 0.16.20 there was nothing to ask: the server refused a write aimed at
  * an occurrence, so "the whole series" was the only thing that could happen.
  */
-export async function askScope(
+async function askScope(
   event: CalendarEvent,
   opts: {
     title: string;

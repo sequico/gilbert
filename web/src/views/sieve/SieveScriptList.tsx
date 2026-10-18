@@ -22,7 +22,7 @@ import { toast } from "@/ui/toast";
  * What a reader sees and the way a failure is reported are the card's, and are
  * here once.
  */
-export interface SieveScriptRow {
+interface SieveScriptRow {
   id: string;
   name: string;
   isActive: boolean;

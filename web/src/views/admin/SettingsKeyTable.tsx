@@ -40,7 +40,7 @@ type Example =
   | Record<string, unknown>
   | unknown[];
 
-export interface KeyEntry {
+interface KeyEntry {
   /** English source; rendered through t(). */
   desc: string;
 }

@@ -203,7 +203,7 @@ export const directoryGate = { open: true };
  * reproduces the refusal so the fallback — the `@` picker's transcript — is
  * exercisable.
  */
-export const accountRegistryGate = { open: true };
+const accountRegistryGate = { open: true };
 /** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 /** The admin permission this process is configured on, read as the server reads it. */

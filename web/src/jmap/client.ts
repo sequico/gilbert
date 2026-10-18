@@ -79,9 +79,9 @@ export class ApiError extends Error {
  * a data request: 403 with this error code. The client turns it into the
  * full-screen forced-change view, like a 401 turns into the sign-in screen.
  */
-export const PASSWORD_CHANGE_REQUIRED = "password_change_required";
+const PASSWORD_CHANGE_REQUIRED = "password_change_required";
 
-export interface ApiErrorBody {
+interface ApiErrorBody {
   error?: string;
   message?: string;
   type?: string;
@@ -789,7 +789,7 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 /** What a batched write landed, across every batch it took. */
-export interface BatchedSetResult {
+interface BatchedSetResult {
   created: number;
   updated: number;
   destroyed: Id[];

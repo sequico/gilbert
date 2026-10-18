@@ -139,8 +139,8 @@ import {
  * run may spend is not a question the administration is asked.
  */
 export const RUN_STEPS_MAX = 20;
-export const RUN_CALLS_MAX = 40;
-export const RUN_MS_MAX = 5 * 60_000;
+const RUN_CALLS_MAX = 40;
+const RUN_MS_MAX = 5 * 60_000;
 
 /**
  * How close to lapsing the claim is renewed.

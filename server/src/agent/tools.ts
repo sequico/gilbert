@@ -121,7 +121,7 @@ import { personWord } from "./trust.js";
  * rule that declares it sends, or an installation administrator's override —
  * and `intent` is never the agent's, whatever the run carries.
  */
-export type ToolAuthority =
+type ToolAuthority =
   | "reversible"
   | "destructive"
   | "outward"
@@ -134,7 +134,7 @@ export type ToolAuthority =
  * The code is what a surface composes its own sentence from, as `RunError` is
  * for runs; a tool refused for its arguments says so in the model's own words.
  */
-export class ToolError extends Error {
+class ToolError extends Error {
   constructor(
     public readonly code: string,
     message: string,
@@ -294,9 +294,7 @@ const AUTHORITY_NEEDED: Record<ToolAuthority, RunAuthority | "alone" | "never"> 
 };
 
 /** What a tool's class needs before a run may take it (ADR 0032). */
-export function authorityNeeded(
-  authority: ToolAuthority,
-): RunAuthority | "alone" | "never" {
+function authorityNeeded(authority: ToolAuthority): RunAuthority | "alone" | "never" {
   return AUTHORITY_NEEDED[authority];
 }
 

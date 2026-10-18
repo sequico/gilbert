@@ -43,12 +43,12 @@ export function revisionFileName(revision: string): string {
 }
 
 export const MAX_TITLE = 200;
-export const MAX_TAG = 60;
+const MAX_TAG = 60;
 export const MAX_TAGS = 40;
-export const KNOWLEDGE_MAX_TEXT = 200_000;
+const KNOWLEDGE_MAX_TEXT = 200_000;
 
 /** Who and when, on every document this KB writes. */
-export interface KnowledgeTimes {
+interface KnowledgeTimes {
   by: string;
   at: string;
 }
@@ -245,7 +245,7 @@ export interface KnowledgeSummary {
 }
 
 /** A revision, as the history column lists it. */
-export interface KnowledgeRevisionSummary extends KnowledgeIssued {
+interface KnowledgeRevisionSummary extends KnowledgeIssued {
   title: string;
   supersedes: string | null;
 }
@@ -332,7 +332,7 @@ function isTags(x: unknown): x is string[] {
   return isStringArray(x);
 }
 
-export function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
+function isKnowledgeIssued(x: unknown): x is KnowledgeIssued {
   return (
     isRecord(x) &&
     typeof x.revision === "string" &&
@@ -594,7 +594,7 @@ export function blocksFromText(text: string): unknown[] {
 }
 
 /** What a page is a template **of**, or null when it is an ordinary page. */
-export type KnowledgeTemplate = "checklist";
+type KnowledgeTemplate = "checklist";
 
 /** An empty checklist definition, so a new template has rules to edit. */
 export function emptyChecklist(): KnowledgeChecklist {
@@ -711,13 +711,13 @@ export function checklistHasGlobalSection(checklist: KnowledgeChecklist): boolea
 }
 
 /** One step of a resolved section, with the path a workorder stores. */
-export interface ResolvedStep {
+interface ResolvedStep {
   path: string;
   label: string;
 }
 
 /** One item of a resolved section: a repeated section's item, or the section. */
-export interface ResolvedItem {
+interface ResolvedItem {
   /** The item's key for a repeated section, or "" when the section is not repeated. */
   key: string;
   /** The item's label: the key for a repeated section, the section label otherwise. */
@@ -947,7 +947,7 @@ export function knowledgeId(): string {
  */
 export const KNOWLEDGE_FOLDER_FILE = "folder.json";
 
-export interface KnowledgeFolderDoc {
+interface KnowledgeFolderDoc {
   v: 1;
   order: number;
 }

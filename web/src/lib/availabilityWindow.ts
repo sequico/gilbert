@@ -13,7 +13,7 @@ import { addDays, DAY_MS, startOfDay } from "@/lib/dates";
  * move under the reader every time they adjusted it, and "busy from about a
  * third of the way along" is not a time anybody can read.
  */
-export interface AvailabilityWindow {
+interface AvailabilityWindow {
   /** Midnight at the start of the first day shown. */
   start: Date;
   /** Midnight at the end of the last day shown. */

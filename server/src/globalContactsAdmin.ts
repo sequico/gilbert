@@ -118,7 +118,7 @@ function contactMoved(): IdentityAdminError {
  * until the book is looked for again: a sibling already carrying the name is
  * the directory, and adopting it is what keeps it one book.
  */
-export async function globalContactsBookId(ctx: Ctx, accountId: string): Promise<string> {
+async function globalContactsBookId(ctx: Ctx, accountId: string): Promise<string> {
   const client = new JmapClient(ctx);
   const found = await findGlobalContactsBook(client, accountId);
   if (found) return found;

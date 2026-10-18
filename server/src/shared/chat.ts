@@ -61,7 +61,7 @@ export interface ChatMention {
 }
 
 /** One message document, immutable once created. */
-export interface ChatMessageDoc {
+interface ChatMessageDoc {
   v: 1;
   /** The member's own address, as the session reports it. */
   from: string;
@@ -75,7 +75,7 @@ export interface ChatMessageDoc {
 }
 
 /** One member's read marker: which message they have read up to. */
-export interface ChatMarkerDoc {
+interface ChatMarkerDoc {
   v: 1;
   /** The id of the newest message read, or null when born on an empty chat. */
   lastRead: string | null;

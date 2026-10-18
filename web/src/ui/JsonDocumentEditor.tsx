@@ -18,7 +18,7 @@ import { t } from "@/lib/i18n";
  * notice. Each view keeps those and hands this component the field, the buttons
  * and the boxes.
  */
-export interface JsonDocumentEditorProps {
+interface JsonDocumentEditorProps {
   /** How the field is announced; each surface names its own document. */
   label: string;
   /** The document as the editor holds it, unchanged. */

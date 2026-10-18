@@ -47,7 +47,7 @@ import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
 
 /** The media type these documents are, when a node does not state one. */
-export const DOCUMENT_TYPE_DEFAULT = "application/json";
+const DOCUMENT_TYPE_DEFAULT = "application/json";
 
 /**
  * The media type a document node is read or written as: its own when it has
@@ -447,7 +447,7 @@ export async function ensureFolderPath(
 }
 
 /** A named file inside a folder, with the node when it is there. */
-export interface AppFileRef {
+interface AppFileRef {
   /** The folder's id, or null when the folder itself is missing. */
   folderId: string | null;
   file: FileNodeLike | null;
@@ -895,7 +895,7 @@ export async function readAppJsonAt(
  * Nothing about that is new here; the difference is that the answer is now
  * stated rather than folded into `null`.
  */
-export type AppDocumentRead =
+type AppDocumentRead =
   | { kind: "ok"; doc: unknown }
   | { kind: "absent" }
   | { kind: "unreadable" };
@@ -934,7 +934,7 @@ export async function listAppDir(
 const SHEET_NODE_PROPS = [...FILE_PROPS, ...STAMP_PROPS];
 
 /** One document of a folder of them: read, or why it could not be read. */
-export interface AppSheet<T> {
+interface AppSheet<T> {
   /** The document's name without its extension: what the directory files it as. */
   id: string;
   /** The document, or null when this build cannot read what is there. */

@@ -26,7 +26,7 @@
  */
 export const RELOAD_DEBOUNCE_MS = 400;
 
-export interface DebouncedReload {
+interface DebouncedReload {
   /** Re-read this key once, `RELOAD_DEBOUNCE_MS` after the last event for it. */
   schedule(key: string, read: () => void): void;
 }

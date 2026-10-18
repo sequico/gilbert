@@ -14,9 +14,9 @@ import { loadRaw, saveJson } from "./storage";
 const KEY = "mailtoHandler";
 const SCHEME = "mailto";
 
-export type HandlerSupport = "ok" | "insecure" | "unsupported";
+type HandlerSupport = "ok" | "insecure" | "unsupported";
 
-export function handlerUrl(): string {
+function handlerUrl(): string {
   return `${window.location.origin}/mail?mailto=%s`;
 }
 
@@ -43,7 +43,7 @@ export function mailtoHandlerRequested(): boolean {
   return loadRaw<boolean>(KEY, false) === true;
 }
 
-export function setMailtoHandlerRequested(v: boolean): void {
+function setMailtoHandlerRequested(v: boolean): void {
   saveJson(KEY, v);
 }
 

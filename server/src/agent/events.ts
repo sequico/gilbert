@@ -122,7 +122,7 @@ export interface EventCursor {
 }
 
 /** What one read found, and where the next one resumes. */
-export interface AccountEvents {
+interface AccountEvents {
   events: AccountEvent[];
   cursor: EventCursor;
   /**
@@ -158,7 +158,7 @@ export async function anchorEvents(ctx: Ctx, accountId: string): Promise<EventCu
 }
 
 /** One `/changes` answer, as this build can use it. */
-export interface ChangeSet {
+interface ChangeSet {
   created: string[];
   updated: string[];
   destroyed: string[];

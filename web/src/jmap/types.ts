@@ -12,7 +12,7 @@ import type {
 import type { WeekdayKey } from "@gilbert/shared/weekdays";
 
 export type UTCDate = string; // "2024-01-01T10:00:00Z"
-export type LocalDate = string; // "2024-01-01T10:00:00"
+type LocalDate = string; // "2024-01-01T10:00:00"
 
 export interface Account {
   name: string;
@@ -154,7 +154,7 @@ export type MailboxRole =
   | "subscribed"
   | null;
 
-export interface MailboxRights {
+interface MailboxRights {
   mayReadItems: boolean;
   mayAddItems: boolean;
   mayRemoveItems: boolean;
@@ -186,7 +186,7 @@ export interface EmailAddress {
   email: string;
 }
 
-export interface EmailHeader {
+interface EmailHeader {
   name: string;
   value: string;
 }
@@ -206,7 +206,7 @@ export interface EmailBodyPart {
   subParts?: EmailBodyPart[] | null;
 }
 
-export interface EmailBodyValue {
+interface EmailBodyValue {
   value: string;
   isEncodingProblem: boolean;
   isTruncated: boolean;
@@ -325,7 +325,7 @@ export interface SearchSnippet {
   preview: string | null;
 }
 
-export interface EmailFilterCondition {
+interface EmailFilterCondition {
   inMailbox?: Id;
   inMailboxOtherThan?: Id[];
   before?: UTCDate;
@@ -348,7 +348,7 @@ export interface EmailFilterCondition {
   header?: string[];
 }
 
-export interface FilterOperator<T> {
+interface FilterOperator<T> {
   operator: "AND" | "OR" | "NOT";
   conditions: Array<T | FilterOperator<T>>;
 }
@@ -416,7 +416,7 @@ export interface BusyPeriod {
 /* Contacts (RFC 9610 / JSContact RFC 9553)                            */
 /* ------------------------------------------------------------------ */
 
-export interface AddressBookRights {
+interface AddressBookRights {
   mayRead: boolean;
   mayWrite: boolean;
   mayShare: boolean;
@@ -434,7 +434,7 @@ export interface AddressBook {
   myRights: AddressBookRights;
 }
 
-export interface JSContactNameComponent {
+interface JSContactNameComponent {
   "@type"?: "NameComponent";
   kind:
     | "title"
@@ -493,7 +493,7 @@ export interface JSContactAddress {
   pref?: number;
 }
 
-export interface JSContactOrganization {
+interface JSContactOrganization {
   "@type"?: "Organization";
   name?: string;
   units?: { "@type"?: "OrgUnit"; name: string }[];
@@ -501,14 +501,14 @@ export interface JSContactOrganization {
   contexts?: Record<string, boolean>;
 }
 
-export interface JSContactTitle {
+interface JSContactTitle {
   "@type"?: "Title";
   name: string;
   kind?: "title" | "role";
   organizationId?: string;
 }
 
-export interface JSContactAnniversary {
+interface JSContactAnniversary {
   "@type"?: "Anniversary";
   kind: "birth" | "death" | "wedding" | string;
   date: {
@@ -521,14 +521,14 @@ export interface JSContactAnniversary {
   place?: JSContactAddress;
 }
 
-export interface JSContactNote {
+interface JSContactNote {
   "@type"?: "Note";
   note: string;
   created?: string;
   author?: { name?: string; uri?: string };
 }
 
-export interface JSContactOnlineService {
+interface JSContactOnlineService {
   "@type"?: "OnlineService";
   service?: string;
   uri?: string;
@@ -549,7 +549,7 @@ export interface JSContactMedia {
   label?: string;
 }
 
-export interface JSContactRelation {
+interface JSContactRelation {
   "@type"?: "Relation";
   relation?: Record<string, boolean>;
 }
@@ -617,7 +617,7 @@ export interface ContactCard {
 /* Calendars (draft-ietf-jmap-calendars / JSCalendar RFC 8984)         */
 /* ------------------------------------------------------------------ */
 
-export interface CalendarRights {
+interface CalendarRights {
   mayReadFreeBusy: boolean;
   mayReadItems: boolean;
   mayWriteAll: boolean;
@@ -723,7 +723,7 @@ export interface JSCalendarParticipant {
   percentComplete?: number;
 }
 
-export interface JSCalendarLocation {
+interface JSCalendarLocation {
   "@type"?: "Location";
   name?: string;
   description?: string;
@@ -734,7 +734,7 @@ export interface JSCalendarLocation {
   links?: Record<string, unknown>;
 }
 
-export interface JSCalendarVirtualLocation {
+interface JSCalendarVirtualLocation {
   "@type"?: "VirtualLocation";
   name?: string;
   description?: string;

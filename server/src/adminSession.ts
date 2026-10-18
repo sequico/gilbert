@@ -21,7 +21,7 @@ import { errorMessage } from "./shared/errors.js";
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "./upstream.js";
 
 /** A module's own refusal, built from the identity door's code and sentence. */
-export type RefuseWith = (code: string, message: string, status: number) => Error;
+type RefuseWith = (code: string, message: string, status: number) => Error;
 
 /**
  * The account's FileNode state as the conditional-write token, or a refusal.

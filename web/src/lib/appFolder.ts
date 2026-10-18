@@ -45,8 +45,9 @@ import { FILENODE_GET, FILENODE_QUERY, FILENODE_SET } from "@gilbert/shared/appF
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
+
 /** Just enough to find the folder. */
-export const folderProps = (): string[] => [...FOLDER_PROPS];
+const folderProps = (): string[] => [...FOLDER_PROPS];
 
 /** List one level of the tree: the top level, or the children of a folder. */
 async function children(
@@ -188,7 +189,7 @@ export async function ensureSubfolder(
  * A node's persistent blobId. `FileNode/set` does not return one on create, so
  * anything that needs the blob straight after making the node has to ask.
  */
-export async function nodeBlobId(accountId: Id, id?: Id): Promise<Id | undefined> {
+async function nodeBlobId(accountId: Id, id?: Id): Promise<Id | undefined> {
   if (!id) return undefined;
   try {
     const res = await client.call<GetResponse<FileNode>>(FILENODE_GET, {
@@ -209,7 +210,7 @@ export async function nodeBlobId(accountId: Id, id?: Id): Promise<Id | undefined
  * and the write is refused if anything in the account changed since this read,
  * which is the only protection JMAP offers in place of a lock.
  */
-export interface FoundNode extends FileNode {
+interface FoundNode extends FileNode {
   state?: string;
 }
 

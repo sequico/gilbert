@@ -13,7 +13,7 @@ import type { IcsEvent } from "./ics";
  */
 
 /** The calendar fields an event falls back to when it uses the defaults. */
-export interface AlertDefaults {
+interface AlertDefaults {
   defaultAlertsWithTime?: Record<string, JSCalendarAlert> | null;
   defaultAlertsWithoutTime?: Record<string, JSCalendarAlert> | null;
 }

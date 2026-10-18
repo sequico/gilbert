@@ -32,7 +32,7 @@
  * on the reason without matching a message. A build older than the server that
  * sent one reports it as unexplained rather than guessing (`refusalReason`).
  */
-export type PublishRefusal =
+type PublishRefusal =
   | "impersonation-refused"
   | "no-files-account"
   | "write-failed"

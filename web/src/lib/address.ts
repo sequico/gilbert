@@ -117,7 +117,7 @@ export function parseAddressList(input: string): EmailAddress[] {
   return out;
 }
 
-export function parseOne(raw: string): EmailAddress | null {
+function parseOne(raw: string): EmailAddress | null {
   const s = stripGroupLabel(stripComments(raw)).trim();
   if (!s) return null;
   const m = /^(.*?)\s*<([^<>]+)>\s*$/.exec(s);
@@ -259,7 +259,7 @@ export function domainOf(email: string): string {
   return i >= 0 ? email.slice(i + 1).toLowerCase() : "";
 }
 
-export interface MailtoFields {
+interface MailtoFields {
   to: EmailAddress[];
   cc: EmailAddress[];
   bcc: EmailAddress[];

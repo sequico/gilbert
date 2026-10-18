@@ -2,10 +2,10 @@
  * Gmail-style keyboard shortcut manager with two-key sequences ("g i").
  * Handlers are registered in scopes; the most recently pushed scope wins.
  */
-export type KeyHandler = (e: KeyboardEvent) => void | boolean;
+type KeyHandler = (e: KeyboardEvent) => void | boolean;
 
 /** One binding as a surface shows it: what to press, under which heading. */
-export interface ShortcutHelp {
+interface ShortcutHelp {
   group: string;
   keys: string;
   description: string;

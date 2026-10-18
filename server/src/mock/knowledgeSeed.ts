@@ -61,7 +61,7 @@ import type { Obj } from "./types.js";
 type PutBlob = (accountId: string, data: string | Buffer, type: string) => string;
 
 /** Everything the demo seed needs from the mock: its blob store and its ids. */
-export interface DemoSeedInput {
+interface DemoSeedInput {
   /** The mock's own blob store: bytes go into the account that will hold them. */
   putBlob: PutBlob;
   /** The instant every seeded document is stamped with. */
@@ -91,7 +91,7 @@ export interface DemoSeedInput {
 }
 
 /** The nodes to append to each account: the Master's, and the two groups' parts. */
-export interface DemoSeed {
+interface DemoSeed {
   master: Obj[];
   group: Obj[];
   group2: Obj[];

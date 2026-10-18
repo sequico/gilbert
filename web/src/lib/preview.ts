@@ -22,7 +22,7 @@ import {
   PDF_TYPE,
 } from "@gilbert/shared/media";
 
-export type PreviewKind = "image" | "pdf" | "text";
+type PreviewKind = "image" | "pdf" | "text";
 
 /**
  * Uploads arrive with whatever type the browser guessed, which for anything

@@ -54,7 +54,7 @@ export type Reason =
   | "other";
 
 /** What the signature itself established, before any question of trust. */
-export type Crypto =
+type Crypto =
   | { kind: "none" }
   | { kind: "unsupported"; reason: Reason; detail?: string }
   | { kind: "broken"; reason: Reason; detail?: string }
@@ -72,7 +72,7 @@ export type Crypto =
     };
 
 /** What remembering previous signers adds to it. */
-export type Trust = "first-seen" | "same-as-before" | "changed";
+type Trust = "first-seen" | "same-as-before" | "changed";
 
 export type Warning =
   | "address-mismatch"
