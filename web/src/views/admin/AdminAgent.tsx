@@ -75,7 +75,8 @@ function recalledFact(id: string, facts: readonly FactDoc[]): string {
 
 /** The run itself: the change, the rule, the plan with its order, the tally. */
 function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] }) {
-  const { startedBy, plan, spent, waiting, ended, recalled } = run;
+  const { startedBy, plan, spent, waiting, ended, recalled, touched, authorisations } =
+    run;
   return (
     <div className="card">
       <div className="card-head">
@@ -110,6 +111,23 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
           ms: spent.ms,
         })}
       </p>
+      {touched.length > 0 && (
+        <p className="hint">
+          {t("Touched: {touched}.", {
+            touched: touched.map((ref) => `${ref.kind} ${ref.id}`).join(", "),
+          })}
+        </p>
+      )}
+      {authorisations.map((one, at) => (
+        <p className="hint" key={`${one.by}-${at}`}>
+          {t("Authorised by {by}: {authority} for {target} — “{what}”", {
+            by: one.by,
+            authority: one.authority,
+            target: one.act.target,
+            what: one.what,
+          })}
+        </p>
+      ))}
       {recalled.length > 0 && (
         <p className="hint">
           {t("Recalled: {facts}.", {
