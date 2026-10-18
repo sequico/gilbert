@@ -1,10 +1,13 @@
 # Known issues and what they need
 
-> **The `gilbertagents` part is built up to the loop.** The tree carries a run's
-> durable state, the catalogue of tools, a group's rules in prose, the
-> installation's one model with its turns, the loop that works a run, and the
-> supervisor the server's own boot starts with itself; its decisions are ADR
-> 0031–0036. The mail channel is the half it does not carry.
+> **The `gilbertagents` part is built.** The tree carries a run's durable state,
+> the catalogue of tools, a group's rules in prose and the three levels every call
+> is told, the installation's one model with its turns, its memory of facts, the
+> loop that works a run, the supervisor the server's own boot starts with itself,
+> the conversation in chat **and in mail**, and the administration of all of it;
+> its decisions are ADR 0031–0037. What it owes is a live probe, not a feature —
+> a real provider, the arrival record, the change log's cap — listed in
+> [ROADMAP.md](ROADMAP.md).
 
 Where Stalwart departs from a spec, the settings a feature needs, and what
 Gilbert deliberately does not do. The supported server is the **0.16** line —
