@@ -24,6 +24,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "Agente",
+    Workorders: "Ordini di lavoro",
+    Completed: "Completato",
+    Replaced: "Sostituito",
+    Skipped: "Saltato",
+    "Not applicable": "Non applicabile",
+    "Why?": "Perché?",
+    "Set state": "Imposta stato",
+    Global: "Globale",
+    "No steps": "Nessun passo",
+    Reopen: "Riapri",
+    "Close workorder": "Chiudi ordine di lavoro",
+    "New workorder": "Nuovo ordine di lavoro",
+    Values: "Valori",
+    "Select…": "Seleziona…",
     // ── App install and update ─────────────────────────────────────────
     "Gilbert is already installed on this device. Open it from its icon on your Home Screen to use the app.":
       "Gilbert è già installato su questo dispositivo. Apri l'app dalla sua icona nella schermata Home.",

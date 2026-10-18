@@ -46,6 +46,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "エージェント",
+    Workorders: "作業指示",
+    Completed: "完了",
+    Replaced: "置き換え済み",
+    Skipped: "スキップ",
+    "Not applicable": "該当なし",
+    "Why?": "理由",
+    "Set state": "状態を設定",
+    Global: "全体",
+    "No steps": "ステップなし",
+    Reopen: "再開",
+    "Close workorder": "作業指示を閉じる",
+    "New workorder": "新しい作業指示",
+    Values: "値",
+    "Select…": "選択…",
     "Mention a member": "メンバーをメンション",
     "Go to folder…": "フォルダーへ移動…",
     "Set by the agent on {when}": "エージェントが{when}に設定",

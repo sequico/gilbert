@@ -23,6 +23,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "Ajan",
+    Workorders: "İş emirleri",
+    Completed: "Tamamlandı",
+    Replaced: "Değiştirildi",
+    Skipped: "Atlandı",
+    "Not applicable": "Uygulanamaz",
+    "Why?": "Neden?",
+    "Set state": "Durum ayarla",
+    Global: "Genel",
+    "No steps": "Adım yok",
+    Reopen: "Yeniden aç",
+    "Close workorder": "İş emrini kapat",
+    "New workorder": "Yeni iş emri",
+    Values: "Değerler",
+    "Select…": "Seç…",
     "": "",
     " and {count} more": " ve {count} tane daha",
     "(new event)": "(yeni etkinlik)",

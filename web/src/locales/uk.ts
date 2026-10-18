@@ -43,6 +43,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "Агент",
+    Workorders: "Наряди",
+    Completed: "Завершено",
+    Replaced: "Замінено",
+    Skipped: "Пропущено",
+    "Not applicable": "Не застосовно",
+    "Why?": "Чому?",
+    "Set state": "Задати стан",
+    Global: "Загальне",
+    "No steps": "Немає кроків",
+    Reopen: "Відкрити знову",
+    "Close workorder": "Закрити наряд",
+    "New workorder": "Новий наряд",
+    Values: "Значення",
+    "Select…": "Вибрати…",
     "Mention a member": "Згадати учасника",
     "Go to folder…": "Перейти до теки…",
     "Set by the agent on {when}": "Задано агентом {when}",

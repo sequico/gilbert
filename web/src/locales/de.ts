@@ -55,6 +55,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "Agent",
+    Workorders: "Arbeitsaufträge",
+    Completed: "Abgeschlossen",
+    Replaced: "Ersetzt",
+    Skipped: "Übersprungen",
+    "Not applicable": "Nicht zutreffend",
+    "Why?": "Warum?",
+    "Set state": "Status setzen",
+    Global: "Global",
+    "No steps": "Keine Schritte",
+    Reopen: "Wieder öffnen",
+    "Close workorder": "Arbeitsauftrag schließen",
+    "New workorder": "Neuer Arbeitsauftrag",
+    Values: "Werte",
+    "Select…": "Auswählen…",
     "Mention a member": "Mitglied erwähnen",
     "Go to folder…": "Zu Ordner springen…",
     "Set by the agent on {when}": "Vom Agenten gesetzt am {when}",

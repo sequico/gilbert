@@ -45,6 +45,21 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    Agent: "代理",
+    Workorders: "工单",
+    Completed: "已完成",
+    Replaced: "已替换",
+    Skipped: "已跳过",
+    "Not applicable": "不适用",
+    "Why?": "原因",
+    "Set state": "设置状态",
+    Global: "全局",
+    "No steps": "无步骤",
+    Reopen: "重新打开",
+    "Close workorder": "关闭工单",
+    "New workorder": "新建工单",
+    Values: "值",
+    "Select…": "选择…",
     "Mention a member": "提及成员",
     "Go to folder…": "转到文件夹…",
     "Set by the agent on {when}": "由代理于 {when} 设置",
