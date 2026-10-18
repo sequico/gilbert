@@ -15,7 +15,6 @@ import type { Ctx } from "./appFolder.js";
 import { config, masterAddress } from "./config.js";
 import { JmapClient, STALWART_CAP } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
-import { mailboxesOf } from "./shared/mailboxes.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
 import { errorMessage } from "./shared/errors.js";
 import {
@@ -26,6 +25,7 @@ import {
   type GroupNeed,
 } from "./shared/groupAccess.js";
 import { queryThenGet } from "./shared/jmapQuery.js";
+import { mailboxesOf } from "./shared/mailboxes.js";
 import { groupCandidates } from "./shared/sessionAccount.js";
 import {
   fetchUpstreamSession,
@@ -300,7 +300,6 @@ export async function openAgentSession(
 /* ------------------------------------------------------------------ */
 /* Which accounts are groups                                           */
 /* ------------------------------------------------------------------ */
-
 
 /**
  * Whether an account answers as a mail store — the one group classifier.
