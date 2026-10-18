@@ -17,5 +17,11 @@
     "sourceMap": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/testkit.ts", "src/mock"]
+  /*
+   * `src/mock` is NOT excluded: the in-memory Stalwart is shipped inside the
+   * production image on purpose (owner decision 2026-10-18), so the image can
+   * run a demo installation with no real mail server. It is a shipped part of
+   * the product, not dead weight -- never add it here to "save" the build.
+   */
+  "exclude": ["src/**/*.test.ts", "src/testkit.ts"]
 }
