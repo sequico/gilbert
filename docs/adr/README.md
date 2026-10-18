@@ -260,9 +260,11 @@ is, not what a user sees.
   message in the trace; **the intent** (which policy is right, what is approved)
   is never the agent's, only proposed. It **reopens** a settled step when the
   evidence says it is not settled, and **what it asserts is its own**: the signer
-  of a step it settles is the agent, never a person. **Partly built** — the five
-  classes and the guard that asks them are `server/src/agent/tools.ts`; the acts a
-  person must authorise are not in the catalogue yet.
+  of a step it settles is the agent, never a person. **Built** — the five
+  classes and the guard that asks them are `server/src/agent/tools.ts`, a
+  person's word arrives in the sentence that answers a run (`readAnswerAuthority`,
+  `authoriseAnswer`), and `mail.send` is the outward act it licenses, for exactly
+  the message it names. A destroy is not in the catalogue.
 - **0033 — The conversation runs in chat and mail (accepted).** One
   conversation, two channels: a question, an answer, an authorisation and a report
   are the same in the group's chat and in mail, and **everything is in words** —
@@ -339,7 +341,7 @@ is, not what a user sees.
   (`server/src/agent/model.ts`), the run records what it recalled (`recalled`,
   `server/src/shared/run.ts`), `memory.remember` is the tool
   (`server/src/agent/tools.ts`), and the surface is
-  `server/src/routes/agent.ts` and `web/src/views/admin/AdminAgent.tsx`. What is
-  not built is the **proposal** the agent puts up against a person's fact: the
-  write is refused in a code, so nothing is overwritten, but the conclusion itself
-  is a refused step rather than a document waiting for approval.
+  `server/src/routes/agent.ts` and `web/src/views/admin/AdminAgent.tsx`. A conclusion
+  against a person's fact is kept as a **proposal** (`FactProposal`) beside the
+  person's sentence, and Administration accepts it — the correction path, whose
+  write carries no proposal — or dismisses it.

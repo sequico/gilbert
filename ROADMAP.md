@@ -7,8 +7,8 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **The agent's conversation by mail is not built, and a person's authorisation
-  has no path into a run yet.** The Master's agent is
+- **What the agent still does not do: destroy, and ask its own way past the
+  policy.** The Master's agent is
   designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
@@ -40,12 +40,13 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   signed as the agent (ADR 0028); `knowledge.propose` writes a page's draft for a
   person to approve (ADR 0024). A conclusion
   against a person's fact is proposed beside it rather than written over, and
-  Administration accepts or dismisses it (ADR 0037); the sentence that answers a
-  run's question is read once for what it authorises, and the act it names is
-  recorded on the run with the person's own words (ADR 0032). What is not built
-  is the conversation in **mail** (ADR 0033) — the group's chat is what it has so
-  far — and with it the acts the classes are asked for: a send reaches nobody
-  yet, so the catalogue asks a person's word for nothing today.
+  Administration accepts or dismisses it (ADR 0037). The conversation runs in
+  **mail** as well as in chat (ADR 0033): `mail.ask` sends the question to a
+  principal with access and parks the run on it, the reply that names it in its
+  thread continues the run, and `mail.send` carries a message outward once a
+  person's own words license exactly that message (ADR 0032). What is still not
+  built is a **destroy** — the act whose name a person would have to give — and an
+  administrator's path to override the written policy.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
