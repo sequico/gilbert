@@ -237,8 +237,9 @@ export async function revokeAppPassword(ctx: Ctx, id: string): Promise<void> {
 }
 
 /**
- * Start enrolment: mint a secret and hand back the URL to show as a QR code.
- * Nothing is stored until the user proves they can produce a code from it.
+ * Start enrolment: mint a secret and hand back the `otpauth://` URL for an
+ * authenticator app. Nothing is stored until the user proves they can produce a
+ * code from it.
  */
 export function beginOtpEnrolment(ctx: Ctx): { secret: string; url: string } {
   const secret = generateSecret();
