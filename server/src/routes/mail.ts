@@ -53,6 +53,21 @@ import {
   upstreamFailure,
 } from "./shared.js";
 
+/**
+ * Whether the session's own JMAP session holds this account.
+ *
+ * The upload and download routes take an account id from the client and put it
+ * straight into the upstream template. Stalwart checks the permission itself,
+ * but it is the only check there is: every other surface that names another
+ * account is bounded in Gilbert, and this one answers the same way.
+ */
+function sessionHoldsAccount(
+  session: { accounts?: Record<string, unknown> },
+  accountId: string,
+): boolean {
+  return Object.hasOwn(session.accounts ?? {}, accountId);
+}
+
 export function registerMailRoutes(api: Hono<Env>): void {
   // ---------- JMAP API proxy ----------
   api.post("/jmap", requireSession, apiRateLimited, async (c) => {
@@ -168,6 +183,8 @@ export function registerMailRoutes(api: Hono<Env>): void {
       : null;
     try {
       const upstream = await sessionUpstream(session);
+      if (!sessionHoldsAccount(upstream, accountId))
+        return c.json({ error: "not_found" }, 404);
       const url = absoluteUpstream(
         expandTemplate(upstream.uploadUrl, { accountId }),
         upstream.baseUrl,
@@ -202,6 +219,8 @@ export function registerMailRoutes(api: Hono<Env>): void {
     const range = c.req.header("range");
     try {
       const upstream = await sessionUpstream(session);
+      if (!sessionHoldsAccount(upstream, accountId))
+        return c.json({ error: "not_found" }, 404);
       const url = absoluteUpstream(
         expandTemplate(upstream.downloadUrl, { accountId, blobId, name, type: accept }),
         upstream.baseUrl,
@@ -319,6 +338,15 @@ export function registerMailRoutes(api: Hono<Env>): void {
         pushAttach(session.username, accountId, session.authorization, out, origin)
       ) {
         /*
+         * Headers before the first await: the tab is already in the fan-out,
+         * and a StateChange (or the sweeper's ping) landing before this write
+         * would send an implicit 200 with no `text/event-stream`, after which
+         * `writeHead` throws and the browser reconnects in a loop.
+         */
+        out.writeHead(200, SSE_HEADERS);
+        out.flushHeaders();
+        out.write(": subscribed\n\n");
+        /*
          * The tab also follows the installation's own account (ADR 0028).
          *
          * A step an administrator checks on the installation's checklist is
@@ -348,9 +376,6 @@ export function registerMailRoutes(api: Hono<Env>): void {
             out,
             origin,
           );
-        out.writeHead(200, SSE_HEADERS);
-        out.flushHeaders();
-        out.write(": subscribed\n\n");
         return RESPONSE_ALREADY_SENT;
       }
       if (config.rawPushRelay)

@@ -1,15 +1,21 @@
-# One half of a pair with `.gitignore`, which says the same about itself.
+# One half of a pair with `.gitignore`: the build context must not see what the
+# tree does not carry anyway.
 #
-# What belongs in both is anything a *build* must not see: dependencies, build
-# output, git's own directory, and every `.env` (deploy.example.sh keeps its
-# settings in .env.production; any .env.* holds APP_SECRET). What each file also
-# carries on its own is fine — a name that matches at any depth belongs to
-# `.gitignore`, which is about the tree rather than about a build context.
+# Every name here matches at any depth, because what a build must not see —
+# dependencies, build output, git's own directory, a worktree, and every `.env`
+# (deploy.example.sh keeps its settings in .env.production; any .env.* holds
+# APP_SECRET) — sits in a package as often as at the root.
 node_modules
 **/node_modules
 **/dist
 .git
-.env
-.env.*
+**/.git
+# `.env` at any depth: `web/.env.local` is Vite's own convention, and a name
+# that matches only at the root is exactly the one a build would carry.
+**/.env
+**/.env.*
 !.env.example
+!**/.env.example
+# A worktree is a second checkout, not content.
+.worktree
 server/data

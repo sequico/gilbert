@@ -234,6 +234,18 @@ describe("discarding while a save is in flight", () => {
   });
 });
 
+describe("a close whose final save fails", () => {
+  it("puts the draft back instead of dropping it", async () => {
+    const key = openDraft!;
+    vi.spyOn(client, "call").mockRejectedValue(new Error("offline"));
+    await useCompose.getState().close(key);
+    const back = useCompose.getState().drafts.find((d) => d.key === key);
+    expect(back, "the unsaved draft is still on screen").toBeTruthy();
+    expect(back!.text).toBe("v1");
+    openDraft = null; // it is open again; afterEach's recorder closes it
+  });
+});
+
 /**
  * The one destroy a member still takes in a group (ADR 0015).
  *

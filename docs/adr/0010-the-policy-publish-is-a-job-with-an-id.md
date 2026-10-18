@@ -77,7 +77,9 @@ measured against).
   the installation.
 
 - **A publish that cannot store its own record says so.** The job is written
-  after every copy, and a write that fails leaves the returned job with
+  before the first copy goes out — a run abandoned half-way still leaves the id
+  it started under — and written again when the walk ends, with what it reached
+  and what it missed. A write that fails leaves the returned job with
   `record: "failed"` and the server's message beside it. The copies are already
   in their accounts, so the report of what was reached is not thrown away with
   the note about it — and a job no later read can find is never answered as

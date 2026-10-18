@@ -386,8 +386,16 @@ export const useMail = create<MailState>((set, get) => ({
     void get().loadLabelCounts();
   },
 
-  roleId(role) {
-    for (const m of Object.values(get().mailboxes)) if (m.role === role) return m.id;
+  roleId(role, accountId) {
+    const { accountId: active, mailboxes, accountTrees } = get();
+    /*
+     * The account asked for, not always the one on screen: a draft is saved
+     * into the account it was written in, which a mailbox switch does not
+     * change. The tree of an account switched away from is still cached.
+     */
+    const tree = accountId && accountId !== active ? accountTrees[accountId] : mailboxes;
+    if (!tree) return null;
+    for (const m of Object.values(tree)) if (m.role === role) return m.id;
     return null;
   },
 
@@ -1911,6 +1919,7 @@ export const useMail = create<MailState>((set, get) => ({
         try {
           let since = state;
           let guard = 0;
+          let more = false;
           const updated = new Set<Id>();
           const created = new Set<Id>();
           const destroyed = new Set<Id>();
@@ -1931,6 +1940,7 @@ export const useMail = create<MailState>((set, get) => ({
             ch.destroyed.forEach((id) => destroyed.add(id));
             since = ch.newState;
             if (!ch.hasMoreChanges) break;
+            more = true;
           }
           // The changes were read: whatever was reported while the server was
           // failing has been answered, so a later failure is news again.
@@ -1995,8 +2005,24 @@ export const useMail = create<MailState>((set, get) => ({
            * window again rather than dropping the updated emails whose list
            * props were never fetched -- `refreshList` below re-reads ids only,
            * not those props.
+           *
+           * A walk that stopped at its page bound with changes still pending
+           * never read them, and the token after them would claim it had: it
+           * is taken from the server's own current state instead, and the
+           * window is re-read, which is the same answer the chat store gives
+           * its transcript.
            */
-          set({ emailState: since });
+          if (more) {
+            const now = await client.call<{ state?: unknown }>(
+              "Email/get",
+              { accountId, ids: [], properties: ["id"] },
+              [],
+              signal,
+            );
+            set({ emailState: typeof now.state === "string" ? now.state : null });
+          } else {
+            set({ emailState: since });
+          }
           if (created.size) await notifyNewMail([...created], get);
         } catch (err) {
           if (err instanceof JmapMethodError && err.type === "cannotCalculateChanges") {

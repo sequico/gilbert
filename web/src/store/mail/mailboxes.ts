@@ -250,7 +250,7 @@ export async function moveToDestinations(
     names.length === 1
       ? names[0]!
       : t("{count} folders", { count: String(names.length) });
-  toast.show(movedTo(ids.length, where), {
+  toast.show(movedTo(Object.keys(added).length, where), {
     action: !undoable
       ? undefined
       : { label: "Undo", onClick: moveUndo(ids, prev, added, accountId, set, get) },

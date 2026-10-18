@@ -47,6 +47,16 @@ test("a pin with no version comment is reported", () => {
   assert.match(result.findings[0]?.reason ?? "", /no version/);
 });
 
+test("a pin whose comment names no version is reported", () => {
+  const result = checkWorkflowPins([
+    file(
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # fix 1\n",
+    ),
+  ]);
+  assert.equal(result.ok, false);
+  assert.match(result.findings[0]?.reason ?? "", /no version/);
+});
+
 test("a local workflow reference is not an action and is not pinned", () => {
   const result = checkWorkflowPins([file("    uses: ./.github/workflows/ci.yml\n")]);
   assert.equal(result.ok, true);

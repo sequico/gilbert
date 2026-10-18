@@ -227,6 +227,19 @@ export interface SessionBackend {
 }
 
 /**
+ * Whether an address can be the target half of an impersonating credential.
+ *
+ * The credential is `{target}%{admin}`, so a `%` in the target changes what the
+ * server reads as the two halves, and a `:` can be read as the separator
+ * between username and password. No address carries either; refusing them
+ * here means every door that impersonates applies the same rule, rather than
+ * one route remembering it.
+ */
+export function isImpersonationTarget(target: string): boolean {
+  return !target.includes("%") && !target.includes(":");
+}
+
+/**
  * Rebuild a session's Basic authorization as Stalwart 0.16's composite
  * impersonation username `{target}%{admin}`: authenticate as the target
  * using the administrator's own credential, which the seal holds.
@@ -242,6 +255,7 @@ export function impersonationAuthorization(
   target: string,
 ): string | null {
   if (session.appPassword) return null;
+  if (!isImpersonationTarget(target)) return null;
   // The header was built from the decrypted `{username, password}`; decoding
   // it back is how the admin path reaches the password without a new
   // decryption surface.

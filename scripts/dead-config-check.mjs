@@ -147,6 +147,12 @@ const TEXT_EXT = new Set([
   ".bash",
   ".zsh",
   ".ps1",
+  /* systemd units: a deployment's own configuration text, read by nobody here
+     until this list says so. */
+  ".service",
+  ".timer",
+  ".socket",
+  ".path",
   ".html",
   ".htm",
   ".css",

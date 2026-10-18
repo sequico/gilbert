@@ -71,6 +71,14 @@ export type ReplyMode = "reply" | "replyAll" | "forward";
 
 export interface Draft {
   key: string;
+  /**
+   * The account the draft lives in, stamped when it is opened.
+   *
+   * A composer outlives a switch of mailbox, so the account on screen when a
+   * save runs is not necessarily the one the draft belongs to. Saving it there
+   * would create it in the wrong Drafts with an id from the other account.
+   */
+  accountId: Id;
   draftId: Id | null;
   identityId: Id | null;
   to: EmailAddress[];
@@ -220,6 +228,7 @@ function blankDraft(init: Partial<Draft> = {}): Draft {
   const s = settings();
   return {
     key: uid("d"),
+    accountId: useMail.getState().accountId ?? "",
     draftId: null,
     identityId: null,
     to: [],
@@ -860,7 +869,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
         saveChains.delete(key);
         if (id) {
           await client.call("Email/set", {
-            accountId: useMail.getState().accountId,
+            accountId: d.accountId,
             destroy: [id],
           });
           void useMail.getState().refreshList();
@@ -882,6 +891,16 @@ export const useCompose = create<ComposeState>((set, get) => ({
         saveChains.delete(key);
         toast.show(translate("Draft saved"));
       } catch (err) {
+        /*
+         * The draft left `drafts` before this save ran, so a failure would drop
+         * it from the screen, from Drafts and from anything that could retry.
+         * It goes back where the reader can see it, exactly as a failed send
+         * restores its own.
+         */
+        set((s) => ({
+          drafts: s.drafts.some((x) => x.key === d.key) ? s.drafts : [...s.drafts, d],
+          activeKey: d.key,
+        }));
         toast.error(
           translate("Could not save draft: {error}", { error: errorMessage(err) }),
         );
@@ -899,7 +918,8 @@ export const useCompose = create<ComposeState>((set, get) => ({
   },
 
   addFiles(key, files) {
-    const accountId = useMail.getState().accountId;
+    const accountId =
+      get().drafts.find((d) => d.key === key)?.accountId ?? useMail.getState().accountId;
     if (!accountId) return;
     const max = client.maxSizeUpload;
     const atts: ComposeAttachment[] = files.map((f) => ({
@@ -970,7 +990,8 @@ export const useCompose = create<ComposeState>((set, get) => ({
    * unavoidable, but it happens without the reader having to know any of this.
    */
   async addFromFiles(key, nodes) {
-    const accountId = useMail.getState().accountId;
+    const accountId =
+      get().drafts.find((d) => d.key === key)?.accountId ?? useMail.getState().accountId;
     if (!accountId || !nodes.length) return;
     const max = client.maxSizeUpload;
     const atts: ComposeAttachment[] = nodes.map((n) => {
@@ -1070,15 +1091,18 @@ export const useCompose = create<ComposeState>((set, get) => ({
      * screen by then -- or from none at all. See `SendTarget`.
      */
     const mail = useMail.getState();
+    const accountId = found.accountId || mail.accountId;
+    const identities = accountId ? identitiesFor(accountId, mail) : [];
     const identity =
-      mail.identities.find((i) => i.id === found.identityId) ?? mail.defaultIdentity();
+      identities.find((i) => i.id === found.identityId) ??
+      mail.defaultIdentityFor(accountId);
     const target: SendTarget = {
-      accountId: mail.accountId,
+      accountId,
       identity: identity ?? null,
       // The fallback is inside the capture rather than at the submission: a
       // message with no folder to land in would be created nowhere.
-      sentId: mail.roleId("sent") ?? mail.roleId("inbox"),
-      draftsId: mail.roleId("drafts"),
+      sentId: mail.roleId("sent", accountId) ?? mail.roleId("inbox", accountId),
+      draftsId: mail.roleId("drafts", accountId),
     };
     // A draft that already has a Message-ID has been sent before, and failed.
     const retry = Boolean(found.sendMessageId);
@@ -1475,6 +1499,22 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const BLOB_URL_PREFIX = `${BASE_PATH}/api/blob/`;
 const BLOB_URL_RE = escapeRe(BLOB_URL_PREFIX);
 
+/**
+ * The identities a draft's account sends with.
+ *
+ * The list on screen when the draft belongs to the account being read, and the
+ * cached list of its own otherwise: a composer outlives a mailbox switch, and
+ * its From list must not become the new account's.
+ */
+function identitiesFor(
+  accountId: Id,
+  mail: ReturnType<typeof useMail.getState>,
+): Identity[] {
+  return accountId === mail.accountId
+    ? mail.identities
+    : (mail.identitiesByAccount[accountId] ?? []);
+}
+
 /** Build the JMAP Email creation object from a draft. */
 export async function buildEmailObject(
   d: Draft,
@@ -1482,16 +1522,17 @@ export async function buildEmailObject(
 ): Promise<Record<string, unknown>> {
   const mail = useMail.getState();
   /*
-   * The send path carries the account and the persona Send was pressed under
-   * (`SendTarget`), because by the time it runs the reader may be looking at
-   * another mailbox. A save answers from what is on screen, which is where the
-   * composer it belongs to is.
+   * The draft's own account, not whatever mailbox is on screen: a composer
+   * stays open across a switch, and the identity, the Drafts folder and the
+   * create are all that account's. The send path passes the account it
+   * captured when Send was pressed (`SendTarget`).
    */
-  const accountId = opts.send?.accountId ?? mail.accountId!;
+  const accountId = opts.send?.accountId ?? d.accountId;
+  const identities = identitiesFor(accountId, mail);
   const ident =
     opts.send?.identity ??
-    mail.identities.find((i) => i.id === d.identityId) ??
-    mail.identities[0];
+    identities.find((i) => i.id === d.identityId) ??
+    mail.defaultIdentityFor(accountId);
   if (!ident) throw new Error(translate("No sending identity available"));
   const from: EmailAddress = { name: ident.name || null, email: ident.email };
 
@@ -1639,12 +1680,17 @@ export async function buildEmailObject(
   }
   if (d.requestReceipt) obj["header:Disposition-Notification-To:asAddresses"] = [from];
   if (!opts.forSend) {
-    const draftsId = mail.roleId("drafts");
-    obj.mailboxIds = draftsId ? { [draftsId]: true } : { [mail.roleId("inbox")!]: true };
+    const draftsId = mail.roleId("drafts", accountId);
+    obj.mailboxIds = draftsId
+      ? { [draftsId]: true }
+      : { [mail.roleId("inbox", accountId)!]: true };
     obj.keywords = { $draft: true, $seen: true };
   } else {
     const sentId =
-      opts.mailboxId ?? opts.send?.sentId ?? mail.roleId("sent") ?? mail.roleId("inbox");
+      opts.mailboxId ??
+      opts.send?.sentId ??
+      mail.roleId("sent", accountId) ??
+      mail.roleId("inbox", accountId);
     obj.mailboxIds = { [sentId!]: true };
     obj.keywords = { $seen: true };
   }
@@ -1672,7 +1718,7 @@ async function saveDraftInternal(
   opts: { silent: boolean; final?: boolean },
 ): Promise<Id | null> {
   const mail = useMail.getState();
-  const accountId = mail.accountId!;
+  const accountId = d.accountId;
   if (!opts.final)
     set((s) => ({
       drafts: s.drafts.map((x) => (x.key === d.key ? { ...x, saving: true } : x)),
@@ -1718,7 +1764,7 @@ async function saveDraftInternal(
         ),
       }));
     void mail.loadMailboxes();
-    if (mail.list?.mailboxId && mail.list.mailboxId === mail.roleId("drafts"))
+    if (mail.list?.mailboxId && mail.list.mailboxId === mail.roleId("drafts", accountId))
       void mail.refreshList();
     return newId;
   } catch (err) {
