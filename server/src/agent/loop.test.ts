@@ -38,8 +38,9 @@
  *   about is worked exactly as it was before the memory existed;
  * - every call is told the installation's line and the group's standing
  *   instruction, in the record's order, above the rule's own;
- * - two `memory.remember` calls in one answer leave one sheet for the subject,
- *   and the call that lost the compare-and-set is a refused step on the run.
+ * - two `memory.remember` calls in one answer leave one sheet for the subject:
+ *   the call that lost the compare-and-set reads the memory again and updates
+ *   the sheet, so neither is a refused step.
  */
 
 import assert from "node:assert/strict";
@@ -1614,14 +1615,14 @@ test("a fact one run learns is handed to the next change's call, and the record 
   );
 });
 
-test("two memories of one answer leave one sheet, and the refusal is on the run", async () => {
+test("two memories of one answer leave one sheet, and neither step is refused", async () => {
   /*
    * A `memory.remember` repeated in one answer is two steps of one wave
    * (`Promise.allSettled`), and both decide against the pass's **one** reading of
    * the store (ADR 0037): each finds the subject absent and each asks for a
-   * sheet. The create carries that reading's token, so only the first lands —
-   * the second loses the compare-and-set and its step says so, rather than the
-   * memory holding two sheets for one subject.
+   * sheet. The first lands and moves the state; the second loses the
+   * compare-and-set, reads the memory again, finds the sheet, and updates it —
+   * one subject stays one sheet, and the fact is not lost to a refusal.
    */
   const id = "intake-remember-twice";
   await putRule(id);
@@ -1650,21 +1651,22 @@ test("two memories of one answer leave one sheet, and the refusal is on the run"
 
   const run = await runOf(id);
   assert.deepEqual(
-    run.plan.map((step) => step.state).sort(),
-    ["done", "failed"],
-    "the two calls are two steps, one of which was refused",
-  );
-  const refused = run.plan.find((step) => step.state === "failed");
-  assert.match(
-    refused?.outcome ?? "",
-    /^refused: /,
-    "and the record says the write was refused rather than leaving it silent",
+    run.plan.map((step) => step.state),
+    ["done", "done"],
+    "the two calls are two steps, and both landed",
   );
 
   const sheets = (await listFacts(ctx, memoryAccountId)).facts.filter((fact) =>
     sameSubject(fact.subject, "Maersk"),
   );
   assert.equal(sheets.length, 1, "the memory holds one sheet for the subject");
+  assert.ok(
+    [
+      "the shipper this account books with",
+      "the shipper this account books with, said again",
+    ].includes(sheets[0]?.fact ?? ""),
+    "and it carries one of the two sentences, not a refusal",
+  );
   remembered.push((sheets[0] as { id: string }).id);
   assert.equal(
     run.recalled.length,

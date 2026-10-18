@@ -316,18 +316,44 @@ export interface FactWrite {
  * The write is made **against a reading of the store** that the caller hands in
  * — the pass's one reading (ADR 0037) — and both the sheet it replaces and the
  * token it carries come from that reading, so a write landing since is refused
- * rather than overwritten: two turns that reached the same conclusion cannot
- * replace each other in silence, and the one that loses says so on its step. The
- * token is carried by a **create as well**, not only by a replace: two calls of
- * one answer both find a subject absent and both ask for its sheet, and the
- * second — same reading, same token — is refused rather than the memory holding
- * two spellings of one thing. The sheet records the **group it is about**
- * (`FactWrite.group`, the run's own account): that is what its `standing` mark is
- * filtered by, so a fact a group keeps about itself is carried by that group's
- * calls and not by another's. A **person's** sheet is not replaced at all — a
- * person's fact is in force (ADR 0037) — and the refusal says so in a code.
+ * rather than overwritten. A refusal is not the end of the write: the store is
+ * read once per pass, so the first write of a pass moves the state every later
+ * one carries, and a second `memory.remember` — another run of the same pass, or
+ * another call of one answer — would lose against its own pass. The refusal is
+ * answered by reading the memory again and deciding again: a subject the other
+ * call created is then **updated in its sheet**, not duplicated, and the pass's
+ * reading is moved forward for whatever comes next. The sheet records the
+ * **group it is about** (`FactWrite.group`, the run's own account): that is what
+ * its `standing` mark is filtered by, so a fact a group keeps about itself is
+ * carried by that group's calls and not by another's. A **person's** sheet is
+ * not replaced at all — a person's fact is in force (ADR 0037) — and the
+ * refusal says so in a code.
  */
 export async function rememberFact(
+  ctx: Ctx,
+  accountId: string,
+  write: FactWrite,
+  store: MemoryStore,
+): Promise<FactDoc> {
+  try {
+    return await writeFact(ctx, accountId, write, store);
+  } catch (err) {
+    if (!isStateMismatch(err)) throw err;
+    const fresh = await listFacts(ctx, accountId);
+    /*
+     * A person's sheet is never written against words this call did not read:
+     * the memory moved because a person corrected it, and the agent's proposal
+     * has to be concluded against the correction. Everything else — a subject
+     * another call of this pass created, or a sheet of the agent's own that
+     * moved on — is decided again against the fresh reading.
+     */
+    const sameNow = fresh.facts.find((fact) => sameSubject(fact.subject, write.subject));
+    if (sameNow && isInForce(sameNow)) throw err;
+    return await writeFact(ctx, accountId, write, fresh);
+  }
+}
+
+async function writeFact(
   ctx: Ctx,
   accountId: string,
   write: FactWrite,

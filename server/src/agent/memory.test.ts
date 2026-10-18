@@ -32,7 +32,6 @@ const { destroyAppNode, filesAccountId, readAppFileAt, writeAppBytesAt, writeApp
 const { isInForce, MEMORY_VERSION, recallFacts, sameSubject } = await import(
   "../shared/memory.js"
 );
-const { isStateMismatch } = await import("../shared/errors.js");
 const {
   correctFactByPerson,
   dismissProposal,
@@ -192,13 +191,14 @@ test("a later sentence about a subject keeps the mark and the links it does not 
   assert.deepEqual(later.links, [port.id], "and keeps the link it did not restate");
 });
 
-test("a write whose reading has been overtaken is refused, and the sheet is left as it was", async () => {
+test("a write whose reading was overtaken is decided again, against one sheet", async () => {
   /*
    * The write is a compare-and-set against the reading it was given (ADR 0037):
    * the token is the FileNode state that reading saw, so a write landing between
-   * the read and the write makes this one stale. It is refused rather than
-   * correcting a sheet this reading never saw — the mechanism two turns of one
-   * answer rely on when they reach the same subject.
+   * the read and the write makes this one stale. It is refused — and then read
+   * again, because the store is read once per pass and the first write of a pass
+   * must not cost the second one's fact. The sheet it meant to correct is found
+   * in the fresh reading and updated, so one subject stays one sheet.
    */
   const first = await rememberFact(
     ctx,
@@ -231,27 +231,27 @@ test("a write whose reading has been overtaken is refused, and the sheet is left
   );
   written.push(other.id);
 
-  await assert.rejects(
-    () =>
-      rememberFact(
-        ctx,
-        accountId,
-        {
-          subject: "maersk",
-          fact: "the usual shipper, corrected",
-          run: "r-2",
-          at: AT,
-          group: accountId,
-        },
-        stale,
-      ),
-    (err: unknown) => isStateMismatch(err),
-    "the write is refused as a lost compare-and-set, not applied",
+  const corrected = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "maersk",
+      fact: "the usual shipper, corrected",
+      run: "r-2",
+      at: AT,
+      group: accountId,
+    },
+    stale,
+  );
+  assert.equal(
+    corrected.id,
+    first.id,
+    "the write lands on the sheet it meant to correct",
   );
   assert.equal(
     (await readFact(ctx, accountId, first.id))?.fact.fact,
-    "the usual shipper",
-    "and the sheet the stale write meant to correct is left exactly as it was",
+    "the usual shipper, corrected",
+    "and the correction is in force",
   );
 });
 
@@ -330,14 +330,14 @@ test("a person's correction and removal are refused when the memory moved under 
   );
 });
 
-test("two writes of one reading cannot make two sheets for one subject", async () => {
+test("two writes of one reading leave one sheet for one subject", async () => {
   /*
    * Two `memory.remember` calls in one answer run **together** (the loop's wave,
    * `Promise.allSettled`) and both are made against the pass's one reading
    * (ADR 0037), so each finds the subject absent and each asks for a sheet. The
-   * create carries the reading's token, so only the first lands: the second is
-   * refused as a lost compare-and-set, which is what keeps "one subject is one
-   * sheet" true when two calls decide it at once.
+   * first lands and moves the state; the second loses the compare-and-set, reads
+   * the memory again, finds the sheet the other call made, and updates it. One
+   * subject stays one sheet, and neither call is refused.
    */
   const reading = await store();
   const first = await rememberFact(
@@ -353,28 +353,31 @@ test("two writes of one reading cannot make two sheets for one subject", async (
     reading,
   );
   written.push(first.id);
-
-  await assert.rejects(
-    () =>
-      rememberFact(
-        ctx,
-        accountId,
-        {
-          subject: "maersk",
-          fact: "the same shipper, said again",
-          run: "r-1",
-          at: AT,
-          group: accountId,
-        },
-        reading,
-      ),
-    (err: unknown) => isStateMismatch(err),
-    "the second create carries the same token, so it is refused",
+  const second = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "maersk",
+      fact: "the same shipper, said again",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    reading,
+  );
+  assert.equal(second.id, first.id, "the second write updates the sheet the first made");
+  const sheets = (await store()).facts.filter((fact) =>
+    sameSubject(fact.subject, "Maersk"),
   );
   assert.equal(
-    (await store()).facts.filter((fact) => sameSubject(fact.subject, "Maersk")).length,
+    sheets.length,
     1,
     "and the memory holds one sheet for the subject, not two",
+  );
+  assert.equal(
+    sheets[0]?.fact,
+    "the same shipper, said again",
+    "the later sentence stands",
   );
 });
 
