@@ -36,9 +36,14 @@ export async function fetchGroupRuns(group: string): Promise<RunListing[]> {
 }
 
 /** The installation's memory: every fact the agent reasons from. */
-export async function fetchFacts(): Promise<FactDoc[]> {
-  const res = await apiFetch<{ facts: FactDoc[] }>("/api/admin/memory");
-  return res.facts;
+export interface FactsReading {
+  facts: FactDoc[];
+  /** Sheets this build cannot read, each with its reason: said, never hidden. */
+  problems: string[];
+}
+
+export async function fetchFacts(): Promise<FactsReading> {
+  return await apiFetch<FactsReading>("/api/admin/memory");
 }
 
 /**

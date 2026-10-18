@@ -368,6 +368,8 @@ export function AdminAgent() {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [facts, setFacts] = useState<FactDoc[]>([]);
+  /** Memory sheets this build could not read, as the route stated them. */
+  const [factProblems, setFactProblems] = useState<string[]>([]);
   const [factsError, setFactsError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const directory = useGroupDirectory();
@@ -398,7 +400,9 @@ export function AdminAgent() {
   async function loadFacts() {
     setFactsError(null);
     try {
-      setFacts(await fetchFacts());
+      const reading = await fetchFacts();
+      setFacts(reading.facts);
+      setFactProblems(reading.problems);
     } catch (err) {
       setFactsError(errorMessage(err));
     }
@@ -586,6 +590,13 @@ export function AdminAgent() {
         {factsError && (
           <div className="error-box" style={{ marginTop: 12 }}>
             {factsError}
+          </div>
+        )}
+        {factProblems.length > 0 && (
+          <div className="error-box" style={{ marginTop: 12 }}>
+            {factProblems.map((problem) => (
+              <div key={problem}>{problem}</div>
+            ))}
           </div>
         )}
         {facts.length === 0 && !factsError && (

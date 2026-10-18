@@ -49,6 +49,7 @@ import {
   destroyAppNode,
   ensureFolderPath,
   findAppFileAt,
+  findFolderPath,
   listAppSheets,
   readAppFileAt,
   writeAppFileAt,
@@ -68,6 +69,9 @@ import {
 
 /** Where the installation's memory lives under the Master's app folder. */
 export const MEMORY_DIR = "memory";
+
+/** How many fact sheets the installation's memory may hold. */
+export const MEMORY_FACTS_MAX = 5_000;
 
 /**
  * A fact's document path, app-folder-relative.
@@ -129,6 +133,18 @@ export interface FactRecord {
 export interface MemoryStore {
   state: string;
   facts: FactDoc[];
+  /**
+   * Whether the memory folder existed when this read happened. A first write
+   * into a folder this read did not find has to make it, which moves the state
+   * the read answered; the writer then takes a fresh one.
+   */
+  folder: boolean;
+  /**
+   * Sheets this build cannot read, each with its path and the reason. They are
+   * **reported, never skipped and never fatal**: one bad sheet must not stop
+   * every group's pass, so the readable facts are answered beside the problem.
+   */
+  problems: string[];
 }
 
 function unreadable(path: string, why: string): MemoryError {
@@ -207,14 +223,17 @@ export async function readFact(
  * caller of `recallFacts` never sees it.
  */
 export async function listFacts(ctx: Ctx, accountId: string): Promise<MemoryStore> {
-  await ensureFolderPath(ctx, accountId, MEMORY_DIR);
+  // The folder is made by the first write, never by a read: a pass is a read,
+  // and a read that creates a folder moves the account state under every writer.
+  const folder = await findFolderPath(ctx, accountId, MEMORY_DIR);
   const state = await appFolderState(ctx, accountId);
   const facts: FactDoc[] = [];
+  const problems: string[] = [];
   for (const row of await listAppSheets(ctx, accountId, MEMORY_DIR, parseFact)) {
-    if (row.problem) throw new MemoryError("fact_unreadable", row.problem);
-    if (row.doc) facts.push(row.doc);
+    if (row.problem) problems.push(row.problem);
+    else if (row.doc) facts.push(row.doc);
   }
-  return { state, facts };
+  return { state, facts, problems, folder: folder !== null };
 }
 
 /**
@@ -315,6 +334,16 @@ export async function rememberFact(
   store: MemoryStore,
 ): Promise<FactDoc> {
   const { subject, sentence } = checkedText(write.subject, write.fact, write.at);
+  /*
+   * The first write into a memory the reading found empty may be the one that
+   * makes the folder: the folder is made first, then the token is read, or the
+   * write would be refused by the folder it just created.
+   */
+  let token = store.state;
+  if (!store.folder) {
+    await ensureFolderPath(ctx, accountId, MEMORY_DIR);
+    token = await appFolderState(ctx, accountId);
+  }
   const same = store.facts.find((fact) => sameSubject(fact.subject, subject));
   if (same && isInForce(same)) {
     /*
@@ -329,10 +358,22 @@ export async function rememberFact(
       proposal: { fact: sentence, run: write.run, at: write.at },
     };
     await writeAppFileAt(ctx, accountId, factPath(proposed.id), proposed, {
-      ifInState: store.state,
+      ifInState: token,
     });
     return proposed;
   }
+  /*
+   * A store with no ceiling grows until every pass pays for it (owner decision
+   * 2026-10-18, audit finding 5). A new subject is refused once the store is at
+   * its limit; a person removes facts from Administration, and nothing is
+   * pruned or overwritten in silence.
+   */
+  if (!same && store.facts.length >= MEMORY_FACTS_MAX)
+    throw new MemoryError(
+      "memory_full",
+      `The memory holds ${store.facts.length} facts, its ceiling, so nothing was written. Remove a fact in Administration first.`,
+      409,
+    );
   const doc: FactDoc = {
     v: MEMORY_VERSION,
     id: same?.id ?? randomUUID(),
@@ -351,9 +392,7 @@ export async function rememberFact(
     standing: write.standing ?? same?.standing ?? false,
     group: write.group,
   };
-  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {
-    ifInState: store.state,
-  });
+  await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: token });
   return doc;
 }
 

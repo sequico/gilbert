@@ -605,10 +605,14 @@ test("a sheet this build cannot read is reported, never read as an empty fact", 
     (err: unknown) => err instanceof MemoryError && err.code === "fact_unreadable",
     "a sheet whose bytes do not parse is refused with its own code",
   );
-  await assert.rejects(
-    () => listFacts(ctx, accountId),
-    /The fact at memory\/junk\.json/,
+  const reading = await listFacts(ctx, accountId);
+  assert.ok(
+    reading.problems.some((problem) => problem.includes("memory/junk.json")),
     "and a listing reports it rather than skipping it",
+  );
+  assert.ok(
+    !reading.facts.some((fact) => fact.id === "junk"),
+    "without reading it as an empty fact",
   );
 
   // A document of the right JSON that is not the shape this build writes.

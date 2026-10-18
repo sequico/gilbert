@@ -362,8 +362,10 @@ export function registerAgentRoutes(api: Hono<Env>): void {
   api.get("/admin/memory", requireSession, requireAdmin, async (c) => {
     try {
       const ctx = await masterCtx(c.get("session"));
-      const { facts } = await listFacts(ctx, memoryAccount(ctx));
-      return c.json({ facts });
+      const { facts, problems } = await listFacts(ctx, memoryAccount(ctx));
+      // A sheet this build cannot read is said, not hidden: the surface shows it
+      // beside the facts instead of empty space nobody can explain.
+      return c.json({ facts, problems });
     } catch (err) {
       return doorFailure(c, err);
     }

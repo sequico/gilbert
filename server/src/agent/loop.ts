@@ -316,6 +316,10 @@ export class AgentLoop {
     this.installation = await this.readInstallationLine();
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
+    // The one memory reading of the pass, and the sheets it could not read: a
+    // bad sheet is said in the pass's own gaps, not silently dropped.
+    const memory = await this.memory();
+    for (const problem of memory.problems) summary.gaps.push(`memory: ${problem}`);
     /*
      * A group the Master no longer works keeps no queued alarm: the queue is
      * this pass's accounts and nothing else, or a process that runs for weeks
@@ -961,21 +965,7 @@ export class AgentLoop {
    * is gone, a directory that did not answer — is a no.
    */
   private async isAdministrator(address: string): Promise<boolean> {
-    try {
-      const authorization = impersonationAuthorization(
-        {
-          authorization: this.ctx.authorization,
-          username: this.ctx.username,
-          appPassword: false,
-        },
-        address,
-      );
-      if (!authorization) return false;
-      const intro = await fetchAccountIntrospection(authorization, upstreamFor(address));
-      return isStalwartAdmin(intro.permissions);
-    } catch {
-      return false;
-    }
+    return await administratorAt(this.ctx, address);
   }
 
   /**
@@ -1232,6 +1222,35 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
  * own address, matched on the document, rather than anything about the message
  * that answers it.
  */
+/**
+ * Whether one address is an installation administrator, as the directory says.
+ *
+ * The agent acts as the Master, which is one, so it can present the person's
+ * account to the server and read what that account may do: a permission list is
+ * the account's own, and impersonation is the only way to ask for somebody
+ * else's. Any refusal — an app-password session, a missing account, a silent
+ * directory — is a no, and the answer still continues its run.
+ *
+ * `introspect` is a seam for the test: production always passes the real read.
+ */
+export async function administratorAt(
+  ctx: Pick<Ctx, "authorization" | "username">,
+  address: string,
+  introspect: typeof fetchAccountIntrospection = fetchAccountIntrospection,
+): Promise<boolean> {
+  try {
+    const authorization = impersonationAuthorization(
+      { authorization: ctx.authorization, username: ctx.username, appPassword: false },
+      address,
+    );
+    if (!authorization) return false;
+    const intro = await introspect(authorization, upstreamFor(address));
+    return isStalwartAdmin(intro.permissions);
+  } catch {
+    return false;
+  }
+}
+
 /** Whether a run of the account already carries the step an answer wrote. */
 function answeredAlready(
   records: readonly RunRecord[],

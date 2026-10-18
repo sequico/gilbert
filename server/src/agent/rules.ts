@@ -22,7 +22,7 @@ import {
   destroyAppNode,
   ensureFolderPath,
   findAppFileAt,
-  listAppDir,
+  listAppSheets,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
@@ -161,12 +161,17 @@ export async function deleteRule(
  */
 export async function listRules(ctx: Ctx, accountId: string): Promise<RuleRecord[]> {
   const state = await appFolderState(ctx, accountId);
-  const records: RuleRecord[] = [];
-  for (const node of await listAppDir(ctx, accountId, RULES_DIR)) {
-    if (node.nodeType !== "file" || typeof node.name !== "string") continue;
-    if (!node.name.endsWith(".json")) continue;
-    const rule = await readRuleDoc(ctx, accountId, node.name.slice(0, -".json".length));
-    if (rule) records.push({ rule, state });
-  }
-  return records;
+  // The same stamp cache its siblings use: a rule whose node has not moved is
+  // not downloaded again, and a pass reads a folder of unchanged rules for the
+  // price of one listing.
+  const rows = await listAppSheets(ctx, accountId, RULES_DIR, (id, text) => {
+    const parsed = parseRuleDocumentDetailed(text);
+    if ("problem" in parsed) throw unreadable(rulePath(id), parsed.problem);
+    if (parsed.rule.id !== id)
+      throw unreadable(rulePath(id), `Its "id" is "${parsed.rule.id}".`);
+    return parsed.rule;
+  });
+  const first = rows.find((row) => row.problem);
+  if (first?.problem) throw unreadable(RULES_DIR, first.problem);
+  return rows.flatMap((row) => (row.doc ? [{ rule: row.doc, state }] : []));
 }
