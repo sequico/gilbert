@@ -57,8 +57,15 @@ const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
 const { factPath, listFacts } = await import("./memory.js");
-const { defineTool, READING_TOOLS, readingTools, readMessageForAnswer, runTool, TOOLS } =
-  await import("./tools.js");
+const {
+  defineTool,
+  mayRun,
+  READING_TOOLS,
+  readingTools,
+  readMessageForAnswer,
+  runTool,
+  TOOLS,
+} = await import("./tools.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -442,6 +449,54 @@ test("a tool refuses arguments it cannot use, and asks the server nothing", asyn
     () => callTool("files.read", { path: 7 }),
     /"path" must be text/,
     "a path that is not a path is refused the same way",
+  );
+});
+
+test("a rule that declares it sends is the authority an outward act asks for", () => {
+  /*
+   * ADR 0032's class 3, carried by a rule (ADR 0035): the group wrote the rule,
+   * its instruction says what to send, and the declaration travels on the run
+   * that rule opened. It answers for outward acts and nothing else.
+   */
+  const send = TOOLS.find((tool) => tool.name === "mail.send");
+  assert.ok(send, "the catalogue sends mail");
+  const args = { to: "shipper@example.org", subject: "Booking 4417", text: "Confirmed." };
+
+  const sending = startRun({
+    id: "sending",
+    startedBy: {
+      rule: "shipper",
+      instruction: null,
+      woke: "mail created: m-1",
+      sends: true,
+    },
+  });
+  assert.equal(mayRun(send, sending, args), true, "the rule's declaration is enough");
+
+  const quiet = startRun({
+    id: "quiet",
+    startedBy: { rule: "shipper", instruction: null, woke: "mail created: m-1" },
+  });
+  assert.equal(
+    mayRun(send, quiet, args),
+    false,
+    "a rule that says nothing sends nothing",
+  );
+  assert.equal(
+    mayRun(
+      send,
+      takeAuthorisation(quiet, {
+        what: "send it",
+        authority: "outward",
+        act: { target: "shipper@example.org", content: "Confirmed." },
+        by: "ada@example.org",
+        at: new Date().toISOString(),
+        from: { channel: "chat", id: "msg-1" },
+      }),
+      args,
+    ),
+    true,
+    "and a person's word for this act is",
   );
 });
 

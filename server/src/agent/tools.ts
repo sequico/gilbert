@@ -310,6 +310,13 @@ export function mayRun(tool: AnyTool, run: RunDoc, args: unknown): boolean {
   if (needed === "never") return false;
   const act = tool.act(args);
   if (!act) return false;
+  /*
+   * A rule that declares that it sends is the authority an outward act asks for
+   * (ADR 0032, 0035): the group wrote that rule, its instruction says what to
+   * send, and the declaration travels on the run its rule opened. It answers for
+   * outward acts and no other class.
+   */
+  if (needed === "outward" && run.startedBy.sends === true) return true;
   return run.authorisations.some(
     (one) =>
       one.authority === needed &&

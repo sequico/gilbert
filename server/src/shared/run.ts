@@ -109,6 +109,13 @@ export interface RunStart {
    * the answer it already has, never a reason for a second run (ADR 0035).
    */
   woke: string | null;
+  /**
+   * Whether the rule that started this run declared that it sends (ADR 0032,
+   * 0035). A group wrote that rule, and its instruction says what to send: the
+   * declaration is the authority an outward act asks for, and it is false or
+   * absent for a run an instruction started.
+   */
+  sends?: boolean;
 }
 
 /**
@@ -314,6 +321,7 @@ function isStart(x: unknown): x is RunStart {
   if (rule !== null && (typeof rule !== "string" || !rule)) return false;
   if (instruction !== null && !isMessageRef(instruction)) return false;
   if (woke !== null && (typeof woke !== "string" || !woke.trim())) return false;
+  if ("sends" in x && typeof x.sends !== "boolean") return false;
   // One of the two, and never both: a run that was started twice is not a run.
   if ((rule === null) === (instruction === null)) return false;
   // A rule is woken by a change in the group's account; an instruction **is**

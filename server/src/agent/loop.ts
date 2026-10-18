@@ -502,7 +502,13 @@ export class AgentLoop {
   ): Promise<RunDoc> {
     const run = startRun({
       id: randomUUID(),
-      startedBy: { rule: rule.id, instruction: null, woke: wokeOf(event) },
+      startedBy: {
+        rule: rule.id,
+        instruction: null,
+        woke: wokeOf(event),
+        // The rule's own declaration, carried by the run: the guard reads it.
+        sends: rule.sends,
+      },
     });
     await createRun(this.ctx, accountId, run);
     return run;
