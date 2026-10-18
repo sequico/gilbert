@@ -238,7 +238,7 @@ export interface SessionBackend {
  * the admin write path (ADR 0001).
  */
 export function impersonationAuthorization(
-  session: LiveSession,
+  session: Pick<LiveSession, "appPassword" | "authorization" | "username">,
   target: string,
 ): string | null {
   if (session.appPassword) return null;

@@ -1038,6 +1038,37 @@ test("an outcome is bounded for the prompt, and a malformed answer is refused", 
   );
 });
 
+test("an administrator's answer may carry an override, and nobody else's does", async () => {
+  /*
+   * Owner decision (2026-10-18): class 4 is an installation administrator's, and
+   * the marker is read from the directory by the loop — this is the reading's
+   * half of it. Told the person is an administrator, an override is a class the
+   * answer can give; told nothing, it is refused whole.
+   */
+  const access = { model, allowPrivateProvider: true };
+  const answer = {
+    asked: "may I delete the thread?",
+    said: "yes, override the policy for this one",
+    from: "admin@example.org",
+  };
+
+  answerWith({
+    authorisations: [{ authority: "override", target: "policy", content: null }],
+  });
+  assert.deepEqual(await readAnswerAuthority(access, answer, { admin: true }), [
+    { authority: "override", target: "policy", content: null },
+  ]);
+
+  answerWith({
+    authorisations: [{ authority: "override", target: "policy", content: null }],
+  });
+  await assert.rejects(
+    () => readAnswerAuthority(access, answer),
+    (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
+    "the same answer from anybody else is refused",
+  );
+});
+
 test("a person's answer is read for the act it authorises, and never for an override", async () => {
   /*
    * The sentence that answers a run can be the word a class asks for (ADR 0032),

@@ -748,12 +748,13 @@ function textOf(value: unknown): string {
 /**
  * What one person's answer authorises, once the run has read it (ADR 0032).
  *
- * The class is never an override: class 4 is an installation administrator's,
- * and a conversation is not where that is proved, so an answer that claims one
- * is refused rather than recorded.
+ * The class is an override only when the answer came from an installation
+ * administrator: class 4 is theirs (ADR 0032), the directory is what proves it,
+ * and an answer from anybody else that claims one is refused rather than
+ * recorded.
  */
 export interface ReadAuthorisation {
-  authority: Exclude<RunAuthority, "override">;
+  authority: RunAuthority;
   /** The act it is for: what it reaches (the address, the object). */
   target: string;
   /** What the act carries outward, when its class carries anything. */
@@ -776,7 +777,7 @@ export interface ReadAuthorisation {
 export async function readAnswerAuthority(
   access: ModelAccess,
   answer: { asked: string; said: string; from: string },
-  opts: { timeoutMs?: number } = {},
+  opts: { timeoutMs?: number; admin?: boolean } = {},
 ): Promise<ReadAuthorisation[]> {
   const token = randomUUID().slice(0, 8);
   const system = [
@@ -784,7 +785,9 @@ export async function readAnswerAuthority(
     "You are the agent of one group. A person answered a question your run asked. You are told the question, and the words they answered it with.",
     'Answer with one JSON object and nothing else: {"authorisations": [{"authority": "outward" | "destructive", "target": "<what the act reaches>", "content": "<what it carries, or null>"}]}, or {"authorisations": []} when their words authorise no act.',
     "Report only what their own words authorise: never an act they did not ask for, and never a class they did not give.",
-    'You never report "override": an override of the written policy is an installation administrator\'s, and it is not read out of a conversation.',
+    opts.admin
+      ? 'The person who answered is an installation administrator, so you may report "override" when their own words grant one; never invent it.'
+      : 'You never report "override": an override of the written policy is an installation administrator\'s, and this answer is not one.',
     "Name the act the way the call that would take it names it — the address a send goes to, or the object it acts on — because an authorisation that does not match the act exactly is refused and licenses nothing.",
   ].join("\n");
   const user = [
@@ -798,7 +801,7 @@ export async function readAnswerAuthority(
     user,
     ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
   });
-  return parseAuthorisations(said);
+  return parseAuthorisations(said, opts.admin === true);
 }
 
 /**
@@ -809,7 +812,7 @@ export async function readAnswerAuthority(
  * reaches, and a content that is text or nothing. A malformed entry refuses the
  * answer — a half-read authorisation recorded on a run is worse than none.
  */
-function parseAuthorisations(raw: unknown): ReadAuthorisation[] {
+function parseAuthorisations(raw: unknown, admin = false): ReadAuthorisation[] {
   const problem = (why: string) => new ModelError("model_answer_malformed", why);
   if (!isRecord(raw)) throw problem("The answer must be a JSON object.");
   const keys = Object.keys(raw);
@@ -822,7 +825,11 @@ function parseAuthorisations(raw: unknown): ReadAuthorisation[] {
   return list.map((one) => {
     if (!isRecord(one)) throw problem("An authorisation must be a JSON object.");
     const authority = one.authority;
-    if (authority !== "outward" && authority !== "destructive")
+    const allowed =
+      authority === "outward" ||
+      authority === "destructive" ||
+      (admin && authority === "override");
+    if (!allowed)
       throw problem(
         `"${String(authority)}" is not an authority a person's answer can give.`,
       );

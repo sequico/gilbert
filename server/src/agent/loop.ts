@@ -66,6 +66,7 @@ import { appFolderState, type Ctx, filesAccountId, readAppFileAt } from "../appF
 import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
+import { impersonationAuthorization } from "../sessions.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
 import { errorMessage } from "../shared/errors.js";
@@ -89,6 +90,7 @@ import {
   takeAuthorisation,
   waitUntil,
 } from "../shared/run.js";
+import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
@@ -911,11 +913,17 @@ export class AgentLoop {
   private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc> {
     let run = spendRun(answer.run, { calls: 1 });
     try {
-      const granted = await readAnswerAuthority(this.opts.access, {
-        asked: answer.asked,
-        said: answer.said,
-        from: answer.from,
-      });
+      /*
+       * Whether the person who answered is an installation administrator is
+       * asked **here**, of the directory, as the Master: only that marker lets
+       * the reading report an override (ADR 0032). A directory that will not
+       * answer is a no, and the answer still continues the run.
+       */
+      const granted = await readAnswerAuthority(
+        this.opts.access,
+        { asked: answer.asked, said: answer.said, from: answer.from },
+        { admin: await this.isAdministrator(answer.from) },
+      );
       for (const one of granted)
         run = takeAuthorisation(run, {
           what: answer.said,
@@ -935,6 +943,34 @@ export class AgentLoop {
         `refused: ${errorMessage(err)}`,
         false,
       );
+    }
+  }
+
+  /**
+   * Whether one address is an installation administrator, as the directory says.
+   *
+   * The agent acts as the Master, which is an administrator, so it can present
+   * the person's account to the server and read what that account may do
+   * (`fetchAccountIntrospection`). Impersonation is the only way to ask: the
+   * permission list belongs to the account, and the directory will not compose one
+   * for somebody else's. Any refusal — an app-password session, an account that
+   * is gone, a directory that did not answer — is a no.
+   */
+  private async isAdministrator(address: string): Promise<boolean> {
+    try {
+      const authorization = impersonationAuthorization(
+        {
+          authorization: this.ctx.authorization,
+          username: this.ctx.username,
+          appPassword: false,
+        },
+        address,
+      );
+      if (!authorization) return false;
+      const intro = await fetchAccountIntrospection(authorization, upstreamFor(address));
+      return isStalwartAdmin(intro.permissions);
+    } catch {
+      return false;
     }
   }
 
