@@ -12,6 +12,7 @@
 import { RULE_SURFACES, RULE_VERSION, type RuleDoc } from "@gilbert/agent/rule";
 import { errorMessage } from "@gilbert/shared/errors";
 import { useCallback, useEffect, useState } from "react";
+import { ApiError } from "@/jmap/client";
 import {
   deleteRule,
   type GroupProse,
@@ -19,7 +20,6 @@ import {
   saveInstruction,
   saveRule,
 } from "@/lib/agentProse";
-import { isStateMismatch } from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
@@ -36,7 +36,8 @@ const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
 
 export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
-  const [accountId, setAccountId] = useState(groups[0]?.accountId ?? "");
+  // The route is keyed by the group's name — the address the session calls it.
+  const [group, setGroup] = useState(groups[0]?.name ?? "");
   const [prose, setProse] = useState<GroupProse | null>(null);
   const [instruction, setInstruction] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,17 +64,17 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
   }, []);
 
   useEffect(() => {
-    if (open && accountId) void load(accountId);
-  }, [open, accountId, load]);
+    if (open && group) void load(group);
+  }, [open, group, load]);
 
   const saveStanding = async () => {
     setBusy(true);
     setError(null);
     try {
-      await saveInstruction(accountId, instruction, prose?.state);
+      await saveInstruction(group, instruction, prose?.state);
       setSaved(true);
     } catch (err) {
-      setError(await conflictOr(err, accountId));
+      setError(await conflictOr(err, group));
     } finally {
       setBusy(false);
     }
@@ -84,7 +85,7 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
    * read again, rather than showing the mail server's own sentence.
    */
   const conflictOr = async (err: unknown, id: string): Promise<string> => {
-    if (!isStateMismatch(err)) return errorMessage(err);
+    if (!(err instanceof ApiError && err.status === 409)) return errorMessage(err);
     await load(id);
     return t(
       "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.",
@@ -94,13 +95,13 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
   /** Write one rule and reload, so the list is what the account now holds. */
   const writeRule = async (rule: RuleDoc) => {
     try {
-      await saveRule(accountId, rule, prose?.state);
+      await saveRule(group, rule, prose?.state);
     } catch (err) {
-      setError(await conflictOr(err, accountId));
+      setError(await conflictOr(err, group));
       return;
     }
     setAdding(false);
-    await load(accountId);
+    await load(group);
   };
 
   const removeRule = async (id: string) => {
@@ -111,12 +112,12 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
     });
     if (!sure) return;
     try {
-      await deleteRule(accountId, id);
+      await deleteRule(group, id);
     } catch (err) {
       setError(errorMessage(err));
       return;
     }
-    await load(accountId);
+    await load(group);
   };
 
   return (
@@ -126,11 +127,11 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
         <select
           id="rules-group"
           className="select"
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
         >
           {groups.map((g) => (
-            <option key={g.accountId} value={g.accountId}>
+            <option key={g.accountId} value={g.name}>
               {g.name}
             </option>
           ))}
@@ -210,16 +211,6 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
               >
                 {t("New rule")}
               </button>
-            )}
-            {prose.unreadable.length > 0 && (
-              <div className="error-box" style={{ marginTop: 12 }}>
-                <strong>{t("Unreadable documents")}</strong>
-                {prose.unreadable.map((item) => (
-                  <div key={item.name}>
-                    {item.name}: {item.problem}
-                  </div>
-                ))}
-              </div>
             )}
           </section>
         </>

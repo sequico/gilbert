@@ -32,6 +32,7 @@
 
 import type { Hono } from "hono";
 import { readClaim } from "../agent/claim.js";
+import { readInstruction } from "../agent/instruction.js";
 import {
   correctFactByPerson,
   dismissProposal,
@@ -39,9 +40,19 @@ import {
   listFacts,
   MemoryError,
 } from "../agent/memory.js";
+import { parseRuleDocumentDetailed } from "../agent/rule.js";
+import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
 import { listRunsForReading } from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
-import { type Ctx, filesAccountId } from "../appFolder.js";
+import {
+  appFolderState,
+  type Ctx,
+  destroyAppNode,
+  ensureFolderPath,
+  filesAccountId,
+  findAppFileAt,
+  writeAppFileAt,
+} from "../appFolder.js";
 import { masterAddress } from "../config.js";
 import {
   GroupAccessError,
@@ -50,6 +61,12 @@ import {
 } from "../groupAccess.js";
 import type { LiveSession } from "../sessions.js";
 import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
+import {
+  INSTRUCTION_FILE,
+  INSTRUCTION_VERSION,
+  parseInstructionDocumentDetailed,
+} from "../shared/instruction.js";
+import { RULES_DIR } from "../shared/rule.js";
 import type { RunListing } from "../shared/run.js";
 import {
   type Env,
@@ -159,6 +176,146 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       return doorFailure(c, err);
     }
   });
+
+  /**
+   * A group's prose — its standing instruction and its rules (ADR 0035).
+   *
+   * The write path is here, behind the administrator door, and not in the
+   * browser: a group's prose is decided by an installation administrator (owner
+   * decision 2026-10-18), and only a route the server answers can make that a
+   * boundary rather than a hidden button. The read is beside it so the surface
+   * has one caller for both, and the account is resolved from the group's name
+   * the way the runs above are.
+   */
+  api.get("/admin/groups/:name/prose", requireSession, requireAdmin, async (c) => {
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const instruction = (await readInstruction(access.ctx, access.accountId)) ?? "";
+      const records = await listRules(access.ctx, access.accountId);
+      return c.json({
+        group: name,
+        instruction,
+        rules: records.map((record) => record.rule),
+        state: records[0]?.state ?? (await appFolderState(access.ctx, access.accountId)),
+      });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  api.put(
+    "/admin/groups/:name/prose/instruction",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(c.get("session"), name, {
+          need: "agent documents",
+        });
+        if (!access.ok) return groupDenial(c, access);
+        const body = await readJson<{ instruction?: unknown; ifInState?: unknown }>(c);
+        const instruction =
+          typeof body?.instruction === "string" ? body.instruction.trim() : "";
+        const state =
+          typeof body?.ifInState === "string"
+            ? body.ifInState
+            : await appFolderState(access.ctx, access.accountId);
+        if (!instruction) {
+          const found = await findAppFileAt(
+            access.ctx,
+            access.accountId,
+            INSTRUCTION_FILE,
+          );
+          if (found?.file && typeof found.file.id === "string")
+            await destroyAppNode(access.ctx, access.accountId, found.file.id, {
+              ifInState: state,
+            });
+          return c.json({ ok: true, instruction: "" });
+        }
+        const parsed = parseInstructionDocumentDetailed(
+          JSON.stringify({ v: INSTRUCTION_VERSION, instruction }),
+        );
+        if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
+        await writeAppFileAt(
+          access.ctx,
+          access.accountId,
+          INSTRUCTION_FILE,
+          parsed.instruction,
+          {
+            ifInState: state,
+          },
+        );
+        return c.json({ ok: true, instruction: parsed.instruction.instruction });
+      } catch (err) {
+        return doorFailure(c, err);
+      }
+    },
+  );
+
+  api.put(
+    "/admin/groups/:name/prose/rules/:id",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const name = c.req.param("name") ?? "";
+      const id = c.req.param("id") ?? "";
+      try {
+        const access = await resolveGroupAccess(c.get("session"), name, {
+          need: "agent documents",
+        });
+        if (!access.ok) return groupDenial(c, access);
+        const body = await readJson<{ rule?: unknown; ifInState?: unknown }>(c);
+        const parsed = parseRuleDocumentDetailed(JSON.stringify(body?.rule));
+        if ("problem" in parsed) return c.json({ error: parsed.problem }, 400);
+        if (parsed.rule.id !== id)
+          return c.json(
+            { error: `The rule says "${parsed.rule.id}" but the route files "${id}".` },
+            400,
+          );
+        const state =
+          typeof body?.ifInState === "string"
+            ? body.ifInState
+            : await appFolderState(access.ctx, access.accountId);
+        await ensureFolderPath(access.ctx, access.accountId, RULES_DIR);
+        await replaceRule(access.ctx, access.accountId, parsed.rule, {
+          ifInState: state,
+        });
+        return c.json({ ok: true, rule: parsed.rule });
+      } catch (err) {
+        return doorFailure(c, err);
+      }
+    },
+  );
+
+  api.delete(
+    "/admin/groups/:name/prose/rules/:id",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const name = c.req.param("name") ?? "";
+      const id = c.req.param("id") ?? "";
+      try {
+        const access = await resolveGroupAccess(c.get("session"), name, {
+          need: "agent documents",
+        });
+        if (!access.ok) return groupDenial(c, access);
+        const body = await readJson<{ ifInState?: unknown }>(c);
+        const state =
+          typeof body?.ifInState === "string"
+            ? body.ifInState
+            : await appFolderState(access.ctx, access.accountId);
+        await deleteRule(access.ctx, access.accountId, id, { ifInState: state });
+        return c.json({ ok: true });
+      } catch (err) {
+        return doorFailure(c, err);
+      }
+    },
+  );
 
   /**
    * The installation's memory: every fact the agent reasons from (ADR 0037).

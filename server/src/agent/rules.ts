@@ -19,7 +19,9 @@
 import {
   appFolderState,
   type Ctx,
+  destroyAppNode,
   ensureFolderPath,
+  findAppFileAt,
   listAppDir,
   readAppFileAt,
   writeAppFileAt,
@@ -130,6 +132,24 @@ export async function replaceRule(
   opts: { ifInState?: string } = {},
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, rulePath(rule.id), rule, opts);
+}
+
+/**
+ * Remove one rule's document, conditioned on the state its absence was read at.
+ *
+ * The one delete the agent's documents have, and it belongs to the administrator
+ * route: a rule is decided by an administrator and by nobody else (owner decision
+ * 2026-10-18), so the boundary is the door rather than the surface.
+ */
+export async function deleteRule(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  opts: { ifInState?: string } = {},
+): Promise<void> {
+  const found = await findAppFileAt(ctx, accountId, rulePath(id));
+  if (!found?.file || typeof found.file.id !== "string") return;
+  await destroyAppNode(ctx, accountId, found.file.id, opts);
 }
 
 /**
