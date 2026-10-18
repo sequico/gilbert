@@ -35,6 +35,13 @@
  * nothing contributes nothing, and the order is the builder's alone
  * (`prose.ts`), never a caller's.
  *
+ * **A sentence that answers a run is also read for what it authorises**
+ * (ADR 0032): the reading is one call (`readAnswerAuthority`), what it reports is
+ * recorded on the run with the person's own words and the message they wrote it
+ * in, and the guard is what bounds it — an authorisation licenses the act it
+ * names and no other. An override is refused by the reading, because class 4 is
+ * an installation administrator's and a chat does not prove it.
+ *
  * **The loop never decides what may be done.** A chosen call is run through
  * `runTool`, the only door to a writing tool: the authority guard (`mayRun`, ADR
  * 0032) answers, the loop never overrides it, and a refusal — an act beyond what
@@ -76,6 +83,7 @@ import {
   spendRun,
   startRun,
   takeAnswer,
+  takeAuthorisation,
   waitUntil,
 } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
@@ -89,6 +97,7 @@ import {
   decideEvent,
   type ModelAccess,
   ModelError,
+  readAnswerAuthority,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
@@ -153,6 +162,21 @@ export interface PassSummary {
    * lost.
    */
   gaps: string[];
+}
+
+/** A run a person's answer continued, and what the reading of that answer needs. */
+interface AnsweredRun {
+  run: RunDoc;
+  /** The sentence the run asked, which the answer is read against. */
+  asked: string;
+  /** What the person wrote. */
+  said: string;
+  /** The address it came from: the person the authorisation is theirs. */
+  from: string;
+  /** When they sent it, as the message carries it. */
+  at: string;
+  /** The message it arrived in, which the trace names. */
+  message: RunMessageRef;
 }
 
 /** What one loop needs: who holds the claim, which accounts, and the model. */
@@ -405,7 +429,12 @@ export class AgentLoop {
         answer ??= await this.runAnsweredBy(accountId, event, held);
         if (answer) {
           summary.due += 1;
-          await this.workRun(accountId, answer, now, decision.facts);
+          await this.workRun(
+            accountId,
+            await this.authoriseAnswer(answer),
+            now,
+            decision.facts,
+          );
           continue;
         }
         const run = await this.openRun(accountId, event, rule);
@@ -480,7 +509,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<RunDoc | null> {
+  ): Promise<AnsweredRun | null> {
     if (event.source !== "chat" || event.change === "destroyed") return null;
     const message = await readChatMessageAt(this.ctx, accountId, event.where);
     if (!message) return null;
@@ -491,9 +520,20 @@ export class AgentLoop {
     const parent = await readChatMessage(this.ctx, accountId, question.id);
     if (!repliesToAuthor(message, parent, this.ctx.username)) return null;
     const parked = runAwaiting(records, question);
-    return parked
-      ? takeAnswer(parked, question, { channel: "chat", id: message.id }, message.text)
-      : null;
+    if (!parked) return null;
+    return {
+      run: takeAnswer(
+        parked,
+        question,
+        { channel: "chat", id: message.id },
+        message.text,
+      ),
+      asked: parent?.text ?? "",
+      said: message.text,
+      from: message.from,
+      at: message.at,
+      message: { channel: "chat", id: message.id },
+    };
   }
 
   /**
@@ -721,6 +761,49 @@ export class AgentLoop {
       // The outcomes are written on the document the wave ran against, whole.
       await this.store(accountId, current);
       if (wait) return;
+    }
+  }
+
+  /**
+   * What a person's answer authorises, recorded on the run it continued
+   * (ADR 0032, 0033).
+   *
+   * A run that asked a question is continued by the sentence that answers it,
+   * and that sentence can also be the word the class asks for: the reading is a
+   * call (`readAnswerAuthority`), and each act it reports is recorded with the
+   * person's own words, the address it came from and the message it arrived in —
+   * the trace ADR 0032 asks for. What bounds it is `mayRun`: an authorisation
+   * licenses the act it names and no other, so a sentence read too generously
+   * still moves nothing. An answer the reading cannot use is a step that says so
+   * and grants nothing; the answer itself still continues the run.
+   */
+  private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc> {
+    let run = spendRun(answer.run, { calls: 1 });
+    try {
+      const granted = await readAnswerAuthority(this.opts.access, {
+        asked: answer.asked,
+        said: answer.said,
+        from: answer.from,
+      });
+      for (const one of granted)
+        run = takeAuthorisation(run, {
+          what: answer.said,
+          authority: one.authority,
+          act: { target: one.target, content: one.content },
+          by: answer.from,
+          at: answer.at,
+          from: answer.message,
+        });
+      return run;
+    } catch (err) {
+      if (!(err instanceof ModelError) || err.code !== "model_answer_malformed")
+        throw err;
+      return this.withStep(
+        run,
+        "the answer's authorisation",
+        `refused: ${errorMessage(err)}`,
+        false,
+      );
     }
   }
 

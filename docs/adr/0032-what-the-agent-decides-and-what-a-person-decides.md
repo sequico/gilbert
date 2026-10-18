@@ -5,11 +5,18 @@ Status: Accepted
 Implementation: Partly built. The five authority classes and the guard that asks
 them — `ToolAuthority`, `authorityNeeded` and `mayRun` in
 `server/src/agent/tools.ts` — are built, and an authorisation names the act it is
-for (`RunAuthorityAct`), so a class alone answers for no act. The acts a person
-must authorise — a send, a destroy, a policy override — are not in the catalogue
-yet. The admin marker they lean on is the installation administrator's
-(`session.gilbert.isAdmin`, ADR 0001) and the policy the agent reads is a KB page
-(ADR 0024).
+for (`RunAuthorityAct`), so a class alone answers for no act. **A person's word arrives in the conversation**: the sentence that answers a
+run's question is read once (`readAnswerAuthority`, `server/src/agent/model.ts`)
+for the act it authorises, and each act it names is recorded on the run
+(`RunAuthorisation`: the words verbatim, the class, the act, the address it came
+from and the message it arrived in) by the loop (`authoriseAnswer`,
+`server/src/agent/loop.ts`). What bounds that reading is the act: `mayRun`
+compares target and content exactly, so a sentence read too generously licenses
+nothing the step does not match, and an **override** is refused by name — class 4
+is an installation administrator's, and its marker (`session.gilbert.isAdmin`,
+ADR 0001) is not proved by a sentence in a group's chat. The acts themselves — a
+send, a destroy — are not in the catalogue yet (ADR 0033); the policy the agent
+reads is a KB page (ADR 0024).
 
 ## Context
 

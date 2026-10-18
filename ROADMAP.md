@@ -40,9 +40,12 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   signed as the agent (ADR 0028); `knowledge.propose` writes a page's draft for a
   person to approve (ADR 0024). A conclusion
   against a person's fact is proposed beside it rather than written over, and
-  Administration accepts or dismisses it (ADR 0037). What is not built is the
-  path by which a person's authorisation reaches a run (ADR 0032), and the
-  conversation in **mail** (ADR 0033): the group's chat is what it has so far.
+  Administration accepts or dismisses it (ADR 0037); the sentence that answers a
+  run's question is read once for what it authorises, and the act it names is
+  recorded on the run with the person's own words (ADR 0032). What is not built
+  is the conversation in **mail** (ADR 0033) — the group's chat is what it has so
+  far — and with it the acts the classes are asked for: a send reaches nobody
+  yet, so the catalogue asks a person's word for nothing today.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

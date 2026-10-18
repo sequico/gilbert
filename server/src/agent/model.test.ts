@@ -54,6 +54,7 @@ const {
   ModelError,
   parseAnswerDetailed,
   parseStepAnswerDetailed,
+  readAnswerAuthority,
   requireModelAccess,
   MODEL_MAX_OUTPUT_DEFAULT,
   MODEL_RESPONSE_BYTES_MAX,
@@ -1034,4 +1035,54 @@ test("an outcome is bounded for the prompt, and a malformed answer is refused", 
     (err: unknown) => err instanceof ModelError && err.code === "model_answer_malformed",
     "a malformed answer is refused rather than acted on",
   );
+});
+
+test("a person's answer is read for the act it authorises, and never for an override", async () => {
+  /*
+   * The sentence that answers a run can be the word a class asks for (ADR 0032),
+   * so what it authorises is read — and the reading is bounded here: an act that
+   * names what it reaches, a class a person's answer can give, and no override at
+   * all, because class 4 is an administrator's and a conversation is not where
+   * that is proved.
+   */
+  const access = { model, allowPrivateProvider: true };
+  const answer = {
+    asked: "shall I send the reply to the shipper?",
+    said: "yes, send it: the booked slot is Thursday",
+    from: "sam@example.org",
+  };
+
+  answerWith({
+    authorisations: [
+      { authority: "outward", target: "ops@shipper.example", content: "the slot" },
+      { authority: "destructive", target: "drafts/e-1", content: null },
+    ],
+  });
+  assert.deepEqual(await readAnswerAuthority(access, answer), [
+    { authority: "outward", target: "ops@shipper.example", content: "the slot" },
+    { authority: "destructive", target: "drafts/e-1", content: null },
+  ]);
+
+  answerWith({ authorisations: [] });
+  assert.deepEqual(
+    await readAnswerAuthority(access, answer),
+    [],
+    "a sentence that authorises nothing is an empty list, not a refusal",
+  );
+
+  for (const refused of [
+    { authorisations: [{ authority: "override", target: "policy", content: null }] },
+    { authorisations: [{ authority: "outward", target: "", content: null }] },
+    { authorisations: [{ authority: "outward", target: "a", content: 7 }] },
+    { authorisations: "none" },
+    { authorisations: [], rules: [] },
+  ]) {
+    answerWith(refused);
+    await assert.rejects(
+      () => readAnswerAuthority(access, answer),
+      (err: unknown) =>
+        err instanceof ModelError && err.code === "model_answer_malformed",
+      `${JSON.stringify(refused)} is refused whole`,
+    );
+  }
 });

@@ -139,6 +139,11 @@ function isDecision(system: string): boolean {
   return system.includes("the rules the group wrote for it");
 }
 
+/** Whether the call is the one that reads a person's answer for what it authorises. */
+function isAuthorisation(system: string): boolean {
+  return system.includes("their own words authorise");
+}
+
 const installation = parseInstallationDocumentDetailed(
   JSON.stringify({
     agent: {
@@ -718,6 +723,9 @@ test("a person's answer continues the run that asked for it", async () => {
   await agent.start();
 
   answerWith({ rules: [id], facts: { booking: "BK-1" } });
+  // What the answer authorises is read before the run goes on (ADR 0032): the
+  // sentence only says which booking it is, so it authorises no act.
+  answerWith({ authorisations: [] });
   answerWith({ done: "the booking is filed under BK-1" });
   const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
     replyTo: asked,
@@ -738,6 +746,139 @@ test("a person's answer continues the run that asked for it", async () => {
     "and the record names the message the answer came in",
   );
   assert.equal(step?.outcome, "it is BK-1", "with what the person said");
+  assert.deepEqual(
+    answered?.authorisations,
+    [],
+    "and a sentence that authorises no act records none",
+  );
+});
+
+test("a person's answer is the word an outward act asks for, recorded for that act", async () => {
+  /*
+   * The path ADR 0032 leaves open (owner decision 2026-10-18): the sentence that
+   * answers a run's question can also be the word a class asks for. The reading is
+   * a call, and what bounds it is the act: the authorisation names one act, and
+   * the guard compares that act exactly, so what is recorded here licenses the step
+   * whose act it matches and nothing else.
+   */
+  const id = "intake-authorised";
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "shall I send the reply to the shipper?",
+  );
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      waitUntil(
+        startRun({
+          id: "parked-for-a-word",
+          startedBy: {
+            rule: id,
+            instruction: null,
+            woke: "chat created: gilbert/chat/word.json",
+          },
+        }),
+        {
+          what: "shall I send the reply to the shipper?",
+          asked: { channel: "chat", id: asked },
+          until: null,
+        },
+      ),
+      "blocked",
+      {
+        at: new Date().toISOString(),
+        why: "waiting on a person: shall I send the reply to the shipper?",
+      },
+    ),
+  );
+  await putRule(id, ["chat"]);
+
+  /* The act a person is asked for, as a stand-in: the mail channel's send is not
+     in the catalogue (ADR 0033), and what is under test is the word and the guard. */
+  const sent: string[] = [];
+  const sendOut = defineTool({
+    name: "test.send",
+    description:
+      "Send one message outward — the stand-in for the act a person authorises.",
+    authority: "outward",
+    writes: true,
+    spend: { steps: 1 },
+    act: (args: { to: string; text: string }) => ({
+      target: args.to,
+      content: args.text,
+    }),
+    parse: (raw: unknown) => {
+      const one = raw as { to?: unknown; text?: unknown };
+      return { to: String(one.to ?? ""), text: String(one.text ?? "") };
+    },
+    run: async (_call, args: { to: string }) => {
+      sent.push(args.to);
+      return { sentTo: args.to };
+    },
+  });
+  const agent = loop(HOLDER, { catalogue: [...TOOLS, sendOut] });
+  await agent.start();
+
+  const words = "yes, send it: the booked slot is Thursday";
+  onCall = (system) =>
+    isAuthorisation(system)
+      ? {
+          authorisations: [
+            {
+              authority: "outward",
+              target: "ops@shipper.example",
+              content: "the booked slot is Thursday",
+            },
+          ],
+        }
+      : isDecision(system)
+        ? { rules: [id], facts: {} }
+        : {
+            calls: [
+              {
+                name: "test.send",
+                arguments: {
+                  to: "ops@shipper.example",
+                  text: "the booked slot is Thursday",
+                },
+              },
+            ],
+          };
+  const reply = await postChatMessage(ctx, accountId, "sam@example.org", words, {
+    replyTo: asked,
+  });
+  const summary = await agent.pass();
+  assert.equal(summary.due, 1, "the answer picked the parked run up");
+
+  const record = await readRun(ctx, accountId, "parked-for-a-word");
+  const answered = record?.run;
+  assert.deepEqual(
+    answered?.authorisations.map((one) => ({
+      authority: one.authority,
+      act: one.act,
+      by: one.by,
+      from: one.from.id,
+      what: one.what,
+    })),
+    [
+      {
+        authority: "outward",
+        act: { target: "ops@shipper.example", content: "the booked slot is Thursday" },
+        by: "sam@example.org",
+        from: reply,
+        what: words,
+      },
+    ],
+    "the person's own words, the act they name, the address and the message",
+  );
+  assert.deepEqual(
+    sent,
+    ["ops@shipper.example"],
+    "and the act the word was for is the act that ran",
+  );
 });
 
 test("a change that answers nothing of ours opens a run of its own", async () => {

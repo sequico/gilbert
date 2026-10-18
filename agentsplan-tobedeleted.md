@@ -84,22 +84,26 @@ reaching a run, and any surface that shows what the agent did.
 - **Proof:** a run parked on a question is unblocked by a reply that carries the
   same thread, and a stranger's reply is information, never an instruction.
 
-### 2.4 A person's authorisation is law
+### 2.4 A person's authorisation is law — **built** (the conversation's word)
 
 - **The record:** 0032 — an override is an administrator's, and once an operator
   or an administrator authorises one according to the authority class, that is
   the law and is not re-opened.
-- **Today:** the authority classes and the guard exist (`mayRun`, ADR 0032) and a
-  refusal is a recorded step; **what is not settled is who writes a run's
-  authorisations, and whether anything does yet.** Verify in
-  `server/src/shared/run.ts` (`RunAuthorisation`) and `agent/loop.ts` before
-  designing this — do not assume.
-- **To do:** the path by which a person's word reaches a run's authorisations —
-  through the conversation (chat already, mail when 2.3 lands) or through a
-  surface — and the record that it happened.
-- **Proof:** a run refused for want of authority, authorised by a person, then
-  carrying out the act on the next pass; and an authorisation for one act that
-  does not license another.
+- **Built** (owner decision 2026-10-18: the conversation, not a surface): the
+  sentence that answers a run's question is read once for what it authorises
+  (`readAnswerAuthority`, `agent/model.ts`), and the loop records each act it
+  names on the run (`authoriseAnswer`) with the person's words verbatim, the
+  class, the act, the address it came from and the message it arrived in. The
+  guard is the fence: an authorisation licenses the act it names and no other.
+  An **override is refused by name** — class 4 is an installation
+  administrator's, and a sentence in a group's chat does not prove that marker —
+  and a reading this build cannot use is a failed step that grants nothing.
+- **Proof:** a person's answer that names a send records exactly that act and the
+  step whose act it matches runs; a sentence that authorises nothing records
+  none; an override is refused by the reading (`agent/model.test.ts`,
+  `agent/loop.test.ts`).
+- **Still not:** the acts themselves — a send, a destroy — are not in the
+  catalogue; they arrive with the mail channel (2.3).
 
 ### 2.5 The surfaces — the run visible (partly built)
 
