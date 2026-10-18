@@ -13,11 +13,11 @@ file and a record disagree, the record is right and this file is stale.
 
 ## 1. The fact — what the tree carries today
 
-**The design.** Six records, all `Accepted`: **0031** a described catalogue of
+**The design.** Seven records, all `Accepted`: **0031** a described catalogue of
 tools and one model per installation; **0032** what the agent decides and what
 only a person decides; **0033** one conversation in chat and mail; **0034** a run
 is a document, and the record is the product; **0035** a group's engagement is a
-rule in prose; **0036** one agent per installation, held by a claim.
+rule in prose; **0036** one agent per installation, held by a claim; **0037** its memory is a graph of facts it recalls.
 
 **The body.**
 
@@ -54,8 +54,6 @@ remains is in section 2 and in the deferred list.
 - **Built:** the decision turn answers every rule that applies beside the facts of
   the change, and the loop opens or continues one run per rule, reading the run's
   own document to recognise a change it has already answered.
-- **To do:** the decision turn answers **every** rule that applies, and the loop
-  opens or continues one run per rule; the change's own record names them all.
 - **Proof:** two rules over one change produce two runs, and removing one of them
   from the answer leaves the other running.
 
@@ -73,36 +71,28 @@ remains is in section 2 and in the deferred list.
   the branch its outcome names in two runs; a step whose dependency was refused is
   left unrun, and the record names the step and the outcome.
 
-### 2.3 The mail channel — the conversation's other half (0033)
+### 2.3 The mail channel — the conversation's other half — **built**
 
-- **The record:** 0033; its `Implementation` line says the mail channel is not
-  built.
-- **To do:** sending and receiving the conversation by mail — a question the run
-  asked leaves as mail, the answer comes back into the same run, correlated by
-  the thread (`In-Reply-To`/`References`), with the answer's message id in the
-  trace; the agent writes as itself and acts in the group's own account.
-- **Depends on:** 2.4 (who a message is from) — which is built but inert — and the
-  owed probe below.
-- **Built (2026-10-18):** the question by mail (`mail.ask`, to a principal with
-  access read from the directory, sent through `EmailSubmission/set`) and the
-  answer that continues the run (`mailAnsweredBy`, matched on `inReplyTo` /
-  `references` against the question's `Message-ID`, sender not the group). Proof:
-  `agent/loop.test.ts`, one pass asks and parks, the next is continued by a reply
-  on the same thread.
-- **Also built:** the **reading inside a document** half is built —
-  `files.read`, `mail.readAttachment`, and a scanned page through the model's
-  eyes (`server/src/documentText.ts`, `b3d513a`/`d7ddf12`). The conversation by
-  mail is not: a first pass at `mail.ask` (a question to a principal with access,
-  `groupMembers`, sent through `EmailSubmission/set`) and at the answer path
-  (`mailAnsweredBy`, matching `inReplyTo`/`references` against the question's
-  `messageId`) was **reverted** rather than committed: in the mock, the creation
-  event names an id that the same account's `Email/get` answers `notFound`, so
-  the answer path could not be proven — and an unproven path is not landed. The
-  finding is the next unit's first question: whether the mock's per-account
-  change log and its `emailsFor(accountId)` disagree, or the loop reads a change
-  of another account's log.
-- **Proof:** a run parked on a question is unblocked by a reply that carries the
-  same thread, and a stranger's reply is information, never an instruction.
+- **The record:** 0033, whose `Implementation` line says the mail half is built.
+- **Built (2026-10-18):** the question by mail (`mail.ask`, to a **principal with
+  access** read from the directory with `groupMembers`, sent through
+  `EmailSubmission/set`) and the answer that continues the run (`mailAnsweredBy`,
+  matched on `inReplyTo` / `references` against the question's `Message-ID`, and
+  refusing a sender that is the group itself). One pass asks and parks the run
+  with no date; the next is continued by the reply on that thread
+  (`agent/loop.test.ts`).
+- **Also built — reading inside a document:** `files.read` and
+  `mail.readAttachment` go through one reader (`server/src/documentText.ts`): a
+  PDF's text layer, Word, a spreadsheet, OpenDocument, text; and an image — or a
+  page with no text layer, rendered by pdfium and encoded as a PNG — is
+  transcribed by the installation's model (`readImage`), because no OCR engine is
+  installed.
+- **A finding worth keeping:** the account `agent/loop.test.ts` works by default
+  is the **shared** one, which carries no mail in the mock, so a message created
+  there is a change event with no message behind it. The mail test names an
+  account with mail instead; the "server bug" was that.
+- **Proof:** a run parked on a mail question is unblocked by a reply that carries
+  the same thread; a stranger's reply is information, never an instruction.
 
 ### 2.4 A person's authorisation is law — **built** (the conversation's word)
 
@@ -124,11 +114,12 @@ remains is in section 2 and in the deferred list.
   `agent/loop.test.ts`).
 - **The acts:** `mail.send` is in the catalogue as class `outward` (the address
   and the words are the act, and the guard compares them exactly — pinned in
-  `agent/tools.test.ts`). A destroy is still absent: its act would have to be
-  named by a person as "the message they read", not as an id, and that shape is
-  not decided.
+  `agent/tools.test.ts`). A **destroy stays out of the catalogue on purpose**
+  (ADR 0032, owner decision 2026-10-18): class 2 is a person's act on the surface,
+  because an act a person can only name by an id is not one a sentence can
+  authorise.
 
-### 2.5 The surfaces — the run visible (partly built)
+### 2.5 The surfaces — the run visible — **built**
 
 - **Built** (`bc2198a`, `5802abd`, `2e041df`): the installation's model is chosen
   from Administration → Installation over the document the surface already
@@ -151,7 +142,7 @@ remains is in section 2 and in the deferred list.
   the stored `gilbert-agent` signature — one predicate
   (`isAgentSignature`, `shared/agent.ts`) and one sentence choice
   (`web/src/lib/workorderStamp.ts`), so no surface shows the agent as a name.
-- **Then:** `FEATURES.md` and the public docs, in the same change as each.
+- **Then (done):** `FEATURES.md` and the public docs, in the same change as each.
 - **Proof:** a run worked in the mock is readable from the surface alone, and
   choosing a model there takes effect at the next boot (ADR 0011).
 
@@ -226,8 +217,7 @@ remains is in section 2 and in the deferred list.
   person's fact is in force** — the agent proposes against it, never overwrites it.
 - **Built:** the store and its parser (`server/src/shared/memory.ts`, one sheet per
   fact in the Master's `memory/` folder, refused when malformed and never
-  guessed); the write the agent makes while working (`memory.remember`, which
-  refuses a person's fact in the code `fact_in_force`); the recall into both turns
+  guessed); the write the agent makes while working (`memory.remember`); the recall into both turns
   with its ceiling of facts and characters, fenced as data, and the facts a run
   carried written into its own record (`recalled`); the `FEATURES.md` paragraph and
   the index line.
@@ -272,18 +262,11 @@ someone asks a real server.
 
 ## 4. Deferred, from the audit and the debt ledger — do not lose them
 
-- **The translation ceiling fails the gate** (`scripts/i18n-catalog-check.mjs`):
-  `MISSING_MAX` is pinned at 195 and the wanted set is 1944 keys, of which
-  **197** have no catalogue entry in each language — so `i18n:check` exits
-  non-zero on this tree. The backlog is the agent surfaces' own English strings
-  (`Agent`, `Workorders`, `Completed`, `Skipped`, `Set state`, …). It is the
-  owner's decision: translate the backlog, or move the pin, and the pin is not
-  moved to silence a check.
-- **The vocabulary sweep:** "agent" is used for the Master principal in 0005,
-  0007, 0023 and 0024, where the law reserves it for the process.
-- **`CONTRIBUTING.md`** (the owner's file) still names `dev:mock:agent` with
-  "the same plus an agent process": the name is an alias for `dev:mock` now, and
-  the line may go with it.
+- **The translation backlog is paid down but not empty**
+  (`scripts/i18n-catalog-check.mjs`): `MISSING_MAX` is pinned at 195 and the worst
+  language now has **183** keys with no entry, so the check passes. What remains
+  is real and counted; the pin is not moved to silence it, and the next strings
+  added are translated in all eleven catalogues with the change that adds them.
 - The full ledger of `shortcut:` markers is `/ponytail-debt`; what is still
   cuttable is `/ponytail-audit`.
 
