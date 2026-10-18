@@ -27,19 +27,21 @@ rule in prose; **0036** one agent per installation, held by a claim.
 | where a run lives, and how it is written whole | `server/src/agent/runs.ts` |
 | the installation's one claim | `server/src/agent/claim.ts` |
 | changes and waits: what woke the agent, and when to look again | `server/src/agent/{events,timers,accountEvent}.ts` |
-| the catalogue: eleven tools, their descriptions, the authority guard | `server/src/agent/tools.ts` |
+| the catalogue: the tools, their descriptions, the authority guard | `server/src/agent/tools.ts` |
 | a group's rules in prose, and the one builder of the prose the model is told | `server/src/agent/{rule,rules,prose}.ts` |
 | the model: the decision turn and the choosing turn, over one OpenAI-compatible call with the zero-retention opt-out | `server/src/agent/model.ts` |
 | the loop: claim, due runs, change logs, the batch of calls, the endings | `server/src/agent/loop.ts` |
 | the process: the server's own boot starts it, a pass every 10 s, the Master's groups re-read every pass | `server/src/agent/supervisor.ts`, `server/src/index.ts` |
 | whether a received message is a person's word | `server/src/agent/trust.ts` (nothing calls it yet) |
+| reading inside a document, and a picture through the model | `server/src/documentText.ts`, `agent/model.ts` (`readImage`) |
 | the reserved `G-` labels: applied by `mail.keyword`, refused by the catalog's write, shown in two sections | `server/src/shared/labels.ts`, `server/src/account.ts`, the two surfaces in `web/` |
 
 **What is running, and what is not.** The server boots, resolves the Master's
 groups, and works what the rules cover; a change no rule covers costs nothing. No
-deployment has to be told to start it, because it is part of the server. What no
-installation has yet is the conversation by mail, a person's authorisation
-reaching a run, and any surface that shows what the agent did.
+deployment has to be told to start it, because it is part of the server. The
+conversation runs in chat and in mail, a person's authorisation arrives in the
+sentence that answers a run, and Administration shows what the agent did. What
+remains is in section 2 and in the deferred list.
 
 ---
 
