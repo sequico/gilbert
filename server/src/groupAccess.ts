@@ -15,6 +15,7 @@ import type { Ctx } from "./appFolder.js";
 import { config, masterAddress } from "./config.js";
 import { JMAP_MAIL, JmapClient, STALWART_CAP } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
+import { mailboxesOf } from "./shared/mailboxes.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
 import { errorMessage } from "./shared/errors.js";
 import {
@@ -300,29 +301,6 @@ export async function openAgentSession(
 /* Which accounts are groups                                           */
 /* ------------------------------------------------------------------ */
 
-interface MailboxRecord {
-  id?: unknown;
-  name?: unknown;
-  role?: unknown;
-}
-
-/**
- * An account's mailboxes, as the group classifier reads them.
- *
- * The one `Mailbox/get` projection the probe asks, so a property added for one
- * reader is seen by the other.
- */
-async function mailboxesOf(
-  client: JmapClient,
-  accountId: string,
-): Promise<MailboxRecord[]> {
-  const res = await client.call<{ list?: MailboxRecord[] }>(
-    "Mailbox/get",
-    { accountId, ids: null, properties: ["id", "name", "role"] },
-    [JMAP_MAIL],
-  );
-  return res.list ?? [];
-}
 
 /**
  * Whether an account answers as a mail store — the one group classifier.

@@ -60,6 +60,7 @@ import { sameAddress } from "../shared/address.js";
 import { AGENT_SIGNATURE } from "../shared/agent.js";
 import { FILE_PROPS } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { mailboxesOf as accountMailboxes } from "../shared/mailboxes.js";
 import { CHAT_MAX_TEXT } from "../shared/chat.js";
 import { moveMailboxPatch, refusalOf, type SetResponse } from "../shared/jmap.js";
 import { queryThenGet } from "../shared/jmapQuery.js";
@@ -410,25 +411,13 @@ const MESSAGE_BODY_MAX = 64 * 1024;
 const FIND_MAX = 50;
 
 /** A mailbox as this tier reads it: what the search grammar resolves against. */
-interface MailboxLike {
-  id?: unknown;
-  name?: unknown;
-  role?: unknown;
-  parentId?: unknown;
-}
-
 /** Every mailbox of the account, by id — what `resolveMailbox` reads. */
 async function mailboxesOf(
   ctx: Ctx,
   accountId: string,
 ): Promise<Record<string, SearchMailbox & { parentId: string | null }>> {
-  const answer = await clientOf(ctx).call<{ list?: MailboxLike[] }>(
-    "Mailbox/get",
-    { accountId, ids: null, properties: ["id", "name", "role", "parentId"] },
-    [CAPABILITIES.mail],
-  );
   const boxes: Record<string, SearchMailbox & { parentId: string | null }> = {};
-  for (const box of answer.list ?? []) {
+  for (const box of await accountMailboxes(clientOf(ctx), accountId)) {
     if (typeof box.id !== "string" || typeof box.name !== "string") continue;
     boxes[box.id] = {
       id: box.id,
