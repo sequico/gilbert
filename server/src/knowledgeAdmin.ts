@@ -40,6 +40,7 @@ import {
   nodeStamp,
   pathSegments,
   readAppJsonAt,
+  readAppSheetJsonAt,
   readAppJsonForWrite,
   updateAppNode,
   writeAppFileIn,
@@ -440,7 +441,7 @@ async function listArticlesUnder(
     if (name === REVISIONS_FOLDER) continue;
     const folder = prefix ? `${prefix}/${name}` : name;
     const state = asState(
-      await readAppJsonAt(ctx, accountId, `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`),
+      await readAppSheetJsonAt(ctx, accountId, `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`),
     );
     // A directory with a `state.json` is an article and a leaf: only the
     // revision store lives under it, so the walk stops here. A retired article
@@ -536,7 +537,7 @@ async function findArticle(
       if (!name || !childId || name === REVISIONS_FOLDER) continue;
       const folder = prefix ? `${prefix}/${name}` : name;
       const state = asState(
-        await readAppJsonAt(
+        await readAppSheetJsonAt(
           ctx,
           accountId,
           `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
