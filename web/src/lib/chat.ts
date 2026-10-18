@@ -18,7 +18,7 @@
  */
 
 import { appDocumentJson } from "@gilbert/shared/appDocument";
-import { APP_DOCUMENT_TYPE, FILENODE_GET, FILENODE_SET } from "@gilbert/shared/appFolder";
+import { APP_DOCUMENT_TYPE, FILENODE_GET } from "@gilbert/shared/appFolder";
 import {
   CHAT_FOLDER,
   CHAT_STATE_FOLDER,
@@ -27,10 +27,14 @@ import {
   messageFileName,
   messageProps,
 } from "@gilbert/shared/chat";
-import { client, setErrorMessage } from "@/jmap/client";
-import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { ensureFolder, findInFolder, writeBlobInFolder } from "@/lib/appFolder";
-import { directoryCreate } from "@/lib/filenode";
+import { client } from "@/jmap/client";
+import type { FileNode, GetResponse, Id } from "@/jmap/types";
+import {
+  ensureFolder,
+  ensureSubfolder,
+  findInFolder,
+  writeBlobInFolder,
+} from "@/lib/appFolder";
 
 export * from "@gilbert/shared/chat";
 
@@ -51,20 +55,8 @@ export interface ChatFolders {
  */
 export async function ensureChatFolders(accountId: Id): Promise<ChatFolders> {
   const app = await ensureFolder(accountId);
-  const sub = async (name: string): Promise<Id> => {
-    const existing = await findInFolder(accountId, app, name);
-    if (existing && existing.parentId === app && existing.nodeType === "directory")
-      return existing.id;
-    const set = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
-      accountId,
-      create: { d: directoryCreate(app, name) },
-    });
-    const err = set.notCreated?.d;
-    if (err) throw new Error(setErrorMessage(err));
-    return set.created!.d!.id;
-  };
-  const chat = await sub(CHAT_FOLDER);
-  const state = await sub(CHAT_STATE_FOLDER);
+  const chat = await ensureSubfolder(accountId, app, CHAT_FOLDER);
+  const state = await ensureSubfolder(accountId, app, CHAT_STATE_FOLDER);
   return { chat, state };
 }
 

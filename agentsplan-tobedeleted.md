@@ -188,11 +188,14 @@ remains is in section 2 and in the deferred list.
   order, and a document the parser refuses fails the pass with its path rather
   than being read as silence (`agent/loop.test.ts`, `agent/instruction.test.ts`,
   `installation-admin.test.ts`).
-- **Not built:** no surface writes either document. The installation's is
-  published as the JSON of the document it belongs to; a group's prose awaits the
-  surface that will write its rules and its standing instruction together — the
-  next unit that touches the group's side.
-- **Ready for it** (2026-10-18): `@gilbert/agent/*` is aliased in the client
+- **Built:** a member writes a group's prose from the rules launcher in the top
+  bar (`web/src/views/agent/RulesDialog.tsx`, `web/src/lib/agentProse.ts`): the
+  group is chosen, the standing instruction is one field, and a rule is its name,
+  the surfaces it watches, its prose and whether it may send — with the group's
+  own session, each document validated by the server's parser before it is filed,
+  and an unreadable document reported with its reason rather than dropped. The
+  installation's line is published as the JSON of the document it belongs to.
+- **One definition, both tiers:** `@gilbert/agent/*` is aliased in the client
   (`web/tsconfig.json`, `web/vite.config.ts`) as `AGENTS.md` already claimed, and
   the standing instruction's **shape** has moved to `shared/instruction.ts`, so a
   surface reads one definition instead of spelling a second. Pinned by

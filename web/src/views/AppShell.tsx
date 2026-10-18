@@ -57,6 +57,7 @@ import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
 import { WorkorderLauncher } from "./workorder/WorkorderLauncher";
+import { RulesLauncher } from "./agent/RulesLauncher";
 
 /*
  * The other sections' sidebars, loaded with the section they belong to.
@@ -364,6 +365,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* The workorder launcher sits beside chat's: ADR 0028. It opens a
               panel rather than a popover, but the entry point is the same. */}
           <WorkorderLauncher />
+          {/* A group's prose sits beside them: ADR 0035. Its documents are the
+              group's own, written by a member with the group's session. */}
+          <RulesLauncher />
           {mayAdminister(session?.gilbert) && (
             <button
               type="button"

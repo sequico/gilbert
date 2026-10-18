@@ -44,7 +44,7 @@ export { APP_FOLDER_NAME };
 import { FILENODE_GET, FILENODE_QUERY, FILENODE_SET } from "@gilbert/shared/appFolder";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { fileCreate } from "@/lib/filenode";
+import { directoryCreate, fileCreate } from "@/lib/filenode";
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => [...FOLDER_PROPS];
 
@@ -154,6 +154,34 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
       return set.created!.d!.id;
     },
   );
+}
+
+/**
+ * One directory inside a folder, made when it is not there yet.
+ *
+ * The app folder keeps a fixed set of named subfolders — chat's two, `rules/`,
+ * knowledge's — and a writer finds its own by name and creates it on first
+ * write. The lookup matches client-side for the reason the app folder's does.
+ * A node that carries the name but is not a directory is not the folder: the
+ * write refuses rather than filing documents onto a file.
+ */
+export async function ensureSubfolder(
+  accountId: Id,
+  parentId: Id,
+  name: string,
+): Promise<Id> {
+  const existing = await findInFolder(accountId, parentId, name);
+  if (existing?.parentId === parentId && existing.nodeType === "directory")
+    return existing.id;
+  if (existing)
+    throw new Error(`"${name}" is a file, not a folder, so nothing is filed under it.`);
+  const set = await client.call<SetResponse<FileNode>>(FILENODE_SET, {
+    accountId,
+    create: { d: directoryCreate(parentId, name) },
+  });
+  const err = set.notCreated?.d;
+  if (err) throw new Error(setErrorMessage(err));
+  return set.created!.d!.id;
 }
 
 /**

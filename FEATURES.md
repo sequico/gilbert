@@ -173,10 +173,15 @@ instruction** and the **rule's own instruction**, and one builder,
 from the boot; the second is `instruction.json` in the group's own account
 (`server/src/agent/instruction.ts`), read once per pass so an edit is in force at
 the next one; the third is re-read for each turn of the run it started. A level
-that says nothing contributes nothing. No surface writes the two documents yet —
-the installation's is published as the JSON it belongs to, and a group's prose
-awaits the surface that will write its rules and its standing instruction
-together.
+that says nothing contributes nothing. A member writes the group's two documents
+from **the rules launcher** in the top bar: the group is chosen, the standing
+instruction is one field, and a rule is its name, the surfaces it watches, its
+prose and whether it may send. They are written with the group's own session
+(`web/src/lib/agentProse.ts`) and each is validated by the server's parser before
+it is filed, so a surface cannot store a document the agent would refuse; a
+document that is there but unreadable is listed with its reason instead of being
+dropped. The installation's own line is published as the JSON of the document it
+belongs to.
 
 **One model serves the installation** (ADR 0031), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a

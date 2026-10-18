@@ -1285,6 +1285,13 @@ export const catalog: Catalog = {
     Role: "Rol",
     "Rule name": "Kural adı",
     Rules: "Kurallar",
+    "Standing instruction": "Kalıcı talimat",
+    "How the group wants its agent to work, on every call it makes.": "Grubun ajanının her çağrıda nasıl çalışmasını istediği.",
+    "No rules yet.": "Henüz kural yok.",
+    "Unreadable documents": "Okunamayan belgeler",
+    "Watches": "İzler",
+    "What should happen": "Ne olmalı",
+    "May send": "Gönderebilir",
     Running: "Çalışıyor",
     "S/MIME signers pinned per address (fingerprint → name).":
       "Adres başına sabitlenmiş S/MIME imzalayıcıları (parmak izi → ad).",

@@ -19,12 +19,16 @@ has, so a pass that re-reads a change it did not finish does not work it twice.
 Every call carries all three levels of prose: the installation's own line is
 `agent.instruction` in the installation's document, read at the boot
 (`InstallationAgentSection`); the group's standing instruction is
-`instruction.json` in the group's own account, whose shape, parser and reader are
+`instruction.json` in the group's own account, whose shape, parser and address
+are `server/src/shared/instruction.ts` and whose reader is
 `server/src/agent/instruction.ts`, read once per pass so an edit is in force at
-the next one; the rule's own instruction is re-read for each turn of its run. No
-surface writes the group's prose yet — a rule and a standing instruction are both
-the group's, and the surface that writes them is not built — while the
-installation's line is published as the JSON of the document it belongs to.
+the next one; the rule's own instruction is re-read for each turn of its run. A
+member writes both documents from the rules launcher in the top bar
+(`web/src/views/agent/RulesDialog.tsx`), with the group's own session through
+`web/src/lib/agentProse.ts`: each document is validated by the server's parser
+before it is filed, and one that is there but unreadable is reported rather than
+dropped. The installation's line is published as the JSON of the document it
+belongs to.
 
 ## Context
 
