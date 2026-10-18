@@ -10,6 +10,7 @@ import { eventsSlice } from "./slices/events";
 import { icsSlice } from "./slices/ics";
 import { pushSlice } from "./slices/push";
 import { sharingSlice } from "./slices/sharing";
+import { windowsSlice } from "./slices/windows";
 import type { CalendarState } from "./types";
 
 /*
@@ -61,6 +62,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   draft: null,
 
   ...eventsSlice(set, get),
+  ...windowsSlice(set, get),
   ...calendarsSlice(set, get),
   ...sharingSlice(set, get),
   ...icsSlice(set, get),
