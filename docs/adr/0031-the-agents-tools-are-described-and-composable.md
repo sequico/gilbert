@@ -32,7 +32,11 @@ the group's Drafts — addressed from the group's own identity, which must exist
 threaded and marked `$draft`, reaching nobody — `workorder.settle` settles a step
 of a workorder as the agent (`gilbert-agent`, ADR 0028), and
 `knowledge.propose` writes a page's **draft** for a person to approve
-(ADR 0024).
+(ADR 0024). A document in Files is read **inside** (`files.read`): a PDF's text
+layer, a Word file, a spreadsheet, an OpenDocument or a text file, through
+`server/src/documentText.ts` — and an image, or a page with no text layer, is
+transcribed by the installation's own model (`readImage`, an image part of the
+user turn), because no OCR engine lives in this tree.
 
 ## Context
 

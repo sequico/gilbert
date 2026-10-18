@@ -841,6 +841,57 @@ test("the memory tool records a fact where the installation keeps them", async (
   }
 });
 
+test("a picture is read by the model's eyes when the caller has them, and says so when it has not", async () => {
+  /*
+   * A scan or a photograph has no text a reader can take (ADR 0031): the model
+   * transcribes it, and only a caller holding the model's eyes can ask. That is
+   * the two halves pinned here — the answer when the eyes are there, and the
+   * honest refusal when they are not, never the bytes.
+   */
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    accountId,
+    "Documents",
+    "scan.png",
+    png,
+    "image/png",
+  );
+
+  const blind = await runTool(
+    READING_TOOLS,
+    { ctx, accountId, run: plainRun() },
+    "files.read",
+    { path: "Documents/scan.png" },
+  );
+  assert.equal(
+    blind.readable,
+    false,
+    "a caller without the model's eyes cannot read a picture",
+  );
+  assert.match(blind.problem ?? "", /cannot look at an image/);
+
+  const seenImage: Array<{ type: string; data: Uint8Array }> = [];
+  const read = await runTool(
+    READING_TOOLS,
+    {
+      ctx,
+      accountId,
+      run: plainRun(),
+      readImage: async (image) => {
+        seenImage.push(image);
+        return { text: "Booking 4417 confirmed" };
+      },
+    },
+    "files.read",
+    { path: "Documents/scan.png" },
+  );
+  assert.equal(read.readable, true);
+  assert.equal(read.text, "Booking 4417 confirmed");
+  assert.equal(seenImage[0]?.type, "image/png", "the file's own type travels with it");
+  assert.equal(seenImage[0]?.data.length, png.length, "and its bytes");
+});
+
 test("a reply is drafted into the group's Drafts, addressed and threaded, and nothing is sent", async () => {
   /*
    * Drafting is the one mail write this catalogue takes without a person's word

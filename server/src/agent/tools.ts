@@ -48,9 +48,10 @@ import {
   nodeStamp,
   pathSegments,
   readAppJsonAt,
-  readVisibleFileAt,
+  readVisibleFileBytes,
   updateAppNode,
 } from "../appFolder.js";
+import { documentKind, readDocument } from "../documentText.js";
 import { findChatMessages, postChatMessage, readChatMessage } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { KnowledgeAdminError, proposeArticle, readArticle } from "../knowledgeAdmin.js";
@@ -201,6 +202,12 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
   };
 }
 
+/** What the installation's model answers when a tool asks it to read an image. */
+export type ImageReader = (image: {
+  type: string;
+  data: Uint8Array;
+}) => Promise<{ text: string } | { problem: string }>;
+
 /** What a tool call is given: the session it acts as, and the run it works. */
 export interface ToolCall {
   ctx: Ctx;
@@ -208,6 +215,16 @@ export interface ToolCall {
   accountId: string;
   /** The run the call is a step of, which is what its authority is read from. */
   run: RunDoc;
+  /**
+   * The installation's model's eyes, for the one read a function cannot make
+   * (ADR 0031): an image is transcribed by the model, and a caller without this
+   * gets the answer that says so rather than a guess at the picture.
+   *
+   * A function rather than the model's own access, because a catalogue that
+   * imported the model would close a cycle — the model imports the catalogue to
+   * offer its tools. The loop, which holds both, is where the two meet.
+   */
+  readImage?: ImageReader;
   /**
    * The installation's memory as the caller's pass read it (ADR 0037).
    *
@@ -525,18 +542,42 @@ const readNode = defineTool({
   name: "files.read",
   description:
     "Read one document of this account's Files, by the path a listing answered " +
-    "with, as text.",
+    "with: its text. A PDF, a Word file, a spreadsheet or an OpenDocument is " +
+    "read inside, so what you get is what the document says; a format this " +
+    "build cannot read says so rather than answering bytes.",
   authority: "reversible",
   writes: false,
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
-  run: async ({ ctx, accountId }, { path }) => {
-    const found = await readVisibleFileAt(ctx, accountId, path);
+  run: async ({ ctx, accountId, readImage }, { path }) => {
+    const found = await readVisibleFileBytes(ctx, accountId, path);
     if (!found) throw notFound(`file "${path}" in this account's Files`);
+    const type = documentType(found.file);
+    /*
+     * A picture is read by the installation's model and a document by the
+     * format readers; both answer the same three things — the text, a reason it
+     * could not be read, or "this is not a format I read".
+     *
+     * shortcut: the vision call is not on the run's tally (a tool's spend is a
+     * constant), so a run that reads many images under-reports its calls; give
+     * `spend` a function when the tally must be exact to the call.
+     */
+    const document =
+      documentKind(type, found.name) === "image"
+        ? readImage
+          ? await readImage({ type, data: found.bytes })
+          : { problem: "This installation's agent cannot look at an image." }
+        : await readDocument(found.bytes, type, found.name);
     return {
-      name: String(found.file.name ?? ""),
-      type: documentType(found.file),
+      name: found.name,
+      type,
       size: typeof found.file.size === "number" ? found.file.size : null,
-      text: found.text,
+      // A format nothing here reads, and a document that would not open, are two
+      // answers: the first has no text to give, the second says why.
+      ...(document === null
+        ? { text: null, readable: false }
+        : "problem" in document
+          ? { text: null, readable: false, problem: document.problem }
+          : { text: document.text, readable: true, kind: document.kind }),
     };
   },
 });

@@ -98,6 +98,7 @@ import {
   type ModelAccess,
   ModelError,
   readAnswerAuthority,
+  readImage,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
@@ -111,7 +112,7 @@ import {
   replaceRun,
 } from "./runs.js";
 import { type DueWait, WaitTimers } from "./timers.js";
-import { type AnyTool, runTool, TOOLS } from "./tools.js";
+import { type AnyTool, type ImageReader, runTool, TOOLS } from "./tools.js";
 
 /**
  * The ceilings a run's budget is measured against (ADR 0031).
@@ -715,7 +716,13 @@ export class AgentLoop {
           wave.map(({ call }) =>
             runTool(
               this.catalogue,
-              { ctx: this.ctx, accountId, run: current, memory: store },
+              {
+                ctx: this.ctx,
+                accountId,
+                run: current,
+                memory: store,
+                readImage: this.eyes,
+              },
               call.name,
               call.args,
             ),
@@ -806,6 +813,17 @@ export class AgentLoop {
       );
     }
   }
+
+  /**
+   * The installation's model's eyes, as a reading tool asks for them (ADR 0031).
+   *
+   * Bound once, so a catalogue that turns a picture into words goes through the
+   * one model the installation chose and the one switch the operator set, and a
+   * refusal — a model that cannot see, a provider that would not answer — arrives
+   * as a document the tool could not read rather than as a failed pass.
+   */
+  private readonly eyes: ImageReader = async (image) =>
+    await readImage(this.opts.access, image);
 
   /** The two prose levels above a rule's own, as this pass read them (ADR 0035). */
   private async proseAbove(

@@ -201,7 +201,10 @@ installation that has chosen no model has no agent.
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
 — finds and reads a message, a folder, a document in Files, a KB page, a
-workorder, a run and the group's own conversation. The half that changes the
+workorder, a run and the group's own conversation, and a document in Files is read
+**inside**: a PDF's text layer, a Word file, a spreadsheet, an OpenDocument or a
+text file as the document's own words (`server/src/documentText.ts`), and an image
+or a page with no text layer transcribed by the installation's model. The half that changes the
 group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, moves or renames a document, **drafts a reply to everyone**

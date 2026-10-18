@@ -55,6 +55,7 @@ const {
   parseAnswerDetailed,
   parseStepAnswerDetailed,
   readAnswerAuthority,
+  readImage,
   requireModelAccess,
   MODEL_MAX_OUTPUT_DEFAULT,
   MODEL_RESPONSE_BYTES_MAX,
@@ -1085,4 +1086,40 @@ test("a person's answer is read for the act it authorises, and never for an over
       `${JSON.stringify(refused)} is refused whole`,
     );
   }
+});
+
+test("an image goes to the model as an image part, and what it says comes back as text", async () => {
+  /*
+   * No OCR engine lives in this tree (owner decision 2026-10-18): a picture is
+   * read by the installation's own model. What is pinned here is the part it
+   * travels as — a `data:` URL in the user turn, beside the text — and the answer
+   * the caller gets back.
+   */
+  const access = { model, allowPrivateProvider: true };
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  answerWith({ text: "Booking 4417 confirmed" });
+  assert.deepEqual(await readImage(access, { type: "image/png", data: png }), {
+    text: "Booking 4417 confirmed",
+  });
+
+  const sent = seen.at(-1)?.body as {
+    messages?: Array<{ role: string; content: unknown }>;
+  };
+  const turn = sent.messages?.[1];
+  assert.equal(turn?.role, "user");
+  assert.ok(Array.isArray(turn?.content), "the user turn carries parts");
+  const parts = turn.content as Array<Record<string, unknown>>;
+  assert.equal(parts[0]?.type, "text");
+  const image = parts[1] as { type?: string; image_url?: { url?: string } };
+  assert.equal(image.type, "image_url");
+  assert.match(
+    image.image_url?.url ?? "",
+    /^data:image\/png;base64,iVBORw0KGgo=/,
+    "the bytes travel as a data URL of the file's own type",
+  );
+
+  answerWith({ text: 7 });
+  const refused = await readImage(access, { type: "image/png", data: png });
+  assert.ok("problem" in refused, "an answer that is not a transcription is a problem");
+  assert.match(refused.problem, /could not be read by the installation's model/);
 });
