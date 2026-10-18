@@ -31,10 +31,7 @@ function prosePath(group: string, rest = ""): string {
 
 /** Read a group's standing instruction and its rules. */
 export async function readGroupProse(group: string): Promise<GroupProse> {
-  const res = await apiFetch<{ instruction: string; rules: RuleDoc[]; state: string }>(
-    prosePath(group),
-  );
-  return { instruction: res.instruction, rules: res.rules, state: res.state };
+  return await apiFetch<GroupProse>(prosePath(group));
 }
 
 /** Save the standing instruction; an emptied field leaves no document behind. */
