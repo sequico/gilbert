@@ -1978,8 +1978,6 @@ export const catalog: Catalog = {
     "Resize sidebar": "Ridimensiona la barra laterale",
     "Resize contact list": "Ridimensiona l'elenco dei contatti",
 
-    "QR code": "Codice QR",
-
     "Draft discarded": "Bozza scartata",
 
     "Draft saved": "Bozza salvata",

@@ -1251,7 +1251,6 @@ export const catalog: Catalog = {
     "Resize panes": "Redimensionner les volets",
     "Resize sidebar": "Redimensionner la barre latérale",
     "Resize contact list": "Redimensionner la liste des contacts",
-    "QR code": "QR code",
     "Draft discarded": "Brouillon abandonné",
     "Draft saved": "Brouillon enregistré",
     "Emptying folder…": "Vidage du dossier…",

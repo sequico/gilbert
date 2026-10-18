@@ -1233,7 +1233,6 @@ export const catalog: Catalog = {
     "Resize panes": "Изменить размер панелей",
     "Resize sidebar": "Изменить размер боковой панели",
     "Resize contact list": "Изменить размер списка контактов",
-    "QR code": "QR-код",
     "Draft discarded": "Черновик удалён",
     "Draft saved": "Черновик сохранён",
     "Emptying folder…": "Папка очищается…",

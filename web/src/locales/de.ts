@@ -1269,7 +1269,6 @@ export const catalog: Catalog = {
     "Resize panes": "Bereichsgröße ändern",
     "Resize sidebar": "Größe der Seitenleiste ändern",
     "Resize contact list": "Größe der Kontaktliste ändern",
-    "QR code": "QR-Code",
     "Draft discarded": "Entwurf verworfen",
     "Draft saved": "Entwurf gespeichert",
     "Emptying folder…": "Ordner wird geleert…",

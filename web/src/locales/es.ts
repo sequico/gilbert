@@ -1245,7 +1245,6 @@ export const catalog: Catalog = {
     "Resize panes": "Cambiar el tamaño de los paneles",
     "Resize sidebar": "Cambiar el tamaño de la barra lateral",
     "Resize contact list": "Cambiar el tamaño de la lista de contactos",
-    "QR code": "Código QR",
     "Draft discarded": "Borrador descartado",
     "Draft saved": "Borrador guardado",
     "Emptying folder…": "Vaciando la carpeta…",

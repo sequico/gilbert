@@ -1232,7 +1232,6 @@ export const catalog: Catalog = {
     "Resize panes": "Vensterdelen verslepen",
     "Resize sidebar": "Grootte van de zijbalk wijzigen",
     "Resize contact list": "Grootte van de contactenlijst wijzigen",
-    "QR code": "QR-code",
     "Draft discarded": "Concept weggegooid",
     "Draft saved": "Concept opgeslagen",
     "Emptying folder…": "Map wordt geleegd…",

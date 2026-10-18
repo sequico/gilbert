@@ -1173,7 +1173,6 @@ export const catalog: Catalog = {
     "Publish policy": "İlkeyi yayımla",
     "Publishing…": "Yayımlanıyor…",
     "Put the signature above the quoted text.": "İmzayı alıntılanan metnin üstüne koy.",
-    "QR code": "QR kodu",
     Quote: "Alıntı",
     "Quote original message in replies": "Yanıtlarda orijinal iletiyi alıntıla",
     "Quote the original message when replying.": "Yanıtlarken özgün iletiyi alıntıla.",
