@@ -330,13 +330,25 @@ export class AgentLoop {
       if (due && !accounts.includes(due.accountId)) this.pending.splice(at, 1);
     }
     for (const accountId of accounts) {
-      await this.workDue(accountId, now, summary);
-      await this.workChanges(accountId, now, summary);
+      /*
+       * One account that cannot be read is not the installation failing: a
+       * single rule sheet this build cannot parse is a group to leave alone for
+       * this pass, not a reason to stop working every other group — and the
+       * pass that throws here would throw again on the next beat, for ever. The
+       * reason goes into the pass's gaps, which the supervisor reports.
+       */
+      try {
+        await this.workDue(accountId, now, summary);
+        await this.workChanges(accountId, now, summary);
+      } catch (err) {
+        summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+      }
       /*
        * The waits are armed **after** the due runs have been advanced: a re-arm
        * beside a run whose document has not moved would hand the same instant
        * over twice (`timers.ts`), and a process that restarts re-arms what the
-       * installation left.
+       * installation left. Armed even for an account whose work failed: a run
+       * parked on a date is re-armed from its own document, not from this pass.
        */
       await this.timers.arm(this.ctx, accountId);
     }

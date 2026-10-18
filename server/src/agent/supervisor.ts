@@ -55,8 +55,10 @@
  * the runs and the change logs, and the record of it is the run document, not a
  * log. What is said is said **when it changes** — a pass that failed and its
  * reason, an installation whose Master works no group and the one that picks a
- * group up again, a claim a peer holds and this process taking it back — and
- * never once per ten seconds. The line a person reads is one they can act on.
+ * group up again, a claim a peer holds and this process taking it back, and a
+ * gap a pass reported (a rule sheet this build cannot read, a change log that
+ * skipped) — and never once per ten seconds. The line a person reads is one
+ * they can act on.
  *
  * **Nothing is kept.** The loop, its reading cursors, the roster the last pass
  * resolved and its alarms live in memory, which is disposable by law
@@ -150,6 +152,12 @@ export function supervise(options: SupervisorOptions): AgentProcess {
    * idle *now*, and the passes after it say nothing.
    */
   let idle = false;
+  /**
+   * The gaps the last pass reported, so one is said when it appears and not on
+   * every beat: an unreadable rule sheet or a change log that skipped says the
+   * same sentence ten seconds later, and a fault that has gone stops being said.
+   */
+  let saidGaps = new Set<string>();
 
   async function pass(): Promise<void> {
     if (running || stopped) return;
@@ -174,6 +182,9 @@ export function supervise(options: SupervisorOptions): AgentProcess {
             "[gilbert] agent: the Master works a group again, so the agent is working it",
           );
         }
+        for (const gap of summary.gaps)
+          if (!saidGaps.has(gap)) log(`[gilbert] agent: ${gap}`);
+        saidGaps = new Set(summary.gaps);
       } else if (!heldByPeer) {
         heldByPeer = true;
         log(
