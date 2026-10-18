@@ -38,10 +38,6 @@ const submitted = (address: string): string =>
 /** The server's own delivery hop, which names nobody it came from. */
 const DELIVERED = "by mx.example.org with LMTP id 9a; Fri, 16 Oct 2026 09:05:00 +0000";
 
-/** A verdict of the shape RFC 8601 gives, and of the shape a live one is owed. */
-const VERDICT =
-  "mx.example.org; dkim=pass header.d=example.org; spf=pass smtp.mailfrom=ada@example.org";
-
 /** The agent acts as the group's account, whose own address is a known one. */
 const ASKING = {
   own: "gilbert@example.com",
@@ -70,7 +66,6 @@ describe("personWord", () => {
       message({
         from: from("bob@example.com"),
         "header:Received:asText:all": [submitted("bob@example.com")],
-        "header:Authentication-Results:asText": null,
       }),
       ASKING,
     );
@@ -82,26 +77,14 @@ describe("personWord", () => {
     });
   });
 
-  it("refuses a message that arrived from outside, whatever verdict it carries", () => {
+  it("refuses a message that arrived from outside", () => {
     // The verdict is worth the authserv-id that wrote it, and what a live
     // Stalwart writes there is the probe the record says it owes. Until it is
-    // answered, no verdict makes an outside message a person's word — a sender
-    // can write a header as easily as a `From:` line.
-    for (const verdict of [
-      VERDICT,
-      "mx.example.org (Postfix);\r\n dkim=pass (1024-bit key; unprotected) header.d=example.org",
-      null,
-      "",
-    ]) {
-      const decision = personWord(
-        message({
-          "header:Authentication-Results:asText": verdict,
-        } as Partial<ReceivedMessage>),
-        ASKING,
-      );
-      assert.equal(decision.word, false, String(verdict));
-      assert.equal(decision.refusal, "not_authenticated", String(verdict));
-    }
+    // answered, an outside message is nobody's word — a sender can write a
+    // header as easily as a `From:` line, and the reading does not ask for one.
+    const decision = personWord(message(), ASKING);
+    assert.equal(decision.word, false);
+    assert.equal(decision.refusal, "not_authenticated");
   });
 
   it("refuses a submission that names no account, or names a different one", () => {
@@ -167,7 +150,6 @@ describe("personWord", () => {
       {
         from: from("stranger@elsewhere.test"),
         "header:Received:asText:all": [submitted("stranger@elsewhere.test")],
-        "header:Authentication-Results:asText": null,
       },
     ]) {
       const decision = personWord(message(over), ASKING);

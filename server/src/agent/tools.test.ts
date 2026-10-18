@@ -1004,12 +1004,12 @@ test("a message outward is refused until a person's words license exactly it", a
     at: new Date().toISOString(),
     from: { channel: "chat", id: "m-1" },
   });
-  const sent = await runTool<{ id: string; to: string }>(
+  const sent = (await runTool(
     TOOLS,
     { ctx, accountId, run: authorised, memory: await listFacts(ctx, accountId) },
     "mail.send",
     { to: "ops@shipper.example", subject: "the slot", text: "the slot is Thursday" },
-  );
+  )) as { id: string; to: string };
   assert.equal(sent.to, "ops@shipper.example");
   assert.ok(sent.id, "the message is written and submitted");
   assert.ok(
@@ -1119,12 +1119,12 @@ test("a picture is read by the model's eyes when the caller has them, and says s
     "image/png",
   );
 
-  const blind = await runTool(
+  const blind = (await runTool(
     READING_TOOLS,
     { ctx, accountId, run: plainRun() },
     "files.read",
     { path: "Documents/scan.png" },
-  );
+  )) as { readable: boolean; problem?: string };
   assert.equal(
     blind.readable,
     false,
@@ -1133,7 +1133,7 @@ test("a picture is read by the model's eyes when the caller has them, and says s
   assert.match(blind.problem ?? "", /cannot look at an image/);
 
   const seenImage: Array<{ type: string; data: Uint8Array }> = [];
-  const read = await runTool(
+  const read = (await runTool(
     READING_TOOLS,
     {
       ctx,
@@ -1146,7 +1146,7 @@ test("a picture is read by the model's eyes when the caller has them, and says s
     },
     "files.read",
     { path: "Documents/scan.png" },
-  );
+  )) as { readable: boolean; text?: string };
   assert.equal(read.readable, true);
   assert.equal(read.text, "Booking 4417 confirmed");
   assert.equal(seenImage[0]?.type, "image/png", "the file's own type travels with it");

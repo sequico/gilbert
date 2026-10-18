@@ -864,7 +864,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
   /* The act a person is asked for, as a stand-in: the mail channel's send is not
      in the catalogue (ADR 0033), and what is under test is the word and the guard. */
   const sent: string[] = [];
-  const sendOut = defineTool({
+  const sendOut = defineTool<{ to: string; text: string }>({
     name: "test.send",
     description:
       "Send one message outward — the stand-in for the act a person authorises.",

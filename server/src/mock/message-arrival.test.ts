@@ -39,7 +39,11 @@ after(() => {
 });
 
 /** What one message of the demo account carries, with the folder it sits in. */
-type Message = ReceivedMessage & { mailboxIds?: Record<string, boolean> | null };
+type Message = ReceivedMessage & {
+  mailboxIds?: Record<string, boolean> | null;
+  /** The verdict the mock writes; the reading no longer takes one from outside. */
+  "header:Authentication-Results:asText"?: string | null;
+};
 
 /** Every message of the demo account, with the properties this reading reads. */
 async function messages(): Promise<Message[]> {
