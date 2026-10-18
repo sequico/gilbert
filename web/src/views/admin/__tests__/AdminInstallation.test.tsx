@@ -78,7 +78,11 @@ describe("the installation document surface", () => {
   }
 
   function editor(): HTMLTextAreaElement {
-    const field = host.querySelector("textarea");
+    // The surface holds two textareas now: the installation's own line, and the
+    // document. This one is the document, by the label the editor gives it.
+    const field = host.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="Installation document"]',
+    );
     if (!field) throw new Error("the editor is not rendered");
     return field;
   }
@@ -333,7 +337,7 @@ describe("the installation document surface", () => {
 
     const text = host.textContent ?? "";
     expect(text).toContain(refusal);
-    expect(host.querySelector("textarea")).toBeNull();
+    expect(host.querySelector('textarea[aria-label="Installation document"]')).toBeNull();
   });
 
   it("shows a refusal as the server stated it and keeps the text", async () => {
