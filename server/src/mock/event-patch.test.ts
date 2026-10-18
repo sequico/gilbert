@@ -6,7 +6,7 @@ import { freePort, jmapCall, responseOf } from "../testkit.js";
  * A `CalendarEvent/set` update carries a JMAP patch whose keys are paths
  * (RFC 8620 §5.3), and the calendar store really sends a nested one for a
  * series: `participants/me/participationStatus` is how an invitation is
- * answered (see `web/src/store/calendar.ts`).
+ * answered (see `web/src/store/calendar/slices/events.ts`).
  *
  * A mock that kept the path as one literal key produced a shape a server never
  * does -- `{ participants: { "me/participationStatus": "accepted" } }` -- so a

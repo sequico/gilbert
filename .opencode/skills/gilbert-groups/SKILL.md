@@ -42,7 +42,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 
 ## Per-feature map (state 2026-09-18)
 
-- **Calendars**: the pattern-setter. `store/calendar.ts`
+- **Calendars**: the pattern-setter. `store/calendar/`
   `createCalendar(data, accountId?)` — omit for your own, pass the group
   account id to create one the group owns (subscribed from the start).
   `CalendarSidebar` puts the reader's own under **My calendars** and every
@@ -65,7 +65,7 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
   **Global contacts is not one of these**: it is one Master-owned book read
   through a server route, the installation's rather than a group's, and it
   gets no per-group section and no per-group copy (`gilbert-global-contacts`).
-- **Files**: ownership follows the browsed context (`store/files.ts`
+- **Files**: ownership follows the browsed context (`store/files/`
   `openAccount`); a doc created while browsing the group account is the
   group's. The composer's "Attach from Files" picker lists every probed
   account, group mailboxes included, and copies the blob into the sender's

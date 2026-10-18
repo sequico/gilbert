@@ -10,7 +10,7 @@
  * zone is the one that gives it meaning.
  *
  * Both tiers compose it: the browser when it turns a `Date` into a stored
- * start (`lib/dates.ts`, `lib/eventDrag.ts`, `store/calendar.ts`), the mock
+ * start (`lib/dates.ts`, `lib/eventDrag.ts`, `store/calendar/slices/events.ts`), the mock
  * when it fabricates a server's answer (`mock/recurrence.ts`, `mock/index.ts`)
  * — and the events the mock serves have to be the shape the client sends, or
  * the dev loop exercises a format no real server sees.
