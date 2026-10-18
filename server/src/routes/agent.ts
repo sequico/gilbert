@@ -59,7 +59,6 @@ import {
   readJson,
   requireAdmin,
   requireSession,
-  upstreamFailure,
 } from "./shared.js";
 
 /** The answer to a fact this surface could not read or write, or upstream's. */
@@ -97,9 +96,15 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     return accountId;
   }
 
-  /** A thrown door refusal answered as one; anything else is upstream's. */
+  /**
+   * A thrown refusal answered as the refusal it is.
+   *
+   * The door's own code -- no Master configured, a credential refused -- is not
+   * an upstream fault and must not be reported as one; the memory's codes are
+   * answered beside it, and only what is neither is upstream's.
+   */
   const doorFailure = (c: Parameters<typeof groupDenial>[0], err: unknown) =>
-    groupAccessFailure(c, err) ?? upstreamFailure(c, err);
+    groupAccessFailure(c, err) ?? memoryFailure(c, err);
 
   /**
    * Where the installation's agent is.
@@ -170,7 +175,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       const { facts } = await listFacts(ctx, memoryAccount(ctx));
       return c.json({ facts });
     } catch (err) {
-      return memoryFailure(c, err);
+      return doorFailure(c, err);
     }
   });
 
@@ -208,7 +213,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       );
       return c.json({ fact });
     } catch (err) {
-      return memoryFailure(c, err);
+      return doorFailure(c, err);
     }
   });
 
@@ -232,7 +237,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       );
       return c.json({ fact });
     } catch (err) {
-      return memoryFailure(c, err);
+      return doorFailure(c, err);
     }
   });
 
@@ -253,7 +258,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       await forgetFact(ctx, accountId, c.req.param("id") ?? "", state);
       return c.json({ ok: true });
     } catch (err) {
-      return memoryFailure(c, err);
+      return doorFailure(c, err);
     }
   });
 }

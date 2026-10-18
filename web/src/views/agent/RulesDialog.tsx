@@ -19,10 +19,11 @@ import {
   saveInstruction,
   saveRule,
 } from "@/lib/agentProse";
+import { isStateMismatch } from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
-import { Dialog } from "@/ui/dialog";
+import { confirmDialog, Dialog } from "@/ui/dialog";
 
 /** The name each surface goes by, in the order a rule's list keeps. */
 const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
@@ -48,6 +49,8 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
     setError(null);
     setSaved(false);
     setProse(null);
+    // A rule being drafted belongs to the group it was typed for.
+    setAdding(false);
     try {
       const next = await readGroupProse(id);
       setProse(next);
@@ -67,24 +70,52 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
     setBusy(true);
     setError(null);
     try {
-      await saveInstruction(accountId, instruction);
+      await saveInstruction(accountId, instruction, prose?.state);
       setSaved(true);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(await conflictOr(err, accountId));
     } finally {
       setBusy(false);
     }
   };
 
+  /**
+   * A write the account refused because something moved under it: say so and
+   * read again, rather than showing the mail server's own sentence.
+   */
+  const conflictOr = async (err: unknown, id: string): Promise<string> => {
+    if (!isStateMismatch(err)) return errorMessage(err);
+    await load(id);
+    return t(
+      "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.",
+    );
+  };
+
   /** Write one rule and reload, so the list is what the account now holds. */
   const writeRule = async (rule: RuleDoc) => {
-    await saveRule(accountId, rule);
+    try {
+      await saveRule(accountId, rule, prose?.state);
+    } catch (err) {
+      setError(await conflictOr(err, accountId));
+      return;
+    }
     setAdding(false);
     await load(accountId);
   };
 
   const removeRule = async (id: string) => {
-    await deleteRule(accountId, id);
+    const sure = await confirmDialog({
+      title: t("Delete “{title}”?", { title: id }),
+      confirmLabel: t("Delete"),
+      danger: true,
+    });
+    if (!sure) return;
+    try {
+      await deleteRule(accountId, id);
+    } catch (err) {
+      setError(errorMessage(err));
+      return;
+    }
     await load(accountId);
   };
 

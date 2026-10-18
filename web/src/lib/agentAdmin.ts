@@ -2,7 +2,7 @@
  * The installation's agent, as the administration reads it (ADR 0031, 0034,
  * 0036, 0037).
  *
- * One reader and three writers for the routes under `/api/admin/agent`,
+ * Three readers and three writers for the routes under `/api/admin/agent`,
  * `/api/admin/memory` and `/api/admin/groups/<group>/runs`. The shapes are the
  * server's own documents — a claim, a run and a fact are stored contracts both
  * tiers read — imported from `@gilbert/shared`, so the surface draws what the

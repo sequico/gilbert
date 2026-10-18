@@ -7,7 +7,6 @@ import { APP_FOLDER_NAME } from "@gilbert/shared/appFolder";
 import { INSTRUCTION_VERSION } from "@gilbert/shared/instruction";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import type { FileNode } from "@/jmap/types";
 import { readGroupProse, saveRule } from "../agentProse";
 
 /**
@@ -266,6 +265,7 @@ describe("reading a group's prose", () => {
       instruction: "",
       rules: [],
       unreadable: [],
+      state: null,
     });
   });
 });
@@ -274,13 +274,17 @@ describe("writing a rule", () => {
   it("files the document the agent reads, in the watched order the record keeps", async () => {
     const server = group([], {});
 
-    const saved = await saveRule(ACCOUNT, {
-      v: RULE_VERSION,
-      id: "invoices",
-      watches: ["files", "mail"],
-      instruction: "File the invoice and tell the group.",
-      sends: true,
-    });
+    const saved = await saveRule(
+      ACCOUNT,
+      {
+        v: RULE_VERSION,
+        id: "invoices",
+        watches: ["files", "mail"],
+        instruction: "File the invoice and tell the group.",
+        sends: true,
+      },
+      "s1",
+    );
 
     expect(saved.watches).toEqual(["mail", "files"]);
     const filed = server.nodes.find((n) => n.name === "invoices.json");
@@ -295,6 +299,10 @@ describe("writing a rule", () => {
       },
     });
     expect(server.written.length).toBe(1);
+    expect(server.written[0]!.ifInState).toBe(
+      "s1",
+      "the write is conditioned on the read",
+    );
   });
 
   it("refuses a rule the agent would refuse, without writing anything", async () => {

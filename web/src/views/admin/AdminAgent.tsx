@@ -54,7 +54,7 @@ function RunCard({ listed, facts }: { listed: RunListing; facts: readonly FactDo
         </div>
         {/* Said rather than drawn: a run this build cannot read is a defect the
             installation has, and an empty run would be a record invented. */}
-        <div className="error-box">{t("{problem}", { problem: problem ?? "" })}</div>
+        <div className="error-box">{problem}</div>
       </div>
     );
   return <RunDocument run={run} facts={facts} />;
@@ -119,12 +119,18 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
       )}
       {waiting && (
         <p className="hint">
-          {t("Waiting: {what} — asked in {channel} {id}{until}", {
-            what: waiting.what,
-            channel: waiting.asked.channel,
-            id: waiting.asked.id,
-            until: waiting.until ? `, until ${formatFullDate(waiting.until)}` : "",
-          })}
+          {waiting.until
+            ? t("Waiting: {what} — asked in {channel} {id}, until {until}", {
+                what: waiting.what,
+                channel: waiting.asked.channel,
+                id: waiting.asked.id,
+                until: formatFullDate(waiting.until),
+              })
+            : t("Waiting: {what} — asked in {channel} {id}", {
+                what: waiting.what,
+                channel: waiting.asked.channel,
+                id: waiting.asked.id,
+              })}
         </p>
       )}
       {ended && (
@@ -337,11 +343,7 @@ function FactCard({
  * administrator's own, the same one every other administration surface is behind.
  */
 export function AdminAgent() {
-  const [claim, setClaim] = useState<{
-    holder: string;
-    takenAt: string;
-    expires: string;
-  } | null>(null);
+  const [claim, setClaim] = useState<AgentStatus["claim"]>(null);
   const [passSeconds, setPassSeconds] = useState(0);
   const [modelLine, setModelLine] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
