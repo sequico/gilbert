@@ -120,7 +120,7 @@ step of it before the first write.**
 ## References
 
 - `web/src/lib/folderMerge.ts` — `planMerge`, the steps and the collisions
-- `web/src/store/files.ts` — `mergeFolders`, the scan, the run, and the three
+- `web/src/store/files/slices/folders.ts` — `mergeFolders`, the scan, the run, and the three
   writers it goes through: `moveNodes`, `copyOver`, `destroyNodes`
 - `web/src/views/files/FilesView.tsx` — the menu entry, the dialog that asks
   which name stays, and the tray

@@ -46,7 +46,7 @@ Three properties of the server decide what the alternatives cost:
 folder is never written into.**
 
 - **A drop and a picker selection replace.** Both go through one writer
-  (`putFile` in `web/src/store/files.ts`), which uploads the bytes, creates the
+  (`putFile` in `web/src/store/files/shared.ts`), which uploads the bytes, creates the
   node, and on `alreadyExists` writes the bytes into the node the refusal named.
   The node keeps its id, its `shareWith`, its `created` and its place in the
   tree; only `blobId`, `type` and `size` change. Nothing is destroyed and
@@ -160,7 +160,7 @@ unbounded, and nothing in the account says which one is the current file.
 
 ## References
 
-- `web/src/store/files.ts` — `putFile`, the one writer; `writeContent`, the one
+- `web/src/store/files/shared.ts` — `putFile`, the one writer; `writeContent`, the one
   update; `upload` and `uploadPlan`, the two replacing paths; `uploadTo`, the
   refusing one
 - `web/src/lib/filenode.ts` — `fileCreate`, `directoryCreate`, `isAlreadyExists`

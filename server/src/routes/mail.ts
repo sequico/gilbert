@@ -136,7 +136,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
       /*
        * This route forwards a call the browser built, so it is a writer of this
        * process exactly as a helper's write is -- and it is the path the web
-       * client's own `FileNode/set` takes (`store/files.ts`), not a rare one.
+       * client's own `FileNode/set` takes (`store/files/shared.ts`), not a rare one.
        * `JmapClient` forgets the remembered levels on the writes it sends; a
        * write forwarded here must do the same, or an agent pass running beside
        * this request is handed a listing from before the person saved the file.

@@ -58,7 +58,7 @@ export const FILENODE_CHANGES = "FileNode/changes";
  * call this process sends itself. The browser's own writes are forwarded whole
  * by `/api/jmap` (`routes/mail.ts`) and never pass the client, so that route
  * cannot rely on `JmapClient` having forgotten what the memory holds -- and it
- * is not an occasional path: `store/files.ts` sends every `FileNode/set` a
+ * is not an occasional path: `store/files/shared.ts` sends every `FileNode/set` a
  * person makes through it.
  *
  * The body is untrusted text and the answer is one question about it: does a

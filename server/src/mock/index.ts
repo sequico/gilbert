@@ -4789,7 +4789,7 @@ const handlers: Record<string, Handler> = {
        * for the contents to go with it.
        *
        * `onDestroyRemoveChildren` is what the Files view's own delete sends
-       * (`destroy` in `web/src/store/files.ts`), and what a merge deliberately
+       * (`destroy` in `web/src/store/files/slices/folders.ts`), and what a merge deliberately
        * does not: a merge destroys a folder it **emptied**, so a folder that is
        * not empty is not the merge's to destroy, and a real server refusing it
        * gives the reader the honest answer instead of taking a file that landed
