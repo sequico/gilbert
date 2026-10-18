@@ -18,15 +18,19 @@ import { deflateSync } from "node:zlib";
  * never the bytes, and never an empty string that reads as a document with
  * nothing in it.
  *
- * **Bounds.** What comes out is capped at `DOCUMENT_TEXT_MAX`: a long document is
- * cut rather than turned into a call the model cannot take. `shortcut: the cap is
- * a character count, not a page count, so a table that is one page of numbers can
- * still fill it; upgrade by reporting where the cut fell if a run ever needs the
- * rest.`
+ * **Bounds.** What comes out is capped at `DOCUMENT_TEXT_MAX`, and the extraction
+ * stops at the cap rather than building the whole text and cutting it: a sheet of
+ * twenty megabytes expands to hundreds in memory, and the server that reads it is
+ * the one serving the app. `shortcut: the cap is a character count, not a page
+ * count, so a table that is one page of numbers can still fill it; upgrade by
+ * reporting where the cut fell if a run ever needs the rest.`
  *
- * **What is not read.** Scanned pages are images: a PDF whose text layer is empty
- * answers an empty string, and reading the picture is OCR, which this builds no
- * part of. A password-protected PDF is refused by the reader, and the tool says so.
+ * **A page with no text is a picture.** A PDF page whose text layer is empty is
+ * rendered by `pdfium` and handed to the installation's model, whose eyes read it
+ * — the same path as an image attachment. A mixed document is read page by page:
+ * the text pages as text, the scans as pictures, up to `SCANNED_PAGES_MAX` pages
+ * transcribed. A password-protected PDF is refused by the reader, and the tool
+ * says so.
  */
 
 /** How much text one document may contribute to a call. */
@@ -72,11 +76,20 @@ async function sheetText(bytes: Uint8Array): Promise<string> {
     utils: { sheet_to_csv(sheet: unknown): string };
   };
   const book = XLSX.read(bytes, { type: "buffer" });
-  return book.SheetNames.map((name) => {
+  const blocks: string[] = [];
+  let size = 0;
+  // Stop at the cap rather than building every sheet and cutting the answer: a
+  // workbook expands to many times its bytes as text, and this runs on the
+  // server that also serves the app.
+  for (const name of book.SheetNames) {
+    if (size >= DOCUMENT_TEXT_MAX) break;
     const sheet = book.Sheets[name];
     const csv = sheet === undefined ? "" : XLSX.utils.sheet_to_csv(sheet);
-    return `# ${name}\n${csv}`;
-  }).join("\n\n");
+    const block = `# ${name}\n${csv}`;
+    blocks.push(block);
+    size += block.length;
+  }
+  return blocks.join("\n\n");
 }
 
 /**
@@ -87,7 +100,9 @@ async function sheetText(bytes: Uint8Array): Promise<string> {
  * (`isEvalSupported: false`): a document is somebody else's bytes, and a reader
  * that runs its scripts is a door, not a reader.
  */
-async function pdfText(bytes: Uint8Array): Promise<string> {
+async function pdfText(
+  bytes: Uint8Array,
+): Promise<{ text: string; scanned: number[]; cut: boolean }> {
   const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as {
     getDocument(input: Record<string, unknown>): {
       promise: Promise<{
@@ -107,19 +122,38 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     isEvalSupported: false,
     useSystemFonts: true,
   });
-  const doc = await task.promise;
+  let doc: Awaited<typeof task.promise>;
+  try {
+    doc = await task.promise;
+  } catch (err) {
+    // A document that never loaded still owns its worker.
+    await task.destroy();
+    throw err;
+  }
   const pages: string[] = [];
+  const scanned: number[] = [];
+  let cut = false;
+  let size = 0;
   try {
     for (let n = 1; n <= doc.numPages; n++) {
+      if (size >= DOCUMENT_TEXT_MAX) {
+        cut = true;
+        break;
+      }
       const page = await doc.getPage(n);
       const content = await page.getTextContent();
-      pages.push(
-        content.items
-          .map((item) => (typeof item.str === "string" ? item.str : ""))
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim(),
-      );
+      const text = content.items
+        .map((item) => (typeof item.str === "string" ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      // A page with no text layer is a picture: the dispatcher renders it and
+      // asks the model, so a mixed document is not read only for its text pages.
+      if (!text) scanned.push(n);
+      else {
+        pages.push(text);
+        size += text.length;
+      }
       page.cleanup();
     }
   } finally {
@@ -127,7 +161,7 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     // alone leaves both behind.
     await task.destroy();
   }
-  return pages.join("\n\n");
+  return { text: pages.join("\n\n"), scanned, cut };
 }
 
 /** How many pages of one scanned PDF are handed to the model. */
@@ -146,6 +180,7 @@ async function rasterText(
   bytes: Uint8Array,
   readImage: NonNullable<Parameters<typeof readDocument>[3]>["readImage"] & {},
   had: string,
+  scanned: readonly number[],
 ): Promise<string> {
   const { PDFiumLibrary } = (await import("@hyzyla/pdfium")) as unknown as {
     PDFiumLibrary: {
@@ -166,22 +201,30 @@ async function rasterText(
     };
   };
   const library = await PDFiumLibrary.init();
+  let document: Awaited<ReturnType<typeof library.loadDocument>> | null = null;
   try {
-    const document = await library.loadDocument(bytes);
-    const pages = Math.min(document.getPageCount(), SCANNED_PAGES_MAX);
+    document = await library.loadDocument(bytes);
+    const total = document.getPageCount();
+    const wanted = scanned.slice(0, SCANNED_PAGES_MAX);
     const said: string[] = [];
-    for (let index = 0; index < pages; index++) {
-      const page = document.getPage(index);
+    for (const number of wanted) {
+      const page = document.getPage(number - 1);
       const render = await page.render({ scale: 1 });
       const read = await readImage({
         type: "image/png",
         data: pngOfBgra(render.width, render.height, render.data),
       });
-      said.push("problem" in read ? `page ${index + 1}: ${read.problem}` : read.text);
+      said.push("problem" in read ? `page ${number}: ${read.problem}` : read.text);
     }
-    document.destroy();
+    // Truncation is said, not paid silently: a run must not conclude that a
+    // hundred-page scan is a five-page document.
+    if (scanned.length > wanted.length)
+      said.push(
+        `pages ${wanted[0] ?? 1}-${wanted.at(-1) ?? 0} of ${total} were read as pictures; the rest were not.`,
+      );
     return [had, ...said].filter((part) => part.trim()).join("\n\n");
   } finally {
+    document?.destroy();
     library.destroy();
   }
 }
@@ -262,10 +305,29 @@ async function odfText(bytes: Uint8Array): Promise<string> {
     .replace(/<[^>]+>/g, "")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
     .replace(/&amp;/g, "&")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * A text file's characters: UTF-8 when the bytes are UTF-8, and the encoding a
+ * spreadsheet or a legacy CSV from a desktop is usually in otherwise.
+ *
+ * A decoder that guessed wrong would answer replacement characters as though they
+ * were the document; the alternative is refusing a file a person can perfectly
+ * well read, which is worse here.
+ */
+function textOf(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
 }
 
 /** The kind a MIME names, or null when it names none this build reads. */
@@ -339,11 +401,15 @@ export async function readDocument(
     const text =
       kind === "pdf"
         ? await (async () => {
-            const text = await pdfText(bytes);
-            // A page with no text layer is a scan: nothing here can read it, and
-            // the one reader this product has for a picture is its model.
-            if (text.trim() || !opts.readImage) return text;
-            return await rasterText(bytes, opts.readImage, text);
+            const read = await pdfText(bytes);
+            // The pages with no text layer are pictures: the model reads those,
+            // and the text pages stay text. A document whose text was cut at the
+            // bound says so rather than passing a half-read page for whole.
+            if (!read.scanned.length || !opts.readImage)
+              return read.cut
+                ? `${read.text}\n\n(the rest of the document was not read)`
+                : read.text;
+            return await rasterText(bytes, opts.readImage, read.text, read.scanned);
           })()
         : kind === "docx"
           ? await docxText(bytes)
@@ -351,7 +417,7 @@ export async function readDocument(
             ? await sheetText(bytes)
             : kind === "odf"
               ? await odfText(bytes)
-              : new TextDecoder().decode(bytes);
+              : textOf(bytes);
     return { text: text.slice(0, DOCUMENT_TEXT_MAX), kind };
   } catch (err) {
     return {

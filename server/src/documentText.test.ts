@@ -93,6 +93,59 @@ function pdfBytes(text: string): Uint8Array {
   return new TextEncoder().encode(out);
 }
 
+/**
+ * A two-page PDF: one page with a text layer and one without — the shape of a
+ * signed contract whose cover is digital and whose pages are scans.
+ */
+function mixedPdfBytes(text: string): Uint8Array {
+  const withText = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
+  const empty = "";
+  const objects = [
+    "<</Type /Catalog /Pages 2 0 R>>",
+    "<</Type /Pages /Kids [3 0 R 4 0 R] /Count 2>>",
+    "<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources <</Font <</F1 7 0 R>>>>>>",
+    "<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R>>",
+    `<</Length ${withText.length}>>\nstream\n${withText}\nendstream`,
+    `<</Length ${empty.length}>>\nstream\n${empty}\nendstream`,
+    "<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((body, index) => {
+    offsets.push(out.length);
+    out += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<</Size ${objects.length + 1} /Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+
+test("a mixed PDF keeps its text page and sends only its scan to the model", async () => {
+  /*
+   * The common signed contract: a digital cover and scanned pages behind it. A
+   * reader that looked at the document as a whole would answer the cover and
+   * drop everything a person actually needs.
+   */
+  let looked = 0;
+  const read = await readDocument(
+    mixedPdfBytes("Booking 4417 confirmed"),
+    "application/pdf",
+    "contract.pdf",
+    {
+      readImage: async () => {
+        looked += 1;
+        return { text: "the scanned page, read by the model" };
+      },
+    },
+  );
+  assert.ok(read && !("problem" in read), "the document is readable");
+  assert.match(read.text, /Booking 4417 confirmed/, "the text page stays text");
+  assert.match(read.text, /read by the model/, "and the page without text was looked at");
+  assert.equal(looked, 1, "only the page with no text layer was rendered");
+});
+
 test("a spreadsheet is read cell by cell, whichever format it is in", async () => {
   for (const bookType of ["xlsx", "ods"] as const) {
     const read = await readDocument(
