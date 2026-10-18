@@ -42,7 +42,7 @@ import {
 import { withDeadline } from "@/lib/deadline";
 import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
-import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { type IcsEvent, parseIcs, toIcs } from "@/lib/ics";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { showNotification } from "@/lib/notify";
 import { toast } from "@/ui/toast";
@@ -1168,13 +1168,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           errors[sub.id] = message;
           continue;
         }
-        const text = answer.text;
-        if (!looksLikeCalendar(text)) {
-          // A login page answering 200 is the usual shape of this.
-          errors[sub.id] = "not_calendar";
-          continue;
-        }
-        events[sub.id] = parseIcs(text).events;
+        events[sub.id] = parseIcs(answer.text).events;
       } catch (err) {
         errors[sub.id] =
           (err as Error).name === "AbortError"

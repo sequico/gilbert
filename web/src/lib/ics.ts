@@ -173,11 +173,6 @@ export function parseIcsDuration(value: string): number | null {
   return sign === "-" ? -total : total;
 }
 
-/** Whether a document is plausibly a calendar, rather than an error page. */
-export function looksLikeCalendar(text: string): boolean {
-  return /^\s*BEGIN:VCALENDAR/im.test(text);
-}
-
 export interface ParseResult {
   events: IcsEvent[];
   /** The calendar's own name, where it gave one. */

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  looksLikeCalendar,
   parseDateValue,
   parseIcs,
   parseIcsDuration,
@@ -106,13 +105,6 @@ describe("parseIcsDuration", () => {
   it("says nothing about nonsense", () => {
     expect(parseIcsDuration("1 hour")).toBeNull();
     expect(parseIcsDuration("")).toBeNull();
-  });
-});
-
-describe("looksLikeCalendar", () => {
-  it("recognises a calendar and rejects an error page", () => {
-    expect(looksLikeCalendar("BEGIN:VCALENDAR\r\nEND:VCALENDAR")).toBe(true);
-    expect(looksLikeCalendar("<!doctype html><title>404</title>")).toBe(false);
   });
 });
 
