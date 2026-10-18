@@ -500,6 +500,37 @@ test("a rule that declares it sends is the authority an outward act asks for", (
   );
 });
 
+test("a message is trashed only with a person's word for that message", async () => {
+  /*
+   * The one destructive act in the catalogue is a move to Deleted Items (owner
+   * decision 2026-10-18): recoverable, and licensed by the person naming the
+   * message. Without that word the tool refuses and the message stays where it is.
+   */
+  const id = await deliver("a message somebody wants out of the way");
+  const plain = startRun({
+    id: "trash-none",
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+  });
+  await assert.rejects(
+    () => runTool(TOOLS, { ctx, accountId, run: plain }, "mail.trash", { id }),
+    /needs_authority|authority/,
+    "no word, no trash",
+  );
+
+  const allowed = takeAuthorisation(plain, {
+    what: "move it to the trash",
+    authority: "destructive",
+    act: { target: id, content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-1" },
+  });
+  const moved = (await runTool(TOOLS, { ctx, accountId, run: allowed }, "mail.trash", {
+    id,
+  })) as { folder?: string };
+  assert.equal(moved.folder, "Deleted Items", "the message is in the trash folder");
+});
+
 test("the reading tools answer from the group's account", async () => {
   const tool = callTool;
 

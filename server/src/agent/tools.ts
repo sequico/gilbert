@@ -796,20 +796,14 @@ async function writeNode(
   );
 }
 
-const fileMessage = defineTool({
-  name: "mail.file",
-  description:
-    "File a message of this account into one of its folders, by the folder's " +
-    "name or its role (inbox, archive, junk, trash). The message is taken out " +
-    "of the folders it was in: it is moved, not copied.",
-  authority: "reversible",
-  writes: true,
-  spend: { steps: 1 },
-  parse: (raw: unknown) => {
-    const args = argsRecord(raw);
-    return { id: textArg(args, "id"), folder: textArg(args, "folder") };
-  },
-  run: async ({ ctx, accountId }, { id, folder }) => {
+/** Move one message into one folder: the body `mail.file` and `mail.trash` share. */
+async function moveMessage(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+  folder: string,
+): Promise<{ id: string; folder: string }> {
+  {
     const boxes = await mailboxesOf(ctx, accountId);
     const target = resolveMailbox(folder, boxes);
     if (!target) throw notFound(`folder "${folder}" in this account`);
@@ -841,7 +835,44 @@ const fileMessage = defineTool({
     const refused = res.notUpdated?.[id];
     if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
     return { id, folder: target.name };
+  }
+}
+
+const fileMessage = defineTool({
+  name: "mail.file",
+  description:
+    "File a message of this account into one of its folders, by the folder's " +
+    "name or its role (inbox, archive, junk, trash). The message is taken out " +
+    "of the folders it was in: it is moved, not copied.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), folder: textArg(args, "folder") };
   },
+  run: async ({ ctx, accountId }, { id, folder }) =>
+    moveMessage(ctx, accountId, id, folder),
+});
+
+/**
+ * The one destructive act in the catalogue, and it is a move (owner decision
+ * 2026-10-18): a message goes to the account's Deleted Items folder, where it can
+ * be recovered, and the person authorises it by naming the message. Nothing the
+ * agent can reach destroys a document.
+ */
+const trashMessage = defineTool({
+  name: "mail.trash",
+  description:
+    "Move a message of this account to its Deleted Items folder. It is not destroyed: " +
+    "it stays there and can be recovered. The act is the message: a person's word " +
+    "for it names the message, and licenses that one.",
+  authority: "destructive",
+  writes: true,
+  spend: { steps: 1 },
+  act: ({ id }) => ({ target: id, content: null }),
+  parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
+  run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "trash"),
 });
 
 const setKeyword = defineTool({
@@ -1751,6 +1782,7 @@ export const TOOLS: readonly AnyTool[] = [
   readKnowledgePage,
   readRunTool,
   fileMessage,
+  trashMessage,
   setKeyword,
   draftReply,
   sendOutward,
