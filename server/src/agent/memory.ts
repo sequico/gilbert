@@ -340,8 +340,15 @@ export async function rememberFact(
     fact: sentence,
     origin: { by: "run", run: write.run },
     at: write.at,
-    links: linkIds(store.facts, write.links ?? []),
-    standing: write.standing === true,
+    /*
+     * A rewrite that does not restate a mark or a link keeps the one the sheet
+     * carries: both are optional, and a later sentence about the same subject
+     * must not silently stop being carried by every call of the group, or lose
+     * the facts it was tied to.
+     */
+    links:
+      write.links === undefined ? (same?.links ?? []) : linkIds(store.facts, write.links),
+    standing: write.standing ?? same?.standing ?? false,
     group: write.group,
   };
   await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, {

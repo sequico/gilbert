@@ -133,6 +133,65 @@ test("a fact is one sheet in the Master's memory, corrected in place", async () 
   );
 });
 
+test("a later sentence about a subject keeps the mark and the links it does not restate", async () => {
+  /*
+   * `standing` and `links` are optional on a write, and a second conclusion about
+   * the same subject is the ordinary case. Rebuilding the sheet from the new
+   * write alone would quietly stop a fact every call of the group used to carry,
+   * and cut the facts it was tied to — with the same id, so nothing looks broken.
+   */
+  const port = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Porto Marghera",
+      fact: "the port the group ships from",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  written.push(port.id);
+
+  const marked = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Nordwind",
+      fact: "carries for the northern route",
+      run: "r-1",
+      at: AT,
+      group: accountId,
+      standing: true,
+      links: ["Porto Marghera"],
+    },
+    await store(),
+  );
+  written.push(marked.id);
+  assert.equal(marked.standing, true);
+  assert.deepEqual(marked.links, [port.id], "the link resolved to the sheet it names");
+
+  const later = await rememberFact(
+    ctx,
+    accountId,
+    {
+      subject: "Nordwind",
+      fact: "carries for the northern route and the Baltic",
+      run: "r-2",
+      at: AT,
+      group: accountId,
+    },
+    await store(),
+  );
+  assert.equal(
+    later.standing,
+    true,
+    "a rewrite that says nothing about the mark keeps it",
+  );
+  assert.deepEqual(later.links, [port.id], "and keeps the link it did not restate");
+});
+
 test("a write whose reading has been overtaken is refused, and the sheet is left as it was", async () => {
   /*
    * The write is a compare-and-set against the reading it was given (ADR 0037):

@@ -19,11 +19,12 @@
 import {
   appFolderState,
   type Ctx,
+  ensureFolderPath,
   listAppDir,
   readAppFileAt,
   writeAppFileAt,
 } from "../appFolder.js";
-import { errorMessage } from "../shared/errors.js";
+import { errorMessage, isStateMismatch } from "../shared/errors.js";
 import { RULES_DIR, RuleError, rulePath } from "../shared/rule.js";
 import { parseRuleDocumentDetailed, type RuleDoc } from "./rule.js";
 
@@ -89,9 +90,30 @@ export async function createRule(
   accountId: string,
   rule: RuleDoc,
 ): Promise<void> {
+  /*
+   * A create is a compare-and-set against the state the absence was read at
+   * (ADR 0035): two writers who both find the name free — this one and a
+   * member's own client — cannot both create it, because the first write moves
+   * the state and the second is refused. Without the token the check is a
+   * check-then-write, and the second silently replaces the first's text.
+   */
+  // The folder exists before the state is read: creating it would move the state
+  // this create is conditioned on, and a first rule would be refused by itself.
+  await ensureFolderPath(ctx, accountId, RULES_DIR);
+  const state = await appFolderState(ctx, accountId);
   if (await readRuleDoc(ctx, accountId, rule.id))
     throw new RuleError("rule_exists", `A rule "${rule.id}" is already there.`, 409);
-  await writeAppFileAt(ctx, accountId, rulePath(rule.id), rule);
+  try {
+    await writeAppFileAt(ctx, accountId, rulePath(rule.id), rule, { ifInState: state });
+  } catch (err) {
+    if (isStateMismatch(err))
+      throw new RuleError(
+        "rule_moved",
+        `The rules changed while "${rule.id}" was being created, so nothing was written.`,
+        409,
+      );
+    throw err;
+  }
 }
 
 /**

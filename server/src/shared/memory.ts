@@ -408,11 +408,12 @@ export function sameSubject(a: string, b: string): boolean {
  *    itself and every call of it starts from there. A standing fact of another
  *    group is not carried: a group's conventions are its own;
  * 2. what the **change at hand names**: a fact whose subject the change's own
- *    words carry as a whole word, whatever group it is about (the surface, the
- *    address, the subjects the decision found — `words` is that text, and the
- *    match is what makes "Maersk" recall a sheet about it however the sheet
- *    spells the subject around it, while a subject of one or two letters — which
- *    nearly every change contains — is not a word the change named). One memory
+ *    words carry **as a whole phrase**, whatever group it is about (the surface,
+ *    the address, the subjects the decision found — `words` is that text). The
+ *    subject must appear whole and as a word boundary: a change saying "Maersk
+ *    Line" recalls the sheet whose subject is "Maersk Line", and a change saying
+ *    only "Maersk" does not — while a subject of one or two letters, which
+ *    nearly every change contains, is not a word the change named. One memory
  *    serves the installation, so a fact learned in one group is recalled in
  *    another when a change names its subject;
  * 3. their **nearest links** — one hop, so a fact about a thing brings what it
