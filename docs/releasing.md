@@ -24,10 +24,9 @@ Two checks the pipeline does not carry, on purpose:
 - **`npm run audit`** (`npm audit --omit=dev`) is network-bound and
   advisory-driven, so it runs in the release pre-check: a new advisory refuses a
   release, not a push that changed nothing.
-- **CodeQL runs on GitHub only**, in `.github/workflows/codeql.yml`: there is no
-  local analysis and no local toolchain.
-  called by the Release workflow so nothing is cut on an unclean analysis
-  (ADR 0027).
+- **CodeQL runs on GitHub only**, in `.github/workflows/codeql.yml`, called by
+  the Release workflow so nothing is cut on an unclean analysis: there is no
+  local analysis and no local toolchain (ADR 0027).
 
 ## Committing and pushing
 
