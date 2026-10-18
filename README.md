@@ -28,7 +28,7 @@
 Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
 and files, a knowledge base and the procedures a job follows. Its agent is partly
 built: it reads incoming mail and files, files documents into the right folder,
-reads the text a document holds and reports what it did in the group's chat —
+reads the document inside them and reports what it did in the group's chat —
 inside the group's own account, everything recorded, and anything that leaves the
 group waiting for a person to say so, in words. The loop that works it is part of
 `gilbertserver`: the server starts it with itself, and it is there once the
