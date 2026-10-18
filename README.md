@@ -26,9 +26,10 @@
 **R**esource **T**raceability.
 
 Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
-and files, a knowledge base and the procedures a job follows. Its agent is partly
-built: it reads incoming mail and files, files documents into the right folder,
-reads the document inside them and reports what it did in the group's chat —
+and files, a knowledge base and the procedures a job follows. Its agent is built:
+it works a group's activity from the server's own change log, reads inside
+documents and attachments, drafts replies into the group's Drafts, files what it
+finds, settles workorder steps, proposes knowledge pages and remembers facts —
 inside the group's own account, everything recorded, and anything that leaves the
 group waiting for a person to say so, in words. The loop that works it is part of
 `gilbertserver`: the server starts it with itself, and it is there once the
@@ -36,14 +37,17 @@ installation has chosen a model; the groups it works are read on every pass, so
 one the Master is added to is worked within ten seconds and nothing has to be
 restarted.
 
-> **The agent part (`gilbertagents`) is partly built.** Its decisions are
+> **The agent part (`gilbertagents`) is built.** Its decisions are
 > ADR 0031–0037; the tree carries a run's durable state, the catalogue of tools
 > — reading, and writing the group's own account — a group's rules in prose and
 > the three levels every call is told, the installation's one model with its two
 > turns of decision, the memory of facts in the Master's own account, the loop
 > that works a run, the supervisor the server's own boot starts with itself
 > (`server/src/agent/supervisor.ts`), and the administration that shows what it
-> did and lets a person correct what it remembers.
+> did and lets a person correct what it remembers. What it still owes is a
+> **live probe**, not a feature: a real model provider, the arrival record a real
+> Stalwart writes, and the change log's own paging cap — the `owed:` markers in
+> ADRs 0031, 0033 and 0034.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -76,12 +80,12 @@ other:
 - **gilbertserver** — the Node process beside the browser: sign-in, sealed
   sessions, JMAP forwarding, the settings policy, the image and calendar
   proxies.
-- **gilbertagents** — the agent: designed by ADR 0031–0037 and built as far as
-  the loop that works a run and the supervisor that runs it, started by the
-  server's own boot; it asks for a pass every ten seconds and reads the Master's
-  groups from the mail server on each one, so a group added in Stalwart is worked
-  without a restart; what it cannot resolve — no model chosen, no group to work —
-  leaves it idle with a line rather than stopping the server.
+- **gilbertagents** — the agent: designed by ADR 0031–0037 and built — the loop
+  that works a run and the supervisor the server's own boot starts, which asks
+  for a pass every ten seconds and reads the Master's groups from the mail server
+  on each one, so a group added in Stalwart is worked without a restart; what it
+  cannot resolve — no model chosen, no group to work — leaves it idle with a line
+  rather than stopping the server.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
   objects it holds (an account's identities, for example), written through JMAP.

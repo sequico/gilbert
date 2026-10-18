@@ -106,13 +106,14 @@ everything belongs to: the account in Stalwart (`gilbert@…`), its address, its
 password, its grants and the model it uses. Its **agent** is the process that
 acts as it, and it runs inside `gilbertserver`. An unqualified **"worker"** means
 the browser's service worker and nothing else.
-- **The agent's decisions are six records, and the tree carries part of them.**
+- **The agent's decisions are seven records, and the tree carries them.**
 **ADR 0031** (a described catalogue of tools, and one model per installation
 chosen in Administration), **0032** (what it decides and what only a person
-decides, an override being an administrator's), **0033** (one conversation in
-chat and mail, in words), **0034** (a run is a document, and the record is the
-product), **0035** (a group's engagement is a rule in prose) and **0036** (one
-installation claims its agent). Each record's `Implementation` line says what
+decides, an override being an administrator's and proved by the directory),
+**0033** (one conversation in chat and mail, in words), **0034** (a run is a
+document, and the record is the product), **0035** (a group's engagement is a
+rule in prose, written by an administrator), **0036** (one installation claims
+its agent) and **0037** (its memory is a graph of facts it recalls). Each record's `Implementation` line says what
 the tree carries and what it still owes, and it is the truth about the tree
 rather than a summary of the design: read it instead of assuming. The
 catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
