@@ -12,11 +12,13 @@ import { installationDefaults } from "@gilbert/shared/installation";
 import { isRecord } from "@gilbert/shared/json";
 import { apiFetch } from "@/jmap/client";
 
-/** The three fields an installation chooses for its model (ADR 0031). */
+/** The fields an installation chooses for its agent (ADR 0031, 0035). */
 export interface InstallationModel {
   provider: string;
   model: string;
   baseUrl: string;
+  /** The installation's own line of prose — `agent.instruction`. */
+  instruction: string;
 }
 
 /** What `GET /api/admin/installation` answers, as the server builds it. */
@@ -96,7 +98,12 @@ export function startingInstallationDocument(): string {
  * section, which **links** to that one rather than keeping a second set of fields.
  */
 export function installationModel(text: string | null): InstallationModel {
-  const none: InstallationModel = { provider: "", model: "", baseUrl: "" };
+  const none: InstallationModel = {
+    provider: "",
+    model: "",
+    baseUrl: "",
+    instruction: "",
+  };
   if (!text) return none;
   let whole: unknown;
   try {
@@ -104,12 +111,13 @@ export function installationModel(text: string | null): InstallationModel {
   } catch {
     return none;
   }
-  if (!isRecord(whole) || !isRecord(whole.agent) || !isRecord(whole.agent.provider))
-    return none;
-  const provider = whole.agent.provider;
+  if (!isRecord(whole) || !isRecord(whole.agent)) return none;
+  const agent = whole.agent;
+  const provider = isRecord(agent.provider) ? agent.provider : {};
   return {
     provider: typeof provider.provider === "string" ? provider.provider : "",
     model: typeof provider.model === "string" ? provider.model : "",
     baseUrl: typeof provider.baseUrl === "string" ? provider.baseUrl : "",
+    instruction: typeof agent.instruction === "string" ? agent.instruction : "",
   };
 }

@@ -633,6 +633,8 @@ export const catalog: Catalog = {
     "Filters & rules": "Filtros y reglas",
     "Filters unavailable": "Filtros no disponibles",
     Rules: "Reglas",
+    "The installation's line": "La línea de la instalación",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "La prosa más externa que se le dice al agente, por encima de la instrucción propia de cada grupo: cómo quiere esta instalación que trabaje, en un párrafo. Publicar se aplica en la siguiente pasada.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Otra persona cambió la prosa de este grupo. La lista se ha recargado y tu cambio no se ha guardado.",
     "Waiting: {what} — asked in {channel} {id}": "En espera: {what} — preguntado en {channel} {id}",
     "Waiting: {what} — asked in {channel} {id}, until {until}": "En espera: {what} — preguntado en {channel} {id}, hasta {until}",

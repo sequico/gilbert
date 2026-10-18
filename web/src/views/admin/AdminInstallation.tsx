@@ -63,6 +63,28 @@ function withModelField(
 }
 
 /**
+ * The document with the installation's own line of prose set.
+ *
+ * The line is `agent.instruction` — the outermost prose the agent is told, above
+ * every group's own instruction (ADR 0035). It is edited here as a field, beside
+ * the model, because it is the other thing of that section a person chooses
+ * rather than looks up.
+ */
+function withInstructionField(text: string, instruction: string): string {
+  const whole = parseObject(text);
+  if (!whole) return text;
+  const agent = isRecord(whole.agent) ? whole.agent : {};
+  return JSON.stringify(
+    {
+      ...whole,
+      agent: { ...agent, instruction: instruction.trim() ? instruction : undefined },
+    },
+    null,
+    2,
+  );
+}
+
+/**
  * The document to publish, with the key the form states.
  *
  * The key never reaches the text this surface holds — the server takes it out
@@ -313,6 +335,23 @@ export function AdminInstallation() {
         onChange={(on) => setKeyDraft(on ? { kind: "none" } : { kind: "kept" })}
         label={t("This provider needs no key")}
       />
+      <h2 style={{ marginTop: 24 }}>{t("The installation's line")}</h2>
+      <p className="hint">
+        {t(
+          "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.",
+        )}
+      </p>
+      <div className="field">
+        <label htmlFor="agent-instruction">{t("Standing instruction")}</label>
+        <textarea
+          id="agent-instruction"
+          rows={4}
+          className="input"
+          value={model.instruction}
+          disabled={!editable}
+          onChange={(e) => setText(withInstructionField(text, e.target.value))}
+        />
+      </div>
       <p className="hint">
         {tNode(
           "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.",

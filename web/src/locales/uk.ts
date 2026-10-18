@@ -626,6 +626,8 @@ export const catalog: Catalog = {
     "Filters & rules": "Фільтри та правила",
     "Filters unavailable": "Фільтри недоступні",
     Rules: "Правила",
+    "The installation's line": "Рядок установки",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "Найзовнішній текст, який отримує агент, над власною інструкцією кожної групи: як ця установка хоче, щоб він працював, одним абзацом. Публікація діє з наступного проходу.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Хтось інший змінив текст цієї групи. Список перезавантажено, вашу правку не збережено.",
     "Waiting: {what} — asked in {channel} {id}": "Очікування: {what} — запитано в {channel} {id}",
     "Waiting: {what} — asked in {channel} {id}, until {until}": "Очікування: {what} — запитано в {channel} {id}, до {until}",

@@ -625,6 +625,8 @@ export const catalog: Catalog = {
     "Filters & rules": "Filters en regels",
     "Filters unavailable": "Filters niet beschikbaar",
     Rules: "Regels",
+    "The installation's line": "De regel van de installatie",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "De buitenste tekst die de agent krijgt, boven de eigen instructie van elke groep: hoe deze installatie wil dat hij werkt, in één alinea. Publiceren geldt vanaf de volgende ronde.",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Iemand anders heeft de tekst van deze groep gewijzigd. De lijst is opnieuw geladen en je bewerking is niet opgeslagen.",
     "Waiting: {what} — asked in {channel} {id}": "Wacht: {what} — gevraagd in {channel} {id}",
     "Waiting: {what} — asked in {channel} {id}, until {until}": "Wacht: {what} — gevraagd in {channel} {id}, tot {until}",
