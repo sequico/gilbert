@@ -81,6 +81,18 @@ reaching a run, and any surface that shows what the agent did.
   trace; the agent writes as itself and acts in the group's own account.
 - **Depends on:** 2.4 (who a message is from) — which is built but inert — and the
   owed probe below.
+- **State (2026-10-18):** the **reading inside a document** half is built —
+  `files.read`, `mail.readAttachment`, and a scanned page through the model's
+  eyes (`server/src/documentText.ts`, `b3d513a`/`d7ddf12`). The conversation by
+  mail is not: a first pass at `mail.ask` (a question to a principal with access,
+  `groupMembers`, sent through `EmailSubmission/set`) and at the answer path
+  (`mailAnsweredBy`, matching `inReplyTo`/`references` against the question's
+  `messageId`) was **reverted** rather than committed: in the mock, the creation
+  event names an id that the same account's `Email/get` answers `notFound`, so
+  the answer path could not be proven — and an unproven path is not landed. The
+  finding is the next unit's first question: whether the mock's per-account
+  change log and its `emailsFor(accountId)` disagree, or the loop reads a change
+  of another account's log.
 - **Proof:** a run parked on a question is unblocked by a reply that carries the
   same thread, and a stranger's reply is information, never an instruction.
 
