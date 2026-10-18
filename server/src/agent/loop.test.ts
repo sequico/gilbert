@@ -754,6 +754,70 @@ test("a person's answer continues the run that asked for it", async () => {
   );
 });
 
+test("an answer is worked once, whatever the decision names beside it", async () => {
+  /*
+   * One person's reply continues the run that asked, and it is worked once
+   * (ADR 0033). The decision turn may name more than one rule for the message —
+   * two rules watching chat both fit a reply — and working the same answer once
+   * per rule, from the document as it stood before the first working, rewrites
+   * the steps the first one recorded. The record is the product (ADR 0034), so
+   * the step the answer wrote is on it exactly once.
+   */
+  const id = "answer-once";
+  const beside = "answer-once-beside";
+  const asked = await postChatMessage(
+    ctx,
+    accountId,
+    ctx.username,
+    "which booking is this?",
+  );
+  await createRun(
+    ctx,
+    accountId,
+    finishRun(
+      waitUntil(
+        startRun({
+          id: "parked-once",
+          startedBy: {
+            rule: id,
+            instruction: null,
+            woke: "chat created: gilbert/chat/q.json",
+          },
+        }),
+        {
+          what: "which booking is this?",
+          asked: { channel: "chat", id: asked },
+          until: null,
+        },
+      ),
+      "blocked",
+      { at: new Date().toISOString(), why: "waiting on a person" },
+    ),
+  );
+  await putRule(id, ["chat"]);
+  await putRule(beside, ["chat"]);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id, beside], facts: {} });
+  answerWith({ authorisations: [] });
+  answerWith({ done: "it is BK-1" });
+  const reply = await postChatMessage(ctx, accountId, "sam@example.org", "it is BK-1", {
+    replyTo: asked,
+  });
+  const summary = await agent.pass();
+
+  assert.equal(summary.runs, 0, "the answer opened no run of its own");
+  assert.equal(summary.due, 1, "and the run it answered was worked once");
+  const answered = (await readRun(ctx, accountId, "parked-once"))?.run;
+  assert.equal(answered?.state, "done", "to its ending");
+  assert.equal(
+    answered?.plan.filter((step) => step.what === `the answer in chat ${reply}`).length,
+    1,
+    "and the answer is on the record once, not once per rule the decision named",
+  );
+});
+
 test("a person's answer is the word an outward act asks for, recorded for that act", async () => {
   /*
    * The path ADR 0032 leaves open (owner decision 2026-10-18): the sentence that

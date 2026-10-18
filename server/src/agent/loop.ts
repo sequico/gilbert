@@ -303,12 +303,20 @@ export class AgentLoop {
     };
     const claim = await takeClaim(this.ctx, this.opts.holder, now);
     if (!claim) return summary;
+    this.claimExpires = claim.expires;
     if (Date.parse(claim.expires) - now.getTime() <= CLAIM_RENEW_WITHIN_MS) {
       if (!(await renewClaim(this.ctx, this.opts.holder, now))) return summary;
+      this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
     const accounts = await this.opts.accounts();
     summary.accounts = accounts.length;
+    /*
+     * A group the Master no longer works keeps no queued alarm: the queue is
+     * this pass's accounts and nothing else, or a process that runs for weeks
+     * carries one entry per fired timer per account it lost.
+     */
+    this.pending = this.pending.filter((due) => accounts.includes(due.accountId));
     for (const accountId of accounts) {
       await this.workDue(accountId, now, summary);
       await this.workChanges(accountId, now, summary);
@@ -414,8 +422,27 @@ export class AgentLoop {
         this.readingCall(accountId, event, candidates),
       );
       if (decision.kind !== "decision") continue;
-      /** The run this change answers, when it answers one: asked for once. */
-      let answer: RunDoc | null | undefined;
+      /*
+       * The run this change answers, when it answers one, is asked for **once**
+       * per event and before the rules: one person's reply continues the run that
+       * asked and opens no run of its own (ADR 0033). Asking inside the rules
+       * loop worked the same answer once per rule the decision named, the second
+       * time from the document as it stood before the first working — which
+       * wiped the steps the first had just recorded.
+       */
+      held ??= await listRuns(this.ctx, accountId);
+      const answer = await this.runAnsweredBy(accountId, event, held);
+      if (answer === "already") continue;
+      if (answer) {
+        summary.due += 1;
+        await this.workRun(
+          accountId,
+          await this.authoriseAnswer(answer),
+          now,
+          decision.facts,
+        );
+        continue;
+      }
       for (const named of decision.rules) {
         const rule = rules.find((candidate) => candidate.id === named);
         if (!rule) continue;
@@ -428,24 +455,6 @@ export class AgentLoop {
         if (open) {
           if (open.state === "running")
             await this.workRun(accountId, open, now, decision.facts);
-          continue;
-        }
-        /*
-         * A change that answers a question the agent asked in this same chat is
-         * that question's answer, not a change of its own: the run it parked on is
-         * continued, and the record carries the message it came in and what the
-         * person said (ADR 0033, 0034). A change nothing of ours is waiting for
-         * is never read twice over.
-         */
-        answer ??= await this.runAnsweredBy(accountId, event, held);
-        if (answer) {
-          summary.due += 1;
-          await this.workRun(
-            accountId,
-            await this.authoriseAnswer(answer),
-            now,
-            decision.facts,
-          );
           continue;
         }
         const run = await this.openRun(accountId, event, rule);
@@ -520,7 +529,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | null> {
+  ): Promise<AnsweredRun | "already" | null> {
     if (event.source === "mail")
       return await this.mailAnsweredBy(accountId, event, records);
     if (event.source !== "chat" || event.change === "destroyed") return null;
@@ -532,6 +541,10 @@ export class AgentLoop {
     };
     const parent = await readChatMessage(this.ctx, accountId, question.id);
     if (!repliesToAuthor(message, parent, this.ctx.username)) return null;
+    // The answer takes the run out of `blocked` at once, and the cursor only
+    // moves at the end of the batch: a pass that died in between re-reads this
+    // change. The step the answer wrote is what says it was already taken.
+    if (answeredAlready(records, "chat", message.id)) return "already";
     const parked = runAwaiting(records, question);
     if (!parked) return null;
     return {
@@ -580,6 +593,7 @@ export class AgentLoop {
     if (!reply?.thread.length || !reply.from || !reply.text.trim()) return null;
     if (!reply.word) return null;
     if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
+    if (answeredAlready(records, "mail", event.where)) return "already";
     for (const record of parked) {
       const asked = record.run.waiting?.asked;
       if (!asked) continue;
@@ -672,7 +686,11 @@ export class AgentLoop {
         prose,
         ...(facts ? { facts } : {}),
         memory: selection,
+        authorisations: current.authorisations,
       };
+      // Counted before the call: a provider that times out was paid for, and a
+      // tally that skips it is optimistic exactly where it matters most.
+      current = spendRun(current, { calls: 1 });
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
         choice = await chooseStep(this.catalogue, this.opts.access, question);
@@ -691,11 +709,11 @@ export class AgentLoop {
           `refused: ${errorMessage(err)}`,
           false,
         );
-        current = spendRun(current, { calls: 1, ms: Date.now() - startedMs });
+        current = spendRun(current, { ms: Date.now() - startedMs });
         await this.store(accountId, current);
         continue;
       }
-      current = spendRun(current, { calls: 1, ms: Date.now() - startedMs });
+      current = spendRun(current, { ms: Date.now() - startedMs });
       if (choice.kind === "done") {
         await this.store(
           accountId,
@@ -771,10 +789,30 @@ export class AgentLoop {
             outcome: step.why,
           });
         if (!ready.length) continue;
-        const wave = ready.flatMap((at) => {
+        const wave: Array<{ at: number; call: StepCall }> = [];
+        for (const at of ready) {
           const call = choice.calls[at - base];
-          return call ? [{ at, call }] : [];
-        });
+          if (!call) continue;
+          /*
+           * A call identical to one this run already made and finished is the
+           * same act: a retry after a failure whose effect landed — a send whose
+           * submission timed out — would otherwise happen twice, and a person's
+           * licence covers one act. The earlier outcome is this step's answer,
+           * and nothing is asked of the account.
+           */
+          const what = `${call.name} ${boundedText(call.args)}`;
+          const earlier = current.plan.findIndex(
+            (step, index) => index < at && step.state === "done" && step.what === what,
+          );
+          if (earlier >= 0) {
+            current = recordStep(current, at, {
+              state: "done",
+              outcome: current.plan[earlier]?.outcome ?? "",
+            });
+            continue;
+          }
+          wave.push({ at, call });
+        }
         /*
          * A wave runs together: the steps that are ready at one moment wait on
          * nothing that is still to end, so they are made at once and each is
@@ -903,6 +941,16 @@ export class AgentLoop {
   private readonly eyes: ImageReader = async (image) =>
     await readImage(this.opts.access, image);
 
+  /**
+   * When this process last held the claim until, as the document states it.
+   *
+   * The pass renews it lazily, on the way to a run write, rather than once at
+   * the top: a pass works several accounts, each run allowed minutes, and a claim
+   * renewed only when the pass begins lapses under one long enough to be taken
+   * over by a second holder while this one keeps writing.
+   */
+  private claimExpires: string | null = null;
+
   /** The two prose levels above a rule's own, as this pass read them (ADR 0035). */
   private async proseAbove(
     accountId: string,
@@ -963,6 +1011,7 @@ export class AgentLoop {
    * refused rather than overwritten, and the attempt is retried once.
    */
   private async store(accountId: string, run: RunDoc): Promise<void> {
+    await this.keepClaim();
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
       const token = await appFolderState(this.ctx, accountId);
       try {
@@ -975,6 +1024,22 @@ export class AgentLoop {
     throw new Error(
       `the run "${run.id}" could not be written: another write kept winning the race for the account.`,
     );
+  }
+
+  /**
+   * Renew the claim when the pass has come within half its life, before a write.
+   *
+   * A claim that is no longer this process's is not a warning: the run this write
+   * belongs to is somebody else's to work now, and continuing would be two agents
+   * over one installation (ADR 0036).
+   */
+  private async keepClaim(): Promise<void> {
+    const expires = this.claimExpires ? Date.parse(this.claimExpires) : 0;
+    if (expires - Date.now() > CLAIM_RENEW_WITHIN_MS) return;
+    const now = new Date();
+    if (!(await renewClaim(this.ctx, this.opts.holder, now)))
+      throw new Error("the installation's claim is no longer this process's.");
+    this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
   }
 }
 
@@ -1095,6 +1160,16 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
  * own address, matched on the document, rather than anything about the message
  * that answers it.
  */
+/** Whether a run of the account already carries the step an answer wrote. */
+function answeredAlready(
+  records: readonly RunRecord[],
+  channel: RunMessageRef["channel"],
+  id: string,
+): boolean {
+  const what = `the answer in ${channel} ${id}`;
+  return records.some(({ run }) => run.plan.some((step) => step.what === what));
+}
+
 function runAwaiting(records: readonly RunRecord[], asked: RunMessageRef): RunDoc | null {
   for (const { run } of records) {
     if (run.state !== "blocked") continue;

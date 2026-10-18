@@ -1246,7 +1246,9 @@ const sendOutward = defineTool({
     const one = isRecord(raw) ? raw : {};
     return {
       target: typeof one.to === "string" ? one.to.trim().toLowerCase() : "",
-      content: typeof one.text === "string" ? one.text : null,
+      // Trimmed like the licence it is compared with: the person's words and the
+      // call differ by the newline a model puts around them, and nothing else.
+      content: typeof one.text === "string" ? one.text.trim() : null,
     };
   },
   parse: (raw: unknown) => {

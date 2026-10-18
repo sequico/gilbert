@@ -65,7 +65,12 @@ import { CodedError, errorMessage } from "../shared/errors.js";
 import type { InstallationDocument, InstallationModel } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
 import type { FactDoc } from "../shared/memory.js";
-import type { RunAuthority, RunStep, RunStepNeeds } from "../shared/run.js";
+import type {
+  RunAuthorisation,
+  RunAuthority,
+  RunStep,
+  RunStepNeeds,
+} from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { type ProseLevel, proseForModel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
@@ -663,6 +668,19 @@ function turnData(
       `address: ${event.where}`,
     ]),
     ...memoryBlock(token, question.memory),
+    ...(question.authorisations?.length
+      ? [
+          "What a person has authorised for this run:",
+          ...question.authorisations.map((one) =>
+            dataBlock(token, [
+              `authority: ${one.authority}`,
+              `reaches: ${one.act.target}`,
+              `words: ${one.act.content ?? "(nothing)"}`,
+              `said by: ${one.by}`,
+            ]),
+          ),
+        ]
+      : []),
     "The group's rules that watch it. Name every one of them that applies, and an empty list when none does:",
     ...candidates.map((rule) =>
       dataBlock(token, [
@@ -810,9 +828,12 @@ function parseAuthorisations(raw: unknown): ReadAuthorisation[] {
       );
     if (typeof one.target !== "string" || !one.target.trim())
       throw problem('An authorisation must name the act it is for in "target".');
-    const content = one.content ?? null;
-    if (content !== null && typeof content !== "string")
+    const raw = one.content ?? null;
+    if (raw !== null && typeof raw !== "string")
       throw problem('"content" in an authorisation must be text or null.');
+    // Trimmed on both sides: the act's own words are, and a licence that differs
+    // from the call by the newline a model added is a licence for nothing.
+    const content = raw === null ? null : raw.trim();
     return { authority, target: one.target.trim(), content };
   });
 }
@@ -956,6 +977,13 @@ export interface StepQuestion {
   prose: Partial<Record<ProseLevel, string>>;
   /** What the decision found the change to be about, when this turn follows one. */
   facts?: Record<string, string>;
+  /**
+   * What a person has already authorised for this run (ADR 0032): the class, the
+   * act and the words it was read from. The guard compares an act exactly, so a
+   * turn that must take one is shown the act it may take — without it the model
+   * reproduces words it never saw and the step is refused for a space.
+   */
+  authorisations?: readonly RunAuthorisation[];
   /**
    * What the installation's memory recalls for this run (ADR 0037): the
    * subjects the change and its facts name, their nearest links and the group's
