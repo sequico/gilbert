@@ -1,5 +1,4 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { isRecord } from "@gilbert/shared/json";
 import { useEffect, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
 import {
@@ -12,93 +11,12 @@ import {
 } from "@/lib/installationAdmin";
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { LoadState } from "@/ui/LoadState";
-import { Switch } from "@/ui/misc";
-
-/**
- * The three things a save can say about the model's key, which is never shown.
- *
- * `kept` is a field that says nothing: untouched, or typed into and emptied
- * again — the two are the same save, and both leave the stored key exactly as it
- * is. `none` is the operator saying the provider needs none — a model on the
- * deployment's own network — which clears the stored key. A value is the key to
- * write. The document tells the three apart by the field itself, and
- * `installationAdmin.ts` reads it that way: no `apiKey` at all, or an empty one,
- * keeps the stored key; the `null` the switch below sends says the provider
- * needs none; a value is that key.
- */
-type KeyDraft = { kind: "kept" } | { kind: "none" } | { kind: "key"; value: string };
-
-/** The text as a JSON object, or null when it is not one. */
-function parseObject(text: string): Record<string, unknown> | null {
-  try {
-    const whole: unknown = JSON.parse(text);
-    return isRecord(whole) ? whole : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The document text with fields of the model's provider set.
- *
- * The text is what this surface holds and publishes, so a field changed here is
- * a change to the document and the editor below shows what was written: the
- * model has one home, not a second one beside the document. A text that is not a
- * JSON object is left exactly as it is — the fields are dead while it is — and a
- * document with no `agent` section grows one.
- */
-function withModelField(
-  text: string,
-  patch: Partial<Record<"provider" | "model" | "baseUrl" | "apiKey", string | null>>,
-): string {
-  const whole = parseObject(text);
-  if (!whole) return text;
-  const agent = isRecord(whole.agent) ? whole.agent : {};
-  const provider = isRecord(agent.provider) ? agent.provider : {};
-  return JSON.stringify(
-    { ...whole, agent: { ...agent, provider: { ...provider, ...patch } } },
-    null,
-    2,
-  );
-}
-
-/**
- * The document with the installation's own line of prose set.
- *
- * The line is `agent.instruction` — the outermost prose the agent is told, above
- * every group's own instruction (ADR 0035). It is edited here as a field, beside
- * the model, because it is the other thing of that section a person chooses
- * rather than looks up.
- */
-function withInstructionField(text: string, instruction: string): string {
-  const whole = parseObject(text);
-  if (!whole) return text;
-  const agent = isRecord(whole.agent) ? whole.agent : {};
-  return JSON.stringify(
-    {
-      ...whole,
-      agent: { ...agent, instruction: instruction.trim() ? instruction : undefined },
-    },
-    null,
-    2,
-  );
-}
-
-/**
- * The document to publish, with the key the form states.
- *
- * The key never reaches the text this surface holds — the server takes it out
- * when it reads, and the form keeps its copy in memory only — so the two things
- * a save can state are written here, once, into what is sent: a value, or `null`
- * for a provider that needs none. A field left untouched or emptied states
- * nothing, and the text goes as it is. A document that names no provider has no
- * model, and so no key to carry or to clear.
- */
-function withModelKey(text: string, draft: KeyDraft): string {
-  if (draft.kind === "kept") return text;
-  if (!installationModel(text).provider) return text;
-  return withModelField(text, { apiKey: draft.kind === "none" ? null : draft.value });
-}
+import { ModelFields } from "./installation/ModelFields";
+import {
+  type KeyDraft,
+  withInstructionField,
+  withModelKey,
+} from "./installation/modelFields";
 
 /**
  * The installation's own document (ADR 0011 — the installation is configured
@@ -251,89 +169,14 @@ export function AdminInstallation() {
           })}
         </div>
       )}
-      {/*
-       * The model is the one part of this document an administrator chooses
-       * rather than looks up (ADR 0031), so it gets fields of its own instead of
-       * being JSON nobody can find. They are not a second home for it: what they
-       * write is the document below, `agent.provider` and nothing else.
-       */}
-      <h2 style={{ marginTop: 24 }}>{t("The installation's model")}</h2>
-      <p className="hint">
-        {t(
-          "One model serves the whole installation — every call the agent makes runs on it — and the document below is where it is named. Publishing applies at the next boot.",
-        )}
-      </p>
-      {documentProblem && <p className="hint">{documentProblem}</p>}
-      {!model.provider && (
-        <p className="hint">
-          {t(
-            "No model is named, so this installation has no agent: it stays idle and says so in the server's log.",
-          )}
-        </p>
-      )}
-      <div className="field-row">
-        <div className="field">
-          <label htmlFor="model-provider">{t("Provider")}</label>
-          <input
-            id="model-provider"
-            className="input"
-            value={model.provider}
-            disabled={!editable}
-            onChange={(e) => setText(withModelField(text, { provider: e.target.value }))}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="model-name">{t("Model")}</label>
-          <input
-            id="model-name"
-            className="input"
-            value={model.model}
-            disabled={!editable}
-            onChange={(e) => setText(withModelField(text, { model: e.target.value }))}
-          />
-        </div>
-      </div>
-      <div className="field">
-        <label htmlFor="model-base-url">{t("Base URL")}</label>
-        <input
-          id="model-base-url"
-          className="input"
-          value={model.baseUrl}
-          disabled={!editable}
-          placeholder={t("https://api.openai.com/v1")}
-          onChange={(e) => setText(withModelField(text, { baseUrl: e.target.value }))}
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="model-key">{t("API key")}</label>
-        <input
-          id="model-key"
-          className="input"
-          type="password"
-          /* Never filled from the document: no read hands the stored key back. */
-          value={keyDraft.kind === "key" ? keyDraft.value : ""}
-          disabled={!editable || keyDraft.kind === "none" || !model.provider}
-          placeholder={t("Stored on the server")}
-          onChange={(e) =>
-            setKeyDraft(
-              // Emptying the field says nothing about the key, exactly as never
-              // typing into it does: the stored one stands. The switch is the
-              // one thing that clears it.
-              e.target.value ? { kind: "key", value: e.target.value } : { kind: "kept" },
-            )
-          }
-        />
-        <span className="hint">
-          {t(
-            "The key is write-only: no read hands it back, so this field is empty and every answer carries none of it. An untouched or emptied field keeps the stored key, a value replaces it, and the switch below — for a provider that needs no key, a model on this deployment's own network, say — clears it. A document that names no model carries no key.",
-          )}
-        </span>
-      </div>
-      <Switch
-        checked={keyDraft.kind === "none"}
-        disabled={!editable || !model.provider}
-        onChange={(on) => setKeyDraft(on ? { kind: "none" } : { kind: "kept" })}
-        label={t("This provider needs no key")}
+      <ModelFields
+        text={text}
+        model={model}
+        documentProblem={documentProblem}
+        editable={editable}
+        keyDraft={keyDraft}
+        onText={setText}
+        onKeyDraft={setKeyDraft}
       />
       <h2 style={{ marginTop: 24 }}>{t("The installation's line")}</h2>
       <p className="hint">
