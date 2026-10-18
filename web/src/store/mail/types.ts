@@ -1,3 +1,4 @@
+import type { StoreApi } from "zustand";
 import {
   type Comparator,
   EMAIL_FULL_HEADER_PROPS,
@@ -112,6 +113,16 @@ export interface ListState extends ListQuery {
   error: string | null;
   exhausted: boolean;
 }
+
+/**
+ * What `create` hands a slice: the store's own reader and writer.
+ *
+ * The store is assembled in `index.ts` from one function per job, and a slice
+ * never imports the store it belongs to -- it is handed these two, which is what
+ * keeps the modules acyclic and each one readable on its own.
+ */
+export type MailSet = StoreApi<MailState>["setState"];
+export type MailGet = StoreApi<MailState>["getState"];
 
 export interface MailState {
   accountId: Id | null;
