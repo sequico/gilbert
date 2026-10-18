@@ -63,6 +63,7 @@
 
 import { randomUUID } from "node:crypto";
 import { appFolderState, type Ctx, filesAccountId } from "../appFolder.js";
+import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
@@ -567,8 +568,17 @@ export class AgentLoop {
       ({ run }) => run.state === "blocked" && run.waiting?.asked?.channel === "mail",
     );
     if (!parked.length) return null;
-    const reply = await readMessageForAnswer(this.ctx, accountId, event.where);
+    // Who may speak: the principals with access to this group, and the agent
+    // itself (an echo is refused as its own). A server that will not name the
+    // roster answers nobody, rather than trusting the sender line.
+    const members = await groupMembers(this.ctx, accountId);
+    if (!members) return null;
+    const reply = await readMessageForAnswer(this.ctx, accountId, event.where, {
+      own: this.ctx.username,
+      known: [...members, this.ctx.username],
+    });
     if (!reply?.thread.length || !reply.from || !reply.text.trim()) return null;
+    if (!reply.word) return null;
     if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
     for (const record of parked) {
       const asked = record.run.waiting?.asked;

@@ -28,9 +28,12 @@ import { personWord, type ReceivedMessage } from "./trust.js";
 const OUTSIDE =
   "from mail.ada.example (mail.ada.example [203.0.113.7]) by mx.example.org with ESMTPS id 3f2a; Fri, 16 Oct 2026 09:00:00 +0000";
 
-/** The first hop of a message one of this installation's accounts submitted. */
-const SUBMITTED =
-  "from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id 41cb; Fri, 16 Oct 2026 09:04:00 +0000";
+/**
+ * The first hop of a message one of this installation's accounts submitted: the
+ * server's record of the submission, naming the account it authenticated.
+ */
+const submitted = (address: string): string =>
+  `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id 41cb (Authenticated sender: ${address}); Fri, 16 Oct 2026 09:04:00 +0000`;
 
 /** The server's own delivery hop, which names nobody it came from. */
 const DELIVERED = "by mx.example.org with LMTP id 9a; Fri, 16 Oct 2026 09:05:00 +0000";
@@ -55,7 +58,6 @@ const from = (email: string): ReceivedMessage["from"] => [{ email }];
 const message = (over: Partial<ReceivedMessage> = {}): ReceivedMessage => ({
   from: from("ada@example.org"),
   "header:Received:asText:all": [OUTSIDE],
-  "header:Authentication-Results:asText": VERDICT,
   ...over,
 });
 
@@ -67,7 +69,7 @@ describe("personWord", () => {
     const decision = personWord(
       message({
         from: from("bob@example.com"),
-        "header:Received:asText:all": [SUBMITTED],
+        "header:Received:asText:all": [submitted("bob@example.com")],
         "header:Authentication-Results:asText": null,
       }),
       ASKING,
@@ -80,37 +82,21 @@ describe("personWord", () => {
     });
   });
 
-  it("takes a message from outside that the receiving server says authenticated", () => {
-    assert.deepEqual(personWord(message(), ASKING), {
-      word: true,
-      refusal: null,
-      from: "ada@example.org",
-      run: null,
-    });
-    // The reasons and comments of a real verdict are not properties, and one
-    // carrying a `;` of its own must not split the clause it sits in.
-    const commented = personWord(
-      message({
-        "header:Authentication-Results:asText":
-          "mx.example.org (Postfix);\r\n dkim=pass (1024-bit key; unprotected) header.d=example.org",
-      }),
-      ASKING,
-    );
-    assert.equal(commented.word, true, "a comment is not a result");
-  });
-
-  it("refuses a known sender that arrived from outside without a passing result", () => {
+  it("refuses a message that arrived from outside, whatever verdict it carries", () => {
+    // The verdict is worth the authserv-id that wrote it, and what a live
+    // Stalwart writes there is the probe the record says it owes. Until it is
+    // answered, no verdict makes an outside message a person's word — a sender
+    // can write a header as easily as a `From:` line.
     for (const verdict of [
-      null, // the server recorded no result at all
-      "", // a header that is there and says nothing
-      "mx.example.org; spf=fail smtp.mailfrom=ada@example.org; dkim=none",
-      "mx.example.org; dkim=none; spf=none",
-      // A pass beside a failure is not a message the server vouched for: one of
-      // the mechanisms this message claims failed, whatever passed beside it.
-      "mx.example.org; spf=pass smtp.mailfrom=ada@example.org; dkim=fail",
+      VERDICT,
+      "mx.example.org (Postfix);\r\n dkim=pass (1024-bit key; unprotected) header.d=example.org",
+      null,
+      "",
     ]) {
       const decision = personWord(
-        message({ "header:Authentication-Results:asText": verdict }),
+        message({
+          "header:Authentication-Results:asText": verdict,
+        } as Partial<ReceivedMessage>),
         ASKING,
       );
       assert.equal(decision.word, false, String(verdict));
@@ -118,21 +104,24 @@ describe("personWord", () => {
     }
   });
 
-  it("refuses a result it cannot parse rather than guessing", () => {
-    for (const verdict of [
-      "dkim=pass", // no authserv-id: nobody to believe
-      "mx.example.org", // a server and no property
-      "mx.example.org;",
-      "mx.example.org; this is not a property",
-      "mx.example.org; dkim=pass; header.d=example.org",
-      "   ",
+  it("refuses a submission that names no account, or names a different one", () => {
+    // A submission is trusted on the server's record of **which account**
+    // authenticated: the hop without it leaves only the `From:` line, which is
+    // what a sender writes, and a hop naming another account is that account's
+    // word and not this sender's.
+    for (const hop of [
+      "from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id 41cb",
+      submitted("alice@example.com"),
     ]) {
       const decision = personWord(
-        message({ "header:Authentication-Results:asText": verdict }),
+        message({
+          from: from("bob@example.com"),
+          "header:Received:asText:all": [hop],
+        } as Partial<ReceivedMessage>),
         ASKING,
       );
-      assert.equal(decision.word, false, verdict);
-      assert.equal(decision.refusal, "not_authenticated", verdict);
+      assert.equal(decision.word, false, hop);
+      assert.equal(decision.refusal, "not_authenticated", hop);
     }
   });
 
@@ -177,7 +166,7 @@ describe("personWord", () => {
       { from: from("stranger@elsewhere.test") },
       {
         from: from("stranger@elsewhere.test"),
-        "header:Received:asText:all": [SUBMITTED],
+        "header:Received:asText:all": [submitted("stranger@elsewhere.test")],
         "header:Authentication-Results:asText": null,
       },
     ]) {

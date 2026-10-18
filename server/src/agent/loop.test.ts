@@ -908,6 +908,10 @@ test("a question asked by mail parks the run, and a reply on its thread continue
   assert.ok(mailAccount, "the mock has an account with mail");
   const members = await groupMembers(ctx, mailAccount);
   assert.ok(members?.length, "the directory says who has access to it");
+  // A person who is not the agent: its own address is its own mail, and an
+  // echo is never an answer (the trust reading refuses it by name).
+  const answerer = members.find((address) => address !== ctx.username);
+  assert.ok(answerer, "somebody other than the agent can answer");
 
   const id = "intake-by-mail";
   const ruleFor = rule(id, ["mail"]);
@@ -971,13 +975,19 @@ test("a question asked by mail parks the run, and a reply on its thread continue
       create: {
         r: {
           subject: "Re: a question",
-          from: [{ email: "sam@example.org" }],
+          from: [{ email: answerer }],
           to: [{ email: "demo@example.com" }],
           inReplyTo: [messageId],
           references: [messageId],
           mailboxIds: { inbox: true },
           bodyStructure: { partId: "text", type: "text/plain" },
           bodyValues: { text: { value: "it is BK-2" } },
+          // A message created here stands in for a delivered one, and the
+          // reading takes an answer only on the server's record of the
+          // submission: the account that authenticated is the sender (ADR 0033).
+          "header:Received:asText:all": [
+            `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id x1 (Authenticated sender: ${answerer})`,
+          ],
         },
       },
     },
@@ -985,7 +995,6 @@ test("a question asked by mail parks the run, and a reply on its thread continue
   );
   const reply = delivered.created?.r?.id;
   assert.ok(reply, "the reply is in the account");
-
   const summary = await agent.pass();
   assert.ok(summary.due >= 1, "the reply picked the parked run up");
   const answered = (await readRun(ctx, mailAccount, parked.id))?.run;

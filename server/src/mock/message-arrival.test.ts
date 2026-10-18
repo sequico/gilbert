@@ -73,7 +73,7 @@ const asWord = (message: Message): boolean => {
   return personWord(message, { own: OWN, known: [sender] }).word;
 };
 
-test("mail from outside carries the verdict the reading checks, and passes on it", async () => {
+test("mail from outside carries the verdict, and the reading refuses it until the probe", async () => {
   const received = (await messages()).find(
     (message) => typeof message["header:Authentication-Results:asText"] === "string",
   );
@@ -90,8 +90,8 @@ test("mail from outside carries the verdict the reading checks, and passes on it
   );
   assert.equal(
     asWord(received),
-    true,
-    "the shapes the mock writes are ones the reading passes",
+    false,
+    "no verdict is a person's word until a live server's own authserv-id is recorded",
   );
 });
 
@@ -108,6 +108,11 @@ test("mail an account here submitted carries the submission record and no verdic
       hopOf(message),
       /\bESMTPSA\b/,
       "the server's own hop records a submission over an authenticated connection",
+    );
+    assert.match(
+      hopOf(message),
+      /\bAuthenticated sender: \S+@\S+/,
+      "and names the account it authenticated, which is the address the reading compares",
     );
     assert.equal(
       asWord(message),

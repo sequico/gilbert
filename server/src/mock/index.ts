@@ -821,10 +821,12 @@ function addEmail(o: {
      * an authenticated connection from one of this installation's accounts, or a
      * hand-over by a server that is not this one.
      *
-     * The verdict below is written for the second case alone, because mail that
-     * never crossed a boundary has no SPF, no DKIM and no DMARC to verify; the
-     * signed fixture (`addSignedEmail`) is built around its blob rather than here
-     * and carries neither.
+     * The submission names the account that authenticated, which is the address
+     * the reading compares with the sender — the one fact a `From:` line cannot
+     * carry for itself. The verdict below is written for the second case alone,
+     * because mail that never crossed a boundary has no SPF, no DKIM and no DMARC
+     * to verify; the signed fixture (`addSignedEmail`) is built around its blob
+     * rather than here and carries neither.
      *
      * Both are a shape and not *the* shape: what a live Stalwart 0.16 writes here
      * is owed a probe, marked in `server/src/agent/trust.ts`, and
@@ -832,7 +834,7 @@ function addEmail(o: {
      */
     "header:Received:asText:all": [
       WRITTEN_MAIL.has(o.mailbox)
-        ? `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id m${id}`
+        ? `from [10.0.0.9] (localhost [127.0.0.1]) by mx.example.org with ESMTPSA id m${id} (Authenticated sender: ${o.from[1]})`
         : `from ${domain} (${domain} [203.0.113.7]) by mx.example.org with ESMTPS id m${id}`,
     ],
     "header:Authentication-Results:asText": WRITTEN_MAIL.has(o.mailbox)

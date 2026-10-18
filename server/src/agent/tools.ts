@@ -104,6 +104,7 @@ import { clientOf } from "../util.js";
 import { settleStepAsAgent, WorkorderAdminError } from "../workorderAdmin.js";
 import { type MemoryStore, rememberFact } from "./memory.js";
 import { readRun } from "./runs.js";
+import { personWord } from "./trust.js";
 
 /* ------------------------------------------------------------------ */
 /* What a tool is                                                      */
@@ -948,18 +949,29 @@ export async function readMessageForAnswer(
   ctx: Ctx,
   accountId: string,
   id: string,
+  /** Who may speak, and who the agent is: the one trust question (ADR 0033). */
+  asker: { own: string; known: ReadonlyArray<string> },
 ): Promise<{
   from: string | null;
   thread: string[];
   text: string;
   at: string | null;
+  /** Whether the message is the sender's own word — refused, it answers nothing. */
+  word: boolean;
 } | null> {
   const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
     "Email/get",
     {
       accountId,
       ids: [id],
-      properties: [...MESSAGE_PROPS, "inReplyTo", "references", "messageId"],
+      properties: [
+        ...MESSAGE_PROPS,
+        "inReplyTo",
+        "references",
+        "messageId",
+        "header:Received:asText:all",
+        "header:X-Gilbert-Run:asText",
+      ],
       fetchTextBodyValues: true,
       maxBodyValueBytes: MESSAGE_BODY_MAX,
     },
@@ -974,8 +986,18 @@ export async function readMessageForAnswer(
     for (const one of held)
       if (typeof one === "string" && !thread.includes(one)) thread.push(one);
   }
+  const from = addressesIn(message.from)[0]?.email ?? null;
+  const arrival = {
+    from: message.from as ReadonlyArray<{ email?: string | null }> | null,
+    "header:Received:asText:all": message[
+      "header:Received:asText:all"
+    ] as ReadonlyArray<string> | null,
+    "header:X-Gilbert-Run:asText": message["header:X-Gilbert-Run:asText"] as
+      | string
+      | null,
+  };
   return {
-    from: addressesIn(message.from)[0]?.email ?? null,
+    from,
     thread,
     text: messageTextOf(message),
     at:
@@ -984,6 +1006,7 @@ export async function readMessageForAnswer(
         : typeof message.sentAt === "string"
           ? message.sentAt
           : null,
+    word: personWord(arrival, asker).word,
   };
 }
 
