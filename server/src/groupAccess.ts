@@ -13,7 +13,7 @@
 
 import type { Ctx } from "./appFolder.js";
 import { config, masterAddress } from "./config.js";
-import { JMAP_MAIL, JmapClient, STALWART_CAP } from "./jmap.js";
+import { JmapClient, STALWART_CAP } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { mailboxesOf } from "./shared/mailboxes.js";
 import { processAccountForCapability } from "./shared/accountRouting.js";
