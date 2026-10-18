@@ -14,9 +14,12 @@ from and the message it arrived in) by the loop (`authoriseAnswer`,
 compares target and content exactly, so a sentence read too generously licenses
 nothing the step does not match, and an **override** is refused by name — class 4
 is an installation administrator's, and its marker (`session.gilbert.isAdmin`,
-ADR 0001) is not proved by a sentence in a group's chat. The acts themselves — a
-send, a destroy — are not in the catalogue yet (ADR 0033); the policy the agent
-reads is a KB page (ADR 0024).
+ADR 0001) is not proved by a sentence in a group's chat. The acts a person must
+authorise are in the catalogue: `mail.send` (class 3, `outward`) names the act it
+is for — the address it reaches and the words it carries — and `mayRun` compares
+that act exactly, so a person's word for one message sends no other. A destroy is
+still absent, and its act is the open question: what a person names is the message
+they read, not an id. The policy the agent reads is a KB page (ADR 0024).
 
 ## Context
 

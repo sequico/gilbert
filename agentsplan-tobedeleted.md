@@ -120,8 +120,11 @@ reaching a run, and any surface that shows what the agent did.
   step whose act it matches runs; a sentence that authorises nothing records
   none; an override is refused by the reading (`agent/model.test.ts`,
   `agent/loop.test.ts`).
-- **Still not:** the acts themselves — a send, a destroy — are not in the
-  catalogue; they arrive with the mail channel (2.3).
+- **The acts:** `mail.send` is in the catalogue as class `outward` (the address
+  and the words are the act, and the guard compares them exactly — pinned in
+  `agent/tools.test.ts`). A destroy is still absent: its act would have to be
+  named by a person as "the message they read", not as an id, and that shape is
+  not decided.
 
 ### 2.5 The surfaces — the run visible (partly built)
 

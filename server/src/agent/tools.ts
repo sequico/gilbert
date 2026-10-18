@@ -1139,6 +1139,107 @@ const draftReply = defineTool({
   },
 });
 
+/**
+ * Send one message from this group's own identity: written into Sent, then
+ * submitted (ADR 0033).
+ *
+ * One door for both acts that send — the question to a person with access and the
+ * message that reaches somebody outside — so the two cannot disagree about the
+ * identity they send as, the folder the message is filed in, or the shape a
+ * submission takes.
+ */
+async function sendMail(
+  ctx: Ctx,
+  accountId: string,
+  message: { to: string; subject: string; text: string },
+): Promise<{ id: string; from: string }> {
+  const identities = await sendingIdentities(ctx, accountId);
+  const from = identities[0];
+  if (!from) throw notFound("sending identity in this account");
+  const boxes = await mailboxesOf(ctx, accountId);
+  const sent = resolveMailbox("sent", boxes) ?? resolveMailbox("inbox", boxes);
+  if (!sent) throw notFound("sent folder in this account");
+  const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        m: {
+          from: [{ email: from.email, ...(from.name ? { name: from.name } : {}) }],
+          to: [{ email: message.to }],
+          subject: message.subject,
+          sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+          mailboxIds: { [sent.id]: true },
+          keywords: { $seen: true },
+          bodyStructure: { partId: "text", type: "text/plain" },
+          bodyValues: { text: { value: message.text } },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const refusedCreate = created.notCreated?.m;
+  if (refusedCreate) throw new ToolError("write_refused", refusalOf(refusedCreate), 409);
+  const emailId = created.created?.m?.id;
+  if (!emailId)
+    throw new ToolError(
+      "write_refused",
+      "The message was not written, and the server said nothing about why.",
+      409,
+    );
+  const submitted = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
+    "EmailSubmission/set",
+    {
+      accountId,
+      create: {
+        s: {
+          identityId: from.id,
+          emailId,
+          envelope: {
+            mailFrom: { email: from.email },
+            rcptTo: [{ email: message.to }],
+          },
+        },
+      },
+    },
+    [CAPABILITIES.mail, CAPABILITIES.submission],
+  );
+  const refusedSubmit = submitted.notCreated?.s;
+  if (refusedSubmit) throw new ToolError("send_refused", refusalOf(refusedSubmit), 409);
+  return { id: emailId, from: from.email };
+}
+
+const sendOutward = defineTool({
+  name: "mail.send",
+  description:
+    "Send a message from this group to anybody. This is the act that reaches " +
+    "somebody, so it is refused until a person's own words license exactly this " +
+    "message — the address it goes to and the words it carries — and a license for " +
+    "one message reaches no other.",
+  authority: "outward",
+  writes: true,
+  spend: { steps: 1 },
+  act: (raw) => {
+    const one = isRecord(raw) ? raw : {};
+    return {
+      target: typeof one.to === "string" ? one.to.trim().toLowerCase() : "",
+      content: typeof one.text === "string" ? one.text : null,
+    };
+  },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      to: textArg(args, "to"),
+      subject: textArg(args, "subject"),
+      text: textArg(args, "text"),
+    };
+  },
+  run: async ({ ctx, accountId }, { to, subject, text }) => {
+    const sent = await sendMail(ctx, accountId, { to, subject, text });
+    return { id: sent.id, to, subject };
+  },
+});
+
 const askByMail = defineTool({
   name: "mail.ask",
   description:
@@ -1172,63 +1273,13 @@ const askByMail = defineTool({
         `"${to}" is not a principal with access to this group, and a question by mail reaches nobody else.`,
         403,
       );
-    const identities = await sendingIdentities(ctx, accountId);
-    const from = identities[0];
-    if (!from) throw notFound("sending identity in this account");
-    const boxes = await mailboxesOf(ctx, accountId);
-    const sent = resolveMailbox("sent", boxes) ?? resolveMailbox("inbox", boxes);
-    if (!sent) throw notFound("sent folder in this account");
-    const created = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
-      "Email/set",
-      {
-        accountId,
-        create: {
-          q: {
-            from: [{ email: from.email, ...(from.name ? { name: from.name } : {}) }],
-            to: [{ email: address }],
-            subject,
-            sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-            mailboxIds: { [sent.id]: true },
-            keywords: { $seen: true },
-            bodyStructure: { partId: "text", type: "text/plain" },
-            bodyValues: { text: { value: text } },
-          },
-        },
-      },
-      [CAPABILITIES.mail],
-    );
-    const refusedCreate = created.notCreated?.q;
-    if (refusedCreate)
-      throw new ToolError("write_refused", refusalOf(refusedCreate), 409);
-    const emailId = created.created?.q?.id;
-    if (!emailId)
-      throw new ToolError(
-        "write_refused",
-        "The question was not written, and the server said nothing about why.",
-        409,
-      );
-    const submitted = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
-      "EmailSubmission/set",
-      {
-        accountId,
-        create: {
-          s: {
-            identityId: from.id,
-            emailId,
-            envelope: { mailFrom: { email: from.email }, rcptTo: [{ email: address }] },
-          },
-        },
-      },
-      [CAPABILITIES.mail, CAPABILITIES.submission],
-    );
-    const refusedSubmit = submitted.notCreated?.s;
-    if (refusedSubmit) throw new ToolError("send_refused", refusalOf(refusedSubmit), 409);
+    const sent = await sendMail(ctx, accountId, { to: address, subject, text });
     const wait: RunWait = {
       what: text,
-      asked: { channel: "mail", id: emailId },
+      asked: { channel: "mail", id: sent.id },
       until: null,
     };
-    return { id: emailId, to: address, subject, wait };
+    return { id: sent.id, to: address, subject, wait };
   },
 });
 
@@ -1660,6 +1711,7 @@ export const TOOLS: readonly AnyTool[] = [
   fileMessage,
   setKeyword,
   draftReply,
+  sendOutward,
   askByMail,
   settleStep,
   proposePage,

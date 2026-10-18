@@ -230,7 +230,10 @@ conversation: class 4 is an installation administrator's. **The same conversatio
 runs by mail**: `mail.ask` sends the question from the group's own identity to a
 principal with access to the group and parks the run on that message, and the
 reply that names it in its thread continues the run — mail's own correlation,
-read by the loop. Every tool declares the **authority class** it
+read by the loop. `mail.send` is the act that reaches somebody **outside**: it is
+class `outward`, and it is refused until a person's own words license exactly that
+message — the address and the words — because a word for one send reaches no
+other. Every tool declares the **authority class** it
 exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision

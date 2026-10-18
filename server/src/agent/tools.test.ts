@@ -842,6 +842,67 @@ test("the memory tool records a fact where the installation keeps them", async (
   }
 });
 
+test("a message outward is refused until a person's words license exactly it", async () => {
+  /*
+   * The act that reaches somebody (ADR 0032, class 3). The guard asks for a word
+   * bound to the act — the address and the words — and a word for one message
+   * reaches no other, which is what `mail.send`'s `act` declares.
+   */
+  const submissions = mock.methodCalls["EmailSubmission/set"] ?? 0;
+  await assert.rejects(
+    () =>
+      writeTool("mail.send", {
+        to: "ops@shipper.example",
+        subject: "the slot",
+        text: "the slot is Thursday",
+      }),
+    (err: unknown) => (err as { code?: string }).code === "needs_authority",
+    "with no word, nothing leaves",
+  );
+  assert.equal(
+    mock.methodCalls["EmailSubmission/set"] ?? 0,
+    submissions,
+    "and no submission was made",
+  );
+
+  const authorised = takeAuthorisation(plainRun(), {
+    what: "yes, tell the shipper the slot is Thursday",
+    authority: "outward",
+    act: { target: "ops@shipper.example", content: "the slot is Thursday" },
+    by: "sam@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "m-1" },
+  });
+  const sent = await runTool<{ id: string; to: string }>(
+    TOOLS,
+    { ctx, accountId, run: authorised, memory: await listFacts(ctx, accountId) },
+    "mail.send",
+    { to: "ops@shipper.example", subject: "the slot", text: "the slot is Thursday" },
+  );
+  assert.equal(sent.to, "ops@shipper.example");
+  assert.ok(sent.id, "the message is written and submitted");
+  assert.ok(
+    (mock.methodCalls["EmailSubmission/set"] ?? 0) > submissions,
+    "and the mail server was asked to send it",
+  );
+
+  await assert.rejects(
+    () =>
+      runTool(
+        TOOLS,
+        { ctx, accountId, run: authorised, memory: undefined },
+        "mail.send",
+        {
+          to: "ops@shipper.example",
+          subject: "the slot",
+          text: "a different message for the same address",
+        },
+      ),
+    (err: unknown) => (err as { code?: string }).code === "needs_authority",
+    "the same address with other words is another act, and is refused",
+  );
+});
+
 test("an attachment of a message is read inside, by the same reader as a document in Files", async () => {
   /*
    * The document that matters usually arrives attached: a purchase order, a
