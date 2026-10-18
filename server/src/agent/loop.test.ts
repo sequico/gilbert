@@ -86,7 +86,8 @@ const { INSTRUCTION_FILE, INSTRUCTION_VERSION, readInstruction } = await import(
 const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { defineTool, TOOLS } = await import("./tools.js");
-const { AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
+const { administratorAt, AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
+const { config } = await import("../config.js");
 
 const BASE = `http://127.0.0.1:${MOCK_PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -1074,6 +1075,32 @@ test("a question asked by mail parks the run, and a reply on its thread continue
   const found = await readAppFileAt(ctx, mailAccount, rulePath(id));
   if (typeof found?.file.id === "string")
     await destroyAppNode(ctx, mailAccount, found.file.id, {});
+});
+
+test("only the directory can say a sender is an administrator", async () => {
+  /*
+   * Owner decision (2026-10-18): an override is an administrator's, and the
+   * proof is the server's own answer about the person's account. What the
+   * reading does with that answer is `model.test.ts`; this is the half that
+   * decides it, and it must fail closed when the directory will not say.
+   */
+  const ctx = {
+    authorization: `Basic ${Buffer.from("agent@example.com:secret").toString("base64")}`,
+    username: "agent@example.com",
+  };
+  const admin = async () => ({ permissions: [config.adminPermissionMarker] }) as never;
+  const plain = async () => ({ permissions: [] }) as never;
+  const silent = async () => {
+    throw new Error("the directory did not answer");
+  };
+
+  assert.equal(await administratorAt(ctx, "sam@example.org", admin), true);
+  assert.equal(await administratorAt(ctx, "sam@example.org", plain), false);
+  assert.equal(
+    await administratorAt(ctx, "sam@example.org", silent),
+    false,
+    "a directory that will not answer is a no",
+  );
 });
 
 test("a change that answers nothing of ours opens a run of its own", async () => {

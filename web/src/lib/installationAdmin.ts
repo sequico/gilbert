@@ -12,8 +12,15 @@ import { installationDefaults } from "@gilbert/shared/installation";
 import { isRecord } from "@gilbert/shared/json";
 import { apiFetch } from "@/jmap/client";
 
-/** The fields an installation chooses for its agent (ADR 0031, 0035). */
-export interface InstallationModel {
+/**
+ * The fields an installation chooses for its agent (ADR 0031, 0035).
+ *
+ * A view over the document text, not the model configuration: the shared
+ * `InstallationModel` (`@gilbert/shared/installation`) is provider/model/baseUrl
+ * plus the key, and this one adds the agent's line. Two different shapes, two
+ * names.
+ */
+export interface InstallationFields {
   provider: string;
   model: string;
   baseUrl: string;
@@ -97,8 +104,8 @@ export function startingInstallationDocument(): string {
  * fields write `agent.provider` in the text it holds, and the agent's own
  * section, which **links** to that one rather than keeping a second set of fields.
  */
-export function installationModel(text: string | null): InstallationModel {
-  const none: InstallationModel = {
+export function installationModel(text: string | null): InstallationFields {
+  const none: InstallationFields = {
     provider: "",
     model: "",
     baseUrl: "",
