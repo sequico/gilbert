@@ -1073,9 +1073,9 @@ test("a person's answer is read for the act it authorises, and never for an over
   /*
    * The sentence that answers a run can be the word a class asks for (ADR 0032),
    * so what it authorises is read — and the reading is bounded here: an act that
-   * names what it reaches, a class a person's answer can give, and no override at
-   * all, because class 4 is an administrator's and a conversation is not where
-   * that is proved.
+   * names what it reaches, a class a person's answer can give, and no override
+   * unless the loop has told it the sender is an installation administrator (the
+   * directory is where that is proved; the test above covers that half).
    */
   const access = { model, allowPrivateProvider: true };
   const answer = {
