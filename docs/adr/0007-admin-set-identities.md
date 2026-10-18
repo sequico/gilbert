@@ -254,7 +254,7 @@ wire.
 - `web/src/store/mail/` — the per-account identity lists, the assignment a
   group mailbox narrows to and reads again when a surface asks it to, the write
   that spends a read already on its way, and `refreshIdentities`
-- `web/src/store/compose.ts` — `identityBcc`, the one place an identity's Bcc
+- `web/src/store/compose/` — `identityBcc`, the one place an identity's Bcc
   becomes a draft's recipients, and every path that opens a draft
 - `web/src/lib/identities.ts` — `fetchMemberAssignment`, the assignment read as
   the member, and the admin routes, each refreshing those lists once the server
