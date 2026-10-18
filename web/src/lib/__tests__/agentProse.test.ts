@@ -36,7 +36,10 @@ describe("the prose route", () => {
     await saveInstruction(GROUP, "Answer in the group's voice.", "s7");
     expect(apiFetch).toHaveBeenCalledWith(`${PATH}/instruction`, {
       method: "PUT",
-      body: JSON.stringify({ instruction: "Answer in the group's voice.", ifInState: "s7" }),
+      body: JSON.stringify({
+        instruction: "Answer in the group's voice.",
+        ifInState: "s7",
+      }),
     });
 
     apiFetch.mockResolvedValue({ rule: { id: "invoices" } });

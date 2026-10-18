@@ -641,16 +641,22 @@ export const catalog: Catalog = {
     "Filters unavailable": "Filtres indisponibles",
     Rules: "Règles",
     "Touched: {touched}.": "Touché : {touched}.",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "Autorisé par {by} : {authority} pour {target} — « {what} »",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "Autorisé par {by} : {authority} pour {target} — « {what} »",
     "The installation's line": "La ligne de l'installation",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "La prose la plus externe dite à l'agent, au-dessus de l'instruction propre à chaque groupe : comment cette installation veut qu'il travaille, en un paragraphe. Publier s'applique à la prochaine passe.",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Quelqu'un d'autre a modifié la prose de ce groupe. La liste a été rechargée et votre modification n'a pas été enregistrée.",
-    "Waiting: {what} — asked in {channel} {id}": "En attente : {what} — demandé dans {channel} {id}",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "En attente : {what} — demandé dans {channel} {id}, jusqu'au {until}",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "La prose la plus externe dite à l'agent, au-dessus de l'instruction propre à chaque groupe : comment cette installation veut qu'il travaille, en un paragraphe. Publier s'applique à la prochaine passe.",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "Quelqu'un d'autre a modifié la prose de ce groupe. La liste a été rechargée et votre modification n'a pas été enregistrée.",
+    "Waiting: {what} — asked in {channel} {id}":
+      "En attente : {what} — demandé dans {channel} {id}",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "En attente : {what} — demandé dans {channel} {id}, jusqu'au {until}",
     "Standing instruction": "Instruction permanente",
-    "How the group wants its agent to work, on every call it makes.": "Comment le groupe veut que son agent travaille, à chaque appel qu'il fait.",
+    "How the group wants its agent to work, on every call it makes.":
+      "Comment le groupe veut que son agent travaille, à chaque appel qu'il fait.",
     "No rules yet.": "Aucune règle pour l'instant.",
-    "Watches": "Surveille",
+    Watches: "Surveille",
     "What should happen": "Ce qui doit se passer",
     "May send": "Peut envoyer",
     "Rule name": "Nom de la règle",

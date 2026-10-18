@@ -70,7 +70,9 @@ test("a non-admin cannot read or write a group's prose", async () => {
   assert.equal(instruction.status, 403);
   const rule = await call("/api/admin/groups/team@example.org/prose/rules/mine", {
     method: "PUT",
-    body: JSON.stringify({ rule: { v: 1, id: "mine", watches: ["mail"], instruction: "x", sends: false } }),
+    body: JSON.stringify({
+      rule: { v: 1, id: "mine", watches: ["mail"], instruction: "x", sends: false },
+    }),
   });
   assert.equal(rule.status, 403);
   const gone = await call("/api/admin/groups/team@example.org/prose/rules/mine", {

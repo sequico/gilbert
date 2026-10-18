@@ -628,16 +628,21 @@ export const catalog: Catalog = {
     "Filters unavailable": "フィルターは利用できません",
     Rules: "ルール",
     "Touched: {touched}.": "変更対象: {touched}。",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "{by} が承認: {target} に対する {authority} — 「{what}」",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "{by} が承認: {target} に対する {authority} — 「{what}」",
     "The installation's line": "インストールの指針",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "エージェントに伝える最も外側の文章。各グループの指示の上に置かれ、このインストールがどう働いてほしいかを一段落で示す。公開は次のパスから有効になる。",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "他のメンバーがこのグループの文章を変更しました。一覧を再読み込みしましたが、あなたの編集は保存されていません。",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "エージェントに伝える最も外側の文章。各グループの指示の上に置かれ、このインストールがどう働いてほしいかを一段落で示す。公開は次のパスから有効になる。",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "他のメンバーがこのグループの文章を変更しました。一覧を再読み込みしましたが、あなたの編集は保存されていません。",
     "Waiting: {what} — asked in {channel} {id}": "待機中: {what} — {channel} {id} で質問",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "待機中: {what} — {channel} {id} で質問、{until} まで",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "待機中: {what} — {channel} {id} で質問、{until} まで",
     "Standing instruction": "常設の指示",
-    "How the group wants its agent to work, on every call it makes.": "グループのエージェントが、呼び出しのたびにどう動くか。",
+    "How the group wants its agent to work, on every call it makes.":
+      "グループのエージェントが、呼び出しのたびにどう動くか。",
     "No rules yet.": "ルールはまだありません。",
-    "Watches": "監視対象",
+    Watches: "監視対象",
     "What should happen": "何をするか",
     "May send": "送信を許可",
     "Rule name": "ルール名",

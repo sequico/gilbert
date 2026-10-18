@@ -632,16 +632,22 @@ export const catalog: Catalog = {
     "Filters unavailable": "Filter nicht verfügbar",
     Rules: "Regeln",
     "Touched: {touched}.": "Berührt: {touched}.",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "Autorisiert von {by}: {authority} für {target} – „{what}“",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "Autorisiert von {by}: {authority} für {target} – „{what}“",
     "The installation's line": "Die Zeile der Installation",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "Die äußerste Prosa, die dem Agenten gesagt wird – über der eigenen Anweisung jeder Gruppe: wie diese Installation ihn arbeiten lassen will, in einem Absatz. Die Veröffentlichung gilt ab dem nächsten Durchlauf.",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Jemand anderes hat die Prosa dieser Gruppe geändert. Die Liste wurde neu geladen, und Ihre Änderung wurde nicht gespeichert.",
-    "Waiting: {what} — asked in {channel} {id}": "Wartet: {what} — gefragt in {channel} {id}",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "Wartet: {what} — gefragt in {channel} {id}, bis {until}",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "Die äußerste Prosa, die dem Agenten gesagt wird – über der eigenen Anweisung jeder Gruppe: wie diese Installation ihn arbeiten lassen will, in einem Absatz. Die Veröffentlichung gilt ab dem nächsten Durchlauf.",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "Jemand anderes hat die Prosa dieser Gruppe geändert. Die Liste wurde neu geladen, und Ihre Änderung wurde nicht gespeichert.",
+    "Waiting: {what} — asked in {channel} {id}":
+      "Wartet: {what} — gefragt in {channel} {id}",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "Wartet: {what} — gefragt in {channel} {id}, bis {until}",
     "Standing instruction": "Stehende Anweisung",
-    "How the group wants its agent to work, on every call it makes.": "Wie die Gruppe möchte, dass ihr Agent arbeitet – bei jedem Aufruf, den er macht.",
+    "How the group wants its agent to work, on every call it makes.":
+      "Wie die Gruppe möchte, dass ihr Agent arbeitet – bei jedem Aufruf, den er macht.",
     "No rules yet.": "Noch keine Regeln.",
-    "Watches": "Beobachtet",
+    Watches: "Beobachtet",
     "What should happen": "Was geschehen soll",
     "May send": "Darf senden",
     "Rule name": "Regelname",

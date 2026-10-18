@@ -998,16 +998,22 @@ export const catalog: Catalog = {
     "Filters unavailable": "Filtri non disponibili",
     Rules: "Regole",
     "Touched: {touched}.": "Toccato: {touched}.",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "Autorizzato da {by}: {authority} per {target} — «{what}»",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "Autorizzato da {by}: {authority} per {target} — «{what}»",
     "The installation's line": "La riga dell'installazione",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "La prosa più esterna che l'agente riceve, sopra l'istruzione di ogni gruppo: come questa installazione vuole che lavori, in un paragrafo. La pubblicazione vale dalla passata successiva.",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Qualcun altro ha modificato la prosa di questo gruppo. L'elenco è stato ricaricato e la tua modifica non è stata salvata.",
-    "Waiting: {what} — asked in {channel} {id}": "In attesa: {what} — chiesto in {channel} {id}",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "In attesa: {what} — chiesto in {channel} {id}, fino al {until}",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "La prosa più esterna che l'agente riceve, sopra l'istruzione di ogni gruppo: come questa installazione vuole che lavori, in un paragrafo. La pubblicazione vale dalla passata successiva.",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "Qualcun altro ha modificato la prosa di questo gruppo. L'elenco è stato ricaricato e la tua modifica non è stata salvata.",
+    "Waiting: {what} — asked in {channel} {id}":
+      "In attesa: {what} — chiesto in {channel} {id}",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "In attesa: {what} — chiesto in {channel} {id}, fino al {until}",
     "Standing instruction": "Istruzione permanente",
-    "How the group wants its agent to work, on every call it makes.": "Come il gruppo vuole che il suo agente lavori, a ogni chiamata che fa.",
+    "How the group wants its agent to work, on every call it makes.":
+      "Come il gruppo vuole che il suo agente lavori, a ogni chiamata che fa.",
     "No rules yet.": "Ancora nessuna regola.",
-    "Watches": "Osserva",
+    Watches: "Osserva",
     "What should happen": "Cosa deve succedere",
     "May send": "Può inviare",
 

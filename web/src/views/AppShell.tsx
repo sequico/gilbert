@@ -49,6 +49,7 @@ import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
+import { RulesLauncher } from "./agent/RulesLauncher";
 import { ChatLauncher } from "./chat/ChatLauncher";
 import { InstallAppDialog, InstallBanner, useInstallState } from "./InstallApp";
 import { MailboxPicker } from "./mail/MailboxPicker";
@@ -57,7 +58,6 @@ import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
 import { WorkorderLauncher } from "./workorder/WorkorderLauncher";
-import { RulesLauncher } from "./agent/RulesLauncher";
 
 /*
  * The other sections' sidebars, loaded with the section they belong to.

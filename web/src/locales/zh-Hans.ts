@@ -618,16 +618,22 @@ export const catalog: Catalog = {
     "Filters unavailable": "过滤器不可用",
     Rules: "规则",
     "Touched: {touched}.": "涉及：{touched}。",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "由 {by} 授权：{authority}，对象 {target} —“{what}”",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "由 {by} 授权：{authority}，对象 {target} —“{what}”",
     "The installation's line": "安装的指示",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "告知代理的最外层文字，位于每个群组自身指示之上：本次安装希望它如何工作，一段话。发布后从下一轮开始生效。",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "其他人更改了该群组的文字。列表已重新加载，你的修改未保存。",
-    "Waiting: {what} — asked in {channel} {id}": "等待中：{what} — 已在 {channel} {id} 询问",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "等待中：{what} — 已在 {channel} {id} 询问，截止 {until}",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "告知代理的最外层文字，位于每个群组自身指示之上：本次安装希望它如何工作，一段话。发布后从下一轮开始生效。",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "其他人更改了该群组的文字。列表已重新加载，你的修改未保存。",
+    "Waiting: {what} — asked in {channel} {id}":
+      "等待中：{what} — 已在 {channel} {id} 询问",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "等待中：{what} — 已在 {channel} {id} 询问，截止 {until}",
     "Standing instruction": "常设指示",
-    "How the group wants its agent to work, on every call it makes.": "群组希望其代理在每次调用时如何工作。",
+    "How the group wants its agent to work, on every call it makes.":
+      "群组希望其代理在每次调用时如何工作。",
     "No rules yet.": "还没有规则。",
-    "Watches": "监视",
+    Watches: "监视",
     "What should happen": "应该发生什么",
     "May send": "可以发送",
     "Rule name": "规则名称",

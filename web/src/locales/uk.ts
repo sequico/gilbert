@@ -627,16 +627,22 @@ export const catalog: Catalog = {
     "Filters unavailable": "Фільтри недоступні",
     Rules: "Правила",
     "Touched: {touched}.": "Змінено: {touched}.",
-    "Authorised by {by}: {authority} for {target} — “{what}”": "Дозволив {by}: {authority} для {target} — «{what}»",
+    "Authorised by {by}: {authority} for {target} — “{what}”":
+      "Дозволив {by}: {authority} для {target} — «{what}»",
     "The installation's line": "Рядок установки",
-    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.": "Найзовнішній текст, який отримує агент, над власною інструкцією кожної групи: як ця установка хоче, щоб він працював, одним абзацом. Публікація діє з наступного проходу.",
-    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.": "Хтось інший змінив текст цієї групи. Список перезавантажено, вашу правку не збережено.",
-    "Waiting: {what} — asked in {channel} {id}": "Очікування: {what} — запитано в {channel} {id}",
-    "Waiting: {what} — asked in {channel} {id}, until {until}": "Очікування: {what} — запитано в {channel} {id}, до {until}",
+    "The outermost prose the agent is told, above each group's own instruction: how this installation wants it to work, in one paragraph. Publishing applies at the next pass.":
+      "Найзовнішній текст, який отримує агент, над власною інструкцією кожної групи: як ця установка хоче, щоб він працював, одним абзацом. Публікація діє з наступного проходу.",
+    "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
+      "Хтось інший змінив текст цієї групи. Список перезавантажено, вашу правку не збережено.",
+    "Waiting: {what} — asked in {channel} {id}":
+      "Очікування: {what} — запитано в {channel} {id}",
+    "Waiting: {what} — asked in {channel} {id}, until {until}":
+      "Очікування: {what} — запитано в {channel} {id}, до {until}",
     "Standing instruction": "Постійна інструкція",
-    "How the group wants its agent to work, on every call it makes.": "Як група хоче, щоб працював її агент, під час кожного виклику.",
+    "How the group wants its agent to work, on every call it makes.":
+      "Як група хоче, щоб працював її агент, під час кожного виклику.",
     "No rules yet.": "Правил ще немає.",
-    "Watches": "Спостерігає",
+    Watches: "Спостерігає",
     "What should happen": "Що має статися",
     "May send": "Може надсилати",
     "Rule name": "Назва правила",
