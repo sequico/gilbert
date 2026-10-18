@@ -30,7 +30,7 @@ npm install
 
 npm run dev            # a real Stalwart (STALWART_URL in .env) — server :8080, Vite :5173
 npm run dev:mock       # built-in mock Stalwart (demo@example.com / demo), mock on :8788
-npm run dev:mock:agent # the same plus an agent process
+npm run dev:mock:agent # the same name from the old design; the agent starts with the server
 
 npm run typecheck      # tsc for both packages
 npm test               # vitest (web) + node:test (server)

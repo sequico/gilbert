@@ -115,9 +115,9 @@ any member.
   through their own session (`Email/set` keywords) — no impersonation
   needed. An administrator defines or changes the catalog itself from the
   admin surface, and that write goes through the same door every write into
-  a group's files uses: as the installation's agent, via the deployment's
-  credential or impersonation from the administrator's session. A deployment
-  with no usable agent therefore has no group catalog administration, and
+  a group's files uses: as the **Master**, via the deployment's credential or
+  impersonation from the administrator's session. A deployment that cannot reach
+  the Master therefore has no group catalog administration, and
   the surface says exactly that (`agent_not_configured`) rather than a
   permission error.
 - **Effective catalog.** Browsing a group mailbox always uses the group's

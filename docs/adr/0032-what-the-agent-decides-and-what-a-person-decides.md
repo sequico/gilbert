@@ -17,9 +17,11 @@ is an installation administrator's, and its marker (`session.gilbert.isAdmin`,
 ADR 0001) is not proved by a sentence in a group's chat. The acts a person must
 authorise are in the catalogue: `mail.send` (class 3, `outward`) names the act it
 is for — the address it reaches and the words it carries — and `mayRun` compares
-that act exactly, so a person's word for one message sends no other. A destroy is
-still absent, and its act is the open question: what a person names is the message
-they read, not an id. The policy the agent reads is a KB page (ADR 0024).
+that act exactly, so a person's word for one message sends no other. A **destroy**
+stays out of the catalogue on purpose: class 2 is a person's act, done from the
+surface they already use, and the agent asks for it in words instead of being
+given the act — an act a person can only name by an id is not an act a sentence
+can authorise, and the product's own preference is that nothing disappears. The policy the agent reads is a KB page (ADR 0024).
 
 ## Context
 

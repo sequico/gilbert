@@ -128,14 +128,14 @@ offers the signature without pictures and says why.
 
 ## Group identities
 
-A group's identity is set through the agent, which is already a
+A group's identity is set through the **Master**, which is already a
 member of every group the installation grants it on. The write is always
-made **as the agent** — one actor that exists for this purpose and is named
+made **as the Master** — one actor that exists for this purpose and is named
 in Stalwart's own record — rather than as a member the administrator happens
 to borrow: an administrator could otherwise reach a group's account by
 impersonating one of its members, since Stalwart refuses to impersonate the
 group mailbox itself (403) but not a member of it, and the product
-deliberately does not take that road. Where the agent is not granted on a
+deliberately does not take that road. Where the Master is not granted on a
 group, the surface says so and names the missing grant.
 
 A group's account holds **one identity per member of that group**, all
@@ -155,7 +155,7 @@ a group that holds one. Which identity a member sends as in a group is
 therefore a fact the administration records, in a document of the **group's
 own account** — `identity-assignments.json` in its app folder, whose keys are
 member addresses and whose values are ids of that account's identities. The
-administration writes it as the agent, in the same action that writes the
+administration writes it as the Master, in the same action that writes the
 identity, so the two cannot disagree; a member with no entry has been
 assigned nothing, which is a state and not a failure. That write is one
 compare-and-set: the account's FileNode state is read **before** the document
@@ -209,7 +209,7 @@ nothing else — the identity assigned to them, else the group's own — never a
 guess from a name, and never another member's, which is what a surface that
 offered the whole membership would make of the rule. It reaches the
 assignment through the member's own door (`memberGroupAccess`), which reads
-the group's document as the agent: a member reaches a group's Files through
+the group's document as the Master: a member reaches a group's Files through
 the group surfaces and never by reading another account directly, and the
 step-2 identity is derived from the group's own address rather than answered
 beside the assignment, so the rule has one definition on both sides of the
@@ -219,10 +219,10 @@ wire.
 
 - No Management API and no second credential anywhere in this feature:
   identities are JMAP objects, written through impersonation or through the
-  agent's own session, both doors this product already has.
+  Master's own session, both doors this product already has.
 - An administrator is not universally able to do this: impersonation needs a
   session that is not an app password, and a group additionally needs the
-  agent to hold a grant on it.
+  Master to hold a grant on it.
 - Locking removes signature editing along with identity editing in the
   person's own list, and the surface that applies the lock says so. It is
   scoped to personal mailboxes: a group's identities are assigned by the
@@ -260,6 +260,6 @@ wire.
   the member, and the admin routes, each refreshing those lists once the server
   has accepted the write
 - `identity-assignments.json` in a group account's own app folder — the
-  member-to-identity assignment, written as the agent and read by the composer
+  member-to-identity assignment, written as the Master and read by the composer
   and by the member's own settings block
 - ADR 0001 — impersonation, the identity lock's storage

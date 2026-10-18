@@ -51,7 +51,7 @@ that happens to carry the name is never taken for it.
   contacts is edited where it is read: the Contacts surface draws the edit
   controls for an administrator alone, and for everybody else the cards are
   read-only. The write goes through the same door every privileged write uses —
-  impersonation as the Master, or the deployment's agent (ADR 0001, ADR 0007) —
+  impersonation as the Master, or the deployment's own credential (ADR 0001, ADR 0007) —
   a server route, because the directory is the Master's and the caller's session
   does not hold it.
 - **Its cards are ordinary cards**, so they take part in the composer's
@@ -85,7 +85,7 @@ that happens to carry the name is never taken for it.
   impersonation can write the book — which is how the administration writes it,
   and why the app folder and its books are not a security boundary (ADR 0001,
   gilbert-stalwart).
-- A deployment with no usable agent has no Global contacts administration, and
+- A deployment that cannot reach the Master has no Global contacts administration, and
   the administration says so rather than refusing with a permission error.
 
 ## References
