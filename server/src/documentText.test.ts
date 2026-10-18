@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import JSZip from "jszip";
-import { DOCUMENT_TEXT_MAX, documentKind, readDocument } from "./documentText.js";
+import {
+  DOCUMENT_TEXT_MAX,
+  documentKind,
+  readDocument,
+  SCANNED_PAGES_MAX,
+} from "./documentText.js";
 
 /**
  * The text a document holds (ADR 0031).
@@ -180,4 +185,62 @@ test("the type is taken from the MIME and then from the name", () => {
   assert.equal(documentKind("text/plain", "x.odt"), "text", "an explicit text type wins");
   assert.equal(documentKind("application/octet-stream", "x.exe"), null);
   assert.ok(DOCUMENT_TEXT_MAX > 0);
+});
+
+/** A one-page PDF with **no** text layer: the page is a scan to this build. */
+function scannedPdfBytes(): Uint8Array {
+  const objects = [
+    "<</Type /Catalog /Pages 2 0 R>>",
+    "<</Type /Pages /Kids [3 0 R] /Count 1>>",
+    "<</Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R>>",
+    "<</Length 0>>\nstream\n\nendstream",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((body, index) => {
+    offsets.push(out.length);
+    out += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<</Size ${objects.length + 1} /Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+
+test("a PDF with no text layer is a scan: its pages go to the model, and nowhere without it", async () => {
+  /*
+   * A scanned page is a picture of a document. Nothing in this tree parses one
+   * (owner decision 2026-10-18: no OCR engine), so the page is rendered to a
+   * bitmap, encoded as a PNG and transcribed by the installation's model — and a
+   * caller without that model is told so rather than handed an empty document.
+   */
+  const scanned = scannedPdfBytes();
+
+  const blind = await readDocument(scanned, "application/pdf", "scan.pdf");
+  assert.ok(blind && !("problem" in blind));
+  assert.equal(
+    blind.text,
+    "",
+    "with no reader for the picture, the text layer is what there is",
+  );
+
+  const seen: Array<{ type: string; data: Uint8Array }> = [];
+  const read = await readDocument(scanned, "application/pdf", "scan.pdf", {
+    readImage: async (image) => {
+      seen.push(image);
+      return { text: "Booking 4417 confirmed" };
+    },
+  });
+  assert.ok(read && !("problem" in read));
+  assert.equal(read.kind, "pdf");
+  assert.match(read.text, /Booking 4417 confirmed/, "the page's words come back");
+  assert.equal(seen.length, 1, "one page, one picture");
+  assert.equal(seen[0]?.type, "image/png", "a real PNG, which is what the model takes");
+  assert.deepEqual(
+    [...(seen[0]?.data.subarray(0, 8) ?? [])],
+    [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+    "with the format's own signature",
+  );
+  assert.ok(SCANNED_PAGES_MAX > 0);
 });

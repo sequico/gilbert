@@ -1,3 +1,5 @@
+import { deflateSync } from "node:zlib";
+
 /**
  * The text a document holds (ADR 0031).
  *
@@ -99,7 +101,9 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     };
   };
   const task = pdfjs.getDocument({
-    data: bytes,
+    // A copy: pdfjs transfers the buffer it is handed, and the bytes stay needed
+    // by the rasteriser when a page turns out to be a scan.
+    data: bytes.slice(),
     isEvalSupported: false,
     useSystemFonts: true,
   });
@@ -124,6 +128,116 @@ async function pdfText(bytes: Uint8Array): Promise<string> {
     await task.destroy();
   }
   return pages.join("\n\n");
+}
+
+/** How many pages of one scanned PDF are handed to the model. */
+export const SCANNED_PAGES_MAX = 5;
+
+/**
+ * **A scan** — the pages of a PDF with no text layer, as pictures for the model.
+ *
+ * `pdfium` renders each page to a bitmap and nothing else: the encoder below is
+ * the twenty lines a PNG needs, because the model's image part must be a real
+ * image and this tree has no image library. The page count is capped: a hundred
+ * pages of scan are a hundred model calls, and a run that meets one is told what
+ * it got.
+ */
+async function rasterText(
+  bytes: Uint8Array,
+  readImage: NonNullable<Parameters<typeof readDocument>[3]>["readImage"] & {},
+  had: string,
+): Promise<string> {
+  const { PDFiumLibrary } = (await import("@hyzyla/pdfium")) as unknown as {
+    PDFiumLibrary: {
+      init(): Promise<{
+        loadDocument(data: Uint8Array): Promise<{
+          getPageCount(): number;
+          getPage(index: number): {
+            render(opts: { scale: number }): Promise<{
+              width: number;
+              height: number;
+              data: Uint8Array;
+            }>;
+          };
+          destroy(): void;
+        }>;
+        destroy(): void;
+      }>;
+    };
+  };
+  const library = await PDFiumLibrary.init();
+  try {
+    const document = await library.loadDocument(bytes);
+    const pages = Math.min(document.getPageCount(), SCANNED_PAGES_MAX);
+    const said: string[] = [];
+    for (let index = 0; index < pages; index++) {
+      const page = document.getPage(index);
+      const render = await page.render({ scale: 1 });
+      const read = await readImage({
+        type: "image/png",
+        data: pngOfBgra(render.width, render.height, render.data),
+      });
+      said.push("problem" in read ? `page ${index + 1}: ${read.problem}` : read.text);
+    }
+    document.destroy();
+    return [had, ...said].filter((part) => part.trim()).join("\n\n");
+  } finally {
+    library.destroy();
+  }
+}
+
+/** A PNG from a page's BGRA bitmap, which is what the model's image part takes. */
+function pngOfBgra(width: number, height: number, data: Uint8Array): Uint8Array {
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    const row = y * (width * 4 + 1);
+    const from = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      const at = from + x * 4;
+      raw[row + 1 + x * 4] = data[at + 2] ?? 0;
+      raw[row + 2 + x * 4] = data[at + 1] ?? 0;
+      raw[row + 3 + x * 4] = data[at] ?? 0;
+      raw[row + 4 + x * 4] = 255;
+    }
+  }
+  const head = Buffer.alloc(13);
+  head.writeUInt32BE(width, 0);
+  head.writeUInt32BE(height, 4);
+  head[8] = 8; // bit depth
+  head[9] = 6; // colour type: RGBA
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      pngChunk("IHDR", head),
+      pngChunk("IDAT", inflate(raw)),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+/** One PNG chunk: length, type, body, CRC — the four fields the format has. */
+function pngChunk(type: string, body: Buffer): Buffer {
+  const head = Buffer.alloc(8);
+  head.writeUInt32BE(body.length, 0);
+  head.write(type, 4, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([head.subarray(4), body])), 0);
+  return Buffer.concat([head, body, crc]);
+}
+
+/** Deflate, the compression an IDAT carries. */
+function inflate(raw: Buffer): Buffer {
+  return deflateSync(raw);
+}
+
+/** The CRC-32 a PNG chunk carries. */
+function crc32(bytes: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 /**
@@ -206,6 +320,16 @@ export async function readDocument(
   bytes: Uint8Array,
   type: string,
   name: string,
+  opts: {
+    /**
+     * The installation's model's eyes, for a PDF whose pages carry no text: a
+     * scan is a picture of a document, and a picture is transcribed, not parsed.
+     */
+    readImage?: (image: {
+      type: string;
+      data: Uint8Array;
+    }) => Promise<{ text: string } | { problem: string }>;
+  } = {},
 ): Promise<DocumentRead | { problem: string } | null> {
   const kind = documentKind(type, name);
   // An image is read by the installation's model (`readImage`), not here: this
@@ -214,7 +338,13 @@ export async function readDocument(
   try {
     const text =
       kind === "pdf"
-        ? await pdfText(bytes)
+        ? await (async () => {
+            const text = await pdfText(bytes);
+            // A page with no text layer is a scan: nothing here can read it, and
+            // the one reader this product has for a picture is its model.
+            if (text.trim() || !opts.readImage) return text;
+            return await rasterText(bytes, opts.readImage, text);
+          })()
         : kind === "docx"
           ? await docxText(bytes)
           : kind === "sheet"

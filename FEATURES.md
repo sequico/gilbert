@@ -203,8 +203,11 @@ a task over an object. The reading half — the only half a reading caller is ha
 — finds and reads a message, a folder, a document in Files, a KB page, a
 workorder, a run and the group's own conversation, and a document in Files is read
 **inside**: a PDF's text layer, a Word file, a spreadsheet, an OpenDocument or a
-text file as the document's own words (`server/src/documentText.ts`), and an image
-or a page with no text layer transcribed by the installation's model. The half that changes the
+text file as the document's own words (`server/src/documentText.ts`), and an
+attachment of a message is read the same way (`mail.readAttachment`). An image, or
+a page of a PDF with no text layer — a scan — is transcribed by the installation's
+model, the page rendered to a bitmap and sent as a picture: no OCR engine is
+installed, and a model that cannot see says so instead of guessing. The half that changes the
 group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, moves or renames a document, **drafts a reply to everyone**

@@ -208,6 +208,42 @@ export type ImageReader = (image: {
   data: Uint8Array;
 }) => Promise<{ text: string } | { problem: string }>;
 
+/**
+ * The text of one file, as every reading tool answers it (ADR 0031).
+ *
+ * One file is one answer however it arrived — a document in Files, an attachment
+ * of a message: the format readers say what a document says, the model's eyes
+ * say what a picture says, and the two failures are told apart (a format nothing
+ * reads, and a document that would not open) rather than answered with bytes.
+ */
+async function readFileText(
+  file: { type: string; name: string; bytes: Uint8Array },
+  readImage?: ImageReader,
+): Promise<{
+  text: string | null;
+  readable: boolean;
+  kind?: string;
+  problem?: string;
+}> {
+  if (documentKind(file.type, file.name) === "image") {
+    if (!readImage)
+      return {
+        text: null,
+        readable: false,
+        problem: "This installation's agent cannot look at an image.",
+      };
+    const read = await readImage({ type: file.type, data: file.bytes });
+    return "problem" in read
+      ? { text: null, readable: false, problem: read.problem }
+      : { text: read.text, readable: true, kind: "image" };
+  }
+  const document = await readDocument(file.bytes, file.type, file.name, { readImage });
+  if (document === null) return { text: null, readable: false };
+  if ("problem" in document)
+    return { text: null, readable: false, problem: document.problem };
+  return { text: document.text, readable: true, kind: document.kind };
+}
+
 /** What a tool call is given: the session it acts as, and the run it works. */
 export interface ToolCall {
   ctx: Ctx;
@@ -489,6 +525,51 @@ const readMessage = defineTool({
   },
 });
 
+const readAttachment = defineTool({
+  name: "mail.readAttachment",
+  description:
+    "Read one attachment of a message of this account, by the message's id and the " +
+    "attachment's name — both as mail.read answered them. A document is read " +
+    "inside (a PDF, a Word file, a spreadsheet, an OpenDocument, text) and a " +
+    "picture is transcribed by the installation's model.",
+  authority: "reversible",
+  writes: false,
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { id: textArg(args, "id"), name: textArg(args, "name") };
+  },
+  run: async ({ ctx, accountId, readImage }, { id, name }) => {
+    const answer = await clientOf(ctx).call<{
+      list?: Array<{ attachments?: unknown }>;
+    }>("Email/get", { accountId, ids: [id], properties: ["attachments"] }, [
+      CAPABILITIES.mail,
+    ]);
+    const message = answer.list?.[0];
+    if (!message) throw notFound(`message "${id}" in this account`);
+    const held = (Array.isArray(message.attachments) ? message.attachments : []).filter(
+      isRecord,
+    );
+    const one = held.find(
+      (part) =>
+        typeof part.name === "string" &&
+        part.name.trim().toLowerCase() === name.trim().toLowerCase(),
+    );
+    if (!one) throw notFound(`attachment "${name}" on message "${id}"`);
+    const blobId = typeof one.blobId === "string" ? one.blobId : "";
+    if (!blobId)
+      throw new ToolError("bad_arguments", `The attachment "${name}" has no file.`, 422);
+    const type =
+      typeof one.type === "string" && one.type ? one.type : "application/octet-stream";
+    const bytes = await clientOf(ctx).downloadBlob(accountId, blobId, name, type);
+    return {
+      name,
+      type,
+      size: typeof one.size === "number" ? one.size : bytes.length,
+      ...(await readFileText({ type, name, bytes }, readImage)),
+    };
+  },
+});
+
 const listMailboxes = defineTool({
   name: "mail.folders",
   description:
@@ -561,23 +642,15 @@ const readNode = defineTool({
      * constant), so a run that reads many images under-reports its calls; give
      * `spend` a function when the tally must be exact to the call.
      */
-    const document =
-      documentKind(type, found.name) === "image"
-        ? readImage
-          ? await readImage({ type, data: found.bytes })
-          : { problem: "This installation's agent cannot look at an image." }
-        : await readDocument(found.bytes, type, found.name);
+    const document = await readFileText(
+      { type, name: found.name, bytes: found.bytes },
+      readImage,
+    );
     return {
       name: found.name,
       type,
       size: typeof found.file.size === "number" ? found.file.size : null,
-      // A format nothing here reads, and a document that would not open, are two
-      // answers: the first has no text to give, the second says why.
-      ...(document === null
-        ? { text: null, readable: false }
-        : "problem" in document
-          ? { text: null, readable: false, problem: document.problem }
-          : { text: document.text, readable: true, kind: document.kind }),
+      ...document,
     };
   },
 });
@@ -1408,6 +1481,7 @@ const rememberFactTool = defineTool({
 export const TOOLS: readonly AnyTool[] = [
   findMessages,
   readMessage,
+  readAttachment,
   listMailboxes,
   readChat,
   findChat,

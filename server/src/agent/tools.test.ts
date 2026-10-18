@@ -39,6 +39,7 @@ const {
   filesAccountId,
   readAppFileAt,
   readVisibleFileAt,
+  uploadBlobBytes,
   writeAppFileAt,
   writeBytesIntoVisibleFolder,
 } = await import("../appFolder.js");
@@ -839,6 +840,74 @@ test("the memory tool records a fact where the installation keeps them", async (
     const nodeId = found?.file.id;
     if (typeof nodeId === "string") await destroyAppNode(ctx, accountId, nodeId, {});
   }
+});
+
+test("an attachment of a message is read inside, by the same reader as a document in Files", async () => {
+  /*
+   * The document that matters usually arrives attached: a purchase order, a
+   * price list. Nothing is downloaded to disk and nothing is asked of the
+   * browser — the blob is read through the same format readers a file in Files
+   * goes through (ADR 0031).
+   */
+  const XLSX = (await import("@e965/xlsx")) as unknown as {
+    utils: {
+      book_new(): unknown;
+      aoa_to_sheet(rows: unknown[][]): unknown;
+      book_append_sheet(book: unknown, sheet: unknown, name: string): void;
+    };
+    write(book: unknown, opts: { type: "buffer"; bookType: string }): Uint8Array;
+  };
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    book,
+    XLSX.utils.aoa_to_sheet([
+      ["Booking", "Shipper"],
+      ["BK-1", "Maersk"],
+    ]),
+    "Inbound",
+  );
+  const type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const bytes = new Uint8Array(XLSX.write(book, { type: "buffer", bookType: "xlsx" }));
+  const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
+
+  const created = await clientOf(ctx).call<{ created?: { c?: { id?: string } } }>(
+    "Email/set",
+    {
+      accountId,
+      create: {
+        c: {
+          subject: "a price list",
+          from: [{ email: "ops@shipper.example" }],
+          mailboxIds: { inbox: true },
+          bodyStructure: {
+            type: "multipart/mixed",
+            subParts: [
+              { partId: "text", type: "text/plain" },
+              { blobId, type, name: "prices.xlsx", disposition: "attachment" },
+            ],
+          },
+          bodyValues: { text: { value: "see the attached list" } },
+        },
+      },
+    },
+    [CAPABILITIES.mail],
+  );
+  const id = created.created?.c?.id;
+  assert.ok(id, "the message with its attachment is in the account");
+
+  const read = await callTool<{ readable: boolean; text: string; kind: string }>(
+    "mail.readAttachment",
+    { id, name: "prices.xlsx" },
+  );
+  assert.equal(read.readable, true);
+  assert.equal(read.kind, "sheet");
+  assert.match(read.text, /BK-1,Maersk/, "the spreadsheet's cells are the answer");
+
+  await assert.rejects(
+    () => callTool("mail.readAttachment", { id, name: "nobody.xlsx" }),
+    /no attachment "nobody.xlsx"/,
+    "an attachment the message does not carry is a refusal, not an empty answer",
+  );
 });
 
 test("a picture is read by the model's eyes when the caller has them, and says so when it has not", async () => {

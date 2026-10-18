@@ -34,9 +34,13 @@ of a workorder as the agent (`gilbert-agent`, ADR 0028), and
 `knowledge.propose` writes a page's **draft** for a person to approve
 (ADR 0024). A document in Files is read **inside** (`files.read`): a PDF's text
 layer, a Word file, a spreadsheet, an OpenDocument or a text file, through
-`server/src/documentText.ts` — and an image, or a page with no text layer, is
-transcribed by the installation's own model (`readImage`, an image part of the
-user turn), because no OCR engine lives in this tree.
+`server/src/documentText.ts`. An attachment of a message is read the same way
+(`mail.readAttachment`): one reader, whether the file came in Files or with a
+message. An image, or a **page of a PDF with no text layer**, is transcribed by
+the installation's own model (`readImage`, an image part of the user turn), and a
+scanned page is first rendered to a bitmap by pdfium and encoded as a PNG
+(`SCANNED_PAGES_MAX` pages per document), because no OCR engine lives in this
+tree.
 
 ## Context
 
