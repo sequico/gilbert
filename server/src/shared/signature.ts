@@ -53,3 +53,18 @@ export function htmlSignatureBlock(signatureHtml: string | null | undefined): st
   if (!signatureHtml) return "";
   return `<br>${SIGNATURE_SEPARATOR}<br>${signatureHtml}`;
 }
+
+/**
+ * Where an over-sized signature is stored, and under what name.
+ *
+ * Stalwart caps an identity's signature at 2 KB, so a longer one is written to
+ * the account's own Files and the identity carries a marker naming the blob.
+ * The **name** is the one thing two writers must agree on: the administrator's
+ * route writes another account's signature (`server/src/identityAdmin.ts`) and
+ * the person's own client writes their own (`web/src/lib/signatureImages.ts`).
+ * Named twice, a change to one left the other's saves beside the first.
+ */
+export function signatureFileName(identityId: string): string {
+  const safe = identityId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return `signature-${safe || "default"}.html`;
+}

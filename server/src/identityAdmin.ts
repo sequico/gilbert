@@ -88,7 +88,7 @@ import { isGroupAccountRecord } from "./shared/sessionAccount.js";
  * Both names are contracts — see the module's own header.
  */
 import { DEFAULT_IDENTITY_KEY, SETTINGS_FILE } from "./shared/settingsDocument.js";
-import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
+import { SIGNATURE_LIMIT, signatureFileName, utf8Length } from "./shared/signature.js";
 import { UpstreamError } from "./upstream.js";
 
 /** A refusal an administrator will read: a code, and the sentence to show. */
@@ -415,7 +415,7 @@ function toIdentity(raw: unknown): Identity | null {
 }
 
 /** Every identity the account holds, in the server's own order. */
-export async function readIdentities(ctx: Ctx, accountId: string): Promise<Identity[]> {
+async function readIdentities(ctx: Ctx, accountId: string): Promise<Identity[]> {
   try {
     const res = await new JmapClient(ctx).call<{ list?: unknown[] }>(
       "Identity/get",
@@ -499,7 +499,7 @@ function checkedPatch(raw: unknown, creating: boolean): IdentityPatch {
  * `id` null creates. The defaults a new identity carries are the server's: an
  * identity with no signature is an identity, not an incomplete record.
  */
-export async function writeIdentity(
+async function writeIdentity(
   ctx: Ctx,
   accountId: string,
   id: string | null,
@@ -1027,17 +1027,6 @@ export async function removeGroupIdentity(
     },
     admin.username,
   );
-}
-
-/**
- * The stored file's name: one per identity, derived from its id.
- *
- * The id is opaque, so anything that is not a safe filename character is
- * replaced rather than trusted: the name is never used as a path.
- */
-function signatureFileName(identityId: string): string {
-  const safe = identityId.replace(/[^A-Za-z0-9._-]/g, "_");
-  return `signature-${safe || "default"}.html`;
 }
 
 /**

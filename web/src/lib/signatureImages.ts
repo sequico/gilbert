@@ -5,6 +5,7 @@
  * composer turns such references into inline cid: parts when sending.
  */
 import { errorMessage } from "@gilbert/shared/errors";
+import { signatureFileName } from "@gilbert/shared/signature";
 import { CAP, client } from "@/jmap/client";
 import type { QueryResponse } from "@/jmap/types";
 import { ensureFolder, writeBlobInFolder } from "@/lib/appFolder";
@@ -48,10 +49,9 @@ export async function storeSignatureHtml(
       "This signature is too long for the server and the Files feature (needed to store long signatures) is not available.",
     );
   const folderId = await ensureFolder(accountId);
-  // One stable name per identity, so a second over-sized signature does not pile
-  // up a file beside the first; the marker names the blob, not this file.
-  const safe = identityId.replace(/[^A-Za-z0-9._-]/g, "_");
-  const name = `signature-${safe || "default"}.html`;
+  // One stable name per identity, from the one rule both writers read: the
+  // administrator's route writes another account's signature under it too.
+  const name = signatureFileName(identityId);
   const blob = new Blob([html], { type: "text/html" });
   const written = await writeBlobInFolder(accountId, folderId, name, blob, "text/html");
   return written.blobId;
