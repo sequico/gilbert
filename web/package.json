@@ -15,7 +15,6 @@
     "@blocknote/core": "^0.55.0",
     "@blocknote/mantine": "^0.55.0",
     "@blocknote/react": "^0.55.0",
-    "@cfworker/json-schema": "^4.1.1",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/language": "^6.13.1",
     "@codemirror/legacy-modes": "^6.5.5",

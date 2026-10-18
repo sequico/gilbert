@@ -45,7 +45,10 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   recorded on the run with the person's own words (ADR 0032). What is not built
   is the conversation in **mail** (ADR 0033) — the group's chat is what it has so
   far — and with it the acts the classes are asked for: a send reaches nobody
-  yet, so the catalogue asks a person's word for nothing today.
+  yet, so the catalogue asks a person's word for nothing today. Reading *inside* a
+  PDF or a spreadsheet is not built either: the agent reads the text a file
+  holds, and the extraction libraries the manifests used to declare were imported
+  by nothing and are gone, so a unit that builds it brings its own.
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier
