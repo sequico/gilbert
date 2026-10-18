@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Partly built. The chat half is the conversation tools
+Implementation: Built, with the live arrival probe owed.
 (`server/src/agent/tools.ts`: `chat.say`, `chat.ask`, `chat.read`, `chat.find`)
 over the group's own chat (ADR 0005), with `replyTo` as the correlation and a
 question leaving the run waiting on a person's answer with no date — and the
@@ -17,12 +17,15 @@ anybody outside is an act outward and asking for it is not this tool's — and p
 the run on that message with no date. The answer is the message whose thread names
 it (`inReplyTo`, `references`), read by `mailAnsweredBy` in
 `server/src/agent/loop.ts`: the sender must not be the group itself, and the run
-that asked is the one whose question is in that thread. `server/src/agent/trust.ts`
-remains the decision for the **arrival** of a message from outside, and nothing
-calls it yet. Its anchors — the authentication result the
-receiving server writes on a message another server handed over, and its record of
-the submission for one of its own accounts — are among the headers the client
-already asks for (`web/src/jmap/types.ts`).
+that asked is the one whose question is in that thread. Whether a message is a
+person's word at all is `personWord` (`server/src/agent/trust.ts`), and the answer
+read asks it before anything is taken from the message
+(`readMessageForAnswer`, `server/src/agent/tools.ts`, handed the roster of who may
+speak). A **submission** is trusted on the server's record of **which account
+authenticated**, and that address must be the sender: the hop is the one place
+`From:` is not evidence. A message from **outside** is refused until the
+`authserv-id` of a live server's own verdict is recorded — the probe the record
+owes — because a header is as writable as a `From:` line.
 
 ## Context
 

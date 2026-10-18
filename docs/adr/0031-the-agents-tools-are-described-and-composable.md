@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Partly built. The catalogue is `server/src/agent/tools.ts` —
+Implementation: Built, with the live provider probe owed.
 each tool names its arguments, its authority class and what it spends, the
 arguments are validated before its executor runs, and the half a reading caller
 is handed (`readingTools`) is the one that cannot write. The installation's one
@@ -117,3 +117,6 @@ typed arguments, each acting on one of those objects.
 - The agent carries no capability allowlist of its own, and neither does a rule.
 - Every tool is exercisable against the mock, and the mock is what must agree
   with a real Stalwart.
+- The provider's contract is pinned against a stub, and **no real provider has
+  answered it**: the first live call is owed before the model path is trusted.
+<!-- owed: model-provider-live -->

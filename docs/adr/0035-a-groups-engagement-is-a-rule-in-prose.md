@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Partly built. The rule documents are
+Implementation: Built.
 `server/src/agent/rule.ts` — their shape, their parser and the one test of what a
 rule watches — and `server/src/agent/rules.ts` is where they live, under `rules/`
 in the group's own account (ADR 0005), read, created, listed and replaced under
@@ -22,13 +22,17 @@ Every call carries all three levels of prose: the installation's own line is
 `instruction.json` in the group's own account, whose shape, parser and address
 are `server/src/shared/instruction.ts` and whose reader is
 `server/src/agent/instruction.ts`, read once per pass so an edit is in force at
-the next one; the rule's own instruction is re-read for each turn of its run. A
-member writes both documents from the rules launcher in the top bar
-(`web/src/views/agent/RulesDialog.tsx`), with the group's own session through
-`web/src/lib/agentProse.ts`: each document is validated by the server's parser
-before it is filed, and one that is there but unreadable is reported rather than
-dropped. The installation's line is published as the JSON of the document it
-belongs to.
+the next one; the rule's own instruction is re-read for each turn of its run. An
+**installation administrator** decides both documents, from the rules launcher in
+the top bar (`web/src/views/agent/RulesDialog.tsx`), through the administration's
+own route (`/api/admin/groups/<name>/prose`, `server/src/routes/agent.ts`), which
+writes as the Master behind `requireAdmin` — the boundary is the door, not a
+hidden button (owner decision 2026-10-18). Each document is validated by the
+server's parser before it is filed, and every write carries the account state the
+read answered, so one that lost a race is refused rather than overwriting another
+administrator's edit. The installation's line is edited beside its model in
+Administration → Installation and read at every pass, so an edit is in force at the
+next one.
 
 ## Context
 
@@ -70,8 +74,10 @@ happen** when that activity is met.
   covers is answered with no rule at all, and that is not an error either — a
   rule that did not apply has not failed.
 - **A rule belongs to the group that wrote it**, like everything else the group
-  owns: a member reads it, and changing it is a member's act, the same as
-  editing the KB.
+  owns, and **an installation administrator decides it** (owner decision
+  2026-10-18): a member reads it, and changing it is the administrator's act,
+  through the administration's route — the group's account grants still let a
+  member write the file, so the door is what makes the decision administrative.
 - **An instruction from a person is a plan, not a rule** (ADR 0031, ADR 0033):
   a rule is what a group decided in advance, and a sentence in the chat or in
   the mail is what it decided now.

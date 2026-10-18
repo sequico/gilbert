@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Implementation: Partly built. The five authority classes and the guard that asks
+Implementation: Built.
 them — `ToolAuthority`, `authorityNeeded` and `mayRun` in
 `server/src/agent/tools.ts` — are built, and an authorisation names the act it is
 for (`RunAuthorityAct`), so a class alone answers for no act. **A person's word arrives in the conversation**: the sentence that answers a
@@ -12,16 +12,20 @@ for the act it authorises, and each act it names is recorded on the run
 from and the message it arrived in) by the loop (`authoriseAnswer`,
 `server/src/agent/loop.ts`). What bounds that reading is the act: `mayRun`
 compares target and content exactly, so a sentence read too generously licenses
-nothing the step does not match, and an **override** is refused by name — class 4
-is an installation administrator's, and its marker (`session.gilbert.isAdmin`,
-ADR 0001) is not proved by a sentence in a group's chat. The acts a person must
-authorise are in the catalogue: `mail.send` (class 3, `outward`) names the act it
-is for — the address it reaches and the words it carries — and `mayRun` compares
-that act exactly, so a person's word for one message sends no other. A **destroy**
-stays out of the catalogue on purpose: class 2 is a person's act, done from the
-surface they already use, and the agent asks for it in words instead of being
-given the act — an act a person can only name by an id is not an act a sentence
-can authorise, and the product's own preference is that nothing disappears. The policy the agent reads is a KB page (ADR 0024).
+nothing the step does not match. An **override** (class 4) is an installation
+administrator's and is proved by the **directory**, not by the sentence: before an
+answer is read, the agent presents the sender's account to the server and reads
+whether it is a Stalwart administrator (`isAdministrator`, `server/src/agent/loop.ts`),
+and only then may the reading report the class. The acts a person must authorise
+are in the catalogue: `mail.send` (class 3, `outward`) names the act it is for —
+the address it reaches and the words it carries — and `mayRun` compares that act
+exactly, so a person's word for one message sends no other; a rule the group wrote
+may declare that it sends, and the declaration travels on the run (ADR 0035).
+**`mail.trash`** is class 2 and is the one destructive act: it **moves** a message
+to the account's Deleted Items, where it can be recovered, and the act it asks a
+person to license is the message's id (owner decision 2026-10-18). Nothing the
+agent can reach destroys a document. The policy the agent reads is a KB page (ADR
+0024).
 
 ## Context
 

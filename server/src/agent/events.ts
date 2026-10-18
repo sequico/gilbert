@@ -80,6 +80,11 @@ import {
  * changes_max_results)`) — an answer shorter than this says nothing about
  * whether the log holds more.
  */
+/*
+ * ADR-0034 OWED: change-log-cap -- `hasMoreChanges` and the server's own
+ * `changes_max_results` are modelled in the mock and never seen on a live
+ * server: the probe is owed before the loop trusts a page boundary.
+ */
 export const MAX_CHANGES_PER_READ = 100;
 
 /**

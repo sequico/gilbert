@@ -280,6 +280,12 @@ export interface ModelImage {
  * `temperature: 0` is sent with it and is not what makes a turn repeatable: the
  * shape the answer is read against is what bounds it.
  */
+/*
+ * ADR-0031 OWED: model-provider-live -- the caller's contract is pinned against
+ * a stub, and no real provider has answered it yet: the zero-retention opt-out,
+ * the private-address switch and an OpenAI-compatible reply are all modelled.
+ * `scripts/probe-*.mjs` is how a live provider is asked, by hand.
+ */
 export async function callModel(
   access: ModelAccess,
   req: ModelRequest,

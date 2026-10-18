@@ -245,7 +245,8 @@ is, not what a user sees.
   run carries a budget of steps, time and model calls. One model serves the
   installation, chosen in Administration → Installation
   (`web/src/views/admin/AdminInstallation.tsx`), in the installation's own
-  document with a write-only key. **Partly built** — the catalogue is
+  document with a write-only key. **Built**, with the live provider probe owed —
+  the catalogue is
   `server/src/agent/tools.ts`, both halves and the guard, the installation's one
   model is `server/src/agent/model.ts` (its two turns — the decision over the
   reading tools, the choosing over the whole catalogue and answering a plan), and
@@ -264,7 +265,10 @@ is, not what a user sees.
   classes and the guard that asks them are `server/src/agent/tools.ts`, a
   person's word arrives in the sentence that answers a run (`readAnswerAuthority`,
   `authoriseAnswer`), and `mail.send` is the outward act it licenses, for exactly
-  the message it names. A destroy is not in the catalogue.
+  the message it names; a rule that declares it sends is the authority of its own
+  outward acts. `mail.trash` is the one destructive act and it **moves** a message
+  to Deleted Items, licensed by the message's id; an override is proved by the
+  directory's answer about the sender (`isAdministrator`, `server/src/agent/loop.ts`).
 - **0033 — The conversation runs in chat and mail (accepted).** One
   conversation, two channels: a question, an answer, an authorisation and a report
   are the same in the group's chat and in mail, and **everything is in words** —
@@ -273,10 +277,12 @@ is, not what a user sees.
   sender the installation knows or lists **and** with a passing authentication
   result from the receiving server; every message the agent sends carries
   `X-Gilbert-Run: <id>` so its own words can never drive it; the correlation is
-  the thread in mail and a `replyTo` in chat. **Partly built** — the chat half is
-  the conversation tools in `server/src/agent/tools.ts`; the mail channel is not
-  built, its decision is `server/src/agent/trust.ts` (which nothing calls yet),
-  and its live probe is owed.
+  the thread in mail and a `replyTo` in chat. **Built** — the chat and mail
+  conversation tools are in `server/src/agent/tools.ts`, the mail answer continues
+  its run (`mailAnsweredBy`, `server/src/agent/loop.ts`), and `personWord`
+  (`server/src/agent/trust.ts`) decides whether a message is anybody's word: a
+  submission on the account the server authenticated, and an outside message
+  refused until the `authserv-id` of a live verdict is probed.
 - **0034 — A run is a document, and the record is the product (accepted).** A run
   is one document in the group's account and the whole of the agent's durable
   state: which rule or instruction started it, the plan, each step's outcome,
@@ -306,7 +312,8 @@ is, not what a user sees.
   levels, outermost first: the installation's line, the group's standing
   instruction, the rule's own — one builder for every caller, and the loop carries
   the rule's own instruction alone. A member reads the
-  rules and may change them, as with the KB. **Partly built** — the rule documents
+  rules, and an **installation administrator** changes them and the standing
+  instruction through the administration's route. **Built** — the rule documents
   are `server/src/agent/rule.ts`, addressed by `server/src/agent/rules.ts`, and the
   three levels are built by `server/src/agent/prose.ts`; a run records the rule or
   the instruction that started it (`server/src/shared/run.ts`), and the loop that

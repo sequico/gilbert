@@ -7,8 +7,7 @@ Gilbert's own and listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-- **What the agent still does not do: destroy, and ask its own way past the
-  policy.** The Master's agent is
+- **What the agent still owes is a live probe, not a feature.** The Master's agent is
   designed by ADR 0031 (its tools), 0032 (what
   it decides and what only a person decides), 0033 (the conversation, in chat and
   mail), 0034 (a run is a document, and the record is the product), 0035 (a
@@ -44,9 +43,13 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   **mail** as well as in chat (ADR 0033): `mail.ask` sends the question to a
   principal with access and parks the run on it, the reply that names it in its
   thread continues the run, and `mail.send` carries a message outward once a
-  person's own words license exactly that message (ADR 0032). What is still not
-  built is a **destroy** — the act whose name a person would have to give — and an
-  administrator's path to override the written policy.
+  person's own words or a rule's own declaration license exactly that message
+  (ADR 0032). The one destructive act is **`mail.trash`**, a move to Deleted Items
+  a person licenses by naming the message, and an installation administrator's
+  override is read once the **directory** says the sender is one. What is owed is
+  what no test here can answer: a live provider, the arrival record a real
+  Stalwart writes, and the change log's own paging cap (the `owed:` markers in
+  ADRs 0031, 0033 and 0034).
 
 - **The `workers` directory an installation has already written is left where it
   is.** It is one folder inside an account's app folder, created by an earlier

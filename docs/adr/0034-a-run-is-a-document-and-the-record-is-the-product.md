@@ -113,3 +113,8 @@ agent's durable state.
 - The trace is the product's answer to "what did it do, why, and who allowed it" —
   which is what makes an override, a reopen or a refused step auditable rather
   than merely asserted.
+- The change log is read through its paging and its `changes_max_results`
+  ceiling, both modelled in the mock and **never seen on a live server**: the
+  probe is owed before the loop trusts a page boundary it has only been told
+  about.
+<!-- owed: change-log-cap -->

@@ -120,8 +120,12 @@ catalogue and its authority guard are `server/src/agent/tools.ts`, a rule is
 and the loop that works a run is `server/src/agent/loop.ts`, which the server's
 own boot starts with itself (`server/src/agent/supervisor.ts`, a pass every ten
 seconds over the groups the Master holds, read from the mail server on each
-pass). The mail channel is not in the tree, and no document, comment or
-surface may describe it as if it were.
+pass). **The mail channel is in the tree**: `mail.ask` parks a run on a person by
+mail, `mailAnsweredBy` continues it on the thread, `mail.send` goes outward on a
+person's word or a rule's own declaration, and `personWord` (`agent/trust.ts`) is
+what decides whether a message is anybody's word at all — a submission on the
+account the server authenticated, and never an outside verdict until its
+`authserv-id` is probed.
 - **Identifiers follow those words.** Two halves: the names, and the things that
 are contracts rather than names — a field in a document an installation has
 already written, a refusal code a client composes a sentence from, an environment

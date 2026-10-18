@@ -173,15 +173,18 @@ instruction** and the **rule's own instruction**, and one builder,
 from the boot; the second is `instruction.json` in the group's own account
 (`server/src/agent/instruction.ts`), read once per pass so an edit is in force at
 the next one; the third is re-read for each turn of the run it started. A level
-that says nothing contributes nothing. A member writes the group's two documents
-from **the rules launcher** in the top bar: the group is chosen, the standing
-instruction is one field, and a rule is its name, the surfaces it watches, its
-prose and whether it may send. They are written with the group's own session
-(`web/src/lib/agentProse.ts`) and each is validated by the server's parser before
-it is filed, so a surface cannot store a document the agent would refuse; a
-document that is there but unreadable is listed with its reason instead of being
-dropped. The installation's own line is published as the JSON of the document it
-belongs to.
+that says nothing contributes nothing. **An installation administrator decides**
+the group's two documents, from **the rules launcher** in the top bar: the group
+is chosen, the standing instruction is one field, and a rule is its name, the
+surfaces it watches, its prose and whether it may send. The launcher is offered
+only to an administrator, and the write goes through the administration's own
+route (`/api/admin/groups/<name>/prose`), which writes as the Master behind
+`requireAdmin` — the decision is a boundary and not a hidden button (owner
+decision 2026-10-18). Each document is validated by the server's parser before it
+is filed, and every write carries the account state the read answered, so a write
+that lost a race is refused rather than overwriting another administrator's edit.
+The installation's own line is a field beside its model in Administration →
+Installation, and it is read at every pass.
 
 **One model serves the installation** (ADR 0031), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a
@@ -230,8 +233,12 @@ by somebody other than the agent, becomes a step of its own on the run that aske
 change that opens a run beside it. That sentence is also read once for **what it
 authorises** (ADR 0032): an act it names is recorded on the run with the person's
 own words, the class, the act it is for and the message it arrived in, and the
-guard licenses exactly that act and no other. An override is never read from a
-conversation: class 4 is an installation administrator's. **The same conversation
+guard licenses exactly that act and no other. An **override** (class 4) is an
+installation administrator's, and it is proved by the **directory**: before the
+answer is read, the agent presents the sender's account to the server and reads
+whether it is a Stalwart administrator, so an administrator's own words may grant
+one and nobody else's. A rule the group wrote may **declare that it sends**, and
+that declaration is the authority of its own outward acts. **The same conversation
 runs by mail**: `mail.ask` sends the question from the group's own identity to a
 principal with access to the group and parks the run on that message, and the
 reply that names it in its thread continues the run — mail's own correlation,
