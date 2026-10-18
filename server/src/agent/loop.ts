@@ -347,10 +347,16 @@ export class AgentLoop {
        * The waits are armed **after** the due runs have been advanced: a re-arm
        * beside a run whose document has not moved would hand the same instant
        * over twice (`timers.ts`), and a process that restarts re-arms what the
-       * installation left. Armed even for an account whose work failed: a run
-       * parked on a date is re-armed from its own document, not from this pass.
+       * installation left. Its own guard, because arming reads the account's run
+       * documents: an unreadable one is a gap for this pass, not a reason to
+       * stop the accounts after it — and the account whose work failed is armed
+       * all the same, from the runs that can be read.
        */
-      await this.timers.arm(this.ctx, accountId);
+      try {
+        await this.timers.arm(this.ctx, accountId);
+      } catch (err) {
+        summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+      }
     }
     return summary;
   }

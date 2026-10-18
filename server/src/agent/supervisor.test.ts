@@ -485,6 +485,42 @@ test("a pass that throws is logged, and the next one still runs", async (t) => {
   assert.ok(stand.passes >= 4, "and the schedule went on asking");
 });
 
+test("a gap is said when it appears, and said again when it comes back", async (t) => {
+  /*
+   * A gap is a fault the pass could not fix by itself: a rule sheet this build
+   * cannot read, a change log that skipped. It is said when it appears — and not
+   * on every beat, or one broken file would fill the log — and said again if it
+   * goes and returns, because that is a new occurrence.
+   */
+  const { lines, log } = collector();
+  const answers: string[][] = [
+    ["team@example.org: the rule at rules/x.json is not readable"],
+    ["team@example.org: the rule at rules/x.json is not readable"],
+    [],
+    ["team@example.org: the rule at rules/x.json is not readable"],
+  ];
+  let asked = 0;
+  const process = supervise({
+    loop: {
+      async pass(): Promise<PassSummary> {
+        const gaps = answers[Math.min(asked, answers.length - 1)] ?? [];
+        asked += 1;
+        return { ...passSummary(true), gaps };
+      },
+      stop(): void {},
+    },
+    intervalMs: 5,
+    log,
+  });
+  t.after(() => process.stop());
+  await waitFor(() => asked >= 6);
+  assert.equal(
+    lines.filter((line) => line.includes("not readable")).length,
+    2,
+    "once when it appeared, once again when it returned",
+  );
+});
+
 test("a claim a peer holds is waited out, not fought for and not a failure", async (t) => {
   const stand = standInLoop();
   stand.held = true;

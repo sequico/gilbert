@@ -948,6 +948,55 @@ test("a person's answer is the word an outward act asks for, recorded for that a
   );
 });
 
+test("an account whose rules cannot be read is a gap, and the others are still worked", async () => {
+  /*
+   * One group's rule sheet is a document this build cannot parse. The pass must
+   * not die on it: that group is left alone for this pass with the reason in the
+   * gaps, the account after it is worked as usual, and the timers are armed —
+   * a pass that threw here would throw every ten seconds for ever and take every
+   * group with it.
+   */
+  let mailAccount = "";
+  for (const id of Object.keys(ctx.session.accounts)) {
+    const list = await clientOf(ctx).call<{ list?: unknown[] }>(
+      "Email/get",
+      { accountId: id, ids: null },
+      [CAPABILITIES.mail],
+    );
+    if ((list.list ?? []).length) {
+      mailAccount = id;
+      break;
+    }
+  }
+  assert.ok(mailAccount, "the mock has an account with mail");
+  await writeAppFileAt(ctx, mailAccount, rulePath("broken"), { v: RULE_VERSION - 1 });
+  const id = "intake-after-a-broken-rule";
+  try {
+    await putRule(id);
+    const agent = loop(HOLDER, { accounts: async () => [mailAccount, accountId] });
+    await agent.start();
+
+    answerWith({ rules: [id], facts: {} });
+    answerWith({ done: "filed despite the other group's bad rule" });
+    await deliver("a booking confirmation");
+    const summary = await agent.pass();
+
+    assert.equal(summary.claimed, true, "the pass holds the installation's claim");
+    assert.ok(
+      summary.gaps.some(
+        (gap) => gap.startsWith(`${mailAccount}:`) && gap.includes("not readable"),
+      ),
+      "the unreadable rule is the pass's gap, named by its account",
+    );
+    assert.equal(summary.runs, 1, "and the other account is still worked");
+    assert.ok(await runOf(id), "its run answers the change");
+  } finally {
+    const broken = await readAppFileAt(ctx, mailAccount, rulePath("broken"));
+    if (typeof broken?.file.id === "string")
+      await destroyAppNode(ctx, mailAccount, broken.file.id, {});
+  }
+});
+
 test("a question asked by mail parks the run, and a reply on its thread continues it", async () => {
   /*
    * The conversation's other half (ADR 0033). The question leaves from the group's
