@@ -160,6 +160,8 @@ export interface AnyTool {
   readonly authority: ToolAuthority;
   /** Whether the tool can change anything. The reading half's are all false. */
   readonly writes: boolean;
+  /** Whether one call leaves the run waiting on a person (ADR 0033, 0034). */
+  readonly waits: boolean;
   /** What a call to it spends of the run's budget (ADR 0031). */
   readonly spend: Partial<RunSpent>;
   /**
@@ -184,6 +186,11 @@ interface ToolSpec<Args> {
   description: string;
   authority: ToolAuthority;
   writes: boolean;
+  /**
+   * Whether one call leaves the run waiting on a person. A run holds one wait
+   * (ADR 0034), so a plan may carry one such call and no more.
+   */
+  waits?: boolean;
   spend?: Partial<RunSpent>;
   act?: (args: Args) => RunAuthorityAct | null;
   parse: (raw: unknown) => Args;
@@ -197,6 +204,7 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     description: spec.description,
     authority: spec.authority,
     writes: spec.writes,
+    waits: spec.waits === true,
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
     parse: spec.parse,
@@ -1281,6 +1289,7 @@ const askByMail = defineTool({
     "the person works by mail; chat.ask asks in the group's conversation.",
   authority: "reversible",
   writes: true,
+  waits: true,
   spend: { steps: 1 },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -1593,6 +1602,7 @@ const askInChat = defineTool({
     "decide; a report nobody has to answer is chat.say.",
   authority: "reversible",
   writes: true,
+  waits: true,
   spend: { steps: 1 },
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
   run: async ({ ctx, accountId }, { text }) => {

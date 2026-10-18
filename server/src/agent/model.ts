@@ -1186,9 +1186,11 @@ export async function chooseStep(
      * left out. The arguments are validated again where the call runs (`runTool`
      * does it too), and one definition of that lives in `tools.ts`.
      */
+    let asking = 0;
     for (const call of parsed.choice.calls) {
       try {
-        validatedTool(catalogue, call.name, call.args);
+        const { tool } = validatedTool(catalogue, call.name, call.args);
+        if (tool.waits) asking += 1;
       } catch (err) {
         throw new ModelError(
           "model_answer_malformed",
@@ -1196,6 +1198,13 @@ export async function chooseStep(
         );
       }
     }
+    // A run holds one wait (ADR 0034): a plan with two questions in it would
+    // park on the last and lose the first without saying so.
+    if (asking > 1)
+      throw new ModelError(
+        "model_answer_malformed",
+        "An answer may ask one question: a run waits on one person at a time. Ask the first, and the second after it is answered.",
+      );
   }
   return parsed.choice;
 }
