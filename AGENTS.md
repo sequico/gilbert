@@ -19,7 +19,7 @@ npm workspaces: the root coordinates, the two packages hold the code.
   `web/tsconfig.json` and `web/vite.config.ts`. Never copy a shape or helper
   into `web/`; import it.
 - `scripts/` — the checks `prepush` runs (`adr-owed`, `adr-cite`, `config:dead`,
-  `workflow-pin`, `i18n-*`), plus `version.mjs` and `codeql.mjs`.
+  `workflow-pin`, `i18n-*`), plus `version.mjs`.
 - `docs/adr/` — one decision per file, indexed by `docs/adr/README.md`.
   `FEATURES.md` is the feature inventory; `KNOWN-ISSUES.md` and `ROADMAP.md` are
   the product docs.
@@ -150,14 +150,14 @@ pre-push hook and by the CI release pre-check.
 the gate prints is fixed, whoever wrote the line and whenever it arrived — and a
 non-zero count is work to do, never context to report. Biome 0/0/0, no failing
 test, no skipped test, a dependency audit at zero (the release pre-check runs
-`npm run audit`), `npm run codeql` at zero result(s).
+`npm run audit`).
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
 non-UTC machine run them as `TZ=UTC npm test` — `check:ci` already forces it so
 the local gate matches CI.
 **`npm run check:ci` is the one gate**, in order: typecheck, Biome, `adr:owed`,
 `adr:cite`, `config:dead`, `workflow:pin`, `i18n:check`, `TZ=UTC npm test`, then
 `npm run build`. The pre-push hook runs it (`npm run prepush` is that pipeline
-under the name the hook calls, and `npm run prepush:full` appends `codeql`), and
+under the name the hook calls), and
 `ci.yml` runs the same script — so the release pre-check and a developer's push
 cannot diverge. The only part of CI that is not in it is the Docker smoke build,
 which a local gate cannot assume has a daemon.
@@ -326,16 +326,13 @@ the image the pruner targets — and asserts the first against `engines.node` an
 the second against the published `IMAGE`, so a Node move or a rename is one
 edit. The workflows this repository owns are ours; upstream's CI is not taken.
 
-**CodeQL runs with the release** (ADR 0027, owner decision 2026-09-27): the
-analysis is `.github/workflows/codeql.yml`, called by `release.yml` as a
-pre-check — `cut` waits on it — and run weekly and on dispatch besides. It is
-not a per-push gate: a 686 MB toolchain and minutes of analysis. `npm run codeql`
-is the same suite on this checkout, `npm run check:release` is `check:ci` then
-it, and `npm run prepush:full` runs `check:release`; the toolchain is found
-through `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one
-**fails with the install instructions** rather than reporting a clean tree. An
-alert it prints is work to do in the same change, like any other finding a gate
-prints.
+**CodeQL runs with the release, on GitHub only** (ADR 0027, owner decisions
+2026-09-27 and 2026-10-18): the analysis is `.github/workflows/codeql.yml`,
+called by `release.yml` as a pre-check — `cut` waits on it — and run weekly and
+on dispatch besides. It is not a per-push gate, and there is **no local
+analysis**: no script, no bundled toolchain, no `CODEQL_CLI` lookup. A finding
+the hosted run prints is work to do in the same change, like any other finding a
+gate prints.
 **Static analysis and secret scanning run on every push and pull request, and
 once a night** (ADR 0026): `.github/workflows/ci-security.yml` runs Semgrep at
 ERROR level across the TypeScript, Node, security-audit and OWASP rule packs,
@@ -359,8 +356,7 @@ dispatched child runs no gate either. The gate runs **once, before a push**,
 which is where it belongs: `npm run check:ci` through the `.githooks/pre-push`
 hook, and a push that has not passed it does not happen. `check:ci` is a series of
 scripts; `npm run prepush` is that series under the name the hook calls, and
-`npm run prepush:full`/`check:release` and `npm run codeql` append the analysis
-the release pre-check runs. The owner decides when a push is made; **0/0/0** is
+`prepush:full` is an alias of `check:ci` for muscle memory. The owner decides when a push is made; **0/0/0** is
 the standard of that one gate, not of every step along the way.
 **Commit is automatic; push is not (owner decision 2026-09-24).** Every finished
 unit is committed on its own, with no per-turn request (the rule above). A push

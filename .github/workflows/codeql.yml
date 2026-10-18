@@ -7,7 +7,7 @@
 # cut on an analysis that is not clean, and it can be dispatched by hand or runs
 # weekly so a query added upstream surfaces without a release.
 #
-# `npm run codeql` (`scripts/codeql.mjs`) runs the same suite on a checkout, for
+# There is no local analysis: this workflow is the one place it runs.
 # a machine that has the bundle.
 name: CodeQL
 
@@ -62,7 +62,7 @@ jobs:
           # analysis still runs, and the next step holds the gate.
           upload: never
       # What publishing would have done: an alert the repository cannot see is
-      # no less an alert. Any result fails the job, the way `npm run codeql`
+      # no less an alert. Any result fails the job.
       # fails locally, so a release is still never cut on an unclean analysis.
       - name: Fail on any analysis result
         shell: bash

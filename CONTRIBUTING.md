@@ -77,20 +77,17 @@ A push that fails the gate is refused. Bypass it (`--no-verify`) only
 deliberately and knowingly. `main` is branch-protected: a force push and a
 branch deletion are refused, but no review or status check is required.
 
-`npm run check:release` is `check:ci` then `codeql`; `npm run prepush:full` runs
+`npm run prepush:full` is an alias of `check:ci`;
 it. **The gate reports zero, or it has not passed:** every error and warning a
 gate prints is fixed, whoever wrote the line.
 
 ### Code scanning
 
-The **CodeQL** analysis runs where a release is prepared, not on every push — a
-686 MB toolchain and minutes of analysis. It is `.github/workflows/codeql.yml`,
+The **CodeQL** analysis runs on **GitHub only**: `.github/workflows/codeql.yml`,
 called by the release workflow as a pre-check and run weekly and on demand
-besides. `npm run codeql` runs the same JavaScript/TypeScript suite on this
-checkout. The CLI is found through `CODEQL_CLI`, on `PATH`, or in
-`~/.cache/gilbert/codeql`; without one the run fails with the install
-instructions rather than reporting a clean tree. An alert is work to do in the
-same change.
+besides. There is no local analysis — no script, no bundled toolchain, no
+`CODEQL_CLI` lookup — so a checkout carries no second suite that could disagree
+with the release's. An alert is work to do in the same change.
 
 ## Code style
 

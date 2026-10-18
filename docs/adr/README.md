@@ -197,9 +197,8 @@ is, not what a user sees.
   per-push gate: it is a 686 MB toolchain, so it runs as a release pre-check —
   `.github/workflows/codeql.yml`, called by `release.yml`, with `cut` waiting on
   it — plus weekly and on dispatch. A file names it rather than a repository
-  setting, so it is reviewed and pinned like the rest; `npm run codeql` is the
-  same suite on a checkout and `npm run check:release` (`check:ci` then
-  `codeql`) is the full local gate. Built.
+  setting, so it is reviewed and pinned like the rest; it runs **on GitHub only**
+  and there is no local analysis or toolchain (owner decision 2026-10-18). Built.
 - **0028 — Workorders are group-owned parts.** A workorder is one uid
   with a root document in the Master's and a part in each competent group's own
   app folder; nothing is copied and no marker is planted in a work folder. The

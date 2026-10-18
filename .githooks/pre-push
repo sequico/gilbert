@@ -10,7 +10,7 @@
 # CodeQL is not here: its toolchain is a 686 MB bundle, so it runs with the
 # release and weekly (codeql.yml), not on every push. What GitHub does run on
 # the push is the security workflow (ci-security.yml). `npm run prepush:full` is
-# both gates, for a machine that has one; `npm run codeql` is the analysis on
+# an alias of `check:ci`; CodeQL runs on GitHub only, never here.
 # its own.
 set -u
 

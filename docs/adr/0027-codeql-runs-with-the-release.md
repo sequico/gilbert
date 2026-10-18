@@ -5,10 +5,10 @@ Status: Accepted
 Implementation: Built. `.github/workflows/codeql.yml` (the
 `javascript-typescript` analysis, its two actions pinned to a commit) is called
 by `.github/workflows/release.yml` as a pre-check, and runs weekly and on
-dispatch besides. `npm run codeql` (`scripts/codeql.mjs`) is the same suite on a
-checkout, `npm run check:release` is `check:ci` then `codeql`, and `npm run
-prepush:full` runs it. The hosted run reads the SARIF it produced and fails on
-any result rather than publishing it.
+dispatch besides. **It is the only place the analysis runs**: there is no local
+CodeQL, no bundled toolchain and no script that installs one
+(owner decision 2026-10-18). The hosted run reads the SARIF it produced and fails
+on any result rather than publishing it.
 
 ## Context
 
@@ -36,25 +36,26 @@ any result rather than publishing it.
   and the one that is a file is the one this repository can read.
 - **It also runs weekly and on dispatch**, so a query added upstream surfaces
   without a release.
-- **Locally, the same suite runs on a checkout.** `npm run codeql` is that run,
-  `npm run check:release` is `check:ci` then `codeql`, and `npm run
-  prepush:full` is `check:release` under the name the pre-push habit uses.
+- **The analysis runs on GitHub and nowhere else.** There is no local script, no
+  bundled toolchain and no command that installs one: a machine-local analysis is
+  a second suite that can disagree with the one a release uses, and the gate a
+  push meets is `check:ci`. A finding from the hosted run is still work to do in
+  the same change.
 
 ## Consequences
 
 - A release ships a clean analysis, and the per-push gate stays fast and
   offline.
 - The analysis is **not published** to GitHub code scanning. The workflow reads
-  the SARIF it produced and **fails on any result** instead, the way
-  `npm run codeql` does locally — nothing is cut on an unclean analysis.
+  the SARIF it produced and **fails on any result** instead — nothing is cut on
+  an unclean analysis.
 - A finding is work to do in the same change, like every other gate this
-  repository runs; the query suite is the one the settings' `default` names, so
-  a local run and the hosted one report the same queries.
+  repository runs; there is one suite, the one the workflow runs, so no local
+  result can disagree with a release's.
 
 ## References
 
 - `.github/workflows/codeql.yml` — the hosted analysis
 - `.github/workflows/release.yml` — the pre-check that calls it
-- `scripts/codeql.mjs` — the same suite on a checkout
-- `package.json` — `check:release` and `prepush:full`
+- `package.json` — `check:ci`, the one gate a push meets
 - ADR 0025 — the one gate, the release pre-check and the pin rule
