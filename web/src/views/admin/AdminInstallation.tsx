@@ -16,7 +16,7 @@ import {
   type KeyDraft,
   withInstructionField,
   withModelKey,
-} from "./installation/modelFields";
+} from "./installation/modelDocument";
 
 /**
  * The installation's own document (ADR 0011 — the installation is configured

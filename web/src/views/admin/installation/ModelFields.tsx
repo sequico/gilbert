@@ -1,7 +1,7 @@
 import { t } from "@/lib/i18n";
 import type { InstallationFields } from "@/lib/installationAdmin";
 import { Switch } from "@/ui/misc";
-import { type KeyDraft, withModelField } from "./modelFields";
+import { type KeyDraft, withModelField } from "./modelDocument";
 
 /**
  * The installation's model, as fields that write into the document.
