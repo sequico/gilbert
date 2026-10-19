@@ -231,10 +231,24 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     }
     // Stick to the newest message unless the reader has scrolled up or is
     // mid-page. `open?.replyTo` (a reply was just composed) pins to bottom.
-    if (atBottom.current || open?.replyTo) {
+    if (!atBottom.current && !open?.replyTo) return;
+    atBottom.current = true;
+    /*
+     * The panel is `visibility: hidden` until the popover has been placed, and
+     * a hidden thread reports a zero height — the first scroll lands nowhere.
+     * Pin the bottom again on the next frames until the panel is laid out, and
+     * stop the moment the reader scrolls away by hand.
+     */
+    let raf = 0;
+    let tries = 0;
+    const settle = () => {
+      if (!atBottom.current) return;
       el.scrollTop = el.scrollHeight;
       atBottom.current = true;
-    }
+      if (++tries < 20) raf = requestAnimationFrame(settle);
+    };
+    raf = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(raf);
   }, [nodeCount, openAccountId, open?.replyTo]);
 
   const older = async () => {

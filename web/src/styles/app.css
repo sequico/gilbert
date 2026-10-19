@@ -2586,7 +2586,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* The panel: column of head, switcher, thread, composer. */
 .chat-panel {
   display: flex; flex-direction: column;
-  height: min(65vh, 520px);
+  height: min(78vh, 620px);
 }
 .chat-head {
   display: flex; align-items: center; justify-content: space-between;

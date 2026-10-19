@@ -174,10 +174,10 @@ export function ChatLauncher() {
         anchor={anchorFromEl(btnRef.current)}
         onClose={shut}
         align="end"
-        width={384}
+        width={416}
         role="dialog"
         ariaLabel={t("Chat")}
-        style={{ zIndex: 700, maxHeight: "min(70vh, 560px)", overflow: "hidden" }}
+        style={{ zIndex: 700, maxHeight: "min(80vh, 660px)", overflow: "hidden" }}
       >
         {panel}
       </Popover>
