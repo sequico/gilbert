@@ -221,6 +221,18 @@ interface RunEvidence {
   source: string;
 }
 
+/** One answer to this run that was not the sender's own word (ADR 0033). */
+export interface RunAnswerRefusal {
+  /** When the answer arrived, as the message carries it. */
+  at: string;
+  /** The trust reading's code: why it was not a person's word. */
+  code: string;
+  /** The address it came from. */
+  from: string;
+  /** The message it arrived in. */
+  message: RunMessageRef;
+}
+
 /**
  * What the run has spent (ADR 0031): the tally of its budget, and only the
  * tally.
@@ -299,6 +311,15 @@ export interface RunDoc {
   recalled: string[];
   authorisations: RunAuthorisation[];
   evidence: RunEvidence[];
+  /**
+   * Answers this run's question that were not the sender's own word (ADR 0033).
+   *
+   * A refusal is recorded here rather than silently dropped: the person wrote
+   * an answer, and a surface can say why it did not continue the run — the code
+   * is the trust reading's own, and the address and message say which answer it
+   * was. The list keeps the last few; a run is the record, not a mailbox.
+   */
+  answerRefusals?: RunAnswerRefusal[];
   /** What the run has spent so far (ADR 0031). */
   spent: RunSpent;
   state: RunState;
@@ -499,6 +520,18 @@ function isEvidence(x: unknown): x is RunEvidence {
   );
 }
 
+function isAnswerRefusal(x: unknown): x is RunAnswerRefusal {
+  return (
+    isRecord(x) &&
+    isInstant(x.at) &&
+    typeof x.code === "string" &&
+    !!x.code &&
+    typeof x.from === "string" &&
+    !!x.from &&
+    isMessageRef(x.message)
+  );
+}
+
 function isSpent(x: unknown): x is RunSpent {
   return (
     isRecord(x) &&
@@ -604,6 +637,11 @@ export function parseRunDocumentDetailed(
     return { problem: '"authorisations" must be a list of authorisations.' };
   if (!Array.isArray(whole.evidence) || !whole.evidence.every(isEvidence))
     return { problem: '"evidence" must be a list.' };
+  if (
+    whole.answerRefusals !== undefined &&
+    (!Array.isArray(whole.answerRefusals) || !whole.answerRefusals.every(isAnswerRefusal))
+  )
+    return { problem: '"answerRefusals" must be a list of refused answers.' };
   if (!isSpent(whole.spent))
     return {
       problem: '"spent" must be the tally of steps, model calls and milliseconds.',
@@ -637,6 +675,9 @@ export function parseRunDocumentDetailed(
       recalled,
       authorisations: whole.authorisations,
       evidence: whole.evidence,
+      ...(whole.answerRefusals === undefined
+        ? {}
+        : { answerRefusals: whole.answerRefusals }),
       spent: whole.spent,
       state: whole.state,
       ended: whole.ended,
@@ -824,6 +865,25 @@ export function recordEvidence(run: RunDoc, evidence: RunEvidence): RunDoc {
   mustBeRunning(run);
   if (!isEvidence(evidence)) throw new Error(`the run "${run.id}" cannot rest on that.`);
   return { ...run, evidence: [...run.evidence, evidence] };
+}
+
+/**
+ * Record an answer to this run that was not its sender's own word (ADR 0033).
+ *
+ * A run blocked on a person may be written to (its state is `blocked`, not an
+ * ending), and the same answer read twice — a pass that died before the cursor
+ * advanced — is one refusal, not two. The last five are kept: enough for a
+ * reader to see what happened, not a second mailbox on the record.
+ */
+export function recordAnswerRefusal(run: RunDoc, refusal: RunAnswerRefusal): RunDoc {
+  if (!isAnswerRefusal(refusal))
+    throw new Error(`the run "${run.id}" cannot record that answer.`);
+  const held = run.answerRefusals ?? [];
+  if (
+    held.some((one) => one.message.id === refusal.message.id && one.code === refusal.code)
+  )
+    return run;
+  return { ...run, answerRefusals: [...held, refusal].slice(-5) };
 }
 
 /**

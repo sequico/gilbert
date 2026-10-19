@@ -88,6 +88,7 @@ import {
   type RunStep,
   type RunStepNeeds,
   type RunWait,
+  recordAnswerRefusal,
   recordRecall,
   recordStep,
   spendRun,
@@ -204,6 +205,22 @@ export interface PassSummary {
    * lost.
    */
   gaps: string[];
+}
+
+/**
+ * An answer a run's question received that was not its sender's own word.
+ *
+ * The run is still blocked: the answer did not continue it, and the record says
+ * why, so the surface can show the person what their message was taken for.
+ */
+export interface RefusedAnswer {
+  /** The run the answer would have continued, with the token a write needs. */
+  record: RunRecord;
+  at: string;
+  /** The trust reading's code. */
+  code: string;
+  from: string;
+  message: RunMessageRef;
 }
 
 /** A run a person's answer continued, and what the reading of that answer needs. */
@@ -791,6 +808,7 @@ export class AgentLoop {
           workRun: (a, r, n, f) => this.workRun(a, r, n, f),
           authoriseAnswer: (x) => this.authoriseAnswer(x),
           openRun: (a, e, r, from) => this.openRun(a, e, r, from),
+          recordRefusal: (a, refused) => this.recordRefusal(a, refused),
         },
         accountId,
         now,
@@ -877,7 +895,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | "already" | null> {
+  ): Promise<AnsweredRun | "already" | RefusedAnswer | null> {
     if (event.source === "mail")
       return await this.mailAnsweredBy(accountId, event, records);
     if (event.source !== "chat" || event.change === "destroyed") return null;
@@ -923,7 +941,7 @@ export class AgentLoop {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | "already" | null> {
+  ): Promise<AnsweredRun | "already" | RefusedAnswer | null> {
     if (event.change === "destroyed") return null;
     const parked = records.filter(
       ({ run }) => run.state === "blocked" && run.waiting?.asked?.channel === "mail",
@@ -939,9 +957,14 @@ export class AgentLoop {
       known: [...members, this.ctx.username],
     });
     if (!reply?.thread.length || !reply.from || !reply.text.trim()) return null;
-    if (!reply.word) return null;
     if (await isGroupAddress(this.ctx, accountId, reply.from)) return null;
     if (answeredAlready(records, "mail", event.where)) return "already";
+    /*
+     * The thread says which run this answers, and that answer is needed before
+     * the word is judged: a reply that is not its sender's own word is recorded
+     * on the run it would have continued, so the person's answer and its
+     * refusal are both on the record.
+     */
     const askedIds = parked
       .map((record) => record.run.waiting?.asked?.id)
       .filter((id): id is string => typeof id === "string");
@@ -951,18 +974,22 @@ export class AgentLoop {
       if (!asked) continue;
       const ids = idsOf.get(asked.id) ?? [];
       if (!ids.some((id) => reply.thread.includes(id))) continue;
+      const message: RunMessageRef = { channel: "mail", id: event.where };
+      if (!reply.word)
+        return {
+          record,
+          at: reply.at ?? new Date().toISOString(),
+          code: reply.refusal ?? "not_authenticated",
+          from: reply.from,
+          message,
+        };
       return {
-        run: takeAnswer(
-          record.run,
-          asked,
-          { channel: "mail", id: event.where },
-          reply.text,
-        ),
+        run: takeAnswer(record.run, asked, message, reply.text),
         asked: record.run.waiting?.what ?? "",
         said: reply.text,
         from: reply.from,
         at: reply.at ?? new Date().toISOString(),
-        message: { channel: "mail", id: event.where },
+        message,
       };
     }
     return null;
@@ -1421,6 +1448,28 @@ export class AgentLoop {
       token = settledWrite;
       if (wait) return current;
     }
+  }
+
+  /**
+   * Persist an answer's refusal on the run it would have continued.
+   *
+   * The run stays blocked; the record gains the code the trust reading answered
+   * and the message it came from, so a person can be told why their answer did
+   * not move the work. A write that cannot land leaves the refusal for the next
+   * pass, which re-reads the same change.
+   */
+  private async recordRefusal(
+    accountId: string,
+    refused: RefusedAnswer,
+  ): Promise<RunDoc | null> {
+    const run = recordAnswerRefusal(refused.record.run, {
+      at: refused.at,
+      code: refused.code,
+      from: refused.from,
+      message: refused.message,
+    });
+    const token = await this.store(accountId, run, refused.record.state);
+    return token ? run : null;
   }
 
   /**

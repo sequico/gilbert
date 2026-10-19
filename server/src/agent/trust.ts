@@ -95,7 +95,7 @@ export interface ReceivedMessage {
  * message nobody vouched for, a sender the installation does not know, and the
  * agent's own words coming back.
  */
-type TrustRefusal =
+export type TrustRefusal =
   /** The server's account of the arrival does not establish that this is anybody's word. */
   | "not_authenticated"
   /** The sender is not an address the installation knows. */
@@ -258,7 +258,8 @@ function submitterOf(hop: string): string | null {
  * this reading has to learn that shape); and the authserv-id of the
  * `Authentication-Results` it writes on a message received from outside, whose
  * value is what would make that verdict the server's own rather than a header a
- * sender planted. `scripts/probe-*.mjs` is how this repository asks a live
- * server, by hand; until an answer is recorded, an outside message is refused
- * outright and mail is trusted no further than the shapes above.
+ * sender planted. `scripts/probe-mail-trust.mjs` asks a live server both
+ * questions by hand and prints the first hop and the authserv-id it finds; until
+ * an answer is recorded, an outside message is refused outright and mail is
+ * trusted no further than the shapes above.
  */

@@ -24,7 +24,7 @@ import {
   type EventCursor,
   readAccountEvents,
 } from "./events.js";
-import type { AnsweredRun, PassSummary } from "./loop.js";
+import type { AnsweredRun, PassSummary, RefusedAnswer } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
 import type { ModelAccess } from "./model.js";
 import { decideEvent, usageMeter } from "./model.js";
@@ -50,7 +50,9 @@ export interface ChangesDeps {
     accountId: string,
     event: AccountEvent,
     records: readonly RunRecord[],
-  ): Promise<AnsweredRun | "already" | null>;
+  ): Promise<AnsweredRun | "already" | RefusedAnswer | null>;
+  /** Keep an answer that was not its sender's own word on the run it answered. */
+  recordRefusal(accountId: string, refused: RefusedAnswer): Promise<RunDoc | null>;
   workRun(
     accountId: string,
     run: RunDoc,
@@ -328,6 +330,12 @@ export async function workChanges(
       }
       const answer = await deps.runAnsweredBy(accountId, event, held);
       if (answer === "already") continue;
+      if (answer && "record" in answer) {
+        // The person answered and the answer was refused: it is written on the
+        // run it would have continued, and the run stays blocked.
+        await deps.recordRefusal(accountId, answer);
+        continue;
+      }
       if (answer) {
         summary.due += 1;
         const worked = await deps.workRun(

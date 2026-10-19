@@ -37,7 +37,7 @@ import {
 } from "../../shared/search.js";
 import { replySubject } from "../../shared/text.js";
 import { clientOf } from "../../util.js";
-import { personWord } from "../trust.js";
+import { personWord, type TrustRefusal } from "../trust.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
@@ -493,6 +493,8 @@ export async function readMessageForAnswer(
   at: string | null;
   /** Whether the message is the sender's own word — refused, it answers nothing. */
   word: boolean;
+  /** Why it is not a person's word, or null when it is. */
+  refusal: TrustRefusal | null;
 } | null> {
   const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
     "Email/get",
@@ -531,6 +533,7 @@ export async function readMessageForAnswer(
       | string
       | null,
   };
+  const decision = personWord(arrival, asker);
   return {
     from,
     thread,
@@ -541,7 +544,8 @@ export async function readMessageForAnswer(
         : typeof message.sentAt === "string"
           ? message.sentAt
           : null,
-    word: personWord(arrival, asker).word,
+    word: decision.word,
+    refusal: decision.refusal,
   };
 }
 
