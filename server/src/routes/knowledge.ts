@@ -14,10 +14,14 @@ import {
   deleteArticle,
   KnowledgeAdminError,
   moveArticle,
+  readArticleRevision,
+  readDraftText,
   renameArticle,
   reorderArticle,
+  reorderArticleInTier,
   restoreArticle,
   saveDraft,
+  tierAccount,
 } from "../knowledgeAdmin.js";
 import { errorMessage } from "../shared/errors.js";
 import {
@@ -170,6 +174,61 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       return c.json({
         ok: true,
         article: await companyArticle(c.get("session"), c.req.query("folder") ?? ""),
+      });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  /**
+   * One company article's draft text, without its history.
+   *
+   * The search index reads every page's body, and the whole article view would
+   * make that cost a revision history per page: this answers the one document
+   * a search reads. A folder that is not there answers `text: null`.
+   */
+  api.get("/knowledge/company/text", requireSession, async (c) => {
+    try {
+      const { ctx, accountId, folderId } = await companyKnowledgeAccount(
+        c.get("session"),
+      );
+      return c.json({
+        ok: true,
+        text: await readDraftText(ctx, accountId, folderId, c.req.query("folder") ?? ""),
+      });
+    } catch (err) {
+      return knowledgeFailure(c, err);
+    }
+  });
+
+  /**
+   * One revision of a company article, without the history around it.
+   *
+   * A workorder binds to a revision and its builder needs that revision's
+   * rules: reading the article whole to find a document already named would
+   * cost a history per pick.
+   */
+  api.get("/knowledge/company/revision", requireSession, async (c) => {
+    try {
+      const { ctx, accountId, folderId } = await companyKnowledgeAccount(
+        c.get("session"),
+      );
+      const revision = await readArticleRevision(
+        ctx,
+        accountId,
+        folderId,
+        c.req.query("folder") ?? "",
+        c.req.query("revision") ?? "",
+      );
+      return c.json({
+        ok: true,
+        revision: revision
+          ? {
+              revision: revision.revision,
+              rev: revision.rev,
+              checklist: revision.checklist ?? null,
+            }
+          : null,
       });
     } catch (err) {
       return knowledgeFailure(c, err);
@@ -370,17 +429,25 @@ export function registerKnowledgeRoutes(api: Hono<Env>): void {
       if (Array.isArray(body?.orders)) {
         const applied: string[] = [];
         const refused: Array<{ folder: string; error: string }> = [];
+        /*
+         * The tier is resolved once for the family: every item is the same
+         * account, and resolving it per row would pay a live membership probe
+         * and a Master session for each sibling. The writes stay independent
+         * (each has its own compare-and-set), which is the point of the batch.
+         */
+        const tier = await tierAccount(c.get("session"), target);
+        const by = c.get("session").username;
         for (const item of body.orders as Array<{
           folder?: unknown;
           order?: unknown;
         }>) {
           const folder = typeof item?.folder === "string" ? item.folder : "";
           try {
-            await reorderArticle(
-              c.get("session"),
-              target,
+            await reorderArticleInTier(
+              tier,
               folder,
               typeof item?.order === "number" ? item.order : Number.NaN,
+              by,
             );
             applied.push(folder);
           } catch (err) {

@@ -35,6 +35,7 @@ export {
   proposeArticle,
   renameArticle,
   reorderArticle,
+  reorderArticleInTier,
   restoreArticle,
   saveDraft,
 } from "./knowledge/editors.js";
@@ -45,5 +46,13 @@ export {
   findArticleById,
   listArticles,
 } from "./knowledge/listing.js";
-export { readArticle } from "./knowledge/reads.js";
-export { companyKnowledgeAccount, ensureKnowledge } from "./knowledge/scope.js";
+export {
+  readArticle,
+  readArticleRevision,
+  readDraftText,
+} from "./knowledge/reads.js";
+export {
+  companyKnowledgeAccount,
+  ensureKnowledge,
+  tierAccount,
+} from "./knowledge/scope.js";
