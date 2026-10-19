@@ -165,6 +165,7 @@ test("only a PDF blob may be framed, and only by us", async () => {
 
   const { securityHeadersFor } = await import("./app.js");
   assert.equal(securityHeadersFor("application/pdf", true), "SAMEORIGIN");
+  assert.equal(securityHeadersFor("application/x-pdf", true), "SAMEORIGIN");
   assert.equal(securityHeadersFor("application/pdf", false), "DENY");
   assert.equal(securityHeadersFor("image/png", true), "DENY");
   assert.equal(securityHeadersFor("text/html", true), "DENY");
@@ -201,6 +202,28 @@ test("a blob whose stored type says nothing keeps the client's own", async () =>
   assert.equal(blobContentType("image/png", "application/pdf"), "image/png");
   assert.equal(blobContentType("text/html", "text/html"), "application/octet-stream");
   assert.equal(blobContentType(null, "text/html"), "application/octet-stream");
+
+  // Both tiers said nothing: the name is the last evidence, and it is the
+  // booking-confirmation case -- a real PDF served as a download because the
+  // store and the sender both wrote octet-stream.
+  assert.equal(
+    blobContentType(
+      "application/octet-stream",
+      "application/octet-stream",
+      "279726936 booking.pdf",
+    ),
+    "application/pdf",
+  );
+  // The legacy spelling is the same document, served as the standard one.
+  assert.equal(
+    blobContentType("application/octet-stream", "application/x-pdf", "scan"),
+    "application/pdf",
+  );
+  // A store that does say something still wins over the name.
+  assert.equal(
+    blobContentType("application/zip", "application/pdf", "report.pdf"),
+    "application/zip",
+  );
 });
 
 /*

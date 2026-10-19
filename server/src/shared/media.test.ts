@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GENERIC_TYPES, isInlineImage, isInlineSafe, mediaType } from "./media.js";
+import {
+  GENERIC_TYPES,
+  isInlineImage,
+  isInlineSafe,
+  isPdfType,
+  mediaType,
+  typeFromName,
+} from "./media.js";
 
 /**
  * The rule that decides what a browser is handed, and what a picture is.
@@ -69,4 +76,20 @@ test("the types that say nothing about a file are a closed set", () => {
   assert.equal(GENERIC_TYPES.has("application/pdf"), false);
   // Lower case only: every reader asks about `mediaType(...)`, never a raw header.
   assert.equal(GENERIC_TYPES.has("APPLICATION/OCTET-STREAM"), false);
+});
+
+test("a name answers for a type that says nothing, and a PDF is a PDF in either spelling", () => {
+  // The booking-confirmation case: the store said octet-stream, the name said
+  // .pdf, and octet-stream is never rendered whatever the file is.
+  assert.equal(typeFromName("279726936 booking.pdf"), "application/pdf");
+  assert.equal(typeFromName("SHOT.PNG"), "image/png");
+  assert.equal(typeFromName("photo.jpeg"), "image/jpeg");
+  assert.equal(typeFromName("report"), null);
+  assert.equal(typeFromName(null), null);
+
+  assert.equal(isPdfType("application/pdf"), true);
+  assert.equal(isPdfType("application/x-pdf"), true);
+  assert.equal(isPdfType("application/acrobat"), true);
+  assert.equal(isPdfType("application/octet-stream"), false);
+  assert.equal(isInlineSafe("application/x-pdf"), true);
 });

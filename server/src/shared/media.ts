@@ -36,6 +36,43 @@ export function mediaType(type: string | null | undefined): string {
 export const PDF_TYPE = "application/pdf";
 
 /**
+ * Whether a media type is a PDF.
+ *
+ * `application/x-pdf` and `application/acrobat` are what older senders still
+ * write. They are the same document, so every reader here asks this one
+ * question rather than spelling the comparison out and drifting.
+ */
+export function isPdfType(type: string | null | undefined): boolean {
+  const t = mediaType(type);
+  return t === PDF_TYPE || t === "application/x-pdf" || t === "application/acrobat";
+}
+
+/**
+ * The media type a name gives a file whose declared type says nothing.
+ *
+ * A PDF sent by a booking system often arrives as `application/octet-stream`
+ * with only its name as evidence, and a browser refuses to render
+ * octet-stream even inside the preview frame. The binary types the app can
+ * show are named here once, so the server's response type and the client's
+ * preview decision take the same extension list. Text keeps its own list in
+ * the client: those are read with `fetch`, where the response type does not
+ * decide whether it is shown.
+ */
+export function typeFromName(name: string | null | undefined): string | null {
+  const n = name ?? "";
+  if (/\.pdf$/i.test(n)) return PDF_TYPE;
+  if (/\.png$/i.test(n)) return "image/png";
+  if (/\.jpe?g$/i.test(n)) return "image/jpeg";
+  if (/\.gif$/i.test(n)) return "image/gif";
+  if (/\.webp$/i.test(n)) return "image/webp";
+  if (/\.avif$/i.test(n)) return "image/avif";
+  if (/\.bmp$/i.test(n)) return "image/bmp";
+  if (/\.ico$/i.test(n)) return "image/x-icon";
+  if (/\.hei[cf]$/i.test(n)) return "image/heic";
+  return null;
+}
+
+/**
  * May this be served inline at all?
  *
  * A picture that is not an SVG, a recording, a PDF, and the three text types
@@ -49,7 +86,7 @@ export function isInlineSafe(type: string | null | undefined): boolean {
     isInlineImage(t) ||
     t.startsWith("video/") ||
     t.startsWith("audio/") ||
-    t === PDF_TYPE ||
+    isPdfType(t) ||
     t === "text/plain" ||
     t === "text/calendar" ||
     t === "text/vcard"

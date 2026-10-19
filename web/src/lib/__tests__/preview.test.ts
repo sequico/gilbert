@@ -19,6 +19,12 @@ describe("previewKind", () => {
     expect(previewKind("application/octet-stream", "README.md")).toBe("text");
     expect(previewKind("application/octet-stream", "shot.PNG")).toBe("image");
     expect(previewKind("application/octet-stream", "report.pdf")).toBe("pdf");
+    // The booking-confirmation case: no extension evidence is lost when the
+    // name is the only thing that says what the file is.
+    expect(
+      previewKind("application/octet-stream", "279726936 BOOKING CONFIRMATION.pdf"),
+    ).toBe("pdf");
+    expect(previewKind("application/x-pdf", "scan")).toBe("pdf");
     expect(previewKind("", "notes.txt")).toBe("text");
     expect(previewKind(null, "deploy.sh")).toBe("text");
     expect(previewKind(undefined, undefined)).toBeNull();

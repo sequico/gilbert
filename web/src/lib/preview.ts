@@ -18,8 +18,9 @@
 import {
   GENERIC_TYPES,
   isMarkdownExtension,
+  isPdfType,
   mediaType,
-  PDF_TYPE,
+  typeFromName,
 } from "@gilbert/shared/media";
 
 type PreviewKind = "image" | "pdf" | "text";
@@ -32,8 +33,6 @@ type PreviewKind = "image" | "pdf" | "text";
  * which the server asks about the same types.
  */
 const BY_EXTENSION: Array<[RegExp, PreviewKind]> = [
-  [/\.(png|jpe?g|gif|webp|avif|bmp|ico|heic|heif)$/i, "image"],
-  [/\.pdf$/i, "pdf"],
   [
     /\.(txt|text|log|csv|tsv|json|ya?ml|toml|ini|cfg|conf|env|sh|bash|zsh|fish|ps1|bat|js|mjs|cjs|jsx|ts|tsx|css|scss|less|html?|xhtml|xml|sql|py|rb|rs|go|c|h|cc|cpp|hpp|java|kt|swift|php|pl|lua|r|diff|patch|gitignore|dockerfile|makefile)$/i,
     "text",
@@ -63,11 +62,14 @@ export function previewKind(
   name: string | null | undefined,
 ): PreviewKind | null {
   const t = mediaType(type);
-  if (t && !GENERIC_TYPES.has(t)) {
-    if (t === "image/svg+xml") return null;
-    if (t.startsWith("image/")) return "image";
-    if (t === PDF_TYPE) return "pdf";
-    if (textish(t)) return "text";
+  // A generic type is no evidence, so the name takes over -- through the same
+  // extension list the server uses to choose the response type.
+  const known = t && !GENERIC_TYPES.has(t) ? t : mediaType(typeFromName(name));
+  if (known && !GENERIC_TYPES.has(known)) {
+    if (known === "image/svg+xml") return null;
+    if (known.startsWith("image/")) return "image";
+    if (isPdfType(known)) return "pdf";
+    if (textish(known)) return "text";
     // The server was specific and it is not something we show. Guessing from
     // the extension here would override a type the sender actually declared.
     return null;

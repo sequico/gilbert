@@ -12,7 +12,13 @@ import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context } from "hono";
 import { attachRelay as pushAttachRelay } from "../../push.js";
-import { GENERIC_TYPES, mediaType, PDF_TYPE } from "../../shared/media.js";
+import {
+  GENERIC_TYPES,
+  isPdfType,
+  mediaType,
+  PDF_TYPE,
+  typeFromName,
+} from "../../shared/media.js";
 import type { Env } from "./sessions.js";
 
 /*
@@ -300,9 +306,19 @@ function isGenericType(ct: string): boolean {
  * asks before it offers "open in a new tab") still decides whether anything is
  * served inline at all. Exported so the choice is testable without an upstream.
  */
-export function blobContentType(upstreamType: string | null, declared: string): string {
+export function blobContentType(
+  upstreamType: string | null,
+  declared: string,
+  name?: string | null,
+): string {
   const up = mediaType(upstreamType);
-  return sanitizeContentType(isGenericType(up) ? declared : up);
+  const resolved = isGenericType(up) ? declared : up;
+  // The last evidence left when both the store and the sender said nothing:
+  // a booking-confirmation PDF arrives as octet-stream, and octet-stream is
+  // never rendered, however right the preview would be.
+  const named = isGenericType(resolved) ? typeFromName(name) : null;
+  const type = named ?? resolved;
+  return sanitizeContentType(isPdfType(type) ? PDF_TYPE : type);
 }
 
 /**
@@ -314,5 +330,5 @@ export function securityHeadersFor(
   type: string,
   safeInline: boolean,
 ): "SAMEORIGIN" | "DENY" {
-  return safeInline && mediaType(type) === PDF_TYPE ? "SAMEORIGIN" : "DENY";
+  return safeInline && isPdfType(type) ? "SAMEORIGIN" : "DENY";
 }

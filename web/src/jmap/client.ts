@@ -5,6 +5,7 @@ import {
   GROUP_UNREADABLE,
   type GroupNeed,
 } from "@gilbert/shared/groupAccess";
+import { GENERIC_TYPES, mediaType, typeFromName } from "@gilbert/shared/media";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
 import { DeadlineError, withDeadline } from "@/lib/deadline";
@@ -553,8 +554,15 @@ export class JmapClient {
     inline = false,
   ): string {
     const safeName = (name || "attachment").replace(/[/\\?#%]/g, "_");
+    // Generic means the sender said nothing: let the name answer, so a PDF
+    // stored as octet-stream is requested as the PDF it is.
+    const resolved = mediaType(type);
+    const accept =
+      (GENERIC_TYPES.has(resolved) ? typeFromName(name) : null) ||
+      type ||
+      "application/octet-stream";
     const u = withBase(
-      `/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(blobId)}/${encodeURIComponent(safeName)}?accept=${encodeURIComponent(type || "application/octet-stream")}`,
+      `/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(blobId)}/${encodeURIComponent(safeName)}?accept=${encodeURIComponent(accept)}`,
     );
     return inline ? `${u}&inline=1` : u;
   }

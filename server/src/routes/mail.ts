@@ -255,7 +255,7 @@ export function registerMailRoutes(api: Hono<Env>): void {
       if (res.status === 416) return c.body(null, 416);
       if (!res.ok) return c.json({ error: "not_found" }, res.status === 404 ? 404 : 502);
       const headers = new Headers();
-      const type = blobContentType(res.headers.get("content-type"), accept);
+      const type = blobContentType(res.headers.get("content-type"), accept, name);
       headers.set("Content-Type", type);
       const cl = forwardedContentLength(res.headers);
       if (cl) headers.set("Content-Length", cl);
