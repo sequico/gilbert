@@ -118,6 +118,7 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+let failingCalls = 0;
 const PROVIDER_PORT = await freePort();
 const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const raw = await readBody(req);
@@ -125,6 +126,12 @@ const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const system = body.messages?.[0]?.content ?? "";
   const user = body.messages?.[1]?.content ?? "";
   seen.push({ system, user });
+  if (failingCalls > 0) {
+    failingCalls -= 1;
+    res.writeHead(500, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "the provider failed" } }));
+    return;
+  }
   res.writeHead(200, { "content-type": "application/json" });
   const content = onCall
     ? JSON.stringify(onCall(system, user))
@@ -136,6 +143,11 @@ const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     }),
   );
 });
+
+/** Fail the next model call as an unreachable provider would. */
+function failNextModelCall(): void {
+  failingCalls += 1;
+}
 
 /** Answer the next call with this content, as a chat completion carries it. */
 function answerWith(value: unknown): void {
@@ -1807,6 +1819,42 @@ test("two answers refused in a row end the run instead of paying for a third", a
     2,
     "both refusals are on the record, and there is no third",
   );
+});
+
+test("a run left running without a wait is tried again on a minute, not every pass", async () => {
+  /*
+   * A run with no wait is the crash path: the document says running, nothing
+   * says when to look again. The pass tries it at once, and a failure is not a
+   * model call every ten seconds — the next attempt is a minute away.
+   */
+  const id = "stuck-run";
+  const agent = loop();
+  await agent.start();
+  await createRun(
+    ctx,
+    accountId,
+    startRun({
+      id,
+      startedBy: { rule: "stuck", instruction: null, woke: "a test change" },
+    }),
+  );
+  const at = new Date("2026-10-19T12:00:00.000Z");
+  failNextModelCall();
+  const first = await agent.pass(at);
+  assert.equal(first.due, 1, "the crash path is picked up on the first pass");
+  assert.ok(
+    first.gaps.some((gap) => gap.startsWith(`${accountId}:`)),
+    "and its failure is said in the pass's gaps",
+  );
+  assert.equal((await readRun(ctx, accountId, id))?.run.state, "running");
+
+  const second = await agent.pass(new Date(at.getTime() + 10_000));
+  assert.equal(second.due, 0, "the next pass does not pay for the same failure");
+
+  answerWith({ done: "finished after the pause" });
+  const third = await agent.pass(new Date(at.getTime() + 61_000));
+  assert.equal(third.due, 1, "a minute later the run is tried again");
+  assert.equal((await readRun(ctx, accountId, id))?.run.state, "done");
 });
 
 test("the groups are worked together, not one after another", async () => {

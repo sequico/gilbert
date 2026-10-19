@@ -331,6 +331,18 @@ test("a month of the archive is read by the same gate, and a bad filter is refus
     ),
     "the archived run is readable in its month",
   );
+  const detail = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs/archived-run?month=2025-09`,
+  );
+  assert.equal(detail.status, 200, JSON.stringify(detail.body));
+  assert.equal(
+    (detail.body as { run: { id: string } }).run.id,
+    "archived-run",
+    "the drawer answers the row's own document",
+  );
+  const noMonth = await call(`/api/groups/${encodeURIComponent(TEAM)}/runs/archived-run`);
+  assert.equal(noMonth.status, 404, "a working-set path does not find a drawer");
+
   const badMonth = await call(
     `/api/groups/${encodeURIComponent(TEAM)}/runs/archive?month=2025-9`,
   );

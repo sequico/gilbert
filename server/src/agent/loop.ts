@@ -174,6 +174,8 @@ const ARCHIVE_PER_PASS = 50;
 const ARCHIVE_EVERY_MS = 60 * 60_000;
 /** How stale the off path's reading may be before it starts from now instead. */
 const OFF_READING_FRESH_MS = 60 * 60_000;
+/** How long a run left running without a wait waits before it is tried again. */
+const STUCK_RETRY_MS = 60_000;
 
 /** What one pass of the loop did. */
 export interface PassSummary {
@@ -305,6 +307,8 @@ export class AgentLoop {
     string,
     { state: string; records: RunRecord[] }
   >();
+  /** Runs a pass tried while nothing waits on them: a failure is not retried at once. */
+  private readonly stuckUntil = new Map<string, number>();
 
   constructor(
     private readonly ctx: Ctx,
@@ -593,13 +597,27 @@ export class AgentLoop {
     const runs = new Set(handed);
     for (const { run } of records) {
       if (isRunDue(run, now)) runs.add(run.id);
-      if (run.state === "running" && run.waiting === null) runs.add(run.id);
+      if (
+        run.state === "running" &&
+        run.waiting === null &&
+        (this.stuckUntil.get(`${accountId}\u0000${run.id}`) ?? 0) <= now.getTime()
+      )
+        runs.add(run.id);
     }
     for (const id of runs) {
       const index = at.get(id);
       const record = index === undefined ? null : records[index];
       if (record?.run.state !== "running") continue;
       summary.due += 1;
+      /*
+       * A run nothing waits on is the crash path: it has no date, so the clock
+       * cannot say when to try it again. One minute between attempts keeps a
+       * failure from paying for a model call every ten seconds; the first
+       * attempt after a restart is immediate.
+       */
+      const key = `${accountId}\u0000${record.run.id}`;
+      const stuck = record.run.waiting === null;
+      if (stuck) this.stuckUntil.set(key, now.getTime() + STUCK_RETRY_MS);
       const worked = await this.workRun(
         accountId,
         record.run,
@@ -607,6 +625,8 @@ export class AgentLoop {
         undefined,
         record.state,
       );
+      const stillStuck = worked?.state === "running" && worked.waiting === null;
+      if (!stillStuck) this.stuckUntil.delete(key);
       // The archive and the change batch see the document as this pass left it.
       if (worked && index !== undefined) records[index] = { ...record, run: worked };
     }
