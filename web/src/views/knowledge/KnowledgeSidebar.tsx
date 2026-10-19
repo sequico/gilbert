@@ -87,17 +87,32 @@ function siblingsOf(
     .sort(compareKnowledgeSiblings);
 }
 
-/** Whether `nodeId` is `ancestorId` itself or sits anywhere below it. */
-function isWithin(tier: KnowledgeTierView, ancestorId: string, nodeId: string): boolean {
-  if (ancestorId === nodeId) return true;
-  const byId = new Map(tier.articles.map((a) => [a.nodeId, a]));
-  let current = byId.get(nodeId);
-  while (current) {
-    if (current.parentId === ancestorId) return true;
-    if (!current.parentId) break;
-    current = byId.get(current.parentId);
+/**
+ * The node and everything below it, read once when a drag starts.
+ *
+ * A row's answer during the drag is one set lookup: `dragover` fires many times
+ * a second, and growing this set once is the cost a drag can hide, while a map
+ * over the whole tier on every event is not.
+ */
+function subtreeOf(tier: KnowledgeTierView, nodeId: string): Set<string> {
+  const children = new Map<string, KnowledgeSummary[]>();
+  for (const one of tier.articles) {
+    const key = one.parentId ?? "";
+    const list = children.get(key);
+    if (list) list.push(one);
+    else children.set(key, [one]);
   }
-  return false;
+  const below = new Set<string>([nodeId]);
+  const stack = [nodeId];
+  while (stack.length) {
+    const id = stack.pop() as string;
+    for (const child of children.get(id) ?? []) {
+      if (below.has(child.nodeId)) continue;
+      below.add(child.nodeId);
+      stack.push(child.nodeId);
+    }
+  }
+  return below;
 }
 
 /** The company tier is the installation's; a group tier is named by its group. */
@@ -257,6 +272,8 @@ export function KnowledgeSidebar() {
    */
   const { open: expanded, setFolder, openKeys } = useOpenFolders("kb");
   const [dragging, setDragging] = useState<Dragging | null>(null);
+  /** The dragged node's subtree, grown once so a dragover is a set lookup. */
+  const dragSubtree = useRef<Set<string>>(new Set());
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   /** Show only checklist templates and the folders on the way to them. */
   const [templatesOnly, setTemplatesOnly] = useState(false);
@@ -417,12 +434,14 @@ export function KnowledgeSidebar() {
   };
 
   function dragStart(e: DragEvent, a: KnowledgeSummary, tier: KnowledgeTierView) {
+    dragSubtree.current = subtreeOf(tier, a.nodeId);
     setDragging({ accountId: tier.accountId, summary: a });
     e.dataTransfer.setData(KB_NODE_MIME, a.nodeId);
     e.dataTransfer.effectAllowed = "move";
   }
 
   function dragEnd() {
+    dragSubtree.current = new Set();
     setDragging(null);
     setDropTarget(null);
   }
@@ -432,7 +451,7 @@ export function KnowledgeSidebar() {
     if (!drag || drag.accountId !== tier.accountId) return;
     // A row cannot be dropped into itself or into its own descendant: that is
     // the cycle the FileNode tree must not grow.
-    if (isWithin(tier, drag.summary.nodeId, a.nodeId)) {
+    if (dragSubtree.current.has(a.nodeId)) {
       if (dropTarget) setDropTarget(null);
       return;
     }
@@ -451,7 +470,7 @@ export function KnowledgeSidebar() {
     setDropTarget(null);
     setDragging(null);
     if (!target || !drag || drag.accountId !== tier.accountId) return;
-    if (isWithin(tier, drag.summary.nodeId, a.nodeId)) return;
+    if (dragSubtree.current.has(a.nodeId)) return;
     if (target.mode === "inside") {
       void move(tier, drag.summary.folder, a.folder);
       return;

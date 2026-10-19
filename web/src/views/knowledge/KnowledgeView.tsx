@@ -1,6 +1,6 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { BookOpen, Eye } from "lucide-react";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { formatDateTime } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
 import { articleKey, emptyChecklist } from "@/lib/knowledge";
@@ -175,6 +175,36 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     if (error) toast.error(error);
   }, [error]);
 
+  /*
+   * Two facts about the whole tree, derived once per list instead of once per
+   * render: the editor re-renders on every keystroke, and neither the group
+   * choices nor "does anything below this page carry an issued revision" changes
+   * while the reader types. The second is the reverse of each approved page's
+   * ancestor chain, so a node's answer is one set lookup.
+   */
+  const groupChoices = useMemo(
+    () =>
+      tiers
+        .filter((tier) => tier.scope === "group" && tier.group)
+        .map((tier) => ({ id: tier.accountId, name: tier.group as string })),
+    [tiers],
+  );
+  const approvedBelow = useMemo(() => {
+    const below = new Set<string>();
+    for (const tier of tiers) {
+      const byId = new Map(tier.articles.map((one) => [one.nodeId, one]));
+      for (const one of tier.articles) {
+        if (!one.inForce && !one.pending) continue;
+        let cur = one.parentId ? byId.get(one.parentId) : undefined;
+        while (cur && !below.has(cur.nodeId)) {
+          below.add(cur.nodeId);
+          cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+        }
+      }
+    }
+    return below;
+  }, [tiers]);
+
   const activeTier =
     article === null
       ? null
@@ -204,21 +234,7 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
   // approval ever touched is removed outright (ADR 0024). A folder whose own
   // state is unapproved can still hold an approved sub-article, which the server
   // refuses to destroy — the control says so rather than inviting the click.
-  const approvedDescendants = (() => {
-    const list = activeTier?.articles ?? [];
-    const seen = new Set<string>([article.summary.nodeId]);
-    const stack = [article.summary.nodeId];
-    while (stack.length) {
-      const id = stack.pop()!;
-      for (const child of list) {
-        if ((child.parentId ?? "") !== id || seen.has(child.nodeId)) continue;
-        seen.add(child.nodeId);
-        if (child.inForce || child.pending) return true;
-        stack.push(child.nodeId);
-      }
-    }
-    return false;
-  })();
+  const approvedDescendants = approvedBelow.has(article.summary.nodeId);
   const everApproved =
     article.revisions.length > 0 ||
     Boolean(article.summary.inForce) ||
@@ -235,11 +251,6 @@ export function KnowledgeView({ nodeId }: { nodeId?: string }) {
     editing && edit
       ? (edit.checklist ?? emptyChecklist())
       : (article.effective?.checklist ?? article.draft?.checklist ?? emptyChecklist());
-  // The groups a section may be assigned to: the probed group tiers.
-  const groupChoices = tiers
-    .filter((tier) => tier.scope === "group" && tier.group)
-    .map((tier) => ({ id: tier.accountId, name: tier.group as string }));
-
   /*
    * Leaving edit mode re-opens the page, which re-seeds the store's draft and
    * drops whatever was typed. That is the only way to discard an edit: the
