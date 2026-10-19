@@ -164,6 +164,9 @@ export function startAgentWake(
       }
     }
     if (stopped) return;
+    // The server closed a stream that was working: it is being opened again,
+    // not failed.
+    if (reported === "connected") reported = "connecting";
     timer = setTimeout(() => void run(), wait);
     wait = Math.min(wait * 2, maxRetryMs);
     timer.unref();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
-import { startAgentWake } from "./wake.js";
+import { agentWakeStatus, startAgentWake } from "./wake.js";
 
 /** Wait for a condition, up to a deadline; the stream is real async I/O. */
 async function until(what: () => boolean, ms = 2_000): Promise<void> {
@@ -58,6 +58,7 @@ test("the agent's own stream wakes it, ignores pings, and reopens when it drops"
 
   await until(() => wakes >= 2);
   assert.ok(connections >= 2, "the stream was re-opened after it ended");
+  assert.equal(agentWakeStatus().state, "connected", "a state frame says the push works");
   // Let a ping-only frame arrive; it must not add a wake.
   await new Promise((resolve) => setTimeout(resolve, 60));
   assert.equal(wakes, 2, "one pass per state frame, and a ping is not one");
@@ -122,4 +123,36 @@ test("a connect that never answers gives up and tries again", async (t) => {
 
   await until(() => connections >= 2);
   assert.ok(connections >= 2, "the connect timed out and the stream was opened again");
+});
+
+test("a burst of complete frames is drained, not cut by the frame cap", async (t) => {
+  const frame = `event: state\ndata: ${"x".repeat(64 * 1024)}\n\n`;
+  let connections = 0;
+  let wakes = 0;
+  const server = createServer((_req, res) => {
+    connections += 1;
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    // Twenty terminated frames, well over a megabyte in one write: the cap is
+    // for a frame that never ends, not for a burst that arrived together.
+    res.write(frame.repeat(20));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  t.after(() => server.close());
+
+  const stop = startAgentWake(
+    {
+      eventSourceUrl: `http://127.0.0.1:${port}/events`,
+      baseUrl: `http://127.0.0.1:${port}`,
+      authorization: "Basic test",
+    },
+    () => {
+      wakes += 1;
+    },
+    { retryMs: 20 },
+  );
+  t.after(stop);
+
+  await until(() => wakes >= 20);
+  assert.equal(connections, 1, "the burst was processed on the connection it came on");
 });
