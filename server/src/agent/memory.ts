@@ -343,12 +343,11 @@ export async function rememberFact(
     /*
      * A person's sheet is never written against words this call did not read:
      * the memory moved because a person corrected it, and the agent's proposal
-     * has to be concluded against the correction. Everything else — a subject
-     * another call of this pass created, or a sheet of the agent's own that
-     * moved on — is decided again against the fresh reading.
+     * is concluded against the correction — the fresh reading carries it, and
+     * `writeFact` records the proposal beside it rather than over it. Anything
+     * else that moved (a subject another call of this pass created, a sheet of
+     * the agent's own) is decided again against the fresh reading the same way.
      */
-    const sameNow = fresh.facts.find((fact) => sameSubject(fact.subject, write.subject));
-    if (sameNow && isInForce(sameNow)) throw err;
     return await writeFact(ctx, accountId, write, fresh);
   }
 }
