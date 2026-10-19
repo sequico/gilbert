@@ -621,16 +621,27 @@ function NewWorkorderForm({
 
   const variantsChosen =
     checklist?.variants.every((v) => Boolean(variants[v.key])) ?? false;
+  /*
+   * A repeated section whose condition the chosen values do not meet does not
+   * materialise, and the server asks no items for it (a create that names none
+   * is accepted). Counting it here made the form refuse a workorder the door
+   * would have written.
+   */
   const itemsNamed =
     checklist?.sections
-      .filter((section) => section.repeat)
+      .filter(
+        (section) =>
+          section.repeat &&
+          (!section.condition ||
+            variants[section.condition.variant] === section.condition.equals),
+      )
       .every((section) => (items[section.key] ?? []).some((row) => row.key.trim())) ??
     false;
   const ready = Boolean(
     name.trim() && chosen && checklist && checklistReady && variantsChosen && itemsNamed,
   );
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!ready || !chosen || !checklist) return;
     const chosenVariants: Record<string, string> = {};
@@ -653,8 +664,13 @@ function NewWorkorderForm({
       variants: chosenVariants,
       items: chosenItems,
     };
-    if (replacing) void replace(replacing.uid, input);
-    else void create(input);
+    /*
+     * The form stays open when the door refused: the administrator's choices
+     * are the work of the form, and a create that failed must not take them
+     * away with the error toast.
+     */
+    const written = replacing ? await replace(replacing.uid, input) : await create(input);
+    if (!written) return;
     setName("");
     setTemplateIdx("");
     onClose();
@@ -666,7 +682,7 @@ function NewWorkorderForm({
       role="dialog"
       aria-modal="true"
       aria-label={replacing ? t("Replace with") : t("New workorder")}
-      onSubmit={submit}
+      onSubmit={(e) => void submit(e)}
     >
       <div className="workorder-head">
         <h2 className="grow truncate">
