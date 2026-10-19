@@ -183,3 +183,28 @@ export async function listRuns(ctx: Ctx, accountId: string): Promise<RunRecord[]
   }
   return records;
 }
+
+/**
+ * The runs a pass may work, and the documents it could not read.
+ *
+ * The loop's own listing: a document this build cannot read is **said** and the
+ * readable runs are still worked, so one corrupt file cannot stop a group's
+ * agent for ever (the surface's answer has always been the two lists; this is
+ * the working half taking the same shape).
+ */
+export async function listRunsForWorking(
+  ctx: Ctx,
+  accountId: string,
+): Promise<{ records: RunRecord[]; problems: string[] }> {
+  const state = await appFolderState(ctx, accountId);
+  const records: RunRecord[] = [];
+  const problems: string[] = [];
+  for (const row of await listRunsForReading(ctx, accountId)) {
+    if (row.problem) {
+      problems.push(row.problem);
+      continue;
+    }
+    if (row.run) records.push({ run: row.run, state });
+  }
+  return { records, problems };
+}

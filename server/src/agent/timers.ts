@@ -35,7 +35,7 @@
 
 import type { Ctx } from "../appFolder.js";
 import { waitDueAt } from "../shared/run.js";
-import { listRuns } from "./runs.js";
+import { listRunsForWorking } from "./runs.js";
 
 /**
  * The longest a single `setTimeout` may be asked to wait.
@@ -86,10 +86,12 @@ export class WaitTimers {
    * carries is left alone: the caller owes the advance between the two arms, and
    * arming it again would hand the same date over twice.
    */
-  async arm(ctx: Ctx, accountId: string): Promise<string[]> {
+  async arm(ctx: Ctx, accountId: string, problems: string[] = []): Promise<string[]> {
     const armed: string[] = [];
     const waiting = new Set<string>();
-    for (const { run } of await listRuns(ctx, accountId)) {
+    const read = await listRunsForWorking(ctx, accountId);
+    problems.push(...read.problems);
+    for (const { run } of read.records) {
       const until = waitDueAt(run);
       if (!until) continue;
       const key = waitKey(accountId, run.id);

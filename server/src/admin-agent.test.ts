@@ -308,7 +308,11 @@ test("a member stops a run of their group, and another group's run is not theirs
   const ended = (stopped.body as { run: { state: string; ended?: { why?: string } } })
     .run;
   assert.equal(ended.state, "cancelled", "the fourth ending, not done and not blocked");
-  assert.match(ended.ended?.why ?? "", /stopped by a member/);
+  assert.match(
+    ended.ended?.why ?? "",
+    /stopped by demo@example\.com/,
+    "the record names the person who stopped it",
+  );
 
   const again = await call(
     `/api/groups/${encodeURIComponent(TEAM)}/runs/${encodeURIComponent(run.id)}/stop`,

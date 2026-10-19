@@ -255,7 +255,7 @@ export function registerAgentRoutes(api: Hono<Env>): void {
       if (record.run.state !== "running") return c.json({ run: record.run });
       const ended = finishRun(record.run, "cancelled", {
         at: new Date().toISOString(),
-        why: "stopped by a member of the group",
+        why: `stopped by ${c.get("session").username}`,
       });
       await replaceRun(access.ctx, access.accountId, ended, {
         ifInState: record.state,

@@ -50,7 +50,7 @@ export interface ChangesDeps {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
-  ): Promise<void>;
+  ): Promise<RunDoc | null>;
   authoriseAnswer(answer: AnsweredRun): Promise<RunDoc>;
   openRun(accountId: string, event: AccountEvent, rule: RuleDoc): Promise<RunDoc>;
 }
@@ -201,11 +201,19 @@ function withUsage(
   });
 }
 
+/** One run, put where the batch's list holds it: replaced, or added at the end. */
+function remember(records: RunRecord[], run: RunDoc): void {
+  const at = records.findIndex((record) => record.run.id === run.id);
+  if (at >= 0) records[at] = { run, state: records[at]?.state ?? "" };
+  else records.push({ run, state: "" });
+}
+
 export async function workChanges(
   deps: ChangesDeps,
   accountId: string,
   now: Date,
   summary: PassSummary,
+  records?: readonly RunRecord[],
 ): Promise<void> {
   let cursor = deps.cursors.get(accountId);
   if (!cursor) {
@@ -218,8 +226,12 @@ export async function workChanges(
   const read = await readAccountEvents(deps.ctx, accountId, cursor);
   if (read.gap) summary.gaps.push(read.gap);
   const rules = (await listRules(deps.ctx, accountId)).map((record) => record.rule);
-  /** The runs the account already held, asked for once and only when needed. */
-  let held: RunRecord[] | null = null;
+  /**
+   * The runs the account already holds: the list the pass read, or asked for
+   * once when a caller has none. It is updated as the batch works, so the next
+   * event sees the document this one left.
+   */
+  let held: RunRecord[] | null = records ? [...records] : null;
   for (const event of read.events) {
     summary.changes += 1;
     /*
@@ -254,7 +266,16 @@ export async function workChanges(
       if (answer === "already") continue;
       if (answer) {
         summary.due += 1;
-        await deps.workRun(accountId, await deps.authoriseAnswer(answer), now);
+        const worked = await deps.workRun(
+          accountId,
+          await deps.authoriseAnswer(answer),
+          now,
+          // The answer's own words are what the next call recalls facts by,
+          // as the decision turn's facts were for a change it opened.
+          { answer: answer.said },
+        );
+        held ??= [];
+        if (worked) remember(held, worked);
         continue;
       }
     }
@@ -316,13 +337,26 @@ export async function workChanges(
       held ??= await listRuns(deps.ctx, accountId);
       const open = runsByStart(held).get(key);
       if (open) {
-        if (open.state === "running")
-          await deps.workRun(accountId, withUsage(open, meter), now, decision.facts);
+        if (open.state === "running") {
+          const worked = await deps.workRun(
+            accountId,
+            withUsage(open, meter),
+            now,
+            decision.facts,
+          );
+          if (worked) remember(held, worked);
+        }
         continue;
       }
       const run = await deps.openRun(accountId, event, rule);
       summary.runs += 1;
-      await deps.workRun(accountId, withUsage(run, meter), now, decision.facts);
+      const worked = await deps.workRun(
+        accountId,
+        withUsage(run, meter),
+        now,
+        decision.facts,
+      );
+      remember(held, worked ?? run);
     }
   }
   // The cursor moves only once the batch is answered: a read that failed

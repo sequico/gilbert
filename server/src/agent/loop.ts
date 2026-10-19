@@ -119,7 +119,14 @@ import {
 import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
-import { createRun, listRuns, type RunRecord, readRun, replaceRun } from "./runs.js";
+import {
+  createRun,
+  listRuns,
+  listRunsForWorking,
+  type RunRecord,
+  readRun,
+  replaceRun,
+} from "./runs.js";
 import { readAgentSwitch } from "./switch.js";
 import { type DueWait, WaitTimers } from "./timers.js";
 import {
@@ -155,6 +162,15 @@ const RUN_MS_MAX = 5 * 60_000;
  * take the installation over beside it.
  */
 const CLAIM_RENEW_WITHIN_MS = CLAIM_TTL_MS / 2;
+
+/**
+ * How many old runs one pass archives.
+ *
+ * A first pass over a group with years of history would otherwise move
+ * thousands of documents in one go, outliving the claim it works under. The
+ * rest follow on later passes; the drawer is the same either way.
+ */
+const ARCHIVE_PER_PASS = 50;
 
 /** What one pass of the loop did. */
 export interface PassSummary {
@@ -367,6 +383,19 @@ export class AgentLoop {
           { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
           accountId,
         ).catch(() => undefined);
+        /*
+         * The archive is housekeeping, not a decision: a switched-off agent
+         * still keeps the group's runs folder to the year the owner chose.
+         */
+        try {
+          const read = await listRunsForWorking(this.ctx, accountId);
+          for (const problem of read.problems)
+            summary.gaps.push(`${accountId}: ${problem}`);
+          for (const gap of await this.archive(accountId, read.records, now))
+            summary.gaps.push(`${accountId}: ${gap}`);
+        } catch (err) {
+          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+        }
       }
       summary.gaps.push("the agent is turned off for this installation");
       return summary;
@@ -390,9 +419,9 @@ export class AgentLoop {
        */
       try {
         const records = await this.workDue(accountId, now, summary);
-        for (const gap of await archiveOldRuns(this.ctx, accountId, records, now))
+        for (const gap of await this.archive(accountId, records, now))
           summary.gaps.push(`${accountId}: ${gap}`);
-        await this.workChanges(accountId, now, summary);
+        await this.workChanges(accountId, now, summary, records);
       } catch (err) {
         summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
       }
@@ -406,7 +435,9 @@ export class AgentLoop {
        * all the same, from the runs that can be read.
        */
       try {
-        await this.timers.arm(this.ctx, accountId);
+        const problems: string[] = [];
+        await this.timers.arm(this.ctx, accountId, problems);
+        for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
       } catch (err) {
         summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
       }
@@ -421,10 +452,32 @@ export class AgentLoop {
     return summary;
   }
 
-  /** The sheets this pass's memory reading could not use, or none if it never read. */
+  /**
+   * The sheets this pass's memory reading could not use, or none if it never
+   * read.
+   *
+   * A reading that failed was already reported by the account that needed it;
+   * awaiting the rejected promise here would turn that gap into a failed pass.
+   */
   private async memoryProblems(): Promise<string[]> {
     if (!this.reading) return [];
-    return (await this.reading).problems;
+    try {
+      return (await this.reading).problems;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Move the old runs this pass read, and answer what could not be moved. */
+  private async archive(
+    accountId: string,
+    records: readonly RunRecord[],
+    now: Date,
+  ): Promise<string[]> {
+    return await archiveOldRuns(this.ctx, accountId, records, now, {
+      max: ARCHIVE_PER_PASS,
+      beforeMove: () => this.keepClaim(),
+    });
   }
 
   /** Every run of one account whose wait has come due, worked again. */
@@ -447,20 +500,26 @@ export class AgentLoop {
      * crash, a pass that failed after the run was opened). Two listings asked
      * `runs/` the same thing twice, every pass, for every account.
      */
-    const records = await listRuns(this.ctx, accountId);
+    const read = await listRunsForWorking(this.ctx, accountId);
+    for (const problem of read.problems) summary.gaps.push(`${accountId}: ${problem}`);
+    const records = read.records;
+    const at = new Map(records.map((record, index) => [record.run.id, index]));
     const runs = new Set(handed.map((due) => due.runId));
     for (const { run } of records) {
       if (isRunDue(run, now)) runs.add(run.id);
       if (run.state === "running" && run.waiting === null) runs.add(run.id);
     }
     for (const id of runs) {
-      const record = await readRun(this.ctx, accountId, id);
-      if (record?.run.state !== "running") continue;
+      const index = at.get(id);
+      const record = index === undefined ? null : records[index];
+      if (!record || record.run.state !== "running") continue;
       summary.due += 1;
-      await this.workRun(accountId, record.run, now);
+      const worked = await this.workRun(accountId, record.run, now);
+      // The archive and the change batch see the document as this pass left it.
+      if (worked && index !== undefined) records[index] = { ...record, run: worked };
     }
     // What the pass read is also what the archive decides on: a run this pass
-    // just ended is not in it as ended, and goes in its month on the next pass.
+    // just ended is on the list with its ending, and goes in its drawer now.
     return records;
   }
 
@@ -487,6 +546,7 @@ export class AgentLoop {
     accountId: string,
     now: Date,
     summary: PassSummary,
+    records: readonly RunRecord[],
   ): Promise<void> {
     /*
      * The batched changes of one account. Kept as a function over what it needs
@@ -519,6 +579,7 @@ export class AgentLoop {
         accountId,
         now,
         summary,
+        records,
       );
       this.retryAfter.delete(accountId);
     } catch (err) {
@@ -738,9 +799,9 @@ export class AgentLoop {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
-  ): Promise<void> {
+  ): Promise<RunDoc | null> {
     const access = this.access;
-    if (!access) return;
+    if (!access) return null;
     let current = run;
     /*
      * What the memory recalls for this run (ADR 0037): the change it answers, the
@@ -771,14 +832,11 @@ export class AgentLoop {
     for (;;) {
       const over = overBudget(current);
       if (over) {
-        await this.store(
-          accountId,
-          finishRun(current, "out-of-budget", {
-            at: now.toISOString(),
-            why: `the budget ended the run: ${over}, so the work did not finish.`,
-          }),
-        );
-        return;
+        const ended = finishRun(current, "out-of-budget", {
+          at: now.toISOString(),
+          why: `the budget ended the run: ${over}, so the work did not finish.`,
+        });
+        return (await this.store(accountId, ended)) ? ended : null;
       }
       const prose = await this.proseOf(accountId, current, above);
       const startedMs = Date.now();
@@ -820,16 +878,13 @@ export class AgentLoop {
         current = spendRun(current, { ms: Date.now() - startedMs });
         refused += 1;
         if (refused >= 2) {
-          await this.store(
-            accountId,
-            finishRun(current, "out-of-budget", {
-              at: now.toISOString(),
-              why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
-            }),
-          );
-          return;
+          const ended = finishRun(current, "out-of-budget", {
+            at: now.toISOString(),
+            why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
+          });
+          return (await this.store(accountId, ended)) ? ended : null;
         }
-        if (!(await this.store(accountId, current))) return;
+        if (!(await this.store(accountId, current))) return null;
         continue;
       }
       current = spendRun(current, {
@@ -839,14 +894,11 @@ export class AgentLoop {
         cachedPromptTokens: meter.cachedTokens,
       });
       if (choice.kind === "done") {
-        await this.store(
-          accountId,
-          finishRun(current, "done", {
-            at: now.toISOString(),
-            why: choice.why,
-          }),
-        );
-        return;
+        const ended = finishRun(current, "done", {
+          at: now.toISOString(),
+          why: choice.why,
+        });
+        return (await this.store(accountId, ended)) ? ended : null;
       }
 
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
@@ -867,14 +919,11 @@ export class AgentLoop {
           "the same calls were chosen twice and made no progress",
           false,
         );
-        await this.store(
-          accountId,
-          finishRun(current, "out-of-budget", {
-            at: now.toISOString(),
-            why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
-          }),
-        );
-        return;
+        const ended = finishRun(current, "out-of-budget", {
+          at: now.toISOString(),
+          why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
+        });
+        return (await this.store(accountId, ended)) ? ended : null;
       }
       previous = chosen;
 
@@ -902,7 +951,7 @@ export class AgentLoop {
        * nothing that says what asked for it. The outcomes are written after the
        * wave, on the same call, further down.
        */
-      if (!(await this.store(accountId, current))) return;
+      if (!(await this.store(accountId, current))) return null;
       let wait: RunWait | null = null;
       for (;;) {
         const { ready, left } = readiness(current.plan, base);
@@ -992,14 +1041,11 @@ export class AgentLoop {
         current = spendRun(current, { ms: elapsedMs });
         refused = worked ? 0 : refused + 1;
         if (refused >= 3) {
-          await this.store(
-            accountId,
-            finishRun(current, "out-of-budget", {
-              at: now.toISOString(),
-              why: "the last rounds were refused in full, so the work did not finish.",
-            }),
-          );
-          return;
+          const ended = finishRun(current, "out-of-budget", {
+            at: now.toISOString(),
+            why: "the last rounds were refused in full, so the work did not finish.",
+          });
+          return (await this.store(accountId, ended)) ? ended : null;
         }
       }
 
@@ -1019,8 +1065,8 @@ export class AgentLoop {
           });
       }
       // The outcomes are written on the document the wave ran against, whole.
-      if (!(await this.store(accountId, current))) return;
-      if (wait) return;
+      if (!(await this.store(accountId, current))) return null;
+      if (wait) return current;
     }
   }
 

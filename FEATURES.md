@@ -334,8 +334,10 @@ withdrawn in Stalwart needs no restart.
 
 **A run that ended more than a year ago leaves the working set**: the agent moves
 it to `runs/archive/<year-month>/` in the same account — kept as a document,
-never deleted — so the runs folder every pass lists stays small. A run still
-running, or one that ended inside the year, is not moved.
+never deleted — so the runs folder every pass lists stays bounded to the year.
+A run still running, or one that ended inside the year, is not moved; a pass
+moves a bounded batch, and the archive runs even while the agent is switched
+off, because it is housekeeping rather than a decision.
 
 **Where the agent is, and what it did, is in Administration → AI Agents**
 (`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who
