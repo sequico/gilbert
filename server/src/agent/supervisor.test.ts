@@ -4,8 +4,8 @@
  * What is pinned here is the supervisor's own contract, one mechanism per test,
  * and each of them is a mechanism rather than a run of the code:
  *
- * - an installation that has chosen no model leaves the agent idle with one line
- *   — the process answers null rather than running on a provider nobody chose;
+ * - an installation that has chosen no model starts the agent all the same, with
+ *   one line, so a model published later is picked up by the next pass;
  * - a Master that works no group has an agent all the same, because the groups
  *   are read on every pass and not decided at the start;
  * - the accounts one pass works are read from the mail server each time, so a
@@ -270,13 +270,17 @@ function bootState(options: BootOptions = {}): BootConfiguration {
 
 /* ------------------------------------------------------------------ */
 
-test("an installation that has chosen no model leaves the agent idle, with one line", async () => {
+test("an installation that has chosen no model starts the agent, with one line", async (t) => {
+  /*
+   * The loop starts even with no model: each pass re-reads the document, so a
+   * model published from Administration is in force on the next pass instead of
+   * needing a restart. The one line says which state the installation is in.
+   */
   const { lines, log } = collector();
   const agent = await startAgent(bootState({ model: false }), { log });
-  assert.equal(agent, null, "there is no agent to supervise");
-  assert.deepEqual(lines, [
-    "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
-  ]);
+  assert.ok(agent, "the agent starts, so a model published later is picked up");
+  t.after(() => agent.stop());
+  assert.match(lines[0] ?? "", /chosen no model/);
 });
 
 test("a Master that works no group has an agent all the same", async (t) => {

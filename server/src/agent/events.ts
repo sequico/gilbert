@@ -70,12 +70,12 @@ import { CAPABILITIES } from "../shared/capabilities.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { RULES_DIR } from "../shared/rule.js";
 import { clientOf } from "../util.js";
-import { RUNS_DIR } from "./runs.js";
 import {
   type AccountEvent,
   type AccountEventChange,
   eventSourceOf,
 } from "./accountEvent.js";
+import { RUNS_DIR } from "./runs.js";
 
 /**
  * How many changes one page of a log asks for.
@@ -236,7 +236,9 @@ function isAgentPath(path: string): boolean {
     ? path.slice(APP_FOLDER_NAME.length + 1)
     : path;
   return (
-    rel === INSTRUCTION_FILE || rel.startsWith(`${RUNS_DIR}/`) || rel.startsWith(`${RULES_DIR}/`)
+    rel === INSTRUCTION_FILE ||
+    rel.startsWith(`${RUNS_DIR}/`) ||
+    rel.startsWith(`${RULES_DIR}/`)
   );
 }
 

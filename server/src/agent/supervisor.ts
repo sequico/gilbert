@@ -106,8 +106,8 @@ const KICK_COALESCE_MS = 500;
 export interface PassableLoop {
   /** One pass: what the loop works. `claimed` false means a peer holds the installation. */
   pass(now?: Date): Promise<PassSummary>;
-  /** Give up the loop's alarms; the claim lapses on its own. */
-  stop(): void;
+  /** Give up the loop's alarms and its claim. */
+  stop(): void | Promise<void>;
 }
 
 /** What one supervised process needs. */
@@ -124,8 +124,8 @@ interface SupervisorOptions {
 
 /** A running supervisor: the schedule, and the one way to give it up. */
 interface AgentProcess {
-  /** Give up the schedule and the loop's alarms. The claim lapses on its own (ADR 0036). */
-  stop(): void;
+  /** Give up the schedule, the loop's alarms and the claim it holds. */
+  stop(): Promise<void>;
   /**
    * Ask for a pass now — the push receiver calls this when Stalwart says mail or
    * the app folder changed (chat among them; see `push.ts` for the trial-phase
@@ -243,13 +243,13 @@ export function supervise(options: SupervisorOptions): AgentProcess {
 
   return {
     kick,
-    stop(): void {
+    async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;
       clearInterval(timer);
       if (kickTimer) clearTimeout(kickTimer);
-      options.loop.stop();
-      log("[gilbert] agent: stopping, and the claim lapses on its own (ADR 0036)");
+      await options.loop.stop();
+      log("[gilbert] agent: stopping, and the claim is released");
     },
   };
 }

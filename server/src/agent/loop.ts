@@ -98,7 +98,7 @@ import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upst
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { wokeOf, workChanges } from "./changes.js";
-import { CLAIM_TTL_MS, renewClaim, takeClaim } from "./claim.js";
+import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
 import type { EventCursor } from "./events.js";
 import { readInstruction } from "./instruction.js";
 import { listFacts, type MemoryStore } from "./memory.js";
@@ -274,7 +274,8 @@ export class AgentLoop {
     private readonly opts: AgentLoopOptions,
   ) {
     this.access = opts.access ?? null;
-    this.allowPrivate = opts.allowPrivateProvider ?? opts.access?.allowPrivateProvider ?? false;
+    this.allowPrivate =
+      opts.allowPrivateProvider ?? opts.access?.allowPrivateProvider ?? false;
     this.catalogue = opts.catalogue ?? TOOLS;
     this.timers = new WaitTimers((due) => {
       this.pending.push(due);
@@ -287,8 +288,17 @@ export class AgentLoop {
   }
 
   /** Give up the alarms, on the way down. The claim lapses on its own. */
-  stop(): void {
+  /**
+   * Give up the alarms, and the claim.
+   *
+   * A process that is stopping knows it is stopping: releasing the claim here
+   * is what lets the next one take over at once instead of waiting out the ten
+   * minutes a claim lives after its holder goes silent. A release that fails
+   * changes nothing — the claim then lapses on its own, as it always did.
+   */
+  async stop(): Promise<void> {
     this.timers.stop();
+    await releaseClaim(this.ctx, this.opts.holder).catch(() => undefined);
   }
 
   /**

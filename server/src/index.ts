@@ -164,7 +164,7 @@ async function main() {
     console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
     stopKicks();
-    agent?.stop();
+    await agent?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,
        and what is left behind otherwise holds one of the account's fifteen
        slots for as long as it lives. A deploy is a shutdown. */
