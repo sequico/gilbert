@@ -19,7 +19,7 @@
     "@cfworker/json-schema": "^4.1.1",
     "@e965/xlsx": "0.20.3",
     "@hono/node-server": "^2.1.4",
-    "@hyzyla/pdfium": "^2.1.13",
+    "@hyzyla/pdfium": "^3.0.0",
     "hono": "^4.13.12",
     "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
