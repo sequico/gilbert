@@ -72,6 +72,7 @@ import {
   openAgentSession,
   resolveGroupAccess,
 } from "../groupAccess.js";
+import { WRITE_ATTEMPTS } from "../jmap.js";
 import type { LiveSession } from "../sessions.js";
 import { type AgentStatus, isClaimDoc } from "../shared/agent.js";
 import { isStateMismatch } from "../shared/errors.js";
@@ -105,7 +106,12 @@ const memoryFailure = failureFor(MemoryError);
  * changed under is the same list. A write anywhere in the account moves the
  * token, which is what makes the next ask a fresh walk.
  */
-const RUNS_READING_TTL_MS = 10_000;
+/*
+ * The TTL is the backstop for a state change this process did not see, so it
+ * sits above the slowest poll (the runs surface watches every ten seconds):
+ * equal to it, the entry expired just before every ask and the walk ran anyway.
+ */
+const RUNS_READING_TTL_MS = 30_000;
 /** How many archived runs one answer carries; the month can hold many. */
 const ARCHIVE_PAGE = 100;
 const runsReadings = new Map<string, { state: string; rows: RunSummary[]; at: number }>();
@@ -271,17 +277,39 @@ export function registerAgentRoutes(api: Hono<Env>): void {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const record = await readRun(access.ctx, access.accountId, id);
-      if (!record) return c.json({ error: "not_found" }, 404);
-      if (record.run.state !== "running") return c.json({ run: record.run });
-      const ended = finishRun(record.run, "cancelled", {
-        at: new Date().toISOString(),
-        why: `stopped by ${c.get("session").username}`,
-      });
-      await replaceRun(access.ctx, access.accountId, ended, {
-        ifInState: record.state,
-      });
-      return c.json({ run: ended });
+      /*
+       * Stopping is the race this door exists for: the pass records a step of
+       * the same run while the person presses Stop. A lost compare-and-set is
+       * retried on the document as it now stands — the same attempts every
+       * other writer makes — and only a stop that keeps losing is refused, with
+       * a sentence that says the run is still running rather than an upstream
+       * mail-server error.
+       */
+      for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+        const record = await readRun(access.ctx, access.accountId, id);
+        if (!record) return c.json({ error: "not_found" }, 404);
+        if (record.run.state !== "running") return c.json({ run: record.run });
+        const ended = finishRun(record.run, "cancelled", {
+          at: new Date().toISOString(),
+          why: `stopped by ${c.get("session").username}`,
+        });
+        try {
+          await replaceRun(access.ctx, access.accountId, ended, {
+            ifInState: record.state,
+          });
+          return c.json({ run: ended });
+        } catch (err) {
+          if (!isStateMismatch(err)) throw err;
+        }
+      }
+      return c.json(
+        {
+          error: "run_moved",
+          message:
+            "The run moved while it was being stopped, so it is still running. Try again.",
+        },
+        409,
+      );
     } catch (err) {
       return doorFailure(c, err);
     }
