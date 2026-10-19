@@ -10,9 +10,11 @@
 
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
+import { CAPABILITIES } from "../shared/capabilities.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
+import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
 import type { AnsweredRun, PassSummary } from "./loop.js";
@@ -126,6 +128,14 @@ export async function offPath(
       if (event.source === "chat") {
         const message = await readChatMessageAt(deps.ctx, accountId, event.where);
         if (!message || message.from === deps.self) continue;
+        // In the group conversation the notice is for a message that names the
+        // agent, not for everything the group says to itself.
+        if (
+          !message.mentions?.some(
+            (one) => one.id.toLowerCase() === deps.self.toLowerCase(),
+          )
+        )
+          continue;
         await postChatMessage(deps.ctx, accountId, deps.self, OFF_NOTICE, {
           replyTo: message.id,
         });
@@ -135,6 +145,27 @@ export async function offPath(
           known: [],
         });
         if (!message?.from || message.from === deps.self) continue;
+        /*
+         * Only mail the agent was actually addressed in: a group's ordinary
+         * correspondence is not a conversation with the agent, and answering it
+         * would put the notice on every thread the group receives.
+         */
+        const addressed = await clientOf(deps.ctx).call<{
+          list?: Array<{
+            to?: Array<{ email?: string | null }>;
+            cc?: Array<{ email?: string | null }>;
+          }>;
+        }>("Email/get", { accountId, ids: [event.where], properties: ["to", "cc"] }, [
+          CAPABILITIES.mail,
+        ]);
+        const mine = deps.self.toLowerCase();
+        const isMine = (one: { email?: string | null }): boolean =>
+          (one.email ?? "").toLowerCase() === mine;
+        const addressees = (addressed.list ?? []).flatMap((one) => [
+          ...(one.to ?? []),
+          ...(one.cc ?? []),
+        ]);
+        if (!addressees.some(isMine)) continue;
         await sendMail(deps.ctx, accountId, {
           to: message.from,
           subject: OFF_NOTICE,
