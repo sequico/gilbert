@@ -801,7 +801,7 @@ export async function closeWorkorder(
             );
         }
       : undefined;
-  return setRootState(session, id, state, null, current, guard);
+  return setRootState(session, id, state, null, current, guard, reach);
 }
 
 /**
@@ -826,8 +826,10 @@ async function setRootState(
   previous: WorkorderSummary | null = null,
   /** A rule on the root the compare-and-set reads, e.g. no open steps. */
   guard?: (found: WorkorderFound) => Promise<void> | void,
+  /** The Master's account a caller already opened, so the write reuses it. */
+  tier?: { ctx: Ctx; accountId: string },
 ): Promise<WorkorderSummary> {
-  const { ctx, accountId } = await masterAccount(session);
+  const { ctx, accountId } = tier ?? (await masterAccount(session));
   const activeId = await ensureFolderPath(ctx, accountId, WORKORDER_FOLDER);
   const closedId = await ensureFolderPath(ctx, accountId, workorderClosedPath());
   const target = isTerminalState(state) ? closedId : activeId;
