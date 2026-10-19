@@ -32,12 +32,12 @@ import { defineTool, ToolError } from "./define.js";
 export const listFiles = defineTool({
   name: "files.list",
   description:
-    "List a folder of this account's Files. Name no folder for the top level; " +
-    "a folder's path lists the level inside it.",
+    "List a folder of this account's Files, by its `path` — `MS2` lists what " +
+    "is inside MS2. Name no path for the top level of Files.",
   authority: "reversible",
   writes: false,
-  parse: (raw: unknown) => ({ folder: optionalTextArg(argsRecord(raw), "folder") ?? "" }),
-  run: async ({ ctx, accountId }, { folder }) => {
+  parse: (raw: unknown) => ({ path: optionalTextArg(argsRecord(raw), "path") ?? "" }),
+  run: async ({ ctx, accountId }, { path: folder }) => {
     const folderId = await findVisibleFolder(ctx, accountId, folder);
     if (folderId === undefined)
       throw notFound(`folder "${folder}" in this account's Files`);
@@ -273,40 +273,46 @@ export const createFileFolder = defineTool({
 export const moveFile = defineTool({
   name: "files.move",
   description:
-    "Move a node of this account's own Files into a folder, by the folder's " +
-    "path; name no folder to move it to the top level. The node keeps its name " +
-    "and its id, and a move into its own subtree is refused.",
+    "Move a node of this account's own Files into a folder: `path` is the " +
+    "node's path now, `folder` the folder to move it into — name no folder for " +
+    "the top level. The node keeps its name and its id.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return { id: textArg(args, "id"), folder: optionalTextArg(args, "folder") ?? "" };
+    return { path: textArg(args, "path"), folder: optionalTextArg(args, "folder") ?? "" };
   },
-  run: async ({ ctx, accountId }, { id, folder }) => {
+  run: async ({ ctx, accountId }, { path, folder }) => {
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
     const dest = await findVisibleFolder(ctx, accountId, folder);
     if (dest === undefined) throw notFound(`folder "${folder}" in this account's Files`);
     // `null` is the top level of Files, and it is a destination: a patch that
     // dropped it would leave the node where it was.
-    await writeNode(ctx, accountId, id, { parentId: dest });
-    return { id, folder: folder || null };
+    await writeNode(ctx, accountId, String(held.file.id), { parentId: dest });
+    const name = String(held.file.name ?? "");
+    return { path: folder ? `${folder}/${name}` : name, folder: folder || null };
   },
 });
 
 export const renameFile = defineTool({
   name: "files.rename",
   description:
-    "Rename a node of this account's own Files. A name another node of the same " +
-    "folder already carries is refused rather than taken.",
+    "Rename a node of this account's own Files, by the `path` it carries now " +
+    "and the `name` to give it. A name another node of the same folder already " +
+    "carries is refused rather than taken.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
-    return { id: textArg(args, "id"), name: textArg(args, "name") };
+    return { path: textArg(args, "path"), name: textArg(args, "name") };
   },
-  run: async ({ ctx, accountId }, { id, name }) => {
-    await writeNode(ctx, accountId, id, { name });
-    return { id, name };
+  run: async ({ ctx, accountId }, { path, name }) => {
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
+    await writeNode(ctx, accountId, String(held.file.id), { name });
+    return { path, name };
   },
 });

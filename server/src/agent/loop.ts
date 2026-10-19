@@ -724,6 +724,13 @@ export class AgentLoop {
       selection.map((fact) => fact.id),
     );
     let previous: string | null = null;
+    /*
+     * An answer refused for its shape, or a round whose every step was refused,
+     * is the model repeating itself rather than working: two malformed answers
+     * in a row, or three all-refused rounds, end the run instead of paying for
+     * the same refusal again. A successful step clears the count.
+     */
+    let refused = 0;
     for (;;) {
       const over = overBudget(current);
       if (over) {
@@ -774,6 +781,17 @@ export class AgentLoop {
           false,
         );
         current = spendRun(current, { ms: Date.now() - startedMs });
+        refused += 1;
+        if (refused >= 2) {
+          await this.store(
+            accountId,
+            finishRun(current, "out-of-budget", {
+              at: now.toISOString(),
+              why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
+            }),
+          );
+          return;
+        }
         await this.store(accountId, current);
         continue;
       }
@@ -914,9 +932,11 @@ export class AgentLoop {
           ),
         );
         const elapsedMs = Date.now() - ranMs;
+        let worked = false;
         for (const [which, { at, call }] of wave.entries()) {
           const result = settled[which];
           if (result?.status === "fulfilled") {
+            worked = true;
             current = recordStep(current, at, {
               state: "done",
               outcome: boundedText(result.value),
@@ -933,6 +953,17 @@ export class AgentLoop {
             });
         }
         current = spendRun(current, { ms: elapsedMs });
+        refused = worked ? 0 : refused + 1;
+        if (refused >= 3) {
+          await this.store(
+            accountId,
+            finishRun(current, "out-of-budget", {
+              at: now.toISOString(),
+              why: "the last rounds were refused in full, so the work did not finish.",
+            }),
+          );
+          return;
+        }
       }
 
       /*

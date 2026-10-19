@@ -591,7 +591,7 @@ test("the reading tools answer from the group's account", async () => {
   );
   const listed = await tool<{
     nodes: Array<{ path: string; nodeType: string; modified: string }>;
-  }>("files.list", { folder: "Documents" });
+  }>("files.list", { path: "Documents" });
   const order = listed.nodes.find((node) => node.path === "Documents/order.txt");
   assert.ok(order, "the folder's own children are listed by their path");
   assert.equal(order.nodeType, "file");
@@ -1057,10 +1057,12 @@ test("the writing tools change the group's own account", async () => {
   );
   const booking = await readVisibleFileAt(ctx, accountId, "Documents/booking.txt");
   assert.ok(booking, "the document is in the visible tree");
-  const node = String(booking.file.id);
-  await writeTool("files.move", { id: node, folder: "Containers/2026" });
-  const moved = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {
+  await writeTool("files.move", {
+    path: "Documents/booking.txt",
     folder: "Containers/2026",
+  });
+  const moved = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    path: "Containers/2026",
   });
   assert.deepEqual(
     moved.nodes.map((one) => one.path),
@@ -1068,13 +1070,16 @@ test("the writing tools change the group's own account", async () => {
     "the node is where it was moved to",
   );
   const left = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {
-    folder: "Documents",
+    path: "Documents",
   });
   assert.ok(
     !left.nodes.some((one) => one.path === "Documents/booking.txt"),
     "and no longer where it was",
   );
-  await writeTool("files.rename", { id: node, name: "booking-2026.txt" });
+  await writeTool("files.rename", {
+    path: "Containers/2026/booking.txt",
+    name: "booking-2026.txt",
+  });
   const renamed = await writeTool<{ name: string; text: string }>("files.read", {
     path: "Containers/2026/booking-2026.txt",
   });
@@ -1087,7 +1092,7 @@ test("the writing tools change the group's own account", async () => {
 
   // The top level of Files is a destination like any folder, and `null` has to
   // reach the server for the move to happen at all.
-  await writeTool("files.move", { id: node });
+  await writeTool("files.move", { path: "Containers/2026/booking-2026.txt" });
   const atTop = await writeTool<{ nodes: Array<{ path: string }> }>("files.list", {});
   assert.ok(
     atTop.nodes.some((one) => one.path === "booking-2026.txt"),

@@ -1579,6 +1579,42 @@ test("an answer whose plan cannot be read is refused whole, recorded, and asked 
   assert.equal(run.ended?.why, "the plan was refused, so nothing was done");
 });
 
+test("two answers refused in a row end the run instead of paying for a third", async () => {
+  /*
+   * A model stuck on one malformed answer repeats it: every repeat is a model
+   * call on the run's budget and moves nothing. Two refusals in a row end the
+   * run, and the record says why (ADR 0034, the budget's own ending).
+   */
+  const id = "intake-stuck-model";
+  await putRule(id);
+  const agent = loop();
+  await agent.start();
+
+  answerWith({ rules: [id], facts: {} });
+  const stuck = {
+    calls: [
+      {
+        name: "chat.say",
+        arguments: { text: "the same malformed answer" },
+        needs: { step: "nowhere", when: "done" },
+      },
+    ],
+  };
+  answerWith(stuck);
+  answerWith(stuck);
+  await deliver("a change the model cannot answer");
+  await agent.pass();
+
+  const run = await runOf(id);
+  assert.equal(run.state, "out-of-budget", "the run stops rather than looping");
+  assert.match(run.ended?.why ?? "", /refused twice in a row/);
+  assert.equal(
+    run.plan.filter((step) => step.state === "failed").length,
+    2,
+    "both refusals are on the record, and there is no third",
+  );
+});
+
 test("a fact one run learns is handed to the next change's call, and the record names it", async () => {
   /*
    * The whole point of the memory (ADR 0037): what the agent came to know while

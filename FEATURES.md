@@ -276,7 +276,8 @@ only when that step ends the way it needs, and a step no branch reaches is left
 unrun with the record naming which step and which outcome left it — the model
 writes the order and the conditions from the group's knowledge, its checklists and
 its workorders, and the loop invents none. A model that chooses the same plan twice is a stall the record shows
-rather than an endless turn. The server starts the loop with itself
+rather than an endless turn, and an answer refused twice in a row — or a round whose every step was refused —
+ends the run at once, so a model stuck on one malformed answer does not spend the budget repeating it. The server starts the loop with itself
 (`server/src/agent/supervisor.ts`) and asks it for a pass every ten seconds, and
 the accounts each pass works — the Master's groups — are read from the mail
 server by that pass rather than decided at the boot, so a group added or
