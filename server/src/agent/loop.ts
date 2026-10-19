@@ -296,6 +296,15 @@ export class AgentLoop {
   private readonly archivedAt = new Map<string, number>();
   /** When the off path last read each account, so an on period does not replay. */
   private readonly offReadAt = new Map<string, number>();
+  /**
+   * The working set as this process last read it, per account and under the
+   * FileNode state it was read at. A pass that finds the same state has nothing
+   * new to download; any write anywhere in the account moves the state.
+   */
+  private readonly runReadings = new Map<
+    string,
+    { state: string; records: RunRecord[] }
+  >();
 
   constructor(
     private readonly ctx: Ctx,
@@ -385,93 +394,121 @@ export class AgentLoop {
        * fixed sentence and no model call -- and the owner chose that directly
        * rather than through a rule's class-3 licence.
        */
-      for (const accountId of accounts) {
-        /*
-         * A notice is for what has just arrived. The switch may have been on
-         * for months since the off path last read, and an old cursor would
-         * answer every mention of that time: past the hour, read from now.
-         */
-        if (now.getTime() - (this.offReadAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
-          this.cursors.delete(accountId);
-        const problems: string[] = [];
-        await offPath(
-          { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
-          accountId,
-          problems,
-        ).catch((err) => problems.push(errorMessage(err)));
-        for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
-        this.offReadAt.set(accountId, now.getTime());
-        /*
-         * The archive is housekeeping, not a decision: a switched-off agent
-         * still keeps the group's runs folder to the year the owner chose.
-         */
-        try {
-          const read = await listRunsForWorking(this.ctx, accountId);
-          for (const problem of read.problems)
-            summary.gaps.push(`${accountId}: ${problem}`);
-          const moved = new Set<string>();
-          for (const gap of await this.archive(accountId, read.records, now, moved))
-            summary.gaps.push(`${accountId}: ${gap}`);
-        } catch (err) {
-          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-        }
-      }
+      await Promise.all(
+        accounts.map(async (accountId) => {
+          /*
+           * A notice is for what has just arrived. The switch may have been on
+           * for months since the off path last read, and an old cursor would
+           * answer every mention of that time: past the hour, read from now.
+           */
+          if (now.getTime() - (this.offReadAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
+            this.cursors.delete(accountId);
+          const problems: string[] = [];
+          await offPath(
+            { ctx: this.ctx, cursors: this.cursors, self: this.ctx.username },
+            accountId,
+            problems,
+          ).catch((err) => problems.push(errorMessage(err)));
+          for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
+          this.offReadAt.set(accountId, now.getTime());
+          /*
+           * The archive is housekeeping, not a decision: a switched-off agent
+           * still keeps the group's runs folder to the year the owner chose.
+           */
+          try {
+            const read = await listRunsForWorking(this.ctx, accountId);
+            for (const problem of read.problems)
+              summary.gaps.push(`${accountId}: ${problem}`);
+            const moved = new Set<string>();
+            for (const gap of await this.archive(accountId, read.records, now, moved))
+              summary.gaps.push(`${accountId}: ${gap}`);
+          } catch (err) {
+            summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+          }
+        }),
+      );
       summary.gaps.push("the agent is turned off for this installation");
       return summary;
     }
     /*
      * A group the Master no longer works keeps no queued alarm: the queue is
      * this pass's accounts and nothing else, or a process that runs for weeks
-     * carries one entry per fired timer per account it lost.
+     * carries one entry per fired timer per account it lost. The alarms are
+     * handed to their accounts here, before any account starts, because the
+     * accounts are worked together.
      */
-    for (let at = this.pending.length - 1; at >= 0; at--) {
-      const due = this.pending[at];
-      if (due && !accounts.includes(due.accountId)) this.pending.splice(at, 1);
+    const handed = new Map<string, string[]>();
+    for (const due of this.pending) {
+      if (!accounts.includes(due.accountId)) continue;
+      const list = handed.get(due.accountId) ?? [];
+      list.push(due.runId);
+      handed.set(due.accountId, list);
     }
-    for (const accountId of accounts) {
-      /*
-       * One account that cannot be read is not the installation failing: a
-       * single rule sheet this build cannot parse is a group to leave alone for
-       * this pass, not a reason to stop working every other group — and the
-       * pass that throws here would throw again on the next beat, for ever. The
-       * reason goes into the pass's gaps, which the supervisor reports.
-       */
-      try {
-        const records = await this.workDue(accountId, now, summary);
-        const moved = new Set<string>();
-        for (const gap of await this.archive(accountId, records, now, moved))
-          summary.gaps.push(`${accountId}: ${gap}`);
+    this.pending.length = 0;
+    for (const accountId of this.runReadings.keys())
+      if (!accounts.includes(accountId)) this.runReadings.delete(accountId);
+    /*
+     * One account is one group, and the groups do not wait on each other: the
+     * slowest is usually a model call, and a group whose turn came later was
+     * paying for that wait every ten seconds. Each account keeps its own run
+     * documents, cursors and timers; what they share is the installation's
+     * claim (renewed once, below) and the pass summary.
+     */
+    await Promise.all(
+      accounts.map(async (accountId) => {
+        let records: RunRecord[] | null = null;
         /*
-         * A run moved to its drawer is not in the working set any more: the
-         * change batch is not handed it, so an old question cannot be answered
-         * against a document that is no longer there.
+         * One account that cannot be read is not the installation failing: a
+         * single rule sheet this build cannot parse is a group to leave alone for
+         * this pass, not a reason to stop working every other group — and the
+         * pass that throws here would throw again on the next beat, for ever. The
+         * reason goes into the pass's gaps, which the supervisor reports.
          */
-        await this.workChanges(
-          accountId,
-          now,
-          summary,
-          moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
-        );
-      } catch (err) {
-        summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-      }
-      /*
-       * The waits are armed **after** the due runs have been advanced: a re-arm
-       * beside a run whose document has not moved would hand the same instant
-       * over twice (`timers.ts`), and a process that restarts re-arms what the
-       * installation left. Its own guard, because arming reads the account's run
-       * documents: an unreadable one is a gap for this pass, not a reason to
-       * stop the accounts after it — and the account whose work failed is armed
-       * all the same, from the runs that can be read.
-       */
-      try {
-        const problems: string[] = [];
-        await this.timers.arm(this.ctx, accountId, problems);
-        for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
-      } catch (err) {
-        summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
-      }
-    }
+        try {
+          records = await this.workDue(
+            accountId,
+            now,
+            summary,
+            handed.get(accountId) ?? [],
+          );
+          const moved = new Set<string>();
+          for (const gap of await this.archive(accountId, records, now, moved))
+            summary.gaps.push(`${accountId}: ${gap}`);
+          /*
+           * A run moved to its drawer is not in the working set any more: the
+           * change batch is not handed it, so an old question cannot be answered
+           * against a document that is no longer there. What the batch worked is
+           * the account's working set as this pass leaves it, which is what the
+           * waits are armed from.
+           */
+          const after = await this.workChanges(
+            accountId,
+            now,
+            summary,
+            moved.size ? records.filter((record) => !moved.has(record.run.id)) : records,
+          );
+          if (after) records = after;
+        } catch (err) {
+          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+        }
+        /*
+         * The waits are armed **after** the due runs have been advanced: a re-arm
+         * beside a run whose document has not moved would hand the same instant
+         * over twice (`timers.ts`), and a process that restarts re-arms what the
+         * installation left. Its own guard, because arming reads the account's run
+         * documents: an unreadable one is a gap for this pass, not a reason to
+         * stop the accounts after it — and the account whose work failed is armed
+         * all the same, from the runs that can be read.
+         */
+        try {
+          const problems: string[] = [];
+          await this.timers.arm(this.ctx, accountId, problems, records ?? undefined);
+          for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
+        } catch (err) {
+          summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
+        }
+      }),
+    );
     /*
      * The memory is read on the first change that needs it, not at the top of
      * every pass: a quiet pass pays for no store it never consults. A sheet it
@@ -526,11 +563,8 @@ export class AgentLoop {
     accountId: string,
     now: Date,
     summary: PassSummary,
+    handed: readonly string[],
   ): Promise<RunRecord[]> {
-    const handed = this.pending.filter((due) => due.accountId === accountId);
-    for (let at = this.pending.length - 1; at >= 0; at--) {
-      if (this.pending[at]?.accountId === accountId) this.pending.splice(at, 1);
-    }
     /*
      * The alarms hand every dated wait over exactly once, and the documents ask
      * the same question again: a process that has just started has fired nothing
@@ -541,11 +575,22 @@ export class AgentLoop {
      * crash, a pass that failed after the run was opened). Two listings asked
      * `runs/` the same thing twice, every pass, for every account.
      */
-    const read = await listRunsForWorking(this.ctx, accountId);
-    for (const problem of read.problems) summary.gaps.push(`${accountId}: ${problem}`);
-    const records = read.records;
+    const state = await appFolderState(this.ctx, accountId);
+    const read = this.runReadings.get(accountId);
+    let records: RunRecord[];
+    if (read?.state === state) {
+      // Nothing in the account moved since the last pass: the set it read is
+      // still the set, and a quiet pass walks no folder and downloads nothing.
+      records = read.records;
+    } else {
+      const listed = await listRunsForWorking(this.ctx, accountId, state);
+      for (const problem of listed.problems)
+        summary.gaps.push(`${accountId}: ${problem}`);
+      records = listed.records;
+      this.runReadings.set(accountId, { state, records });
+    }
     const at = new Map(records.map((record, index) => [record.run.id, index]));
-    const runs = new Set(handed.map((due) => due.runId));
+    const runs = new Set(handed);
     for (const { run } of records) {
       if (isRunDue(run, now)) runs.add(run.id);
       if (run.state === "running" && run.waiting === null) runs.add(run.id);
@@ -555,7 +600,13 @@ export class AgentLoop {
       const record = index === undefined ? null : records[index];
       if (record?.run.state !== "running") continue;
       summary.due += 1;
-      const worked = await this.workRun(accountId, record.run, now);
+      const worked = await this.workRun(
+        accountId,
+        record.run,
+        now,
+        undefined,
+        record.state,
+      );
       // The archive and the change batch see the document as this pass left it.
       if (worked && index !== undefined) records[index] = { ...record, run: worked };
     }
@@ -588,7 +639,7 @@ export class AgentLoop {
     now: Date,
     summary: PassSummary,
     records: readonly RunRecord[],
-  ): Promise<void> {
+  ): Promise<RunRecord[] | null> {
     /*
      * The batched changes of one account. Kept as a function over what it needs
      * rather than as a method over the whole class: the cursor, the prose and
@@ -596,15 +647,15 @@ export class AgentLoop {
      * that without reading the rest of the loop.
      */
     const access = this.access;
-    if (!access) return;
+    if (!access) return null;
     /*
      * A batch that failed is not retried ten seconds later: the same change,
      * the same provider, the same failure -- and each retry pays a model call.
      * A minute's pause per account bounds the cost while a failure is real.
      */
-    if ((this.retryAfter.get(accountId) ?? 0) > now.getTime()) return;
+    if ((this.retryAfter.get(accountId) ?? 0) > now.getTime()) return null;
     try {
-      await workChanges(
+      const after = await workChanges(
         {
           ctx: this.ctx,
           cursors: this.cursors,
@@ -623,6 +674,7 @@ export class AgentLoop {
         records,
       );
       this.retryAfter.delete(accountId);
+      return after;
     } catch (err) {
       this.retryAfter.set(accountId, now.getTime() + 60_000);
       throw err;
@@ -840,10 +892,14 @@ export class AgentLoop {
     run: RunDoc,
     now: Date,
     facts?: Record<string, string>,
+    state?: string,
   ): Promise<RunDoc | null> {
     const access = this.access;
     if (!access) return null;
     let current = run;
+    /* The compare-and-set token the last write produced; the next write reuses
+       it, so a step does not pay for a read of its own document. */
+    let token = state;
     /*
      * What the memory recalls for this run (ADR 0037): the change it answers, the
      * facts that change was found to be about, and the group's standing set,
@@ -877,7 +933,7 @@ export class AgentLoop {
           at: now.toISOString(),
           why: `the budget ended the run: ${over}, so the work did not finish.`,
         });
-        return (await this.store(accountId, ended)) ? ended : null;
+        return (await this.store(accountId, ended, token)) ? ended : null;
       }
       const prose = await this.proseOf(accountId, current, above);
       const startedMs = Date.now();
@@ -923,9 +979,11 @@ export class AgentLoop {
             at: now.toISOString(),
             why: `the model's answers were refused twice in a row, so the work did not finish: ${errorMessage(err)}`,
           });
-          return (await this.store(accountId, ended)) ? ended : null;
+          return (await this.store(accountId, ended, token)) ? ended : null;
         }
-        if (!(await this.store(accountId, current))) return null;
+        const written = await this.store(accountId, current, token);
+        if (!written) return null;
+        token = written;
         continue;
       }
       current = spendRun(current, {
@@ -939,7 +997,7 @@ export class AgentLoop {
           at: now.toISOString(),
           why: choice.why,
         });
-        return (await this.store(accountId, ended)) ? ended : null;
+        return (await this.store(accountId, ended, token)) ? ended : null;
       }
 
       const batch = choice.calls.map((call) => `${call.name} ${boundedText(call.args)}`);
@@ -964,7 +1022,7 @@ export class AgentLoop {
           at: now.toISOString(),
           why: `the model chose the same calls twice (${chosen}) and made no progress, so the run stopped.`,
         });
-        return (await this.store(accountId, ended)) ? ended : null;
+        return (await this.store(accountId, ended, token)) ? ended : null;
       }
       previous = chosen;
 
@@ -992,7 +1050,9 @@ export class AgentLoop {
        * nothing that says what asked for it. The outcomes are written after the
        * wave, on the same call, further down.
        */
-      if (!(await this.store(accountId, current))) return null;
+      const planned = await this.store(accountId, current, token);
+      if (!planned) return null;
+      token = planned;
       let wait: RunWait | null = null;
       for (;;) {
         const { ready, left } = readiness(current.plan, base);
@@ -1086,7 +1146,7 @@ export class AgentLoop {
             at: now.toISOString(),
             why: "the last rounds were refused in full, so the work did not finish.",
           });
-          return (await this.store(accountId, ended)) ? ended : null;
+          return (await this.store(accountId, ended, token)) ? ended : null;
         }
       }
 
@@ -1106,7 +1166,9 @@ export class AgentLoop {
           });
       }
       // The outcomes are written on the document the wave ran against, whole.
-      if (!(await this.store(accountId, current))) return null;
+      const settledWrite = await this.store(accountId, current, token);
+      if (!settledWrite) return null;
+      token = settledWrite;
       if (wait) return current;
     }
   }
@@ -1205,6 +1267,8 @@ export class AgentLoop {
    * over by a second holder while this one keeps writing.
    */
   private claimExpires: string | null = null;
+  /** The renewal in flight, so parallel accounts do not send it twice. */
+  private claimRenewal: Promise<void> | null = null;
 
   /**
    * The installation's own line, as this pass read it.
@@ -1300,35 +1364,48 @@ export class AgentLoop {
   }
 
   /**
-   * Write the run whole, under the account's state read just before the write.
+   * Write the run whole, under a token the last write produced.
    *
-   * The token is read first and the document is written with it — the order every
-   * conditional write here uses (`runs.ts`) — so a write landing in between is
-   * refused rather than overwritten, and the attempt is retried once. A run a
-   * person stopped is read first: its ending is left exactly as they put it.
+   * `state` is the compare-and-set token of the document this pass already
+   * read or wrote: with it, the write needs no read of its own. Without it —
+   * the first write of a run this pass did not read — the document is read
+   * once, which is also where a stop and an ending are seen. Every stop moves
+   * the account's state, so a write that arrives after one is refused and the
+   * conflict path reads the ending rather than overwriting it. The answer is
+   * the token the write produced, for the next one.
    */
-  private async store(accountId: string, run: RunDoc): Promise<boolean> {
+  private async store(
+    accountId: string,
+    run: RunDoc,
+    state?: string,
+  ): Promise<string | null> {
     await this.keepClaim();
-    /*
-     * A run somebody stopped is not this process's to write any more. The check
-     * is made **before** the token is read, because a stop that landed before
-     * this store is not a lost race: the token read afterwards would be fresh
-     * and the write would succeed over the ending.
-     */
-    const before = await readRun(this.ctx, accountId, run.id);
-    // A document that is not there is not this process's to create: it was
-    // archived or removed, and a write here would put a second copy of the
-    // record back at the working path.
-    if (!before) return false;
-    // `blocked` is the one state the loop may write over: it is what an answer
-    // takes the run out of (ADR 0033). Every ending — `cancelled` among them —
-    // is the document's, not this process's.
-    if (before.run.state !== "running" && before.run.state !== "blocked") return false;
+    let token = state;
+    if (!token) {
+      const before = await readRun(this.ctx, accountId, run.id);
+      // A document that is not there is not this process's to create: it was
+      // archived or removed, and a write here would put a second copy of the
+      // record back at the working path.
+      if (!before) return null;
+      // `blocked` is the one state the loop may write over: it is what an answer
+      // takes the run out of (ADR 0033). Every ending — `cancelled` among them —
+      // is the document's, not this process's.
+      if (before.run.state !== "running" && before.run.state !== "blocked") return null;
+      token = before.state;
+    }
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
-      const token = await appFolderState(this.ctx, accountId);
+      let produced: string | undefined;
       try {
-        await replaceRun(this.ctx, accountId, run, { ifInState: token });
-        return true;
+        await replaceRun(this.ctx, accountId, run, {
+          ifInState: token,
+          onState: (fresh) => {
+            produced = fresh;
+          },
+        });
+        // A write that found the document already holding these bytes makes no
+        // set, so it produces no state: the token in hand is still the current
+        // one, because nothing moved.
+        return produced ?? token;
       } catch (err) {
         if (retryStateMismatch(err, attempt)) break;
         /*
@@ -1338,7 +1415,9 @@ export class AgentLoop {
          * it, rather than planning on from a document that is no longer its own.
          */
         const held = await readRun(this.ctx, accountId, run.id);
-        if (held?.run.state !== "running") return false;
+        if (!held) return null;
+        if (held.run.state !== "running" && held.run.state !== "blocked") return null;
+        token = held.state;
       }
     }
     throw new Error(
@@ -1354,12 +1433,23 @@ export class AgentLoop {
    * over one installation (ADR 0036).
    */
   private async keepClaim(): Promise<void> {
+    if (this.claimRenewal) return await this.claimRenewal;
     const expires = this.claimExpires ? Date.parse(this.claimExpires) : 0;
     if (expires - Date.now() > CLAIM_RENEW_WITHIN_MS) return;
-    const now = new Date();
-    if (!(await renewClaim(this.ctx, this.opts.holder, now)))
-      throw new Error("the installation's claim is no longer this process's.");
-    this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
+    /*
+     * Accounts are worked together now, and each write renews the claim when it
+     * is close to expiring. One renewal at a time: a second writer waits on the
+     * answer of the first rather than sending the same renewal twice.
+     */
+    this.claimRenewal = (async () => {
+      const now = new Date();
+      if (!(await renewClaim(this.ctx, this.opts.holder, now)))
+        throw new Error("the installation's claim is no longer this process's.");
+      this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
+    })().finally(() => {
+      this.claimRenewal = null;
+    });
+    return await this.claimRenewal;
   }
 }
 

@@ -35,7 +35,7 @@
 
 import type { Ctx } from "../appFolder.js";
 import { waitDueAt } from "../shared/run.js";
-import { listRunsForWorking } from "./runs.js";
+import { listRunsForWorking, type RunRecord } from "./runs.js";
 
 /**
  * The longest a single `setTimeout` may be asked to wait.
@@ -86,12 +86,22 @@ export class WaitTimers {
    * carries is left alone: the caller owes the advance between the two arms, and
    * arming it again would hand the same date over twice.
    */
-  async arm(ctx: Ctx, accountId: string, problems: string[] = []): Promise<string[]> {
+  async arm(
+    ctx: Ctx,
+    accountId: string,
+    problems: string[] = [],
+    /** What the pass already read, so arming does not walk the folder again. */
+    records?: readonly RunRecord[],
+  ): Promise<string[]> {
     const armed: string[] = [];
     const waiting = new Set<string>();
-    const read = await listRunsForWorking(ctx, accountId);
-    problems.push(...read.problems);
-    for (const { run } of read.records) {
+    let held = records;
+    if (!held) {
+      const read = await listRunsForWorking(ctx, accountId);
+      problems.push(...read.problems);
+      held = read.records;
+    }
+    for (const { run } of held) {
       const until = waitDueAt(run);
       if (!until) continue;
       const key = waitKey(accountId, run.id);

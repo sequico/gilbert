@@ -1809,6 +1809,92 @@ test("two answers refused in a row end the run instead of paying for a third", a
   );
 });
 
+test("the groups are worked together, not one after another", async () => {
+  /*
+   * The pass hands each account its own work and lets them run at once. The
+   * tool below returns `met: true` only when both groups reach it before the
+   * other has finished — a sequential pass times the first one out.
+   */
+  let other = "";
+  for (const id of Object.keys(ctx.session.accounts)) {
+    if (id === accountId) continue;
+    const list = await clientOf(ctx).call<{ list?: unknown[] }>(
+      "Email/get",
+      { accountId: id, ids: null },
+      [CAPABILITIES.mail],
+    );
+    if ((list.list ?? []).length) {
+      other = id;
+      break;
+    }
+  }
+  assert.ok(other, "the mock has a second account to work");
+
+  const ids = ["parallel-a", "parallel-b"];
+  let arrived = 0;
+  let release!: () => void;
+  const both = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const barrier = defineTool({
+    name: "test.barrier",
+    description: "Wait until the other group's run reaches the same point.",
+    authority: "reversible",
+    writes: false,
+    spend: { steps: 1 },
+    keys: [],
+    parse: (raw: unknown) => raw as Record<string, never>,
+    run: async () => {
+      arrived += 1;
+      if (arrived >= 2) {
+        release();
+        return { met: true };
+      }
+      const met = await Promise.race([
+        both.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_500)),
+      ]);
+      return { met };
+    },
+  });
+  const agent = loop(HOLDER, {
+    accounts: async () => [accountId, other],
+    catalogue: [...TOOLS, barrier],
+  });
+  await agent.start();
+  for (const [index, account] of [accountId, other].entries()) {
+    await createRun(
+      ctx,
+      account,
+      startRun({
+        id: ids[index]!,
+        startedBy: { rule: "parallel", instruction: null, woke: "a test change" },
+      }),
+    );
+  }
+  answerWith({ calls: [{ name: "test.barrier", arguments: {} }] });
+  answerWith({ calls: [{ name: "test.barrier", arguments: {} }] });
+  answerWith({ done: "met" });
+  answerWith({ done: "met" });
+  const summary = await agent.pass();
+
+  assert.equal(
+    summary.due,
+    2,
+    `both accounts' runs were due in the same pass: ${JSON.stringify(summary)} other=${other}`,
+  );
+  for (const [index, account] of [accountId, other].entries()) {
+    const run = (await readRun(ctx, account, ids[index]!))?.run;
+    assert.ok(run, "each run is still in its account");
+    const line = run.plan.map((step) => `${step.state}:${step.outcome}`).join(" ");
+    assert.match(
+      line,
+      /"met":true/,
+      `neither group waited for the other to finish (arrived=${arrived}, ${account}=${line})`,
+    );
+  }
+});
+
 test("the switch off answers a mention and a mail that names the agent alone, with no model call", async () => {
   /*
    * The off state is not silence: a person who writes to the agent is told it is

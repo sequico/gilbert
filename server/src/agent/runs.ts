@@ -138,7 +138,7 @@ export async function replaceRun(
   ctx: Ctx,
   accountId: string,
   run: RunDoc,
-  opts: { ifInState?: string } = {},
+  opts: { ifInState?: string; onState?: (state: string) => void } = {},
 ): Promise<void> {
   await writeAppFileAt(ctx, accountId, runPath(run.id), run, opts);
 }
@@ -196,8 +196,10 @@ export async function listRuns(ctx: Ctx, accountId: string): Promise<RunRecord[]
 export async function listRunsForWorking(
   ctx: Ctx,
   accountId: string,
+  /** The state the caller already read, so a quiet pass asks for it once. */
+  state?: string,
 ): Promise<{ records: RunRecord[]; problems: string[] }> {
-  const state = await appFolderState(ctx, accountId);
+  const token = state ?? (await appFolderState(ctx, accountId));
   const records: RunRecord[] = [];
   const problems: string[] = [];
   for (const row of await listRunsForReading(ctx, accountId)) {
@@ -205,7 +207,7 @@ export async function listRunsForWorking(
       problems.push(row.problem);
       continue;
     }
-    if (row.run) records.push({ run: row.run, state });
+    if (row.run) records.push({ run: row.run, state: token });
   }
   return { records, problems };
 }

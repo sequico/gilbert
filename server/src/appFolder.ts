@@ -675,6 +675,8 @@ async function writeFile(
   body: PendingWrite,
   type: string,
   ifInState?: string,
+  /** The state the write produced, so the next conditional write needs no read. */
+  onState?: (state: string) => void,
 ): Promise<string> {
   const file = await findInFolder(ctx, accountId, folderId, name);
   if (
@@ -686,7 +688,17 @@ async function writeFile(
     return String(file.id);
   }
   const blobId = await body.upload();
-  return setFileNode(ctx, accountId, folderId, name, blobId, type, file, ifInState);
+  return setFileNode(
+    ctx,
+    accountId,
+    folderId,
+    name,
+    blobId,
+    type,
+    file,
+    ifInState,
+    onState,
+  );
 }
 
 /**
@@ -707,6 +719,7 @@ async function setFileNode(
   type: string,
   file: FileNodeLike | null,
   ifInState?: string,
+  onState?: (state: string) => void,
 ): Promise<string> {
   const conditional = ifInState ? { ifInState } : {};
   const client = clientOf(ctx);
@@ -730,7 +743,10 @@ async function setFileNode(
       [FILENODE_CAP],
     );
     const createdId = created.created?.n?.id;
-    if (typeof createdId === "string") return createdId;
+    if (typeof createdId === "string") {
+      onState?.(created.newState);
+      return createdId;
+    }
     const refused = created.notCreated?.n;
     /*
      * A create refused because a sibling already carries the name is the
@@ -770,6 +786,7 @@ async function setFileNode(
   );
   const refusedUpdate = res.notUpdated?.[id];
   if (refusedUpdate) throw new AppFolderError(refusalOf(refusedUpdate));
+  onState?.(res.newState);
   return id;
 }
 
@@ -789,7 +806,7 @@ export async function writeAppFileIn(
   folderId: string,
   name: string,
   value: unknown,
-  opts: { ifInState?: string; type?: string } = {},
+  opts: { ifInState?: string; type?: string; onState?: (state: string) => void } = {},
 ): Promise<string> {
   const type = opts.type ?? DOCUMENT_TYPE_DEFAULT;
   // The bytes this document is about to be written as, before any of them are
@@ -804,6 +821,7 @@ export async function writeAppFileIn(
     { bytes, upload: () => uploadJsonBlob(ctx, accountId, value) },
     type,
     opts.ifInState,
+    opts.onState,
   );
 }
 
@@ -813,7 +831,7 @@ export async function writeAppFileAt(
   accountId: string,
   path: string,
   value: unknown,
-  opts: { ifInState?: string; type?: string } = {},
+  opts: { ifInState?: string; type?: string; onState?: (state: string) => void } = {},
 ): Promise<void> {
   const segments = pathSegments(path);
   const name = segments.pop();

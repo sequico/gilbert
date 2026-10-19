@@ -220,7 +220,7 @@ export async function workChanges(
   now: Date,
   summary: PassSummary,
   records?: readonly RunRecord[],
-): Promise<void> {
+): Promise<RunRecord[] | null> {
   let cursor = deps.cursors.get(accountId);
   if (!cursor) {
     // A first read anchors at where the account stands now: a process that
@@ -368,4 +368,5 @@ export async function workChanges(
   // The cursor moves only once the batch is answered: a read that failed
   // half-way is read again rather than lost as silence.
   deps.cursors.set(accountId, read.cursor);
+  return held;
 }
