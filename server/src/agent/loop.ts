@@ -320,6 +320,10 @@ export class AgentLoop {
   >();
   /** Runs a pass tried while nothing waits on them: a failure is not retried at once. */
   private readonly stuckUntil = new Map<string, number>();
+  /** One roster read per account per pass: an answer is a mail-minute apart. */
+  private readonly members = new Map<string, Promise<string[] | null>>();
+  /** One Message-IDs read per asked message, kept for the pass. */
+  private readonly messageIds = new Map<string, string[]>();
   /**
    * The state each account's last write in **this pass** produced. A due run's
    * record carries the token of the pass's listing, which the first write of
@@ -414,6 +418,8 @@ export class AgentLoop {
     forgetRemembered(this.ctx);
     this.passState.clear();
     this.runState.clear();
+    this.members.clear();
+    this.messageIds.clear();
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the
@@ -506,6 +512,8 @@ export class AgentLoop {
     this.pending.length = 0;
     for (const accountId of this.runReadings.keys())
       if (!accounts.includes(accountId)) this.runReadings.delete(accountId);
+    for (const key of this.stuckUntil.keys())
+      if (!accounts.includes(key.split("\u0000")[0] ?? "")) this.stuckUntil.delete(key);
     /*
      * One account is one group, and the groups do not wait on each other: the
      * slowest is usually a model call, and a group whose turn came later was
@@ -567,6 +575,7 @@ export class AgentLoop {
             read ?? undefined,
           );
           if (after) records = after;
+          this.pruneStuck(accountId, records);
           /*
            * The filter on the pass side: the last state a store produced is
            * remembered as the cached set's state. The next pass reads the
@@ -919,7 +928,7 @@ export class AgentLoop {
     // Who may speak: the principals with access to this group, and the agent
     // itself (an echo is refused as its own). A server that will not name the
     // roster answers nobody, rather than trusting the sender line.
-    const members = await groupMembers(this.ctx, accountId);
+    const members = await this.membersOf(accountId);
     if (!members) return null;
     const reply = await readMessageForAnswer(this.ctx, accountId, event.where, {
       own: this.ctx.username,
@@ -956,39 +965,72 @@ export class AgentLoop {
   }
 
   /**
+   * One roster read per account per pass.
+   *
+   * A page of mail changes asks who may speak about every one of them, and the
+   * roster is the same answer within the pass; the next pass reads it again, so
+   * a membership change is seen.
+   */
+  private membersOf(accountId: string): Promise<string[] | null> {
+    const held = this.members.get(accountId);
+    if (held) return held;
+    const read = groupMembers(this.ctx, accountId);
+    this.members.set(accountId, read);
+    return read;
+  }
+
+  /**
    * The Message-IDs each of these messages was filed under, in one read: a
    * reply names them in its thread.
    *
    * Asking per parked run made a mail answer cost one round trip for every
-   * question the account is waiting on.
+   * question the account is waiting on, and the same asked ids are read again
+   * for every new mail of the page; each is fetched once per pass.
    */
   private async messageIdsOf(
     accountId: string,
     emailIds: readonly string[],
   ): Promise<Map<string, string[]>> {
     const idsOf = new Map<string, string[]>();
-    if (!emailIds.length) return idsOf;
-    const client = clientOf(this.ctx);
-    const size = client.maxObjectsInGet;
-    for (let at = 0; at < emailIds.length; at += size) {
-      const answer = await client.call<{
-        list?: Array<{ id?: unknown; messageId?: unknown }>;
-      }>(
-        "Email/get",
-        { accountId, ids: emailIds.slice(at, at + size), properties: ["messageId"] },
-        [CAPABILITIES.mail],
-      );
-      for (const one of answer.list ?? []) {
-        if (typeof one.id !== "string") continue;
-        idsOf.set(
-          one.id,
-          Array.isArray(one.messageId)
-            ? one.messageId.filter((id): id is string => typeof id === "string")
-            : [],
+    const missing = emailIds.filter((id) => !this.messageIds.has(id));
+    if (missing.length) {
+      const client = clientOf(this.ctx);
+      const size = client.maxObjectsInGet;
+      for (let at = 0; at < missing.length; at += size) {
+        const answer = await client.call<{
+          list?: Array<{ id?: unknown; messageId?: unknown }>;
+        }>(
+          "Email/get",
+          { accountId, ids: missing.slice(at, at + size), properties: ["messageId"] },
+          [CAPABILITIES.mail],
         );
+        for (const one of answer.list ?? []) {
+          if (typeof one.id !== "string") continue;
+          this.messageIds.set(
+            one.id,
+            Array.isArray(one.messageId)
+              ? one.messageId.filter((id): id is string => typeof id === "string")
+              : [],
+          );
+        }
       }
     }
+    for (const id of emailIds) idsOf.set(id, this.messageIds.get(id) ?? []);
     return idsOf;
+  }
+
+  /**
+   * Forget the stuck-run back-off of runs this account no longer holds.
+   *
+   * The map is keyed by account and run, and a run that was archived never
+   * comes back to it; without this a long-lived process keeps one entry per run
+   * that was ever stuck.
+   */
+  private pruneStuck(accountId: string, records: readonly RunRecord[] | null): void {
+    const prefix = `${accountId}\u0000`;
+    const live = new Set((records ?? []).map((record) => `${prefix}${record.run.id}`));
+    for (const key of this.stuckUntil.keys())
+      if (key.startsWith(prefix) && !live.has(key)) this.stuckUntil.delete(key);
   }
 
   /**
