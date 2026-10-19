@@ -5,7 +5,7 @@
  * ended, what it waits for, every authorisation it holds, what it has spent.
  */
 
-import { readRunAt, RUNS_DIR } from "../runs.js";
+import { RUNS_DIR, readRunAt } from "../runs.js";
 import { argsRecord, notFound, textArg } from "./args.js";
 import { defineTool } from "./define.js";
 
