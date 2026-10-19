@@ -324,6 +324,17 @@ Group membership is settled by the registry read above — these probes settle
 neither it nor a group account's Files visibility (see `gilbert-groups`), nor
 the directory's `type` vocabulary beyond `individual` and `group`.
 
+### `scripts/probe-mail-trust.mjs` — the arrival record a person's word rests on
+
+OWED: what the first `Received` hop says for a message one of the installation's
+own accounts submitted — the submission marker, and whether it names the account
+that authenticated — and the `authserv-id` of an outside message's
+`Authentication-Results`. `personWord` (`server/src/agent/trust.ts`) rests on
+both. The probe reads the newest messages of one account and prints each first
+hop, the account the reading would take from it, and the auth result's own name;
+it writes nothing. Record the answer, with the version and date, in the OWED
+note.
+
 ### `scripts/probe-group-subscriptions.mjs` — a member's own subscription
 
 Confirmed live on 0.16.23 (2026-09-24), for `ensureSubscribed` in
