@@ -67,6 +67,7 @@ import {
   FOLDER_PROPS,
 } from "../shared/appFolder.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { CHAT_STATE_FOLDER } from "../shared/chat.js";
 import { INSTRUCTION_FILE } from "../shared/instruction.js";
 import { RULES_DIR } from "../shared/rule.js";
 import { clientOf } from "../util.js";
@@ -238,7 +239,11 @@ function isAgentPath(path: string): boolean {
   return (
     rel === INSTRUCTION_FILE ||
     rel.startsWith(`${RUNS_DIR}/`) ||
-    rel.startsWith(`${RULES_DIR}/`)
+    rel.startsWith(`${RULES_DIR}/`) ||
+    // Read markers sit beside the messages and are the agent's bookkeeping.
+    rel.startsWith(`${CHAT_STATE_FOLDER}/`) ||
+    // The switch and the legacy upstream state are the agent's own records.
+    rel.startsWith("agent/")
   );
 }
 
