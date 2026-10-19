@@ -108,22 +108,15 @@ export function AgentOverview({
           <h2>{t("Current runs")}</h2>
           <div style={{ display: "grid", gap: 6 }}>
             {running.map(({ group, listed }) => (
-              <div
-                key={`${group}:${listed.id}`}
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <strong>{listed.id}</strong>
-                <span className="hint">{group}</span>
+              <div key={`${group}:${listed.id}`} className="run-current">
+                <span className="run-state run-state-running">{t("Running")}</span>
+                <span className="run-row-id">{listed.id}</span>
+                <span className="run-row-meta">{group}</span>
                 {listed.run?.startedBy.rule && (
-                  <span className="hint">{listed.run.startedBy.rule}</span>
+                  <span className="run-row-meta">{listed.run.startedBy.rule}</span>
                 )}
                 {listed.run?.startedBy.woke && (
-                  <span className="hint">{listed.run.startedBy.woke}</span>
+                  <span className="run-row-meta">{listed.run.startedBy.woke}</span>
                 )}
                 <StopRun
                   group={group}

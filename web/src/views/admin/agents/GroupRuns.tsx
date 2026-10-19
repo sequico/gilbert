@@ -2,7 +2,7 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type FactDoc, fetchGroupRuns, type RunListing, stopRun } from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
-import { RunCard } from "@/views/admin/agent/RunCard";
+import { RUN_STATE_LABELS, RunCard } from "@/views/admin/agent/RunCard";
 import { metricsOf } from "./metrics";
 
 /** How many runs one page of the listing shows, one row each. */
@@ -153,26 +153,19 @@ export function GroupRuns({
       {error && <div className="error-box">{error}</div>}
       {!error && !runs && <p className="hint">{t("Loading…")}</p>}
       {runs && runs.length === 0 && <p className="hint">{t("Nothing here yet.")}</p>}
-      <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+      <div style={{ marginTop: 12 }}>
         {shown.map((row) => (
-          <details key={row.id} style={{ borderBottom: "1px solid var(--border)" }}>
-            <summary
-              style={{
-                cursor: "pointer",
-                padding: "8px 2px",
-                display: "flex",
-                gap: 12,
-                flexWrap: "wrap",
-                alignItems: "baseline",
-              }}
-            >
-              <strong>{row.id}</strong>
-              <span className="hint">{row.run?.state ?? t("Not readable")}</span>
+          <details key={row.id} className="run-row">
+            <summary>
+              <span className="run-row-id">{row.id}</span>
+              <span className={`run-state run-state-${row.run?.state ?? "unreadable"}`}>
+                {row.run ? t(RUN_STATE_LABELS[row.run.state]) : t("Not readable")}
+              </span>
               {row.run?.startedBy.rule && (
-                <span className="hint">{row.run.startedBy.rule}</span>
+                <span className="run-row-meta">{row.run.startedBy.rule}</span>
               )}
               {row.run && (
-                <span className="hint">
+                <span className="run-row-meta">
                   {t("{steps} steps · {calls} calls", {
                     steps: row.run.spent.steps,
                     calls: row.run.spent.calls,
@@ -183,7 +176,7 @@ export function GroupRuns({
                 <StopRun group={group} id={row.id} onStopped={() => void load()} />
               )}
             </summary>
-            <div style={{ padding: "4px 0 12px" }}>
+            <div className="run-row-body">
               <RunCard listed={row} facts={facts} />
             </div>
           </details>

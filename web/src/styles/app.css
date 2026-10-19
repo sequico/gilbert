@@ -2931,3 +2931,66 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
     border-radius: 0; border: 0;
   }
 }
+
+/* The agent's run log: the record as a timeline, in Administration and chat.
+   One set of classes for both surfaces, so a run reads the same wherever it is
+   drawn. */
+.run-card { display: grid; gap: 10px; }
+.run-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.run-id { font-family: var(--font-mono); font-size: .82em; font-weight: 600; }
+.run-state {
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+  font-size: .72em; color: var(--fg-muted); background: var(--bg-sunken);
+  white-space: nowrap;
+}
+.run-state-done, .run-state-running {
+  color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft);
+}
+.run-state-blocked, .run-state-out-of-budget {
+  color: var(--warn); border-color: var(--warn-soft); background: var(--warn-soft);
+}
+.run-state-cancelled { color: var(--fg-muted); }
+.run-origin { font-size: .8em; color: var(--fg-muted); overflow-wrap: anywhere; }
+.run-plan {
+  list-style: none; margin: 0; padding: 0 0 0 2px; display: grid; gap: 2px;
+  border-left: 2px solid var(--border);
+}
+.run-step { position: relative; padding: 5px 0 5px 14px; }
+.run-dot {
+  position: absolute; left: -5px; top: 11px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--border-strong);
+}
+.run-step-done .run-dot { background: var(--accent); }
+.run-step-failed .run-dot { background: var(--danger); }
+.run-step-open .run-dot { background: var(--bg); border: 2px solid var(--border-strong); }
+.run-step-skipped .run-dot { background: var(--bg); border: 2px dashed var(--border-strong); }
+.run-step-what { font-size: .88em; overflow-wrap: anywhere; }
+.run-step-meta { font-size: .75em; color: var(--fg-muted); }
+.run-step-state { font-weight: 600; }
+.run-step-state.done { color: var(--accent); }
+.run-step-state.failed { color: var(--danger); }
+.run-outcome {
+  margin: 4px 0 0; padding: 5px 7px; border-radius: var(--radius-sm);
+  background: var(--bg-sunken); color: var(--fg-muted); font-size: .76em;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 10em; overflow: auto;
+}
+.run-foot {
+  display: grid; gap: 3px; font-size: .76em; color: var(--fg-muted);
+}
+.run-foot-chips { display: flex; flex-wrap: wrap; gap: 3px 12px; }
+.run-foot-chips span { white-space: nowrap; }
+.run-row { border-bottom: 1px solid var(--border); }
+.run-row > summary {
+  cursor: pointer; padding: 8px 2px; display: flex; gap: 10px; flex-wrap: wrap;
+  align-items: baseline; list-style: none;
+}
+.run-row > summary::-webkit-details-marker { display: none; }
+.run-row[open] > summary { background: var(--bg-hover); }
+.run-row-id { font-family: var(--font-mono); font-size: .82em; font-weight: 600; }
+.run-row-meta { font-size: .78em; color: var(--fg-muted); }
+.run-row-body { padding: 6px 2px 14px; }
+.run-current {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg-elev);
+}
