@@ -416,7 +416,12 @@ async function writeFact(
     links:
       write.links === undefined ? (same?.links ?? []) : linkIds(store.facts, write.links),
     standing: write.standing ?? same?.standing ?? false,
-    group: write.group,
+    /*
+     * The scope is the sheet's and does not move on a rewrite: a fact one group
+     * keeps about itself must keep being carried by that group's calls, or a
+     * second group writing about the same subject would take it away silently.
+     */
+    group: same?.group || write.group,
   };
   await writeAppFileAt(ctx, accountId, factPath(doc.id), doc, { ifInState: token });
   return doc;
