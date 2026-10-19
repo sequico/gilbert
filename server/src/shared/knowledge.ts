@@ -1041,7 +1041,12 @@ export function knowledgeSummary(input: {
     retired: state?.retired ?? null,
     created: state?.created ?? draft?.created ?? null,
     updated: state?.updated ?? draft?.updated ?? null,
-    template: state?.template ?? null,
+    /*
+     * The marker lives on the state so a listing carries it, and a draft alone
+     * is an article too: a create interrupted between the two writes still
+     * holds the rules, so the summary reads the marker from what it has.
+     */
+    template: state?.template ?? (draft?.checklist ? "checklist" : null),
     saved,
   };
 }
