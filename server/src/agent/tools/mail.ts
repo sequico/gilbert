@@ -57,6 +57,12 @@ const MESSAGE_PROPS = [
   "sentAt",
   "keywords",
   "hasAttachment",
+  /*
+   * The attachment metadata, without which `mail.read` says a message has one
+   * and never names it: `mail.readAttachment` takes a name "as mail.read
+   * answered them", so the names have to be in this answer.
+   */
+  "attachments",
   "textBody",
   "bodyValues",
 ];
