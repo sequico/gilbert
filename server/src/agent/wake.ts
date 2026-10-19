@@ -46,6 +46,11 @@ export function startAgentWake(
     source.baseUrl || config.stalwartUrl,
   );
   const retryMs = opts.retryMs ?? 1_000;
+  /**
+   * A frame that never ends is not a frame: the buffer stops at a megabyte and
+   * the stream is re-opened rather than growing with whatever the peer sends.
+   */
+  const bufferMax = 1 << 20;
   const maxRetryMs = 30_000;
   let stopped = false;
   let controller: AbortController | null = null;
@@ -53,32 +58,68 @@ export function startAgentWake(
   let wait = retryMs;
 
   const read = async (): Promise<void> => {
-    controller = new AbortController();
-    const res = await fetch(url, {
-      headers: {
-        authorization: source.authorization,
-        accept: "text/event-stream",
-      },
-      signal: controller.signal,
-    });
-    if (!res.ok || !res.body) throw new Error(`the wake stream answered ${res.status}`);
-    // The connection is up: the next break starts its backoff from the floor.
-    wait = retryMs;
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) return;
-      // Normalise the whole buffer, so a CRLF split across two chunks is still
-      // one line break and not a frame the parser never sees.
-      buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n?/g, "\n");
-      for (let at = buffer.indexOf("\n\n"); at >= 0; at = buffer.indexOf("\n\n")) {
-        const frame = buffer.slice(0, at);
-        buffer = buffer.slice(at + 2);
-        // A frame's event name is its own line; data and comments are not.
-        if (/(^|\n)event:[ \t]*state[ \t]*(\n|$)/.test(frame)) onWake();
+    const own = new AbortController();
+    controller = own;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          authorization: source.authorization,
+          accept: "text/event-stream",
+        },
+        signal: own.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(`the wake stream answered ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) return;
+        let text = decoder.decode(value, { stream: true });
+        if (!text) continue;
+        // A CR held from the previous chunk may be the first half of a CRLF.
+        if (buffer.endsWith("\r")) {
+          buffer = buffer.slice(0, -1);
+          text = `\r${text}`;
+        }
+        // Hold a trailing CR too: the next chunk may begin with its LF.
+        let held = "";
+        if (text.endsWith("\r")) {
+          held = "\r";
+          text = text.slice(0, -1);
+        }
+        buffer += text;
+        // Only a chunk that carries a CR pays for normalisation; the usual LF
+        // frame is appended as it came, so a large frame stays linear.
+        if (text.includes("\r")) buffer = buffer.replace(/\r\n?/g, "\n");
+        /*
+         * Complete frames are drained first: the cap is for a frame that never
+         * ends, not for a burst that happens to arrive in one chunk. A frame
+         * that did arrive is also the connection proving it works, so the next
+         * break starts its backoff from the floor.
+         */
+        for (let at = buffer.indexOf("\n\n"); at >= 0; at = buffer.indexOf("\n\n")) {
+          const frame = buffer.slice(0, at);
+          buffer = buffer.slice(at + 2);
+          wait = retryMs;
+          // A frame's event name is its own line; data and comments are not.
+          if (/(^|\n)event:[ \t]*state[ \t]*(\n|$)/.test(frame)) {
+            try {
+              onWake();
+            } catch {
+              // A listener cannot stop the stream it was told about.
+            }
+          }
+        }
+        buffer += held;
+        if (buffer.length > bufferMax)
+          throw new Error("the wake stream sent a frame with no end");
       }
+    } catch (err) {
+      // A parser error or the cap is not the server closing: the body may still
+      // be open, so it is aborted before the reconnect replaces the controller.
+      own.abort();
+      throw err;
     }
   };
 

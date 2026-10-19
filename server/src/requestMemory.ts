@@ -70,6 +70,10 @@ export async function recalled<T>(
  * memory only its own writer could drop would serve a listing from before a
  * write it never made. Dropping everything costs a read, and only a read.
  */
-export function forgetRemembered(): void {
+export function forgetRemembered(scope?: object): void {
+  if (scope) {
+    memories.delete(scope);
+    return;
+  }
   memories = new WeakMap();
 }

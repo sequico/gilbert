@@ -67,3 +67,34 @@ test("the agent's own stream wakes it, ignores pings, and reopens when it drops"
   assert.equal(first?.searchParams.get("closeafter"), "no");
   assert.equal(first?.searchParams.get("ping"), "30");
 });
+
+test("a frame that never ends is dropped rather than buffered for ever", async (t) => {
+  let connections = 0;
+  const server = createServer((_req, res) => {
+    connections += 1;
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    // More than the cap, with no blank line: not a frame, and not an excuse to
+    // grow the buffer.
+    res.write("x".repeat((1 << 20) + 1_024));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  t.after(() => server.close());
+
+  let wakes = 0;
+  const stop = startAgentWake(
+    {
+      eventSourceUrl: `http://127.0.0.1:${port}/events`,
+      baseUrl: `http://127.0.0.1:${port}`,
+      authorization: "Basic test",
+    },
+    () => {
+      wakes += 1;
+    },
+    { retryMs: 20 },
+  );
+  t.after(stop);
+
+  await until(() => connections >= 2);
+  assert.equal(wakes, 0, "a frame that never ends is not a pass");
+});

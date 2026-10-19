@@ -67,6 +67,7 @@ import { groupMembers } from "../groupAccess.js";
 import { readChatMessage, readChatMessageAt } from "../groupChat.js";
 import { appFolderInstallationStore, readInstallation } from "../installation.js";
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../jmap.js";
+import { forgetRemembered } from "../requestMemory.js";
 import { impersonationAuthorization } from "../sessions.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
 import { repliesToAuthor } from "../shared/chat.js";
@@ -373,6 +374,14 @@ export class AgentLoop {
       this.claimExpires = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     }
     summary.claimed = true;
+    /*
+     * The pass is the unit the agent's listings are read for: a mailbox or a
+     * folder level a person changed between two passes is seen by the next one,
+     * and a step inside this pass still reuses what the pass read. Scoped to
+     * this context, so a browser request's own memory is not dropped as a side
+     * effect of a pass that works nothing.
+     */
+    forgetRemembered(this.ctx);
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the

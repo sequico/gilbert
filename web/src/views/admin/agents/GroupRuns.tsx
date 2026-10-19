@@ -70,17 +70,19 @@ function RunDetail({
   id,
   month,
   facts,
+  version,
 }: {
   group: string;
   id: string;
   month: string;
   facts: readonly FactDoc[];
+  /** The row's header, so a running run's open detail follows the poll. */
+  version: string;
 }) {
   const [listed, setListed] = useState<RunListing | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    setListed(null);
     setError(null);
     void fetchRun(group, id, month || undefined)
       .then((one) => {
@@ -92,7 +94,7 @@ function RunDetail({
     return () => {
       alive = false;
     };
-  }, [group, id, month]);
+  }, [group, id, month, version]);
   if (error) return <div className="error-box">{error}</div>;
   if (!listed) return <p className="hint">{t("Loading…")}</p>;
   return <RunCard listed={listed} facts={facts} />;
@@ -139,7 +141,13 @@ function RunRow({
           (row.problem ? (
             <div className="error-box">{row.problem}</div>
           ) : (
-            <RunDetail group={group} id={row.id} month={month} facts={facts} />
+            <RunDetail
+              group={group}
+              id={row.id}
+              month={month}
+              facts={facts}
+              version={`${row.state}:${row.steps}:${row.spent.calls}:${row.spent.ms}:${row.ended?.at ?? ""}`}
+            />
           ))}
       </div>
     </details>
