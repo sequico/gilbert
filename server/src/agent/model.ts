@@ -102,7 +102,6 @@ export const MODEL_RESPONSE_BYTES_MAX = 4 * 1024 * 1024;
  * and an uncapped answer is an uncapped bill. One definition, so a call site
  * cannot leave it out.
  */
-export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
 
 /**
  * The zero-retention opt-out that rides on every request.
@@ -337,7 +336,13 @@ export async function callModel(
         model,
         temperature: 0,
         response_format: { type: "json_object" },
-        max_tokens: req.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
+        /*
+         * The provider's own ceiling unless a call states one: a reasoning
+         * model spends the budget before it writes the answer, and a ceiling
+         * this build guessed cut the content away -- "answered without a
+         * message", with only `reasoning_content` left.
+         */
+        ...(req.maxOutputTokens === undefined ? {} : { max_tokens: req.maxOutputTokens }),
         messages: [
           { role: "system", content: req.system },
           {

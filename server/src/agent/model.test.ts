@@ -57,7 +57,6 @@ const {
   readAnswerAuthority,
   readImage,
   requireModelAccess,
-  MODEL_MAX_OUTPUT_DEFAULT,
   MODEL_RESPONSE_BYTES_MAX,
   OUTCOME_IN_PROMPT_MAX,
 } = await import("./model.js");
@@ -225,7 +224,11 @@ test("one call carries the zero-retention opt-out, a JSON answer shape and a cei
   assert.equal(request?.headers.authorization, "Bearer sk-a-key", "and carries the key");
   assert.equal(request?.body.temperature, 0);
   assert.deepEqual(request?.body.response_format, { type: "json_object" });
-  assert.equal(request?.body.max_tokens, MODEL_MAX_OUTPUT_DEFAULT, "with a ceiling");
+  assert.equal(
+    request?.body.max_tokens,
+    undefined,
+    "no ceiling of ours: the provider's own, so a reasoning model is not cut short",
+  );
 });
 
 test("a private provider is refused unless the operator's switch allows it (the key never leaves)", async () => {
