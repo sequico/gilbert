@@ -23,6 +23,19 @@
  * breaking anything, since the relay is the fallback. See
  * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
  */
+/**
+ * The state types that wake the agent: mail, and the app folder (chat, files,
+ * knowledge and workorders are all FileNode). A calendar or contact change is
+ * not something a run is woken by, and a listener on every frame would pay a
+ * pass for activity no rule can see.
+ *
+ * shortcut: FileNode covers chat, files, knowledge and workorders alike, so an
+ * app-folder write that is not chat wakes a pass too. The pass is cheap and the
+ * supervisor debounces a burst; narrow this when the wake can name the chat
+ * folder (or the agent's own writes are excluded at the source).
+ */
+export const WAKE_STATE_TYPES = ["Email", "FileNode"] as const;
+
 export const PUSH_STATE_TYPES = [
   // Mail, and the quota bar over it.
   "Email",

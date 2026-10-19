@@ -1,11 +1,12 @@
 import { serve } from "@hono/node-server";
 import { startAgent } from "./agent/supervisor.js";
+import { startAgentWake } from "./agent/wake.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
 import { ensureGlobalContacts } from "./globalContactsAdmin.js";
 import { ensureKnowledge } from "./knowledgeAdmin.js";
-import { onPush, releaseOnShutdown } from "./push.js";
+import { releaseOnShutdown } from "./push.js";
 import { errorMessage } from "./shared/errors.js";
 import { ensureWorkorders } from "./workorderAdmin.js";
 
@@ -132,7 +133,22 @@ async function main() {
    * interval stays the floor, and the push is what makes mail, chat and a file
    * land inside a second rather than inside ten.
    */
-  const stopKicks = agent ? onPush(() => agent.kick()) : () => {};
+  /*
+   * The agent's own event stream, with the Master's credential: one upstream
+   * connection, open with every tab closed. Stalwart's StateChange is the
+   * reason for a pass and the interval is the floor; a stream that drops is
+   * re-opened with a growing pause, and the interval covers the gap.
+   */
+  const stopWake = agent
+    ? startAgentWake(
+        {
+          eventSourceUrl: boot.master.session.eventSourceUrl,
+          baseUrl: boot.master.session.baseUrl ?? config.stalwartUrl,
+          authorization: boot.master.authorization,
+        },
+        () => agent.kick(),
+      )
+    : () => {};
   const app = createApp();
   const server = serve(
     {
@@ -163,7 +179,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
-    stopKicks();
+    stopWake();
     await agent?.stop();
     /* Before the sessions go: releasing a subscription needs a live credential,
        and what is left behind otherwise holds one of the account's fifteen

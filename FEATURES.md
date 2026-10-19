@@ -68,7 +68,8 @@ its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** is built and part of the
 server's own process (ADR 0031–0037 below): the loop that works a run is there,
-and the server asks it for a pass every ten seconds.
+and a pass is asked for when Stalwart pushes a change, with ten seconds as the
+floor.
 
 The one thing a member cannot do with group-owned mail is **end it**: the mail
 server tells one member's delete from another's by nothing and offers no rank
@@ -90,9 +91,9 @@ else a member does to move mail around still works.
 > restart. The supervisor that asks it for a pass is
 > `server/src/agent/supervisor.ts`, started by the server's own boot
 > (`server/src/index.ts`) with the installation it has just read, and it asks
-> again every ten seconds — an installation that has chosen no model, or a
-> Master who works no group, leaves it idle with a line in the console instead
-> (said once, when the state begins). The agent's decisions are
+> again on a pushed change, and every ten seconds as the floor — an installation
+> that has chosen no model, or a Master who works no group, leaves it idle with
+> a line in the console instead (said once, when the state begins). The agent's decisions are
 > [ADR 0031](docs/adr/0031-the-agents-tools-are-described-and-composable.md) (a
 > described catalogue of tools), [0032](docs/adr/0032-what-the-agent-decides-and-what-a-person-decides.md)
 > (what it decides and what only a person decides),
@@ -327,9 +328,10 @@ writes the order and the conditions from the group's knowledge, its checklists a
 its workorders, and the loop invents none. A model that chooses the same plan twice is a stall the record shows
 rather than an endless turn, and an answer refused twice in a row — or a round whose every step was refused —
 ends the run at once, so a model stuck on one malformed answer does not spend the budget repeating it. The server starts the loop with itself
-(`server/src/agent/supervisor.ts`) and asks it for a pass every ten seconds, and
-the accounts each pass works — the Master's groups — are read from the mail
-server by that pass rather than decided at the boot, so a group added or
+(`server/src/agent/supervisor.ts`) and asks it for a pass on a pushed change,
+with ten seconds as the floor, and the accounts each pass works — the Master's
+groups — are read from the mail server by that pass rather than decided at the
+boot, so a group added or
 withdrawn in Stalwart needs no restart.
 
 ## Where to watch it, and stop it

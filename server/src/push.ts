@@ -699,23 +699,6 @@ function endStaleFanout(entry: AccountPush): void {
 }
 
 /** Stalwart's POST. Returns an HTTP status. */
-/**
- * The listeners a delivered notification wakes, and the way to stop listening.
- *
- * The agent is the one caller: a `StateChange` is a reason to ask for a pass now
- * rather than at the next beat. The listeners are told after the tabs have been
- * handed the frame, and one that throws cannot stop the delivery to the others
- * or the answer to Stalwart.
- */
-const pushListeners = new Set<() => void>();
-
-export function onPush(listener: () => void): () => void {
-  pushListeners.add(listener);
-  return () => {
-    pushListeners.delete(listener);
-  };
-}
-
 export async function receive(token: string, body: unknown): Promise<number> {
   const entry = byToken.get(token);
   if (!entry) return 404;
@@ -762,35 +745,6 @@ export async function receive(token: string, body: unknown): Promise<number> {
       // A `false` says the socket is not draining; the sweeper drops the tab if
       // it is still over the ceiling a sweep later (see `TAB_BACKLOG_BYTES`).
       if (!out.write(frame)) backedUp.add(out);
-    }
-    /*
-     * Only the rails the agent works are a reason to ask for a pass: mail and
-     * the app folder (chat, and the group's other documents). A calendar or a
-     * contact change is not something a run is woken by, and a listener on
-     * every frame would pay a pass for activity no rule can see.
-     *
-     * shortcut: in this trial phase the wake is meant for **chat and email**.
-     * A chat message is a FileNode, the same type as files, knowledge and
-     * workorders, so the filter cannot tell them apart: any app-folder write
-     * wakes a pass too. Upgrade when the push body can be narrowed to the chat
-     * folder (or the agent's own writes are excluded at the source), and until
-     * then the pass is cheap and the debounce holds it to one per burst.
-     */
-    const changed = (msg as { changed?: Record<string, Record<string, unknown>> })
-      .changed;
-    const wakes =
-      changed !== undefined &&
-      Object.values(changed).some(
-        (account) => "Email" in account || "FileNode" in account,
-      );
-    if (wakes) {
-      for (const listener of pushListeners) {
-        try {
-          listener();
-        } catch (err) {
-          console.warn("[gilbert] push: a listener failed:", errorMessage(err));
-        }
-      }
     }
     return 200;
   }

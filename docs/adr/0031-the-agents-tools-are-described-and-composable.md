@@ -21,9 +21,15 @@ works a run is `server/src/agent/loop.ts`: its budget is the ceilings on the
 steps, the model calls and the milliseconds a run may spend, and a run that
 reaches one ends `out-of-budget` saying so. The agent is started by the server's
 own boot (`server/src/index.ts`, `server/src/agent/supervisor.ts`): it runs on
-the installation's model, asks `AgentLoop.pass()` every ten seconds, and works
-the groups its principal holds —
-**resolved from the mail server on every pass**, so a group the Master is added
+the installation's model and works the groups its principal holds. A pass is
+asked for **when Stalwart pushes a change**: the server holds its own event
+stream to Stalwart with the Master's credential (`server/src/agent/wake.ts`),
+open and independent of any browser, and a `StateChange` on it is the reason
+for a pass. The interval is the floor,
+not the clock: a deployment whose mail server offers no stream keeps it alone,
+and a stream that drops is reopened with a growing pause while the interval
+covers the gap. The groups are **resolved from the mail server on every pass**,
+so a group the Master is added
 to is worked by the next one with no restart, and a Master who works no group at
 this moment is an idle agent, said once (`supervisor.ts`), rather than one that
 does not exist. The catalogue writes in the group's own
@@ -118,6 +124,10 @@ typed arguments, each acting on one of those objects.
 - The agent carries no capability allowlist of its own, and neither does a rule.
 - Every tool is exercisable against the mock, and the mock is what must agree
   with a real Stalwart.
+- The wake is the server's own event stream: a StateChange asks for a pass, and
+  the ten-second interval is the floor for a mail server that offers none and
+  for the pause while a dropped stream is reopened. A burst of changes is one
+  pass, and a change that arrives while a pass runs asks for one more.
 - The provider's contract is pinned against a stub, and **no real provider has
   answered it**: the first live call is owed before the model path is trusted.
 <!-- owed: model-provider-live -->
