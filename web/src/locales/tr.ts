@@ -23,7 +23,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Ajan",
     Workorders: "İş emirleri",
     Completed: "Tamamlandı",
     Replaced: "Değiştirildi",
@@ -1287,7 +1286,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Dokunulan: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} tarafından yetkilendirildi: {target} için {authority} — “{what}”",
-    "The installation's line": "Kurulumun satırı",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Bu grubun metnini başka biri değiştirdi. Liste yeniden yüklendi ve düzenlemeniz kaydedilmedi.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1574,8 +1572,6 @@ export const catalog: Catalog = {
     "The certificate is not valid yet.": "Sertifika henüz geçerli değil.",
     "The colour palette (Gilbert's own or one of the shipped ones).":
       "Renk paleti (Gilbert'in kendisi ya da sunulanlardan biri).",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "Bu kurulumun üzerinde çalıştığı yapılandırma: Master'ın kendi Dosyalarında tek bir JSON belgesi — kurulumun oturum açtığı hesap; sunucu bunu açılışta bir kez okur. Burada yayımladığınız şey bir sonraki açılışın üzerinde çalışacağıdır ve şu an çalışan süreç açılışta edindiğini korur.",
     "The contacts in it go too.": "İçindeki kişiler de silinecektir.",
     "The default identity is always offered when composing":
       "İleti oluştururken varsayılan kimlik her zaman sunulur",

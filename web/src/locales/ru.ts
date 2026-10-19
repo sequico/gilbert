@@ -49,7 +49,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Агент",
     Workorders: "Наряды",
     Completed: "Завершено",
     Replaced: "Заменено",
@@ -633,7 +632,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Затронуто: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Разрешил {by}: {authority} для {target} — «{what}»",
-    "The installation's line": "Строка установки",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Кто-то другой изменил текст этой группы. Список перезагружен, ваша правка не сохранена.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1818,8 +1816,6 @@ export const catalog: Catalog = {
     Running: "Выполняется",
     Pending: "Ожидает",
     "Installation document": "Документ установки",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "Конфигурация, на которой работает эта установка: один документ JSON в собственных Файлах Master — учётной записи, под которой входит эта установка и которую сервер читает один раз при запуске. То, что вы публикуете здесь, — это то, на чём пройдёт следующий запуск, а текущий процесс сохраняет то, с чем стартовал.",
     "Stored at {where}": "Хранится в {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "У собственной учётной записи установки пока нет документа, поэтому редактор начинает со значений по умолчанию установки и только что созданного секрета приложения. Опубликуйте его как есть или сначала отредактируйте.",

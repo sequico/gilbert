@@ -3,7 +3,6 @@ import {
   Code,
   Info,
   KeyRound,
-  ScrollText,
   ServerCog,
   ShieldCheck,
   Tag,
@@ -12,17 +11,16 @@ import {
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
-import { AdminAgent } from "@/views/admin/AdminAgent";
 import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
+import { AgentsView } from "@/views/admin/agents/AgentsView";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { Identities } from "@/views/admin/Identities";
-import { RulesPanel } from "@/views/admin/RulesPanel";
 import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
-type AdminOwner = "mailer" | "stalwart" | null;
+type AdminOwner = "agents" | "mailer" | "stalwart" | null;
 type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
 
 /**
@@ -43,13 +41,6 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
 function sections(): AdminSection[] {
   return [
     {
-      id: "policy",
-      label: "Policy",
-      icon: <ShieldCheck size={18} />,
-      el: <AdminPolicy />,
-      owner: "mailer",
-    },
-    {
       id: "installation",
       label: t("Installation"),
       icon: <ServerCog size={18} />,
@@ -57,17 +48,17 @@ function sections(): AdminSection[] {
       owner: "mailer",
     },
     {
-      id: "agent",
-      label: t("Agent"),
+      id: "agents",
+      label: t("AI Agents"),
       icon: <Bot size={18} />,
-      el: <AdminAgent />,
-      owner: "mailer",
+      el: <AgentsView />,
+      owner: "agents",
     },
     {
-      id: "rules",
-      label: t("Rules"),
-      icon: <ScrollText size={18} />,
-      el: <RulesPanel />,
+      id: "policy",
+      label: "Policy",
+      icon: <ShieldCheck size={18} />,
+      el: <AdminPolicy />,
       owner: "mailer",
     },
     {
@@ -133,6 +124,7 @@ export function AdminView({ section }: { section?: string }) {
         icon: s.icon,
       }));
   const groups: SectionGroup[] = [
+    { label: t("Gilbert Agents"), items: byOwner("agents") },
     { label: t("Gilbert Mailer"), items: byOwner("mailer") },
     {
       label: "Stalwart",

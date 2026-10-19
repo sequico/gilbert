@@ -7,18 +7,11 @@ import { useEffect, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
 import {
   fetchInstallation,
-  installationModel,
   publishInstallation,
   startingInstallationDocument,
 } from "@/lib/installationAdmin";
 import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { LoadState } from "@/ui/LoadState";
-import { ModelFields } from "./installation/ModelFields";
-import {
-  type KeyDraft,
-  withInstructionField,
-  withModelKey,
-} from "./installation/modelDocument";
 
 /**
  * The installation's own document (ADR 0011 — the installation is configured
@@ -31,12 +24,11 @@ import {
  * refusal — text that is not a document, a document this build could not boot
  * from — is shown as the server stated it, because the server is the door.
  *
- * One part of the document an administrator **chooses** rather than looks up is
- * the installation's model (ADR 0031), so it has fields of its own that write
- * `agent.provider` in the text above them: one home for the model, and the
- * document is it. The key is the one thing those fields never hold — a key is
- * write-only, no read hands it back, and the field states it only as the
- * publish is sent (`withModelKey`).
+ * The agent's own part of the document — the model and the installation's line
+ * — is edited in the administration's AI Agents section: the fields there write
+ * `agent.provider` and `agent.instruction` into this same text. This page is the
+ * whole document, and the one place its other values (server, sessions, push,
+ * upstreams, branding, the app secret) are read and written.
  */
 export function AdminInstallation() {
   const [view, setView] = useState<InstallationView | null>(null);
@@ -49,16 +41,10 @@ export function AdminInstallation() {
   const [notice, setNotice] = useState<Published | null>(null);
   const [seeded, setSeeded] = useState(false);
   const [saving, setSaving] = useState(false);
-  /**
-   * What the form says about the model's key, held here and never written into
-   * the text: a key is write-only, so the document this surface shows carries
-   * none and the field is where one is stated at all.
-   */
-  const [keyDraft, setKeyDraft] = useState<KeyDraft>({ kind: "kept" });
   // A publish with nothing to publish is not a state the button should offer —
   // and a key stated in the form is something to publish even when the text has
   // not moved, since the key is never part of the text.
-  const dirty = text !== baseline || keyDraft.kind !== "kept";
+  const dirty = text !== baseline;
 
   async function load() {
     setLoadError(null);
@@ -76,9 +62,6 @@ export function AdminInstallation() {
         setBaseline(current.document);
         setSeeded(false);
       }
-      // A key the form held belongs to the read it was made from, and this one
-      // is a fresh read: nothing is stated about the key until it is said again.
-      setKeyDraft({ kind: "kept" });
       setLoaded(true);
     } catch (err) {
       setLoadError(errorMessage(err));
@@ -100,9 +83,9 @@ export function AdminInstallation() {
     }
     setSaving(true);
     try {
-      // The form's key is merged here and only here: it is never part of the
-      // text, so nothing this surface shows ever carries it.
-      const outcome = await publishInstallation(withModelKey(text, keyDraft));
+      // The key is not this page's: it is stated in the agent's own section,
+      // and a publish here leaves the stored one exactly as it is.
+      const outcome = await publishInstallation(text);
       /*
        * The server hands back the document as it is now stored — the
        * validator's defaults filled in, the epoch moved on, the key taken out —
@@ -112,7 +95,6 @@ export function AdminInstallation() {
       setText(outcome.document);
       setBaseline(outcome.document);
       setSeeded(false);
-      setKeyDraft({ kind: "kept" });
       setNotice(outcome);
       setView((current) =>
         current
@@ -143,17 +125,11 @@ export function AdminInstallation() {
     );
   }
 
-  const documentProblem = jsonProblem(text);
-  /** The fields write into the text, so they need a text that is one object. */
-  const editable = !saving && !documentProblem;
-  const model = installationModel(text);
-
   return (
     <div>
-      <h1>{t("Installation document")}</h1>
-      <p className="lead">
+      <p className="hint">
         {t(
-          "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.",
+          "One JSON document in the Master's Files; a publish applies at the next boot.",
         )}
       </p>
       {view && <p className="hint">{t("Stored at {where}", { where: view.location })}</p>}
@@ -171,32 +147,6 @@ export function AdminInstallation() {
           })}
         </div>
       )}
-      <ModelFields
-        text={text}
-        model={model}
-        documentProblem={documentProblem}
-        editable={editable}
-        keyDraft={keyDraft}
-        onText={setText}
-        onKeyDraft={setKeyDraft}
-      />
-      <h2 style={{ marginTop: 24 }}>{t("The installation's line")}</h2>
-      <p className="hint">
-        {t(
-          "How this installation wants the agent to work, above every group's instruction. Applies at the next pass.",
-        )}
-      </p>
-      <div className="field">
-        <label htmlFor="agent-instruction">{t("Standing instruction")}</label>
-        <textarea
-          id="agent-instruction"
-          rows={4}
-          className="input"
-          value={model.instruction}
-          disabled={!editable}
-          onChange={(e) => setText(withInstructionField(text, e.target.value))}
-        />
-      </div>
       <p className="hint">
         {tNode(
           "The {field} field is the app secret every stored session is sealed with: anyone who can read this page can read it, and a publish that loses it would sign everyone out. Keep it in the document it belongs to.",

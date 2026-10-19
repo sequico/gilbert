@@ -46,7 +46,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "エージェント",
     Workorders: "作業指示",
     Completed: "完了",
     Replaced: "置き換え済み",
@@ -630,7 +629,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "変更対象: {touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "{by} が承認: {target} に対する {authority} — 「{what}」",
-    "The installation's line": "インストールの指針",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "他のメンバーがこのグループの文章を変更しました。一覧を再読み込みしましたが、あなたの編集は保存されていません。",
     "Waiting: {what} — asked in {channel} {id}": "待機中: {what} — {channel} {id} で質問",
@@ -1822,8 +1820,6 @@ export const catalog: Catalog = {
     Running: "実行中",
     Pending: "保留中",
     "Installation document": "インストールドキュメント",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "このインストールが動く構成: Master自身のファイルにある1つのJSONドキュメント — このインストールがサインインするアカウントで、サーバーが起動時に一度読みます。ここで公開したものが次回起動で動くもので、現在動いているプロセスは起動時のものを保ちます。",
     "Stored at {where}": "保存先: {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "インストール自身のアカウントにはまだドキュメントがないため、エディターはインストールの既定値と新しく生成されたアプリシークレットから始めます。そのまま公開するか、先に編集してください。",

@@ -43,7 +43,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agent",
     Workorders: "Werkorders",
     Completed: "Voltooid",
     Replaced: "Vervangen",
@@ -628,7 +627,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Aangeraakt: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Geautoriseerd door {by}: {authority} voor {target} — ‘{what}’",
-    "The installation's line": "De regel van de installatie",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Iemand anders heeft de tekst van deze groep gewijzigd. De lijst is opnieuw geladen en je bewerking is niet opgeslagen.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1821,8 +1819,6 @@ export const catalog: Catalog = {
     Running: "Draait",
     Pending: "In behandeling",
     "Installation document": "Installatiedocument",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "De configuratie waarop deze installatie draait: één JSON-document in de eigen Bestanden van de Master — het account waarmee deze installatie aanmeldt, dat de server eenmalig bij het opstarten leest. Wat u hier publiceert is waarop de volgende start draait, en het nu draaiende proces houdt wat het bij het opstarten had.",
     "Stored at {where}": "Opgeslagen op {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "Het eigen account van de installatie heeft nog geen document, dus de editor begint bij de standaardwaarden van de installatie en een vers gegenereerd app-geheim. Publiceer het zoals het is, of bewerk het eerst.",

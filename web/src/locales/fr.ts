@@ -52,7 +52,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agent",
     Workorders: "Ordres de travail",
     Completed: "Terminé",
     Replaced: "Remplacé",
@@ -643,7 +642,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Touché : {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorisé par {by} : {authority} pour {target} — « {what} »",
-    "The installation's line": "La ligne de l'installation",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Quelqu'un d'autre a modifié la prose de ce groupe. La liste a été rechargée et votre modification n'a pas été enregistrée.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1842,8 +1840,6 @@ export const catalog: Catalog = {
     Running: "En cours",
     Pending: "En attente",
     "Installation document": "Document d'installation",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "La configuration sur laquelle tourne cette installation : un document JSON dans les Fichiers propres du Master — le compte avec lequel cette installation se connecte, que le serveur lit une fois au démarrage. Ce que vous publiez ici est ce sur quoi tournera le prochain démarrage, et le processus en cours garde ce avec quoi il a démarré.",
     "Stored at {where}": "Stocké à {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "Le compte propre de l'installation n'a pas encore de document, l'éditeur part donc des valeurs par défaut de l'installation et d'un secret d'application fraîchement généré. Publiez-le tel quel, ou modifiez-le d'abord.",

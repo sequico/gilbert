@@ -55,7 +55,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agent",
     Workorders: "Arbeitsaufträge",
     Completed: "Abgeschlossen",
     Replaced: "Ersetzt",
@@ -634,7 +633,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Berührt: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorisiert von {by}: {authority} für {target} – „{what}“",
-    "The installation's line": "Die Zeile der Installation",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Jemand anderes hat die Prosa dieser Gruppe geändert. Die Liste wurde neu geladen, und Ihre Änderung wurde nicht gespeichert.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1871,8 +1869,6 @@ export const catalog: Catalog = {
     Running: "Läuft",
     Pending: "Ausstehend",
     "Installation document": "Installationsdokument",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "Die Konfiguration, auf der diese Installation läuft: ein JSON-Dokument in den eigenen Dateien des Masters — das Konto, mit dem sich diese Installation anmeldet, das der Server beim Start einmal liest. Was Sie hier veröffentlichen, ist das, worauf der nächste Start läuft, und der jetzt laufende Prozess behält, womit er gestartet wurde.",
     "Stored at {where}": "Gespeichert unter {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "Das eigene Konto der Installation hat noch kein Dokument, daher beginnt der Editor mit den Standardwerten der Installation und einem frisch erzeugten App-Geheimnis. Veröffentlichen Sie es so, wie es ist, oder bearbeiten Sie es zuerst.",

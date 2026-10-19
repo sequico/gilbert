@@ -43,7 +43,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Агент",
     Workorders: "Наряди",
     Completed: "Завершено",
     Replaced: "Замінено",
@@ -629,7 +628,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Змінено: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Дозволив {by}: {authority} для {target} — «{what}»",
-    "The installation's line": "Рядок установки",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Хтось інший змінив текст цієї групи. Список перезавантажено, вашу правку не збережено.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1811,8 +1809,6 @@ export const catalog: Catalog = {
     Running: "Виконується",
     Pending: "Очікує",
     "Installation document": "Документ установлення",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "Конфігурація, на якій працює це установлення: один документ JSON у власних Файлах Master — облікового запису, під яким входить це установлення і який сервер читає один раз під час запуску. Те, що ви публікуєте тут, — це те, на чому пройде наступний запуск, а поточний процес зберігає те, з чим стартував.",
     "Stored at {where}": "Зберігається в {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "У власного облікового запису установлення ще немає документа, тому редактор починає з типових значень установлення та щойно створеного секрету застосунку. Опублікуйте його як є або спершу відредагуйте.",

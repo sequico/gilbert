@@ -2,7 +2,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
-import { AdminAgent } from "../AdminAgent";
+import { useMail } from "@/store/mail";
+import { AgentsView } from "../agents/AgentsView";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -112,6 +113,8 @@ describe("the agent's administration surface", () => {
       if (init?.method === "DELETE") return answer({ ok: true });
       if (url.startsWith("/api/admin/groups/") && url.endsWith("/runs"))
         return answer({ group: GROUP, runs });
+      if (url.startsWith("/api/admin/groups/") && url.endsWith("/prose"))
+        return answer({ instruction: "", rules: [], state: "state-1" });
       if (url === "/api/admin/groups")
         return answer({ groups: [{ id: "t1", name: GROUP }], enumeration: true });
       if (url === "/api/admin/memory") return answer({ facts, problems: [] });
@@ -158,10 +161,15 @@ describe("the agent's administration surface", () => {
   }
 
   async function render() {
+    // The groups the page tabs are the session's group mailboxes, as the
+    // composer and the rules editor read them.
+    useMail.setState({
+      mailAccounts: [{ accountId: "m1", name: GROUP, kind: "group" }],
+    });
     await act(async () => {
       root.render(
         <Router>
-          <AdminAgent />
+          <AgentsView />
         </Router>,
       );
     });
@@ -171,19 +179,14 @@ describe("the agent's administration surface", () => {
     await flush();
   }
 
-  /** Choose the group whose runs are on screen. */
-  async function chooseGroup() {
+  /** Open one of the page's tabs, by the label it shows. */
+  async function openTab(label: string) {
     await act(async () => {
-      const select = host.querySelector<HTMLSelectElement>("select");
-      if (!select) throw new Error("no group picker");
-      if (![...select.options].some((option) => option.value === GROUP))
-        throw new Error("the group the directory lists is not on the picker");
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLSelectElement.prototype,
-        "value",
-      )?.set;
-      setter?.call(select, GROUP);
-      select.dispatchEvent(new Event("change", { bubbles: true }));
+      const found = [
+        ...host.querySelectorAll<HTMLButtonElement>('button[role="tab"]'),
+      ].find((button) => (button.textContent ?? "") === label);
+      if (!found) throw new Error(`no tab: ${label}`);
+      found.click();
     });
     await flush();
     await flush();
@@ -204,13 +207,10 @@ describe("the agent's administration surface", () => {
   it("says where the agent is: the claim it holds and how often a pass is asked for", async () => {
     stubServer();
     await render();
+    await openTab("Overview");
 
     expect(text()).toContain("host-a#41");
-    expect(text()).toContain("every 10 s");
-    // The model is the installation section's, so it is named and linked, never
-    // edited here — and the key is nowhere on this screen.
-    expect(text()).toContain("openai");
-    expect(host.querySelector('a[href="/admin/installation"]')).not.toBeNull();
+    expect(text()).toContain("A pass every 10 s.");
     // Nothing here starts or stops the agent: there is no such control to press.
     expect(
       [...host.querySelectorAll("button")].map((b) => b.textContent ?? ""),
@@ -220,7 +220,7 @@ describe("the agent's administration surface", () => {
   it("draws a run as the record carries it: the change, the rule, the dependency and the branch", async () => {
     stubServer();
     await render();
-    await chooseGroup();
+    await openTab(GROUP);
 
     const shown = text();
     expect(shown).toContain("mail created: m-1");
@@ -247,7 +247,7 @@ describe("the agent's administration surface", () => {
       },
     ]);
     await render();
-    await chooseGroup();
+    await openTab(GROUP);
 
     expect(text()).toContain("future-run");
     expect(text()).toContain('"v" is 9');
@@ -256,13 +256,14 @@ describe("the agent's administration surface", () => {
   it("lists a fact and sends a correction to the server, not to the account", async () => {
     const fetchMock = stubServer();
     await render();
+    await openTab("Memory");
 
     expect(text()).toContain("Maersk");
     await act(async () => {
       button("Edit").click();
     });
 
-    const field = host.querySelector<HTMLTextAreaElement>("textarea");
+    const field = host.querySelector<HTMLTextAreaElement>('textarea[id^="fact-"]');
     if (!field) throw new Error("the correction has no field");
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(
@@ -273,7 +274,11 @@ describe("the agent's administration surface", () => {
       field.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(async () => {
-      button("Save").click();
+      const save = [...(field.closest(".card")?.querySelectorAll("button") ?? [])].find(
+        (one) => (one.textContent ?? "").includes("Save"),
+      );
+      if (!save) throw new Error("the correction has no Save");
+      save.click();
     });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -300,6 +305,7 @@ describe("the agent's administration surface", () => {
     };
     const fetchMock = stubServer(undefined, [proposed]);
     await render();
+    await openTab("Memory");
 
     expect(text()).toContain("the usual shipper");
     expect(text()).toContain(
@@ -325,6 +331,39 @@ describe("the agent's administration surface", () => {
     );
   });
 
+  it("follows the groups the Master is in: a removed group loses its tab", async () => {
+    /*
+     * The tabs are the session's group mailboxes, read live. A group the Master
+     * is taken out of stops being a tab; a page still pointing at it would show
+     * no panel at all, so the selection falls back to General and the group's
+     * panel is unmounted.
+     */
+    stubServer();
+    await render();
+    await openTab(GROUP);
+    expect(document.getElementById(`agents-group:${GROUP}-panel`)).not.toBeNull();
+
+    await act(async () => {
+      useMail.setState({ mailAccounts: [] });
+    });
+    await flush();
+
+    const selected = host.querySelector('button[role="tab"][aria-selected="true"]');
+    expect(selected?.textContent).toBe("Overview");
+    expect(document.getElementById(`agents-group:${GROUP}-panel`)).toBeNull();
+
+    await act(async () => {
+      useMail.setState({
+        mailAccounts: [{ accountId: "m1", name: GROUP, kind: "group" }],
+      });
+    });
+    await flush();
+    const labels = [...host.querySelectorAll('button[role="tab"]')].map(
+      (one) => one.textContent,
+    );
+    expect(labels).toContain(GROUP);
+  });
+
   it("dismisses the agent's proposal through its own route and writes nothing", async () => {
     const proposed = {
       ...FACT,
@@ -336,6 +375,7 @@ describe("the agent's administration surface", () => {
     };
     const fetchMock = stubServer(undefined, [proposed]);
     await render();
+    await openTab("Memory");
 
     await act(async () => {
       button("Dismiss").click();

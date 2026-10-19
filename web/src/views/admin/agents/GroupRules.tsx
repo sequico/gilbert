@@ -1,6 +1,6 @@
 /**
- * A group's prose, edited from Administration (ADR 0035): the standing
- * instruction and the rules.
+ * One group's prose, edited from Administration (ADR 0035): the standing
+ * instruction and the rules. The group is the tab the page is on.
  *
  * The editor is the administration's section now, not a dialog in the top bar:
  * a group's prose is decided by an installation administrator, and that is the
@@ -20,8 +20,6 @@ import {
   saveRule,
 } from "@/lib/agentProse";
 import { t } from "@/lib/i18n";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { useMail } from "@/store/mail";
 import { confirmDialog } from "@/ui/dialog";
 
 /** The name each surface goes by, in the order a rule's list keeps. */
@@ -33,10 +31,7 @@ const SURFACE_LABEL: Record<(typeof RULE_SURFACES)[number], string> = {
   files: "Files",
 };
 
-export function RulesPanel() {
-  const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
-  // The route is keyed by the group's name — the address the session calls it.
-  const [group, setGroup] = useState(groups[0]?.name ?? "");
+export function GroupRules({ group }: { group: string }) {
   const [prose, setProse] = useState<GroupProse | null>(null);
   const [instruction, setInstruction] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +58,7 @@ export function RulesPanel() {
   }, []);
 
   useEffect(() => {
-    if (group) void load(group);
+    void load(group);
   }, [group, load]);
 
   const saveStanding = async () => {
@@ -121,30 +116,6 @@ export function RulesPanel() {
 
   return (
     <div>
-      <h1>{t("Rules")}</h1>
-      <p className="hint">
-        {t("Each group's standing instruction and rules, as its agent reads them.")}
-      </p>
-      {groups.length === 0 && (
-        <p className="hint">{t("No group mailbox in this session.")}</p>
-      )}
-      {groups.length > 0 && (
-        <div className="field" style={{ maxWidth: "28rem" }}>
-          <label htmlFor="rules-group">{t("Group")}</label>
-          <select
-            id="rules-group"
-            className="select"
-            value={group}
-            onChange={(e) => setGroup(e.target.value)}
-          >
-            {groups.map((g) => (
-              <option key={g.accountId} value={g.name}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       {error && (
         <div className="error-box" style={{ marginTop: 12 }}>
           {error}

@@ -45,7 +45,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "代理",
     Workorders: "工单",
     Completed: "已完成",
     Replaced: "已替换",
@@ -620,7 +619,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "涉及：{touched}。",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "由 {by} 授权：{authority}，对象 {target} —“{what}”",
-    "The installation's line": "安装的指示",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "其他人更改了该群组的文字。列表已重新加载，你的修改未保存。",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1773,8 +1771,6 @@ export const catalog: Catalog = {
     Running: "运行中",
     Pending: "待处理",
     "Installation document": "安装文档",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "此安装所运行的配置：Master 自己文件中的一个 JSON 文档 — 此安装登录所用的账户，服务器在启动时读取一次。您在此发布的内容就是下次启动所运行的内容，而当前运行的进程保留其启动时的内容。",
     "Stored at {where}": "存储在 {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "安装自己的账户还没有文档，因此编辑器从安装的默认值和新生成的应用密钥开始。按原样发布，或先编辑它。",

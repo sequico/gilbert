@@ -1,0 +1,146 @@
+import { errorMessage } from "@gilbert/shared/errors";
+import { useCallback, useEffect, useState } from "react";
+import { type FactDoc, fetchFacts } from "@/lib/agentAdmin";
+import { t } from "@/lib/i18n";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { useMail } from "@/store/mail";
+import { AgentGeneral } from "./AgentGeneral";
+import { AgentGroup } from "./AgentGroup";
+import { AgentMemory } from "./AgentMemory";
+import { AgentOverview } from "./AgentOverview";
+
+/**
+ * The installation's agent, in one place: the document that configures it, the
+ * rule and memory that are the installation's, and one tab per group it works.
+ *
+ * The installation's document is its own administration section; what is here
+ * is the agent's part of it — the model, the standing rule, the memory — and one
+ * tab per group it works, with that group's rules and runs.
+ *
+ * Tabs are mounted the first time they are opened and kept mounted afterwards,
+ * so an edit in progress survives a look at another tab; the hidden panels cost
+ * nothing and no group's prose is read until its tab is visited.
+ */
+const OVERVIEW = "overview";
+const GENERAL = "general";
+const MEMORY = "memory";
+
+export function AgentsView() {
+  const groups = groupMailboxAccounts(useMail((s) => s.mailAccounts));
+  const entries = [
+    { id: OVERVIEW, label: t("Overview") },
+    { id: GENERAL, label: t("General") },
+    { id: MEMORY, label: t("Memory") },
+    ...groups.map((g) => ({ id: `group:${g.name}`, label: g.name })),
+  ];
+  const [tab, setTab] = useState(OVERVIEW);
+  const [visited, setVisited] = useState<ReadonlySet<string>>(new Set([OVERVIEW]));
+  /*
+   * The groups are the session's, read live: one the Master is taken out of
+   * stops being a tab, and a page still pointing at it would show nothing at
+   * all. The selection falls back to General, and the panel of a group that is
+   * gone is unmounted with it.
+   */
+  const active = entries.some((entry) => entry.id === tab) ? tab : OVERVIEW;
+  const groupNames = groups.map((group) => group.name).join("\n");
+  useEffect(() => {
+    const live = new Set(entries.map((entry) => entry.id));
+    setVisited((held) => {
+      const next = new Set([...held].filter((id) => live.has(id)));
+      next.add(active);
+      const same = next.size === held.size && [...held].every((id) => next.has(id));
+      return same ? held : next;
+    });
+    // `entries` is rebuilt every render; the names and the selection are what
+    // change what a tab is.
+  }, [groupNames, active]);
+
+  const [facts, setFacts] = useState<FactDoc[]>([]);
+  const [factProblems, setFactProblems] = useState<string[]>([]);
+  const [factsError, setFactsError] = useState<string | null>(null);
+
+  const loadFacts = useCallback(async () => {
+    setFactsError(null);
+    try {
+      const reading = await fetchFacts();
+      setFacts(reading.facts);
+      setFactProblems(reading.problems);
+    } catch (err) {
+      setFactsError(errorMessage(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFacts();
+  }, [loadFacts]);
+
+  const select = (id: string) => {
+    setVisited((held) => (held.has(id) ? held : new Set(held).add(id)));
+    setTab(id);
+    document.getElementById(`agents-${id}`)?.focus();
+  };
+
+  const neighbour = (id: string, delta: number): string => {
+    const index = entries.findIndex((entry) => entry.id === id);
+    const next = (index + delta + entries.length) % entries.length;
+    return entries[next]?.id ?? id;
+  };
+
+  return (
+    <div>
+      <div className="tabs" role="tablist" aria-label={t("AI Agents")}>
+        {entries.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className="tab"
+            role="tab"
+            id={`agents-${entry.id}`}
+            aria-selected={active === entry.id}
+            aria-controls={`agents-${entry.id}-panel`}
+            tabIndex={active === entry.id ? 0 : -1}
+            onClick={() => select(entry.id)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+                event.preventDefault();
+                select(neighbour(entry.id, 1));
+              } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+                event.preventDefault();
+                select(neighbour(entry.id, -1));
+              }
+            }}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      {entries
+        .filter((entry) => visited.has(entry.id))
+        .map((entry) => (
+          <div
+            key={entry.id}
+            id={`agents-${entry.id}-panel`}
+            role="tabpanel"
+            aria-labelledby={`agents-${entry.id}`}
+            hidden={active !== entry.id}
+          >
+            {entry.id === OVERVIEW && (
+              <AgentOverview groups={groups} facts={facts.length} />
+            )}
+            {entry.id === GENERAL && <AgentGeneral onDocumentSaved={() => undefined} />}
+            {entry.id === MEMORY && (
+              <AgentMemory
+                facts={facts}
+                problems={factProblems}
+                error={factsError}
+                onChanged={loadFacts}
+              />
+            )}
+            {entry.id.startsWith("group:") && (
+              <AgentGroup group={entry.id.slice("group:".length)} facts={facts} />
+            )}
+          </div>
+        ))}
+    </div>
+  );
+}

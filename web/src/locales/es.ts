@@ -47,7 +47,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agente",
     Workorders: "Órdenes de trabajo",
     Completed: "Completado",
     Replaced: "Reemplazado",
@@ -636,7 +635,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Tocado: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizado por {by}: {authority} para {target} — «{what}»",
-    "The installation's line": "La línea de la instalación",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Otra persona cambió la prosa de este grupo. La lista se ha recargado y tu cambio no se ha guardado.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1834,8 +1832,6 @@ export const catalog: Catalog = {
     Running: "En ejecución",
     Pending: "Pendiente",
     "Installation document": "Documento de instalación",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "La configuración sobre la que se ejecuta esta instalación: un documento JSON en los Archivos propios del Master — la cuenta con la que inicia sesión esta instalación, que el servidor lee una vez al arrancar. Lo que publique aquí es sobre lo que se ejecutará el próximo arranque, y el proceso en curso conserva aquello con lo que arrancó.",
     "Stored at {where}": "Guardado en {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "La cuenta propia de la instalación todavía no tiene documento, así que el editor parte de los valores predeterminados de la instalación y de un secreto de aplicación recién generado. Publíquelo tal como está, o edítelo primero.",

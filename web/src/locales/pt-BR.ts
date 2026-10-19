@@ -50,7 +50,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agente",
     Workorders: "Ordens de serviço",
     Completed: "Concluído",
     Replaced: "Substituído",
@@ -636,7 +635,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Tocado: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizado por {by}: {authority} para {target} — “{what}”",
-    "The installation's line": "A linha da instalação",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Outra pessoa alterou a prosa deste grupo. A lista foi recarregada e sua edição não foi salva.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -1833,8 +1831,6 @@ export const catalog: Catalog = {
     Running: "Em execução",
     Pending: "Pendente",
     "Installation document": "Documento de instalação",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "A configuração em que esta instalação roda: um documento JSON nos Arquivos do próprio Master — a conta com que esta instalação entra, que o servidor lê uma vez ao inicializar. O que você publica aqui é o que a próxima inicialização executa, e o processo em execução agora mantém o que iniciou.",
     "Stored at {where}": "Armazenado em {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "A própria conta da instalação ainda não tem documento, então o editor começa pelos padrões da instalação e por um segredo de aplicativo recém-gerado. Publique-o como está, ou edite-o primeiro.",

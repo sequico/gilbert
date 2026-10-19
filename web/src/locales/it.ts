@@ -24,7 +24,6 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
-    Agent: "Agente",
     Workorders: "Ordini di lavoro",
     Completed: "Completato",
     Replaced: "Sostituito",
@@ -1000,7 +999,6 @@ export const catalog: Catalog = {
     "Touched: {touched}.": "Toccato: {touched}.",
     "Authorised by {by}: {authority} for {target} — “{what}”":
       "Autorizzato da {by}: {authority} per {target} — «{what}»",
-    "The installation's line": "La riga dell'installazione",
     "Somebody else changed this group's prose. The list has been reloaded, and your edit was not saved.":
       "Qualcun altro ha modificato la prosa di questo gruppo. L'elenco è stato ricaricato e la tua modifica non è stata salvata.",
     "Waiting: {what} — asked in {channel} {id}":
@@ -2774,8 +2772,6 @@ export const catalog: Catalog = {
     Running: "In esecuzione",
     Pending: "In sospeso",
     "Installation document": "Documento dell'installazione",
-    "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.":
-      "La configurazione su cui gira questa installazione: un documento JSON nei File del Master — l'account con cui questa installazione accede, che il server legge una volta all'avvio. Ciò che pubblichi qui è ciò su cui gira il prossimo avvio, e il processo in corso mantiene ciò con cui è stato avviato.",
     "Stored at {where}": "Archiviato in {where}",
     "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.":
       "L'account proprio dell'installazione non ha ancora un documento, quindi l'editor parte dai valori predefiniti dell'installazione e da un segreto app appena generato. Pubblicalo così com'è, oppure modificalo prima.",

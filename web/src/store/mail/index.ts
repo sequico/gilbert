@@ -61,15 +61,25 @@ export const useMail = create<MailState>((set, get) => ({
  * mailbox they are looking at.
  */
 useSession.subscribe((s, prev) => {
-  if (s.status === prev.status) return;
-  const mail = useMail.getState();
-  if (s.status !== "authenticated") {
-    mail.setAccount(null);
+  if (s.status !== prev.status) {
+    const mail = useMail.getState();
+    if (s.status !== "authenticated") {
+      mail.setAccount(null);
+      return;
+    }
+    const own = mailAccountCandidates(s.session).find((c) => c.kind === "own");
+    mail.setAccount(own?.accountId ?? null);
+    void mail.discoverMailAccounts();
     return;
   }
-  const own = mailAccountCandidates(s.session).find((c) => c.kind === "own");
-  mail.setAccount(own?.accountId ?? null);
-  void mail.discoverMailAccounts();
+  /*
+   * A group the Master is added to or taken out of is a new or a missing tab
+   * on the agent's page, and a group mailbox the composer opens: the session's
+   * accounts are asked again on every refresh. The probe skips by itself when
+   * the accounts it knows are still the session's candidates.
+   */
+  if (s.status === "authenticated" && s.session !== prev.session)
+    void useMail.getState().discoverMailAccounts();
 });
 
 export { BODIES_KEPT, releaseBodies, resetBodyOrder } from "./bodies";
