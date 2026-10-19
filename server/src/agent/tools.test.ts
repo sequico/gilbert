@@ -743,7 +743,7 @@ test("the calendar is read and changed through its own tools", async () => {
   const personal = listed.calendars.find((one) => one.name === "Personal");
   assert.ok(personal?.mayWrite, "the account's own calendar is writable");
 
-  const created = await writeTool<{ id: string }>("calendar.save", {
+  const created = await writeTool<{ id: string }>("calendar.create", {
     calendar: personal.id,
     title: "Container 12 arrives",
     start: "2026-10-20T09:00:00",
@@ -763,7 +763,24 @@ test("the calendar is read and changed through its own tools", async () => {
   });
   assert.equal(read.event.title, "Container 12 arrives");
 
-  await writeTool("calendar.save", {
+  const allowed = takeAuthorisation(plainRun(), {
+    what: "correct the event's title",
+    authority: "destructive",
+    act: { target: created.id, content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-event" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: plainRun() }, "calendar.update", {
+        id: created.id,
+        title: "Container 12 has arrived",
+      }),
+    /authority/,
+    "changing an event takes a person's word for it",
+  );
+  await runTool(TOOLS, { ctx, accountId, run: allowed }, "calendar.update", {
     id: created.id,
     title: "Container 12 has arrived",
   });
@@ -772,7 +789,17 @@ test("the calendar is read and changed through its own tools", async () => {
   });
   assert.equal(changed.event.title, "Container 12 has arrived");
 
-  await writeTool("calendar.delete", { id: created.id });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: plainRun() }, "calendar.delete", {
+        id: created.id,
+      }),
+    /authority/,
+    "removing an event takes a person's word for it",
+  );
+  await runTool(TOOLS, { ctx, accountId, run: allowed }, "calendar.delete", {
+    id: created.id,
+  });
   await assert.rejects(
     () => callTool("calendar.read", { id: created.id }),
     /no event/,
@@ -857,11 +884,33 @@ test("a draft is replaced with new words, trash is undone, and an empty folder g
     id: message,
     text: "first words",
   });
-  const edited = await writeTool<{ id: string; replaced: string }>("mail.editDraft", {
-    id: draft.id,
-    text: "second words",
-    subject: "Re: an answer",
+  const wordForDraft = takeAuthorisation(plainRun(), {
+    what: "replace the draft with the new words",
+    authority: "destructive",
+    act: { target: draft.id, content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-draft" },
   });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: plainRun() }, "mail.editDraft", {
+        id: draft.id,
+        text: "second words",
+      }),
+    /authority/,
+    "replacing a draft takes a person's word for it",
+  );
+  const edited = (await runTool(
+    TOOLS,
+    { ctx, accountId, run: wordForDraft },
+    "mail.editDraft",
+    {
+      id: draft.id,
+      text: "second words",
+      subject: "Re: an answer",
+    },
+  )) as { id: string; replaced: string };
   assert.equal(edited.replaced, draft.id, "the old draft is the one replaced");
   const read = await callTool<{
     message: { bodyValues?: Record<string, { value?: string }>; subject?: string };

@@ -610,7 +610,12 @@ export const draftReply = defineTool({
             subject,
             sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
             mailboxIds: { [drafts.id]: true },
-            keywords: { [DRAFT_KEYWORD]: true, $seen: true },
+            // Every mark the draft carried stays, and it is a draft whatever
+            // else it was.
+            keywords: {
+              ...(isRecord(original.keywords) ? original.keywords : {}),
+              [DRAFT_KEYWORD]: true,
+            },
             bodyStructure: { partId: "text", type: "text/plain" },
             bodyValues: { text: { value: text } },
             ...(repliedTo ? { inReplyTo: [repliedTo] } : {}),
@@ -657,10 +662,12 @@ export const editDraft = defineTool({
     "Replace one of this account's drafts with a new one carrying the words you " +
     "give: the old draft is destroyed and the new one keeps its thread and its " +
     "place in Drafts. `subject`, `to` and `cc` change only when you name them " +
-    "(addresses separated by commas). The draft is not sent.",
-  authority: "reversible",
+    "(addresses separated by commas). The draft is not sent. The act is the " +
+    "draft: a person's word for it names the draft.",
+  authority: "destructive",
   writes: true,
   spend: { steps: 1 },
+  act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["cc", "id", "subject", "text", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -747,6 +754,18 @@ export const editDraft = defineTool({
       throw new ToolError(
         "write_refused",
         "The draft was not replaced, and the server said nothing about why.",
+        409,
+      );
+    /*
+     * The create and the destroy are one call, and either half can be refused.
+     * A destroy that was refused leaves the old draft beside the new one: the
+     * answer says so rather than reporting a replacement that left two.
+     */
+    const kept = res.notDestroyed?.[id];
+    if (kept)
+      throw new ToolError(
+        "write_partial",
+        `The new draft is ${draft}, and the draft it replaces could not be removed (${refusalOf(kept)}); both are in Drafts.`,
         409,
       );
     return { id: draft, replaced: id, to: nextTo.map((one) => one.email) };

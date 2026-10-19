@@ -264,9 +264,11 @@ folder in the mailbox or in Files, renames a mailbox folder in place and
 removes one that is empty, writes a text document in Files, moves or renames a
 document, replaces a document's text or removes it — the last three, like the
 removal of an empty folder, under a person's word for that document — replaces
-a draft with new words, takes a message back out of Deleted Items, creates,
-changes or removes an event in the group's own calendar — no invitation is sent
-and nobody outside the group is written to — **drafts a reply to everyone**
+a draft with new words (under a person's word for the draft), takes a message
+back out of Deleted Items, creates an event in the group's own calendar,
+changes one and removes one (the change and the removal under a person's word
+for the event) — no invitation is sent and nobody outside the group is written
+to — **drafts a reply to everyone**
 into the group's own Drafts — the sender in To and the rest of the message's
 recipients in Cc, the group's own addresses left out, carrying the thread and
 marked `$draft`, and sent by nobody but a person — settles a **step of a

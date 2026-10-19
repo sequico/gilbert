@@ -43,11 +43,12 @@
 
 import { errorMessage } from "../shared/errors.js";
 import {
+  createEvent,
   deleteEvent,
   findEvents,
   listCalendars,
   readEvent,
-  saveEvent,
+  updateEvent,
 } from "./tools/calendar.js";
 import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
 import { findContacts } from "./tools/contacts.js";
@@ -139,7 +140,8 @@ export const TOOLS: readonly AnyTool[] = [
   createMailFolder,
   renameMailFolder,
   deleteMailFolder,
-  saveEvent,
+  createEvent,
+  updateEvent,
   deleteEvent,
   writeDocument,
   overwriteDocument,

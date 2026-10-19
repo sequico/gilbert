@@ -150,31 +150,64 @@ export const readEvent = defineTool({
   },
 });
 
+/** The fields a change of an event may name, and only the ones it named. */
+function patchOf(args: {
+  title?: string;
+  start?: string;
+  duration?: string;
+  timeZone?: string;
+  description?: string;
+}): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (args.title !== undefined) patch.title = args.title;
+  if (args.start !== undefined) patch.start = args.start;
+  if (args.duration !== undefined) patch.duration = args.duration;
+  if (args.timeZone !== undefined) patch.timeZone = args.timeZone;
+  if (args.description !== undefined) patch.description = args.description;
+  if (!Object.keys(patch).length)
+    throw new ToolError("bad_arguments", "A change names at least one field.", 400);
+  return patch;
+}
+
+/** The one event read by id, with the occurrence refusal a change needs. */
+async function eventOf(
+  ctx: Ctx,
+  accountId: string,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const read = await clientOf(ctx).call<{ list?: unknown[] }>(
+    "CalendarEvent/get",
+    { accountId, ids: [id] },
+    [CAPABILITIES.calendars],
+  );
+  const event = (read.list ?? []).find(isRecord);
+  if (!event) throw notFound(`event "${id}" in this account's calendar`);
+  return event;
+}
+
 /**
- * The event a save writes: what the caller named, and nothing this build did
- * not read the shape of. A start with a time is a JSCalendar `LocalDateTime`
- * and needs the zone the calendar keeps; a date alone is an all-day event.
+ * A new event: the only calendar act the agent does alone. A start with a time
+ * is a JSCalendar `LocalDateTime` and needs the zone the calendar keeps; a date
+ * alone is an all-day event, and no invitation is sent.
  */
-export const saveEvent = defineTool({
-  name: "calendar.save",
+export const createEvent = defineTool({
+  name: "calendar.create",
   description:
-    "Create or change an event in this account's calendar. Name no `id` to " +
-    "create one: then `calendar` (an id or name from calendar.list), `title` " +
-    "and `start` are required. `start` is a wall-clock datetime " +
-    "(2026-10-20T09:00:00) or a date alone (2026-10-20) for an all-day event; " +
-    "`duration` is an ISO 8601 duration (PT1H, P1D) and defaults to one hour. " +
-    "Changed fields are those named beside the `id`; nothing else is touched.",
+    "Create an event in this account's calendar: `calendar` (an id or name from " +
+    "calendar.list), `title` and `start` are required. `start` is a wall-clock " +
+    "datetime (2026-10-20T09:00:00) or a date alone (2026-10-20) for an all-day " +
+    "event; `duration` is an ISO 8601 duration (PT1H, P1D) and defaults to one " +
+    "hour. No invitation is sent.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
-  keys: ["calendar", "description", "duration", "id", "start", "timeZone", "title"],
+  keys: ["calendar", "description", "duration", "start", "timeZone", "title"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
-      id: optionalTextArg(args, "id"),
-      calendar: optionalTextArg(args, "calendar"),
-      title: optionalTextArg(args, "title"),
-      start: optionalTextArg(args, "start"),
+      calendar: textArg(args, "calendar"),
+      title: textArg(args, "title"),
+      start: textArg(args, "start"),
       duration: optionalTextArg(args, "duration"),
       timeZone: optionalTextArg(args, "timeZone"),
       description: optionalTextArg(args, "description"),
@@ -182,46 +215,8 @@ export const saveEvent = defineTool({
   },
   run: async (
     { ctx, accountId },
-    { id, calendar, title, start, duration, timeZone, description },
+    { calendar, title, start, duration, timeZone, description },
   ) => {
-    const client = clientOf(ctx);
-    if (id) {
-      const read = await client.call<{ list?: unknown[]; notFound?: string[] }>(
-        "CalendarEvent/get",
-        { accountId, ids: [id] },
-        [CAPABILITIES.calendars],
-      );
-      const current = (read.list ?? []).find(isRecord);
-      if (!current) throw notFound(`event "${id}" in this account's calendar`);
-      if (typeof current.baseEventId === "string")
-        throw new ToolError(
-          "recurring_occurrence",
-          `"${id}" is one occurrence of a recurring event; change the series by its id "${current.baseEventId}".`,
-          409,
-        );
-      const patch: Record<string, unknown> = {};
-      if (title !== undefined) patch.title = title;
-      if (start !== undefined) patch.start = start;
-      if (duration !== undefined) patch.duration = duration;
-      if (timeZone !== undefined) patch.timeZone = timeZone;
-      if (description !== undefined) patch.description = description;
-      if (!Object.keys(patch).length)
-        throw new ToolError("bad_arguments", "A change names at least one field.", 400);
-      const res = await client.call<SetResponse>(
-        "CalendarEvent/set",
-        { accountId, update: { [id]: patch } },
-        [CAPABILITIES.calendars],
-      );
-      const refused = res.notUpdated?.[id];
-      if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
-      return { id, changed: Object.keys(patch) };
-    }
-    if (!calendar)
-      throw new ToolError("bad_arguments", 'Creating an event takes "calendar".', 400);
-    if (!title)
-      throw new ToolError("bad_arguments", 'Creating an event takes "title".', 400);
-    if (!start)
-      throw new ToolError("bad_arguments", 'Creating an event takes "start".', 400);
     const chosen = findCalendar(await calendarsOf(ctx, accountId), calendar);
     if (!chosen) throw notFound(`calendar "${calendar}" in this account`);
     if (!chosen.mayWrite)
@@ -247,7 +242,7 @@ export const saveEvent = defineTool({
       ...(description ? { description } : {}),
       calendarIds: { [chosen.id]: true },
     };
-    const res = await client.call<SetResponse<{ id?: string }>>(
+    const res = await clientOf(ctx).call<SetResponse<{ id?: string }>>(
       "CalendarEvent/set",
       { accountId, create: { e: event } },
       [CAPABILITIES.calendars],
@@ -265,14 +260,66 @@ export const saveEvent = defineTool({
   },
 });
 
+/**
+ * A change of an existing event: destructive (ADR 0032 names a document
+ * overwritten), so it runs only under a person's word for that event.
+ */
+export const updateEvent = defineTool({
+  name: "calendar.update",
+  description:
+    "Change an event of this account's calendar by its id: name only the fields " +
+    "to change (`title`, `start`, `duration`, `timeZone`, `description`); " +
+    "nothing else is touched. An occurrence of a recurring event is not changed " +
+    "on its own. The act is the event: a person's word for it names the event.",
+  authority: "destructive",
+  writes: true,
+  spend: { steps: 1 },
+  act: (args: { id: string }) => ({ target: args.id, content: null }),
+  keys: ["description", "duration", "id", "start", "timeZone", "title"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      id: textArg(args, "id"),
+      title: optionalTextArg(args, "title"),
+      start: optionalTextArg(args, "start"),
+      duration: optionalTextArg(args, "duration"),
+      timeZone: optionalTextArg(args, "timeZone"),
+      description: optionalTextArg(args, "description"),
+    };
+  },
+  run: async (
+    { ctx, accountId },
+    { id, title, start, duration, timeZone, description },
+  ) => {
+    const current = await eventOf(ctx, accountId, id);
+    if (typeof current.baseEventId === "string")
+      throw new ToolError(
+        "recurring_occurrence",
+        `"${id}" is one occurrence of a recurring event; change the series by its id "${current.baseEventId}".`,
+        409,
+      );
+    const patch = patchOf({ title, start, duration, timeZone, description });
+    const res = await clientOf(ctx).call<SetResponse>(
+      "CalendarEvent/set",
+      { accountId, update: { [id]: patch } },
+      [CAPABILITIES.calendars],
+    );
+    const refused = res.notUpdated?.[id];
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    return { id, changed: Object.keys(patch) };
+  },
+});
+
 export const deleteEvent = defineTool({
   name: "calendar.delete",
   description:
     "Remove one event of this account's calendar by its id. A recurring event " +
-    "is removed as the series; one occurrence is not removed on its own.",
-  authority: "reversible",
+    "is removed as the series; one occurrence is not removed on its own. The " +
+    "act is the event: a person's word for it names the event.",
+  authority: "destructive",
   writes: true,
   spend: { steps: 1 },
+  act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
