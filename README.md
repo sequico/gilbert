@@ -26,28 +26,21 @@
 **R**esource **T**raceability.
 
 Gilbert is **company mail and operations** — self-hosted mail, calendar, contacts
-and files, a knowledge base and the procedures a job follows. Its agent is built:
-it works a group's activity from the server's own change log, reads inside
-documents and attachments, drafts replies into the group's Drafts, files what it
-finds, settles workorder steps, proposes knowledge pages and remembers facts —
-inside the group's own account, everything recorded, and anything that leaves the
-group waiting for a person to say so, in words. The loop that works it is part of
-`gilbertserver`: the server starts it with itself, and it is there once the
-installation has chosen a model; the groups it works are read on every pass, so
-one the Master is added to is worked within ten seconds and nothing has to be
-restarted.
+and files, a knowledge base and the procedures a job follows. Its **agent** does
+the reversible work of a group's own account — reads inside documents, files and
+labels mail, drafts the reply, settles workorder steps, proposes knowledge pages
+and remembers facts — and stops wherever a person is answerable. The loop is part
+of `gilbertserver`: the server starts it with itself and reads the Master's
+groups on every pass, so a group added in Stalwart is worked within ten seconds
+and nothing has to be restarted.
 
-> **The agent part (`gilbertagents`) is built.** Its decisions are
-> ADR 0031–0037; the tree carries a run's durable state, the catalogue of tools
-> — reading, and writing the group's own account — a group's rules in prose and
-> the three levels every call is told, the installation's one model with its two
-> turns of decision, the memory of facts in the Master's own account, the loop
-> that works a run, the supervisor the server's own boot starts with itself
-> (`server/src/agent/supervisor.ts`), and the administration that shows what it
-> did and lets a person correct what it remembers. What it still owes is a
-> **live probe**, not a feature: a real model provider, the arrival record a real
-> Stalwart writes, and the change log's own paging cap — the `owed:` markers in
-> ADRs 0031, 0033 and 0034.
+> **The agent (`gilbertagents`) is built and part of the server.** Its decisions
+> are ADR 0031–0037, and the tree carries all of it: the tool catalogue, a
+> group's rules in prose, the installation's one model, the memory of facts, the
+> loop that works a run and the supervisor the server's own boot starts. What is
+> still owed is a **live probe**, not a feature — a real model provider and the
+> arrival record a real Stalwart writes, the `owed:` markers in ADRs 0031, 0033
+> and 0034.
 
 Everything Gilbert keeps — mail, files, the knowledge base, rules, audit trail —
 is a document in your own [Stalwart](https://stalw.art) mail server, under the
@@ -68,6 +61,82 @@ can use it, because mail is mail and a purchase order that arrives as a PDF can
 be read, filed and answered, but the product takes no position on revenue. What
 it supports is the operation underneath: the work between something arriving and
 the matter being closed.
+
+## What the agent does
+
+The agent is not a chatbot beside the mailbox. It works a group's own account
+from the mail server's change log, and it does the reversible work itself.
+
+- **Reads inside the documents.** A PDF's text layer, Word, a spreadsheet, an
+  OpenDocument or a text file in Files, and a message's attachments; a scan or an
+  image is transcribed by the installation's own model.
+- **Files and sorts the mail.** Moves a message into a folder, puts a keyword or
+  one of the product's reserved `G-` labels on it, keeps the label catalog and
+  the folder tree tidy.
+- **Drafts the reply, and leaves sending to a person.** A reply to everyone into
+  the group's own Drafts, the thread carried, the group's own addresses left out.
+- **Settles workorder steps** signed as the agent with the evidence beside it,
+  and **proposes knowledge pages** as drafts for a person to approve.
+- **Writes, moves and renames documents** in Files under a person's word, and
+  creates, changes or removes events in the group's own calendar without inviting
+  anybody outside it.
+- **Remembers what it learns** as facts with the provenance they came from, and
+  **says what it did** in the group's conversation or asks a person a question —
+  the answer, in that same conversation or by mail, picks the run up again.
+
+## What it will never do on its own
+
+The guard is not the model's judgement. It is what can be undone and who is
+answerable — five authority classes (ADR 0032), and only the first is the
+agent's:
+
+- **It decides** the reversible work inside the group's account: filing, labels,
+  folders, drafts, knowledge-base proposals, workorder steps, calendar events,
+  facts, a question. Every effect is in the trace and can be undone by hand.
+- **A person decides** anything irreversible or destructive — destroying a
+  message, a folder or a page, overwriting a document. The product's preference
+  is that nothing disappears.
+- **A person's own words** licence anything outward, and a word for one message
+  reaches no other: a send names the address and the words, and the guard
+  compares the act exactly. A rule a group wrote may declare in its own text that
+  it sends, where its owner reads it.
+- **An installation administrator, and only one**, overrides the written policy
+  — proved by the directory, never by the sentence — and the trace carries the
+  policy page, the moment and the message.
+- **The intent is never the agent's**: which policy is right, what a workorder
+  should carry, whether a knowledge change is accepted. It proposes; a person
+  approves.
+
+## A receipt for every run
+
+Every run is one document in the group's own account, under `runs/`, where every
+member can read it: the change that woke it, the rule or instruction that
+answered, the plan with what each step waited on, the branch that was not taken,
+what each step answered, every authorisation with the words it arrived in, what
+it recalled, what it spent and where it parked. The plan and what each step is
+about to do are written **before** the act. A run ends done, waiting on a person,
+out of budget or stopped — and any member of the group can read it and stop a
+running one.
+
+A run is capped at **20 steps, 40 model calls and five minutes of work**, so a
+model that is stuck ends at a record instead of looping on the account. **One
+claim per installation** keeps exactly one agent working it; the claim lapses on
+its own, so a restart costs one wait and never a document deleted by hand.
+
+## Security at a glance
+
+| | |
+| --- | --- |
+| **No password in the browser** | Sign-in posts the password once; the server seals it (HKDF-SHA256 → AES-256-GCM) and the browser keeps only an `HttpOnly`, `SameSite=Lax` cookie. |
+| **Strict CSP, sanitised HTML** | `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`; message HTML is sanitised and remote images are fetched through a proxy. |
+| **Images cannot scan the network** | The proxy resolves every hostname and refuses private, loopback, link-local, CGNAT and IPv6 equivalents; one bad record fails the fetch. |
+| **CSRF and flooding** | Every API call carries `X-Requested-With: gilbert` and refuses a cross-site `Sec-Fetch-Site`; sign-in is rate-limited by IP and by IP+username before the body is read. |
+| **No telemetry, no third-party requests** | No analytics, no telemetry, and the CSP refuses any origin but its own. |
+| **Nothing to leak on disk** | No database and, with `IMMUTABLE=1`, no writable filesystem; sessions live in Stalwart, so a redeploy loses nothing. |
+| **The model call is the only way out** | Zero-retention opt-out on every request; a provider whose address is not public is refused unless the operator explicitly allows it. |
+
+The detail, item by item, is [FEATURES.md › Security and
+privacy](FEATURES.md#security-and-privacy).
 
 ## The four blocks
 
@@ -99,25 +168,8 @@ webmail for Stalwart; the attribution is in [NOTICE](NOTICE). Everything else is
 Gilbert's own, written here and not contributed back. Why, and what happens at
 the boundary, is [ADR 0002](docs/adr/0002-upstream-contribution-model.md).
 
-## What it does
+## The rest of the product
 
-The short version; [FEATURES.md](FEATURES.md) is the inventory.
-
-- **Agents for mail and files.** The agent acts for a group, inside that group's
-  own account, as the Master principal (`gilbert@…`). It reads the company's
-  written policy and the group's own rules, does the reversible work of the
-  account — filing, labelling, **drafting a reply to everyone** in Drafts to be
-  sent by a person, **settling a step of a workorder**, **proposing a change to a
-  knowledge page** as its draft — remembers what it learns as facts in the
-  Master's own account, records what it did and why, and asks a person for
-  anything that leaves the account — or for anything the policy forbids
-  (ADR 0031–0037).
-- **A receipt for everything.** Every run is one document in the group's own
-  account, under `runs/`, where every member can read it: what woke it, the plan
-  with what each step waited on, what each step answered, what it spent and where
-  it parked. The plan and what each step is about to do are written **before** the
-  act, so a container that dies in the middle leaves the account with a record of
-  what the run was doing.
 - **Groups, chat and a shared directory.** A group mailbox is an account owned
   by the group; chat is one conversation per group in that account; **Global
   contacts** is one directory the installation owns and every account reads.
@@ -133,11 +185,6 @@ The short version; [FEATURES.md](FEATURES.md) is the inventory.
   receipts, S/MIME signature checking, calendars with invitations and free/busy,
   contacts with vCard import, and a visual Sieve rule builder. This is the part
   that began as upstream's.
-- **Nothing sensitive in the browser.** The sign-in password is sealed on the
-  server; the browser gets an `HttpOnly` cookie. Strict CSP, sanitised HTML,
-  remote images through an SSRF-safe proxy, every JMAP call on the same origin.
-- **Nothing of its own to keep.** No database, no search index, no cache tier.
-  Sessions included, so a redeploy does not sign anybody out.
 
 ## How it works
 

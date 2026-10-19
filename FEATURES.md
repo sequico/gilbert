@@ -67,7 +67,7 @@ mailbox is an account of its own, and what it owns — its chat, its label catal
 its calendars and files, the rules it works by — lives in that account and
 belongs to it from creation, shared with its members rather than copied to them.
 **Chat** is one conversation per group. **Agents** is built and part of the
-server's own process (ADR 0031–0036 below): the loop that works a run is there,
+server's own process (ADR 0031–0037 below): the loop that works a run is there,
 and the server asks it for a pass every ten seconds.
 
 The one thing a member cannot do with group-owned mail is **end it**: the mail
@@ -106,10 +106,40 @@ else a member does to move mail around still works.
 > [0037](docs/adr/0037-the-agents-memory-is-a-graph-it-recalls.md) (the agent's
 > memory: a graph of facts it recalls on every call).
 
-The agent acts for one group, inside that group's own account. It reads the
-company's written policy and the group's own rules, it does the reversible work
-of the account, it records what it did and why, and it asks a person for anything
-that leaves the account — or for anything the policy forbids.
+## At a glance
+
+The agent works one group at a time, from the mail server's change log, inside
+that group's own account and as the installation's Master. It does the
+reversible work itself, and it stops wherever a person is answerable.
+
+**It does:** reads inside documents and attachments; files and labels mail;
+keeps the label catalog and the folders; drafts a reply to everyone; settles a
+workorder step; proposes a KB page; writes and moves documents under a person's
+word; creates events in the group's own calendar; says what it did; asks a
+person; remembers facts.
+
+**It never does alone:** sends outward; destroys anything; acts against the
+written policy; decides intent.
+
+## The five authority classes
+
+The agent's freedom is exactly the first class (ADR 0032); the others are
+people's.
+
+| | Class | What it covers | Who decides |
+| --- | --- | --- | --- |
+| 1 | Reversible, inside the group's account | filing a message, a keyword, a label, a folder, moving or renaming a file, a draft, a workorder step, a KB proposal, an event in the group's own calendar, a fact, a question | **The agent** |
+| 2 | Irreversible or destructive | destroying a message, a folder or a page, emptying a folder, overwriting a document | **A person, always** |
+| 3 | Outward | anything that reaches somebody outside the mandate, `mail.send` above all | **A person's word for exactly that message**, or a rule that declares in its own text that it sends |
+| 4 | Beyond the policy | an act the written policy forbids | **Only an installation administrator**, proved by the directory and never by the sentence |
+| 5 | The intent | which policy is right, what a workorder should carry, whether a KB change is accepted | **Never the agent**: it proposes, a person approves |
+
+Two standing behaviours hold a step to account: the agent reopens a settled step
+when the evidence says it is not settled, carrying who and why; and what it
+asserts is its own — a step it settles records the agent as its signer with the
+evidence beside it, never a person's name on a thing that person did not do.
+
+## The run is the record
 
 **A run is one document in the group's account** and the whole of the agent's
 durable state: which rule or instruction started it and which change woke it, the
@@ -119,11 +149,15 @@ what it waits for and the sentence it asked in,
 every authorisation with the message it arrived in and the authority given, the
 evidence behind its claims, and the budget it has spent — the shape, its parser
 and its transitions are `server/src/shared/run.ts`, and where a run lives is
-`server/src/agent/runs.ts` (ADR 0034). **One claim per installation** keeps a
+`server/src/agent/runs.ts` (ADR 0034). **A run is capped** at 20 steps, 40 model
+calls and five minutes of work, so a model that is stuck ends at a record rather
+than looping on the account. **One claim per installation** keeps a
 single agent working it: a document taken by compare-and-set that a holder
 renews and that lapses on its own if it dies, so a restart costs one TTL of
 waiting and never a document deleted by hand (`server/src/agent/claim.ts`, ADR
 0036).
+
+## What it remembers
 
 **The agent remembers, and every call starts from what it knows** (ADR 0037): a
 graph of small **facts**, each about a **group** and each with the provenance it
@@ -157,6 +191,8 @@ afterwards is a **proposal** kept beside the person's sentence — a person acce
 it, which makes those words their own correction, or dismisses it, which leaves
 the sheet as it was — and the next pass reads it with no restart.
 
+## A group's engagement is a rule in prose
+
 **A group's engagement is a rule in prose** (ADR 0035): one document in the
 group's own account, under `rules/`, that names the surfaces of that account it
 watches — its **chat**, its **mail**, its **KB**, its **workorders** and its
@@ -186,6 +222,8 @@ that lost a race is refused rather than overwriting another administrator's edit
 The installation's own line is a field beside its model in Administration →
 Installation, and it is read at every pass.
 
+## One model, two turns
+
 **One model serves the installation** (ADR 0031), chosen in Administration and
 stored in the installation's own document with a **write-only** key: a read of a
 document this build can parse takes the key out of it, while a document that is
@@ -205,6 +243,8 @@ waits on, or that the work is finished — so what a run needs in several parts,
 and what follows from each outcome, is one turn. The decision turn's answer is facts and nothing else — one that
 carries an authorisation, or names a tool that writes, is refused — and an
 installation that has chosen no model has no agent.
+
+## The catalogue of tools
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
@@ -264,6 +304,8 @@ turn looks the group's state up with; the loop runs each chosen call through the
 guard, so a refusal is a failed step on the run rather than a silent skip, and the
 whole catalogue is exercised against the mock Stalwart.
 
+## The loop
+
 **The loop that works a run is `server/src/agent/loop.ts`** (ADR 0031–0036): one
 pass takes the installation's claim, works the runs whose wait has come due,
 reads each account's changes and puts each one to the decision turn. A change no
@@ -285,6 +327,8 @@ ends the run at once, so a model stuck on one malformed answer does not spend th
 the accounts each pass works — the Master's groups — are read from the mail
 server by that pass rather than decided at the boot, so a group added or
 withdrawn in Stalwart needs no restart.
+
+## Where to watch it, and stop it
 
 **Where the agent is, and what it did, is in Administration → AI Agents**
 (`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who
@@ -1898,6 +1942,10 @@ shortcuts of their own; the global set still applies.
 ---
 
 # Security and privacy
+
+Security here is mostly subtraction: the browser holds no credential, the
+container holds no durable state, and nothing calls out except the model the
+installation itself chose. What follows is what the build does by default.
 
 ## The browser never holds a credential
 
