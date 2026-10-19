@@ -269,6 +269,8 @@ export class AgentLoop {
   private access: ModelAccess | null;
   /** The operator's switch on private provider addresses. */
   private readonly allowPrivate: boolean;
+  /** When an account's change batch may be tried again after it failed. */
+  private readonly retryAfter = new Map<string, number>();
 
   constructor(
     private readonly ctx: Ctx,
@@ -469,23 +471,35 @@ export class AgentLoop {
      */
     const access = this.access;
     if (!access) return;
-    await workChanges(
-      {
-        ctx: this.ctx,
-        cursors: this.cursors,
-        access,
-        proseAbove: (a) => this.proseAbove(a),
-        memory: () => this.memory(),
-        readingCall: (a, e, c) => this.readingCall(a, e, c),
-        runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
-        workRun: (a, r, n, f) => this.workRun(a, r, n, f),
-        authoriseAnswer: (x) => this.authoriseAnswer(x),
-        openRun: (a, e, r) => this.openRun(a, e, r),
-      },
-      accountId,
-      now,
-      summary,
-    );
+    /*
+     * A batch that failed is not retried ten seconds later: the same change,
+     * the same provider, the same failure -- and each retry pays a model call.
+     * A minute's pause per account bounds the cost while a failure is real.
+     */
+    if ((this.retryAfter.get(accountId) ?? 0) > now.getTime()) return;
+    try {
+      await workChanges(
+        {
+          ctx: this.ctx,
+          cursors: this.cursors,
+          access,
+          proseAbove: (a) => this.proseAbove(a),
+          memory: () => this.memory(),
+          readingCall: (a, e, c) => this.readingCall(a, e, c),
+          runAnsweredBy: (a, e, r) => this.runAnsweredBy(a, e, r),
+          workRun: (a, r, n, f) => this.workRun(a, r, n, f),
+          authoriseAnswer: (x) => this.authoriseAnswer(x),
+          openRun: (a, e, r) => this.openRun(a, e, r),
+        },
+        accountId,
+        now,
+        summary,
+      );
+      this.retryAfter.delete(accountId);
+    } catch (err) {
+      this.retryAfter.set(accountId, now.getTime() + 60_000);
+      throw err;
+    }
   }
 
   /**
