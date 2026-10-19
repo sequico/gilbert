@@ -197,7 +197,7 @@ test("an argument the tool does not take is refused, naming the one it does", as
    */
   await assert.rejects(
     () => callTool("files.list", { folder: "MS2" }),
-    /"files\.list" takes "path", not "folder"/,
+    /"files\.list" takes .*"path".*, not "folder"/,
     "the field the model meant is not silently dropped",
   );
   const top = await callTool<{ nodes: unknown[] }>("files.list", {});
