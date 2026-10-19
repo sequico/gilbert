@@ -64,7 +64,7 @@ export type RunStepState = "open" | RunStepOutcome | "skipped";
 type RunStepOutcome = "done" | "failed";
 
 /** The three ways a run ends (ADR 0034): done, a person is needed, or the budget is spent. */
-type RunEnding = "done" | "blocked" | "out-of-budget";
+type RunEnding = "done" | "blocked" | "out-of-budget" | "cancelled";
 
 /** A run's state: in flight, or one of the three endings. */
 export type RunState = "running" | RunEnding;
@@ -451,7 +451,7 @@ function isEnd(x: unknown): x is RunEnd {
 
 /** Whether a value is one of the three endings. */
 function isRunEnding(x: unknown): x is RunEnding {
-  return x === "done" || x === "blocked" || x === "out-of-budget";
+  return x === "done" || x === "blocked" || x === "out-of-budget" || x === "cancelled";
 }
 
 /** Whether a value is a run state. */

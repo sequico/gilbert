@@ -1159,7 +1159,14 @@ export class AgentLoop {
         await replaceRun(this.ctx, accountId, run, { ifInState: token });
         return;
       } catch (err) {
-        if (retryStateMismatch(err, attempt)) break;
+        if (!retryStateMismatch(err, attempt)) break;
+        /*
+         * The document moved under this write: somebody may have stopped the
+         * run. A stopped run is left where the person put it, never overwritten
+         * by the step that was already in flight.
+         */
+        const held = await readRun(this.ctx, accountId, run.id);
+        if (held?.run.state !== "running") return;
       }
     }
     throw new Error(

@@ -25,6 +25,7 @@ const RUN_STATE_LABELS: Record<RunState, string> = {
   done: "Finished",
   blocked: "Blocked on a person",
   "out-of-budget": "Out of budget",
+  cancelled: "Stopped",
 };
 
 /** One run, drawn as the record carries it: what woke it, its plan, its tally. */

@@ -43,7 +43,7 @@ import {
 import { probeModel, runningModelAccess } from "../agent/model.js";
 import { parseRuleDocumentDetailed } from "../agent/rule.js";
 import { deleteRule, listRules, replaceRule } from "../agent/rules.js";
-import { listRunsForReading } from "../agent/runs.js";
+import { listRunsForReading, readRun, replaceRun } from "../agent/runs.js";
 import { AGENT_PASS_INTERVAL_MS } from "../agent/supervisor.js";
 import { readAgentSwitch, writeAgentSwitch } from "../agent/switch.js";
 import {
@@ -74,6 +74,7 @@ import {
 } from "../shared/instruction.js";
 import { RULES_DIR, RuleError } from "../shared/rule.js";
 import type { RunListing } from "../shared/run.js";
+import { finishRun } from "../shared/run.js";
 import {
   type Env,
   failureFor,
@@ -230,6 +231,40 @@ export function registerAgentRoutes(api: Hono<Env>): void {
     if (!access) return c.json({ ok: false, reason: "no_model" });
     return c.json(await probeModel(access));
   });
+
+  /**
+   * Stop a run from Administration (ADR 0034, the fourth ending): the document
+   * is ended as `cancelled`, and the pass that was working it sees the state on
+   * its next write and leaves it exactly so.
+   */
+  api.post(
+    "/admin/groups/:name/runs/:id/stop",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const name = c.req.param("name") ?? "";
+      const id = c.req.param("id") ?? "";
+      try {
+        const access = await resolveGroupAccess(c.get("session"), name, {
+          need: "agent documents",
+        });
+        if (!access.ok) return groupDenial(c, access);
+        const record = await readRun(access.ctx, access.accountId, id);
+        if (!record) return c.json({ error: "not_found" }, 404);
+        if (record.run.state !== "running") return c.json({ run: record.run });
+        const ended = finishRun(record.run, "cancelled", {
+          at: new Date().toISOString(),
+          why: "stopped from Administration",
+        });
+        await replaceRun(access.ctx, access.accountId, ended, {
+          ifInState: record.state,
+        });
+        return c.json({ run: ended });
+      } catch (err) {
+        return doorFailure(c, err);
+      }
+    },
+  );
 
   api.get("/admin/groups/:name/runs", requireSession, requireAdmin, async (c) => {
     const name = c.req.param("name") ?? "";

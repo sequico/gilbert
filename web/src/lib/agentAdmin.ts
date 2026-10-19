@@ -122,3 +122,13 @@ export async function setAgentSwitch(enabled: boolean): Promise<AgentSwitch> {
     body: JSON.stringify({ enabled }),
   });
 }
+
+/** Stop a running run: end it as cancelled, from Administration. */
+export async function stopRun(group: string, id: string): Promise<void> {
+  await apiFetch(
+    `/api/admin/groups/${encodeURIComponent(group)}/runs/${encodeURIComponent(id)}/stop`,
+    {
+      method: "POST",
+    },
+  );
+}

@@ -7,6 +7,7 @@ import {
   fetchGroupRuns,
   type RunListing,
   setAgentSwitch,
+  stopRun,
 } from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
@@ -29,6 +30,7 @@ export function AgentOverview({
   const [period, setPeriod] = useState<MetricsPeriod>("week");
   const [on, setOn] = useState<boolean | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const [live, setLive] = useState<Array<{ group: string; runs: RunListing[] }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -59,6 +61,32 @@ export function AgentOverview({
     };
   }, [groups.map((group) => group.name).join("\n")]);
 
+  const groupKey = groups.map((group) => group.name).join("\n");
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      const rows = await Promise.all(
+        groups.map(async (group) => ({
+          group: group.name,
+          runs: await fetchGroupRuns(group.name),
+        })),
+      );
+      if (!cancelled) setLive(rows);
+    };
+    void tick();
+    const timer = window.setInterval(() => void tick(), 3_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [groupKey]);
+
+  const running = live.flatMap((entry) =>
+    entry.runs
+      .filter((listed) => listed.run?.state === "running")
+      .map((listed) => ({ group: entry.group, listed })),
+  );
+
   const since = periodSince(period);
   const rows = perGroup.map((row) => ({
     name: row.name,
@@ -70,6 +98,54 @@ export function AgentOverview({
     <div>
       {error && <div className="error-box">{error}</div>}
       {switchError && <div className="error-box">{switchError}</div>}
+      {running.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <h2>{t("Current runs")}</h2>
+          <div style={{ display: "grid", gap: 6 }}>
+            {running.map(({ group, listed }) => (
+              <div
+                key={`${group}:${listed.id}`}
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <strong>{listed.id}</strong>
+                <span className="hint">{group}</span>
+                {listed.run?.startedBy.rule && (
+                  <span className="hint">{listed.run.startedBy.rule}</span>
+                )}
+                {listed.run?.startedBy.woke && (
+                  <span className="hint">{listed.run.startedBy.woke}</span>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() =>
+                    void stopRun(group, listed.id).then(() =>
+                      setLive((held) =>
+                        held.map((entry) =>
+                          entry.group === group
+                            ? {
+                                ...entry,
+                                runs: entry.runs.filter((one) => one.id !== listed.id),
+                              }
+                            : entry,
+                        ),
+                      ),
+                    )
+                  }
+                >
+                  {t("Stop")}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <Switch
           checked={on !== false}
