@@ -266,6 +266,15 @@ export interface AgentLoopOptions {
 export class AgentLoop {
   /** Where each account's reading has reached, by account. */
   private readonly cursors = new Map<string, EventCursor>();
+  /**
+   * When each account's change cursor was last advanced, by either path.
+   *
+   * The off path's freshness question is the cursor's age, not when the off
+   * path itself last ran: the on path keeps the cursor current, and judging by
+   * the off path's own clock threw a five-second-old cursor away on the first
+   * pass after the switch went off — losing the mention that had just arrived.
+   */
+  private readonly cursorAt = new Map<string, number>();
   /** The runs the alarms have handed over, worked on the next pass. */
   private readonly pending: DueWait[] = [];
   /**
@@ -299,8 +308,7 @@ export class AgentLoop {
   private readonly retryAfter = new Map<string, number>();
   /** When each account's archive last ran, so the scan is hourly, not per pass. */
   private readonly archivedAt = new Map<string, number>();
-  /** When the off path last read each account, so an on period does not replay. */
-  private readonly offReadAt = new Map<string, number>();
+
   /**
    * The working set as this process last read it, per account and under the
    * FileNode state it was read at. A pass that finds the same state has nothing
@@ -319,6 +327,16 @@ export class AgentLoop {
    * otherwise be paid once per run.
    */
   private readonly passState = new Map<string, string>();
+  /**
+   * The token one run's own last write produced, by account and run id.
+   *
+   * The account-wide `passState` answers "what state is the account in after
+   * this process wrote", which is the run-reading filter's question. It is not
+   * a run's own compare-and-set token: another run's write moves the account
+   * state past a stop written to this run, and a token from that write would
+   * let this one overwrite the ending. Each run carries its own.
+   */
+  private readonly runState = new Map<string, string>();
   /** Set by the supervisor: a wait that came due asks for a pass now. */
   onDue?: () => void;
 
@@ -395,6 +413,7 @@ export class AgentLoop {
      */
     forgetRemembered(this.ctx);
     this.passState.clear();
+    this.runState.clear();
     /*
      * The model is re-read every pass, so a publish applies to the run after
      * this one (ten seconds), not to the next boot: the key is kept in the
@@ -435,11 +454,13 @@ export class AgentLoop {
       await Promise.all(
         offAccounts.map(async (accountId) => {
           /*
-           * A notice is for what has just arrived. The switch may have been on
-           * for months since the off path last read, and an old cursor would
-           * answer every mention of that time: past the hour, read from now.
+           * A notice is for what has just arrived. A cursor nobody has advanced
+           * for an hour would answer every mention of that time: past the hour,
+           * read from now. The age is the cursor's, not the off path's — the on
+           * path keeps it current, so switching the agent off does not throw
+           * away a fresh position.
            */
-          if (now.getTime() - (this.offReadAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
+          if (now.getTime() - (this.cursorAt.get(accountId) ?? 0) > OFF_READING_FRESH_MS)
             this.cursors.delete(accountId);
           const problems: string[] = [];
           await offPath(
@@ -448,7 +469,7 @@ export class AgentLoop {
             problems,
           ).catch((err) => problems.push(errorMessage(err)));
           for (const problem of problems) summary.gaps.push(`${accountId}: ${problem}`);
-          this.offReadAt.set(accountId, now.getTime());
+          this.cursorAt.set(accountId, now.getTime());
           /*
            * The archive is housekeeping, not a decision: a switched-off agent
            * still keeps the group's runs folder to the year the owner chose.
@@ -513,6 +534,9 @@ export class AgentLoop {
         if ((this.retryAfter.get(accountId) ?? 0) <= now.getTime()) {
           try {
             read = await readChangesForPass(this.ctx, this.cursors, accountId);
+            // The cursor now stands where this pass read: the off path's age
+            // check reads this instant, not its own last run.
+            this.cursorAt.set(accountId, now.getTime());
           } catch (err) {
             summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
           }
@@ -985,6 +1009,26 @@ export class AgentLoop {
     const access = this.access;
     if (!access) return null;
     let current = run;
+    /*
+     * A step left `open` by an earlier process is an act whose outcome was
+     * never written: it may have landed (a send, a write) and re-running it
+     * would do it twice. It is marked failed once, here, so the model reads
+     * what may have happened instead of being shown an open step and choosing
+     * it again. A live pass never reaches this with an open step: its waves are
+     * recorded before the document is written.
+     */
+    if (current.plan.some((step) => step.state === "open"))
+      current = current.plan.reduce(
+        (doc, step, at) =>
+          step.state === "open"
+            ? recordStep(doc, at, {
+                state: "failed",
+                outcome:
+                  "the process stopped before this step's outcome was written; it may have happened, and was not repeated.",
+              })
+            : doc,
+        current,
+      );
     /* The compare-and-set token the last write produced; the next write reuses
        it, so a step does not pay for a read of its own document. */
     let token = state;
@@ -1216,12 +1260,20 @@ export class AgentLoop {
            */
           const what = `${call.name} ${boundedText(call.args)}`;
           const earlier = current.plan.findIndex(
-            (step, index) => index < at && step.state === "done" && step.what === what,
+            (step, index) =>
+              index < at &&
+              step.what === what &&
+              (step.state === "done" ||
+                (step.state === "failed" && !this.repeatable(step.what))),
           );
           if (earlier >= 0) {
+            const held = current.plan[earlier];
             current = recordStep(current, at, {
-              state: "done",
-              outcome: current.plan[earlier]?.outcome ?? "",
+              state: held?.state === "done" ? "done" : "failed",
+              outcome:
+                held?.state === "done"
+                  ? (held.outcome ?? "")
+                  : "an earlier attempt ended without its outcome, so it was not made again: it may have happened.",
             });
             continue;
           }
@@ -1493,6 +1545,19 @@ export class AgentLoop {
     return await this.reading;
   }
 
+  /**
+   * Whether a failed step may be attempted again.
+   *
+   * Only a reversible act may: its failure is the account's answer, and asking
+   * again asks the same question. A destructive or outward act that failed may
+   * have landed — a submission that timed out is the case this exists for — and
+   * a person's authority covers one act, so it is not repeated silently.
+   */
+  private repeatable(what: string): boolean {
+    const name = what.split(" ")[0] ?? "";
+    return this.catalogue.find((tool) => tool.name === name)?.authority === "reversible";
+  }
+
   /** Append a step and record how it ended, in one place for every step. */
   private withStep(run: RunDoc, what: string, outcome: string, done: boolean): RunDoc {
     const grown = appendStep(run, what);
@@ -1519,10 +1584,12 @@ export class AgentLoop {
     state?: string,
   ): Promise<string | null> {
     await this.keepClaim();
-    // A token from this pass's own writes is newer than the record's; a run
-    // this pass did not read has none and must be read (the missing document is
-    // not this process's to create).
-    let token = state ? (this.passState.get(accountId) ?? state) : undefined;
+    // A token from **this run's** own writes is newer than the record's; the
+    // account-wide state says nothing about this document, and must never stand
+    // in for it. A run this pass did not read has none and must be read (the
+    // missing document is not this process's to create).
+    const key = `${accountId}\u0000${run.id}`;
+    let token = state ? (this.runState.get(key) ?? state) : undefined;
     if (!token) {
       const before = await readRun(this.ctx, accountId, run.id);
       // A document that is not there is not this process's to create: it was
@@ -1535,6 +1602,7 @@ export class AgentLoop {
       if (before.run.state !== "running" && before.run.state !== "blocked") return null;
       token = before.state;
       this.passState.set(accountId, token);
+      this.runState.set(key, token);
     }
     for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
       let produced: string | undefined;
@@ -1550,6 +1618,7 @@ export class AgentLoop {
         // one, because nothing moved.
         const next = produced ?? token;
         this.passState.set(accountId, next);
+        this.runState.set(key, next);
         return next;
       } catch (err) {
         if (retryStateMismatch(err, attempt)) break;
@@ -1564,6 +1633,7 @@ export class AgentLoop {
         if (held.run.state !== "running" && held.run.state !== "blocked") return null;
         token = held.state;
         this.passState.set(accountId, token);
+        this.runState.set(key, token);
       }
     }
     throw new Error(
