@@ -298,20 +298,30 @@ async function odfText(bytes: Uint8Array): Promise<string> {
   const content = zip.file("content.xml");
   if (!content) throw new Error("The document has no content.xml.");
   const xml = await content.async("string");
-  return xml
-    .replace(/<text:(p|h)\b[^>]*>/g, "\n")
-    .replace(/<table:table-cell\b[^>]*\/>/g, ", ")
-    .replace(/<table:table-cell\b[^>]*>/g, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&amp;/g, "&")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return (
+    xml
+      .replace(/<text:(p|h)\b[^>]*>/g, "\n")
+      .replace(/<table:table-cell\b[^>]*\/>/g, ", ")
+      .replace(/<table:table-cell\b[^>]*>/g, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+      .replace(/&amp;/g, "&")
+      /*
+       * Entities can spell markup back -- `&lt;script&gt;` decodes to a tag after
+       * the strip above -- so the brackets themselves go once the text is
+       * decoded. Nothing here is rendered as HTML, but a text extractor that can
+       * hand a tag back is one the next reader has to distrust, and CodeQL is
+       * right that a pattern strip alone does not promise this.
+       */
+      .replace(/[<>]/g, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 /**
