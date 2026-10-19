@@ -42,7 +42,8 @@ function ruleFileName(id: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id))
     throw new RuleError(
       "rule_id_invalid",
-      `"${id}" is not a rule name: a rule is named by one plain file name.`,
+      `"${id}" is not a rule name: a rule is named by letters, digits, dots, dashes and underscores, with no spaces.`,
+      400,
     );
   return `${id}.json`;
 }

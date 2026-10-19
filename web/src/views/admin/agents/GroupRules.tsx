@@ -218,6 +218,12 @@ function RuleEditor({
   const [watches, setWatches] = useState(initial.watches);
   const [instruction, setInstruction] = useState(initial.instruction);
   const [sends, setSends] = useState(initial.sends);
+  /*
+   * A rule is named by a file name: the id is the document's name under
+   * `rules/`, and the agent refers to it in every run. A space is not a name,
+   * so the form says so and does not send it.
+   */
+  const validId = existing || /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,6 +252,11 @@ function RuleEditor({
         <div className="field">
           <label htmlFor="new-rule-id">{t("Rule name")}</label>
           <input id="new-rule-id" value={id} onChange={(e) => setId(e.target.value)} />
+          {!validId && (
+            <span className="hint">
+              {t("Letters, digits, dots, dashes and underscores only, with no spaces.")}
+            </span>
+          )}
         </div>
       )}
       <div className="field" style={{ marginTop: 8 }}>
@@ -292,7 +303,7 @@ function RuleEditor({
         <button
           type="button"
           className="btn btn-primary"
-          disabled={busy}
+          disabled={busy || !validId}
           onClick={() =>
             act(async () => {
               await onSave({

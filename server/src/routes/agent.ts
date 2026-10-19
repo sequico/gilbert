@@ -71,7 +71,7 @@ import {
   INSTRUCTION_VERSION,
   parseInstructionDocumentDetailed,
 } from "../shared/instruction.js";
-import { RULES_DIR } from "../shared/rule.js";
+import { RULES_DIR, RuleError } from "../shared/rule.js";
 import type { RunListing } from "../shared/run.js";
 import {
   type Env,
@@ -133,17 +133,25 @@ export function registerAgentRoutes(api: Hono<Env>): void {
    * conflict, answered as 409 so the panel can say so and reload — not the
    * upstream fault every other refusal would become.
    */
-  const proseFailure = (c: Parameters<typeof groupDenial>[0], err: unknown) =>
-    isStateMismatch(err)
-      ? c.json(
-          {
-            error: "prose_moved",
-            message:
-              "The group's prose changed while this was being written, so nothing was saved.",
-          },
-          409,
-        )
-      : doorFailure(c, err);
+  const proseFailure = (c: Parameters<typeof groupDenial>[0], err: unknown) => {
+    if (isStateMismatch(err))
+      return c.json(
+        {
+          error: "prose_moved",
+          message:
+            "The group's prose changed while this was being written, so nothing was saved.",
+        },
+        409,
+      );
+    /*
+     * A rule name the document model refuses is the caller's to fix: its own
+     * sentence and its own status, not the upstream 502 every unmatched error
+     * becomes.
+     */
+    if (err instanceof RuleError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return doorFailure(c, err);
+  };
 
   /**
    * Where the installation's agent is.

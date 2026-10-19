@@ -189,6 +189,31 @@ test("an administrator writes a group's prose through the route, and reads it ba
   );
 });
 
+test("a rule name that is not a file name is refused as the caller's, not upstream's", async () => {
+  /*
+   * The id is the rule's file name; "All freight" has a space in it. That is a
+   * 400 with the rule's own sentence — the caller typed it and can fix it — not
+   * the 502 an unmatched error becomes.
+   */
+  const base = `/api/admin/groups/${encodeURIComponent(TEAM)}/prose`;
+  const state = ((await call(base)).body as { state: string }).state;
+  const res = await call(`${base}/rules/${encodeURIComponent("All freight")}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      rule: {
+        v: 1,
+        id: "All freight",
+        watches: ["mail"],
+        instruction: "Answer the shipper.",
+        sends: false,
+      },
+      ifInState: state,
+    }),
+  });
+  assert.equal(res.status, 400);
+  assert.equal((res.body as { error: string }).error, "rule_id_invalid");
+});
+
 test("the runs a group worked are drawn as the record carries them", async () => {
   /*
    * A plan with an order and a branch (ADR 0034): the second step waits on the

@@ -58,8 +58,11 @@ import {
  * 198 -> 208: the model connection check's own sentences — connected, the key
  * refused, the address not found, unreachable, and the rest of what a probe can
  * come back with (`views/admin/agents/AgentGeneral.tsx`).
+ *
+ * 208 -> 209: the rule-name sentence beside the field that now refuses a space
+ * (`views/admin/agents/GroupRules.tsx`).
  */
-const MISSING_MAX = 208;
+const MISSING_MAX = 209;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.
