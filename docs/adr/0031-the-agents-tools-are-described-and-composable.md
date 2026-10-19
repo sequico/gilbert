@@ -70,10 +70,11 @@ typed arguments, each acting on one of those objects.
   again. A call that needs what another answered says so and waits for it
   (ADR 0034). There is no list of permitted business actions and no plan compiled
   at write time.
-- **The agent works on five surfaces, and has all of them.** They are the
-  group's **chat**, its **mail**, its **KB** — its pages and the **checklist
-  templates** among them — and its **workorders**, with its own **runs** beside
-  them as the record of what it did. Every one is both readable and writeable
+- **The agent works on every surface the group's account offers, and has all of
+  them.** They are the group's **chat**, its **mail**, its **files**, its **KB**
+  — its pages and the **checklist templates** among them — its **calendars**,
+  and its **workorders**, with its own **runs** beside them as the record of
+  what it did. Every one is both readable and writeable
   within the authority classes (ADR 0032): an agent that could file mail but not
   read a template, or settle a workorder step but not say so in the chat, would be
   half of the product. They are the objects the catalogue is built over.

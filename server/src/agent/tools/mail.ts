@@ -803,6 +803,41 @@ export const defineLabel = defineTool({
   },
 });
 
+export const renameMailFolder = defineTool({
+  name: "mail.renameFolder",
+  description:
+    "Rename a folder of this account's mailbox in place, by its current name " +
+    "and the name to give it. Its messages stay where they are. The account's " +
+    "system folders (inbox, sent and the rest) are not renamed: the mail " +
+    "server keeps them by role.",
+  authority: "reversible",
+  writes: true,
+  spend: { steps: 1 },
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return { name: textArg(args, "name"), to: textArg(args, "to") };
+  },
+  run: async ({ ctx, accountId }, { name, to }) => {
+    const boxes = await mailboxesOf(ctx, accountId);
+    const found = resolveMailbox(name, boxes);
+    if (!found) throw notFound(`folder "${name}" in this account`);
+    if (found.role)
+      throw new ToolError(
+        "reserved_folder",
+        `"${found.name}" is the account's ${found.role} folder, which the mail server keeps by role and does not rename.`,
+        409,
+      );
+    const res = await clientOf(ctx).call<SetResponse>(
+      "Mailbox/set",
+      { accountId, update: { [found.id]: { name: to } } },
+      [CAPABILITIES.mail],
+    );
+    const refused = res.notUpdated?.[found.id];
+    if (refused) throw new ToolError("write_refused", refusalOf(refused), 409);
+    return { id: found.id, name: to, was: found.name };
+  },
+});
+
 export const createMailFolder = defineTool({
   name: "mail.folder",
   description:

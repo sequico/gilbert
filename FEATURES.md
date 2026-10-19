@@ -208,8 +208,9 @@ installation that has chosen no model has no agent.
 
 **The catalogue of tools is `server/src/agent/tools.ts`** (ADR 0031): one tool is
 a task over an object. The reading half — the only half a reading caller is handed
-— finds and reads a message, a folder, a document in Files, a KB page, a
-workorder, a run and the group's own conversation, and a document in Files is read
+— finds and reads a message, a folder, a document in Files, the titles of the
+KB's pages before reading one, a workorder, a run, the group's own conversation
+and the events of its calendars in a window, and a document in Files is read
 **inside**: a PDF's text layer, a Word file, a spreadsheet, an OpenDocument or a
 text file as the document's own words (`server/src/documentText.ts`), and an
 attachment of a message is read the same way (`mail.readAttachment`). An image, or
@@ -218,7 +219,10 @@ model, the page rendered to a bitmap and sent as a picture: no OCR engine is
 installed, and a model that cannot see says so instead of guessing. The half that changes the
 group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
-folder in the mailbox or in Files, moves or renames a document, **drafts a reply to everyone**
+folder in the mailbox or in Files, renames a mailbox folder in place, moves or
+renames a document, creates, changes or removes an event in the group's own
+calendar — no invitation is sent and nobody outside the group is written to —
+**drafts a reply to everyone**
 into the group's own Drafts — the sender in To and the rest of the message's
 recipients in Cc, the group's own addresses left out, carrying the thread and
 marked `$draft`, and sent by nobody but a person — settles a **step of a

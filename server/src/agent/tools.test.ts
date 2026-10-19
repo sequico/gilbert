@@ -354,6 +354,7 @@ test("every surface the agent works on has a reading tool that reaches it", () =
     workorder: ["workorder.read"],
     runs: ["run.read"],
     files: ["files.list", "files.read"],
+    calendar: ["calendar.list", "calendar.find", "calendar.read"],
   };
   for (const [surface, names] of Object.entries(doors)) {
     assert.ok(
@@ -695,6 +696,73 @@ async function hasKeyword(id: string, keyword: string): Promise<boolean> {
   ]);
   return Boolean(answer.list?.[0]?.keywords?.[keyword]);
 }
+
+test("a mailbox folder is renamed in place, and a system folder is not", async () => {
+  const folder = await writeTool<{ id: string; name: string }>("mail.folder", {
+    name: "Old name",
+  });
+  const renamed = await writeTool<{ id: string; name: string; was: string }>(
+    "mail.renameFolder",
+    { name: "Old name", to: "New name" },
+  );
+  assert.equal(renamed.id, folder.id, "the folder is the same one, renamed");
+  assert.equal(renamed.name, "New name");
+  assert.equal(renamed.was, "Old name");
+  await assert.rejects(
+    () => writeTool("mail.renameFolder", { name: "Old name", to: "Third name" }),
+    /no folder "Old name"/,
+    "the old name is gone, so nothing is left behind to duplicate",
+  );
+  await assert.rejects(
+    () => writeTool("mail.renameFolder", { name: "inbox", to: "Post" }),
+    /keeps by role/,
+    "a system folder is kept by role and is not renamed",
+  );
+});
+
+test("the calendar is read and changed through its own tools", async () => {
+  const listed = await callTool<{
+    calendars: Array<{ id: string; name: string; mayWrite: boolean }>;
+  }>("calendar.list", {});
+  const personal = listed.calendars.find((one) => one.name === "Personal");
+  assert.ok(personal?.mayWrite, "the account's own calendar is writable");
+
+  const created = await writeTool<{ id: string }>("calendar.save", {
+    calendar: personal.id,
+    title: "Container 12 arrives",
+    start: "2026-10-20T09:00:00",
+    duration: "PT2H",
+  });
+  const found = await callTool<{ events: Array<{ id: string; title: string }> }>(
+    "calendar.find",
+    { from: "2026-10-20T00:00:00Z", to: "2026-10-21T00:00:00Z" },
+  );
+  assert.ok(
+    found.events.some((one) => one.title === "Container 12 arrives"),
+    "the event is in the window it was made in",
+  );
+
+  const read = await callTool<{ event: Record<string, unknown> }>("calendar.read", {
+    id: created.id,
+  });
+  assert.equal(read.event.title, "Container 12 arrives");
+
+  await writeTool("calendar.save", {
+    id: created.id,
+    title: "Container 12 has arrived",
+  });
+  const changed = await callTool<{ event: Record<string, unknown> }>("calendar.read", {
+    id: created.id,
+  });
+  assert.equal(changed.event.title, "Container 12 has arrived");
+
+  await writeTool("calendar.delete", { id: created.id });
+  await assert.rejects(
+    () => callTool("calendar.read", { id: created.id }),
+    /no event/,
+    "a removed event is gone, not drawn blank",
+  );
+});
 
 test("the writing tools change the group's own account", async () => {
   // A folder of the mailbox, made once and answered the same way the second

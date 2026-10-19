@@ -35,13 +35,20 @@
  *
  * What a tool is, and the arguments it reads, are defined once beside this file
  * under `tools/`, and each surface defines its own there: mail, chat, files,
- * workorders, knowledge, runs and the installation's memory. This module is the
+ * workorders, knowledge, calendars, runs and the installation's memory. This module is the
  * catalogue's entry point: it composes `TOOLS` in the order the model reads, and
  * holds the two doors a call is made through. It re-exports the names callers
  * already import rather than a second spelling of any of them.
  */
 
 import { errorMessage } from "../shared/errors.js";
+import {
+  deleteEvent,
+  findEvents,
+  listCalendars,
+  readEvent,
+  saveEvent,
+} from "./tools/calendar.js";
 import { askInChat, findChat, readChat, sayInChat } from "./tools/chat.js";
 import {
   type AnyTool,
@@ -71,6 +78,7 @@ import {
   readAttachment,
   readMessage,
   readMessageForAnswer,
+  renameMailFolder,
   sendOutward,
   setKeyword,
   trashMessage,
@@ -100,6 +108,9 @@ export const TOOLS: readonly AnyTool[] = [
   readMessage,
   readAttachment,
   listMailboxes,
+  listCalendars,
+  findEvents,
+  readEvent,
   readChat,
   findChat,
   listFiles,
@@ -118,6 +129,9 @@ export const TOOLS: readonly AnyTool[] = [
   proposePage,
   defineLabel,
   createMailFolder,
+  renameMailFolder,
+  saveEvent,
+  deleteEvent,
   createFileFolder,
   moveFile,
   renameFile,
