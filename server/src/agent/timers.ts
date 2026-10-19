@@ -88,15 +88,25 @@ export class WaitTimers {
    */
   async arm(ctx: Ctx, accountId: string): Promise<string[]> {
     const armed: string[] = [];
+    const waiting = new Set<string>();
     for (const { run } of await listRuns(ctx, accountId)) {
       const until = waitDueAt(run);
       if (!until) continue;
       const key = waitKey(accountId, run.id);
+      waiting.add(key);
       const dueMs = Date.parse(until);
       if (this.fired.get(key) === dueMs) continue;
       this.schedule(accountId, run.id, dueMs);
       armed.push(run.id);
     }
+    /*
+     * A run that ended carries no wait any more, and its fired instant is not
+     * worth remembering: keeping it made the map grow with every dated run the
+     * process ever fired. The account's prefix keeps other accounts' entries.
+     */
+    const prefix = `${accountId}\u0000`;
+    for (const key of this.fired.keys())
+      if (key.startsWith(prefix) && !waiting.has(key)) this.fired.delete(key);
     return armed;
   }
 

@@ -11,6 +11,7 @@
 import type { Ctx } from "../appFolder.js";
 import { postChatMessage, readChatMessageAt } from "../groupChat.js";
 import { CAPABILITIES } from "../shared/capabilities.js";
+import { mentionsName } from "../shared/chat.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
 import { spendRun } from "../shared/run.js";
@@ -130,7 +131,13 @@ export async function offPath(
         if (!message || message.from === deps.self) continue;
         // In the group conversation the notice is for a message that names the
         // agent, not for everything the group says to itself.
+        /*
+         * A mention is either the stored mark or the words themselves: a person
+         * typing `@gilbert` by hand leaves no mark, and the loose form is what
+         * the conversation reads (`mentionsName`).
+         */
         if (
+          !mentionsName(message.text, deps.self) &&
           !message.mentions?.some(
             (one) => one.id.toLowerCase() === deps.self.toLowerCase(),
           )

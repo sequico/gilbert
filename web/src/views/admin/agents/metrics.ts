@@ -16,6 +16,7 @@ export interface RunMetrics {
   done: number;
   blocked: number;
   outOfBudget: number;
+  cancelled: number;
 }
 
 /** The window a set of numbers is read over. */
@@ -53,6 +54,7 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     done: 0,
     blocked: 0,
     outOfBudget: 0,
+    cancelled: 0,
   };
   for (const listed of list) {
     const run = listed.run;
@@ -72,6 +74,7 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     if (run.state === "running") total.running += 1;
     else if (run.state === "done") total.done += 1;
     else if (run.state === "blocked") total.blocked += 1;
+    else if (run.state === "cancelled") total.cancelled += 1;
     else total.outOfBudget += 1;
   }
   return total;

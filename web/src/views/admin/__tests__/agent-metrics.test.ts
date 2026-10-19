@@ -21,10 +21,15 @@ describe("the runs' tally", () => {
         spent: { steps: 1, calls: 1, ms: 500 },
       }),
       listed("c", null),
+      listed("d", {
+        state: "cancelled",
+        plan: [],
+        spent: { steps: 0, calls: 0, ms: 0 },
+      }),
     ];
 
     const total = metricsOf(runs);
-    expect(total.runs).toBe(2);
+    expect(total.runs).toBe(3);
     expect(total.steps).toBe(3);
     expect(total.calls).toBe(4);
     expect(total.ms).toBe(1500);
@@ -33,6 +38,8 @@ describe("the runs' tally", () => {
     expect(total.refused).toBe(1);
     expect(total.done).toBe(1);
     expect(total.running).toBe(1);
+    expect(total.cancelled).toBe(1);
+    expect(total.outOfBudget).toBe(0);
   });
 
   it("keeps only the runs that ended inside the window", () => {

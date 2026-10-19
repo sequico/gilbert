@@ -248,6 +248,22 @@ export function mentionsName(text: string, address: string): boolean {
 }
 
 /**
+ * The principals a text addresses by mention, in either form.
+ *
+ * The client writes a mention as the full address; the agent writes the local
+ * part (`@sam`). Both are a mention, so a caller that has the group's roster can
+ * put the structured mark on a message the agent wrote.
+ */
+export function mentionsByName(
+  text: string,
+  participants: ReadonlyArray<string>,
+): ChatMention[] {
+  return participants
+    .filter((address) => mentionsName(text, address))
+    .map((id) => ({ kind: "principal", id }));
+}
+
+/**
  * Whether a reply answers one of `addresses`' messages.
  *
  * A reply counts only when its direct parent is the agent's message —

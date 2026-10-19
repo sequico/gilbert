@@ -56,6 +56,8 @@ const { MEMORY_FACT_MAX, MEMORY_VERSION, parseFactDocumentDetailed } = await imp
 const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js");
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
+const { groupMembers } = await import("../groupAccess.js");
+const { localPart } = await import("../shared/chat.js");
 const { factPath, listFacts } = await import("./memory.js");
 const {
   defineTool,
@@ -1021,6 +1023,26 @@ test("a mention in the chat is the local part, never the whole address", async (
     id: asked.id,
   });
   assert.equal(question.message.text, "Is @sq happy with that?");
+
+  /*
+   * The words are the local part, and the stored mark is the roster's address:
+   * a mention the agent writes is a mention the client and the off path can see,
+   * not just text that looks like one.
+   */
+  const members = (await groupMembers(ctx, accountId)) ?? [];
+  const person = members.find((one) => one.toLowerCase() !== ctx.username.toLowerCase());
+  if (person) {
+    const toPerson = await writeTool<{ id: string }>("chat.say", {
+      text: `Acknowledged, @${localPart(person)} — no harm done.`,
+    });
+    const readPerson = await callTool<{
+      message: { mentions?: Array<{ id: string }> };
+    }>("chat.read", { id: toPerson.id });
+    assert.ok(
+      readPerson.message.mentions?.some((one) => one.id === person),
+      "the mention is marked as the person it names",
+    );
+  }
 });
 
 test("the writing tools change the group's own account", async () => {

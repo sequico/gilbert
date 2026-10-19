@@ -36,12 +36,13 @@
  * readable record — and a `From:` naming somebody the installation knows is
  * exactly the case the rule exists for.
  *
- * **Nothing calls it yet.** Nothing here reads, sends or files mail either: a
- * caller that wants an answer must hand this one a message, which means the mail
- * reading asking for the three properties below and the reply being recognised as
- * the one a run waits for — the channel's own correlation
- * (`In-Reply-To`/`References` against the wait's `asked`, ADR 0033, 0034), which
- * is the loop's to do and deliberately not this module's.
+ * **It is called where a mail answer is read.** `readMessageForAnswer`
+ * (`tools/mail.ts`) hands every received message to `personWord` and carries its
+ * `word` answer, and the loop's `mailAnsweredBy` refuses an answer whose word is
+ * false. The correlation — which run the message answers — is the channel's own
+ * (`In-Reply-To`/`References` against the wait's `asked`, ADR 0033, 0034) and
+ * stays the loop's; this module decides only whether the message is anybody's
+ * word at all.
  *
  * **It answers codes, never sentences.** A refusal is one of `TrustRefusal`'s
  * values; the sentence a reader sees is composed where it is shown — in the

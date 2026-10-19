@@ -7,6 +7,16 @@ import type { RuleDoc } from "./rule.js";
 export const OUTCOME_IN_PROMPT_MAX = 4 * 1024;
 
 /**
+ * The most of a lookup one prompt carries.
+ *
+ * A read can answer a document of any size; the prompt that carries it is paid
+ * for by the token and bounded by the provider's context. A larger bound than
+ * an outcome's, because the model asked for this text on purpose, and a cut that
+ * is visible rather than a call that fails.
+ */
+export const READ_IN_PROMPT_MAX = 16 * 1024;
+
+/**
  * The volatile tail of one call: the change, the candidate rules, and what has
  * been read so far.
  *
@@ -51,7 +61,10 @@ export function turnData(
       ]),
     ),
     ...reads.map(
-      (read) => `What ${read.name} answered:\n${dataBlock(token, [textOf(read.result)])}`,
+      (read) =>
+        `What ${read.name} answered:\n${dataBlock(token, [
+          clipped(textOf(read.result), READ_IN_PROMPT_MAX),
+        ])}`,
     ),
   ].join("\n");
 }
@@ -103,11 +116,9 @@ export function textOf(value: unknown): string {
   }
 }
 
-/** One step's outcome, bounded for the prompt and the record alike. */
-export function clipped(text: string): string {
-  return text.length > OUTCOME_IN_PROMPT_MAX
-    ? `${text.slice(0, OUTCOME_IN_PROMPT_MAX)}…`
-    : text;
+/** A piece of text, bounded for the prompt and the record alike. */
+export function clipped(text: string, max = OUTCOME_IN_PROMPT_MAX): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
 /**

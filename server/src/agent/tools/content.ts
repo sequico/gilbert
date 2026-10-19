@@ -22,6 +22,15 @@ export type ImageReader = (image: {
  * say what a picture says, and the two failures are told apart (a format nothing
  * reads, and a document that would not open) rather than answered with bytes.
  */
+/**
+ * The most bytes one tool downloads to read.
+ *
+ * A document or an attachment is held whole to be read; past this bound the
+ * answer is a refusal that says so, rather than a process pressured by one
+ * file. 32 MB is far above any document a person puts in Files on purpose.
+ */
+export const READ_BYTES_MAX = 32 * 1024 * 1024;
+
 export async function readFileText(
   file: { type: string; name: string; bytes: Uint8Array },
   readImage?: ImageReader,

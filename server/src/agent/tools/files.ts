@@ -26,7 +26,7 @@ import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
 import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
 import { refusalOf } from "../../shared/jmap.js";
 import { argsRecord, notFound, optionalTextArg, textArg } from "./args.js";
-import { readFileText } from "./content.js";
+import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
 
 export const listFiles = defineTool({
@@ -84,6 +84,13 @@ export const readNode = defineTool({
   keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId, readImage }, { path }) => {
+    const held = await findVisibleFile(ctx, accountId, path);
+    if (typeof held?.file.size === "number" && held.file.size > READ_BYTES_MAX)
+      throw new ToolError(
+        "too_large",
+        `"${path}" is ${held.file.size} bytes; a read stops at ${READ_BYTES_MAX}.`,
+        413,
+      );
     const found = await readVisibleFileBytes(ctx, accountId, path);
     if (!found) throw notFound(`file "${path}" in this account's Files`);
     const type = documentType(found.file);

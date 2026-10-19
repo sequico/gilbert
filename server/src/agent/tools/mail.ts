@@ -37,7 +37,7 @@ import { replySubject } from "../../shared/text.js";
 import { clientOf } from "../../util.js";
 import { personWord } from "../trust.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
-import { readFileText } from "./content.js";
+import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
 
 /** The properties a search hit carries: enough to choose what to read next. */
@@ -183,6 +183,12 @@ export const readAttachment = defineTool({
       throw new ToolError("bad_arguments", `The attachment "${name}" has no file.`, 422);
     const type =
       typeof one.type === "string" && one.type ? one.type : "application/octet-stream";
+    if (typeof one.size === "number" && one.size > READ_BYTES_MAX)
+      throw new ToolError(
+        "too_large",
+        `The attachment "${name}" is ${one.size} bytes; a read stops at ${READ_BYTES_MAX}.`,
+        413,
+      );
     const bytes = await clientOf(ctx).downloadBlob(accountId, blobId, name, type);
     return {
       name,

@@ -6,8 +6,10 @@
  * conversation rather than from a mailbox.
  */
 
+import type { Ctx } from "../../appFolder.js";
+import { groupMembers } from "../../groupAccess.js";
 import { findChatMessages, postChatMessage, readChatMessageBy } from "../../groupChat.js";
-import { CHAT_MAX_TEXT } from "../../shared/chat.js";
+import { CHAT_MAX_TEXT, type ChatMention, mentionsByName } from "../../shared/chat.js";
 import type { RunWait } from "../../shared/run.js";
 import { argsRecord, countArg, notFound, optionalTextArg, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
@@ -139,6 +141,27 @@ function chatText(args: Record<string, unknown>): string {
   return text;
 }
 
+/**
+ * The people a text addresses, resolved against the group's roster.
+ *
+ * The agent writes `@local`, which the conversation reads as a mention; the
+ * stored mark is what the client and the off path look for, so the roster turns
+ * the words back into principals.
+ */
+async function mentionsOf(
+  ctx: Ctx,
+  accountId: string,
+  text: string,
+): Promise<{ mentions?: ChatMention[] }> {
+  const members = await groupMembers(ctx, accountId).catch(() => null);
+  if (!members?.length) return {};
+  const mentions = mentionsByName(
+    text,
+    members.filter((one) => one.toLowerCase() !== ctx.username.toLowerCase()),
+  );
+  return mentions.length ? { mentions } : {};
+}
+
 export const sayInChat = defineTool({
   name: "chat.say",
   description:
@@ -156,7 +179,10 @@ export const sayInChat = defineTool({
   run: async ({ ctx, accountId }, { text, replyTo }) => {
     // The agent writes as itself and acts in the group's account (ADR 0033):
     // the sender is the address the session signed in as.
-    const id = await postChatMessage(ctx, accountId, ctx.username, text, { replyTo });
+    const id = await postChatMessage(ctx, accountId, ctx.username, text, {
+      ...(replyTo ? { replyTo } : {}),
+      ...(await mentionsOf(ctx, accountId, text)),
+    });
     return { id };
   },
 });
@@ -175,7 +201,9 @@ export const askInChat = defineTool({
   keys: ["text"],
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
   run: async ({ ctx, accountId }, { text }) => {
-    const id = await postChatMessage(ctx, accountId, ctx.username, text);
+    const id = await postChatMessage(ctx, accountId, ctx.username, text, {
+      ...(await mentionsOf(ctx, accountId, text)),
+    });
     /*
      * What the run waits for is a person's answer, and that wait carries **no
      * date**: the run is picked up when the answer arrives in the conversation,
