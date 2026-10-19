@@ -288,7 +288,7 @@ function crc32(bytes: Buffer): number {
  * is the document.
  *
  * There is no ODF library here and adding one for a text extraction would be a
- * dependency for what a zip reader and a tag regex answer: paragraphs and
+ * dependency for what a zip reader and a character walk answer: paragraphs and
  * headings become lines, cells are separated, and the formatting is what is
  * dropped.
  */
@@ -298,30 +298,49 @@ async function odfText(bytes: Uint8Array): Promise<string> {
   const content = zip.file("content.xml");
   if (!content) throw new Error("The document has no content.xml.");
   const xml = await content.async("string");
-  return (
+  const decoded = stripTags(
     xml
       .replace(/<text:(p|h)\b[^>]*>/g, "\n")
       .replace(/<table:table-cell\b[^>]*\/>/g, ", ")
-      .replace(/<table:table-cell\b[^>]*>/g, "")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-      .replace(/&amp;/g, "&")
-      /*
-       * Entities can spell markup back -- `&lt;script&gt;` decodes to a tag after
-       * the strip above -- so the brackets themselves go once the text is
-       * decoded. Nothing here is rendered as HTML, but a text extractor that can
-       * hand a tag back is one the next reader has to distrust, and CodeQL is
-       * right that a pattern strip alone does not promise this.
-       */
-      .replace(/[<>]/g, "")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-  );
+      .replace(/<table:table-cell\b[^>]*>/g, ""),
+  )
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/g, "&");
+  /*
+   * Entities can spell markup back -- `&lt;script&gt;` decodes to a tag after
+   * the strip above -- so the decoded text is stripped again, and a bracket that
+   * begins nothing goes with it. A tag is never rebuilt from a pattern here: the
+   * strip walks the characters and copies only what is outside one.
+   */
+  return stripTags(decoded)
+    .replace(/[<>]/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * The text of an XML document, tag by tag.
+ *
+ * A character walk rather than a pattern: removing `<...>` with a regular
+ * expression is the sanitizer CodeQL refuses (`js/incomplete-multi-character-
+ * sanitization`), because a removal can join two halves into a tag. Here a `<`
+ * starts a tag, a `>` ends it, and nothing between the two is copied — the
+ * answer cannot contain a tag it did not already have.
+ */
+function stripTags(text: string): string {
+  let out = "";
+  let inside = false;
+  for (const ch of text) {
+    if (ch === "<") inside = true;
+    else if (ch === ">") inside = false;
+    else if (!inside) out += ch;
+  }
+  return out;
 }
 
 /**
