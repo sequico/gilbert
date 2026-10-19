@@ -50,8 +50,12 @@ import {
  * sentences that the same change removed. The count moves by one because the
  * additions and the removals are one batch; it is not a new surface's worth of
  * unwritten translations.
+ *
+ * 196 -> 198: the metrics period — "Period" and "All time"; the day, week and
+ * month labels the calendars already translated are reused (`views/admin/
+ * agents/AgentOverview.tsx`).
  */
-const MISSING_MAX = 196;
+const MISSING_MAX = 198;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

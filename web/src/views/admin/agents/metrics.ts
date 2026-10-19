@@ -16,8 +16,28 @@ export interface RunMetrics {
   outOfBudget: number;
 }
 
-/** The tally of a listing, run by run; a run this build cannot read is not counted. */
-export function metricsOf(list: readonly RunListing[]): RunMetrics {
+/** The window a set of numbers is read over. */
+export type MetricsPeriod = "day" | "week" | "month" | "all";
+
+/**
+ * The first instant of a period, in the reader's own clock — or undefined for
+ * all time. A week starts on Monday, which is what the calendars here do.
+ */
+export function periodSince(period: MetricsPeriod, now = new Date()): Date | undefined {
+  if (period === "all") return undefined;
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  if (period === "week") start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  if (period === "month") start.setDate(1);
+  return start;
+}
+
+/**
+ * The tally of a listing, run by run; a run this build cannot read is not
+ * counted. `since` keeps a run whose end is inside the window — a run still
+ * running is now, and belongs to the period being lived in.
+ */
+export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics {
   const total: RunMetrics = {
     runs: 0,
     steps: 0,
@@ -34,6 +54,10 @@ export function metricsOf(list: readonly RunListing[]): RunMetrics {
   for (const listed of list) {
     const run = listed.run;
     if (!run) continue;
+    if (since) {
+      const at = run.ended ? Date.parse(run.ended.at) : Date.now();
+      if (Number.isFinite(at) && at < since.getTime()) continue;
+    }
     total.runs += 1;
     total.steps += run.spent.steps;
     total.calls += run.spent.calls;

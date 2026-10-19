@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunListing } from "@/lib/agentAdmin";
-import { metricsOf } from "../agents/metrics";
+import { metricsOf, periodSince } from "../agents/metrics";
 
 /** One run as the listing carries it, with only the fields the tally reads. */
 function listed(id: string, run: Record<string, unknown> | null): RunListing {
@@ -33,6 +33,30 @@ describe("the runs' tally", () => {
     expect(total.refused).toBe(1);
     expect(total.done).toBe(1);
     expect(total.running).toBe(1);
+  });
+
+  it("keeps only the runs that ended inside the window", () => {
+    const now = new Date(2026, 9, 19, 12, 0, 0);
+    const runs = [
+      listed("today", {
+        state: "done",
+        plan: [],
+        spent: { steps: 1, calls: 1, ms: 10 },
+        ended: { at: new Date(2026, 9, 19, 9, 0, 0).toISOString(), why: "done" },
+      }),
+      listed("lastweek", {
+        state: "done",
+        plan: [],
+        spent: { steps: 1, calls: 1, ms: 10 },
+        ended: { at: new Date(2026, 9, 12, 9, 0, 0).toISOString(), why: "done" },
+      }),
+    ];
+
+    expect(metricsOf(runs, periodSince("day", now)).runs).toBe(1);
+    expect(metricsOf(runs, periodSince("week", now)).runs).toBe(1);
+    expect(metricsOf(runs, periodSince("month", now)).runs).toBe(2);
+    expect(metricsOf(runs, periodSince("all", now)).runs).toBe(2);
+    expect(periodSince("week", now)?.getDay()).toBe(1);
   });
 
   it("is all zeroes for an empty listing", () => {

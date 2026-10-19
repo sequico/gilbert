@@ -1,10 +1,15 @@
 import { errorMessage } from "@gilbert/shared/errors";
 import { useEffect, useState } from "react";
-import { type AgentStatus, fetchAgentStatus, fetchGroupRuns } from "@/lib/agentAdmin";
+import {
+  type AgentStatus,
+  fetchAgentStatus,
+  fetchGroupRuns,
+  type RunListing,
+} from "@/lib/agentAdmin";
 import { formatFullDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
-import { metricsOf, type RunMetrics } from "./metrics";
+import { type MetricsPeriod, metricsOf, periodSince, type RunMetrics } from "./metrics";
 
 /** Where the agent is, and what its runs have spent: the installation's numbers. */
 export function AgentOverview({
@@ -15,9 +20,10 @@ export function AgentOverview({
   facts: number;
 }) {
   const [status, setStatus] = useState<AgentStatus | null>(null);
-  const [perGroup, setPerGroup] = useState<Array<{ name: string; metrics: RunMetrics }>>(
+  const [perGroup, setPerGroup] = useState<Array<{ name: string; runs: RunListing[] }>>(
     [],
   );
+  const [period, setPeriod] = useState<MetricsPeriod>("week");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +33,7 @@ export function AgentOverview({
       Promise.all(
         groups.map(async (group) => ({
           name: group.name,
-          metrics: metricsOf(await fetchGroupRuns(group.name)),
+          runs: await fetchGroupRuns(group.name),
         })),
       ),
     ])
@@ -42,7 +48,12 @@ export function AgentOverview({
     };
   }, [groups.map((group) => group.name).join("\n")]);
 
-  const total = perGroup.reduce((sum, row) => add(sum, row.metrics), empty());
+  const since = periodSince(period);
+  const rows = perGroup.map((row) => ({
+    name: row.name,
+    metrics: metricsOf(row.runs, since),
+  }));
+  const total = rows.reduce((sum, row) => add(sum, row.metrics), empty());
 
   return (
     <div>
@@ -65,6 +76,30 @@ export function AgentOverview({
 
       <section style={{ marginTop: 24 }}>
         <h2>{t("Work")}</h2>
+        <div className="field" style={{ maxWidth: "34rem" }}>
+          <span className="hint">{t("Period")}</span>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 4 }}>
+            {(
+              [
+                ["day", t("Day")],
+                ["week", t("Week")],
+                ["month", t("Month")],
+                ["all", t("All time")],
+              ] as Array<[MetricsPeriod, string]>
+            ).map(([id, label]) => (
+              <label key={id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  type="radio"
+                  name="agent-metrics-period"
+                  value={id}
+                  checked={period === id}
+                  onChange={() => setPeriod(id)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="metrics-grid">
           <Metric label={t("Runs")} value={total.runs} />
           <Metric label={t("Steps")} value={total.steps} />
@@ -97,7 +132,7 @@ export function AgentOverview({
                 </tr>
               </thead>
               <tbody>
-                {perGroup.map((row) => (
+                {rows.map((row) => (
                   <tr key={row.name}>
                     <td>{row.name}</td>
                     <td className="num">{row.metrics.runs}</td>
