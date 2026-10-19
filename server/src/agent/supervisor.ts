@@ -284,16 +284,21 @@ export async function startAgent(
       boot.configuration.agent.allowPrivateProvider,
     );
     setRunningModelAccess(access);
-    if (!access) {
+    if (!access)
       log(
         "[gilbert] agent: this installation has chosen no model, so the agent stays idle until one is chosen (ADR 0031)",
       );
-      return null;
-    }
+    /*
+     * The loop starts even with no model: the pass re-reads the document, so a
+     * model published from Administration brings the agent to work on the next
+     * pass -- ten seconds -- rather than at the next restart. Until then every
+     * pass ends with the reason in its gaps, said once.
+     */
     const loop = new AgentLoop(ctx, {
       holder: options.holder ?? holderName(),
       accounts: () => resolveGroupAccounts(ctx),
-      access,
+      ...(access ? { access } : {}),
+      allowPrivateProvider: boot.configuration.agent.allowPrivateProvider,
       ...(boot.installation.agent.instruction
         ? { installation: boot.installation.agent.instruction }
         : {}),

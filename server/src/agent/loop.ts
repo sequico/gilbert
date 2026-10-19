@@ -211,7 +211,10 @@ export interface AgentLoopOptions {
    */
   accounts: () => Promise<readonly string[]>;
   /** The installation's model; an installation without one has no agent. */
-  access: ModelAccess;
+  /** The model to start with, when the boot has one; each pass re-reads it. */
+  access?: ModelAccess;
+  /** The operator's switch on private provider addresses; kept apart from a model. */
+  allowPrivateProvider?: boolean;
   /**
    * The installation's own line of prose, carried into every call above every
    * group's (ADR 0035). Read from the installation's document at the boot, like
@@ -262,13 +265,16 @@ export class AgentLoop {
   private readonly catalogue: readonly AnyTool[];
 
   /** The model the current pass runs on, re-read from the document each pass. */
-  private access: ModelAccess;
+  private access: ModelAccess | null;
+  /** The operator's switch on private provider addresses. */
+  private readonly allowPrivate: boolean;
 
   constructor(
     private readonly ctx: Ctx,
     private readonly opts: AgentLoopOptions,
   ) {
-    this.access = opts.access;
+    this.access = opts.access ?? null;
+    this.allowPrivate = opts.allowPrivateProvider ?? opts.access?.allowPrivateProvider ?? false;
     this.catalogue = opts.catalogue ?? TOOLS;
     this.timers = new WaitTimers((due) => {
       this.pending.push(due);
@@ -434,11 +440,13 @@ export class AgentLoop {
      * the run work are all it touches, and naming them is what lets a reader see
      * that without reading the rest of the loop.
      */
+    const access = this.access;
+    if (!access) return;
     await workChanges(
       {
         ctx: this.ctx,
         cursors: this.cursors,
-        access: this.access,
+        access,
         proseAbove: (a) => this.proseAbove(a),
         memory: () => this.memory(),
         readingCall: (a, e, c) => this.readingCall(a, e, c),
@@ -638,6 +646,8 @@ export class AgentLoop {
     now: Date,
     facts?: Record<string, string>,
   ): Promise<void> {
+    const access = this.access;
+    if (!access) return;
     let current = run;
     /*
      * What the memory recalls for this run (ADR 0037): the change it answers, the
@@ -686,7 +696,7 @@ export class AgentLoop {
       const meter = usageMeter();
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
-        choice = await chooseStep(this.catalogue, this.access, question, { meter });
+        choice = await chooseStep(this.catalogue, access, question, { meter });
       } catch (err) {
         /*
          * An answer this build refused is a step the record shows, not a silence:
@@ -902,6 +912,8 @@ export class AgentLoop {
    * and grants nothing; the answer itself still continues the run.
    */
   private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc> {
+    const access = this.access;
+    if (!access) return answer.run;
     let run = spendRun(answer.run, { calls: 1 });
     const meter = usageMeter();
     try {
@@ -912,7 +924,7 @@ export class AgentLoop {
        * answer is a no, and the answer still continues the run.
        */
       const granted = await readAnswerAuthority(
-        this.access,
+        access,
         { asked: answer.asked, said: answer.said, from: answer.from },
         { admin: await this.isAdministrator(answer.from), meter },
       );
@@ -964,8 +976,11 @@ export class AgentLoop {
    * refusal — a model that cannot see, a provider that would not answer — arrives
    * as a document the tool could not read rather than as a failed pass.
    */
-  private readonly eyes: ImageReader = async (image) =>
-    await readImage(this.access, image);
+  private readonly eyes: ImageReader = async (image) => {
+    const access = this.access;
+    if (!access) return { problem: "this installation has no model to read with." };
+    return await readImage(access, image);
+  };
 
   /**
    * When this process last held the claim until, as the document states it.
@@ -998,7 +1013,7 @@ export class AgentLoop {
       // the model its boot read.
       if (!found) return this.access;
       const loaded = await readInstallation(appFolderInstallationStore(this.ctx));
-      return modelAccess(loaded.document, this.opts.access.allowPrivateProvider);
+      return modelAccess(loaded.document, this.allowPrivate);
     } catch {
       return this.access;
     }
