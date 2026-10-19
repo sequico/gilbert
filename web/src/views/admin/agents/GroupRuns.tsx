@@ -146,7 +146,7 @@ function RunRow({
               id={row.id}
               month={month}
               facts={facts}
-              version={`${row.state}:${row.steps}:${row.spent.calls}:${row.spent.ms}:${row.ended?.at ?? ""}`}
+              version={`${row.state}:${row.steps}:${row.spent.calls}:${row.spent.ms}:${row.refused}:${row.ended?.at ?? ""}`}
             />
           ))}
       </div>
@@ -256,6 +256,15 @@ export function GroupRuns({
       ]
     : sorted;
   const pages = Math.max(1, Math.ceil(ordered.length / RUNS_PAGE));
+  /*
+   * A poll can reload a shorter list (a run ended, or an archive month changed):
+   * the page the reader was on may no longer exist. It is clamped rather than
+   * left on an empty page, and the clamp is an effect so the render that first
+   * sees the shorter list still uses the old page for one frame.
+   */
+  useEffect(() => {
+    setPage((current) => Math.min(current, pages - 1));
+  }, [pages]);
   const shown = ordered.slice(page * RUNS_PAGE, page * RUNS_PAGE + RUNS_PAGE);
 
   return (
