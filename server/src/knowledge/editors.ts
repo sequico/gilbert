@@ -346,16 +346,11 @@ export async function writeDraft(spec: {
      * back as `null`. That revives a retired article and loses the pointer to
      * the issued revision, from a save that only meant to change the body.
      */
-    const draftRead = await readAppJsonForWrite(
-      ctx,
-      accountId,
-      `${articlePath}/${DRAFT_FILE}`,
-    );
-    const stateRead = await readAppJsonForWrite(
-      ctx,
-      accountId,
-      `${articlePath}/${STATE_FILE}`,
-    );
+    // The two documents are independent reads, so they travel together.
+    const [draftRead, stateRead] = await Promise.all([
+      readAppJsonForWrite(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+      readAppJsonForWrite(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    ]);
     const existingDraft = asDraft(draftRead.kind === "ok" ? draftRead.doc : null);
     const existingState = asState(stateRead.kind === "ok" ? stateRead.doc : null);
     /*
@@ -484,18 +479,18 @@ export async function approveArticle(
     );
   const { ctx, accountId, article } = await articleTarget(admin, target, folder);
   const articlePath = articlePathOf(article);
-  const draft = asDraft(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-  );
+  const [draftRaw, stateRaw] = await Promise.all([
+    readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+    readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+  ]);
+  const draft = asDraft(draftRaw);
   if (!draft)
     throw new KnowledgeAdminError(
       "draft_missing",
       "That article has no draft to approve.",
       409,
     );
-  const existingState = asState(
-    await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-  );
+  const existingState = asState(stateRaw);
   if (existingState?.retired)
     throw new KnowledgeAdminError(
       "article_retired",
@@ -650,12 +645,12 @@ export async function restoreArticle(
     // read after them is still valid while the documents it would be compared
     // against have already moved, which is the lost update this guards.
     const token = requireState(await appFolderState(ctx, accountId));
-    const existingDraft = asDraft(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-    );
-    const existingState = asState(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-    );
+    const [draftRaw, stateRaw] = await Promise.all([
+      readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+      readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    ]);
+    const existingDraft = asDraft(draftRaw);
+    const existingState = asState(stateRaw);
     if (existingState?.retired)
       throw new KnowledgeAdminError(
         "article_retired",
@@ -780,12 +775,12 @@ export async function renameArticle(
     // The token is read before the documents, so a save landing between them and
     // the writes is refused rather than silently overwritten.
     const token = requireState(await appFolderState(ctx, accountId));
-    const draft = asDraft(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
-    );
-    const state = asState(
-      await readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
-    );
+    const [draftRaw, stateRaw] = await Promise.all([
+      readAppJsonAt(ctx, accountId, `${articlePath}/${DRAFT_FILE}`),
+      readAppJsonAt(ctx, accountId, `${articlePath}/${STATE_FILE}`),
+    ]);
+    const draft = asDraft(draftRaw);
+    const state = asState(stateRaw);
     if (state?.retired)
       throw new KnowledgeAdminError(
         "article_retired",
@@ -1051,12 +1046,12 @@ export async function moveArticle(
           409,
         );
       const afterPath = `${KNOWLEDGE_FOLDER}/${nextFolder}`;
-      const state = asState(
-        await readAppJsonAt(ctx, accountId, `${afterPath}/${STATE_FILE}`),
-      );
-      const draft = asDraft(
-        await readAppJsonAt(ctx, accountId, `${afterPath}/${DRAFT_FILE}`),
-      );
+      const [stateRaw, draftRaw] = await Promise.all([
+        readAppJsonAt(ctx, accountId, `${afterPath}/${STATE_FILE}`),
+        readAppJsonAt(ctx, accountId, `${afterPath}/${DRAFT_FILE}`),
+      ]);
+      const state = asState(stateRaw);
+      const draft = asDraft(draftRaw);
       return knowledgeSummary({
         state,
         draft,
@@ -1098,22 +1093,22 @@ export async function subtreeHasApproval(
     const name = typeof child.name === "string" ? child.name : "";
     if (!name || name === REVISIONS_FOLDER) return false;
     const childPath = `${articlePath}/${name}`;
+    /*
+     * A revision store marks an article whatever its `state.json` reads as.
+     * The state is the listing key, not proof of absence: a corrupt or missing
+     * one must not hide an issued revision from this check, or a folder delete
+     * would take the record with it. So the store is asked first.
+     */
+    if (await revisionsExist(ctx, accountId, childPath)) return true;
     const state = asState(
       await readAppJsonAt(ctx, accountId, `${childPath}/${STATE_FILE}`),
     );
     /*
-     * An article is a leaf: its own pointer, or its revision store, is the
-     * whole answer and there is nothing under it to descend into. A topic
-     * folder holds no documents of its own, so only that recurses — which the
-     * old walk did for every child, paying a listing per article to learn
-     * nothing.
+     * An article is a leaf: its own pointer is the whole answer and there is
+     * nothing under it to descend into. A topic folder holds no documents of
+     * its own, so only that recurses.
      */
-    if (state)
-      return (
-        Boolean(state.inForce) ||
-        Boolean(state.pending) ||
-        (await revisionsExist(ctx, accountId, childPath))
-      );
+    if (state) return Boolean(state.inForce) || Boolean(state.pending);
     return await subtreeHasApproval(ctx, accountId, childPath);
   });
   return found.some(Boolean);

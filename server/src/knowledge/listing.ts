@@ -12,6 +12,7 @@ import { FOLDER_PROPS } from "../shared/appFolder.js";
 import { mapLimit, READ_CONCURRENCY } from "../shared/concurrency.js";
 import {
   compareKnowledgeSiblings,
+  DRAFT_FILE,
   isRetired,
   KNOWLEDGE_FOLDER,
   type KnowledgeArticleView,
@@ -20,7 +21,7 @@ import {
   REVISIONS_FOLDER,
   STATE_FILE,
 } from "../shared/knowledge.js";
-import { asState } from "./documents.js";
+import { asDraft, asState } from "./documents.js";
 import { folderOrder } from "./editors.js";
 import { readArticle } from "./reads.js";
 import { companyKnowledgeAccount } from "./scope.js";
@@ -71,16 +72,31 @@ export async function listArticlesUnder(
         `${KNOWLEDGE_FOLDER}/${folder}/${STATE_FILE}`,
       ),
     );
-    // A directory with a `state.json` is an article and a leaf: only the
-    // revision store lives under it, so the walk stops here. A retired article
-    // is withdrawn from the tree but kept for traceability, so it is listed
-    // only where a caller asks for it.
-    if (state) {
-      if (isRetired(state) && !includeRetired) return null;
+    /*
+     * A `state.json` is the listing key, and a `draft.json` beside it is the
+     * other half of an article: a create interrupted between the two writes
+     * leaves the draft alone, and the reader's words are an article rather than
+     * a topic folder. The draft is asked for only when the state is absent, so
+     * an ordinary article still costs one document.
+     */
+    const draft = state
+      ? null
+      : asDraft(
+          await readAppSheetJsonAt(
+            ctx,
+            accountId,
+            `${KNOWLEDGE_FOLDER}/${folder}/${DRAFT_FILE}`,
+          ),
+        );
+    // An article is a leaf: only the revision store lives under it, so the walk
+    // stops here. A retired article is withdrawn from the tree but kept for
+    // traceability, so it is listed only where a caller asks for it.
+    if (state || draft) {
+      if (state && isRetired(state) && !includeRetired) return null;
       return {
         summary: knowledgeSummary({
           state,
-          draft: null,
+          draft,
           folder,
           nodeId: childId,
           parentId,
