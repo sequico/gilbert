@@ -16,6 +16,7 @@ import {
   fileChildren,
   findVisibleFile,
   findVisibleFolder,
+  findVisibleNode,
   nodeStamp,
   pathSegments,
   readVisibleFileBytes,
@@ -248,9 +249,9 @@ export const overwriteDocument = defineTool({
 export const deleteDocument = defineTool({
   name: "files.delete",
   description:
-    "Remove a document of this account's own Files, by its path. The act is " +
-    "the document: a person's word for it names the document, and licenses " +
-    "that one. A folder is not removed here.",
+    "Remove a document of this account's own Files, or a folder that is empty, " +
+    "by its path. A folder still holding something is refused rather than " +
+    "emptied. The act is the node: a person's word for it names what is removed.",
   authority: "destructive",
   writes: true,
   spend: { steps: 1 },
@@ -258,8 +259,17 @@ export const deleteDocument = defineTool({
   keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
-    const held = await findVisibleFile(ctx, accountId, path);
-    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
+    const held = await findVisibleNode(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
+    if (held.directory) {
+      const children = await fileChildren(ctx, accountId, String(held.file.id), ["id"]);
+      if (children.length)
+        throw new ToolError(
+          "folder_not_empty",
+          `"${path}" still holds ${children.length} item(s); move or remove them first.`,
+          409,
+        );
+    }
     await destroyAppNode(ctx, accountId, String(held.file.id));
     return { path, removed: true };
   },
@@ -286,9 +296,10 @@ export const createFileFolder = defineTool({
 export const moveFile = defineTool({
   name: "files.move",
   description:
-    "Move a node of this account's own Files into a folder: `path` is the " +
-    "node's path now, `folder` the folder to move it into — name no folder for " +
-    "the top level. The node keeps its name and its id.",
+    "Move a document or a folder of this account's own Files into a folder: " +
+    "`path` is the node's path now, `folder` the folder to move it into — name " +
+    "no folder for the top level. The node keeps its name and its id, and a " +
+    "folder into its own subtree is refused.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
@@ -298,8 +309,14 @@ export const moveFile = defineTool({
     return { path: textArg(args, "path"), folder: optionalTextArg(args, "folder") ?? "" };
   },
   run: async ({ ctx, accountId }, { path, folder }) => {
-    const held = await findVisibleFile(ctx, accountId, path);
-    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
+    const held = await findVisibleNode(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
+    const to = folder.replace(/\/+$/, "");
+    if (held.directory && (to === path || to.startsWith(`${path}/`)))
+      throw new ToolError(
+        "bad_arguments",
+        `A folder cannot be moved into itself ("${path}" into "${to}").`,
+      );
     const dest = await findVisibleFolder(ctx, accountId, folder);
     if (dest === undefined) throw notFound(`folder "${folder}" in this account's Files`);
     // `null` is the top level of Files, and it is a destination: a patch that
@@ -313,9 +330,9 @@ export const moveFile = defineTool({
 export const renameFile = defineTool({
   name: "files.rename",
   description:
-    "Rename a node of this account's own Files, by the `path` it carries now " +
-    "and the `name` to give it. A name another node of the same folder already " +
-    "carries is refused rather than taken.",
+    "Rename a document or a folder of this account's own Files, by the `path` " +
+    "it carries now and the `name` to give it. A name another node of the same " +
+    "folder already carries is refused rather than taken.",
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
@@ -325,8 +342,8 @@ export const renameFile = defineTool({
     return { path: textArg(args, "path"), name: textArg(args, "name") };
   },
   run: async ({ ctx, accountId }, { path, name }) => {
-    const held = await findVisibleFile(ctx, accountId, path);
-    if (!held?.file.id) throw notFound(`document "${path}" in this account's Files`);
+    const held = await findVisibleNode(ctx, accountId, path);
+    if (!held?.file.id) throw notFound(`node "${path}" in this account's Files`);
     await writeNode(ctx, accountId, String(held.file.id), { name });
     return { path, name };
   },

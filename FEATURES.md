@@ -262,7 +262,8 @@ group's account files a message, puts a keyword or one of the product's reserved
 **`G-`** labels on it, adds or changes a label in the group's catalog, makes a
 folder in the mailbox or in Files, renames a mailbox folder in place and
 removes one that is empty, writes a text document in Files, moves or renames a
-document, replaces a document's text or removes it — the last three, like the
+document or a folder, replaces a document's text, removes a document or an
+empty folder — the last three, like the
 removal of an empty folder, under a person's word for that document — replaces
 a draft with new words (under a person's word for the draft), takes a message
 back out of Deleted Items, creates an event in the group's own calendar,

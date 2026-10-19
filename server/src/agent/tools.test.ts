@@ -1045,6 +1045,57 @@ test("a mention in the chat is the local part, never the whole address", async (
   }
 });
 
+test("a folder is renamed, moved and removed like a document", async () => {
+  /*
+   * The live freight run could rename its mail folders but not the three
+   * folders in Files: the node readers took documents only. A folder is a node
+   * too, and the same path vocabulary acts on it — with its own guards: a folder
+   * cannot move into its own subtree, and one still holding something is not
+   * removed.
+   */
+  await writeTool("files.folder", { path: "Bookings/2026" });
+  await writeTool("files.write", { path: "Bookings/2026/a.txt", text: "a" });
+  await writeTool("files.rename", { path: "Bookings/2026", name: "2027" });
+  const listed = await callTool<{ nodes: Array<{ path: string }> }>("files.list", {
+    path: "Bookings/2027",
+  });
+  assert.deepEqual(
+    listed.nodes.map((one) => one.path),
+    ["Bookings/2027/a.txt"],
+    "the folder is renamed with what it holds",
+  );
+
+  const word = takeAuthorisation(plainRun(), {
+    what: "remove the empty folder",
+    authority: "destructive",
+    act: { target: "Bookings/2027", content: null },
+    by: "ada@example.org",
+    at: new Date().toISOString(),
+    from: { channel: "chat", id: "msg-folder" },
+  });
+  await assert.rejects(
+    () =>
+      runTool(TOOLS, { ctx, accountId, run: word }, "files.delete", {
+        path: "Bookings/2027",
+      }),
+    /still holds/,
+    "a folder with something in it is refused, not emptied",
+  );
+
+  await writeTool("files.move", { path: "Bookings/2027/a.txt", folder: "Bookings" });
+  const gone = await runTool(TOOLS, { ctx, accountId, run: word }, "files.delete", {
+    path: "Bookings/2027",
+  });
+  assert.deepEqual(gone, { path: "Bookings/2027", removed: true });
+
+  await writeTool("files.folder", { path: "Outer/Inner" });
+  await assert.rejects(
+    () => writeTool("files.move", { path: "Outer", folder: "Outer/Inner" }),
+    /cannot be moved into itself/,
+    "a folder is not moved into its own subtree",
+  );
+});
+
 test("the writing tools change the group's own account", async () => {
   // A folder of the mailbox, made once and answered the same way the second
   // time: the call is safe to repeat.

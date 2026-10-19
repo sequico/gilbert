@@ -1238,6 +1238,34 @@ export async function findVisibleFile(
  * holding hundreds of `n-note.txt` files would cost hundreds of round trips and
  * could be refused part-way through.
  */
+/**
+ * A node of the visible tree — a document or a folder — by its path.
+ *
+ * `findVisibleFile` answers the writers that must not replace a folder; this
+ * answers the ones that act on **whichever** node the path names, so a folder is
+ * renamed, moved and removed by the same vocabulary a document is.
+ */
+export async function findVisibleNode(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<{ file: FileNodeLike; directory: boolean } | null> {
+  const segments = visibleSegments(path);
+  const name = segments.pop();
+  if (!name) throw new AppFolderError("a path needs a name");
+  const folderId = await findVisibleFolder(ctx, accountId, segments.join("/"));
+  if (folderId === undefined) return null;
+  const children = await fileChildren(ctx, accountId, folderId, [
+    ...new Set([...FILE_PROPS, ...FOLDER_PROPS]),
+  ]);
+  const found = children.find(
+    (node) =>
+      node.name === name &&
+      (node.nodeType === "file" || node.nodeType === "directory"),
+  );
+  return found ? { file: found, directory: found.nodeType === "directory" } : null;
+}
+
 export async function unusedVisibleName(
   ctx: Ctx,
   accountId: string,
