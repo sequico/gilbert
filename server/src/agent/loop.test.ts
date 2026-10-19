@@ -88,6 +88,7 @@ const { takeClaim, releaseClaim } = await import("./claim.js");
 const { RULE_VERSION } = await import("./rule.js");
 const { defineTool, TOOLS } = await import("./tools.js");
 const { administratorAt, AgentLoop, RUN_STEPS_MAX } = await import("./loop.js");
+const { writeAgentSwitch } = await import("./switch.js");
 const { config } = await import("../config.js");
 
 const BASE = `http://127.0.0.1:${MOCK_PORT}`;
@@ -1771,6 +1772,67 @@ test("two answers refused in a row end the run instead of paying for a third", a
     2,
     "both refusals are on the record, and there is no third",
   );
+});
+
+test("the switch off answers a mention and a mail that names the agent alone, with no model call", async () => {
+  /*
+   * The off state is not silence: a person who writes to the agent is told it is
+   * off, with no model call. Chat answers a mention; mail answers a message the
+   * agent was the only addressee of — a mail also sent to somebody else is not
+   * the agent's conversation (owner decision 2026-10-19).
+   */
+  const master = filesAccountId(ctx);
+  // The mock's "a3" is the group mailbox that carries its own sending identity;
+  // the notice by mail is written as the group, so the test works that account.
+  const group = "a3";
+  await writeAgentSwitch(ctx, master, false);
+  const agent = loop(HOLDER, { accounts: async () => [group] });
+  await agent.start();
+  // The first pass anchors the change reading where the account stands now.
+  await agent.pass();
+  freshCalls();
+
+  await postChatMessage(ctx, group, "sam@example.org", "@demo are you there?", {
+    mentions: [{ kind: "principal", id: ctx.username }],
+  });
+  const deliverTo = (subject: string, cc: boolean) =>
+    clientOf(ctx).call<{ created?: { m?: { id?: string } } }>(
+      "Email/set",
+      {
+        accountId: group,
+        create: {
+          m: {
+            subject,
+            from: [{ email: "ops@shipper.example" }],
+            to: [{ email: ctx.username }],
+            ...(cc ? { cc: [{ email: "colleague@shipper.example" }] } : {}),
+            mailboxIds: { inbox: true },
+          },
+        },
+      },
+      [CAPABILITIES.mail],
+    );
+  await deliverTo("is the agent on?", false);
+  await deliverTo("and the colleague?", true);
+  await agent.pass();
+
+  assert.equal(seen.length, 0, "the notice is written without a model call");
+  const said = await findChatMessages(ctx, group, "AI agents are turned off", 5);
+  assert.equal(said.length, 1, "the chat mention is answered once");
+  const sent = await clientOf(ctx).call<{ ids?: string[] }>(
+    "Email/query",
+    {
+      accountId: group,
+      filter: { subject: "AI agents are turned off" },
+    },
+    [CAPABILITIES.mail],
+  );
+  assert.equal(
+    sent.ids?.length,
+    1,
+    "the mail naming the agent alone is answered, and the one that also reached a colleague is not",
+  );
+  await writeAgentSwitch(ctx, master, true);
 });
 
 test("a fact one run learns is handed to the next change's call, and the record names it", async () => {
