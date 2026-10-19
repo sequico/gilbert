@@ -24,7 +24,7 @@ process.env.APP_SECRET = "test-secret-for-runs";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, writeAppBytesAt, writeAppFileAt } = await import(
+const { filesAccountId, readAppFileAt, writeAppBytesAt, writeAppFileAt } = await import(
   "../appFolder.js"
 );
 const { isStateMismatch } = await import("../jmap.js");
@@ -33,6 +33,7 @@ const { finishRun, isRunDue, RUN_VERSION, spendRun, startRun, touchObject, waitU
 const { createRun, listRuns, listRunsForReading, readRun, replaceRun, RunError } =
   await import("./runs.js");
 const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
+const { archiveMonth, archiveOldRuns } = await import("./archive.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
@@ -132,6 +133,53 @@ test("only the runs whose wait has come due are ready to be re-armed", async () 
     later.map((record) => record.run.id).sort(),
     ["due-1", "due-2"],
     "and every wait in the past is due",
+  );
+});
+
+test("a closed run older than a year moves to its month's drawer, and nothing else does", async () => {
+  /*
+   * `runs/` is the working set every pass lists (ADR 0034). A run that ended
+   * more than twelve months ago is moved — never deleted — into
+   * `runs/archive/<year-month>/`; a run still running, or one that ended inside
+   * the year, stays where the surface reads it.
+   */
+  const closed = (id: string, at: string) =>
+    finishRun(
+      startRun({
+        id,
+        startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+      }),
+      "done",
+      { at, why: "the work is done" },
+    );
+  const old = closed("old-run", "2025-09-15T10:00:00Z");
+  const recent = closed("recent-run", new Date().toISOString());
+  const running = startRun({
+    id: "still-running",
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-2" },
+  });
+  await createRun(ctx, accountId, old);
+  await createRun(ctx, accountId, recent);
+  await createRun(ctx, accountId, running);
+
+  const gaps = await archiveOldRuns(
+    ctx,
+    accountId,
+    await listRuns(ctx, accountId),
+    new Date(),
+  );
+  assert.deepEqual(gaps, [], "every move succeeded");
+
+  const month = archiveMonth(old);
+  assert.equal(month, "2025-09");
+  const moved = await readAppFileAt(ctx, accountId, `runs/archive/${month}/old-run.json`);
+  assert.ok(moved, "the old run is in its month's drawer");
+  assert.match(moved.text, /"id": ?"old-run"/, "with its record intact");
+  assert.equal(await readRun(ctx, accountId, "old-run"), null, "and out of runs/");
+  assert.ok(await readRun(ctx, accountId, "recent-run"), "the recent run stays");
+  assert.ok(
+    await readRun(ctx, accountId, "still-running"),
+    "and a running one is never moved",
   );
 });
 

@@ -154,8 +154,10 @@ export async function replaceRun(
  * same ones the refusal above carries.
  *
  * The walk is `listAppSheets`: a document whose stamp has not moved since this
- * unit read it is not downloaded again, which is what a pass that reads a folder
- * of runs twice — and a folder of runs nothing prunes — needs.
+ * unit read it is not downloaded again, which is what a pass that reads the
+ * working set every ten seconds needs. The working set is kept small by the
+ * archive (`agent/archive.ts`): a run that ended more than a year ago is moved
+ * to `runs/archive/<year-month>/` in the same account, never deleted.
  */
 export async function listRunsForReading(
   ctx: Ctx,

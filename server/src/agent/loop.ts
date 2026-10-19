@@ -98,6 +98,7 @@ import {
 import { fetchAccountIntrospection, isStalwartAdmin, upstreamFor } from "../upstream.js";
 import { clientOf } from "../util.js";
 import type { AccountEvent } from "./accountEvent.js";
+import { archiveOldRuns } from "./archive.js";
 import { offPath, wokeOf, workChanges } from "./changes.js";
 import { CLAIM_TTL_MS, releaseClaim, renewClaim, takeClaim } from "./claim.js";
 import type { EventCursor } from "./events.js";
@@ -388,7 +389,9 @@ export class AgentLoop {
        * reason goes into the pass's gaps, which the supervisor reports.
        */
       try {
-        await this.workDue(accountId, now, summary);
+        const records = await this.workDue(accountId, now, summary);
+        for (const gap of await archiveOldRuns(this.ctx, accountId, records, now))
+          summary.gaps.push(`${accountId}: ${gap}`);
         await this.workChanges(accountId, now, summary);
       } catch (err) {
         summary.gaps.push(`${accountId}: ${errorMessage(err)}`);
@@ -429,7 +432,7 @@ export class AgentLoop {
     accountId: string,
     now: Date,
     summary: PassSummary,
-  ): Promise<void> {
+  ): Promise<RunRecord[]> {
     const handed = this.pending.filter((due) => due.accountId === accountId);
     for (let at = this.pending.length - 1; at >= 0; at--) {
       if (this.pending[at]?.accountId === accountId) this.pending.splice(at, 1);
@@ -444,8 +447,9 @@ export class AgentLoop {
      * crash, a pass that failed after the run was opened). Two listings asked
      * `runs/` the same thing twice, every pass, for every account.
      */
+    const records = await listRuns(this.ctx, accountId);
     const runs = new Set(handed.map((due) => due.runId));
-    for (const { run } of await listRuns(this.ctx, accountId)) {
+    for (const { run } of records) {
       if (isRunDue(run, now)) runs.add(run.id);
       if (run.state === "running" && run.waiting === null) runs.add(run.id);
     }
@@ -455,6 +459,9 @@ export class AgentLoop {
       summary.due += 1;
       await this.workRun(accountId, record.run, now);
     }
+    // What the pass read is also what the archive decides on: a run this pass
+    // just ended is not in it as ended, and goes in its month on the next pass.
+    return records;
   }
 
   /**
