@@ -43,6 +43,15 @@ export function AgentModel({ onSaved }: { onSaved: () => void }) {
 
   async function save() {
     if (saving) return;
+    /*
+     * A key belongs to a model: with no provider named there is nothing to
+     * attach it to, and the write would silently drop it. Say so rather than
+     * report a save that stored nothing.
+     */
+    if (keyDraft.kind === "key" && !installationModel(text).provider) {
+      setError(t("A key needs a provider: name one above, then save the key."));
+      return;
+    }
     setSaving(true);
     setError(null);
     setSaved(false);

@@ -44,8 +44,14 @@ import {
  * order and the branch each step took, and the facts of the installation's
  * memory — with the states a step and a run left in, which the record names in
  * its own words and a reader cannot be left to guess at.
+ *
+ * 195 -> 196: the AI Agents page — its tabs, the standing rule and the work
+ * metrics it draws (`views/admin/agents/`) — net of the agent page's old
+ * sentences that the same change removed. The count moves by one because the
+ * additions and the removals are one batch; it is not a new surface's worth of
+ * unwritten translations.
  */
-const MISSING_MAX = 195;
+const MISSING_MAX = 196;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

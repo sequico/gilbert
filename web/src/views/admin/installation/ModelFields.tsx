@@ -85,7 +85,7 @@ export function ModelFields({
           /* Never filled from the document: no read hands the stored key back. */
           value={keyDraft.kind === "key" ? keyDraft.value : ""}
           disabled={!editable || keyDraft.kind === "none" || !model.provider}
-          placeholder={t("Stored on the server")}
+          placeholder={t("Paste the key here")}
           onChange={(e) =>
             onKeyDraft(
               // Emptying the field says nothing about the key, exactly as never
@@ -96,7 +96,11 @@ export function ModelFields({
           }
         />
         <span className="hint">
-          {t("Write-only: empty keeps the stored key; the switch clears it.")}
+          {model.provider
+            ? t(
+                "A typed key replaces the stored one; empty keeps it. No read hands it back.",
+              )
+            : t("Name a provider first: a key belongs to a model.")}
         </span>
       </div>
       <Switch

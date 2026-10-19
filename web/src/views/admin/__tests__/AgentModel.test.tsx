@@ -204,6 +204,14 @@ describe("the agent's model", () => {
     expect(sentProvider(fetchMock).apiKey).toBe(null);
   });
 
+  it("asks for a provider before a key, and says why the field is closed", async () => {
+    stubServer(DOCUMENT);
+    await render();
+
+    expect(input("model-key").disabled).toBe(true);
+    expect(host.textContent ?? "").toContain("Name a provider first");
+  });
+
   it("says the installation has no agent when the document names no model", async () => {
     stubServer(DOCUMENT);
     await render();
