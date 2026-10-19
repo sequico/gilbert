@@ -47,6 +47,17 @@ const MAX_TAG = 60;
 export const MAX_TAGS = 40;
 const KNOWLEDGE_MAX_TEXT = 200_000;
 
+/**
+ * How many revisions of an article one history read takes.
+ *
+ * A revision is a document of its own and the folder keeps them for ever, so the
+ * history is chosen from the listing newest-first and only this many documents
+ * are downloaded: the surface shows a history, not an archive, and an article
+ * past this many revisions still answers its newest ones. Both tiers read the
+ * one number, so the server's history and the client's cannot differ.
+ */
+export const REVISION_HISTORY_MAX = 50;
+
 /** Who and when, on every document this KB writes. */
 interface KnowledgeTimes {
   by: string;
@@ -508,18 +519,43 @@ export function normalizeKnowledgeTags(raw: unknown): string[] {
   return out;
 }
 
-/** Walk a block document into plain text — what search and agents read. */
+/**
+ * What the walk has gathered, and how long its joined form already is.
+ *
+ * `chars` counts one more than the join does (`lines.length` separators
+ * against `lines.length - 1`), which is what makes `chars > MAX` the point
+ * past which no later line can change the bounded answer.
+ */
+interface TextSink {
+  lines: string[];
+  chars: number;
+}
+
+/**
+ * Walk a block document into plain text — what search and agents read.
+ *
+ * The walk stops once the text cannot grow shorter than the bound: a document
+ * longer than `KNOWLEDGE_MAX_TEXT` is truncated, and gathering the rest of it
+ * first only made the array bigger than the answer.
+ */
 export function plainTextFromBlocks(blocks: unknown): string {
-  if (!Array.isArray(blocks)) return "";
-  const out: string[] = [];
+  const sink: TextSink = { lines: [], chars: 0 };
+  collectBlockText(blocks, sink);
+  return sink.lines.join("\n").slice(0, KNOWLEDGE_MAX_TEXT);
+}
+
+function collectBlockText(blocks: unknown, sink: TextSink): void {
+  if (!Array.isArray(blocks)) return;
   for (const block of blocks) {
     if (!isRecord(block)) continue;
+    if (sink.chars > KNOWLEDGE_MAX_TEXT) return;
     const line = inlineText(block.content);
-    if (line) out.push(line);
-    const children = plainTextFromBlocks(block.children);
-    if (children) out.push(children);
+    if (line) {
+      sink.lines.push(line);
+      sink.chars += line.length + 1;
+    }
+    collectBlockText(block.children, sink);
   }
-  return out.join("\n").slice(0, KNOWLEDGE_MAX_TEXT);
 }
 
 function inlineText(content: unknown): string {
