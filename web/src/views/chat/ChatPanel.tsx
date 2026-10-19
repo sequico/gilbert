@@ -19,7 +19,7 @@ import {
   type ChatMessage,
   localPart,
   mentionablesOf,
-  mentionRegex,
+  mentionFormRegex,
   participantsOf,
 } from "@/lib/chat";
 import { COMMON_EMOJI, emojiAsset, graphemes } from "@/lib/emoji";
@@ -90,20 +90,32 @@ function MentionedText({
 }) {
   const addrs = mentions?.map((m) => m.id) ?? [];
   if (!addrs.length) return <EmojiText text={text} />;
-  const re = mentionRegex(addrs);
+  const re = mentionFormRegex(addrs);
   const parts = text.split(re);
   return (
     <>
       {parts.map((p, i) => {
         if (i % 2 !== 1) return <EmojiText key={i} text={p} />;
-        const gone = members !== null && !members.includes(p);
+        /*
+         * The match is the full address (the client's form) or the local part
+         * (the agent's): both name the person, and the chip is drawn from the
+         * address either way.
+         */
+        const full =
+          addrs.find(
+            (one) =>
+              one.toLowerCase() === p.toLowerCase() ||
+              localPart(one).toLowerCase() === p.toLowerCase(),
+          ) ?? p;
+        const gone = members !== null && !members.includes(full);
+        const mine = full.toLowerCase() === me.toLowerCase();
         return (
           <span
             key={i}
-            className={`chat-mention${p === me ? " me" : ""}${gone ? " gone" : ""}`}
-            title={gone ? t("No longer in this group") : p}
+            className={`chat-mention${mine ? " me" : ""}${gone ? " gone" : ""}`}
+            title={gone ? t("No longer in this group") : full}
           >
-            @{localPart(p)}
+            @{localPart(full)}
           </span>
         );
       })}

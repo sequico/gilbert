@@ -248,6 +248,29 @@ export function mentionsName(text: string, address: string): boolean {
 }
 
 /**
+ * A regex matching a mention in either form, for **drawing** a message.
+ *
+ * The client writes a mention as the full address; the agent writes the local
+ * part. Both name the same person, so a renderer that has the addresses can
+ * split on either — the local part only when it is unambiguous in the list, or
+ * `@sam` in one group would light up a different `sam`.
+ */
+export function mentionFormRegex(addresses: ReadonlyArray<string>): RegExp {
+  if (!addresses.length) return /(?!)/;
+  const owners = new Map<string, number>();
+  for (const address of addresses) {
+    const local = localPart(address).toLowerCase();
+    owners.set(local, (owners.get(local) ?? 0) + 1);
+  }
+  const forms = addresses.map(escapeRegExp);
+  for (const address of addresses) {
+    const local = localPart(address);
+    if (owners.get(local.toLowerCase()) === 1) forms.push(escapeRegExp(local));
+  }
+  return new RegExp(`@(${forms.join("|")})(?![\\w.@-])`, "g");
+}
+
+/**
  * The principals a text addresses by mention, in either form.
  *
  * The client writes a mention as the full address; the agent writes the local
