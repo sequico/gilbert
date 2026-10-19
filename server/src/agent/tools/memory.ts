@@ -40,6 +40,7 @@ export const rememberFactTool = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["fact", "links", "standing", "subject"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const subject = textArg(args, "subject");

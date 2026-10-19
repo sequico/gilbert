@@ -611,6 +611,7 @@ test("an act the run carries no authority for is refused, and the refusal is on 
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
+    keys: ["id"],
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
       ran.push(args.id);
@@ -887,6 +888,7 @@ test("a person's answer is the word an outward act asks for, recorded for that a
       target: args.to,
       content: args.text,
     }),
+    keys: ["to", "text"],
     parse: (raw: unknown) => {
       const one = raw as { to?: unknown; text?: unknown };
       return { to: String(one.to ?? ""), text: String(one.text ?? "") };
@@ -1268,6 +1270,7 @@ test("the steps of one answer that are ready run together, not one after another
     description: "a call that is in flight for a moment, so two can overlap",
     authority: "reversible",
     writes: false,
+    keys: [],
     parse: () => ({}),
     run: async () => {
       inFlight.now += 1;
@@ -1311,6 +1314,7 @@ test("a refused call in a wave leaves its siblings' steps on the record", async 
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
+    keys: ["id"],
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
       ran.push(args.id);
@@ -1393,6 +1397,7 @@ test("a step that waits on an earlier one runs the branch that step's outcome na
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
+    keys: ["id"],
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => {
       ran.push(args.id);
@@ -1499,6 +1504,7 @@ test("a step whose dependency was left unrun is left unrun too, and the record s
     writes: true,
     spend: { steps: 1 },
     act: (args: { id: string }) => ({ target: args.id, content: null }),
+    keys: ["id"],
     parse: (raw: unknown) => raw as { id: string },
     run: async (_call, args: { id: string }) => ({ id: args.id }),
   });
@@ -1792,6 +1798,7 @@ test("the plan is on the run before the first act of the answer runs", async () 
     authority: "reversible",
     writes: false,
     spend: { steps: 1 },
+    keys: [],
     parse: () => ({}),
     run: async (call) => {
       const stored = (await listRuns(ctx, accountId)).find(

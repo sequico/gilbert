@@ -17,6 +17,7 @@ export const readRunTool = defineTool({
     "what it has spent.",
   authority: "reversible",
   writes: false,
+  keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const record = await readRun(ctx, accountId, id);

@@ -149,6 +149,7 @@ function countingTool(spec: {
     authority: spec.authority,
     writes: spec.writes,
     act: spec.act,
+    keys: ["ok", "to", "text"],
     parse: (raw: unknown) => {
       if (!(raw && typeof raw === "object" && "ok" in raw))
         throw new Error("the arguments are not this tool's");
@@ -173,8 +174,8 @@ test("a tool's arguments are validated before its executor runs", async () => {
 
   await assert.rejects(
     () => runTool([tool], call, tool.name, "not an object"),
-    /the arguments are not this tool's/,
-    "the refusal is the tool's own",
+    /arguments must be an object/,
+    "a call the tool cannot read is refused before its executor",
   );
   assert.equal(calls.length, 0, "and its executor never ran");
   assert.deepEqual(
@@ -183,6 +184,21 @@ test("a tool's arguments are validated before its executor runs", async () => {
     "arguments it can use reach the executor",
   );
   assert.equal(calls.length, 1);
+});
+
+test("an argument the tool does not take is refused, naming the one it does", async () => {
+  /*
+   * The live failure this pins: `files.list` was asked for `folder` while it
+   * reads `path`, and answered with the top level of Files as if it were the
+   * folder asked for. A wrong answer with no refusal is worse than a refusal.
+   */
+  await assert.rejects(
+    () => callTool("files.list", { folder: "MS2" }),
+    /"files\.list" takes "path", not "folder"/,
+    "the field the model meant is not silently dropped",
+  );
+  const top = await callTool<{ nodes: unknown[] }>("files.list", {});
+  assert.ok(Array.isArray(top.nodes), "the call that names what the tool takes runs");
 });
 
 test("a tool that writes cannot be reached through the reading half", async () => {

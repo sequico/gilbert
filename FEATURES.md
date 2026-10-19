@@ -254,7 +254,10 @@ read by the loop. `mail.send` is the act that reaches somebody **outside**: it i
 class `outward`, and it is refused until a person's own words license exactly that
 message — the address and the words — because a word for one send reaches no
 other. Every tool declares the **authority class** it
-exercises (ADR 0032) and what it costs the run's budget; the guard asks the class
+exercises (ADR 0032), the **argument names** it takes and what it costs the
+run's budget — a call naming a field the tool does not take is refused whole,
+naming the fields it does, rather than read as if the field it meant were
+absent; the guard asks the class
 rather than the tool's name, and an act a person must authorise is refused while
 the run carries no authority for that act. The reading half is what the decision
 turn looks the group's state up with; the loop runs each chosen call through the

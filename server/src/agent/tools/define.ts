@@ -9,6 +9,7 @@
  */
 
 import type { Ctx } from "../../appFolder.js";
+import { isRecord } from "../../shared/json.js";
 import type {
   RunAuthority,
   RunAuthorityAct,
@@ -84,6 +85,15 @@ export interface AnyTool {
    * reading tool and every reversible one.
    */
   readonly act: (args: unknown) => RunAuthorityAct | null;
+  /**
+   * The argument names the tool takes, and the only ones it takes.
+   *
+   * A call naming anything else is refused rather than read as if the field it
+   * meant were missing: a `files.list` asked for `folder` while it reads `path`
+   * answered with the top level of Files — a wrong answer, silently, which is
+   * worse than a refusal.
+   */
+  readonly keys: readonly string[];
   /** Validate the arguments; throw `ToolError` on anything the tool cannot use. */
   readonly parse: (raw: unknown) => unknown;
   /** The task itself, with arguments already validated. */
@@ -103,12 +113,15 @@ interface ToolSpec<Args> {
   waits?: boolean;
   spend?: Partial<RunSpent>;
   act?: (args: Args) => RunAuthorityAct | null;
+  /** The argument names this tool takes; anything else is refused. */
+  keys: readonly string[];
   parse: (raw: unknown) => Args;
   run: (call: ToolCall, args: Args) => Promise<unknown>;
 }
 
 /** The one place a tool is defined, so every field above has one spelling. */
 export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
+  const keys = new Set(spec.keys);
   return {
     name: spec.name,
     description: spec.description,
@@ -117,7 +130,24 @@ export function defineTool<Args>(spec: ToolSpec<Args>): AnyTool {
     waits: spec.waits === true,
     spend: spec.spend ?? {},
     act: spec.act ? (args) => spec.act!(args as Args) : () => null,
-    parse: spec.parse,
+    keys: spec.keys,
+    parse: (raw) => {
+      /*
+       * A key this tool does not take is refused whole, before the run: the
+       * model is told which names it may use, so the next answer is not another
+       * guess at the same field under a different spelling.
+       */
+      if (raw !== undefined && raw !== null && !isRecord(raw))
+        throw new ToolError("bad_arguments", "The arguments must be an object.");
+      const held = isRecord(raw) ? Object.keys(raw) : [];
+      const unknown = held.filter((one) => !keys.has(one));
+      if (unknown.length)
+        throw new ToolError(
+          "bad_arguments",
+          `"${spec.name}" takes ${spec.keys.length ? spec.keys.map((one) => `"${one}"`).join(", ") : "no arguments"}, not ${unknown.map((one) => `"${one}"`).join(", ")}.`,
+        );
+      return spec.parse(raw);
+    },
     run: (call, args) => spec.run(call, args as Args),
   };
 }

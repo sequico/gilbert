@@ -28,6 +28,7 @@ export const listKnowledge = defineTool({
     "titles. List before reading: a title is taken from this answer, never guessed.",
   authority: "reversible",
   writes: false,
+  keys: [],
   parse: () => ({}),
   run: async ({ ctx, accountId }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
@@ -46,6 +47,7 @@ export const readKnowledgePage = defineTool({
     "sees it now: the title, the tags, the text, and which revision is in force.",
   authority: "reversible",
   writes: false,
+  keys: ["title"],
   parse: (raw: unknown) => ({ title: textArg(argsRecord(raw), "title") }),
   run: async ({ ctx, accountId }, { title }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
@@ -76,6 +78,7 @@ export const proposePage = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["text", "title"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { title: textArg(args, "title"), text: textArg(args, "text") };

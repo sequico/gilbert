@@ -91,6 +91,7 @@ export const findMessages = defineTool({
     "The answer names the messages it found; read the ones you need with mail.read.",
   authority: "reversible",
   writes: false,
+  keys: ["limit", "query"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -126,6 +127,7 @@ export const readMessage = defineTool({
     "The id is one a search answered with.",
   authority: "reversible",
   writes: false,
+  keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const answer = await clientOf(ctx).call<{ list?: Array<Record<string, unknown>> }>(
@@ -154,6 +156,7 @@ export const readAttachment = defineTool({
     "picture is transcribed by the installation's model.",
   authority: "reversible",
   writes: false,
+  keys: ["id", "name"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), name: textArg(args, "name") };
@@ -197,6 +200,7 @@ export const listMailboxes = defineTool({
     "(its role — inbox, sent, drafts, junk, trash) and the folder it sits in.",
   authority: "reversible",
   writes: false,
+  keys: [],
   parse: () => ({}),
   run: async ({ ctx, accountId }) => {
     const boxes = await mailboxesOf(ctx, accountId);
@@ -255,6 +259,7 @@ export const fileMessage = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["folder", "id"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), folder: textArg(args, "folder") };
@@ -280,6 +285,7 @@ export const trashMessage = defineTool({
   writes: true,
   spend: { steps: 1 },
   act: (args: { id: string }) => ({ target: args.id, content: null }),
+  keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "trash"),
 });
@@ -293,6 +299,7 @@ export const untrashMessage = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => moveMessage(ctx, accountId, id, "inbox"),
 });
@@ -308,6 +315,7 @@ export const setKeyword = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["id", "keyword", "on"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const keyword = textArg(args, "keyword");
@@ -513,6 +521,7 @@ export const draftReply = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["id", "text"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { id: textArg(args, "id"), text: textArg(args, "text") };
@@ -652,6 +661,7 @@ export const editDraft = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["cc", "id", "subject", "text", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -832,6 +842,7 @@ export const sendOutward = defineTool({
       content: typeof one.text === "string" ? one.text.trim() : null,
     };
   },
+  keys: ["subject", "text", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -857,6 +868,7 @@ export const askByMail = defineTool({
   writes: true,
   waits: true,
   spend: { steps: 1 },
+  keys: ["subject", "text", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return {
@@ -899,6 +911,7 @@ export const defineLabel = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["color", "keyword", "name"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const keyword = textArg(args, "keyword");
@@ -940,6 +953,7 @@ export const renameMailFolder = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["name", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), to: textArg(args, "to") };
@@ -976,6 +990,7 @@ export const deleteMailFolder = defineTool({
   writes: true,
   spend: { steps: 1 },
   act: (args: { name: string }) => ({ target: args.name, content: null }),
+  keys: ["name"],
   parse: (raw: unknown) => ({ name: textArg(argsRecord(raw), "name") }),
   run: async ({ ctx, accountId }, { name }) => {
     const boxes = await mailboxesOf(ctx, accountId);
@@ -1018,6 +1033,7 @@ export const createMailFolder = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["name", "parent"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { name: textArg(args, "name"), parent: optionalTextArg(args, "parent") };

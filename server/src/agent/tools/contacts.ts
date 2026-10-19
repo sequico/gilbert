@@ -23,6 +23,7 @@ export const findContacts = defineTool({
     `write to it. At most ${FIND_MAX} cards.`,
   authority: "reversible",
   writes: false,
+  keys: ["query"],
   parse: (raw: unknown) => ({ query: textArg(argsRecord(raw), "query") }),
   run: async ({ ctx }, { query }) => {
     const wanted = query.trim().toLowerCase();

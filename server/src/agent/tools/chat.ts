@@ -66,6 +66,7 @@ export const readChat = defineTool({
     "text, and the message it answers.",
   authority: "reversible",
   writes: false,
+  keys: ["id"],
   parse: (raw: unknown) => ({ id: textArg(argsRecord(raw), "id") }),
   run: async ({ ctx, accountId }, { id }) => {
     const message = await readChatMessageBy(ctx, accountId, id);
@@ -82,6 +83,7 @@ export const findChat = defineTool({
     "the messages it found, newest first; read one with chat.read.",
   authority: "reversible",
   writes: false,
+  keys: ["limit", "query"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const query = textArg(args, "query");
@@ -146,6 +148,7 @@ export const sayInChat = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["replyTo", "text"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { text: chatText(args), replyTo: optionalTextArg(args, "replyTo") };
@@ -169,6 +172,7 @@ export const askInChat = defineTool({
   writes: true,
   waits: true,
   spend: { steps: 1 },
+  keys: ["text"],
   parse: (raw: unknown) => ({ text: chatText(argsRecord(raw)) }),
   run: async ({ ctx, accountId }, { text }) => {
     const id = await postChatMessage(ctx, accountId, ctx.username, text);

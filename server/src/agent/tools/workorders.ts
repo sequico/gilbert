@@ -27,6 +27,7 @@ export const readWorkorder = defineTool({
     "references.",
   authority: "reversible",
   writes: false,
+  keys: ["uid"],
   parse: (raw: unknown) => ({ uid: textArg(argsRecord(raw), "uid") }),
   run: async ({ ctx, accountId }, { uid }) => {
     const name = workorderFileName(uid);
@@ -55,6 +56,7 @@ export const settleStep = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["note", "path", "state", "uid"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     const state = args.state ?? "done";

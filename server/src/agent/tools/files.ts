@@ -36,6 +36,7 @@ export const listFiles = defineTool({
     "is inside MS2. Name no path for the top level of Files.",
   authority: "reversible",
   writes: false,
+  keys: ["path"],
   parse: (raw: unknown) => ({ path: optionalTextArg(argsRecord(raw), "path") ?? "" }),
   run: async ({ ctx, accountId }, { path: folder }) => {
     const folderId = await findVisibleFolder(ctx, accountId, folder);
@@ -80,6 +81,7 @@ export const readNode = defineTool({
     "build cannot read says so rather than answering bytes.",
   authority: "reversible",
   writes: false,
+  keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId, readImage }, { path }) => {
     const found = await readVisibleFileBytes(ctx, accountId, path);
@@ -174,6 +176,7 @@ export const writeDocument = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["path", "text"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -210,6 +213,7 @@ export const overwriteDocument = defineTool({
   writes: true,
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
+  keys: ["path", "text"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), text: textArg(args, "text") };
@@ -244,6 +248,7 @@ export const deleteDocument = defineTool({
   writes: true,
   spend: { steps: 1 },
   act: (args: { path: string }) => ({ target: args.path, content: null }),
+  keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const held = await findVisibleFile(ctx, accountId, path);
@@ -263,6 +268,7 @@ export const createFileFolder = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["path"],
   parse: (raw: unknown) => ({ path: textArg(argsRecord(raw), "path") }),
   run: async ({ ctx, accountId }, { path }) => {
     const id = await ensureRootFolderPath(ctx, accountId, path);
@@ -279,6 +285,7 @@ export const moveFile = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["folder", "path"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), folder: optionalTextArg(args, "folder") ?? "" };
@@ -305,6 +312,7 @@ export const renameFile = defineTool({
   authority: "reversible",
   writes: true,
   spend: { steps: 1 },
+  keys: ["name", "path"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
     return { path: textArg(args, "path"), name: textArg(args, "name") };
