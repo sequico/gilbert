@@ -11,12 +11,13 @@
 import type { Ctx } from "../appFolder.js";
 import { recallFacts } from "../shared/memory.js";
 import type { RunDoc } from "../shared/run.js";
+import { spendRun } from "../shared/run.js";
 import type { AccountEvent } from "./accountEvent.js";
 import { anchorEvents, type EventCursor, readAccountEvents } from "./events.js";
 import type { AnsweredRun, PassSummary } from "./loop.js";
 import type { MemoryStore } from "./memory.js";
 import type { ModelAccess } from "./model.js";
-import { decideEvent } from "./model.js";
+import { decideEvent, usageMeter } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import { type RuleDoc, ruleApplies } from "./rule.js";
 import { listRules } from "./rules.js";
@@ -89,6 +90,18 @@ function runsByStart(records: readonly RunRecord[]): Map<string, RunDoc> {
   }
   return byStart;
 }
+/** The decision turn's tokens, on the run it opened or continued. */
+function withUsage(
+  run: RunDoc,
+  meter: { promptTokens: number; completionTokens: number },
+): RunDoc {
+  if (!meter.promptTokens && !meter.completionTokens) return run;
+  return spendRun(run, {
+    promptTokens: meter.promptTokens,
+    completionTokens: meter.completionTokens,
+  });
+}
+
 export async function workChanges(
   deps: ChangesDeps,
   accountId: string,
@@ -126,6 +139,7 @@ export async function workChanges(
      * decision turn too, because which rules apply is asked of the same agent
      * (ADR 0035).
      */
+    const meter = usageMeter();
     const decision = await decideEvent(
       deps.access,
       {
@@ -135,6 +149,7 @@ export async function workChanges(
         memory: recallFacts((await deps.memory()).facts, woke, accountId),
       },
       deps.readingCall(accountId, event, candidates),
+      { meter },
     );
     if (decision.kind !== "decision") continue;
     /*
@@ -152,7 +167,7 @@ export async function workChanges(
       summary.due += 1;
       await deps.workRun(
         accountId,
-        await deps.authoriseAnswer(answer),
+        withUsage(await deps.authoriseAnswer(answer), meter),
         now,
         decision.facts,
       );
@@ -169,12 +184,12 @@ export async function workChanges(
       const open = runsByStart(held).get(key);
       if (open) {
         if (open.state === "running")
-          await deps.workRun(accountId, open, now, decision.facts);
+          await deps.workRun(accountId, withUsage(open, meter), now, decision.facts);
         continue;
       }
       const run = await deps.openRun(accountId, event, rule);
       summary.runs += 1;
-      await deps.workRun(accountId, run, now, decision.facts);
+      await deps.workRun(accountId, withUsage(run, meter), now, decision.facts);
     }
   }
   // The cursor moves only once the batch is answered: a read that failed

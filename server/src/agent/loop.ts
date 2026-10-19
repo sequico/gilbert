@@ -106,6 +106,7 @@ import {
   readAnswerAuthority,
   readImage,
   type StepCall,
+  usageMeter,
 } from "./model.js";
 import type { ProseLevel } from "./prose.js";
 import type { RuleDoc } from "./rule.js";
@@ -658,9 +659,10 @@ export class AgentLoop {
       // Counted before the call: a provider that times out was paid for, and a
       // tally that skips it is optimistic exactly where it matters most.
       current = spendRun(current, { calls: 1 });
+      const meter = usageMeter();
       let choice: Awaited<ReturnType<typeof chooseStep>>;
       try {
-        choice = await chooseStep(this.catalogue, this.opts.access, question);
+        choice = await chooseStep(this.catalogue, this.opts.access, question, { meter });
       } catch (err) {
         /*
          * An answer this build refused is a step the record shows, not a silence:
@@ -670,6 +672,10 @@ export class AgentLoop {
          */
         if (!(err instanceof ModelError) || err.code !== "model_answer_malformed")
           throw err;
+        current = spendRun(current, {
+          promptTokens: meter.promptTokens,
+          completionTokens: meter.completionTokens,
+        });
         current = this.withStep(
           current,
           "the model's answer",
@@ -680,7 +686,11 @@ export class AgentLoop {
         await this.store(accountId, current);
         continue;
       }
-      current = spendRun(current, { ms: Date.now() - startedMs });
+      current = spendRun(current, {
+        ms: Date.now() - startedMs,
+        promptTokens: meter.promptTokens,
+        completionTokens: meter.completionTokens,
+      });
       if (choice.kind === "done") {
         await this.store(
           accountId,
@@ -869,6 +879,7 @@ export class AgentLoop {
    */
   private async authoriseAnswer(answer: AnsweredRun): Promise<RunDoc> {
     let run = spendRun(answer.run, { calls: 1 });
+    const meter = usageMeter();
     try {
       /*
        * Whether the person who answered is an installation administrator is
@@ -879,8 +890,12 @@ export class AgentLoop {
       const granted = await readAnswerAuthority(
         this.opts.access,
         { asked: answer.asked, said: answer.said, from: answer.from },
-        { admin: await this.isAdministrator(answer.from) },
+        { admin: await this.isAdministrator(answer.from), meter },
       );
+      run = spendRun(run, {
+        promptTokens: meter.promptTokens,
+        completionTokens: meter.completionTokens,
+      });
       for (const one of granted)
         run = takeAuthorisation(run, {
           what: answer.said,

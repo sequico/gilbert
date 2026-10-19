@@ -210,6 +210,9 @@ interface RunEvidence {
  * carried itself is a run that could raise it. The tally is here because the run
  * is the whole of the agent's durable state and a tally that did not survive a
  * restart would start a run over on the budget it had already spent.
+ *
+ * The provider's token counts are recorded beside the budget and are **not** one
+ * of its ceilings: they say what the work cost, not when the run must stop.
  */
 export interface RunSpent {
   /** Plan steps that ended. */
@@ -218,6 +221,13 @@ export interface RunSpent {
   calls: number;
   /** Milliseconds of work spent. */
   ms: number;
+  /**
+   * The provider's own token counts, when it reported them. Absent on runs
+   * written before the tally carried them, and on a provider that answers
+   * without a `usage` object — a metric that only claims what was measured.
+   */
+  promptTokens?: number;
+  completionTokens?: number;
 }
 
 /** How and why a run ended. */
@@ -422,7 +432,14 @@ function isEvidence(x: unknown): x is RunEvidence {
 }
 
 function isSpent(x: unknown): x is RunSpent {
-  return isRecord(x) && isCount(x.steps) && isCount(x.calls) && isCount(x.ms);
+  return (
+    isRecord(x) &&
+    isCount(x.steps) &&
+    isCount(x.calls) &&
+    isCount(x.ms) &&
+    (x.promptTokens === undefined || isCount(x.promptTokens)) &&
+    (x.completionTokens === undefined || isCount(x.completionTokens))
+  );
 }
 
 function isEnd(x: unknown): x is RunEnd {
@@ -746,6 +763,13 @@ export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
     if (!isCount(by))
       throw new Error(`the run's "${counter}" can only grow, by a count: ${by}`);
     next[counter] += by;
+  }
+  for (const counter of ["promptTokens", "completionTokens"] as const) {
+    const by = spent[counter];
+    if (by === undefined) continue;
+    if (!isCount(by))
+      throw new Error(`the run's "${counter}" can only grow, by a count: ${by}`);
+    next[counter] = (next[counter] ?? 0) + by;
   }
   return { ...run, spent: next };
 }

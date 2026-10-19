@@ -129,7 +129,12 @@ const stub = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const content = onCall
     ? JSON.stringify(onCall(system, user))
     : (answers.shift() ?? "{}");
-  res.end(JSON.stringify({ choices: [{ message: { content } }] }));
+  res.end(
+    JSON.stringify({
+      choices: [{ message: { content } }],
+      usage: { prompt_tokens: 11, completion_tokens: 7 },
+    }),
+  );
 });
 
 /** Answer the next call with this content, as a chat completion carries it. */
@@ -329,6 +334,11 @@ test("a change a rule watches opens a run, and the record shows every step of it
   assert.equal(summary.claimed, true, "the pass holds the installation's claim");
   assert.ok(summary.changes >= 1, "the arrival is a change");
   assert.equal(summary.runs, 1, "and one run answers it");
+  const spentRun = await runOf(id);
+  assert.ok(
+    (spentRun.spent.promptTokens ?? 0) > 0 && (spentRun.spent.completionTokens ?? 0) > 0,
+    "the provider's token counts are on the run's tally",
+  );
 
   const run = await runOf(id);
   assert.equal(
