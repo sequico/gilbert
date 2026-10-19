@@ -228,6 +228,8 @@ export interface RunSpent {
    */
   promptTokens?: number;
   completionTokens?: number;
+  /** The part of `promptTokens` the provider answered from its own cache. */
+  cachedPromptTokens?: number;
 }
 
 /** How and why a run ended. */
@@ -438,7 +440,8 @@ function isSpent(x: unknown): x is RunSpent {
     isCount(x.calls) &&
     isCount(x.ms) &&
     (x.promptTokens === undefined || isCount(x.promptTokens)) &&
-    (x.completionTokens === undefined || isCount(x.completionTokens))
+    (x.completionTokens === undefined || isCount(x.completionTokens)) &&
+    (x.cachedPromptTokens === undefined || isCount(x.cachedPromptTokens))
   );
 }
 
@@ -764,7 +767,11 @@ export function spendRun(run: RunDoc, spent: Partial<RunSpent>): RunDoc {
       throw new Error(`the run's "${counter}" can only grow, by a count: ${by}`);
     next[counter] += by;
   }
-  for (const counter of ["promptTokens", "completionTokens"] as const) {
+  for (const counter of [
+    "promptTokens",
+    "completionTokens",
+    "cachedPromptTokens",
+  ] as const) {
     const by = spent[counter];
     if (by === undefined) continue;
     if (!isCount(by))

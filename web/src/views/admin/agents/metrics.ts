@@ -8,6 +8,8 @@ export interface RunMetrics {
   ms: number;
   promptTokens: number;
   completionTokens: number;
+  /** The prompt tokens the provider served from its cache. */
+  cachedTokens: number;
   /** Steps the agent refused, across the runs. */
   refused: number;
   running: number;
@@ -45,6 +47,7 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     ms: 0,
     promptTokens: 0,
     completionTokens: 0,
+    cachedTokens: 0,
     refused: 0,
     running: 0,
     done: 0,
@@ -64,6 +67,7 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     total.ms += run.spent.ms;
     total.promptTokens += run.spent.promptTokens ?? 0;
     total.completionTokens += run.spent.completionTokens ?? 0;
+    total.cachedTokens += run.spent.cachedPromptTokens ?? 0;
     total.refused += run.plan.filter((step) => step.state === "failed").length;
     if (run.state === "running") total.running += 1;
     else if (run.state === "done") total.done += 1;

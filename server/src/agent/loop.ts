@@ -736,6 +736,7 @@ export class AgentLoop {
         current = spendRun(current, {
           promptTokens: meter.promptTokens,
           completionTokens: meter.completionTokens,
+          cachedPromptTokens: meter.cachedTokens,
         });
         current = this.withStep(
           current,
@@ -751,6 +752,7 @@ export class AgentLoop {
         ms: Date.now() - startedMs,
         promptTokens: meter.promptTokens,
         completionTokens: meter.completionTokens,
+        cachedPromptTokens: meter.cachedTokens,
       });
       if (choice.kind === "done") {
         await this.store(
@@ -958,6 +960,7 @@ export class AgentLoop {
       run = spendRun(run, {
         promptTokens: meter.promptTokens,
         completionTokens: meter.completionTokens,
+        cachedPromptTokens: meter.cachedTokens,
       });
       for (const one of granted)
         run = takeAuthorisation(run, {

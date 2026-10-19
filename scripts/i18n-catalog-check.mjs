@@ -64,8 +64,10 @@ import {
  *
  * 210 -> 212: the agent switch — its label and the sentence it shows when off
  * (`views/admin/agents/AgentOverview.tsx`).
+ *
+ * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  */
-const MISSING_MAX = 212;
+const MISSING_MAX = 214;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

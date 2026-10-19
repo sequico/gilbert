@@ -141,6 +141,11 @@ export function AgentOverview({
           <Metric label={t("Refused steps")} value={total.refused} />
           <Metric label={t("Work time")} value={formatMs(total.ms)} />
           <Metric label={t("Prompt tokens")} value={total.promptTokens} />
+          <Metric label={t("Cached tokens")} value={total.cachedTokens} />
+          <Metric
+            label={t("Uncached tokens")}
+            value={Math.max(0, total.promptTokens - total.cachedTokens)}
+          />
           <Metric label={t("Completion tokens")} value={total.completionTokens} />
           <Metric label={t("Facts")} value={facts} />
         </div>
@@ -216,6 +221,7 @@ function add(a: RunMetrics, b: RunMetrics): RunMetrics {
     ms: a.ms + b.ms,
     promptTokens: a.promptTokens + b.promptTokens,
     completionTokens: a.completionTokens + b.completionTokens,
+    cachedTokens: a.cachedTokens + b.cachedTokens,
     refused: a.refused + b.refused,
     running: a.running + b.running,
     done: a.done + b.done,

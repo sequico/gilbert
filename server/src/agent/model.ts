@@ -302,11 +302,13 @@ export function runningModelAccess(): ModelAccess | null {
 export interface UsageMeter {
   promptTokens: number;
   completionTokens: number;
+  /** Prompt tokens the provider served from its own cache, when it says. */
+  cachedTokens: number;
 }
 
 /** A fresh meter for one turn, or for the several calls a turn makes. */
 export function usageMeter(): UsageMeter {
-  return { promptTokens: 0, completionTokens: 0 };
+  return { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
 }
 
 export async function callModel(
@@ -398,6 +400,22 @@ export async function callModel(
       };
       if (typeof prompt === "number") meter.promptTokens += prompt;
       if (typeof completion === "number") meter.completionTokens += completion;
+      /*
+       * The cached part of the prompt, under the two shapes providers use:
+       * OpenAI nests it in `prompt_tokens_details`, DeepSeek names it at the
+       * top. Absent means the provider did not say, and nothing is guessed.
+       */
+      const details = (usage as { prompt_tokens_details?: { cached_tokens?: unknown } })
+        .prompt_tokens_details;
+      const deepseek = (usage as { prompt_cache_hit_tokens?: unknown })
+        .prompt_cache_hit_tokens;
+      const cached =
+        typeof details?.cached_tokens === "number"
+          ? details.cached_tokens
+          : typeof deepseek === "number"
+            ? deepseek
+            : null;
+      if (cached !== null) meter.cachedTokens += cached;
     }
   }
   const content = messageContent(body);
