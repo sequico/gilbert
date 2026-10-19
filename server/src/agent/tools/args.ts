@@ -37,6 +37,17 @@ export function optionalTextArg(
   return value.trim() || undefined;
 }
 
+/**
+ * The most entries one listing tool answers with.
+ *
+ * A listing that returned everything made the step's outcome a document that
+ * the prompt then clipped, and a clipped list reads as the whole of the folder:
+ * the model concludes the tail does not exist. The cap is stated in the answer
+ * (`total`, `truncated`) so nothing is silently missing, and the model can ask
+ * for a smaller page or a narrower folder.
+ */
+export const TOOL_LIST_MAX = 200;
+
 /** One optional count, bounded so a model cannot ask the server for a flood. */
 export function countArg(
   raw: Record<string, unknown>,

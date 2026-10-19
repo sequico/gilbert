@@ -26,7 +26,14 @@ import {
 import { retryStateMismatch, WRITE_ATTEMPTS } from "../../jmap.js";
 import { APP_FOLDER_NAME, FILE_PROPS } from "../../shared/appFolder.js";
 import { refusalOf } from "../../shared/jmap.js";
-import { argsRecord, notFound, optionalTextArg, textArg } from "./args.js";
+import {
+  argsRecord,
+  countArg,
+  notFound,
+  optionalTextArg,
+  TOOL_LIST_MAX,
+  textArg,
+} from "./args.js";
 import { READ_BYTES_MAX, readFileText } from "./content.js";
 import { defineTool, ToolError } from "./define.js";
 
@@ -34,12 +41,21 @@ export const listFiles = defineTool({
   name: "files.list",
   description:
     "List a folder of this account's Files, by its `path` — `MS2` lists what " +
-    "is inside MS2. Name no path for the top level of Files.",
+    "is inside MS2. Name no path for the top level of Files. `limit` is how many " +
+    "entries to answer with (at most " +
+    TOOL_LIST_MAX +
+    "); `total` and `truncated` say whether the folder holds more.",
   authority: "reversible",
   writes: false,
-  keys: ["path"],
-  parse: (raw: unknown) => ({ path: optionalTextArg(argsRecord(raw), "path") ?? "" }),
-  run: async ({ ctx, accountId }, { path: folder }) => {
+  keys: ["limit", "path"],
+  parse: (raw: unknown) => {
+    const args = argsRecord(raw);
+    return {
+      path: optionalTextArg(args, "path") ?? "",
+      limit: countArg(args, "limit", TOOL_LIST_MAX) ?? TOOL_LIST_MAX,
+    };
+  },
+  run: async ({ ctx, accountId }, { path: folder, limit }) => {
     const folderId = await findVisibleFolder(ctx, accountId, folder);
     if (folderId === undefined)
       throw notFound(`folder "${folder}" in this account's Files`);
@@ -50,25 +66,28 @@ export const listFiles = defineTool({
       "created",
       "modified",
     ]);
+    const nodes = children.flatMap((node: FileNodeLike) => {
+      if (typeof node.name !== "string" || !node.name) return [];
+      /*
+       * The app folder is Gilbert's own: chat, the knowledge base, workorders
+       * and the agent's documents have their own tools, and a browse of the
+       * Files root must not show it -- naming it was a read the account
+       * refused, and the whole decision died on it.
+       */
+      if (!folder && node.name === APP_FOLDER_NAME) return [];
+      return [
+        {
+          path: folder ? `${folder}/${node.name}` : node.name,
+          nodeType: node.nodeType === "directory" ? "directory" : "file",
+          size: typeof node.size === "number" ? node.size : null,
+          modified: nodeStamp(node),
+        },
+      ];
+    });
     return {
-      nodes: children.flatMap((node: FileNodeLike) => {
-        if (typeof node.name !== "string" || !node.name) return [];
-        /*
-         * The app folder is Gilbert's own: chat, the knowledge base, workorders
-         * and the agent's documents have their own tools, and a browse of the
-         * Files root must not show it -- naming it was a read the account
-         * refused, and the whole decision died on it.
-         */
-        if (!folder && node.name === APP_FOLDER_NAME) return [];
-        return [
-          {
-            path: folder ? `${folder}/${node.name}` : node.name,
-            nodeType: node.nodeType === "directory" ? "directory" : "file",
-            size: typeof node.size === "number" ? node.size : null,
-            modified: nodeStamp(node),
-          },
-        ];
-      }),
+      nodes: nodes.slice(0, limit),
+      total: nodes.length,
+      truncated: nodes.length > limit,
     };
   },
 });

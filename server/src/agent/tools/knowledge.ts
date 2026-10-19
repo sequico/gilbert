@@ -18,24 +18,31 @@ import {
   KNOWLEDGE_FOLDER,
   knowledgeFolderName,
 } from "../../shared/knowledge.js";
-import { argsRecord, notFound, textArg } from "./args.js";
+import { argsRecord, countArg, notFound, TOOL_LIST_MAX, textArg } from "./args.js";
 import { defineTool, ToolError } from "./define.js";
 
 export const listKnowledge = defineTool({
   name: "knowledge.list",
   description:
     "List the pages and folders of this account's knowledge base, with their " +
-    "titles. List before reading: a title is taken from this answer, never guessed.",
+    "titles. List before reading: a title is taken from this answer, never " +
+    `guessed. \`limit\` is how many entries to answer with (at most ${TOOL_LIST_MAX}); ` +
+    "`total` and `truncated` say whether the base holds more.",
   authority: "reversible",
   writes: false,
-  keys: [],
-  parse: () => ({}),
-  run: async ({ ctx, accountId }) => {
+  keys: ["limit"],
+  parse: (raw: unknown) => ({
+    limit: countArg(argsRecord(raw), "limit", TOOL_LIST_MAX) ?? TOOL_LIST_MAX,
+  }),
+  run: async ({ ctx, accountId }, { limit }) => {
     const tier = await findFolderPath(ctx, accountId, KNOWLEDGE_FOLDER);
-    if (tier === null) return { pages: [] };
+    if (tier === null) return { pages: [], total: 0, truncated: false };
     const items = await listArticles(ctx, accountId, tier);
+    const pages = items.map(({ kind, title, folder }) => ({ kind, title, folder }));
     return {
-      pages: items.map(({ kind, title, folder }) => ({ kind, title, folder })),
+      pages: pages.slice(0, limit),
+      total: pages.length,
+      truncated: pages.length > limit,
     };
   },
 });
