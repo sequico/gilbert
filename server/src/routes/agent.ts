@@ -31,6 +31,7 @@
  */
 
 import type { Hono } from "hono";
+import { RUNS_ARCHIVE_DIR } from "../agent/archive.js";
 import { readClaim } from "../agent/claim.js";
 import { readInstruction } from "../agent/instruction.js";
 import {
@@ -88,6 +89,18 @@ import {
 
 /** The answer to a fact this surface could not read or write, or upstream's. */
 const memoryFailure = failureFor(MemoryError);
+
+/**
+ * The runs listing per account, reused while the account's FileNode state has
+ * not moved.
+ *
+ * A surface that watches a run asks every few seconds. The folder walk is the
+ * cost, not the answer: the state token is one read, and a listing that nothing
+ * changed under is the same list. A write anywhere in the account moves the
+ * token, which is what makes the next ask a fresh walk.
+ */
+const RUNS_READING_TTL_MS = 10_000;
+const runsReadings = new Map<string, { state: string; rows: RunListing[]; at: number }>();
 
 export function registerAgentRoutes(api: Hono<Env>): void {
   /**
@@ -268,22 +281,72 @@ export function registerAgentRoutes(api: Hono<Env>): void {
 
   api.get("/groups/:name/runs", requireSession, async (c) => {
     const name = c.req.param("name") ?? "";
+    const state = c.req.query("state");
+    if (state !== undefined && state !== "running")
+      return c.json(
+        { error: "bad_request", message: 'state is "running" or absent' },
+        400,
+      );
     try {
       const access = await memberGroupAccess(c.get("session"), name, {
         need: "agent documents",
       });
       if (!access.ok) return groupDenial(c, access);
-      const runs: RunListing[] = await listRunsForReading(access.ctx, access.accountId);
+      const token = await appFolderState(access.ctx, access.accountId);
+      const held = runsReadings.get(access.accountId);
+      const fresh =
+        held !== undefined &&
+        held.state === token &&
+        Date.now() - held.at < RUNS_READING_TTL_MS;
+      const rows: RunListing[] = fresh
+        ? held.rows
+        : await listRunsForReading(access.ctx, access.accountId);
+      if (!fresh)
+        runsReadings.set(access.accountId, {
+          state: token,
+          rows,
+          at: Date.now(),
+        });
       /*
        * A surface that watches a run needs the runs in flight, not the history:
        * `?state=running` answers those alone, so a poll every few seconds does
        * not carry a year of documents with it.
        */
-      const rows =
-        c.req.query("state") === "running"
-          ? runs.filter((listed) => listed.run?.state === "running")
-          : runs;
-      return c.json({ group: name, runs: rows });
+      return c.json({
+        group: name,
+        runs:
+          state === "running"
+            ? rows.filter((listed) => listed.run?.state === "running")
+            : rows,
+      });
+    } catch (err) {
+      return doorFailure(c, err);
+    }
+  });
+
+  /**
+   * A month of the archive, as the same record a run document is.
+   *
+   * The archive is storage for the record, not a deletion: a member reads the
+   * month by the same gate as the working set, and the month is validated before
+   * it becomes a path.
+   */
+  api.get("/groups/:name/runs/archive", requireSession, async (c) => {
+    const name = c.req.param("name") ?? "";
+    const month = c.req.query("month") ?? "";
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+      return c.json({ error: "bad_request", message: "month is YYYY-MM" }, 400);
+    try {
+      const access = await memberGroupAccess(c.get("session"), name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return groupDenial(c, access);
+      const runs = await listRunsForReading(
+        access.ctx,
+        access.accountId,
+        `${RUNS_ARCHIVE_DIR}/${month}`,
+      );
+      return c.json({ group: name, month, runs });
     } catch (err) {
       return doorFailure(c, err);
     }

@@ -2951,6 +2951,10 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .run-state-cancelled { color: var(--fg-muted); }
 .run-origin { font-size: .8em; color: var(--fg-muted); overflow-wrap: anywhere; }
+.run-when {
+  font-size: .75em; color: var(--fg-faint); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .run-plan {
   list-style: none; margin: 0; padding: 0 0 0 2px; display: grid; gap: 2px;
   border-left: 2px solid var(--border);
@@ -2989,6 +2993,15 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .run-row-id { font-family: var(--font-mono); font-size: .82em; font-weight: 600; }
 .run-row-meta { font-size: .78em; color: var(--fg-muted); }
 .run-row-body { padding: 6px 2px 14px; }
+.run-archive {
+  display: flex; align-items: center; gap: 8px; margin: 8px 0 4px;
+  font-size: .85em;
+}
+.run-archive input {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--fg); padding: 3px 6px; font: inherit;
+  font-size: .85em;
+}
 .run-current {
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   padding: 8px 10px; border: 1px solid var(--border);

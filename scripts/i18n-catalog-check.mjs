@@ -67,6 +67,8 @@ import {
  *
  * 212 -> 214: the cached and uncached token tiles (`AgentOverview.tsx`).
  *
+ * 221 -> 222: the archive month control in the runs panel ("Archived").
+ *
  * 220 -> 221: a folded step outcome in the run log ("What it answered").
  *
  * 219 -> 220: the runs tab in the chat panel ("What the agent is doing").
@@ -77,7 +79,7 @@ import {
  * 214 -> 216: a run row's unreadable label and its steps/calls summary
  * (`views/admin/agents/GroupRuns.tsx`).
  */
-const MISSING_MAX = 221;
+const MISSING_MAX = 222;
 
 /**
  * What this check reads, for the pre-push hook's skip decision.

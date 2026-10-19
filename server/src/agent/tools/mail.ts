@@ -18,6 +18,7 @@ import { moveMailboxPatch, refusalOf, type SetResponse } from "../../shared/jmap
 import { queryThenGet } from "../../shared/jmapQuery.js";
 import { isRecord } from "../../shared/json.js";
 import {
+  AGENT_DRAFT_KEYWORD,
   AGENT_LABELS,
   DRAFT_KEYWORD,
   G_LABEL_PREFIX,
@@ -190,6 +191,13 @@ export const readAttachment = defineTool({
         413,
       );
     const bytes = await clientOf(ctx).downloadBlob(accountId, blobId, name, type);
+    // A server that hides the size cannot hide the bytes.
+    if (bytes.length > READ_BYTES_MAX)
+      throw new ToolError(
+        "too_large",
+        `The attachment "${name}" is ${bytes.length} bytes; a read stops at ${READ_BYTES_MAX}.`,
+        413,
+      );
     return {
       name,
       type,
@@ -621,6 +629,7 @@ export const draftReply = defineTool({
             keywords: {
               ...(isRecord(original.keywords) ? original.keywords : {}),
               [DRAFT_KEYWORD]: true,
+              [AGENT_DRAFT_KEYWORD]: true,
             },
             bodyStructure: { partId: "text", type: "text/plain" },
             bodyValues: { text: { value: text } },
@@ -668,12 +677,11 @@ export const editDraft = defineTool({
     "Replace one of this account's drafts with a new one carrying the words you " +
     "give: the old draft is destroyed and the new one keeps its thread and its " +
     "place in Drafts. `subject`, `to` and `cc` change only when you name them " +
-    "(addresses separated by commas). The draft is not sent. The act is the " +
-    "draft: a person's word for it names the draft.",
-  authority: "destructive",
+    "(addresses separated by commas). The draft is not sent. Only a draft this " +
+    "agent wrote is replaced: a person's draft is refused, never rewritten.",
+  authority: "reversible",
   writes: true,
   spend: { steps: 1 },
-  act: (args: { id: string }) => ({ target: args.id, content: null }),
   keys: ["cc", "id", "subject", "text", "to"],
   parse: (raw: unknown) => {
     const args = argsRecord(raw);
@@ -715,6 +723,12 @@ export const editDraft = defineTool({
         `"${id}" is a message of the account, not a draft; a message is not rewritten.`,
         409,
       );
+    if (keywords[AGENT_DRAFT_KEYWORD] !== true)
+      throw new ToolError(
+        "not_agent_draft",
+        `"${id}" is a draft a person wrote; this agent replaces only the drafts it wrote itself.`,
+        409,
+      );
     const nextTo = addressesFromText(to) ?? addressesIn(original.to);
     if (!nextTo.length)
       throw new ToolError("no_recipient", "A draft needs somebody to go to.", 422);
@@ -738,7 +752,11 @@ export const editDraft = defineTool({
               subject ?? (typeof original.subject === "string" ? original.subject : ""),
             sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
             mailboxIds,
-            keywords: { [DRAFT_KEYWORD]: true, $seen: true },
+            keywords: {
+              [DRAFT_KEYWORD]: true,
+              $seen: true,
+              [AGENT_DRAFT_KEYWORD]: true,
+            },
             bodyStructure: { partId: "text", type: "text/plain" },
             bodyValues: { text: { value: text } },
             ...(Array.isArray(original.inReplyTo) && original.inReplyTo.length

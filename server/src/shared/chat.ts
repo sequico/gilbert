@@ -281,8 +281,20 @@ export function mentionsByName(
   text: string,
   participants: ReadonlyArray<string>,
 ): ChatMention[] {
+  // A local part two participants share names neither: the full address still
+  // does, and the renderer draws the same rule.
+  const owners = new Map<string, number>();
+  for (const address of participants) {
+    const local = localPart(address).toLowerCase();
+    owners.set(local, (owners.get(local) ?? 0) + 1);
+  }
   return participants
-    .filter((address) => mentionsName(text, address))
+    .filter(
+      (address) =>
+        mentionsAddress(text, address) ||
+        (owners.get(localPart(address).toLowerCase()) === 1 &&
+          mentionsName(text, address)),
+    )
     .map((id) => ({ kind: "principal", id }));
 }
 

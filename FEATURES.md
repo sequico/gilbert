@@ -265,8 +265,9 @@ removes one that is empty, writes a text document in Files, moves or renames a
 document or a folder, replaces a document's text, removes a document or an
 empty folder — the last three, like the
 removal of an empty folder, under a person's word for that document — replaces
-a draft with new words (under a person's word for the draft), takes a message
-back out of Deleted Items, creates an event in the group's own calendar,
+a draft it wrote itself with new words (a person's draft is refused, never
+rewritten), takes a message back out of Deleted Items, creates an event in the
+group's own calendar,
 changes one and removes one (the change and the removal under a person's word
 for the event) — no invitation is sent and nobody outside the group is written
 to — **drafts a reply to everyone**
@@ -338,7 +339,9 @@ it to `runs/archive/<year-month>/` in the same account — kept as a document,
 never deleted — so the runs folder every pass lists stays bounded to the year.
 A run still running, or one that ended inside the year, is not moved; a pass
 moves a bounded batch, and the archive runs even while the agent is switched
-off, because it is housekeeping rather than a decision.
+off, because it is housekeeping rather than a decision. The runs panel reads a
+month of it back (`runs/archive/<year-month>/`), and every run carries the
+instant it opened and the instant it ended; the list is most recent first.
 
 **Where the agent is, and what it did, is in Administration → AI Agents**
 (`web/src/views/admin/agents/AgentsView.tsx`): the claim the installation holds — who

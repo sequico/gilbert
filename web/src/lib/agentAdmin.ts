@@ -44,6 +44,17 @@ export async function fetchGroupRuns(
   return res.runs;
 }
 
+/** One month of a group's archived runs, read by the same record a run is. */
+export async function fetchGroupArchive(
+  group: string,
+  month: string,
+): Promise<RunListing[]> {
+  const res = await apiFetch<{ runs: RunListing[] }>(
+    `/api/groups/${encodeURIComponent(group)}/runs/archive?month=${encodeURIComponent(month)}`,
+  );
+  return res.runs;
+}
+
 /** The installation's memory: every fact the agent reasons from. */
 interface FactsReading {
   facts: FactDoc[];

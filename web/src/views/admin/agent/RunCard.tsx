@@ -90,6 +90,10 @@ function RunDocument({ run, facts }: { run: RunDoc; facts: readonly FactDoc[] })
           {t(RUN_STATE_LABELS[run.state])}
         </span>
         <span className="run-origin">{origin}</span>
+        <span className="run-when">
+          {formatFullDate(run.startedAt) || "—"} →{" "}
+          {formatFullDate(ended?.at) || t("Running")}
+        </span>
       </div>
       {plan.length > 0 && (
         <ol className="run-plan">

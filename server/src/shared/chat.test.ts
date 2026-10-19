@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mentionsAddress, mentionsName, unreadCount } from "./chat.js";
+import {
+  mentionFormRegex,
+  mentionsAddress,
+  mentionsByName,
+  mentionsName,
+  unreadCount,
+} from "./chat.js";
 
 /**
  * The unread badge of a paged transcript.
@@ -61,4 +67,47 @@ test("a mention ends at the address, not inside a longer one", () => {
 
   assert.equal(mentionsName("@sam can you look?", address), true);
   assert.equal(mentionsName("@samuel no", address), false);
+});
+
+const SAM = "sam@example.org";
+const ADA = "ada@example.org";
+
+test("a mention is found in the full form and in the local part", () => {
+  assert.deepEqual(mentionsByName("hello @sam@example.org", [SAM, ADA]), [
+    { kind: "principal", id: SAM },
+  ]);
+  assert.deepEqual(mentionsByName("hello @sam", [SAM, ADA]), [
+    { kind: "principal", id: SAM },
+  ]);
+  assert.deepEqual(
+    mentionsByName("hello @sam and @ada", [SAM, ADA]).map((one) => one.id),
+    [SAM, ADA],
+  );
+  assert.deepEqual(mentionsByName("no mention here", [SAM, ADA]), []);
+});
+
+test("a local part shared by two addresses is not a mention of either", () => {
+  const list = ["sam@one.example", "sam@two.example"];
+  assert.deepEqual(mentionsByName("hi @sam", list), []);
+  assert.deepEqual(mentionsByName("hi @sam@one.example", list), [
+    { kind: "principal", id: "sam@one.example" },
+  ]);
+});
+
+test("the renderer splits on either form and leaves an ambiguous local part alone", () => {
+  const text = "hi @sam, and @ada@example.org too";
+  const parts = text.split(mentionFormRegex([SAM, ADA]));
+  assert.ok(parts.includes("sam"), "the local part is a match of its own");
+  assert.ok(parts.includes("ada@example.org"), "and the full form is too");
+
+  const ambiguous = "hi @sam".split(
+    mentionFormRegex(["sam@one.example", "sam@two.example"]),
+  );
+  assert.deepEqual(ambiguous, ["hi @sam"], "an ambiguous local part is plain text");
+});
+
+test("a mention ends at punctuation, like the stored mark does", () => {
+  const text = "thanks @sam, noted.";
+  assert.equal(mentionsByName(text, [SAM]).length, 1);
+  assert.ok(text.split(mentionFormRegex([SAM])).includes("sam"));
 });

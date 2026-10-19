@@ -1,5 +1,5 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type AgentStatus,
   fetchAgentStatus,
@@ -65,6 +65,7 @@ export function AgentOverview({
       if (!live) return;
       setStatus(agent);
       setPerGroup(rows);
+      setError(null);
     };
     const loadRunning = async () => {
       const rows = await Promise.all(
@@ -73,7 +74,9 @@ export function AgentOverview({
           runs: await fetchGroupRuns(group.name, "running"),
         })),
       );
-      if (live) setLive(rows);
+      if (!live) return;
+      setLive(rows);
+      setError(null);
     };
     void loadAll().catch(fail);
     void loadRunning().catch(fail);
@@ -86,18 +89,29 @@ export function AgentOverview({
     };
   }, [groupKey]);
 
-  const running = live.flatMap((entry) =>
-    entry.runs
-      .filter((listed) => listed.run?.state === "running")
-      .map((listed) => ({ group: entry.group, listed })),
-  );
+  const running = live
+    .flatMap((entry) =>
+      entry.runs
+        .filter((listed) => listed.run?.state === "running")
+        .map((listed) => ({ group: entry.group, listed })),
+    )
+    .sort((a, b) =>
+      (b.listed.run?.startedAt ?? "").localeCompare(a.listed.run?.startedAt ?? ""),
+    );
 
-  const since = periodSince(period);
-  const rows = perGroup.map((row) => ({
-    name: row.name,
-    metrics: metricsOf(row.runs, since),
-  }));
-  const total = rows.reduce((sum, row) => add(sum, row.metrics), empty());
+  // The numbers are over the history, which only the thirty-second read moves:
+  // a live-row update must not walk every run again.
+  const rows = useMemo(() => {
+    const since = periodSince(period);
+    return perGroup.map((row) => ({
+      name: row.name,
+      metrics: metricsOf(row.runs, since),
+    }));
+  }, [perGroup, period]);
+  const total = useMemo(
+    () => rows.reduce((sum, row) => add(sum, row.metrics), empty()),
+    [rows],
+  );
 
   return (
     <div>
@@ -294,9 +308,5 @@ function add(a: RunMetrics, b: RunMetrics): RunMetrics {
     cachedTokens: a.cachedTokens + b.cachedTokens,
     refused: a.refused + b.refused,
     running: a.running + b.running,
-    done: a.done + b.done,
-    blocked: a.blocked + b.blocked,
-    outOfBudget: a.outOfBudget + b.outOfBudget,
-    cancelled: a.cancelled + b.cancelled,
   };
 }

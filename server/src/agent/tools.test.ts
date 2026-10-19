@@ -57,6 +57,7 @@ const { spendRun, startRun, takeAuthorisation } = await import("../shared/run.js
 const { buildChecklist, buildWorkorderDoc } = await import("../shared/workorder.js");
 const { createRun } = await import("./runs.js");
 const { groupMembers } = await import("../groupAccess.js");
+const { isGroupAccountRecord } = await import("../shared/sessionAccount.js");
 const { localPart } = await import("../shared/chat.js");
 const { factPath, listFacts } = await import("./memory.js");
 const {
@@ -886,33 +887,41 @@ test("a draft is replaced with new words, trash is undone, and an empty folder g
     id: message,
     text: "first words",
   });
-  const wordForDraft = takeAuthorisation(plainRun(), {
-    what: "replace the draft with the new words",
-    authority: "destructive",
-    act: { target: draft.id, content: null },
-    by: "ada@example.org",
-    at: new Date().toISOString(),
-    from: { channel: "chat", id: "msg-draft" },
-  });
-  await assert.rejects(
-    () =>
-      runTool(TOOLS, { ctx, accountId, run: plainRun() }, "mail.editDraft", {
-        id: draft.id,
-        text: "second words",
-      }),
-    /authority/,
-    "replacing a draft takes a person's word for it",
-  );
-  const edited = (await runTool(
-    TOOLS,
-    { ctx, accountId, run: wordForDraft },
-    "mail.editDraft",
+  /*
+   * A draft the agent wrote is its own to correct; a draft a person wrote is not
+   * rewritten at all — the class is reversible because the mark decides whose
+   * draft it is, not a person's word for every typo.
+   */
+  const edited = (await writeTool("mail.editDraft", {
+    id: draft.id,
+    text: "second words",
+    subject: "Re: an answer",
+  })) as { id: string; replaced: string };
+  const personsDraft = await clientOf(ctx).call<{ created?: { d?: { id?: string } } }>(
+    "Email/set",
     {
-      id: draft.id,
-      text: "second words",
-      subject: "Re: an answer",
+      accountId,
+      create: {
+        d: {
+          from: [{ email: "demo@example.com" }],
+          to: [{ email: "ops@shipper.example" }],
+          subject: "a person's draft",
+          mailboxIds: { drafts: true },
+          keywords: { $draft: true },
+          bodyStructure: { partId: "text", type: "text/plain" },
+          bodyValues: { text: { value: "my words" } },
+        },
+      },
     },
-  )) as { id: string; replaced: string };
+    [CAPABILITIES.mail],
+  );
+  const theirs = personsDraft.created?.d?.id;
+  assert.ok(theirs, "the person's draft is in Drafts");
+  await assert.rejects(
+    () => writeTool("mail.editDraft", { id: theirs, text: "rewritten" }),
+    /a person wrote/,
+    "a person's draft is refused, never rewritten",
+  );
   assert.equal(edited.replaced, draft.id, "the old draft is the one replaced");
   const read = await callTool<{
     message: { bodyValues?: Record<string, { value?: string }>; subject?: string };
@@ -1029,20 +1038,43 @@ test("a mention in the chat is the local part, never the whole address", async (
    * a mention the agent writes is a mention the client and the off path can see,
    * not just text that looks like one.
    */
-  const members = (await groupMembers(ctx, accountId)) ?? [];
-  const person = members.find((one) => one.toLowerCase() !== ctx.username.toLowerCase());
-  if (person) {
-    const toPerson = await writeTool<{ id: string }>("chat.say", {
-      text: `Acknowledged, @${localPart(person)} — no harm done.`,
-    });
-    const readPerson = await callTool<{
-      message: { mentions?: Array<{ id: string }> };
-    }>("chat.read", { id: toPerson.id });
-    assert.ok(
-      readPerson.message.mentions?.some((one) => one.id === person),
-      "the mention is marked as the person it names",
-    );
+  // The roster is per account, and the mock's groups differ: take the first
+  // group that names somebody other than the agent.
+  let group = "";
+  let person = "";
+  for (const id of Object.keys(ctx.session.accounts)) {
+    if (id === accountId) continue;
+    if (
+      !isGroupAccountRecord(
+        ctx.session.accounts[id] as { name?: unknown; isPersonal?: unknown },
+      )
+    )
+      continue;
+    const members = (await groupMembers(ctx, id)) ?? [];
+    const found = members.find((one) => one.toLowerCase() !== ctx.username.toLowerCase());
+    if (found) {
+      group = id;
+      person = found;
+      break;
+    }
   }
+  assert.ok(group && person, "the session holds a group that names a member");
+  const toPerson = (await runTool(
+    TOOLS,
+    { ctx, accountId: group, run: plainRun() },
+    "chat.say",
+    { text: `Acknowledged, @${localPart(person)} — no harm done.` },
+  )) as { id: string };
+  const readPerson = (await runTool(
+    READING_TOOLS,
+    { ctx, accountId: group, run: plainRun() },
+    "chat.read",
+    { id: toPerson.id },
+  )) as { message: { mentions?: Array<{ id: string }> } };
+  assert.ok(
+    readPerson.message.mentions?.some((one) => one.id === person),
+    "the mention is marked as the person it names",
+  );
 });
 
 test("a folder is renamed, moved and removed like a document", async () => {

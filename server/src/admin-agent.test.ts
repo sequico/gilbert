@@ -292,6 +292,39 @@ test("a group the member is not in is refused with the section it asked for", as
   );
 });
 
+test("a month of the archive is read by the same gate, and a bad filter is refused", async () => {
+  const run = startRun({
+    id: "archived-run",
+    startedAt: "2025-09-15T10:00:00Z",
+    startedBy: { rule: "intake", instruction: null, woke: "mail created: m-1" },
+  });
+  await writeAppFileAt(
+    master,
+    teamAccount,
+    "runs/archive/2025-09/archived-run.json",
+    run,
+  );
+
+  const month = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs/archive?month=2025-09`,
+  );
+  assert.equal(month.status, 200, JSON.stringify(month.body));
+  assert.ok(
+    (month.body as { runs: Array<{ id: string }> }).runs.some(
+      (one) => one.id === "archived-run",
+    ),
+    "the archived run is readable in its month",
+  );
+  const badMonth = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs/archive?month=2025-9`,
+  );
+  assert.equal(badMonth.status, 400);
+  const badState = await call(
+    `/api/groups/${encodeURIComponent(TEAM)}/runs?state=runnning`,
+  );
+  assert.equal(badState.status, 400, "a misspelt filter is not the whole history");
+});
+
 test("a member stops a run of their group, and another group's run is not theirs", async () => {
   const run = startRun({
     id: "stoppable-run",

@@ -1260,8 +1260,7 @@ export async function findVisibleNode(
   ]);
   const found = children.find(
     (node) =>
-      node.name === name &&
-      (node.nodeType === "file" || node.nodeType === "directory"),
+      node.name === name && (node.nodeType === "file" || node.nodeType === "directory"),
   );
   return found ? { file: found, directory: found.nodeType === "directory" } : null;
 }

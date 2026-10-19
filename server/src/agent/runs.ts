@@ -162,8 +162,9 @@ export async function replaceRun(
 export async function listRunsForReading(
   ctx: Ctx,
   accountId: string,
+  dir: string = RUNS_DIR,
 ): Promise<RunListing[]> {
-  const rows = await listAppSheets(ctx, accountId, RUNS_DIR, parseRun);
+  const rows = await listAppSheets(ctx, accountId, dir, parseRun);
   return rows.map((row) => ({ id: row.id, run: row.doc, problem: row.problem }));
 }
 

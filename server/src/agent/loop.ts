@@ -121,7 +121,6 @@ import type { RuleDoc } from "./rule.js";
 import { readRule } from "./rules.js";
 import {
   createRun,
-  listRuns,
   listRunsForWorking,
   type RunRecord,
   readRun,
@@ -512,7 +511,7 @@ export class AgentLoop {
     for (const id of runs) {
       const index = at.get(id);
       const record = index === undefined ? null : records[index];
-      if (!record || record.run.state !== "running") continue;
+      if (record?.run.state !== "running") continue;
       summary.due += 1;
       const worked = await this.workRun(accountId, record.run, now);
       // The archive and the change batch see the document as this pass left it.

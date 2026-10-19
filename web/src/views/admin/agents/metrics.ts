@@ -12,11 +12,8 @@ export interface RunMetrics {
   cachedTokens: number;
   /** Steps the agent refused, across the runs. */
   refused: number;
+  /** Runs in flight: the one ending a table draws. */
   running: number;
-  done: number;
-  blocked: number;
-  outOfBudget: number;
-  cancelled: number;
 }
 
 /** The window a set of numbers is read over. */
@@ -51,10 +48,6 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     cachedTokens: 0,
     refused: 0,
     running: 0,
-    done: 0,
-    blocked: 0,
-    outOfBudget: 0,
-    cancelled: 0,
   };
   for (const listed of list) {
     const run = listed.run;
@@ -72,10 +65,6 @@ export function metricsOf(list: readonly RunListing[], since?: Date): RunMetrics
     total.cachedTokens += run.spent.cachedPromptTokens ?? 0;
     total.refused += run.plan.filter((step) => step.state === "failed").length;
     if (run.state === "running") total.running += 1;
-    else if (run.state === "done") total.done += 1;
-    else if (run.state === "blocked") total.blocked += 1;
-    else if (run.state === "cancelled") total.cancelled += 1;
-    else total.outOfBudget += 1;
   }
   return total;
 }

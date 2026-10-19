@@ -1,6 +1,12 @@
 import { errorMessage } from "@gilbert/shared/errors";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { type FactDoc, fetchGroupRuns, type RunListing, stopRun } from "@/lib/agentAdmin";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FactDoc,
+  fetchGroupArchive,
+  fetchGroupRuns,
+  type RunListing,
+  stopRun,
+} from "@/lib/agentAdmin";
 import { t } from "@/lib/i18n";
 import { RUN_STATE_LABELS, RunCard } from "@/views/admin/agent/RunCard";
 import { metricsOf } from "./metrics";
@@ -64,25 +70,30 @@ export function GroupRuns({
   const [runs, setRuns] = useState<RunListing[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  /** A month of the archive to read instead of the working set, or "". */
+  const [month, setMonth] = useState("");
   /** The runs in flight at the last poll: a different set means the list moved. */
   const runningIds = useRef("");
 
   const load = useCallback(async () => {
     try {
-      setRuns(await fetchGroupRuns(group));
+      setRuns(
+        month ? await fetchGroupArchive(group, month) : await fetchGroupRuns(group),
+      );
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
     }
-  }, [group]);
+  }, [group, month]);
 
   useEffect(() => {
     let alive = true;
     setRuns(null);
     setError(null);
     setPage(0);
+    runningIds.current = "";
     void load();
-    if (!live)
+    if (!live || month)
       return () => {
         alive = false;
       };
@@ -100,6 +111,7 @@ export function GroupRuns({
             .map((one) => one.id)
             .sort()
             .join(",");
+          setError(null);
           if (ids !== runningIds.current) {
             runningIds.current = ids;
             await load();
@@ -108,7 +120,17 @@ export function GroupRuns({
           setRuns((held) => {
             if (!held) return running;
             const fresh = new Map(running.map((one) => [one.id, one]));
-            return held.map((one) => fresh.get(one.id) ?? one);
+            let changed = false;
+            const next = held.map((one) => {
+              const now = fresh.get(one.id);
+              if (!now) return one;
+              if (now.run === one.run) return one;
+              changed = true;
+              return now;
+            });
+            // The same list is the same array: a poll that found nothing does
+            // not re-render the page or recompute its numbers.
+            return changed ? next : held;
           });
         } catch (err) {
           if (alive) setError(errorMessage(err));
@@ -119,18 +141,24 @@ export function GroupRuns({
       alive = false;
       window.clearInterval(timer);
     };
-  }, [load, live]);
+  }, [load, live, month]);
 
-  const metrics = runs ? metricsOf(runs) : null;
-  // A live list is about what is happening: a running run is on the first page,
-  // whatever its age, and the rest keep the record's own order.
-  const ordered =
-    live && runs
-      ? [
-          ...runs.filter((one) => one.run?.state === "running"),
-          ...runs.filter((one) => one.run?.state !== "running"),
-        ]
-      : (runs ?? []);
+  const metrics = useMemo(() => (runs ? metricsOf(runs) : null), [runs]);
+  /*
+   * Most recent first, by the instant the run was opened (or, for a document
+   * written before that field existed, when it ended). A live list is about what
+   * is happening: the runs in flight sit above the history, each group in the
+   * same order.
+   */
+  const whenOf = (listed: RunListing) =>
+    listed.run?.startedAt ?? listed.run?.ended?.at ?? "";
+  const sorted = [...(runs ?? [])].sort((a, b) => whenOf(b).localeCompare(whenOf(a)));
+  const ordered = live
+    ? [
+        ...sorted.filter((one) => one.run?.state === "running"),
+        ...sorted.filter((one) => one.run?.state !== "running"),
+      ]
+    : sorted;
   const pages = Math.max(1, Math.ceil(ordered.length / RUNS_PAGE));
   const shown = ordered.slice(page * RUNS_PAGE, page * RUNS_PAGE + RUNS_PAGE);
 
@@ -150,6 +178,20 @@ export function GroupRuns({
           )}
         </p>
       )}
+      <label className="run-archive">
+        <span className="hint">{t("Archived")}</span>
+        <input
+          type="month"
+          value={month}
+          aria-label={t("Archived")}
+          onChange={(event) => setMonth(event.target.value)}
+        />
+        {month && (
+          <button type="button" className="btn btn-ghost" onClick={() => setMonth("")}>
+            {t("Current runs")}
+          </button>
+        )}
+      </label>
       {error && <div className="error-box">{error}</div>}
       {!error && !runs && <p className="hint">{t("Loading…")}</p>}
       {runs && runs.length === 0 && <p className="hint">{t("Nothing here yet.")}</p>}
@@ -172,7 +214,7 @@ export function GroupRuns({
                   })}
                 </span>
               )}
-              {row.run?.state === "running" && (
+              {!month && row.run?.state === "running" && (
                 <StopRun group={group} id={row.id} onStopped={() => void load()} />
               )}
             </summary>

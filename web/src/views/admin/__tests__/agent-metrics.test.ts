@@ -36,10 +36,7 @@ describe("the runs' tally", () => {
     expect(total.promptTokens).toBe(100);
     expect(total.completionTokens).toBe(40);
     expect(total.refused).toBe(1);
-    expect(total.done).toBe(1);
     expect(total.running).toBe(1);
-    expect(total.cancelled).toBe(1);
-    expect(total.outOfBudget).toBe(0);
   });
 
   it("keeps only the runs that ended inside the window", () => {

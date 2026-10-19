@@ -50,6 +50,16 @@ export const SEEN_KEYWORD = "$seen";
 /** The keyword that marks a message a draft. */
 export const DRAFT_KEYWORD = "$draft";
 
+/**
+ * The mark a draft the agent wrote carries.
+ *
+ * A draft a person wrote is theirs: the agent may correct its own (a typo in
+ * what it just put in Drafts) without a word, and may not rewrite a person's at
+ * all. The keyword is the only thing that tells the two apart once the draft is
+ * a message like any other.
+ */
+export const AGENT_DRAFT_KEYWORD = "gilbert-agent-draft";
+
 /** The keyword that marks a message answered. */
 export const ANSWERED_KEYWORD = "$answered";
 

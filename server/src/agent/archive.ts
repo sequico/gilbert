@@ -118,11 +118,7 @@ export async function archiveOldRuns(
       if (!found.file?.id) continue;
       let folder = folders.get(month);
       if (!folder) {
-        folder = await ensureFolderPath(
-          ctx,
-          accountId,
-          `${RUNS_ARCHIVE_DIR}/${month}`,
-        );
+        folder = await ensureFolderPath(ctx, accountId, `${RUNS_ARCHIVE_DIR}/${month}`);
         folders.set(month, folder);
       }
       await move(ctx, accountId, String(found.file.id), folder);

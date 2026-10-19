@@ -256,6 +256,8 @@ export interface RunDoc {
   v: 5;
   /** The run's identity: its document's name under `runs/`. */
   id: string;
+  /** When the run was opened. Absent on a document written before it existed. */
+  startedAt?: string;
   startedBy: RunStart;
   plan: RunStep[];
   /**
@@ -499,6 +501,13 @@ export function parseRunDocumentDetailed(
     return {
       problem: '"startedBy" must name the rule or the instruction that started the run.',
     };
+  /*
+   * A run written before the field existed carries no `startedAt`. It reads as
+   * absent — the surface draws the ending, or the listing order — and is not a
+   * defect; a value that is there must be an instant.
+   */
+  if (whole.startedAt !== undefined && !isInstant(whole.startedAt))
+    return { problem: '"startedAt" must be the instant the run was opened.' };
   if (!Array.isArray(whole.plan) || !whole.plan.every(isStep))
     return { problem: '"plan" must be a list of steps.' };
   if (!planIsOrdered(whole.plan))
@@ -556,6 +565,7 @@ export function parseRunDocumentDetailed(
     run: {
       v: RUN_VERSION,
       id: whole.id,
+      ...(whole.startedAt === undefined ? {} : { startedAt: whole.startedAt }),
       startedBy: whole.startedBy,
       plan: whole.plan,
       touched: whole.touched,
@@ -600,10 +610,13 @@ export function startRun(input: {
   startedBy: RunStart;
   /** What each step is, in order. */
   plan?: readonly string[];
+  /** The instant it was opened; the clock unless a fixture says otherwise. */
+  startedAt?: string;
 }): RunDoc {
   return {
     v: RUN_VERSION,
     id: input.id,
+    startedAt: input.startedAt ?? new Date().toISOString(),
     startedBy: input.startedBy,
     plan: (input.plan ?? []).map((what) => ({
       what,

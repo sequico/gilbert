@@ -153,6 +153,7 @@ async function mentionsOf(
   accountId: string,
   text: string,
 ): Promise<{ mentions?: ChatMention[] }> {
+  if (!text.includes("@")) return {};
   const members = await groupMembers(ctx, accountId).catch(() => null);
   if (!members?.length) return {};
   const mentions = mentionsByName(
